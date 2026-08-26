@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Maintainer;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\DetectHyperciteCandidatesJob;
+use App\Jobs\ImportCitedBulkJob;
 use App\Jobs\ImportCitedSourceJob;
 use App\Models\JournalSource;
-use App\Services\CanonicalVersions\BestVersionService;
 use App\Services\Hypercites\AutoApprovePolicy;
+use App\Services\Hypercites\CitedWorksQuery;
 use App\Services\Hypercites\HyperciteMinter;
+use App\Services\SourceHarvest\HarvestShelf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -623,107 +625,27 @@ class HyperciteConsoleController extends Controller
     /**
      * Which works this scope's books cite, most-cited first, split internal
      * (also in the collection) vs external, with the flags that make an
-     * external row actionable: held / OA / fetchable / importable.
+     * external row actionable: held / OA / fetchable / importable. The query
+     * lives in CitedWorksQuery so the bulk import job's work-list is exactly
+     * what this tab shows.
      *
-     * The union mirrors HarvestEligibility::reachedCanonicalIdsSubquery's
-     * three branches, rooted on every held book of the scope at once and
-     * keeping the citing book for the COUNT(DISTINCT). Counts undercount until
-     * citation:scan-bibliography has run per book — the detect run does that,
-     * so the page nudges "run detection first".
+     * `cited_shelf` is the scope's "Cited by:" collection shelf when one
+     * exists (created by the first import), so the page can link straight to
+     * /maintainer/shelf-import for assessment.
      */
     private function mostCitedFor(array $scope)
     {
-        if ($scope['type'] === 'journal') {
-            $best = BestVersionService::sqlCoalesceExpression('a');
-            $articlesCte = <<<SQL
-                SELECT l.book
-                FROM canonical_source a
-                JOIN library l ON l.book = ({$best})
-                WHERE a.journal_source_id = :scope
-                  AND l.has_nodes = true
-            SQL;
-            $internalExpr = '(cs.journal_source_id = :scope2)';
-        } else {
-            $articlesCte = <<<SQL
-                SELECT l.book
-                FROM shelf_items si
-                JOIN library l ON l.book = si.book
-                WHERE si.shelf_id = :scope
-                  AND l.has_nodes = true
-            SQL;
-            $internalExpr = <<<SQL
-                EXISTS (
-                    SELECT 1 FROM shelf_items si2
-                    JOIN library lb ON lb.book = si2.book
-                    WHERE si2.shelf_id = :scope2 AND lb.canonical_source_id = cs.id
-                )
-            SQL;
-        }
+        $rows = app(CitedWorksQuery::class)->rows($scope);
 
-        $sql = <<<SQL
-            WITH articles AS (
-                {$articlesCte}
-            ),
-            cited AS (
-                SELECT b.book AS citing_book, b.canonical_source_id AS cited_id
-                FROM bibliography b JOIN articles ar ON ar.book = b.book
-                WHERE b.canonical_source_id IS NOT NULL
-                UNION
-                SELECT b.book, l.canonical_source_id
-                FROM bibliography b
-                JOIN library l ON l.book = b.foundation_source
-                JOIN articles ar ON ar.book = b.book
-                WHERE l.canonical_source_id IS NOT NULL
-                UNION
-                SELECT f.book, l.canonical_source_id
-                FROM footnotes f
-                JOIN library l ON l.book = f.foundation_source
-                JOIN articles ar ON ar.book = f.book
-                WHERE f.is_citation = true AND l.canonical_source_id IS NOT NULL
-            )
-            SELECT
-                cs.id, cs.title, cs.author, cs.year, cs.journal, cs.doi,
-                cs.is_oa, cs.oa_status, cs.pdf_url, cs.oa_url, cs.cited_by_count,
-                {$internalExpr} AS is_internal,
-                COUNT(DISTINCT c.citing_book) AS citing_count,
-                EXISTS (
-                    SELECT 1 FROM library lv
-                    WHERE lv.canonical_source_id = cs.id
-                      AND lv.has_nodes = true AND lv.visibility = 'public'
-                ) AS held
-            FROM cited c
-            JOIN canonical_source cs ON cs.id = c.cited_id
-            GROUP BY cs.id
-            ORDER BY citing_count DESC, cs.cited_by_count DESC NULLS LAST
-            LIMIT 150
-        SQL;
-
-        $rows = collect(DB::connection('pgsql_admin')->select($sql, [
-            'scope'  => $scope['id'],
-            'scope2' => $scope['id'],
-        ]))->map(function ($r) {
-            $fetchable = (bool) ($r->pdf_url || $r->oa_url || $r->doi);
-
-            return [
-                'canonical_id'   => $r->id,
-                'title'          => $r->title,
-                'author'         => $r->author,
-                'year'           => $r->year,
-                'journal'        => $r->journal,
-                'doi'            => $r->doi,
-                'citing_count'   => (int) $r->citing_count,
-                'cited_by_count' => $r->cited_by_count,   // OpenAlex world count, context only
-                'is_internal'    => (bool) $r->is_internal,
-                'held'           => (bool) $r->held,
-                'is_oa'          => (bool) $r->is_oa,
-                'fetchable'      => $fetchable,
-                'importable'     => (bool) ($r->is_oa && $fetchable && ! $r->held),
-            ];
-        });
+        $citedShelf = DB::connection('pgsql_admin')->table('shelves')
+            ->where('creator', \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR)
+            ->where('name', HarvestShelf::CITED_NAME_PREFIX . Str::limit($scope['label'], 230, '…'))
+            ->first(['id', 'name']);
 
         return response()->json([
-            'internal' => $rows->filter(fn ($r) => $r['is_internal'])->values(),
-            'external' => $rows->filter(fn ($r) => ! $r['is_internal'])->values(),
+            'internal'    => $rows->filter(fn ($r) => $r['is_internal'])->values(),
+            'external'    => $rows->filter(fn ($r) => ! $r['is_internal'])->values(),
+            'cited_shelf' => $citedShelf ? ['id' => $citedShelf->id, 'name' => $citedShelf->name] : null,
         ]);
     }
 
@@ -764,14 +686,19 @@ class HyperciteConsoleController extends Controller
             ], 422);
         }
 
+        // Guard both the per-work rerun AND a scope-wide bulk that may be
+        // about to attempt this same canonical — two workers writing one
+        // work's version rows is the thing being prevented.
         $inFlight = $db->table('hypercite_runs')
-            ->where('canonical_source_id', $canonicalId)
-            ->where('action', 'import_source')
+            ->where(function ($q) use ($canonicalId, $scope) {
+                $q->where(fn ($w) => $w->where('canonical_source_id', $canonicalId)->where('action', 'import_source'))
+                    ->orWhere(fn ($w) => $w->where($scope['column'], $scope['id'])->where('action', 'import_cited_bulk'));
+            })
             ->whereIn('status', ['pending', 'running'])
             ->where('updated_at', '>', now()->subHour())
             ->first();
         if ($inFlight) {
-            return response()->json(['run_id' => $inFlight->id, 'already_running' => true, 'action' => 'import_source']);
+            return response()->json(['run_id' => $inFlight->id, 'already_running' => true, 'action' => $inFlight->action]);
         }
 
         $runId = (string) Str::uuid();
@@ -788,6 +715,75 @@ class HyperciteConsoleController extends Controller
         ]);
 
         ImportCitedSourceJob::dispatch($runId);
+
+        return response()->json(['run_id' => $runId, 'already_running' => false]);
+    }
+
+    public function importCitedBulk(Request $request, string $slug)
+    {
+        $scope = $this->journalScope($slug);
+
+        return $scope ? $this->importCitedBulkFor($request, $scope) : response()->json(['message' => 'Journal not found.'], 404);
+    }
+
+    public function shelfImportCitedBulk(Request $request, string $id)
+    {
+        $scope = $this->shelfScope($id);
+
+        return $scope ? $this->importCitedBulkFor($request, $scope) : response()->json(['message' => 'Shelf not found (or not public).'], 404);
+    }
+
+    /** The bulk cap options — same ladder as journal-import's import_all (0 = all listed). */
+    private const BULK_WORK_LIMITS = [5, 25, 100, 0];
+
+    /**
+     * Import the scope's importable external works in one press, collecting
+     * the results onto the scope's "Cited by:" shelf for assessment in
+     * /maintainer/shelf-import. Queued and capped: every work may hit a
+     * publisher and run OCR, billed to the presser.
+     */
+    private function importCitedBulkFor(Request $request, array $scope)
+    {
+        $limit = (int) $request->input('limit', 5);
+        if (! in_array($limit, self::BULK_WORK_LIMITS, true)) {
+            return response()->json([
+                'message' => 'limit must be one of ' . implode(', ', self::BULK_WORK_LIMITS) . ' (0 = all listed).',
+            ], 422);
+        }
+
+        $db = DB::connection('pgsql_admin');
+
+        // One acquisition run per scope at a time, in either direction: a bulk
+        // joins a running bulk, and never starts over an in-flight single
+        // import (whose canonical it may be about to re-attempt).
+        $inFlight = $db->table('hypercite_runs')
+            ->where($scope['column'], $scope['id'])
+            ->whereIn('action', ['import_cited_bulk', 'import_source'])
+            ->whereIn('status', ['pending', 'running'])
+            ->where('updated_at', '>', now()->subHour())
+            ->first();
+        if ($inFlight) {
+            return response()->json([
+                'run_id'          => $inFlight->id,
+                'already_running' => true,
+                'action'          => $inFlight->action,
+            ]);
+        }
+
+        $runId = (string) Str::uuid();
+        $db->table('hypercite_runs')->insert([
+            'id'             => $runId,
+            $scope['column'] => $scope['id'],
+            'user_id'        => $request->user()?->id,
+            'action'         => 'import_cited_bulk',
+            'status'         => 'pending',
+            'work_limit'     => $limit,
+            'counts'         => '{}',
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        ImportCitedBulkJob::dispatch($runId);
 
         return response()->json(['run_id' => $runId, 'already_running' => false]);
     }

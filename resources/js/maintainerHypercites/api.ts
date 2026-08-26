@@ -102,6 +102,12 @@ export interface MostCitedRow {
   importable: boolean;
 }
 
+/** The scope's "Cited by:" collection shelf, once the first import created it. */
+export interface CitedShelf {
+  id: string;
+  name: string;
+}
+
 export interface ApproveResult {
   applied: boolean;
   refusal?: string;
@@ -185,11 +191,19 @@ export const api = {
     ),
 
   mostCited: (base: string) =>
-    getJson<{ internal: MostCitedRow[]; external: MostCitedRow[] }>(`${base}/most-cited`),
+    getJson<{ internal: MostCitedRow[]; external: MostCitedRow[]; cited_shelf: CitedShelf | null }>(
+      `${base}/most-cited`,
+    ),
 
   importSource: (base: string, canonicalId: string) =>
     postJson<{ run_id: string; already_running: boolean; message?: string }>(
       `${base}/import-source`,
       { canonical_source_id: canonicalId },
+    ),
+
+  importCitedBulk: (base: string, limit: number) =>
+    postJson<{ run_id: string; already_running: boolean; action?: string; message?: string }>(
+      `${base}/import-cited-bulk`,
+      { limit },
     ),
 };

@@ -114,7 +114,23 @@
 
             {{-- Most-cited tab --}}
             <div id="hx-mostcited-tab" hidden>
-                <div class="hx-list-head"><span id="hx-mostcited-count">…</span></div>
+                <div class="hx-list-head">
+                    <span id="hx-mostcited-count">…</span>
+                    <span class="hx-mc-bulk">
+                        <select id="hx-bulk-limit" title="How many of the importable works to attempt in one run">
+                            <option value="5" selected>next 5</option>
+                            <option value="25">next 25</option>
+                            <option value="100">next 100</option>
+                            <option value="0">all listed</option>
+                        </select>
+                        <button type="button" id="hx-import-all"
+                            title="Import the most-cited external OA works in one run, collected onto a public 'Cited by:' shelf for assessment. PDF fetch + OCR is charged to you.">⇩ import all OA</button>
+                    </span>
+                </div>
+                <div class="hx-list-head">
+                    <span class="hx-actions-status" id="hx-mc-status" role="status" aria-live="polite"></span>
+                    <a id="hx-assess-link" hidden>assess imports →</a>
+                </div>
                 <p class="hx-mostcited-note">Counts come from resolved bibliographies — run a
                     detect first or they undercount. <strong>⇩ import</strong> fetches an external
                     OA work so the next detect can match quotes against it.</p>

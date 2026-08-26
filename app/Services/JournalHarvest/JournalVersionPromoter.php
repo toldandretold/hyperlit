@@ -121,9 +121,7 @@ class JournalVersionPromoter
      */
     private function reshelve(string $canonicalId, string $winner): void
     {
-        $db = DB::connection('pgsql_admin');
-
-        $shelfId = $db->table('canonical_source as cs')
+        $shelfId = DB::connection('pgsql_admin')->table('canonical_source as cs')
             ->join('journal_sources as js', 'js.id', '=', 'cs.journal_source_id')
             ->where('cs.id', $canonicalId)
             ->value('js.shelf_id');
@@ -131,6 +129,18 @@ class JournalVersionPromoter
         if (! $shelfId) {
             return; // not a journal work, or the journal has no shelf yet
         }
+
+        $this->reshelveOnShelf($shelfId, $canonicalId, $winner);
+    }
+
+    /**
+     * The sibling swap itself, on an EXPLICIT shelf — also used by the
+     * shelf-import console, whose collection shelf ("Cited by: …") is not
+     * reachable through the work's own journal registration.
+     */
+    public function reshelveOnShelf(string $shelfId, string $canonicalId, string $winner): void
+    {
+        $db = DB::connection('pgsql_admin');
 
         $siblings = $db->table('library')
             ->where('canonical_source_id', $canonicalId)

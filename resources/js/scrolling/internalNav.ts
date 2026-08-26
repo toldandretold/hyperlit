@@ -11,7 +11,7 @@ import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigatio
 import { getNodesFromIndexedDB, getLocalStorageKey } from '../indexedDB/index.js';
 import { parseMarkdownIntoChunksInitial } from '../utilities/convertMarkdown';
 import { waitForNavigationTarget, waitForElementReady } from '../SPA/domReadiness';
-import { navTimers } from './navState';
+import { navTimers, userScrollState } from './navState';
 import { recordNavigatedAt } from './navStamp';
 import { showNavigationLoading, hideNavigationLoading, NavigationProgressIndicator } from './navOverlay';
 import { scrollElementWithConsistentMethod, scrollElementIntoMainContent } from './scrollHelpers';
@@ -352,6 +352,13 @@ export function findRenderedTarget(container: any, targetId: string): any {
 }
 
 async function _navigateToInternalId(targetId: string, lazyLoader: any, progressIndicator: NavigationProgressIndicator | null = null): Promise<void> {
+  // Gesture stamp at navigation start: the resolver/render waits below can take
+  // SECONDS (held images, slow network), and if the reader gestures during that
+  // wait they have taken over — the eventual landing write would yank the page
+  // out from under them (prepend-forensics: landing at t≈5.5s mid scroll-up).
+  // Checked right before the final positioning scroll.
+  const gestureStampAtNavStart = userScrollState.lastGestureScrollTime;
+
   // Check if the target element is already present and fully rendered (e.g. a server-prerendered +
   // adopted chunk). If so, the resolver + clear+re-render block below is SKIPPED — we scroll straight
   // to it (no deep-link flash). Covers hypercite / highlight / footnote / node targets.
@@ -803,6 +810,13 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     if (isPaginated) {
       const { setPaginatorNavTarget } = await import('./paginator');
       setPaginatorNavTarget(targetId, (lazyLoader as any)._pendingPageOffset || 0);
+    } else if (userScrollState.lastGestureScrollTime > gestureStampAtNavStart) {
+      // The reader gestured while the target was resolving/rendering — they
+      // took over. Landing now would yank the page out from under them (the
+      // late second-pass landing that re-anchored a scrolled-away reader in
+      // the prepend forensics). Their position wins; the nav still resolves.
+      verbose.nav('User gestured during navigation wait — skipping landing scroll', 'scrolling/internalNav');
+      recordNavDecision({ phase: 'nav-land', targetId, skipped: 'user-gesture-during-wait' });
     } else if (!isAlreadyVisible || !isReasonablyPositioned) {
       // Only scroll if element is not visible or poorly positioned
       if (scrollableParent && scrollableParent !== window) {

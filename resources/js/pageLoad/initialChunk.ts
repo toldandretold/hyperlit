@@ -17,10 +17,27 @@ import type { ReadingPosition } from '../scrolling/readingPosition';
  * Returns one chunk of nodes + a manifest describing all chunks, so the
  * lazy loader can discover and fetch remaining chunks on demand.
  */
-export async function fetchInitialChunk(bookId: string): Promise<any> {
+export async function fetchInitialChunk(bookId: string, explicitTarget?: string | null): Promise<any> {
     try {
         // Build query params based on URL context
         const params = buildInitialChunkParams();
+        // An explicit caller target (the timestamp-check refresh preserving the reader's live
+        // anchor) overrides 'resume' — without it the server resolves resume from its own
+        // bookmark, which lags this device by the debounced save window and can be absent
+        // entirely, collapsing the refreshed node set to chunk 0. It does NOT override a
+        // pending nav target: buildInitialChunkParams() consumes window._pendingChunkTarget
+        // (nulling it as a side effect), so deleting the resulting target/element_id here
+        // would silently swallow an in-flight SPA deep link — that pending target is not
+        // guaranteed to equal the lazyLoader.pendingNavigationTarget the caller checked.
+        if (explicitTarget && !params.has('target') && !params.has('element_id')) {
+            params.delete('resume');
+            params.delete('fallback_target');
+            if (/^\d+(\.\d+)?$/.test(explicitTarget)) {
+                params.set('element_id', explicitTarget);
+            } else {
+                params.set('target', explicitTarget);
+            }
+        }
         injectGateParam(params, bookId);
         const queryString = params.toString();
         const url = buildApiUrl(bookId, queryString);

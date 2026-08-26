@@ -241,6 +241,29 @@ body.hx-detail {
   padding: 0 12px;
   margin: 4px 0 8px;
 }
+.hx-mc-bulk {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hx-mc-bulk select {
+  background: var(--color-background, #221f20);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 5px;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+}
+#hx-assess-link {
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--hyperlit-aqua, #4eacae);
+  text-decoration: none;
+}
+#hx-assess-link:hover {
+  text-decoration: underline;
+}
 .hx-group-title {
   font-size: 0.75rem;
   text-transform: uppercase;

@@ -46,6 +46,13 @@ export default defineConfig({
     // so normal/CI runs are unaffected. Usage: E2E_SLOWMO=800 npm run test:e2e:headed
     launchOptions: {
       slowMo: Number(process.env.E2E_SLOWMO) || 0,
+      // Resolve *.test inside the browser, bypassing system DNS. Herd's dnsmasq
+      // can wedge into a state where it answers A but silently DROPS AAAA for
+      // .test names; macOS then stalls 2-30s per resolution waiting for the
+      // missing answer, which turned every page.goto into a multi-second wait
+      // and failed 10+ specs on 30s test timeouts (2026-08-26 run). The suite
+      // only ever targets the local machine, so pin it and stay deterministic.
+      args: ['--host-resolver-rules=MAP *.test 127.0.0.1'],
     },
   },
 
@@ -74,6 +81,21 @@ export default defineConfig({
     {
       name: 'mobile-chromium',
       testMatch: /specs\/mobile\/.*\.spec\.js/,
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 390, height: 844 },
+        hasTouch: true,
+        isMobile: true,
+        storageState: resolve(import.meta.dirname, 'fixtures/.auth-state.json'),
+      },
+      dependencies: ['setup'],
+    },
+    // The scroll-restore suite additionally runs under phone emulation — the
+    // reported glitch class is mobile return-to-page. Desktop coverage comes
+    // from the plain 'chromium' project (the folder is not excluded there).
+    {
+      name: 'scroll-restore-mobile',
+      testMatch: /specs\/scroll-restore\/.*\.spec\.js/,
       use: {
         browserName: 'chromium',
         viewport: { width: 390, height: 844 },

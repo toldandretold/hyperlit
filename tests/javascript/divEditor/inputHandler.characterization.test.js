@@ -85,6 +85,17 @@ describe('createInputHandler', () => {
     handler.destroy();
   });
 
+  it('routes Safari autocorrect `textInput` events through the same debounced save path', () => {
+    const handler = createInputHandler({ editableDiv, getSaveQueue: () => saveQueue });
+    caretIn(document.getElementById('5').firstChild, 2);
+
+    editableDiv.dispatchEvent(new Event('textInput', { bubbles: true }));
+    vi.advanceTimersByTime(200);
+
+    expect(queueNodeForSave).toHaveBeenCalledWith('5', 'update');
+    handler.destroy();
+  });
+
   it('destroy() detaches the listeners so later input is ignored', () => {
     const handler = createInputHandler({ editableDiv, getSaveQueue: () => saveQueue });
     handler.destroy();
@@ -92,6 +103,7 @@ describe('createInputHandler', () => {
 
     caretIn(document.getElementById('5').firstChild, 1);
     editableDiv.dispatchEvent(new Event('input'));
+    editableDiv.dispatchEvent(new Event('textInput'));
     editableDiv.dispatchEvent(new Event('compositionstart'));
     editableDiv.dispatchEvent(new Event('compositionend'));
     vi.advanceTimersByTime(200);

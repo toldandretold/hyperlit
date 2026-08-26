@@ -1,7 +1,14 @@
+// Zero-import-leaf forensics (scrollTrace is itself a leaf): the promise's
+// lifecycle gates the boot scroll restore, and a boot where it never resolves
+// strands the reader at the top of the book with no trace of why (the Slow-3G
+// reload storm). Flag-gated, free when off.
+import { recordNavDecision } from '../scrolling/scrollTrace';
+
 export let pendingFirstChunkLoadedPromise: Promise<void> | undefined;
 let firstChunkLoadedResolver: (() => void) | null;
 
 export function resolveFirstChunkPromise() {
+  recordNavDecision({ phase: 'first-chunk-resolve', hadResolver: !!firstChunkLoadedResolver });
   if (firstChunkLoadedResolver && typeof firstChunkLoadedResolver === 'function') {
     firstChunkLoadedResolver();
     firstChunkLoadedResolver = null; // Clear it after use
@@ -12,6 +19,7 @@ export function resolveFirstChunkPromise() {
 }
 
 export function resetFirstChunkPromise() {
+    recordNavDecision({ phase: 'first-chunk-reset', pendingEarlyResolve: !!(window as any)._resolveFirstChunkWhenReady });
     pendingFirstChunkLoadedPromise = new Promise<void>(resolve => {
         firstChunkLoadedResolver = resolve;
 

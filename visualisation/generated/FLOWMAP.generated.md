@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1760 functions in 373 modules · 10 object stores · 10 PG tables · 3646 edges
+**MarkdownDB** schema v28 · 1760 functions in 373 modules · 10 object stores · 10 PG tables · 3657 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1773,7 +1773,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 263
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 264
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1999,6 +1999,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/loadHyperText` → `lazyLoader/utilities/cacheState`
 - `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
 - `pageLoad/loadHyperText` → `pageLoad/progress`
+- `pageLoad/loadHyperText` → `scrolling/userScrollDetection`
 - `pageLoad/onlineRetry` → `components/cloudRef/editIndicator`
 - `pageLoad/progress` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/hyperciteHandler` → `indexedDB/hydration/rebuild`

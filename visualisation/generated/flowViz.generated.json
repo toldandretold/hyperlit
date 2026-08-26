@@ -6,7 +6,7 @@
     "moduleCount": 373,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3646,
+    "edgeCount": 3657,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -36938,7 +36938,8 @@
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/imageState:handleBrokenImages",
       "source": "lazyLoader/chunkRender:createChunkElement",
       "target": "lazyLoader/imageState:handleBrokenImages",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/chunkRender:createChunkElement__domwrite__dom",
@@ -37006,6 +37007,20 @@
       "source": "lazyLoader/graphRenderer:renderHarvestNetworks",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/imageState:handleBrokenImages__call__scrolling/scrollTrace:nextScrollReason",
+      "source": "lazyLoader/imageState:handleBrokenImages",
+      "target": "scrolling/scrollTrace:nextScrollReason",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "lazyLoader/imageState:handleBrokenImages__call__scrolling/scrollTrace:scrollTraceEnabled",
+      "source": "lazyLoader/imageState:handleBrokenImages",
+      "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/imageState:handleBrokenImages__domwrite__dom",
@@ -37122,6 +37137,13 @@
       "source": "lazyLoader/index:createLazyLoader",
       "target": "lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress",
       "rel": "call"
+    },
+    {
+      "id": "lazyLoader/index:createLazyLoader__call__scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "source": "lazyLoader/index:createLazyLoader",
+      "target": "scrolling/scrollHelpers:scrollElementIntoMainContent",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "lazyLoader/index:createLazyLoader__call__scrolling/scrollTrace:installScrollTrace",
@@ -37509,6 +37531,20 @@
       "dataPath": true
     },
     {
+      "id": "pageLoad/firstChunkPromise:resetFirstChunkPromise__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "pageLoad/firstChunkPromise:resetFirstChunkPromise",
+      "target": "scrolling/scrollTrace:recordNavDecision",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/firstChunkPromise:resolveFirstChunkPromise__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "pageLoad/firstChunkPromise:resolveFirstChunkPromise",
+      "target": "scrolling/scrollTrace:recordNavDecision",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "pageLoad/initialChunk:fetchInitialChunk__call__components/utilities/gateFilter:gateQueryParam",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "components/utilities/gateFilter:gateQueryParam",
@@ -37844,13 +37880,15 @@
       "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:resetFirstChunkPromise",
       "source": "pageLoad/loadHyperText:loadHyperText",
       "target": "pageLoad/firstChunkPromise:resetFirstChunkPromise",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:resolveFirstChunkPromise",
       "source": "pageLoad/loadHyperText:loadHyperText",
       "target": "pageLoad/firstChunkPromise:resolveFirstChunkPromise",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/initialChunk:fetchInitialChunk",
@@ -37878,6 +37916,19 @@
       "target": "pageLoad/onlineRetry:setupOnlineSyncListener",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "scrolling/scrollTrace:recordNavDecision",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__scrolling/userScrollDetection:isUserCurrentlyScrolling",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "scrolling/userScrollDetection:isUserCurrentlyScrolling",
+      "rel": "call"
     },
     {
       "id": "pageLoad/loadHyperText:loadHyperText__call__SPA/navigation/chunkLoadRouter:loadChunkForTarget",
@@ -40437,10 +40488,29 @@
       "dataPath": true
     },
     {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/paginator:isPaginatorEngaged",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/paginator:isPaginatorEngaged",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/paginator:syncEngagement",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/paginator:syncEngagement",
+      "rel": "call"
+    },
+    {
       "id": "scrolling/restore:restoreScrollPosition__call__scrolling/readingAnchor:getSavedAnchor",
       "source": "scrolling/restore:restoreScrollPosition",
       "target": "scrolling/readingAnchor:getSavedAnchor",
       "rel": "call"
+    },
+    {
+      "id": "scrolling/restore:restoreScrollPosition__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "scrolling/restore:restoreScrollPosition",
+      "target": "scrolling/scrollTrace:recordNavDecision",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "scrolling/restore:restoreScrollPosition__call__scrolling/userScrollDetection:shouldSkipScrollRestoration",
@@ -41504,7 +41574,8 @@
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader__call__pageLoad/firstChunkPromise:resolveFirstChunkPromise",
       "source": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader",
       "target": "pageLoad/firstChunkPromise:resolveFirstChunkPromise",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.initializeImportedReader__call__SPA/viewManager:universalPageInitializer",
@@ -42294,6 +42365,13 @@
       "id": "SPA/viewManager:universalPageInitializer__call__scrolling/restore:restoreScrollPosition",
       "source": "SPA/viewManager:universalPageInitializer",
       "target": "scrolling/restore:restoreScrollPosition",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__scrolling/scrollTrace:recordNavDecision",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "scrolling/scrollTrace:recordNavDecision",
       "rel": "call",
       "dataPath": true
     },
@@ -43989,6 +44067,11 @@
     {
       "source": "SPA/viewManager",
       "target": "pageLoad/loadHyperText",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "scrolling/scrollTrace",
       "kind": "static"
     },
     {
@@ -47812,6 +47895,11 @@
       "kind": "lazy"
     },
     {
+      "source": "lazyLoader/imageState",
+      "target": "scrolling/scrollTrace",
+      "kind": "static"
+    },
+    {
       "source": "lazyLoader/index",
       "target": "SPA/navigation/NavigationCompletionBarrier",
       "kind": "static"
@@ -47962,6 +48050,11 @@
       "kind": "lazy"
     },
     {
+      "source": "pageLoad/firstChunkPromise",
+      "target": "scrolling/scrollTrace",
+      "kind": "static"
+    },
+    {
       "source": "pageLoad/initialChunk",
       "target": "components/utilities/gateFilter",
       "kind": "static"
@@ -48088,6 +48181,11 @@
     },
     {
       "source": "pageLoad/loadHyperText",
+      "target": "scrolling/scrollTrace",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
       "target": "SPA/navigation/resolveTargetChunk",
       "kind": "lazy"
     },
@@ -48124,6 +48222,11 @@
     {
       "source": "pageLoad/loadHyperText",
       "target": "pageLoad/progress",
+      "kind": "lazy"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "scrolling/userScrollDetection",
       "kind": "lazy"
     },
     {
@@ -48923,7 +49026,17 @@
     },
     {
       "source": "scrolling/restore",
+      "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
       "target": "scrolling/readingAnchor",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/restore",
+      "target": "scrolling/scrollTrace",
       "kind": "static"
     },
     {
@@ -49028,6 +49141,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 263
+    "lazyCount": 264
   }
 }

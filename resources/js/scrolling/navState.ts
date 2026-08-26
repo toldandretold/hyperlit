@@ -24,6 +24,16 @@ export interface UserScrollState {
   scrollTimeout: ReturnType<typeof setTimeout> | null;
   /** Flag to ignore navigation-driven scrolls (so they aren't read as user scrolls). */
   isNavigating: boolean;
+  /**
+   * Held for ~120ms after the image-settle compensation belt writes scrollTop
+   * (lazyLoader/imageState.ts). The detector swallows ONLY the bare `scroll`
+   * events those writes echo back — intent gestures (wheel/touchmove/keys)
+   * still classify as user scrolls immediately, so a real flick during a
+   * decode burst is honoured and cancels the belt. (Contrast isNavigating,
+   * which swallows EVERYTHING — too blind for a belt that fires while the
+   * user may be actively reading.)
+   */
+  isCompensating: boolean;
   touchStartY: number | null;
   touchStartX: number | null;
 }
@@ -35,6 +45,7 @@ export const userScrollState: UserScrollState = {
   lastGestureScrollTime: 0,
   scrollTimeout: null,
   isNavigating: false,
+  isCompensating: false,
   touchStartY: null,
   touchStartX: null,
 };

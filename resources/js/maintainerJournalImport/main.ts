@@ -80,6 +80,28 @@ interface Article {
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const has = (id: string): boolean => document.getElementById(id) !== null;
 
+/**
+ * The blade's boot handshake. mode 'shelf' is the shelf-import console — same
+ * page, same JS, but `articles` and `run` hit the shelf-scoped API while the
+ * book-/run-keyed endpoints (promote, resolve, runStatus, note) stay shared.
+ */
+interface Boot {
+  slug?: string | null;
+  shelfId?: string | null;
+  shelfName?: string | null;
+  mode?: 'journal' | 'shelf';
+}
+
+const boot: Boot = (window as unknown as { __journalImport?: Boot }).__journalImport ?? {};
+const isDetail = !!(boot.slug || boot.shelfId);
+
+/** The scope-keyed API base: everything else is book- or run-keyed and shared. */
+function apiBase(): string {
+  return boot.shelfId
+    ? `/api/maintainer/shelf-import/${encodeURIComponent(boot.shelfId)}`
+    : `/api/maintainer/journal-import/${encodeURIComponent(boot.slug ?? '')}`;
+}
+
 let statusTimer: number | undefined;
 
 function setStatus(text: string): void {
@@ -178,12 +200,12 @@ let selectedArticle: Article | null = null;
 /** Which lane the note editor is currently showing, so a re-render doesn't shut it under you. */
 let noteStripBook: string | null = null;
 
-async function loadDetail(slug: string): Promise<void> {
-  const resp = await fetch(`/api/maintainer/journal-import/${encodeURIComponent(slug)}/articles`, {
+async function loadDetail(): Promise<void> {
+  const resp = await fetch(`${apiBase()}/articles`, {
     credentials: 'include',
   });
   if (!resp.ok) {
-    log.error(`Journal articles fetch failed (${resp.status})`, 'maintainer-journal-import');
+    log.error(`Articles fetch failed (${resp.status})`, 'maintainer-journal-import');
     setStatus(`could not load articles (${resp.status})`);
     return;
   }
@@ -191,14 +213,26 @@ async function loadDetail(slug: string): Promise<void> {
   const data = await resp.json();
   articles = (data.articles ?? []) as Article[];
 
-  const j = data.journal;
-  el<HTMLElement>('ji-journal-name').textContent = j.display_name;
-  const est = data.estimate ?? {};
-  el<HTMLElement>('ji-journal-meta').textContent =
-    `${est.already_harvested ?? 0} imported · ${est.eligible ?? 0} eligible · ${est.total ?? 0} enumerated`
-    + (j.publisher ? ` · ${j.publisher}` : '');
   const link = el<HTMLAnchorElement>('ji-public-link');
-  link.href = j.public_page;
+  if (data.shelf) {
+    const s = data.shelf as {
+      name: string; creator: string; item_count: number; unlinked_count: number; public_page: string;
+    };
+    el<HTMLElement>('ji-journal-name').textContent = s.name;
+    el<HTMLElement>('ji-journal-meta').textContent =
+      `${articles.length} work${articles.length === 1 ? '' : 's'} · ${s.item_count} shelf item${s.item_count === 1 ? '' : 's'}`
+      + (s.unlinked_count ? ` · ${s.unlinked_count} without a canonical` : '')
+      + ` · ${s.creator}`;
+    link.href = s.public_page;
+  } else {
+    const j = data.journal;
+    el<HTMLElement>('ji-journal-name').textContent = j.display_name;
+    const est = data.estimate ?? {};
+    el<HTMLElement>('ji-journal-meta').textContent =
+      `${est.already_harvested ?? 0} imported · ${est.eligible ?? 0} eligible · ${est.total ?? 0} enumerated`
+      + (j.publisher ? ` · ${j.publisher}` : '');
+    link.href = j.public_page;
+  }
 
   // The selected lane is a snapshot of the previous payload; re-point it at the fresh row so the
   // strip shows what the server now holds (a saved note can have opened a flag) rather than a
@@ -627,8 +661,7 @@ async function runAction(
   setter: (text: string) => void,
   buttons: string[],
 ): Promise<void> {
-  const slug = detailSlugOf();
-  if (!slug) return;
+  if (!isDetail) return;
 
   const headers = await csrfHeaders();
   if (!headers) return;
@@ -637,7 +670,7 @@ async function runAction(
   setter('dispatching…');
 
   try {
-    const resp = await fetch(`/api/maintainer/journal-import/${encodeURIComponent(slug)}/run`, {
+    const resp = await fetch(`${apiBase()}/run`, {
       method: 'POST',
       credentials: 'include',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -682,10 +715,9 @@ async function pollRun(runId: string, setter: (text: string) => void): Promise<v
 
     if (run.status === 'completed') {
       setter(run.counts.summary ? `done — ${run.counts.summary}` : 'done');
-      const slug = detailSlugOf();
       // Reload FIRST: the failure rows link into the article list, which must hold the fresh
       // lanes before a click can find them.
-      if (slug) await loadDetail(slug);
+      if (isDetail) await loadDetail();
       renderFailures(run.counts.failures ?? []);
       return;
     }
@@ -731,8 +763,7 @@ async function reconvertPdfLane(book: string): Promise<void> {
       if (progress.status === 'complete' || progress.status === 'failed') {
         if (progress.status === 'complete') {
           setStatus('reconverted — reloading');
-          const slug = detailSlugOf();
-          if (slug) await loadDetail(slug);
+          if (isDetail) await loadDetail();
         } else {
           setStatus('reconvert FAILED — see logs');
         }
@@ -746,9 +777,6 @@ async function reconvertPdfLane(book: string): Promise<void> {
     button.disabled = false;
   }
 }
-
-const detailSlugOf = (): string | undefined =>
-  (window as unknown as { __journalImport?: { slug: string } }).__journalImport?.slug;
 
 async function csrfHeaders(): Promise<Record<string, string> | null> {
   const token = await ensureCsrfToken();
@@ -783,7 +811,9 @@ async function promoteSelected(force = false): Promise<void> {
       method: 'POST',
       credentials: 'include',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ force }),
+      // The scope shelf rides along so promotion can swap the winner onto it —
+      // a "Cited by:" shelf is not reachable through the work's own journal.
+      body: JSON.stringify({ force, shelf_id: boot.shelfId ?? undefined }),
     });
     const body = await resp.json().catch(() => ({}));
 
@@ -809,8 +839,7 @@ async function promoteSelected(force = false): Promise<void> {
 
     const demoted = (body.demoted ?? []) as string[];
     setStatus(demoted.length ? `promoted — unlisted ${demoted.length} sibling` : 'promoted');
-    const slug = (window as unknown as { __journalImport?: { slug: string } }).__journalImport?.slug;
-    if (slug) await loadDetail(slug);
+    if (isDetail) await loadDetail();
   } catch (e) {
     log.error('Promote failed', 'maintainer-journal-import', e);
     setStatus('promote failed — see logs');
@@ -852,8 +881,7 @@ async function saveNote(): Promise<void> {
     }
     setStatus(note.trim() ? 'note saved — it rides the bundle' : 'note cleared');
     // The flag count on the lane may have just changed (a note can open a case).
-    const slug = detailSlugOf();
-    if (slug) await loadDetail(slug);
+    if (isDetail) await loadDetail();
   } catch (e) {
     log.error('Save note failed', 'maintainer-journal-import', e);
     setStatus('note failed — see logs');
@@ -900,8 +928,7 @@ async function resolveCase(resolution: 'reconverted' | 'dismissed'): Promise<voi
 
     setStatus(`case closed (${body.resolved ?? 0} flag${body.resolved === 1 ? '' : 's'})`
       + (body.listed ? ' — lane is now listed' : ''));
-    const slug = detailSlugOf();
-    if (slug) await loadDetail(slug);
+    if (isDetail) await loadDetail();
   } catch (e) {
     log.error('Close case failed', 'maintainer-journal-import', e);
     setStatus('close failed — see logs');
@@ -926,7 +953,7 @@ function wireDetailActions(): void {
     // journal lane rather than the generic conversion queue.
     window.location.href =
       `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}`
-      + `?kind=${kind}&origin=journal-import`;
+      + `?kind=${kind}&origin=${boot.mode === 'shelf' ? 'shelf-import' : 'journal-import'}`;
     window.setTimeout(() => setStatus(''), 4000);
   };
   document.getElementById('ji-export')?.addEventListener('click', bundle('conversion'));
@@ -1154,18 +1181,91 @@ function wireJournalActions(): void {
   });
 }
 
+// ── Shelf index page ───────────────────────────────────────────────────────
+
+interface ShelfIndexRow {
+  id: string;
+  name: string;
+  slug: string;
+  creator: string;
+  item_count: number;
+  linked_count: number;
+  is_system: boolean;
+}
+
+let shelves: ShelfIndexRow[] = [];
+
+async function loadShelfIndex(): Promise<void> {
+  const resp = await fetch('/api/maintainer/shelf-import/shelves', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Shelf list fetch failed (${resp.status})`, 'maintainer-journal-import');
+    setStatus(`could not load shelves (${resp.status})`);
+    return;
+  }
+
+  shelves = ((await resp.json()).shelves ?? []) as ShelfIndexRow[];
+  const linked = shelves.reduce((n, s) => n + s.linked_count, 0);
+  el<HTMLElement>('ji-summary').textContent =
+    `${shelves.length} public shel${shelves.length === 1 ? 'f' : 'ves'} · ${linked} assessable work${linked === 1 ? '' : 's'}`;
+  renderShelfIndex();
+}
+
+function renderShelfIndex(): void {
+  const filter = (el<HTMLInputElement>('ji-filter')?.value || '').trim().toLowerCase();
+  const rows = shelves.filter((s) => !filter
+    || s.name.toLowerCase().includes(filter)
+    || s.creator.toLowerCase().includes(filter));
+
+  const list = el<HTMLDivElement>('ji-shelf-list');
+  list.textContent = '';
+  el<HTMLElement>('ji-shelf-empty').hidden = rows.length > 0;
+
+  for (const s of rows) {
+    const item = document.createElement('a');
+    item.className = 'ji-journal';
+    item.setAttribute('role', 'listitem');
+    item.href = `/maintainer/shelf-import/${encodeURIComponent(s.id)}`;
+
+    const name = document.createElement('span');
+    name.className = 'ji-journal-name';
+    name.textContent = s.name;
+    item.appendChild(name);
+
+    const meta = document.createElement('span');
+    meta.className = 'ji-journal-meta';
+    meta.textContent = s.creator;
+    item.appendChild(meta);
+
+    const stats = document.createElement('span');
+    stats.className = 'ji-journal-stats';
+    stats.textContent = `${s.item_count} item${s.item_count === 1 ? '' : 's'} · ${s.linked_count} assessable`;
+    item.appendChild(stats);
+
+    if (s.is_system) {
+      const badge = document.createElement('span');
+      badge.className = 'ji-badge ji-badge-diamond';
+      badge.textContent = '⚙ system';
+      badge.title = 'A machine-built collection shelf';
+      item.appendChild(badge);
+    }
+
+    list.appendChild(item);
+  }
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 
 wireHelp();
 
-const detailSlug = (window as unknown as { __journalImport?: { slug: string } }).__journalImport?.slug;
-
-if (detailSlug) {
+if (isDetail) {
   wireActionBar();
   wireDetailActions();
   wireJournalActions();
   wireFailuresPanel();
-  void loadDetail(detailSlug);
+  void loadDetail();
+} else if (has('ji-shelf-list')) {
+  el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderShelfIndex);
+  void loadShelfIndex();
 } else if (has('ji-started-list')) {
   el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderIndex);
   void loadIndex();

@@ -356,8 +356,14 @@ export class ChunkMutationHandler {
           continue;
         }
 
-        // ✅ FIX: Determine container context from mutation target
-        const subBookContainer = mutation.target.closest('.sub-book-content');
+        // ✅ FIX: Determine container context from mutation target.
+        // characterData mutations carry a Text target — Text nodes have no
+        // .closest(), so resolve an Element first (findContainingChunk above
+        // already normalizes the same way).
+        const targetEl = mutation.target.nodeType === Node.TEXT_NODE
+          ? mutation.target.parentElement
+          : mutation.target;
+        const subBookContainer = targetEl?.closest('.sub-book-content');
         const containerId = subBookContainer?.dataset?.bookId || 'main';
         const compositeKey = `${containerId}:${chunkId}`;
 
@@ -529,6 +535,11 @@ export class ChunkMutationHandler {
         if (addedIds.has(id)) replacedNodeIds.add(id);
       }
     }
+
+    // One queue-op per node per batch: charData records arrive in bursts (typing fires
+    // one per keystroke); the SaveQueue Map would collapse them anyway, so collapsing
+    // here avoids the redundant walk + TOC invalidation per record.
+    const queuedCharDataParents = new Set<string>();
 
     // Track parent nodes that need updates
     const parentsToUpdate = new Set();
@@ -915,7 +926,8 @@ export class ChunkMutationHandler {
           parent = parent.parentNode;
         }
 
-        if (parent && parent.id) {
+        if (parent && parent.id && !queuedCharDataParents.has(parent.id)) {
+          queuedCharDataParents.add(parent.id);
 
           // 🚀 PERFORMANCE: Batch TOC invalidation
           this.queueTocInvalidation(parent.id, parent);

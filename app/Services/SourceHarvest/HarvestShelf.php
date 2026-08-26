@@ -127,6 +127,53 @@ class HarvestShelf
         return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $creator];
     }
 
+    /** Shelf display-name prefix for cited-works collections (hypercite console imports). */
+    public const CITED_NAME_PREFIX = 'Cited by: ';
+
+    /**
+     * Find-or-create the public shelf collecting external works imported from
+     * the hypercite console for one scope (a journal or a public shelf).
+     * Owned by the system creator like journal shelves — the works belong to
+     * other publishers entirely, so the collection is a commons artifact, not
+     * any user's. Keyed (creator, name) like its siblings, so re-imports for
+     * the same scope find the same shelf. Returns {id, name, slug, creator}.
+     */
+    public function ensureCitedShelfFor(string $scopeLabel): object
+    {
+        $db = DB::connection('pgsql_admin');
+        $creator = \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR;
+
+        $name = self::CITED_NAME_PREFIX . Str::limit($scopeLabel, 230, '…');
+
+        $existing = $db->table('shelves')
+            ->where('creator', $creator)
+            ->where('name', $name)
+            ->select(['id', 'name', 'slug', 'creator'])
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $id = (string) Str::uuid();
+        $slug = ShelfSlug::unique($name, $creator);
+
+        $db->table('shelves')->insert([
+            'id'            => $id,
+            'creator'       => $creator,
+            'creator_token' => null,
+            'name'          => $name,
+            'slug'          => $slug,
+            'description'   => 'Open-access works cited by ' . $scopeLabel
+                . ', imported from the hypercite console.',
+            'visibility'    => 'public',
+            'default_sort'  => 'recent',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $creator];
+    }
+
     /**
      * Reconcile a journal's shelf with the canonical truth: every canonical of
      * the journal whose best version is public and content-bearing belongs on

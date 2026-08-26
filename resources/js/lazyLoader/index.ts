@@ -31,7 +31,7 @@ import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection
 import { trimWindow } from './utilities/windowChunks';
 import { restoreScrollAnchor } from '../utilities/scrollAnchor';
 // Zero-import leaf — dormant scroll-write tracer (flag-gated, see scrolling/scrollTrace).
-import { installScrollTrace } from '../scrolling/scrollTrace';
+import { installScrollTrace, scrollTraceEnabled } from '../scrolling/scrollTrace';
 import {
   createChunkElement,
   ensureNoDeleteMarkerForBook,
@@ -533,8 +533,12 @@ export function createLazyLoader(config: any) {
     // *** FIX 1: Use instance.container ***
     let targetElement = instance.container.querySelector(`#${CSS.escape(scrollData.elementId)}`);
     if (targetElement) {
-      // *** FIX 2: Use scrollElementIntoMainContent ***
-      (scrollElementIntoMainContent as any)(targetElement, instance.container, 50); // Pass instance.container
+      // scrollElementIntoMainContent takes (targetElement, headerOffset) — the old
+      // 3-arg call passed instance.container as headerOffset (an Element), making
+      // the offset math NaN and scrollTo({top: NaN}) reset the reader to the top
+      // on every resize/orientation restore. It resolves the scroller itself via
+      // closest().
+      scrollElementIntoMainContent(targetElement, 50);
     } else {
       try {
         // Get the nodes from IndexedDB.
@@ -564,8 +568,8 @@ export function createLazyLoader(config: any) {
             // *** FIX 4: Use instance.container ***
             let newTarget = instance.container.querySelector(`#${scrollData.elementId}`);
             if (newTarget) {
-              // *** FIX 5: Use scrollElementIntoMainContent ***
-              (scrollElementIntoMainContent as any)(newTarget, instance.container, 50); // Pass instance.container
+              // Same 2-arg signature as above — the 3-arg form made headerOffset NaN.
+              scrollElementIntoMainContent(newTarget, 50);
             }
           }, 100);
         }
@@ -823,6 +827,37 @@ export function createLazyLoader(config: any) {
       }
     }, 5000); // 5 second max
 
+    // The intra-node pixel the reader is actually at (scroll mode only) —
+    // captured from the LIVE anchor below; replayed at landing, but ONLY when
+    // the landing element IS the anchor node (anchorElementId match). A deep
+    // link (hypercite/footnote target passed by the caller) must land in the
+    // header band, not at the previous reading line's offset — which is
+    // routinely NEGATIVE (the straddling-node branch of forceSavePosition
+    // prefers a node whose top is above the fold) and would pin the deep-link
+    // target off-screen above the scroller with the correction belt holding
+    // it there.
+    let anchorOffsetPx: number | null = null;
+    let anchorElementId: string | null = null;
+
+    // Capture the live anchor BEFORE teardown. When the caller's target is the
+    // anchor node itself (the timestamp-refresh preserveTarget path), the
+    // offset makes the landing hit the exact line, not the node top — without
+    // it headerOffset defaults to 50 and the correction belt re-anchors to
+    // elementOffset-50, hundreds of px short when unsized images sit above.
+    if (!instance.pagingMode && instance.container?.querySelector('.chunk > [id]')) {
+      try {
+        forceSavePosition(true);
+        const live = (instance as any)._scrollAnchor;
+        if (live?.element && /^\d+(\.\d+)?$/.test(live.element.id)) {
+          if (!targetElementId) targetElementId = live.element.id;
+          if (targetElementId === live.element.id) {
+            anchorElementId = live.element.id;
+            anchorOffsetPx = Math.round(live.offsetFromContainer ?? 0);
+          }
+        }
+      } catch { /* anchor unavailable */ }
+    }
+
     try {
       // Preserve current scroll position if no target specified
       if (!targetElementId) {
@@ -839,18 +874,39 @@ export function createLazyLoader(config: any) {
         else if (instance.isNavigatingToInternalId && instance.pendingNavigationTarget) {
           targetElementId = instance.pendingNavigationTarget;
         } else {
-          // Priority 2: Fall back to saved scroll position
-          const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
-          const storedData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-          if (storedData) {
-            try {
-              const scrollData = JSON.parse(storedData);
-              targetElementId = scrollData.elementId;
-            } catch (e) { /* ignore parse errors */ }
+          // Priority 2: the LIVE anchor. The timestamp-check refresh (the only
+          // caller that hits this branch) fires SECONDS after the page visibly
+          // settled; the reader may have moved since the last throttle-tick
+          // save, and the stored elementId resolves through node identity
+          // anyway. forceSavePosition(true) refreshes instance._scrollAnchor
+          // and persists the honest current spot. Previously this read the
+          // STORED position only, and when that resolve missed (e.g. just-
+          // cleared session value after a completed nav) teardown landed the
+          // reader at the top of the book — the "fine, then shakes, then it
+          // was at the top" storm.
+          if (!instance.pagingMode && instance.container?.querySelector('.chunk > [id]')) {
+            forceSavePosition(true);
+            const live = (instance as any)._scrollAnchor;
+            if (live?.element && /^\d+(\.\d+)?$/.test(live.element.id)) {
+              targetElementId = live.element.id;
+              anchorElementId = live.element.id;
+              anchorOffsetPx = Math.round(live.offsetFromContainer ?? 0);
+            }
+          }
+          if (!targetElementId) {
+            // Priority 3: Fall back to saved scroll position (no rendered chunks)
+            const storageKey = getLocalStorageKey("scrollPosition", instance.bookId);
+            const storedData = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+            if (storedData) {
+              try {
+                const scrollData = JSON.parse(storedData);
+                targetElementId = scrollData.elementId;
+              } catch (e) { /* ignore parse errors */ }
+            }
           }
         }
 
-        // Priority 3: Use URL hash as fallback (e.g., #hypercite_pa7ymke)
+        // Priority 4: Use URL hash as fallback (e.g., #hypercite_pa7ymke)
         // This handles cases where navigation just completed but scroll cache was cleared
         if (!targetElementId && window.location.hash) {
           const hashTarget = window.location.hash.substring(1);
@@ -998,19 +1054,36 @@ export function createLazyLoader(config: any) {
         }
 
         if (elementToFocus) {
-          // Scroll the element into view first
-          (scrollElementIntoMainContent as any)(elementToFocus, instance.container, 50);
+          // Scroll the element into view — with the captured live-anchor pixel as the
+          // headerOffset so scrollHelpers' correction belt keeps correcting TO the
+          // reader's exact intra-node line as images settle (instead of snapping the
+          // node top into the header band). The offset applies ONLY when the landing
+          // element IS the anchor node — a deep-link target or the not-found fallback
+          // (first p/h1/… in the container) must seat in the header band instead.
+          // scrollElementIntoMainContent is a TWO-arg function (targetElement,
+          // headerOffset) — this caller used to pass instance.container as arg 2,
+          // making headerOffset an Element, the offset math NaN, and
+          // scrollTo({top: NaN}) land the reader at scrollTop 0: the refresh storm's
+          // "fine for a second, then it was at the top of the book".
+          const headerOffset =
+            anchorOffsetPx != null && !instance.pagingMode && elementToFocus.id === anchorElementId
+              ? anchorOffsetPx
+              : 50;
+          scrollElementIntoMainContent(elementToFocus, headerOffset);
 
-          // Then set focus for contenteditable
-          elementToFocus.focus();
+          // Caret placement is an EDITING behavior — a read-mode refresh must
+          // never steal focus or drop a caret mid-book.
+          if ((window as any).isEditing === true) {
+            elementToFocus.focus();
 
-          // Place the cursor at the end of the element
-          const selection = window.getSelection()!;
-          const range = document.createRange();
-          range.selectNodeContents(elementToFocus);
-          range.collapse(false); // false means collapse to the end
-          selection.removeAllRanges();
-          selection.addRange(range);
+            // Place the cursor at the end of the element
+            const selection = window.getSelection()!;
+            const range = document.createRange();
+            range.selectNodeContents(elementToFocus);
+            range.collapse(false); // false means collapse to the end
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
         }
 
         // 🔓 Unlock scroll after refresh scroll completes, then force save correct position

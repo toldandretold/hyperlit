@@ -89,6 +89,23 @@ export function scrollElementWithConsistentMethod(targetElement: any, scrollable
     behavior: "instant"
   });
 
+  // The landing's authority ends the moment the user GESTURES after it: the
+  // corrections below exist to hold the LANDING position through image-decode
+  // layout shifts, and once a gesture has moved the reader, re-asserting the
+  // stale target yanks them back across the page. shouldSkipScrollRestoration
+  // alone can't catch this — it is a "scrolled within the last 2s" check, and
+  // a held image that settles 2.5s after the reader's last gesture sails right
+  // through it (the prepend-forensics t≈10s scroll-correction yank). So stamp
+  // the GESTURE clock (wheel/touchmove/scroll-keys — lastGestureScrollTime) at
+  // landing time; any advance = the user took over = cancel every remaining
+  // correction permanently. Deliberately NOT lastUserScrollTime: bare `scroll`
+  // echoes from chunk machinery outside nav windows advance that one, and
+  // keying on it cancelled corrections that were still needed on slow networks
+  // (the Slow-3G reload spec landed at scrollTop 0 with the marker 9000px
+  // adrift). A gesture is the only signal that means "the reader moved on".
+  const landingGestureStamp = userScrollState.lastGestureScrollTime;
+  const userTookOver = () => userScrollState.lastGestureScrollTime > landingGestureStamp;
+
   // --- Image-aware scroll correction ---
   // Collect images inside the container that are above the target element and still loading
   const allImages = scrollableContainer.querySelectorAll("img");
@@ -104,7 +121,7 @@ export function scrollElementWithConsistentMethod(targetElement: any, scrollable
 
   // Always fire a 100ms correction for non-image layout shifts (fonts, etc.)
   setTimeout(() => {
-    if (shouldSkipScrollRestoration("scroll correction")) return;
+    if (userTookOver() || shouldSkipScrollRestoration("scroll correction")) return;
     userScrollState.isNavigating = true;
     correctScrollPosition(targetElement, scrollableContainer, headerOffset);
   }, 100);
@@ -118,13 +135,25 @@ export function scrollElementWithConsistentMethod(targetElement: any, scrollable
     let releaseTimer: ReturnType<typeof setTimeout> | null = null;
     const cleanupFns: Array<() => void> = [];
 
+    // The user moved on — this landing is obsolete: drop every remaining
+    // image listener and release the nav flag now (image-settle drift from
+    // here is the fold-clamp belt's job, which yields to gestures correctly).
+    const cancelCorrections = () => {
+      cleanupFns.forEach(fn => fn());
+      cleanupFns.length = 0;
+      if (releaseTimer) clearTimeout(releaseTimer);
+      userScrollState.isNavigating = false;
+    };
+
     const onImageSettled = () => {
       remaining--;
+      if (userTookOver()) { cancelCorrections(); return; }
       if (shouldSkipScrollRestoration("image load correction")) return;
 
       // Re-assert navigating so the correction scroll isn't treated as user scroll
       userScrollState.isNavigating = true;
       requestAnimationFrame(() => {
+        if (userTookOver()) { cancelCorrections(); return; }
         correctScrollPosition(targetElement, scrollableContainer, headerOffset);
       });
 

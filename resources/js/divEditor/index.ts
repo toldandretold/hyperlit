@@ -363,8 +363,12 @@ export async function startObserving(editableDiv: HTMLElement, bookId: BookId | 
     // Removes 70-90% of unnecessary attribute mutation events
     attributes: true,
     attributeFilter: ['style'], // Only observe style changes (for SPAN tag cleanup)
-    // 🚀 PERFORMANCE: characterData removed - text changes handled via input event instead
-    // This reduces mutation events by ~80% during typing
+    // ⚠️ characterData MUST stay enabled: it is the only channel that catches text mutations
+    // with no accompanying `input` event (Safari autocorrect, spelling-panel replacements).
+    // Removed once (72a0adb3, Dec 2025, "input event instead") — affected nodes silently
+    // diverged from IndexedDB until the integrity monitor self-healed them. Dedupe of the
+    // restored churn lives in chunkMutationHandler's characterData branch (queuedCharDataParents).
+    characterData: true,
     // Removed attributeOldValue and characterDataOldValue for better performance (not used)
   });
 

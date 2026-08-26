@@ -90,6 +90,16 @@ Route::prefix('maintainer')->group(function () {
         ->where('slug', '[a-z0-9-]+')
         ->name('maintainer.journal-import.show');
 
+    // Shelf-import console: journal-import's assessment workflow over any
+    // PUBLIC shelf — above all the "Cited by:" shelves the hypercite console's
+    // bulk import fills. `{id}` is a shelf uuid; a journal slug redirects to
+    // that journal's "Cited by:" shelf when one exists.
+    Route::get('/shelf-import', [App\Http\Controllers\Maintainer\ShelfImportController::class, 'index'])
+        ->name('maintainer.shelf-import');
+    Route::get('/shelf-import/{id}', [App\Http\Controllers\Maintainer\ShelfImportController::class, 'show'])
+        ->where('id', '[a-z0-9-]+')
+        ->name('maintainer.shelf-import.show');
+
     // Citation-graph review console: a scope's (journal OR public shelf)
     // detected hypercite candidates, citing and cited books side by side;
     // approve mints the hypercite. The shelf route registers FIRST — "shelf"

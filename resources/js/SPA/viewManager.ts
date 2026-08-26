@@ -51,6 +51,8 @@ import {
   pendingFirstChunkLoadedPromise,
   resolveFirstChunkPromise
 } from "../pageLoad/firstChunkPromise";
+// Zero-import leaf — flag-gated boot forensics (see scrolling/scrollTrace).
+import { recordNavDecision } from "../scrolling/scrollTrace";
 import { resetCurrentLazyLoader } from "../pageLoad/lazyLoaderRegistry";
 import { closeHyperlitContainer } from '../hyperlitContainer/index';
 
@@ -317,6 +319,20 @@ export async function universalPageInitializer(progressCallback = null) {
     loadPromise = loadHyperText(currentBookId, progressCallback);
   }
 
+  // Position the reader as soon as the FIRST CHUNK is in the DOM — not after
+  // the whole loadHyperText pipeline. On a slow network the pipeline keeps
+  // fetching (annotations, remaining chunks, footnotes) for seconds after the
+  // boot overlay hides, and gating the restore on it left the reader staring
+  // at the TOP of the book with a rendered target chunk and no positioning
+  // (the Slow-3G reload forensics: overlay gone at 2.4s, zero scroll writes,
+  // marker 9000px below the fold). loadHyperText resets the first-chunk
+  // promise synchronously at entry, so the live binding here is this boot's.
+  // Fallback to loadPromise covers the no-op branch above.
+  recordNavDecision({ phase: 'restore-scheduled', viaFirstChunk: !!pendingFirstChunkLoadedPromise });
+  void (pendingFirstChunkLoadedPromise ?? loadPromise)
+    .then(() => restoreScrollPosition())
+    .catch(() => { /* load failure surfaces through loadPromise below */ });
+
   // Wait for DOM to be properly stable before initializing UI components
   const { waitForLayoutStabilization } = await import('./domReadiness');
 
@@ -418,7 +434,9 @@ export async function universalPageInitializer(progressCallback = null) {
   window.addEventListener("beforeunload", () => {
     if (activeKeyboardManager) activeKeyboardManager.destroy();
   });
-  restoreScrollPosition();
+  // restoreScrollPosition is scheduled on the first-chunk promise above (the
+  // slow-network fix) — a second call here would re-navigate to the saved
+  // position after the reader may have already moved.
   import('../hyperlights/index').then(({ attachMarkListeners }) => attachMarkListeners());
 
   // ✅ Attach hypercite click listeners after content loads

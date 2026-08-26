@@ -3,9 +3,10 @@
 namespace App\Jobs;
 
 use App\Models\CanonicalSource;
-use App\Models\JournalSource;
 use App\Models\User;
 use App\Services\CanonicalVersions\AutoVersionCreator;
+use App\Services\Hypercites\CitedWorksQuery;
+use App\Services\SourceHarvest\HarvestShelf;
 use App\Services\SourceHarvest\WorkOcrCharger;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,6 +22,10 @@ use Illuminate\Support\Facades\Log;
  * acquisition ladder applies (AutoVersionCreator → ContentFetchService →
  * OCR/JATS/HTML), and OCR is charged to the admin who pressed the button —
  * per successful NEW import only, exactly as journal-import bills its runs.
+ *
+ * A landed book (new OR already minted) is also collected onto the scope's
+ * public "Cited by: <label>" shelf — the same shelf ImportCitedBulkJob fills —
+ * so single imports show up in /maintainer/shelf-import alongside bulk ones.
  */
 class ImportCitedSourceJob implements ShouldQueue
 {
@@ -34,7 +39,7 @@ class ImportCitedSourceJob implements ShouldQueue
         $this->onQueue('citation-pipeline');
     }
 
-    public function handle(AutoVersionCreator $creator, WorkOcrCharger $charger): void
+    public function handle(AutoVersionCreator $creator, WorkOcrCharger $charger, HarvestShelf $shelves): void
     {
         $db = DB::connection('pgsql_admin');
         $run = $db->table('hypercite_runs')->where('id', $this->runId)->first();
@@ -52,15 +57,21 @@ class ImportCitedSourceJob implements ShouldQueue
                 throw new \RuntimeException('canonical row not found');
             }
 
+            $scope = CitedWorksQuery::scopeFromRun($run);
+
             $result = $creator->create($canonical, false);
             $status = $result['status'] ?? 'error';
 
             if ($status === 'assigned' && $run->user_id) {
                 $user = User::on('pgsql_admin')->find($run->user_id);
-                $journal = JournalSource::find($run->journal_source_id);
                 if ($user && ! empty($result['book'])) {
-                    $charger->charge($user, $result['book'], "Cited-source import OCR ({$journal?->slug}): {$result['book']}");
+                    $charger->charge($user, $result['book'], 'Cited-source import OCR (' . ($scope['label'] ?? '?') . "): {$result['book']}");
                 }
+            }
+
+            if ($scope && in_array($status, ['assigned', 'assigned_existing'], true) && ! empty($result['book'])) {
+                $shelf = $shelves->ensureCitedShelfFor($scope['label']);
+                $shelves->addBooks($shelf->id, [$result['book']]);
             }
 
             $this->mark([

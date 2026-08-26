@@ -536,11 +536,89 @@ function initDetail(boot: ConsoleBoot): void {
       internal.textContent = '';
       for (const r of data.external) external.appendChild(buildMostCitedRow(r));
       for (const r of data.internal) internal.appendChild(buildMostCitedRow(r));
+      const importable = data.external.filter((r) => r.importable).length;
+      const bulkBtn = el<HTMLButtonElement>('hx-import-all');
+      if (bulkBtn) {
+        bulkBtn.textContent = `⇩ import all OA (${importable})`;
+        bulkBtn.disabled = importable === 0;
+      }
+      if (data.cited_shelf) showAssessLink(data.cited_shelf.id);
       mostCitedLoaded = true;
     } catch (err) {
       log.error('hypercites: most-cited load failed', 'maintainer', err);
       if (count) count.textContent = 'failed to load';
     }
+  }
+
+  function showAssessLink(shelfId: string): void {
+    const link = el<HTMLAnchorElement>('hx-assess-link');
+    if (!link) return;
+    link.href = `/maintainer/shelf-import/${encodeURIComponent(shelfId)}`;
+    link.hidden = false;
+  }
+
+  /* ── Bulk import: the whole importable-external list in one press,
+        collected onto the scope's "Cited by:" shelf for assessment. ── */
+
+  el<HTMLButtonElement>('hx-import-all')?.addEventListener('click', async () => {
+    const btn = el<HTMLButtonElement>('hx-import-all');
+    const status = el<HTMLSpanElement>('hx-mc-status');
+    const limit = Number(el<HTMLSelectElement>('hx-bulk-limit')?.value ?? '5');
+    if (
+      (limit === 0 || limit > 25)
+      && !window.confirm(
+        `Import ${limit === 0 ? 'ALL listed' : `up to ${limit}`} cited OA works? `
+          + 'PDF fetch + OCR is charged to you. Covers the top-150 most-cited list.',
+      )
+    ) {
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'starting…';
+    try {
+      const { data } = await api.importCitedBulk(state.base, limit);
+      if (!data.run_id) {
+        if (status) status.textContent = data.message ?? 'refused';
+        if (btn) btn.disabled = false;
+        return;
+      }
+      if (data.already_running && status) status.textContent = 'an import is already running — joining it';
+      pollBulk(data.run_id);
+    } catch (err) {
+      log.error('hypercites: bulk import failed to start', 'maintainer', err);
+      if (status) status.textContent = 'failed to start — see console';
+      if (btn) btn.disabled = false;
+    }
+  });
+
+  function pollBulk(runId: string): void {
+    const status = el<HTMLSpanElement>('hx-mc-status');
+    const tick = async (): Promise<void> => {
+      try {
+        const run = await api.runStatus(runId);
+        const shelf = (run.counts as { shelf?: { id?: string } }).shelf;
+        if (shelf?.id) showAssessLink(shelf.id);
+        if (run.status === 'completed') {
+          if (status) status.textContent = `✓ ${run.step_detail ?? 'done'}`;
+          el<HTMLButtonElement>('hx-import-all')?.removeAttribute('disabled');
+          mostCitedLoaded = false;
+          void loadMostCited();
+          return;
+        }
+        if (run.status === 'failed') {
+          if (status) status.textContent = `✗ ${run.error ?? 'failed'}`;
+          el<HTMLButtonElement>('hx-import-all')?.removeAttribute('disabled');
+          return;
+        }
+        if (status) status.textContent = run.step_detail ?? run.status;
+        window.setTimeout(tick, 2500);
+      } catch (err) {
+        log.error('hypercites: bulk import poll failed', 'maintainer', err);
+        if (status) status.textContent = 'poll failed — refresh to check';
+        el<HTMLButtonElement>('hx-import-all')?.removeAttribute('disabled');
+      }
+    };
+    void tick();
   }
 
   function buildMostCitedRow(r: MostCitedRow): HTMLElement {

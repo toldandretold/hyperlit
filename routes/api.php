@@ -616,6 +616,15 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/maintainer/journal-import/promote/{book}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'promote'])
         ->where('book', '[A-Za-z0-9_-]+');
 
+    // Shelf-import console: journal-import's assessment workflow over any public shelf.
+    // Only `shelves` (picker), `articles` and `run` are shelf-scoped — promote / resolve /
+    // runStatus are book- or run-keyed, so the page keeps calling the journal-import routes.
+    Route::get('/maintainer/shelf-import/shelves', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'shelves']);
+    Route::get('/maintainer/shelf-import/{id}/articles', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'articles'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/shelf-import/{id}/run', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'run'])
+        ->where('id', '[0-9a-f-]{36}');
+
     // Hypercite console. `journals` is the picker (journal registry + public shelves);
     // `candidates` is one scope's detected hypercite candidates (flat — the page groups by
     // citing book); `detect` walks the scope's citation graph on the queue; approve/reject act
@@ -642,6 +651,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/hypercites/shelf/{id}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfImportSource'])
         ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/shelf/{id}/import-cited-bulk', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfImportCitedBulk'])
+        ->where('id', '[0-9a-f-]{36}');
     Route::get('/maintainer/hypercites/{slug}/candidates', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'candidates'])
         ->where('slug', '[a-z0-9-]+');
     Route::post('/maintainer/hypercites/{slug}/detect', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'detect'])
@@ -651,6 +662,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/hypercites/{slug}/most-cited', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'mostCited'])
         ->where('slug', '[a-z0-9-]+');
     Route::post('/maintainer/hypercites/{slug}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importSource'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/hypercites/{slug}/import-cited-bulk', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importCitedBulk'])
         ->where('slug', '[a-z0-9-]+');
 });
 

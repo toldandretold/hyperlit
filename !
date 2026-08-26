@@ -1,0 +1,3 @@
+Stopping `dnsmasq`... (might take a while)
+==> Successfully stopped `dnsmasq` (label: homebrew.mxcl.dnsmasq)
+==> Successfully started `dnsmasq` (label: homebrew.mxcl.dnsmasq)

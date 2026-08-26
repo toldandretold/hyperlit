@@ -59,6 +59,17 @@ body[data-page="timemachine"] #app-container {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  /* Disable the browser's native scroll anchoring on these content scrollers:
+     compensation for above-viewport growth (unsized images decoding) is owned
+     by the settle belt in lazyLoader/imageState.ts — one compensator only, and
+     it's the instrumented one. Native anchoring does the same job opaquely: its
+     scrollTop adjustment never passes through the wrapped setter (invisible to
+     the scrollTrace forensics, e.g. the +5927px content slide in the prepend
+     forensics run) AND it fires scroll events that get classified as USER
+     scrolls, which suppresses the belt for the whole storm window (the
+     circular-poisoning bug: browser anchors → scroll event → isScrolling=true
+     → belt 'skip-user-scrolling' ×N). */
+  overflow-anchor: none;
   box-sizing: border-box;
   position: relative; /* Needed for the scroll mask */
   /* Header offset for fragment navigation. Native #fragment scroll AND the

@@ -1,8 +1,10 @@
 // Extracted from divEditor/index.ts's startObserving — the text-input pipeline. Typing is
-// handled via a debounced `input` handler (not the characterData observer) to cut mutation
-// churn ~80%. An eager wrapper captures the node id BEFORE the 200ms debounce fires (the
-// selection may move away — e.g. an overlay click — within the window), and mobile IME
-// composition is paused/resumed around compositionstart/end.
+// handled via a debounced `input` handler, ALWAYS paired with the characterData observer
+// (see observer config in divEditor/index.ts — removing either half silently drops DOM text
+// mutations; `textInput` is listened to below for Safari autocorrect). An eager wrapper
+// captures the node id BEFORE the 200ms debounce fires (the selection may move away — e.g.
+// an overlay click — within the window), and mobile IME composition is paused/resumed
+// around compositionstart/end.
 //
 // The cohesive state (isComposing / lastInputNodeId / the parent-lookup cache / the debounce
 // handle) now lives in this factory's closure instead of floating at module scope. destroy()
@@ -143,7 +145,14 @@ export function createInputHandler({ editableDiv, getSaveQueue }: InputHandlerOp
     debouncedInputHandler(e);
   };
 
+  // 🛡️ Safari autocorrect / spelling-panel replacements mutate text via the legacy
+  // `textInput` event instead of `input` — with only an `input` listener the DOM change
+  // never reaches a queued save (silent DOM/IndexedDB divergence, healed 30s later by the
+  // integrity monitor). Route into the same debounced path. `input` alone keeps the eager
+  // wrapper (selection may move within the debounce window); autocorrect leaves the caret
+  // in the replaced word, so the debounced handler's live-selection lookup is correct here.
   editableDiv.addEventListener('input', onInput);
+  editableDiv.addEventListener('textInput', debouncedInputHandler);
   editableDiv.addEventListener('compositionstart', onCompositionStart);
   editableDiv.addEventListener('compositionend', onCompositionEnd);
 
@@ -154,6 +163,7 @@ export function createInputHandler({ editableDiv, getSaveQueue }: InputHandlerOp
     destroy() {
       debouncedInputHandler.flush();
       editableDiv.removeEventListener('input', onInput);
+      editableDiv.removeEventListener('textInput', debouncedInputHandler);
       editableDiv.removeEventListener('compositionstart', onCompositionStart);
       editableDiv.removeEventListener('compositionend', onCompositionEnd);
     },

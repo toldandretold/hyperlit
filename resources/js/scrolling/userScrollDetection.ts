@@ -7,8 +7,27 @@ import { verbose } from '../utilities/logger';
 import { userScrollState, navTimers } from './navState';
 
 function detectUserScrollStart(event?: any): void {
-  // Don't treat navigation scrolls as user scrolls
-  if (userScrollState.isNavigating) {
+  // Don't treat navigation scrolls as user scrolls. Narrow swallow: ONLY bare
+  // `scroll` events — that is all a programmatic landing write (scrollTo /
+  // scrollTop set) echoes back. Real intent gestures (wheel / touchmove /
+  // scroll keys) MUST keep registering while isNavigating: the per-image
+  // correction belt in scrollHelpers holds the nav window open for up to 8s
+  // after a landing, and swallowing gestures for that whole stretch made the
+  // app deaf to the user — late corrections kept re-asserting the stale
+  // landing target against the reader's finger (the "if I scroll while it's
+  // settling, the whole page fights me" storm; the belt's userTookOver stamp
+  // depends on these gestures being recorded). A no-event call is the keydown
+  // path — a real gesture, never swallowed.
+  if (userScrollState.isNavigating && event?.type === 'scroll') {
+    return;
+  }
+
+  // Don't treat the image-settle compensation belt's own scrollTop writes as
+  // user scrolls — their bare `scroll` echo would otherwise set isScrolling
+  // and self-cancel the belt. Narrow swallow: ONLY bare `scroll` events (and
+  // ONLY while the write is bracketed) — wheel/touchmove below still register
+  // as real gestures so a user flick during a decode burst wins immediately.
+  if (userScrollState.isCompensating && event?.type === 'scroll') {
     return;
   }
 
@@ -42,12 +61,15 @@ function detectUserScrollStart(event?: any): void {
   userScrollState.isScrolling = true;
   userScrollState.lastUserScrollTime = Date.now();
 
-  // Intent gestures only (wheel / touchmove-past-threshold): the link-click
-  // block keys off THESE, not bare `scroll` events — the browser scrolling a
-  // clicked link into view fires `scroll` right before the click lands, and
-  // blocking on that made deliberate clicks silently dead. (touchstart
-  // returned above; a `scroll` event has no gesture semantics.)
-  if (event && (event.type === 'wheel' || event.type === 'touchmove')) {
+  // Intent gestures only (wheel / touchmove-past-threshold / scroll keys — a
+  // no-event call is the keydown path): the link-click block and the landing
+  // belts' userTookOver stamp key off THESE, not bare `scroll` events — the
+  // browser scrolling a clicked link into view fires `scroll` right before the
+  // click lands, and blocking on that made deliberate clicks silently dead;
+  // likewise chunk-machinery scroll echoes must never read as "the reader
+  // moved on". (touchstart returned above; a `scroll` event has no gesture
+  // semantics.)
+  if (!event || event.type === 'wheel' || event.type === 'touchmove') {
     userScrollState.lastGestureScrollTime = Date.now();
   }
 
@@ -115,6 +137,7 @@ export function resetUserScrollState(): void {
   userScrollState.isScrolling = false;
   userScrollState.lastUserScrollTime = 0;
   userScrollState.isNavigating = false;
+  userScrollState.isCompensating = false;
   if (userScrollState.scrollTimeout) {
     clearTimeout(userScrollState.scrollTimeout);
     userScrollState.scrollTimeout = null;

@@ -18,6 +18,11 @@ import { showNavigationLoading } from './navOverlay';
 import { navigateToInternalId } from './internalNav';
 import { getSavedAnchor } from './readingAnchor';
 import { getNavigatedAt } from './navStamp';
+import { syncEngagement, isPaginatorEngaged } from './paginator';
+// Zero-import leaf — flag-gated forensics (see scrollTrace). Every early
+// return below records WHY, so a "restore never positioned the reader" dump
+// (the Slow-3G reload storm) names its own cause instead of showing silence.
+import { recordNavDecision } from './scrollTrace';
 // Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle —
 // the leaf imports nothing). This is the real fix; no dynamic-import cycle-breaker needed.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
@@ -32,6 +37,7 @@ export async function restoreScrollPosition(): Promise<void> {
 
   // 🔍 DIAGNOSTIC: Entry point logging
   verbose.nav('restoreScrollPosition() ENTRY', 'scrolling/restore');
+  recordNavDecision({ phase: 'restore-entry' });
   verbose.nav(`URL = ${window.location.href}`, 'scrolling/restore');
   verbose.nav(`URL hash = ${window.location.hash}`, 'scrolling/restore');
 
@@ -57,11 +63,13 @@ export async function restoreScrollPosition(): Promise<void> {
   const hasChunksInDom = wrapper && wrapper.querySelectorAll('[data-chunk-id]').length > 0;
   if (hasChunksInDom && wrapper.scrollHeight <= wrapper.clientHeight && !window.location.hash) {
     verbose.nav('EARLY EXIT - content doesnt overflow and no hash target', 'scrolling/restore');
+    recordNavDecision({ phase: 'restore-bail', reason: 'no-overflow' });
     return;
   }
 
   // Check if user is currently scrolling
   if (shouldSkipScrollRestoration("restoreScrollPosition")) {
+    recordNavDecision({ phase: 'restore-bail', reason: 'user-scrolling' });
     return;
   }
 
@@ -93,13 +101,33 @@ export async function restoreScrollPosition(): Promise<void> {
     // (reset → re-init). There is nothing to restore yet and the transition drives navigation
     // itself, so yield quietly rather than logging an error.
     verbose.nav('restoreScrollPosition: no lazy loader yet — skipping (transition in flight?)', 'scrolling/restore');
+    recordNavDecision({ phase: 'restore-bail', reason: 'no-lazy-loader' });
     return;
   }
 
   // 🚀 FIX: Skip if we're already navigating to a target
   // This prevents race conditions with BookToBookTransition and other navigation pathways
   if (currentLazyLoader.isNavigatingToInternalId) {
+    recordNavDecision({ phase: 'restore-bail', reason: 'already-navigating' });
     return;
+  }
+
+  // Settle the layout MODE before positioning. Pages-mode engagement and this
+  // restore both chain off the first-chunk promise with no ordering guarantee
+  // (pageNav registers its .then during component init, restore's is registered
+  // at viewManager schedule time) — and when restore wins, the landing below
+  // runs in SCROLL mode (vertical scrollTo), then enterPaginatedMode arrives a
+  // beat later, resets to page 0 and clears the nav anchor: the cold paginated
+  // deep link lands ~15 pages short (paginated-reading e2e, frag [8280,..]
+  // wrap [382,..]). syncEngagement is synchronous and idempotent — engaged
+  // already / scroll mode / non-reader page are all no-ops — so restore, the
+  // one boot-positioning authority, asserts the mode itself before it places.
+  // Gated on !engaged so this can only ever ENGAGE — syncEngagement's exit
+  // branch (edit-suspension, scroll mode) stays pageNav's call to make.
+  // deferToRestore: engagement must sit on page 0 unsaved and let the
+  // navigation below position (see enterPaginatedMode).
+  if (!isPaginatorEngaged()) {
+    syncEngagement({ deferToRestore: true });
   }
 
   // 🚀 FIX: Check if we're on a hyperlight URL path (like /book/HL_xxxxx)
@@ -227,6 +255,7 @@ export async function restoreScrollPosition(): Promise<void> {
   if (!targetId) {
     // 🔍 DIAGNOSTIC: This is the problematic path
     verbose.nav('NO targetId - entering chunk 0 loading path', 'scrolling/restore');
+    recordNavDecision({ phase: 'restore-bail', reason: 'no-target-chunk0-path' });
     verbose.nav('WHY? Check if storage data was null/empty above', 'scrolling/restore');
 
     // Load first chunk when no saved position
@@ -322,5 +351,6 @@ export async function restoreScrollPosition(): Promise<void> {
   // Navigate to the target position. For a saved-position resume, savedOffset replays the exact
   // sub-node scroll offset (so refresh lands where the reader was); for a hash target it is null and
   // navigateToInternalId falls back to the 192px header offset.
+  recordNavDecision({ phase: 'restore-nav', targetId, savedOffset });
   navigateToInternalId(targetId, currentLazyLoader, !overlayShown, savedOffset);
 }

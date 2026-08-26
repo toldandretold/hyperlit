@@ -183,6 +183,23 @@ describe('processChunkMutations — high-traffic paths', () => {
     expect(handler.modifiedNodes.has('1')).toBe(true);
   });
 
+  it('characterData with no numeric-id ancestor queues nothing', async () => {
+    const chunk = makeChunk('<em>floating inline</em>');
+    const text = chunk.querySelector('em').firstChild;
+    await handler.processChunkMutations(chunk, [{ type: 'characterData', target: text, addedNodes: [], removedNodes: [] }], 'bookA');
+    expect(queueNodeForSave).not.toHaveBeenCalled();
+  });
+
+  it('characterData dedupes to one queue call per node per batch (autocorrect burst)', async () => {
+    const chunk = makeChunk('<p id="1">origianl</p><p id="2">second</p>');
+    const [t1, t2] = [chunk.querySelectorAll('p')[0].firstChild, chunk.querySelectorAll('p')[1].firstChild];
+    const cd = (target) => ({ type: 'characterData', target, addedNodes: [], removedNodes: [] });
+    await handler.processChunkMutations(chunk, [cd(t1), cd(t1), cd(t1), cd(t2), cd(t2)], 'bookA');
+    expect(queueNodeForSave).toHaveBeenCalledTimes(2);
+    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('2', 'update');
+  });
+
   it('added element node gets an id and is queued for add', async () => {
     const chunk = makeChunk('');
     const newP = document.createElement('p'); newP.textContent = 'new';
@@ -215,6 +232,37 @@ describe('processChunkMutations — high-traffic paths', () => {
 // after handleChunkOverflow's finally has torn down movedNodesByOverflow / the overflow flag
 // — so a move could be misread as a user delete (spurious server delete → integrity
 // self-heal round-trip). A moved node is still .isConnected; a deleted one is detached.
+// characterData mutations carry a TEXT target, and Text nodes have no .closest() —
+// processByChunk resolves the sub-book container off the target, so it must normalize
+// to the parent Element first (resolving the containing chunk already does). Without
+// that normalization the first autocorrect would TypeError and drop the whole RAF batch.
+describe('processByChunk — Text-target mutations (characterData)', () => {
+  const charData = (target) => ({ type: 'characterData', target, addedNodes: [], removedNodes: [] });
+
+  it('main-book: text-target characterData reaches the queue via the text→element normalization', async () => {
+    const chunk = makeChunk('<p id="3">hello</p>');
+    await handler.processByChunk([charData(chunk.querySelector('p').firstChild)]);
+    expect(queueNodeForSave).toHaveBeenCalledWith('3', 'update');
+  });
+
+  it('sub-book: text-target characterData resolves the sub-book container (no crash on .closest)', async () => {
+    const sub = document.createElement('div');
+    sub.className = 'sub-book-content';
+    sub.dataset.bookId = 'book_sub';
+    const chunk = document.createElement('div');
+    chunk.className = 'chunk';
+    chunk.setAttribute('data-chunk-id', '0');
+    chunk.innerHTML = '<p id="7">sub text</p>';
+    sub.appendChild(chunk);
+    document.body.appendChild(sub);
+
+    await handler.processByChunk([charData(chunk.querySelector('p').firstChild)]);
+    expect(queueNodeForSave).toHaveBeenCalledWith('7', 'update');
+
+    sub.remove();
+  });
+});
+
 describe('processChunkMutations — move vs delete (isConnected guard)', () => {
   it('does NOT queue a deletion for a removed node that is still connected (moved)', async () => {
     const chunk = makeChunk('');

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const state = vi.hoisted(() => ({ paste: false }));
+const state = vi.hoisted(() => ({ paste: false, chunkLoading: false }));
 vi.mock('../../../resources/js/utilities/operationState', () => ({
   isPasteInProgress: () => state.paste,
   isProgrammaticUpdateInProgress: () => false,
@@ -12,13 +12,13 @@ vi.mock('../../../resources/js/utilities/operationState', () => ({
   keyboardLayoutInProgress: false,
 }));
 vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({
-  isChunkLoadingInProgress: () => false, getLoadingChunkId: () => null,
+  isChunkLoadingInProgress: () => state.chunkLoading, getLoadingChunkId: () => null,
 }));
 vi.mock('../../../resources/js/editToolbar', () => ({ getEditToolbar: () => null }));
 
 import { MutationProcessor } from '../../../resources/js/divEditor/mutationProcessor.js';
 
-beforeEach(() => { state.paste = false; });
+beforeEach(() => { state.paste = false; state.chunkLoading = false; });
 
 describe('MutationProcessor', () => {
   it('batches enqueued mutations and runs processMutations with the filtered set', async () => {
@@ -52,6 +52,17 @@ describe('MutationProcessor', () => {
     const mp2 = new MutationProcessor({ processMutations, shouldSkipMutation: () => true });
     mp2.enqueue(['x']);
     await mp2.process();
+    expect(processMutations).not.toHaveBeenCalled();
+  });
+
+  it('drops characterData batches while a chunk render is in progress (render never becomes a save)', async () => {
+    // With characterData re-enabled on the observer, the lazy loader's own DOM writes
+    // would produce charData records. The chunk-loading guard must still drop them.
+    const processMutations = vi.fn();
+    state.chunkLoading = true;
+    const mp = new MutationProcessor({ processMutations });
+    mp.enqueue([{ type: 'characterData', target: {} }]);
+    await mp.process();
     expect(processMutations).not.toHaveBeenCalled();
   });
 

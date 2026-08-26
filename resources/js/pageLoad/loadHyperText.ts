@@ -28,6 +28,8 @@ import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedRe
 import { setupOnlineSyncListener } from './onlineRetry';
 import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 import { isReconvertHandoff } from '../utilities/reconvertHandoff';
+// Zero-import leaf — flag-gated forensics (see scrolling/scrollTrace).
+import { recordNavDecision } from '../scrolling/scrollTrace';
 
 export async function loadFromJSONFiles(bookId: BookId) {
   try {
@@ -517,11 +519,30 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     if (serverTimestamp > localTimestamp) {
       verbose.content(`🔥 Book content changed for ${bookId}. Surgical refresh for current target...`, '/pageLoad/loadHyperText.ts');
 
+      // Preserve target priority: explicit nav target (deep link in flight) > LIVE anchor.
+      // Without a target the fetch below resolves the SERVER resume bookmark — which lags
+      // this device by the debounced position save (or doesn't exist yet) — so the refreshed
+      // node set misses the reader's position entirely and the book lands at the top.
+      let preserveTarget = capturedNavigationTarget;
+      if (!preserveTarget && lazyLoader) {
+        try {
+          lazyLoader.forceSaveScrollPosition?.();
+          const live = lazyLoader._scrollAnchor;
+          if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
+            preserveTarget = String(live.element.id);
+          }
+        } catch { /* anchor unavailable — fall through untargeted */ }
+      }
+
       // Fetch fresh chunk for the current navigation target (stores all annotations
       // + target chunk to IndexedDB via put semantics — no wipe needed)
-      const freshResult = await fetchInitialChunk(bookId);
+      const freshResult = await fetchInitialChunk(bookId, preserveTarget ?? null);
 
       if (freshResult?.success) {
+        // Snapshot the records the reader is CURRENTLY looking at before they
+        // are replaced — the visible-change comparison below runs against them.
+        const prevNodes = Array.isArray(lazyLoader?.nodes) ? lazyLoader.nodes : null;
+
         // Update lazyLoader with fresh data for the target chunk
         lazyLoader.nodes = freshResult.nodes;
         (window as any).nodes = freshResult.nodes;
@@ -532,15 +553,57 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
 
         notifyContentUpdated();
 
-        if (capturedNavigationTarget) {
-          console.log(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`);
-        }
+        // refresh() is a full teardown+rebuild of every rendered chunk — a
+        // visible jolt SECONDS after the reader settled (this check is
+        // un-awaited). Only pay that when a node in a currently-rendered chunk
+        // actually changed. refresh() re-renders FROM lazyLoader.nodes and the
+        // fetch only brought the target chunk's records, so comparing exactly
+        // the fetched records against their predecessors is as strong as
+        // anything the teardown could display: identical records ⇒ an
+        // identical rebuild ⇒ pure jitter. A change elsewhere in the book
+        // lands in IndexedDB (put semantics above + the backfill below) and
+        // renders fresh when scrolled to.
+        const visibleChange = findRenderedContentChange(prevNodes, freshResult.nodes, lazyLoader?.container ?? null);
+        recordNavDecision({
+          phase: 'timestamp-refresh',
+          visibleChange,
+          prevCount: prevNodes?.length ?? null,
+          freshCount: freshResult.nodes?.length ?? null,
+        });
+        if (visibleChange === null) {
+          verbose.content(`⏭️ Timestamp newer but rendered chunks identical — skipping visible refresh for ${bookId}`, '/pageLoad/loadHyperText.ts');
+          // Annotations may still have moved server-side — re-apply them to
+          // the visible nodes non-destructively (same path as the
+          // annotations-only branch below).
+          await reapplyAnnotationsToVisibleNodes(bookId);
+        } else {
+          if (capturedNavigationTarget) {
+            verbose.content(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`, '/pageLoad/loadHyperText.ts');
+          }
 
-        // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
-        NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
-        await lazyLoader.refresh(capturedNavigationTarget);
-        // 🚦 Signal CONTENT_REFRESH complete
-        NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
+          // Never tear the DOM down under an active gesture: refresh() rips
+          // out every chunk (the scroller collapses under the reader's
+          // finger) and re-lands — mid-scroll that is unrecoverable jank.
+          // Wait for scroll-idle (capped — freshness eventually wins), then
+          // re-anchor to wherever the reader ENDED UP, not where they were
+          // when the check fired.
+          await waitForScrollIdle(15_000);
+          if (!capturedNavigationTarget && lazyLoader) {
+            try {
+              lazyLoader.forceSaveScrollPosition?.();
+              const live = lazyLoader._scrollAnchor;
+              if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
+                preserveTarget = String(live.element.id);
+              }
+            } catch { /* keep the earlier target */ }
+          }
+
+          // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
+          NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
+          await lazyLoader.refresh(preserveTarget ?? capturedNavigationTarget);
+          // 🚦 Signal CONTENT_REFRESH complete
+          NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
+        }
 
         // Kick off background backfill of remaining chunks (non-blocking)
         import('./backgroundDownload').then(({ backgroundDownloadRemainingChunks }) => {
@@ -555,7 +618,7 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
         notifyContentUpdated();
 
         NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
-        await lazyLoader.refresh(capturedNavigationTarget);
+        await lazyLoader.refresh(preserveTarget ?? capturedNavigationTarget);
         NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
       }
       return; // Refresh includes annotations, no need to check further
@@ -571,41 +634,146 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
       await syncAnnotationsOnly(bookId);
       await updateLocalAnnotationsTimestamp(bookId, serverAnnotationsTs);
 
-      // 2. Get all visible node IDs from DOM
-      const visibleNodeIds = Array.from(
-        document.querySelectorAll('[id]:not([data-chunk-id]):not(.sentinel)')
-      )
-        .filter(el => /^\d+$/.test(el.id)) // Only numeric IDs (node IDs)
-        .map(el => el.id);
-
-      if (visibleNodeIds.length > 0) {
-        // 3. Rebuild node arrays from the new standalone tables
-        const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild');
-        const { getNodesFromIndexedDB } = await import('../indexedDB/index');
-
-        // Get nodes to find node_ids for visible startLines
-        const allNodes: any = await getNodesFromIndexedDB(bookId);
-        const visibleDataNodeIDs = allNodes
-          .filter((n: any) => visibleNodeIds.includes(String(n.startLine)))
-          .map((n: any) => n.node_id)
-          .filter(Boolean);
-
-        if (visibleDataNodeIDs.length > 0) {
-          const allNodesToRebuild: any = await getNodesByDataNodeIDs(visibleDataNodeIDs);
-          // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
-          // node when the same node_id exists in both parent and sub-book.
-          const nodesToRebuild = allNodesToRebuild.filter((n: any) => n.book === bookId);
-          await rebuildNodeArrays(nodesToRebuild);
-        }
-
-        const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion');
-        await reprocessHighlightsForNodes(bookId, visibleNodeIds);
-      }
+      await reapplyAnnotationsToVisibleNodes(bookId);
     } else {
     }
   } catch (err) {
     log.error("❌ Error during background timestamp check:", '/pageLoad/loadHyperText.ts', err);
   }
+}
+
+/**
+ * Resolve once the user has been scroll-idle for the detector's window
+ * (isUserCurrentlyScrolling: no scroll activity for ~2s), or after maxWaitMs —
+ * a destructive refresh deferred forever would mean never-fresh content.
+ */
+async function waitForScrollIdle(maxWaitMs: number): Promise<void> {
+  const { isUserCurrentlyScrolling } = await import('../scrolling/userScrollDetection');
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    if (!isUserCurrentlyScrolling()) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+/**
+ * Non-destructive annotation refresh for the nodes currently in the DOM:
+ * rebuild their node arrays from the (already-synced) IndexedDB stores and
+ * reprocess highlights in place — no chunk teardown, no scroll movement.
+ * Shared by the annotations-only branch and the skip-refresh branch of the
+ * timestamp check.
+ */
+async function reapplyAnnotationsToVisibleNodes(bookId: BookId): Promise<void> {
+  const visibleNodeIds = Array.from(
+    document.querySelectorAll('[id]:not([data-chunk-id]):not(.sentinel)')
+  )
+    .filter(el => /^\d+$/.test(el.id)) // Only numeric IDs (node IDs)
+    .map(el => el.id);
+
+  if (visibleNodeIds.length === 0) return;
+
+  // Rebuild node arrays from the new standalone tables
+  const { rebuildNodeArrays, getNodesByDataNodeIDs } = await import('../indexedDB/hydration/rebuild');
+  const { getNodesFromIndexedDB } = await import('../indexedDB/index');
+
+  // Get nodes to find node_ids for visible startLines
+  const allNodes: any = await getNodesFromIndexedDB(bookId);
+  const visibleDataNodeIDs = allNodes
+    .filter((n: any) => visibleNodeIds.includes(String(n.startLine)))
+    .map((n: any) => n.node_id)
+    .filter(Boolean);
+
+  if (visibleDataNodeIDs.length > 0) {
+    const allNodesToRebuild: any = await getNodesByDataNodeIDs(visibleDataNodeIDs);
+    // Filter to correct book — getNodesByDataNodeIDs may return a parent book's
+    // node when the same node_id exists in both parent and sub-book.
+    const nodesToRebuild = allNodesToRebuild.filter((n: any) => n.book === bookId);
+    await rebuildNodeArrays(nodesToRebuild);
+  }
+
+  const { reprocessHighlightsForNodes } = await import('../hyperlights/deletion');
+  await reprocessHighlightsForNodes(bookId, visibleNodeIds);
+}
+
+/**
+ * null when every fetched node that belongs to a currently-RENDERED chunk is
+ * identical (identity + content) to the record the reader is already looking
+ * at — i.e. a refresh() teardown would rebuild pixel-identical chunks. A
+ * string names the FIRST difference found (the caller records it into the
+ * scroll trace, so forensics dumps show why a visible refresh ran).
+ * Annotation views are deliberately NOT compared: annotation-only movement is
+ * re-applied in place by reapplyAnnotationsToVisibleNodes. Sub-book chunks are
+ * excluded (their chunk ids belong to other books and collide numerically).
+ * Any doubt — fresh set covers no rendered chunk, missing container, empty
+ * inputs — reports a difference (refresh; correctness over stillness).
+ */
+function findRenderedContentChange(
+  prevNodes: any[] | null,
+  freshNodes: any[] | null,
+  container: Element | null
+): string | null {
+  if (!container) return 'no-container';
+  if (!prevNodes?.length) return 'no-prev-nodes';
+  if (!freshNodes?.length) return 'no-fresh-nodes';
+
+  const rendered = new Set<number>();
+  container.querySelectorAll('.chunk[data-chunk-id]').forEach((el) => {
+    if (el.closest('.sub-book-content')) return;
+    const id = parseFloat((el as HTMLElement).dataset.chunkId ?? '');
+    if (!Number.isNaN(id)) rendered.add(id);
+  });
+  if (rendered.size === 0) return 'no-rendered-chunks';
+
+  // The no-delete-id marker is CLIENT-stamped (ensureNoDeleteMarkerForBook
+  // writes it into a rendered node's content and persists to IDB) — so the
+  // local copy of that node permanently differs from the server's by one
+  // presentation-invisible attribute. Left in the comparison it defeats the
+  // skip on EVERY timestamp check (the refresh-storm forensics diff@120), and
+  // refresh() would just re-stamp it after the teardown anyway. Normalize it
+  // out of both sides.
+  const normalize = (html: string) => html.replace(/\s*no-delete-id="please"/g, '');
+  const sig = (n: any) => `${n.startLine}\u0001${n.node_id ?? ''}\u0001${normalize(n.content ?? '')}`;
+  const byChunk = (nodes: any[]) => {
+    const m = new Map<number, string[]>();
+    for (const n of nodes) {
+      const c = Number(n.chunk_id);
+      if (!rendered.has(c)) continue;
+      let arr = m.get(c);
+      if (!arr) { arr = []; m.set(c, arr); }
+      arr.push(sig(n));
+    }
+    return m;
+  };
+  const prev = byChunk(prevNodes);
+  const fresh = byChunk(freshNodes);
+  if (fresh.size === 0) {
+    const freshChunks = [...new Set(freshNodes.map((n: any) => Number(n.chunk_id)))].join('/');
+    return `fresh-covers-no-rendered-chunk(rendered=${[...rendered].join('/')} fresh=${freshChunks})`;
+  }
+
+  for (const [chunkId, freshSigs] of fresh) {
+    const prevSigs = prev.get(chunkId);
+    if (!prevSigs) return `chunk-${chunkId}-missing-in-prev`;
+    if (prevSigs.length !== freshSigs.length) {
+      return `chunk-${chunkId}-count(${prevSigs.length}->${freshSigs.length})`;
+    }
+    const a = [...prevSigs].sort();
+    const b = [...freshSigs].sort();
+    for (let i = 0; i < a.length; i++) {
+      const av = a[i] ?? '';
+      const bv = b[i] ?? '';
+      if (av !== bv) {
+        // Report the WINDOW around the first divergent character — the head of
+        // a node sig is usually identical (id + node_id + tag opening), and a
+        // truncated head reads as "identical" in the forensics dump.
+        let d = 0;
+        while (d < av.length && d < bv.length && av[d] === bv[d]) d++;
+        const from = Math.max(0, d - 40);
+        return `chunk-${chunkId}-node-diff@${d}(prev="…${av.slice(from, d + 80)}" fresh="…${bv.slice(from, d + 80)}")`;
+      }
+    }
+  }
+  return null;
 }
 
 // Helper function to get library record from server

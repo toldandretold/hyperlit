@@ -39,9 +39,13 @@ function hxCleanup(): void
     hxDb()->table('library')->where('book', 'LIKE', 'book_hx%')->delete();
     hxDb()->table('shelf_items')->whereIn(
         'shelf_id',
-        hxDb()->table('shelves')->where('name', 'LIKE', 'HX %')->pluck('id')
+        hxDb()->table('shelves')
+            ->where(fn ($q) => $q->where('name', 'LIKE', 'HX %')->orWhere('name', 'LIKE', 'Cited by: HX %'))
+            ->pluck('id')
     )->delete();
-    hxDb()->table('shelves')->where('name', 'LIKE', 'HX %')->delete();
+    hxDb()->table('shelves')
+        ->where(fn ($q) => $q->where('name', 'LIKE', 'HX %')->orWhere('name', 'LIKE', 'Cited by: HX %'))
+        ->delete();
     hxDb()->table('journal_sources')->where('display_name', 'LIKE', 'HX %')->delete();
 }
 
@@ -1109,4 +1113,102 @@ test('shelf detect queues a run keyed to the shelf', function () {
     $run = hxDb()->table('hypercite_runs')->where('id', $body['run_id'])->first();
     expect($run->shelf_id)->toBe($shelf->id);
     expect($run->journal_source_id)->toBeNull();
+});
+
+// ── Bulk import ──
+
+test('import-cited-bulk queues a run with the scope column and work_limit, for both scopes', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $shelf = hxSeedShelf('public');
+
+    $j = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-cited-bulk", ['limit' => 25])
+        ->assertOk()->json();
+    expect($j['already_running'])->toBeFalse();
+    $run = hxDb()->table('hypercite_runs')->where('id', $j['run_id'])->first();
+    expect($run->action)->toBe('import_cited_bulk');
+    expect($run->journal_source_id)->toBe($journal->id);
+    expect($run->shelf_id)->toBeNull();
+    expect((int) $run->work_limit)->toBe(25);
+
+    $s = $this->postJson('/api/maintainer/hypercites/shelf/' . $shelf->id . '/import-cited-bulk', ['limit' => 0])
+        ->assertOk()->json();
+    $shelfRun = hxDb()->table('hypercite_runs')->where('id', $s['run_id'])->first();
+    expect($shelfRun->shelf_id)->toBe($shelf->id);
+    expect($shelfRun->journal_source_id)->toBeNull();
+    expect((int) $shelfRun->work_limit)->toBe(0);
+
+    Queue::assertPushed(\App\Jobs\ImportCitedBulkJob::class, 2);
+
+    // Not one of the offered caps → 422, nothing queued.
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-cited-bulk", ['limit' => 7])
+        ->assertStatus(422);
+    Queue::assertPushed(\App\Jobs\ImportCitedBulkJob::class, 2);
+});
+
+test('bulk and single imports on one scope guard each other, and bulk joins bulk', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $oaId = (string) Str::uuid();
+    hxDb()->table('canonical_source')->insert([
+        'id'         => $oaId,
+        'title'      => 'HX Guarded Importable',
+        'is_oa'      => true,
+        'pdf_url'    => 'https://example.org/g.pdf',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // A running bulk on the scope: a second bulk joins it, and a single import joins it too
+    // (the bulk may be about to attempt that very canonical).
+    $first = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-cited-bulk", ['limit' => 5])
+        ->assertOk()->json();
+
+    $secondBulk = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-cited-bulk", ['limit' => 5])
+        ->assertOk()->json();
+    expect($secondBulk['already_running'])->toBeTrue();
+    expect($secondBulk['run_id'])->toBe($first['run_id']);
+
+    $single = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-source", [
+        'canonical_source_id' => $oaId,
+    ])->assertOk()->json();
+    expect($single['already_running'])->toBeTrue();
+    expect($single['run_id'])->toBe($first['run_id']);
+    expect($single['action'])->toBe('import_cited_bulk');
+    Queue::assertPushed(\App\Jobs\ImportCitedBulkJob::class, 1);
+    Queue::assertPushed(\App\Jobs\ImportCitedSourceJob::class, 0);
+
+    // The other direction: a running single import blocks a fresh bulk on its scope.
+    hxDb()->table('hypercite_runs')->where('id', $first['run_id'])->update(['status' => 'completed']);
+    $singleRun = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-source", [
+        'canonical_source_id' => $oaId,
+    ])->assertOk()->json();
+    expect($singleRun['already_running'])->toBeFalse();
+
+    $blockedBulk = $this->postJson("/api/maintainer/hypercites/{$journal->slug}/import-cited-bulk", ['limit' => 5])
+        ->assertOk()->json();
+    expect($blockedBulk['already_running'])->toBeTrue();
+    expect($blockedBulk['run_id'])->toBe($singleRun['run_id']);
+    expect($blockedBulk['action'])->toBe('import_source');
+});
+
+test('most-cited carries the scope cited shelf once it exists', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $before = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json();
+    expect($before['cited_shelf'])->toBeNull();
+
+    $shelf = app(\App\Services\SourceHarvest\HarvestShelf::class)
+        ->ensureCitedShelfFor($journal->display_name);
+    expect($shelf->name)->toBe('Cited by: HX Journal');
+    expect($shelf->creator)->toBe(\App\Services\CanonicalVersions\AutoVersionResolver::CREATOR);
+    expect(hxDb()->table('shelves')->where('id', $shelf->id)->value('visibility'))->toBe('public');
+
+    $after = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json();
+    expect($after['cited_shelf']['id'])->toBe($shelf->id);
+    expect($after['cited_shelf']['name'])->toBe($shelf->name);
 });

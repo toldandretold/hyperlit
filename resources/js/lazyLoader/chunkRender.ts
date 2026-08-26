@@ -339,7 +339,7 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     renderMathElements(temp);
     renderCharts(temp);
     renderHarvestNetworks(temp);
-    handleBrokenImages(temp);
+    handleBrokenImages(temp, instance);
     // E2EE (docs/e2ee.md): for an encrypted book, swap each media <img> src to a
     // decrypted blob URL on the LIVE nodes (same objects attached to the page).
     // Cheap sync gate first so plaintext renders don't even load the module.
