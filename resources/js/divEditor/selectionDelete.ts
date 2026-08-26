@@ -380,7 +380,15 @@ export class SelectionDeletionHandler {
       module.setUserDeletionInProgress(true);
     });
 
-    const nodeIdsToDelete = this.pendingDeletion.affectedElementIds || [];
+    // 🛡️ Only delete what actually LEFT the DOM. affectedElementIds was
+    // captured at keydown time — if a keydown guard preventDefaulted (the
+    // last-node guard) or the browser didn't perform the edit, those nodes
+    // are still connected, and queueing their deletion here silently destroys
+    // live content in IDB + on the server (the integrity self-heal then
+    // "repairs" the DOM by resurrecting nothing). Boundary elements below
+    // already check DOM presence; fully-contained nodes must too.
+    const nodeIdsToDelete = (this.pendingDeletion.affectedElementIds || [])
+      .filter((id: any) => !document.getElementById(id)?.isConnected);
     const boundaryElementIds = this.pendingDeletion.boundaryElementIds || [];
 
     // Track stats for summary

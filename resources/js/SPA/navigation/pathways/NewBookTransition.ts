@@ -425,8 +425,12 @@ export class NewBookTransition {
     verbose.nav('Entering edit mode', 'NewBookTransition.js');
 
     try {
-      // For new books, target the initial H1 element (id="100")
-      await (enableEditMode as any)("100", false); // Pass "100" as target, false = don't force redirect
+      // For new books, target the initial H1 element (id="100"). Second arg is
+      // isNewBook (NOT a redirect flag — stale comment previously said so): true
+      // runs ensureMinimumDocumentStructure, which no-ops when the h1 rendered
+      // but rebuilds chunk 0 + a seed node if the book came up empty (the
+      // degraded empty-loader self-heal path).
+      await (enableEditMode as any)("100", true);
 
       verbose.nav('Edit mode enabled', 'NewBookTransition.js');
 

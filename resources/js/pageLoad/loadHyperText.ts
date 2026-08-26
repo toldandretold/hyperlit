@@ -724,13 +724,14 @@ function findRenderedContentChange(
   });
   if (rendered.size === 0) return 'no-rendered-chunks';
 
-  // The no-delete-id marker is CLIENT-stamped (ensureNoDeleteMarkerForBook
-  // writes it into a rendered node's content and persists to IDB) — so the
-  // local copy of that node permanently differs from the server's by one
-  // presentation-invisible attribute. Left in the comparison it defeats the
-  // skip on EVERY timestamp check (the refresh-storm forensics diff@120), and
-  // refresh() would just re-stamp it after the teardown anyway. Normalize it
-  // out of both sides.
+  // no-delete-id is the RETIRED last-node marker — nothing stamps it anymore
+  // (the invariant is a runtime check now: keydownGuards/lastNodeGuard), but
+  // it still lives inside STORED content: books not yet swept by
+  // `content:strip-no-delete-markers`, and E2EE books forever (their content
+  // is ciphertext, unsweepable server-side). One side of a compare can carry
+  // it while the other doesn't, and left in it defeats this skip on EVERY
+  // timestamp check (the refresh-storm forensics diff@120). Keep this
+  // normalization for as long as any stored content can carry the attribute.
   const normalize = (html: string) => html.replace(/\s*no-delete-id="please"/g, '');
   const sig = (n: any) => `${n.startLine}\u0001${n.node_id ?? ''}\u0001${normalize(n.content ?? '')}`;
   const byChunk = (nodes: any[]) => {

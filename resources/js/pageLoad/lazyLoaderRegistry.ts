@@ -67,7 +67,7 @@ export function initializeMainLazyLoader() {
 
   console.log(`Initializing lazy loader for book: ${book}`);
   setCurrentLazyLoader(createLazyLoader({
-    nodes: (window as any).nodes,
+    nodes: (window as any).nodes || [],
     loadNextChunk: loadNextChunkFixed,
     loadPreviousChunk: loadPreviousChunkFixed,
     attachMarkListeners,
@@ -114,8 +114,12 @@ export async function initializeLazyLoaderForContainer(bookId: BookId) {
     }
 
     if (!nodes || !nodes.length) {
-      console.error(`❌ No nodes available in nodes object store in IndexedDB for ${bookId}`);
-      return null;
+      // Degraded, not fatal: an emptied book still gets a loader so the reader
+      // renders (empty) and the editor's empty-document check can self-heal it
+      // (rebuild chunk 0 + seed node). Returning null here was the "book never
+      // opens again" failure.
+      console.error(`❌ No nodes available in nodes object store in IndexedDB for ${bookId} — building empty loader`);
+      nodes = [];
     }
 
     // Create fresh lazy loader instance
@@ -154,7 +158,7 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
     const hasNavigationTarget = !!targetId || initialChunkId !== null;
 
     setCurrentLazyLoader(createLazyLoader({
-      nodes: (window as any).nodes,
+      nodes: (window as any).nodes || [],
       chunkManifest: (window as any).chunkManifest || null,
       loadNextChunk: loadNextChunkFixed,
       loadPreviousChunk: loadPreviousChunkFixed,
@@ -202,7 +206,7 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
     const isHomepageContext = document.querySelector('.home-content-wrapper') ||
                               document.querySelector('.user-content-wrapper');
     if (isHomepageContext || (!hasNavigationTarget && !adoptedPrerender)) {
-      const firstChunk = (window as any).nodes.find((chunk: any) => chunk.chunk_id === 0) || (window as any).nodes[0];
+      const firstChunk = ((window as any).nodes || []).find((chunk: any) => chunk.chunk_id === 0) || ((window as any).nodes || [])[0];
       if (firstChunk && currentLazyLoader) {
         verbose.content(`Loading initial chunk #${firstChunk.chunk_id} (eager load)`, 'initializePage.js');
         await currentLazyLoader.loadChunk(firstChunk.chunk_id, "down");

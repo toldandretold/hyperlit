@@ -468,7 +468,7 @@ export async function loadSubBook(
       isNewSubBook = true;
       const localNodeId = generateDataNodeId(subBookId);
       const strippedText = annotationHtml.replace(/<[^>]+>/g, '');
-      const initialHtml = `<p data-node-id="${localNodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
+      const initialHtml = `<p data-node-id="${localNodeId}" style="min-height:1.5em;">${strippedText}</p>`;
       const synthesizedNode = {
         book: subBookId, startLine: 1, chunk_id: asChunkId(0), node_id: localNodeId,
         content: initialHtml, hyperlights: [], hypercites: [], footnotes: [],

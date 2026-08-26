@@ -2,6 +2,7 @@
 
 namespace App\Services\SourceImport\Content;
 
+use App\Services\CoreService;
 use App\Services\OpenAlexService;
 use App\Services\SemanticScholarService;
 use App\Services\UnpaywallService;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Assembles a RANKED, deduped list of open-access download candidates for a
  * work, from every free source (OpenAlex locations[], Unpaywall, Semantic
- * Scholar, Crossref, plus the library row's own oa_url/pdf_url).
+ * Scholar, Crossref, CORE, plus the library row's own oa_url/pdf_url).
  *
  * The ranking is the point: try the copy LEAST likely to be Cloudflare-walled
  * first — a green/repository PDF (arXiv, PMC, Zenodo, an institutional DSpace)
@@ -24,10 +25,20 @@ use Illuminate\Support\Facades\Log;
  */
 class OaLocationResolver
 {
+    /**
+     * Version stamp on the persisted canonical_source.oa_locations cache.
+     * BUMP THIS whenever a new candidate source is added to gatherWorkLevelRaw()
+     * — older caches then read as misses and lazily re-gather on next fetch, so
+     * previously-resolved works (including past failures) actually see the new
+     * source. v2 = CORE added (2026-08). v1 was the unversioned plain array.
+     */
+    private const CACHE_VERSION = 2;
+
     public function __construct(
         private OpenAlexService $openAlex,
         private UnpaywallService $unpaywall,
         private SemanticScholarService $semanticScholar,
+        private CoreService $core,
     ) {
     }
 
@@ -93,9 +104,9 @@ class OaLocationResolver
     }
 
     /**
-     * The four free-API gather — OpenAlex locations[], Unpaywall, Semantic
-     * Scholar, Crossref — WITHOUT the per-version library seed. This is the slow
-     * part we cache on the canonical (see resolve()).
+     * The five free-API gather — OpenAlex locations[], Unpaywall, Semantic
+     * Scholar, Crossref, CORE — WITHOUT the per-version library seed. This is
+     * the slow part we cache on the canonical (see resolve()).
      *
      * @return array<int, array{pdf_url?: ?string, landing_page_url?: ?string, host_type?: ?string, source: string}>
      */
@@ -140,13 +151,24 @@ class OaLocationResolver
             }
         }
 
+        // 5. CORE — its own re-hosted PDF cache (core.ac.uk/download/…), the
+        // copy that exists even when every publisher URL above is bot-walled.
+        // Stale entries 404 and just fall through to the next candidate.
+        if ($doi) {
+            foreach ($this->core->oaLocations($doi) as $loc) {
+                $raw[] = $loc + ['source' => 'core'];
+            }
+        }
+
         return $raw;
     }
 
     /**
      * The persisted work-level candidate list for a canonical, or null when the
-     * canonical was never resolved (SQL NULL / no row). An empty array is a
-     * deliberate HIT ("resolved, no extra copies") — not a miss.
+     * canonical was never resolved (SQL NULL / no row) OR the cache predates the
+     * current CACHE_VERSION (a stale-version cache is a miss so new sources get
+     * consulted). An empty locations list at the current version is a deliberate
+     * HIT ("resolved, no extra copies") — not a miss.
      *
      * @return array<int, array<string, mixed>>|null
      */
@@ -160,12 +182,20 @@ class OaLocationResolver
         if ($stored === null) {
             return null; // never resolved (or no such row) → cache miss
         }
-        if (is_array($stored)) {
-            return $stored; // some drivers pre-decode jsonb
+
+        $decoded = is_array($stored) // some drivers pre-decode jsonb
+            ? $stored
+            : json_decode((string) $stored, true);
+        if (!is_array($decoded)) {
+            return null;
         }
 
-        $decoded = json_decode((string) $stored, true);
-        return is_array($decoded) ? $decoded : null;
+        // Versioned wrapper {v, locations}: hit only at the current version.
+        // A plain list is the unversioned v1 format → miss (re-gather once).
+        if (($decoded['v'] ?? null) === self::CACHE_VERSION && is_array($decoded['locations'] ?? null)) {
+            return $decoded['locations'];
+        }
+        return null;
     }
 
     /**
@@ -181,7 +211,7 @@ class OaLocationResolver
             ->table('canonical_source')
             ->where('id', $canonicalId)
             ->update([
-                'oa_locations'            => json_encode(array_values($workLevel)),
+                'oa_locations'            => json_encode(['v' => self::CACHE_VERSION, 'locations' => array_values($workLevel)]),
                 'oa_locations_fetched_at' => now(),
                 'updated_at'              => now(),
             ]);

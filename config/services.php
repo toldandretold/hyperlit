@@ -270,6 +270,15 @@ return [
         'email' => env('UNPAYWALL_EMAIL'),
     ],
 
+    // CORE (core.ac.uk) — OA aggregator with its own PDF cache. Key is free
+    // (email registration); without it the API rate-limits hard and the
+    // fullText/TEI fields return a placeholder. Auth: Bearer token header.
+    // NOTE: a record's downloadUrl can 404 even with fulltextStatus=enabled —
+    // treat CORE as one ladder rung, never a trusted source of truth.
+    'core' => [
+        'api_key' => env('CORE_API_KEY'),
+    ],
+
     // FlareSolverr — self-hosted Cloudflare-challenge solver. Unset = the
     // Cloudflare-solver fetch strategy no-ops. See deploy/oa-fetch-hardening.md.
     'flaresolverr' => [

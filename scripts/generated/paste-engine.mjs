@@ -561,10 +561,8 @@ var ADD_ATTR = [
   // OUP author flyouts
   "aria-expanded",
   // OUP author flyouts
-  "fn-count-id",
+  "fn-count-id"
   // Footnote click handler identifier
-  "no-delete-id"
-  // Protects last node from deletion (empty document prevention)
 ];
 var ADD_TAGS = ["latex", "latex-block"];
 var FORBID_TAGS = [

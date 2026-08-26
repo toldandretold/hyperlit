@@ -4,7 +4,7 @@
 // and the module-load visibility side-effect. Pure caret helpers live in ./cursor;
 // the lock/permission UI in ./lock (re-exported here so importers have one entry).
 import { book } from "../../app";
-import { verbose } from "../../utilities/logger";
+import { log, verbose } from "../../utilities/logger";
 import { trapModalFocus } from "../../utilities/modalFocusTrap";
 import { getCurrentUser, canUserEditBook } from "../../utilities/auth/index";
 import userManager from "../userButton/userButton";
@@ -128,16 +128,33 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
     // pageLoad is a bootstrap module — dynamic import avoids a static
     // component→bootstrap import cycle (flagged by the acyclic-import gate).
     const { pendingFirstChunkLoadedPromise } = await import("../../pageLoad/index");
-    await pendingFirstChunkLoadedPromise;
+    // Never park forever on this promise. A load path that forgets to resolve it
+    // (or an SPA nav that re-arms it, orphaning this await) would otherwise leave
+    // editModeCheckInProgress stuck true — a permanently dead edit button with no
+    // error anywhere (the cross-book new-book e2e failure, 2026-08-26). After the
+    // timeout the first chunk is either long rendered or the book is empty (the
+    // self-heal case), so proceeding is safe; log so the e2e console gate sees it.
+    const FIRST_CHUNK_TIMEOUT_MS = 10000;
+    const firstChunkOutcome = await Promise.race([
+      Promise.resolve(pendingFirstChunkLoadedPromise).then(() => 'loaded' as const),
+      new Promise<'timeout'>(resolve => setTimeout(() => resolve('timeout'), FIRST_CHUNK_TIMEOUT_MS)),
+    ]);
+    if (firstChunkOutcome === 'timeout') {
+      log.error('enableEditMode: first-chunk promise unresolved after 10s — proceeding', '/components/editButton/index.ts');
+    }
 
     setTimeout(async () => {
       try {
-        // Drop out of paginated mode FIRST (anchored at the current page's top
+        // Flag first: everything below (paginator suspend, toolbar, caret) is
+        // presentation — if any of it throws, the editor state must still say
+        // "editing" so enforceEditableState/retries behave, instead of a silent
+        // half-entered state with isEditing forever false.
+        (window as any).isEditing = true;
+
+        // Drop out of paginated mode (anchored at the current page's top
         // node) — the saved anchor then also feeds the caret-placement fallback
         // via getSavedScrollElementId below.
         suspendForEdit();
-
-        (window as any).isEditing = true;
         verbose.init('Edit mode entered via edit button', '/components/editButton/index.ts');
         if (editBtn) editBtn.classList.add("inverted");
 

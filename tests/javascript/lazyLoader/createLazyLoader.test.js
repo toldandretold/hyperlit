@@ -224,6 +224,30 @@ describe('createLazyLoader — sentinels + observer', () => {
   });
 });
 
+describe('createLazyLoader — empty (degraded) loader', () => {
+  it('zero nodes still builds a loader AND fires onFirstChunkLoaded immediately', () => {
+    // The degraded empty-loader path exists so an emptied book can self-heal on
+    // edit. That only works if the first-chunk promise resolves: enableEditMode
+    // awaits it, and with zero nodes no chunk ever renders to fire the callback.
+    // Regression: 2026-08-26 cross-book e2e — new book rendered, edit mode
+    // parked forever, editModeCheckInProgress stuck true (dead pencil button).
+    const { inst, onFirstChunkLoaded } = makeLoader({ nodes: [] });
+
+    expect(inst).toBeTruthy();
+    expect(inst.nodes).toEqual([]);
+    expect(onFirstChunkLoaded).toHaveBeenCalledTimes(1);
+    // Fired-and-cleared: it must not fire a second time later.
+    expect(inst.onFirstChunkLoadedCallback).toBeNull();
+  });
+
+  it('non-empty loader does NOT fire onFirstChunkLoaded at construction (only on first chunk render)', async () => {
+    const { inst, onFirstChunkLoaded } = makeLoader();
+    expect(onFirstChunkLoaded).not.toHaveBeenCalled();
+    await inst.loadChunk(0, 'down');
+    expect(onFirstChunkLoaded).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('createLazyLoader — scroll lock + teardown', () => {
   it('lockScroll / unlockScroll toggle the scroll-lock state', () => {
     const { inst } = makeLoader();

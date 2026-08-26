@@ -45,24 +45,19 @@ import {
 import {
   handleHyperciteRemoval,
   ensureMinimumDocumentStructure as ensureMinimumStructureImpl,
-  checkForImminentEmptyState,
   findAllNumericalIdNodesInChunks,
   cleanupStyledSpans,
   cleanupAfterImport,
-  cleanupAfterPaste,
-  getNoDeleteNode,
-  setNoDeleteMarker
+  cleanupAfterPaste
 } from './domUtilities';
-import { handleNoDeleteGuard, handleListItemBackspace } from './keydownGuards/index';
+import { handleLastNodeGuard, handleListItemBackspace } from './keydownGuards/index';
 
 // Re-export for backward compatibility
 export {
   debounce,
   cleanupStyledSpans,
   cleanupAfterImport,
-  cleanupAfterPaste,
-  getNoDeleteNode,
-  setNoDeleteMarker
+  cleanupAfterPaste
 };
 
 import { glowCloudOrange, glowCloudGreen, isProcessing } from '../components/cloudRef/editIndicator';
@@ -550,9 +545,12 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
       // 🆕 LI HANDLING: Backspace at start of LI converts it to paragraph
       if (handleListItemBackspace(event, range, selection, targetElement)) return;
 
-      // 🛡️ NO-DELETE guard: protect (or transfer the marker off) the last node
+      // 🛡️ LAST-NODE guard: a book must never end up with zero nodes. When a
+      // full-clear Backspace/Delete lands on the last content node of its
+      // book, the guard empties the node in place (caret kept) instead of
+      // letting the browser destroy it, and we swallow the key.
       const elementWithId = targetElement?.closest('[id]');
-      if (elementWithId && handleNoDeleteGuard(range, elementWithId)) {
+      if (elementWithId && handleLastNodeGuard(range, elementWithId)) {
         event.preventDefault();
         return;
       }
@@ -584,7 +582,6 @@ function ensureMinimumDocumentStructure() {
 // - handleHyperciteRemoval()
 // - findAllNumericalIdNodesInChunks()
 // - ensureMinimumDocumentStructure() (wrapper provides queueNodeForSave)
-// - checkForImminentEmptyState()
 // - cleanupStyledSpans() / cleanupAfterImport() / cleanupAfterPaste()
 //
 // All are imported at the top of this file and re-exported for backward compatibility

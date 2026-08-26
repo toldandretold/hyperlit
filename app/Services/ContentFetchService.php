@@ -2511,7 +2511,7 @@ class ContentFetchService
             $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
             $uuid      = (string) Str::uuid();
             $plainText = strip_tags($content);
-            $nodeHtml  = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
+            $nodeHtml  = '<p data-node-id="' . e($uuid) . '" '
                        . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
 
             $previewNodes = [[

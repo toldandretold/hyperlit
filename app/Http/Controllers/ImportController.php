@@ -947,7 +947,7 @@ class ImportController extends Controller
                 $uuid      = (string) Str::uuid();
                 $plainText = strip_tags($content);
                 $safeHtml  = strip_tags($content, '<a><em><strong><i><b>');
-                $nodeHtml  = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
+                $nodeHtml  = '<p data-node-id="' . e($uuid) . '" '
                            . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
 
                 $previewNodes = [[

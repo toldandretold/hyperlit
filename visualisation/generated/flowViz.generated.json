@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1760,
-    "moduleCount": 373,
+    "fnCount": 1754,
+    "moduleCount": 372,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3657,
+    "edgeCount": 3634,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5787,14 +5787,6 @@
       "leaf": false
     },
     {
-      "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "label": "getFirstNodeIdForBook",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/chunkMutationHandler/firstNode",
-      "leaf": false
-    },
-    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.cancelRebalanceDebounce",
       "label": "ChunkMutationHandler.cancelRebalanceDebounce",
       "kind": "fn",
@@ -5853,6 +5845,14 @@
     {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
       "label": "ChunkMutationHandler.handleNewChunk",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/chunkMutationHandler/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
+      "label": "ChunkMutationHandler.handleRootLevelWipe",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/chunkMutationHandler/index",
@@ -5939,14 +5939,6 @@
       "leaf": false
     },
     {
-      "id": "divEditor/domUtilities:checkForImminentEmptyState",
-      "label": "checkForImminentEmptyState",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/domUtilities",
-      "leaf": false
-    },
-    {
       "id": "divEditor/domUtilities:cleanupAfterImport",
       "label": "cleanupAfterImport",
       "kind": "fn",
@@ -5987,40 +5979,8 @@
       "leaf": false
     },
     {
-      "id": "divEditor/domUtilities:findNextNoDeleteNode",
-      "label": "findNextNoDeleteNode",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/domUtilities",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/domUtilities:getNoDeleteNode",
-      "label": "getNoDeleteNode",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/domUtilities",
-      "leaf": false
-    },
-    {
       "id": "divEditor/domUtilities:handleHyperciteRemoval",
       "label": "handleHyperciteRemoval",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/domUtilities",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/domUtilities:setNoDeleteMarker",
-      "label": "setNoDeleteMarker",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/domUtilities",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/domUtilities:transferNoDeleteMarker",
-      "label": "transferNoDeleteMarker",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/domUtilities",
@@ -6275,19 +6235,19 @@
       "leaf": false
     },
     {
+      "id": "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard",
+      "label": "handleLastNodeGuard",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/keydownGuards/lastNodeGuard",
+      "leaf": false
+    },
+    {
       "id": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
       "label": "handleListItemBackspace",
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/keydownGuards/listItemBackspace",
-      "leaf": false
-    },
-    {
-      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
-      "label": "handleNoDeleteGuard",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/keydownGuards/noDeleteGuard",
       "leaf": false
     },
     {
@@ -11428,14 +11388,6 @@
       "types": [
         "NodeRecord"
       ]
-    },
-    {
-      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "label": "ensureNoDeleteMarkerForBook",
-      "kind": "fn",
-      "stage": "lazyLoader",
-      "module": "lazyLoader/chunkRender",
-      "leaf": false
     },
     {
       "id": "lazyLoader/chunkRender:normalizeHyperciteElements",
@@ -17383,15 +17335,6 @@
       ]
     },
     {
-      "id": "divEditor/chunkMutationHandler/firstNode",
-      "label": "divEditor/chunkMutationHandler/firstNode",
-      "stage": "divEditor",
-      "band": "capture",
-      "fnIds": [
-        "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook"
-      ]
-    },
-    {
       "id": "divEditor/chunkMutationHandler/index",
       "label": "divEditor/chunkMutationHandler/index",
       "stage": "divEditor",
@@ -17405,6 +17348,7 @@
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.findNumericalIdNodesInChunk",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.flushRebalance",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+        "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNodeWithinMainContent",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.isNumericalIdDeletion",
         "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processByChunk",
@@ -17431,17 +17375,12 @@
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
-        "divEditor/domUtilities:checkForImminentEmptyState",
         "divEditor/domUtilities:cleanupAfterImport",
         "divEditor/domUtilities:cleanupAfterPaste",
         "divEditor/domUtilities:cleanupStyledSpans",
         "divEditor/domUtilities:ensureMinimumDocumentStructure",
         "divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-        "divEditor/domUtilities:findNextNoDeleteNode",
-        "divEditor/domUtilities:getNoDeleteNode",
-        "divEditor/domUtilities:handleHyperciteRemoval",
-        "divEditor/domUtilities:setNoDeleteMarker",
-        "divEditor/domUtilities:transferNoDeleteMarker"
+        "divEditor/domUtilities:handleHyperciteRemoval"
       ]
     },
     {
@@ -17524,21 +17463,21 @@
       ]
     },
     {
+      "id": "divEditor/keydownGuards/lastNodeGuard",
+      "label": "divEditor/keydownGuards/lastNodeGuard",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard"
+      ]
+    },
+    {
       "id": "divEditor/keydownGuards/listItemBackspace",
       "label": "divEditor/keydownGuards/listItemBackspace",
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
         "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace"
-      ]
-    },
-    {
-      "id": "divEditor/keydownGuards/noDeleteGuard",
-      "label": "divEditor/keydownGuards/noDeleteGuard",
-      "stage": "divEditor",
-      "band": "capture",
-      "fnIds": [
-        "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard"
       ]
     },
     {
@@ -19246,7 +19185,6 @@
         "lazyLoader/chunkRender:applyHighlights",
         "lazyLoader/chunkRender:applyHypercites",
         "lazyLoader/chunkRender:createChunkElement",
-        "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
         "lazyLoader/chunkRender:normalizeHyperciteElements",
         "lazyLoader/chunkRender:renderMathElements",
         "lazyLoader/chunkRender:throttle"
@@ -25580,13 +25518,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook__call__indexedDB/nodes/read:getNodesFromIndexedDB",
-      "source": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations__call__lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
       "target": "lazyLoader/utilities/chunkLoadingState:setChunkLoadingInProgress",
@@ -25596,6 +25527,18 @@
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe__call__components/tocContainer/index:invalidateTocCacheForDeletion",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
+      "target": "components/tocContainer/index:invalidateTocCacheForDeletion",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe__call__paste/pasteState:isPasteOperationActive",
+      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
+      "target": "paste/pasteState:isPasteOperationActive",
       "rel": "call"
     },
     {
@@ -25618,22 +25561,9 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
-      "target": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "divEditor/chunkMutationHandler/spanDestroyer:destroySpan",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__divEditor/domUtilities:transferNoDeleteMarker",
-      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
-      "target": "divEditor/domUtilities:transferNoDeleteMarker",
       "rel": "call"
     },
     {
@@ -25654,20 +25584,6 @@
       "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/core/connection:openDatabase",
       "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
       "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
-      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations__call__indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
-      "source": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.processChunkMutations",
-      "target": "indexedDB/utilities/retry:deleteIndexedDBRecordWithRetry",
       "rel": "call",
       "dataPath": true
     },
@@ -25709,18 +25625,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "divEditor/domUtilities:checkForImminentEmptyState__call__divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-      "source": "divEditor/domUtilities:checkForImminentEmptyState",
-      "target": "divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/domUtilities:checkForImminentEmptyState__call__divEditor/domUtilities:getNoDeleteNode",
-      "source": "divEditor/domUtilities:checkForImminentEmptyState",
-      "target": "divEditor/domUtilities:getNoDeleteNode",
-      "rel": "call"
-    },
-    {
       "id": "divEditor/domUtilities:cleanupAfterImport__call__divEditor/domUtilities:cleanupStyledSpans",
       "source": "divEditor/domUtilities:cleanupAfterImport",
       "target": "divEditor/domUtilities:cleanupStyledSpans",
@@ -25751,24 +25655,6 @@
       "rel": "call"
     },
     {
-      "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/domUtilities:findNextNoDeleteNode",
-      "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "target": "divEditor/domUtilities:findNextNoDeleteNode",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/domUtilities:getNoDeleteNode",
-      "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "target": "divEditor/domUtilities:getNoDeleteNode",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/domUtilities:setNoDeleteMarker",
-      "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "target": "divEditor/domUtilities:setNoDeleteMarker",
-      "rel": "call"
-    },
-    {
       "id": "divEditor/domUtilities:ensureMinimumDocumentStructure__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
       "target": "divEditor/editorState:queueNodeForSave",
@@ -25785,12 +25671,6 @@
       "source": "divEditor/domUtilities:ensureMinimumDocumentStructure",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "divEditor/domUtilities:findNextNoDeleteNode__call__divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-      "source": "divEditor/domUtilities:findNextNoDeleteNode",
-      "target": "divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-      "rel": "call"
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__divEditor/editorState:queueNodeForSave",
@@ -25829,24 +25709,6 @@
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__domwrite__dom",
       "source": "divEditor/domUtilities:handleHyperciteRemoval",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "divEditor/domUtilities:setNoDeleteMarker__call__divEditor/domUtilities:getNoDeleteNode",
-      "source": "divEditor/domUtilities:setNoDeleteMarker",
-      "target": "divEditor/domUtilities:getNoDeleteNode",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/domUtilities:setNoDeleteMarker__domwrite__dom",
-      "source": "divEditor/domUtilities:setNoDeleteMarker",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "divEditor/domUtilities:transferNoDeleteMarker__domwrite__dom",
-      "source": "divEditor/domUtilities:transferNoDeleteMarker",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -26068,6 +25930,12 @@
       "rel": "call"
     },
     {
+      "id": "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard__domwrite__dom",
+      "source": "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace__call__divEditor/editorState:queueNodeForSave",
       "source": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
       "target": "divEditor/editorState:queueNodeForSave",
@@ -26078,18 +25946,6 @@
       "source": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard__call__divEditor/domUtilities:findNextNoDeleteNode",
-      "source": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
-      "target": "divEditor/domUtilities:findNextNoDeleteNode",
-      "rel": "call"
-    },
-    {
-      "id": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard__call__divEditor/domUtilities:transferNoDeleteMarker",
-      "source": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
-      "target": "divEditor/domUtilities:transferNoDeleteMarker",
-      "rel": "call"
     },
     {
       "id": "divEditor/mutationProcessor:MutationProcessor.process__call__editToolbar/index:getEditToolbar",
@@ -27578,12 +27434,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "source": "dom",
-      "target": "divEditor/chunkMutationHandler/firstNode:getFirstNodeIdForBook",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
       "source": "dom",
       "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.filterChunkMutations",
@@ -27599,6 +27449,12 @@
       "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
       "source": "dom",
       "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleNewChunk",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
+      "source": "dom",
+      "target": "divEditor/chunkMutationHandler/index:ChunkMutationHandler.handleRootLevelWipe",
       "rel": "domread"
     },
     {
@@ -27626,12 +27482,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/domUtilities:checkForImminentEmptyState",
-      "source": "dom",
-      "target": "divEditor/domUtilities:checkForImminentEmptyState",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__divEditor/domUtilities:cleanupStyledSpans",
       "source": "dom",
       "target": "divEditor/domUtilities:cleanupStyledSpans",
@@ -27647,18 +27497,6 @@
       "id": "dom__domread__divEditor/domUtilities:findAllNumericalIdNodesInChunks",
       "source": "dom",
       "target": "divEditor/domUtilities:findAllNumericalIdNodesInChunks",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__divEditor/domUtilities:findNextNoDeleteNode",
-      "source": "dom",
-      "target": "divEditor/domUtilities:findNextNoDeleteNode",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__divEditor/domUtilities:getNoDeleteNode",
-      "source": "dom",
-      "target": "divEditor/domUtilities:getNoDeleteNode",
       "rel": "domread"
     },
     {
@@ -27740,15 +27578,15 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "id": "dom__domread__divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard",
       "source": "dom",
-      "target": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
+      "target": "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard",
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "id": "dom__domread__divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
       "source": "dom",
-      "target": "divEditor/keydownGuards/noDeleteGuard:handleNoDeleteGuard",
+      "target": "divEditor/keydownGuards/listItemBackspace:handleListItemBackspace",
       "rel": "domread"
     },
     {
@@ -29129,12 +28967,6 @@
       "id": "dom__domread__lazyLoader/chunkRender:createChunkElement",
       "source": "dom",
       "target": "lazyLoader/chunkRender:createChunkElement",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "source": "dom",
-      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
       "rel": "domread"
     },
     {
@@ -36948,25 +36780,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__divEditor/domUtilities:getNoDeleteNode",
-      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "target": "divEditor/domUtilities:getNoDeleteNode",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__divEditor/domUtilities:setNoDeleteMarker",
-      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "target": "divEditor/domUtilities:setNoDeleteMarker",
-      "rel": "call"
-    },
-    {
-      "id": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook__call__indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "source": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "target": "indexedDB/nodes/batch:updateSingleIndexedDBRecord",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "lazyLoader/chunkRender:normalizeHyperciteElements__domwrite__dom",
       "source": "lazyLoader/chunkRender:normalizeHyperciteElements",
       "target": "dom",
@@ -37078,13 +36891,6 @@
       "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:createChunkElement",
       "source": "lazyLoader/index:createLazyLoader",
       "target": "lazyLoader/chunkRender:createChunkElement",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "lazyLoader/index:createLazyLoader__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "source": "lazyLoader/index:createLazyLoader",
-      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
       "rel": "call",
       "dataPath": true
     },
@@ -37241,13 +37047,6 @@
       "dataPath": true
     },
     {
-      "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "source": "lazyLoader/index:loadNextChunkFixed",
-      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "lazyLoader/index:loadNextChunkFixed__call__lazyLoader/utilities/cacheState:clearCacheDirtyFlag",
       "source": "lazyLoader/index:loadNextChunkFixed",
       "target": "lazyLoader/utilities/cacheState:clearCacheDirtyFlag",
@@ -37313,13 +37112,6 @@
       "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
       "source": "lazyLoader/index:loadPreviousChunkFixed",
       "target": "lazyLoader/chunkFetcher:storeSingleChunkToIndexedDB",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "lazyLoader/index:loadPreviousChunkFixed__call__lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
-      "source": "lazyLoader/index:loadPreviousChunkFixed",
-      "target": "lazyLoader/chunkRender:ensureNoDeleteMarkerForBook",
       "rel": "call",
       "dataPath": true
     },
@@ -45440,11 +45232,6 @@
       "kind": "static"
     },
     {
-      "source": "divEditor/chunkMutationHandler/firstNode",
-      "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
       "source": "divEditor/chunkMutationHandler/index",
       "target": "components/tocContainer/index",
       "kind": "static"
@@ -45456,27 +45243,12 @@
     },
     {
       "source": "divEditor/chunkMutationHandler/index",
-      "target": "divEditor/chunkMutationHandler/firstNode",
-      "kind": "static"
-    },
-    {
-      "source": "divEditor/chunkMutationHandler/index",
       "target": "divEditor/chunkMutationHandler/spanDestroyer",
       "kind": "static"
     },
     {
       "source": "divEditor/chunkMutationHandler/index",
-      "target": "divEditor/domUtilities",
-      "kind": "static"
-    },
-    {
-      "source": "divEditor/chunkMutationHandler/index",
       "target": "divEditor/editorState",
-      "kind": "static"
-    },
-    {
-      "source": "divEditor/chunkMutationHandler/index",
-      "target": "indexedDB/index",
       "kind": "static"
     },
     {
@@ -45497,6 +45269,11 @@
     {
       "source": "divEditor/chunkMutationHandler/index",
       "target": "hypercites/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "divEditor/chunkMutationHandler/index",
+      "target": "indexedDB/index",
       "kind": "lazy"
     },
     {
@@ -45642,11 +45419,6 @@
     {
       "source": "divEditor/keydownGuards/listItemBackspace",
       "target": "divEditor/editorState",
-      "kind": "static"
-    },
-    {
-      "source": "divEditor/keydownGuards/noDeleteGuard",
-      "target": "divEditor/domUtilities",
       "kind": "static"
     },
     {
@@ -47871,16 +47643,6 @@
     },
     {
       "source": "lazyLoader/chunkRender",
-      "target": "divEditor/domUtilities",
-      "kind": "lazy"
-    },
-    {
-      "source": "lazyLoader/chunkRender",
-      "target": "indexedDB/index",
-      "kind": "lazy"
-    },
-    {
-      "source": "lazyLoader/chunkRender",
       "target": "lazyLoader/encryptedImages",
       "kind": "lazy"
     },
@@ -49141,6 +48903,6 @@
       ]
     ],
     "breakerCount": 4,
-    "lazyCount": 264
+    "lazyCount": 263
   }
 }

@@ -101,7 +101,7 @@ export function updateSingleIndexedDBRecord(record: BatchRecord, options: BatchU
  * @returns {Promise<void>}
  */
 export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[], options: BatchUpdateOptions = {}): Promise<void> {
-  // ✅ FIX: When skipHistory is true (internal operations like no-delete-id markers),
+  // ✅ FIX: When skipHistory is true (internal housekeeping writes),
   // don't use withPending which triggers the orange indicator, since no server sync will happen
   const wrapper: <T>(fn: () => Promise<T>) => Promise<T> = options.skipHistory ? (fn) => fn() : withPending;
 

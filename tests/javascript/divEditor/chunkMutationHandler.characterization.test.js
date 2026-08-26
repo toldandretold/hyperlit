@@ -5,8 +5,9 @@
  * node → add, SPAN → destroyed, numeric removal → queueDeletion) BEFORE .js → .ts.
  *
  * The class takes all deps via constructor options, so we drive it with fakes.
- * The no-delete-id-marker deletion scenarios (getFirstNodeIdForBook + IDB transfer)
- * and chunk-overflow are async DOM/IDB orchestration → left to the e2e grand tour.
+ * (The no-delete-id marker deletion scenarios are RETIRED — the last-node
+ * invariant is a runtime check now; its reactive half, the book-empty
+ * backstop, is pinned below.)
  *
  * Imported EXTENSIONLESS so this file runs against chunkMutationHandler.js now and
  * chunkMutationHandler/index.ts after the conversion — identical test, both sides.
@@ -23,6 +24,8 @@ vi.mock('../../../resources/js/utilities/operationState', () => ({
 vi.mock('../../../resources/js/utilities/idHelpers', () => ({
   isNumericalId: (id) => !!id && NUMERICAL_ID_PATTERN.test(id),
   ensureNodeHasValidId: (el) => { if (!el.id) el.id = 'gen'; },
+  asBookId: (id) => id,
+  parseChunkId: (v) => parseFloat(v),
   NUMERICAL_ID_PATTERN,
 }));
 vi.mock('../../../resources/js/divEditor/editorState', () => ({ movedNodesByOverflow: new Set() }));
@@ -48,12 +51,6 @@ vi.mock('../../../resources/js/indexedDB/index', () => ({
 vi.mock('../../../resources/js/paste', () => ({ isPasteOperationActive: () => false }));
 vi.mock('../../../resources/js/utilities/logger', () => ({ verbose: { content: vi.fn() } }));
 vi.mock('../../../resources/js/lazyLoader/utilities/chunkLoadingState', () => ({ setChunkLoadingInProgress: vi.fn() }));
-vi.mock('../../../resources/js/divEditor/domUtilities', () => ({
-  getNoDeleteNode: vi.fn(),
-  setNoDeleteMarker: vi.fn(),
-  transferNoDeleteMarker: vi.fn(),
-  findNextNoDeleteNode: vi.fn(),
-}));
 
 import { ChunkMutationHandler } from '../../../resources/js/divEditor/chunkMutationHandler/index';
 import { destroySpan } from '../../../resources/js/divEditor/chunkMutationHandler/spanDestroyer';
@@ -218,12 +215,109 @@ describe('processChunkMutations — high-traffic paths', () => {
     expect(chunk.textContent).toContain('x');
   });
 
-  it('numeric-id removal (no marker) queues a deletion with the chunk bookId', async () => {
+  it('numeric-id removal queues a deletion with the chunk bookId', async () => {
     const chunk = makeChunk('');
     const delP = document.createElement('p'); delP.id = '5'; delP.textContent = 'gone';
     await handler.processChunkMutations(chunk, [childList(chunk, { removed: [delP] })], 'bookA');
     expect(saveQueue.queueDeletion).toHaveBeenCalledWith('5', delP, 'bookA');
     expect(handler.removedNodeIds.has('5')).toBe(true);
+  });
+});
+
+// The reactive half of the last-node invariant: ANY removal pathway (selection
+// deletion, execCommand delete, cut, type-over — not just guarded keydowns)
+// that leaves the book with zero content nodes triggers the minimal-structure
+// rebuild. Marker-free: the retired system only reacted when the removed node
+// happened to carry no-delete-id, and its early `return` leaked sibling
+// deletions in batch wipes.
+describe('processChunkMutations — book-empty backstop', () => {
+  it('rebuilds minimal structure when a removal leaves the book with zero content nodes', async () => {
+    const chunk = makeChunk('');
+    const delP = document.createElement('p'); delP.id = '5'; delP.textContent = 'last one';
+    await handler.processChunkMutations(chunk, [childList(chunk, { removed: [delP] })], 'bookA');
+    expect(saveQueue.queueDeletion).toHaveBeenCalledWith('5', delP, 'bookA'); // deletion still queued
+    expect(ensureMinimumStructure).toHaveBeenCalled();
+  });
+
+  it('does NOT rebuild while sibling content nodes remain', async () => {
+    const chunk = makeChunk('<p id="1">still here</p>');
+    const delP = document.createElement('p'); delP.id = '5'; delP.textContent = 'gone';
+    await handler.processChunkMutations(chunk, [childList(chunk, { removed: [delP] })], 'bookA');
+    expect(saveQueue.queueDeletion).toHaveBeenCalledWith('5', delP, 'bookA');
+    expect(ensureMinimumStructure).not.toHaveBeenCalled();
+  });
+
+  it('batch wipe: EVERY removed node is queued for deletion (no early-return leak) and the rebuild fires', async () => {
+    const chunk = makeChunk('');
+    const mk = (id) => { const p = document.createElement('p'); p.id = id; p.textContent = id; return p; };
+    const [a, b, c] = [mk('1'), mk('2'), mk('3')];
+    await handler.processChunkMutations(chunk, [childList(chunk, { removed: [a, b, c] })], 'bookA');
+    expect(saveQueue.queueDeletion).toHaveBeenCalledTimes(3);
+    expect(ensureMinimumStructure).toHaveBeenCalled();
+  });
+});
+
+// A select-all wipe (Cmd+A + Backspace / type-over) removes the CHUNK WRAPPERS
+// from the book root: the numeric-id nodes are buried inside the removed
+// wrappers, so the per-chunk pipeline never sees a deletion. handleRootLevelWipe
+// (routed from processByChunk's no-containing-chunk branch) queues those buried
+// deletions and rebuilds — while window-TRIMMING (also root-level chunk
+// removal, but content always remains rendered) must stay untouched.
+describe('processByChunk — root-level wipe (select-all delete)', () => {
+  beforeEach(() => { window.isEditing = true; });
+  afterEach(() => { delete window.isEditing; });
+
+  const detachedChunkWith = (...ids) => {
+    const chunk = document.createElement('div');
+    chunk.className = 'chunk';
+    chunk.setAttribute('data-chunk-id', '0');
+    for (const id of ids) {
+      const p = document.createElement('p'); p.id = id; p.textContent = `node ${id}`;
+      chunk.appendChild(p);
+    }
+    return chunk; // never attached → isConnected === false, like a real wipe
+  };
+
+  it('queues deletions for nodes buried in removed chunk wrappers and rebuilds', async () => {
+    const mc = document.createElement('div');
+    mc.className = 'main-content';
+    mc.id = 'bookA';
+    document.body.appendChild(mc); // book root left empty — the wipe aftermath
+    const gone = detachedChunkWith('100', '200');
+
+    await handler.processByChunk([childList(mc, { removed: [gone] })]);
+
+    expect(saveQueue.queueDeletion).toHaveBeenCalledWith('100', expect.anything(), 'bookA');
+    expect(saveQueue.queueDeletion).toHaveBeenCalledWith('200', expect.anything(), 'bookA');
+    expect(ensureMinimumStructure).toHaveBeenCalled();
+  });
+
+  it('ignores root-level chunk removal while rendered content remains (window trim)', async () => {
+    const mc = document.createElement('div');
+    mc.className = 'main-content';
+    mc.id = 'bookA';
+    mc.innerHTML = '<div class="chunk" data-chunk-id="2"><p id="300">still rendered</p></div>';
+    document.body.appendChild(mc);
+    const trimmed = detachedChunkWith('100', '200');
+
+    await handler.processByChunk([childList(mc, { removed: [trimmed] })]);
+
+    expect(saveQueue.queueDeletion).not.toHaveBeenCalled();
+    expect(ensureMinimumStructure).not.toHaveBeenCalled();
+  });
+
+  it('ignores root-level removals outside edit mode (read-mode virtualization)', async () => {
+    window.isEditing = false;
+    const mc = document.createElement('div');
+    mc.className = 'main-content';
+    mc.id = 'bookA';
+    document.body.appendChild(mc);
+    const gone = detachedChunkWith('100');
+
+    await handler.processByChunk([childList(mc, { removed: [gone] })]);
+
+    expect(saveQueue.queueDeletion).not.toHaveBeenCalled();
+    expect(ensureMinimumStructure).not.toHaveBeenCalled();
   });
 });
 

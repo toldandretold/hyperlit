@@ -55,67 +55,6 @@ export function throttle(fn: any, delay: any) {
 }
 
 /**
- * Ensure exactly ONE no-delete-id marker exists per book.
- * Checks DOM first (fast), then IndexedDB, then adds if not found anywhere.
- *
- * Uses dynamic import to avoid circular dependency with divEditor/domUtilities.js
- * Persists marker to IndexedDB and syncs to backend.
- *
- * @param {HTMLElement} chunkElement - The chunk element that was just loaded
- * @param {Array} allNodesInBook - All nodes for this book from IndexedDB
- */
-export async function ensureNoDeleteMarkerForBook(chunkElement: any, allNodesInBook: any, isFullyLoaded = true) {
-  try {
-    // 🔄 LAZY IMPORT: Avoid circular dependency (toc.js → containerManager → initializePage → lazyLoader → domUtilities → chunkMutationHandler → toc.js)
-    const { getNoDeleteNode, setNoDeleteMarker }: any = await import('../divEditor/domUtilities');
-    const { updateSingleIndexedDBRecord }: any = await import('../indexedDB/index');
-
-    // Step 1: Check DOM for marker (O(1) - very fast)
-    if (getNoDeleteNode()) {
-      verbose.content('no-delete-id marker already exists in DOM', 'lazyLoaderFactory.js');
-      return; // Already exists in DOM
-    }
-
-    // Step 2: Check if marker exists in any node in IndexedDB
-    // Safety check: allNodesInBook might be undefined/null for new books
-    const hasMarkerInDB = allNodesInBook && Array.isArray(allNodesInBook)
-      ? allNodesInBook.some((node: any) => node.content && node.content.includes('no-delete-id="please"'))
-      : false;
-
-    if (hasMarkerInDB) {
-      verbose.content('no-delete-id marker exists in IndexedDB (not yet loaded)', 'lazyLoaderFactory.js');
-      return; // Exists in DB, will appear when that chunk loads
-    }
-
-    // Skip marker creation when not fully loaded — marker may exist in an unloaded chunk
-    if (!isFullyLoaded) {
-      verbose.content('Skipping no-delete-id marker check (partial load)', 'lazyLoaderFactory.js');
-      return;
-    }
-
-    // Step 3: No marker anywhere - add to first node in this chunk
-    const firstNode = chunkElement.querySelector('[id]');
-    if (!firstNode) {
-      console.warn('⚠️ Could not find node with ID to set no-delete marker');
-      return;
-    }
-
-    // Step 3a: Set marker on DOM element
-    setNoDeleteMarker(firstNode);
-    console.log(`✅ Set no-delete-id marker on node ${firstNode.id} in DOM`);
-
-    // Step 3b: Persist to IndexedDB but skip history creation
-    // skipRedoClear: true because this is an automatic operation, not a user edit
-    // skipHistory: true to prevent spurious history entries during undo/redo refresh cycles
-    await updateSingleIndexedDBRecord({ id: firstNode.id }, { skipRedoClear: true, skipHistory: true });
-    console.log(`✅ Persisted no-delete-id marker to IndexedDB (no history entry)`);
-  } catch (error) {
-    console.error('❌ FATAL: ensureNoDeleteMarkerForBook failed:', error);
-    throw error; // Re-throw so we can see it in console
-  }
-}
-
-/**
  * Normalize old hypercite DOM structures to the new single-element format.
  * Old: <a href="..."><sup class="open-icon">↗</sup></a>
  * Flipped: <sup class="open-icon"><a href="...">↗</a></sup>

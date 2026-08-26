@@ -534,6 +534,13 @@ test.describe('Nested hypercite chain', () => {
         await page.click('#editButton');
         await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
         await page.click('#editButton');
+      } else {
+        // First enable attempt died silently (isEditing never went true) — do
+        // what a real user would: click the pencil. With the product fixes
+        // (empty-loader resolves the first-chunk promise; enableEditMode's
+        // parked-await timeout) this retry can actually succeed instead of
+        // hitting a stuck editModeCheckInProgress.
+        await page.click('#editButton');
       }
       await spa.waitForEditMode(page);
     }

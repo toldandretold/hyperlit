@@ -93,7 +93,7 @@ class SubBookController extends Controller
                 // Use client-provided nodeId if present, otherwise generate a UUID fallback
                 $nodeId = $validated['nodeId'] ?? (string) Str::uuid();
                 $previewText = strip_tags($validated['previewContent'] ?? '');
-                $initialContent = '<p data-node-id="' . e($nodeId) . '" no-delete-id="please" style="min-height:1.5em;">'
+                $initialContent = '<p data-node-id="' . e($nodeId) . '" style="min-height:1.5em;">'
                                 . e($previewText)
                                 . '</p>';
                 DB::table('nodes')->insert([

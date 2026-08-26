@@ -97,7 +97,7 @@ function createTailElement(currentBlock: HTMLElement): HTMLElement {
   const tail = currentBlock.cloneNode(false) as HTMLElement; // shallow: tag + attributes
   tail.removeAttribute('id');
   tail.removeAttribute('data-node-id');
-  tail.removeAttribute('no-delete-id');
+  tail.removeAttribute('no-delete-id'); // legacy marker (retired system) — never duplicate it
   return tail;
 }
 
@@ -197,7 +197,9 @@ export function handleSmallPaste(event: any, htmlContent: any, plainText: any, n
   // Convert <h1> tags to <p> (prevents duplicate H1 titles when pasting from another book)
   finalHtmlToInsert = finalHtmlToInsert.replace(/<h1(\s[^>]*)?>/gi, '<p$1>').replace(/<\/h1>/gi, '</p>');
 
-  // Strip id, data-node-id, no-delete-id attributes (fix-up phase assigns fresh ones)
+  // Strip id, data-node-id, no-delete-id attributes (fresh ids assigned in fix-up;
+  // no-delete-id is the RETIRED last-node marker — stripping it here cleans legacy
+  // content out of pastes)
   finalHtmlToInsert = finalHtmlToInsert.replace(/\s(?:id|data-node-id|no-delete-id)="[^"]*"/gi, '');
 
   // Strip style attributes — browser bakes computed CSS (e.g. font-family: var(--font-family-base))

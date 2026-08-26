@@ -16,7 +16,6 @@ const ADD_ATTR = [
   'aria-controls', // OUP author flyouts
   'aria-expanded', // OUP author flyouts
   'fn-count-id',   // Footnote click handler identifier
-  'no-delete-id',  // Protects last node from deletion (empty document prevention)
 ];
 
 // Custom tags that DOMPurify should allow (it strips unknown tags by default)

@@ -34,7 +34,6 @@ import { restoreScrollAnchor } from '../utilities/scrollAnchor';
 import { installScrollTrace, scrollTraceEnabled } from '../scrolling/scrollTrace';
 import {
   createChunkElement,
-  ensureNoDeleteMarkerForBook,
   throttle,
 } from './chunkRender';
 
@@ -56,8 +55,10 @@ export {
  *    <div id="book1" class="main-content"></div>
  */
 export function createLazyLoader(config: any) {
-  const {
+  let {
     nodes,
+  } = config;
+  const {
     chunkManifest = null,
     loadNextChunk,
     loadPreviousChunk,
@@ -72,9 +73,16 @@ export function createLazyLoader(config: any) {
     scrollableParent: scrollableParentOverride, // NEW: bypass auto-detection (for sub-books)
   } = config;
 
+  // Zero nodes is a DEGRADED state, not a fatal one. Returning null here left
+  // currentLazyLoader null and killed the whole reader/editor on load — the
+  // "book emptied out, now it never opens again" failure. Build the loader
+  // with an empty node list instead: readers see an empty book; for an
+  // editable book the editor-start check (divEditor startObserving's empty-
+  // document branch) runs ensureMinimumDocumentStructure, which rebuilds
+  // chunk 0 + one editable node and queues its save — self-healing the book.
   if (!nodes || nodes.length === 0) {
-    log.error('No nodes available for lazy loader', 'lazyLoaderFactory.js');
-    return null;
+    log.error('No nodes available for lazy loader — building empty loader (self-heal on edit)', 'lazyLoaderFactory.js');
+    nodes = [];
   }
 
   // --- MOVE THIS BLOCK UP! ---
@@ -140,6 +148,16 @@ export function createLazyLoader(config: any) {
     chunkManifest: chunkManifest || null, // Chunked lazy loading: manifest of all chunks
     isFullyLoaded: !chunkManifest,        // false when only initial chunk is loaded
   };
+
+  // Empty loader: there is no first chunk, so fire the first-chunk callback NOW.
+  // The callback resolves pendingFirstChunkLoadedPromise, which enableEditMode
+  // (and hash navigation / scroll restore) await — leaving it unresolved parks
+  // enableEditMode forever with editModeCheckInProgress stuck true, so the edit
+  // button (and the self-heal this degraded path exists for) is permanently dead.
+  if (nodes.length === 0 && typeof instance.onFirstChunkLoadedCallback === 'function') {
+    instance.onFirstChunkLoadedCallback();
+    instance.onFirstChunkLoadedCallback = null;
+  }
 
   // Set up user scroll detection to prevent restoration interference
   if (scrollableParent && scrollableParent !== window) {
@@ -1193,10 +1211,6 @@ export async function loadNextChunkFixed(currentLastChunkId: any, instance: any)
       container.appendChild(chunkElement);
       instance.currentlyLoadedChunks.add(nextChunkId);
 
-      // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
-      ensureNoDeleteMarkerForBook(chunkElement, instance.nodes, instance.isFullyLoaded).catch(err =>
-        console.error('Failed to ensure no-delete-id marker:', err)
-      );
 
       // ✅ Attach listeners only to this chunk
       instance.attachMarkListeners?.(chunkElement);
@@ -1276,10 +1290,6 @@ export async function loadPreviousChunkFixed(currentFirstChunkId: any, instance:
     container.insertBefore(chunkElement, container.firstElementChild);
     instance.currentlyLoadedChunks.add(prevChunkId);
 
-    // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
-    ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
-      console.error('Failed to ensure no-delete-id marker:', err)
-    );
 
     const newHeight = chunkElement.getBoundingClientRect().height;
 
@@ -1375,10 +1385,6 @@ async function loadChunkInternal(chunkId: any, direction: any, instance: any, at
 
   instance.currentlyLoadedChunks.add(chunkId);
 
-  // 🆕 Ensure no-delete-id marker exists for this book (async, fire-and-forget)
-  ensureNoDeleteMarkerForBook(chunkElement, instance.nodes).catch(err =>
-    console.error('Failed to ensure no-delete-id marker:', err)
-  );
 
   // ✅ Attach listeners only to this chunk
   instance.attachMarkListeners?.(chunkElement);

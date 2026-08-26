@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1760 functions in 373 modules · 10 object stores · 10 PG tables · 3657 edges
+**MarkdownDB** schema v28 · 1754 functions in 372 modules · 10 object stores · 10 PG tables · 3634 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -575,7 +575,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `registerAllComponents` | `components/utilities/registerComponents` | — | — | — | — |
 | `handleChunkOverflow` | `divEditor/chunkManager` | — | — | read/write | — |
 | `trackChunkNodeCount` | `divEditor/chunkManager` | — | — | read | — |
-| `getFirstNodeIdForBook` | `divEditor/chunkMutationHandler/firstNode` | — | — | read | — |
 | `ChunkMutationHandler.cancelRebalanceDebounce` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.clearChunkCache` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.constructor` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
@@ -584,6 +583,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ChunkMutationHandler.findNumericalIdNodesInChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `ChunkMutationHandler.flushRebalance` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.handleNewChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
+| `ChunkMutationHandler.handleRootLevelWipe` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `ChunkMutationHandler.isNodeWithinMainContent` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.isNumericalIdDeletion` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.processByChunk` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
@@ -594,17 +594,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ChunkMutationHandler.shouldSkipMutation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.sweepChunkOverflow` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `destroySpan` | `divEditor/chunkMutationHandler/spanDestroyer` | — | — | read/write | — |
-| `checkForImminentEmptyState` | `divEditor/domUtilities` | — | — | read | — |
 | `cleanupAfterImport` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupAfterPaste` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupStyledSpans` | `divEditor/domUtilities` | — | — | read/write | — |
 | `ensureMinimumDocumentStructure` | `divEditor/domUtilities` | `sessionStorage` | — | read/write | — |
 | `findAllNumericalIdNodesInChunks` | `divEditor/domUtilities` | — | — | read | — |
-| `findNextNoDeleteNode` | `divEditor/domUtilities` | — | — | read | — |
-| `getNoDeleteNode` | `divEditor/domUtilities` | — | — | read | — |
 | `handleHyperciteRemoval` | `divEditor/domUtilities` | — | — | read/write | — |
-| `setNoDeleteMarker` | `divEditor/domUtilities` | — | — | write | — |
-| `transferNoDeleteMarker` | `divEditor/domUtilities` | — | — | write | — |
 | `getActiveSaveQueue` | `divEditor/editorState` | — | — | — | — |
 | `queueNodeForDeletion` | `divEditor/editorState` | — | — | — | — |
 | `queueNodeForSave` | `divEditor/editorState` | — | — | — | — |
@@ -636,8 +631,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `startObserving` | `divEditor/index` | — | — | read | — |
 | `stopObserving` | `divEditor/index` | — | — | read/write | — |
 | `createInputHandler` | `divEditor/inputHandler` | — | — | read | — |
+| `handleLastNodeGuard` | `divEditor/keydownGuards/lastNodeGuard` | — | — | read/write | — |
 | `handleListItemBackspace` | `divEditor/keydownGuards/listItemBackspace` | — | — | read/write | — |
-| `handleNoDeleteGuard` | `divEditor/keydownGuards/noDeleteGuard` | — | — | read | — |
 | `MutationProcessor.cancel` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.constructor` | `divEditor/mutationProcessor` | — | — | — | — |
 | `MutationProcessor.destroy` | `divEditor/mutationProcessor` | — | — | — | — |
@@ -1249,7 +1244,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `applyHighlights` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `applyHypercites` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `createChunkElement` | `lazyLoader/chunkRender` | — | — | read/write | — |
-| `ensureNoDeleteMarkerForBook` | `lazyLoader/chunkRender` | — | — | read | — |
 | `normalizeHyperciteElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `renderMathElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `throttle` | `lazyLoader/chunkRender` | — | — | — | — |
@@ -1773,7 +1767,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 264
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 263
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1880,6 +1874,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/utilities/gateFilter` → `indexedDB/index`
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
 - `divEditor/chunkMutationHandler/index` → `hypercites/deletion`
+- `divEditor/chunkMutationHandler/index` → `indexedDB/index`
 - `divEditor/domUtilities` → `hypercites/database`
 - `divEditor/domUtilities` → `hypercites/deletion`
 - `divEditor/domUtilities` → `indexedDB/index`
@@ -1973,8 +1968,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/serverSync/pull` → `pageLoad/accessGuards`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
 - `lazyLoader/chunkFetcher` → `indexedDB/hydration/rebuild`
-- `lazyLoader/chunkRender` → `divEditor/domUtilities`
-- `lazyLoader/chunkRender` → `indexedDB/index`
 - `lazyLoader/chunkRender` → `lazyLoader/encryptedImages`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`
 - `lazyLoader/index` → `hyperlitContainer/index`

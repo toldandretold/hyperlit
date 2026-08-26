@@ -285,7 +285,7 @@ export async function handleLargePaste(
         const subBookId = buildSubBookId(insertionPoint.book, fn.footnoteId);
         const nodeId = generateDataNodeId(asBookId(subBookId));
         const strippedText = (fn.content || '').replace(/<[^>]+>/g, '');
-        const nodeContent = `<p data-node-id="${nodeId}" no-delete-id="please" style="min-height:1.5em;">${strippedText}</p>`;
+        const nodeContent = `<p data-node-id="${nodeId}" style="min-height:1.5em;">${strippedText}</p>`;
 
         fn.preview_nodes = [{
           book: subBookId,

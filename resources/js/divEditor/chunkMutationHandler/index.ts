@@ -10,12 +10,11 @@
  */
 
 import { chunkOverflowInProgress, userDeletionInProgress, isProgrammaticUpdateInProgress, isPasteInProgress } from "../../utilities/operationState";
-import { isNumericalId, ensureNodeHasValidId, asLineId, asBookId, parseChunkId, type BookId } from "../../utilities/idHelpers";
+import { isNumericalId, ensureNodeHasValidId, asBookId, parseChunkId, type BookId } from "../../utilities/idHelpers";
 import type { SaveQueue } from "../saveQueue";
 import { movedNodesByOverflow } from '../editorState';
 import { trackChunkNodeCount, NODE_LIMIT, chunkNodeCounts, handleChunkOverflow } from '../chunkManager';
 import { checkAndInvalidateTocCache, invalidateTocCacheForDeletion } from '../../components/tocContainer/index';
-import { deleteIndexedDBRecordWithRetry, updateSingleIndexedDBRecord } from '../../indexedDB/index';
 import { isPasteOperationActive } from '../../paste/pasteState';
 import { log, verbose } from '../../utilities/logger';
 import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadingState';
@@ -23,16 +22,7 @@ import { setChunkLoadingInProgress } from '../../lazyLoader/utilities/chunkLoadi
 // 🚀 PERFORMANCE: Import cached regex pattern
 import { NUMERICAL_ID_PATTERN } from '../../utilities/idHelpers';
 
-// 🆕 NO-DELETE-ID MARKER SYSTEM
-import {
-  getNoDeleteNode,
-  setNoDeleteMarker,
-  transferNoDeleteMarker,
-  findNextNoDeleteNode
-} from '../domUtilities';
-
 // Extracted cohesive components
-import { getFirstNodeIdForBook } from './firstNode';
 import { destroySpan } from './spanDestroyer';
 
 // Debounced chunk rebalance (see scheduleRebalance). While the user is actively typing into a
@@ -377,6 +367,14 @@ export class ChunkMutationHandler {
           mutationsByChunk.set(compositeKey, { mutations: [], container: subBookContainer, chunkId });
         }
         mutationsByChunk.get(compositeKey).mutations.push(mutation);
+      } else {
+        // No containing chunk — the mutation hit the book root itself. A
+        // select-all wipe (Cmd+A + Backspace / type-over) removes the CHUNK
+        // ELEMENTS, so no numeric-id node ever appears in removedNodes and
+        // the per-chunk pipeline above never sees the deletion. Historically
+        // these were silently dropped: the DOM went empty, nothing was queued,
+        // nothing rebuilt — the "book emptied and the editor died" report.
+        this.handleRootLevelWipe(mutation);
       }
     }
 
@@ -422,6 +420,65 @@ export class ChunkMutationHandler {
           this.clearChunkCache();
         }, 300);
       }
+    }
+  }
+
+  /**
+   * Whole-container wipe backstop. When an edit removes CHUNK WRAPPERS from
+   * the book root (select-all + Backspace, type-over, cut of everything), the
+   * removed numeric-id nodes are buried inside the removed wrappers — queue
+   * their deletions and rebuild the minimal structure so the book keeps one
+   * editable node.
+   *
+   * The lazyLoader's window-trimming ALSO removes chunks at root level, but a
+   * trim always leaves rendered content — the zero-remaining-content gate is
+   * what distinguishes a user wipe from virtualization (plus the isEditing
+   * gate: read-mode trims never reach this).
+   */
+  handleRootLevelWipe(mutation: any) {
+    if (!(window as any).isEditing) return;
+    if (mutation.type !== 'childList' || !mutation.removedNodes?.length) return;
+    const targetEl = mutation.target?.nodeType === Node.ELEMENT_NODE
+      ? mutation.target
+      : mutation.target?.parentElement;
+    if (!targetEl?.closest) return;
+    const bookRoot = targetEl.closest('.sub-book-content[data-book-id]')
+      || targetEl.closest('.main-content');
+    if (!bookRoot) return;
+
+    // Content nodes buried in the removed (detached) elements. A re-attached
+    // (moved) element is not a deletion — skip it wholesale.
+    const removedIds = new Set<string>();
+    const removedContent: any[] = [];
+    const collect = (el: any) => {
+      if (el.id && NUMERICAL_ID_PATTERN.test(el.id) && !el.id.includes('-sentinel') && !removedIds.has(el.id)) {
+        removedIds.add(el.id);
+        removedContent.push(el);
+      }
+    };
+    for (const removed of mutation.removedNodes) {
+      if (removed.nodeType !== Node.ELEMENT_NODE || removed.isConnected) continue;
+      collect(removed);
+      if (removed.querySelectorAll) {
+        for (const el of removed.querySelectorAll('[id]')) collect(el);
+      }
+    }
+    if (removedContent.length === 0) return;
+
+    const hasRemainingContentNode = Array.from(bookRoot.querySelectorAll('.chunk [id]')).some((n: any) =>
+      n.isConnected && NUMERICAL_ID_PATTERN.test(n.id) && !n.id.includes('-sentinel'));
+    if (hasRemainingContentNode) return; // window-trim / partial removal — not a wipe
+
+    const bookId = bookRoot.classList.contains('sub-book-content')
+      ? bookRoot.dataset.bookId
+      : asBookId(bookRoot.id || 'latest');
+    for (const node of removedContent) {
+      invalidateTocCacheForDeletion(node.id);
+      if (this.saveQueue) this.saveQueue.queueDeletion(node.id, node, bookId);
+      this.removedNodeIds.add(node.id);
+    }
+    if (!isPasteOperationActive() && this.ensureMinimumStructure) {
+      this.ensureMinimumStructure();
     }
   }
 
@@ -605,108 +662,38 @@ export class ChunkMutationHandler {
 
               invalidateTocCacheForDeletion(node.id);
 
-              // 🆕 O(1) CHECK: Does this node have the no-delete-id marker?
-              const hasNoDeleteMarker = node.getAttribute('no-delete-id') === 'please';
+              // Queue the deletion normally — including for the last node of a
+              // book (the retired no-delete-id marker system special-cased that
+              // with a direct IDB delete + an early `return` that silently
+              // dropped every OTHER removal in the same batch, so a select-all
+              // wipe leaked sibling records into IDB for the self-heal to
+              // resurrect).
+              if (this.saveQueue) {
+                // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
+                this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
+              }
+              this.removedNodeIds.add(node.id);
 
-              if (hasNoDeleteMarker) {
-                // Find another node to transfer the marker to
-                const allNodes = chunk.querySelectorAll('[id]');
-                const otherNodes = Array.from(allNodes).filter((n: any) =>
-                  n !== node &&
-                  n.id &&
-                  NUMERICAL_ID_PATTERN.test(n.id) &&
-                  !n.id.includes('-sentinel')
-                );
-
-                if (otherNodes.length > 0) {
-                  // SCENARIO 1: Other nodes exist - transfer marker and proceed with deletion
-                  // Get the first node in the book from IndexedDB (sub-book aware)
-                  const firstNodeId = await getFirstNodeIdForBook(chunk._bookId);
-
-                  if (firstNodeId) {
-
-                    // If the first node is loaded in DOM, transfer marker there (scoped to correct container)
-                    const scopeContainer = chunk.closest('[data-book-id]') || document.querySelector('.main-content');
-                    const firstNodeInDom = scopeContainer?.querySelector(`[id="${firstNodeId}"]`);
-                    if (firstNodeInDom) {
-                      transferNoDeleteMarker(node, firstNodeInDom);
-                    }
-
-                    // Always persist the marker to IndexedDB
-                    await updateSingleIndexedDBRecord({ id: asLineId(firstNodeId) });
-                  }
-
-                  // Now proceed with normal deletion
-                  if (this.saveQueue) {
-                    // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
-                    this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
-                  }
-                  this.removedNodeIds.add(node.id);
-
-                } else {
-                  // SCENARIO 2: No other nodes in chunk - this is the last node
-
-                  // Check if there are other chunks with nodes
-                  const mainContent = document.querySelector('.main-content');
-                  const allChunks = mainContent ? mainContent.querySelectorAll('.chunk') : [];
-                  let foundNodeInOtherChunk = false;
-
-                  for (const otherChunk of allChunks) {
-                    if (otherChunk === chunk) continue;
-                    const nodesInOtherChunk = otherChunk.querySelectorAll('[id]');
-                    const validNodes = Array.from(nodesInOtherChunk).filter((n: any) =>
-                      n.id &&
-                      NUMERICAL_ID_PATTERN.test(n.id) &&
-                      !n.id.includes('-sentinel')
-                    );
-                    if (validNodes.length > 0) {
-                      // Get the first node in the book from IndexedDB (sub-book aware)
-                      const firstNodeId = await getFirstNodeIdForBook(chunk._bookId);
-
-                      if (firstNodeId) {
-
-                        // If the first node is loaded in DOM, transfer marker there (scoped to correct container)
-                        const scopeContainer = chunk.closest('[data-book-id]') || document.querySelector('.main-content');
-                        const firstNodeInDom = scopeContainer?.querySelector(`[id="${firstNodeId}"]`);
-                        if (firstNodeInDom) {
-                          transferNoDeleteMarker(node, firstNodeInDom);
-                        }
-
-                        // Always persist the marker to IndexedDB
-                        await updateSingleIndexedDBRecord({ id: asLineId(firstNodeId) });
-                      }
-
-                      foundNodeInOtherChunk = true;
-                      break;
-                    }
-                  }
-
-                  if (foundNodeInOtherChunk) {
-                    // Can safely delete this node now
-                    if (this.saveQueue) {
-                      // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
-                      this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
-                    }
-                    this.removedNodeIds.add(node.id);
-                  } else {
-                    // SCENARIO 3: Truly the last node in the entire document
-                    deleteIndexedDBRecordWithRetry(node.id).then(() => {
-                      const pasteActive = isPasteOperationActive();
-                      if (!pasteActive && this.ensureMinimumStructure) {
-                        this.ensureMinimumStructure();
-                      }
-                    });
-
-                    return;
-                  }
-                }
-              } else {
-                // Normal deletion - no marker on this node
-                if (this.saveQueue) {
-                  // ✅ FIX: Use stored bookId from chunk (captured when chunk was observed)
-                  this.saveQueue.queueDeletion(node.id, node, chunk._bookId);
-                }
-                this.removedNodeIds.add(node.id);
+              // 🛡️ Book-empty backstop — the reactive half of the last-node
+              // invariant (keydownGuards/lastNodeGuard is the preventive half;
+              // this covers every other removal pathway: selection deletions,
+              // execCommand deletes, cut, type-over). Scoped to the node's own
+              // book root — the old marker logic hardcoded .main-content here,
+              // so a sub-book emptying out was invisible to it. If the removal
+              // left the book with zero content nodes, rebuild the minimal
+              // structure (chunk 0 + one editable node) so the editor never
+              // enters the fatal empty state.
+              const bookRoot = chunk.closest('[data-book-id]') || document.querySelector('.main-content');
+              const hasRemainingContentNode = bookRoot
+                ? Array.from(bookRoot.querySelectorAll('.chunk [id]')).some((n: any) =>
+                    n !== node &&
+                    n.isConnected &&
+                    NUMERICAL_ID_PATTERN.test(n.id) &&
+                    !n.id.includes('-sentinel')
+                  )
+                : true; // no root resolvable — never rebuild blind
+              if (!hasRemainingContentNode && !isPasteOperationActive() && this.ensureMinimumStructure) {
+                this.ensureMinimumStructure();
               }
             }
             // Handle hypercite deletions

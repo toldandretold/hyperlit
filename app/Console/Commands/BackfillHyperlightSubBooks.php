@@ -147,7 +147,7 @@ class BackfillHyperlightSubBooks extends Command
                 // Create initial node (strip HTML tags, wrap in standard format).
                 $uuid      = (string) Str::uuid();
                 $plainText = strip_tags($hyperlight->annotation ?? '');
-                $content   = '<p data-node-id="' . e($uuid) . '" no-delete-id="please" '
+                $content   = '<p data-node-id="' . e($uuid) . '" '
                            . 'style="min-height:1.5em;">' . e($plainText) . '</p>';
 
                 $this->admin->table('nodes')->insert([

@@ -5,16 +5,14 @@ import type { BookId } from "../indexedDB/types";
  * This module contains utility functions for DOM manipulation and document structure management:
  * - handleHyperciteRemoval() - handles deletion of hypercite links and delinks them
  * - ensureMinimumDocumentStructure() - ensures document always has valid structure (sentinels + chunks + content)
- * - NO-DELETE-ID MARKER SYSTEM (O(1) protection):
- *   - getNoDeleteNode() - finds the node with no-delete-id="please" marker
- *   - setNoDeleteMarker() - sets the marker on a node
- *   - transferNoDeleteMarker() - moves marker between nodes
- *   - findNextNoDeleteNode() - finds a suitable node for the marker
- * - checkForImminentEmptyState() - DEPRECATED, use marker system instead
  * - cleanupStyledSpans() - removes browser-generated styled span elements
  *
  * These functions are used by divEditor.js and chunkMutationHandler.js to maintain
  * document integrity during editing operations.
+ *
+ * (The no-delete-id marker system that used to live here is RETIRED — the
+ * last-node invariant is now a runtime check: keydownGuards/lastNodeGuard.ts
+ * for prevention, chunkMutationHandler's book-empty backstop for reaction.)
  */
 
 import { book } from '../app';
@@ -473,15 +471,12 @@ export function ensureMinimumDocumentStructure(queueNodeForSave: QueueNodeForSav
     // Save to database
     queueNodeForSave('1', 'add');
 
-    // 🆕 Set no-delete-id marker on the first node
-    setNoDeleteMarker(p);
-
     // Initialize chunk tracking
     if ((window as any).trackChunkNodeCount) {
       trackChunkNodeCount(chunk);
     }
 
-    console.log('✅ Created default structure with preserved content and no-delete marker');
+    console.log('✅ Created default structure with preserved content');
 
     // Position cursor in the new paragraph
     setTimeout(() => {
@@ -531,10 +526,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave: QueueNodeForSav
     firstChunk.appendChild(p);
     queueNodeForSave('1', 'add');
 
-    // 🆕 Set no-delete-id marker on the first node
-    setNoDeleteMarker(p);
-
-    console.log('✅ Added p#1 to existing chunk with content and no-delete marker');
+    console.log('✅ Added p#1 to existing chunk with content');
     return;
   }
 
@@ -552,108 +544,7 @@ export function ensureMinimumDocumentStructure(queueNodeForSave: QueueNodeForSav
     // If this appears, investigate the source of orphaned content
   }
 
-  // 🆕 CASE 5: Ensure at least one node has the no-delete-id marker
-  const existingMarker = getNoDeleteNode();
-  if (!existingMarker) {
-    const firstNode = findNextNoDeleteNode();
-    if (firstNode) {
-      setNoDeleteMarker(firstNode);
-      console.log('✅ Set no-delete-id marker on existing node (was missing)');
-    }
-  }
-
   verbose.content('✅ Document structure is adequate - no changes needed', 'domUtilities.js');
-}
-
-/**
- * @deprecated Use the no-delete-id marker system instead (O(1) vs O(n))
- */
-export function checkForImminentEmptyState(): boolean {
-  // 🚀 NEW O(1) IMPLEMENTATION: Just check if only the protected node exists
-  const protectedNode = getNoDeleteNode();
-
-  if (!protectedNode) {
-    // No protected node means document is empty or broken
-    verbose.content('[DEPRECATED checkForImminentEmptyState] No protected node found', 'domUtilities.js');
-    return true;
-  }
-
-  // Quick check: if there's more than one chunk, we're definitely not empty
-  const mainContent = document.querySelector('.main-content');
-  if (mainContent) {
-    const chunks = mainContent.querySelectorAll('.chunk');
-    if (chunks.length > 1) {
-      return false;
-    }
-  }
-
-  // For single chunk case, check if there are other nodes besides the protected one
-  const allNodes = findAllNumericalIdNodesInChunks(mainContent as HTMLElement);
-  const nonSentinelNodes = allNodes.filter(node => !node.id.includes('-sentinel'));
-
-  // If we only have 1 node (the protected one), we're about to be empty
-  return nonSentinelNodes.length <= 1;
-}
-
-// ================================================================
-// NO-DELETE-ID MARKER SYSTEM (O(1) protection against emptying document)
-// ================================================================
-
-/**
- * Get the node that has the no-delete-id marker
- */
-export function getNoDeleteNode(): HTMLElement | null {
-  return document.querySelector('[no-delete-id="please"]');
-}
-
-/**
- * Set the no-delete-id marker on a node
- */
-export function setNoDeleteMarker(node: HTMLElement | null): void {
-  if (!node) return;
-
-  // Remove marker from any existing node first
-  const existingMarker = getNoDeleteNode();
-  if (existingMarker && existingMarker !== node) {
-    existingMarker.removeAttribute('no-delete-id');
-    verbose.content(`Removed no-delete-id from ${existingMarker.id}`, 'domUtilities.js');
-  }
-
-  node.setAttribute('no-delete-id', 'please');
-  verbose.content(`Set no-delete-id on ${node.id}`, 'domUtilities.js');
-}
-
-/**
- * Transfer the no-delete-id marker from one node to another
- */
-export function transferNoDeleteMarker(fromNode: HTMLElement | null, toNode: HTMLElement | null): void {
-  if (!fromNode || !toNode) return;
-
-  fromNode.removeAttribute('no-delete-id');
-  toNode.setAttribute('no-delete-id', 'please');
-
-  verbose.content(`Transferred no-delete-id from ${fromNode.id} to ${toNode.id}`, 'domUtilities.js');
-}
-
-/**
- * Find a suitable node to receive the no-delete-id marker
- * Looks for the first numerical ID node in the chunk (or main-content if no chunk)
- */
-export function findNextNoDeleteNode(
-  chunk: HTMLElement | null = null,
-  excludeNode: HTMLElement | null = null,
-): HTMLElement | null {
-  const searchRoot = chunk || document.querySelector('.main-content');
-  if (!searchRoot) return null;
-
-  // Find all nodes with numerical IDs (excluding sentinels and the excluded node)
-  const allNodes = findAllNumericalIdNodesInChunks(searchRoot as HTMLElement);
-  const nonSentinelNodes = allNodes.filter(
-    node => !node.id.includes('-sentinel') && node !== excludeNode,
-  );
-
-  // Return the first one (if any)
-  return nonSentinelNodes.length > 0 ? nonSentinelNodes[0]! : null;
 }
 
 // ================================================================

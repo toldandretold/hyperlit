@@ -371,7 +371,7 @@ class WebFetchService
             $startLine = ($index + 1) * 100;
             $chunkId = floor($index / 100) * 100;
 
-            $nodeHtml = '<p data-node-id="'.e($nodeId).'" no-delete-id="please" '
+            $nodeHtml = '<p data-node-id="'.e($nodeId).'" '
                       .'style="min-height:1.5em;">'.e($chunk).'</p>';
 
             $insertData[] = [

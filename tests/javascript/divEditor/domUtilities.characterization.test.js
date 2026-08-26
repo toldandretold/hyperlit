@@ -1,7 +1,9 @@
 /**
  * Characterization of the cleanly-testable helpers in
- * resources/js/divEditor/domUtilities.js — the no-delete-id marker system,
- * numeric-node collection, and styled-span cleanup. Pinned before .js → .ts.
+ * resources/js/divEditor/domUtilities.ts — numeric-node collection and
+ * styled-span cleanup. (The no-delete-id marker system that used to be
+ * pinned here is RETIRED — the last-node invariant is now the runtime
+ * lastNodeGuard, see lastNodeGuard.characterization.test.js.)
  *
  * (handleHyperciteRemoval / ensureMinimumDocumentStructure are big DOM-orchestration
  * functions with dynamic imports — exercised by the e2e grand tour.)
@@ -18,7 +20,6 @@ vi.mock('../../../resources/js/utilities/IDfunctions', () => ({
 
 import {
   findAllNumericalIdNodesInChunks,
-  getNoDeleteNode, setNoDeleteMarker, transferNoDeleteMarker, findNextNoDeleteNode,
   cleanupStyledSpans,
 } from '../../../resources/js/divEditor/domUtilities.js';
 
@@ -30,59 +31,6 @@ describe('findAllNumericalIdNodesInChunks', () => {
     host.innerHTML = '<p id="1">a</p><p id="2.1">b</p><p id="abc">c</p><div id="x-sentinel"></div>';
     document.body.appendChild(host);
     expect(findAllNumericalIdNodesInChunks(host).map(n => n.id)).toEqual(['1', '2.1']);
-  });
-});
-
-describe('no-delete-id marker system', () => {
-  it('set/get moves the marker so only one node holds it', () => {
-    const a = document.createElement('p'); a.id = '1';
-    const b = document.createElement('p'); b.id = '2';
-    document.body.append(a, b);
-
-    setNoDeleteMarker(a);
-    expect(getNoDeleteNode()).toBe(a);
-    expect(a.getAttribute('no-delete-id')).toBe('please');
-
-    setNoDeleteMarker(b);                 // moves the marker
-    expect(getNoDeleteNode()).toBe(b);
-    expect(a.hasAttribute('no-delete-id')).toBe(false);
-  });
-
-  it('transferNoDeleteMarker moves it explicitly between two nodes', () => {
-    const a = document.createElement('p'); a.id = '1'; a.setAttribute('no-delete-id', 'please');
-    const b = document.createElement('p'); b.id = '2';
-    document.body.append(a, b);
-    transferNoDeleteMarker(a, b);
-    expect(a.hasAttribute('no-delete-id')).toBe(false);
-    expect(b.getAttribute('no-delete-id')).toBe('please');
-  });
-
-  it('findNextNoDeleteNode returns the first numeric non-sentinel node', () => {
-    const host = document.createElement('div'); host.className = 'main-content';
-    host.innerHTML = '<div id="b-top-sentinel"></div><p id="1">a</p><p id="2">b</p>';
-    document.body.appendChild(host);
-    expect(findNextNoDeleteNode(host).id).toBe('1');
-  });
-
-  // Regression: the marker is seeded on the FIRST node (e.g. the <h1> title, id "100").
-  // Without excludeNode, findNextNoDeleteNode returns that same first node, so the keydown
-  // guard's `nextNode !== elementWithId` check fails and it wrongly refuses deletion even
-  // though other nodes exist. excludeNode lets the guard transfer the marker elsewhere.
-  it('findNextNoDeleteNode(host, excludeNode) skips the marked node and returns the next', () => {
-    const host = document.createElement('div'); host.className = 'main-content';
-    host.innerHTML = '<div id="b-top-sentinel"></div><p id="1">a</p><p id="2">b</p>';
-    document.body.appendChild(host);
-    const first = host.querySelector('[id="1"]');
-    expect(findNextNoDeleteNode(host, first).id).toBe('2');
-  });
-
-  it('findNextNoDeleteNode returns null when the excluded node is the only content node', () => {
-    const host = document.createElement('div'); host.className = 'main-content';
-    host.innerHTML = '<div id="b-top-sentinel"></div><p id="1">only</p>';
-    document.body.appendChild(host);
-    const only = host.querySelector('[id="1"]');
-    // Genuinely the last node — the guard must still refuse (document never goes empty).
-    expect(findNextNoDeleteNode(host, only)).toBeNull();
   });
 });
 
