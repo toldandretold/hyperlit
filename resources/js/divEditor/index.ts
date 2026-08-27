@@ -569,9 +569,11 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
 // ================================================================
 
 /**
- * Wrapper for ensureMinimumDocumentStructure that provides queueNodeForSave
+ * Wrapper for ensureMinimumDocumentStructure that provides queueNodeForSave.
+ * Exported: enableEditMode's isNewBook branch dynamic-imports this module and
+ * calls it (belt for a new book that rendered empty — the self-heal path).
  */
-function ensureMinimumDocumentStructure() {
+export function ensureMinimumDocumentStructure() {
   ensureMinimumStructureImpl(queueNodeForSave);
 }
 

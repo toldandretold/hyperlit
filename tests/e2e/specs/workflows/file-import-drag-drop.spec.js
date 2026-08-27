@@ -148,8 +148,8 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     // to a generous timeout if the icon class isn't immediately readable).
     try {
       await page.waitForFunction(() => {
-        const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-        return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+        const btn = document.getElementById('cloudRef');
+        return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
       }, null, { timeout: 8000 });
     } catch {
       await page.waitForTimeout(3000);

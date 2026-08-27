@@ -24,6 +24,7 @@ import { TAB_ID, markBookEditedLocally } from '../../utilities/BroadcastListener
 import { book as currentBook } from '../../app';
 import { hidePasteUndoToast } from '../../paste/ui/pasteUndoToast';
 import { clearPasteSnapshot } from '../../paste/pasteSnapshot';
+import { registerPendingWorkCheck } from '../../components/cloudRef/editIndicator';
 import { asDataNodeId, asBookId, LATEST, type LineId, type BookId } from '../../utilities/idHelpers';
 import {
   DEBOUNCE_DELAYS,
@@ -54,6 +55,7 @@ export class SaveQueue implements IntegritySurface {
   debouncedSaveNode: DebouncedVoidFn;
   debouncedBatchDelete: DebouncedVoidFn;
   monitor: ReturnType<typeof setInterval> | null;
+  _unregisterPendingWorkCheck: (() => void) | null = null;
 
   constructor(bookId: BookId | null = null) {
     this.bookId = bookId;
@@ -86,6 +88,15 @@ export class SaveQueue implements IntegritySurface {
 
     // Monitor for debugging (optional)
     this.monitor = null;
+
+    // Keep the cloud indicator honest: while this queue holds unflushed nodes/
+    // deletions, resetIndicator must not settle on 'idle' (a green from an
+    // EARLIER server cycle can fade while our debounced flush is still waiting
+    // — the window where "durably saved" was a lie and a nav away lost text).
+    this._unregisterPendingWorkCheck = registerPendingWorkCheck(() =>
+      !this._destroyed
+      && (this.pendingSaves.nodes.size > 0 || this.pendingSaves.deletions.size > 0)
+    );
   }
 
   /**
@@ -542,6 +553,7 @@ export class SaveQueue implements IntegritySurface {
    */
   destroy(): void {
     this._destroyed = true;
+    this._unregisterPendingWorkCheck?.();
     this.debouncedSaveNode.cancel();
     this.debouncedBatchDelete.cancel();
     this.integrity.destroy();

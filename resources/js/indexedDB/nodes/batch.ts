@@ -197,9 +197,28 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
         }
       }
 
-      // Final fallback: global lookup (main content, no collision risk)
+      // Final fallback: global lookup — but VERIFY book attribution before
+      // trusting it. Stacked sub-book editors all seed their first node as
+      // id="1", so a bare getElementById can grab a DIFFERENT book's node and
+      // serialize its node_id/content into THIS book's record — a cross-book
+      // node_id collision that 500s forever on the server's global unique
+      // index (the 2026-08-27 blackBox "Server trouble" loop in the nested
+      // e2e). Accept the element only if it actually belongs to this batch's
+      // book; otherwise treat as not-found (skip + warn is safe — the
+      // integrity self-heal covers a genuinely missed save).
       if (!node) {
-        node = document.getElementById(IDnumerical);
+        const candidate = document.getElementById(IDnumerical);
+        if (candidate) {
+          const ownerBookId =
+            (candidate.closest('[data-book-id]') as HTMLElement | null)?.dataset?.bookId
+            || (candidate.closest('.main-content') as HTMLElement | null)?.id
+            || null;
+          if (ownerBookId === String(bookId)) {
+            node = candidate;
+          } else {
+            verbose.content(`Global fallback for id=${IDnumerical} found a node owned by "${ownerBookId}" but batch book is "${bookId}" — skipping (cross-book id collision guard)`, '/indexedDB/nodes/batch.ts');
+          }
+        }
       }
 
       // Skip inline formatting artifacts (e.g. <font id="1"> from copy-paste)

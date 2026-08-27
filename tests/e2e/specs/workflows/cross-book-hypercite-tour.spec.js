@@ -126,8 +126,8 @@ test.describe('Cross-book hypercite stress tour', () => {
 
     // Wait for cloud sync to go green so Book A's IndexedDB write is durable
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 15000 }).catch(() => { /* fallback to time wait */ });
     await page.waitForTimeout(500);
 
@@ -188,8 +188,8 @@ test.describe('Cross-book hypercite stress tour', () => {
     await snap('bookB hypercite pasted');
 
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 15000 }).catch(() => {});
     await page.click('#editButton');
     await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });

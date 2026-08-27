@@ -185,8 +185,8 @@ test.describe('Chunk overflow via mass paste — fractional chunk/line ids', () 
 
     // Wait for sync to PG before reloading (green cloud, else a generous beat).
     await page.waitForFunction(() => {
-      const c = document.querySelector('#cloudRef-svg .cls-1');
-      return c && c.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 8000 }).catch(() => page.waitForTimeout(4000));
 
     // ── Phase 3: reload → order preserved, no node loss ──

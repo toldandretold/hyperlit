@@ -105,13 +105,14 @@ async function waitForPasteSettled(page, { hasFootnotes, hasReferences }) {
   }
 
   // Wait for the save/sync pipeline to actually finish rather than guessing with a fixed timeout:
-  // the cloud indicator turns green (#63B995) once the pasted nodes are persisted. Same observable
-  // signal chunk-overflow-paste.spec.js + footnote-integrity.spec.js already use. A racing paste
+  // #cloudRef's data-last-sync flips to "success" once the pasted nodes are persisted (the green
+  // COLOR is an inline-style CSS var and fades after 1.5s — unobservable + racy to poll). Same
+  // observable chunk-overflow-paste.spec.js + footnote-integrity.spec.js already use. A racing paste
   // (integrity reporter firing mid-render) is exactly what this removes. Falls back to the old
   // coarse wait if a paste never greens in time — no worse than before.
   await page.waitForFunction(() => {
-    const c = document.querySelector('#cloudRef-svg .cls-1');
-    return c && c.getAttribute('fill') === '#63B995';
+    const btn = document.getElementById('cloudRef');
+    return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
   }, null, { timeout: 20_000 }).catch(() => page.waitForTimeout(1500));
 
   // Pasted publisher articles can produce hundreds of chunks; the lazy

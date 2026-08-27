@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1754,
+    "fnCount": 1756,
     "moduleCount": 372,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3634,
+    "edgeCount": 3641,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -238,6 +238,14 @@
       "stage": "components",
       "module": "components/cloudRef/editIndicator",
       "leaf": false
+    },
+    {
+      "id": "components/cloudRef/editIndicator:registerPendingWorkCheck",
+      "label": "registerPendingWorkCheck",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/cloudRef/editIndicator",
+      "leaf": true
     },
     {
       "id": "components/containerDragger/containerDragger:ContainerDragger.constructor",
@@ -6177,6 +6185,14 @@
       "stage": "divEditor",
       "module": "divEditor/enterKeyHandler/index",
       "leaf": false
+    },
+    {
+      "id": "divEditor/index:ensureMinimumDocumentStructure",
+      "label": "ensureMinimumDocumentStructure",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/index",
+      "leaf": true
     },
     {
       "id": "divEditor/index:flushAllPendingSaves",
@@ -15897,7 +15913,8 @@
         "components/cloudRef/editIndicator:glowCloudLocalSave",
         "components/cloudRef/editIndicator:glowCloudOrange",
         "components/cloudRef/editIndicator:glowCloudRed",
-        "components/cloudRef/editIndicator:glowCloudSyncSuccess"
+        "components/cloudRef/editIndicator:glowCloudSyncSuccess",
+        "components/cloudRef/editIndicator:registerPendingWorkCheck"
       ]
     },
     {
@@ -17445,6 +17462,7 @@
       "stage": "divEditor",
       "band": "capture",
       "fnIds": [
+        "divEditor/index:ensureMinimumDocumentStructure",
         "divEditor/index:flushAllPendingSaves",
         "divEditor/index:flushInputDebounce",
         "divEditor/index:getPendingSaveNodeIds",
@@ -20653,16 +20671,34 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/cloudRef/editIndicator:glowCloudGreen__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "components/cloudRef/editIndicator:glowCloudGreen",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
       "id": "components/cloudRef/editIndicator:glowCloudGreen__domwrite__dom",
       "source": "components/cloudRef/editIndicator:glowCloudGreen",
       "target": "dom",
       "rel": "domwrite"
     },
     {
+      "id": "components/cloudRef/editIndicator:glowCloudLocalSave__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "components/cloudRef/editIndicator:glowCloudLocalSave",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
+    },
+    {
       "id": "components/cloudRef/editIndicator:glowCloudLocalSave__domwrite__dom",
       "source": "components/cloudRef/editIndicator:glowCloudLocalSave",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/cloudRef/editIndicator:glowCloudOrange__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "components/cloudRef/editIndicator:glowCloudOrange",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
     },
     {
       "id": "components/cloudRef/editIndicator:glowCloudOrange__call__components/cloudRef/editIndicator:glowCloudRed",
@@ -20681,6 +20717,12 @@
       "source": "components/cloudRef/editIndicator:glowCloudOrange",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/cloudRef/editIndicator:glowCloudRed__call__components/cloudRef/editIndicator:glowCloudOrange",
+      "source": "components/cloudRef/editIndicator:glowCloudRed",
+      "target": "components/cloudRef/editIndicator:glowCloudOrange",
+      "rel": "call"
     },
     {
       "id": "components/cloudRef/editIndicator:glowCloudRed__domwrite__dom",
@@ -25845,17 +25887,17 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/index:ensureMinimumDocumentStructure__call__divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "source": "divEditor/index:ensureMinimumDocumentStructure",
+      "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "divEditor/index:startObserving__call__divEditor/chunkManager:trackChunkNodeCount",
       "source": "divEditor/index:startObserving",
       "target": "divEditor/chunkManager:trackChunkNodeCount",
       "rel": "call"
-    },
-    {
-      "id": "divEditor/index:startObserving__call__divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "source": "divEditor/index:startObserving",
-      "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
-      "rel": "call",
-      "dataPath": true
     },
     {
       "id": "divEditor/index:startObserving__call__divEditor/editorState:setActiveSaveQueue",
@@ -25874,6 +25916,13 @@
       "source": "divEditor/index:startObserving",
       "target": "divEditor/editSessionManager:verifyMutationSource",
       "rel": "call"
+    },
+    {
+      "id": "divEditor/index:startObserving__call__divEditor/index:ensureMinimumDocumentStructure",
+      "source": "divEditor/index:startObserving",
+      "target": "divEditor/index:ensureMinimumDocumentStructure",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/index:startObserving__call__divEditor/index:stopObserving",
@@ -25957,6 +26006,12 @@
       "id": "divEditor/mutationProcessor:MutationProcessor.process__call__lazyLoader/utilities/chunkLoadingState:isChunkLoadingInProgress",
       "source": "divEditor/mutationProcessor:MutationProcessor.process",
       "target": "lazyLoader/utilities/chunkLoadingState:isChunkLoadingInProgress",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/saveQueue/index:SaveQueue.constructor__call__components/cloudRef/editIndicator:registerPendingWorkCheck",
+      "source": "divEditor/saveQueue/index:SaveQueue.constructor",
+      "target": "components/cloudRef/editIndicator:registerPendingWorkCheck",
       "rel": "call"
     },
     {
@@ -41477,6 +41532,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensureOrangeIndicator__domwrite__dom",
+      "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensureOrangeIndicator",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensurePendingSyncsComplete__call__components/cloudRef/editIndicator:glowCloudGreen",
       "source": "SPA/navigation/pathways/NewBookTransition:NewBookTransition.ensurePendingSyncsComplete",
       "target": "components/cloudRef/editIndicator:glowCloudGreen",
@@ -45429,6 +45490,11 @@
     {
       "source": "divEditor/mutationProcessor",
       "target": "lazyLoader/utilities/chunkLoadingState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/saveQueue/index",
+      "target": "components/cloudRef/editIndicator",
       "kind": "static"
     },
     {

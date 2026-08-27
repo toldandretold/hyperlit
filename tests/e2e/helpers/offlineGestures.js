@@ -109,8 +109,8 @@ export async function createBaselineBook(page, spa, { paraCount = 30 } = {}) {
   // Wait for sync to PG (green cloud), else a generous beat.
   await page
     .waitForFunction(() => {
-      const c = document.querySelector('#cloudRef-svg .cls-1');
-      return c && c.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 8000 })
     .catch(() => page.waitForTimeout(4000));
   return { bookId };

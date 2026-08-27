@@ -99,8 +99,8 @@ test.describe('seed cross-book hypercite fixture', () => {
 
     // Sync green so the source marker is durable before we leave the book.
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
     await page.click('#editButton');
@@ -135,8 +135,8 @@ test.describe('seed cross-book hypercite fixture', () => {
     // the href keeps the source hypercite id. Match on href.
     await page.waitForSelector(`.main-content a.open-icon[href*="${clipboard.hyperciteId}"]`, { timeout: 10000 });
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
     await page.click('#editButton');

@@ -181,9 +181,9 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
 
         // ✅ ONLY call ensureMinimumDocumentStructure for new blank books
         if (isNewBook) {
-          import("../../divEditor/index").then((m: any) => {
-            m.ensureMinimumDocumentStructure();
-          });
+          import("../../divEditor/index")
+            .then((m) => m.ensureMinimumDocumentStructure())
+            .catch((err) => log.error('ensureMinimumDocumentStructure unavailable on new-book edit entry', '/components/editButton/index.ts', err));
         }
 
         // Cursor placement

@@ -112,7 +112,7 @@ describe('format toggle through the real mutation handler', () => {
     await handler.processChunkMutations(chunk, [childList(chunk, { removed: [p], added: [bq] })], 'bookA');
 
     expect(saveQueue.queueDeletion).not.toHaveBeenCalled();
-    expect(queueNodeForSave).toHaveBeenCalledWith('42', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('42', 'update', 'bookA');
     expect(queueNodeForSave).not.toHaveBeenCalledWith(expect.anything(), 'add');
     expect(document.querySelectorAll('[id="42"]')).toHaveLength(1);
     expect(document.querySelectorAll('#hypercite_x')).toHaveLength(1);
@@ -130,7 +130,7 @@ describe('format toggle through the real mutation handler', () => {
     await handler.processChunkMutations(chunk, [childList(chunk, { removed: [bq], added: [p2] })], 'bookA');
 
     expect(saveQueue.queueDeletion).not.toHaveBeenCalled();
-    expect(queueNodeForSave).toHaveBeenCalledWith('42', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('42', 'update', 'bookA');
     expect(queueNodeForSave).not.toHaveBeenCalledWith(expect.anything(), 'add');
     expect(document.querySelectorAll('[id="42"]')).toHaveLength(1);
     expect(document.querySelectorAll('#hypercite_x')).toHaveLength(1);

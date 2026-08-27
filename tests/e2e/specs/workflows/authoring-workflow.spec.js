@@ -292,8 +292,8 @@ test.describe('Full authoring workflow', () => {
     // Wait for book 1 to sync (green cloud indicator or generous timeout)
     try {
       await page.waitForFunction(() => {
-        const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-        return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+        const btn = document.getElementById('cloudRef');
+        return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
       }, null, { timeout: 5000 });
     } catch {
       // Fallback: just wait a generous amount for sync
@@ -373,8 +373,8 @@ test.describe('Full authoring workflow', () => {
     // Wait for book 2 sync before leaving
     try {
       await page.waitForFunction(() => {
-        const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-        return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+        const btn = document.getElementById('cloudRef');
+        return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
       }, null, { timeout: 5000 });
     } catch {
       await page.waitForTimeout(3000);

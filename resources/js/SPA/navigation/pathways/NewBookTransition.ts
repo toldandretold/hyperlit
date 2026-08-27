@@ -143,6 +143,10 @@ export class NewBookTransition {
           const cloudSvgPath = document.querySelector('#cloudRef-svg .cls-1') as HTMLElement | null;
           if (cloudSvgPath) {
             cloudSvgPath.style.fill = '#EF8D34';
+            // Keep the machine-readable state in step with the direct style-set
+            // (glowCloudOrange stamps it too, but may have run before this
+            // element existed in the replaced body).
+            document.getElementById('cloudRef')?.setAttribute('data-save-state', 'saving');
             verbose.nav('Orange indicator set deterministically', 'NewBookTransition.js');
             return true;
           }

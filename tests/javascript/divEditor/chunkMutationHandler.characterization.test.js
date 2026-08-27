@@ -176,7 +176,7 @@ describe('processChunkMutations — high-traffic paths', () => {
     const chunk = makeChunk('<p id="1">hello</p>');
     const text = chunk.querySelector('p').firstChild;
     await handler.processChunkMutations(chunk, [{ type: 'characterData', target: text, addedNodes: [], removedNodes: [] }], 'bookA');
-    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update', 'bookA');
     expect(handler.modifiedNodes.has('1')).toBe(true);
   });
 
@@ -193,8 +193,8 @@ describe('processChunkMutations — high-traffic paths', () => {
     const cd = (target) => ({ type: 'characterData', target, addedNodes: [], removedNodes: [] });
     await handler.processChunkMutations(chunk, [cd(t1), cd(t1), cd(t1), cd(t2), cd(t2)], 'bookA');
     expect(queueNodeForSave).toHaveBeenCalledTimes(2);
-    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update');
-    expect(queueNodeForSave).toHaveBeenCalledWith('2', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('1', 'update', 'bookA');
+    expect(queueNodeForSave).toHaveBeenCalledWith('2', 'update', 'bookA');
   });
 
   it('added element node gets an id and is queued for add', async () => {
@@ -202,7 +202,7 @@ describe('processChunkMutations — high-traffic paths', () => {
     const newP = document.createElement('p'); newP.textContent = 'new';
     await handler.processChunkMutations(chunk, [childList(chunk, { added: [newP] })], 'bookA');
     expect(newP.id).toBe('gen');                          // ensureNodeHasValidId assigned it
-    expect(queueNodeForSave).toHaveBeenCalledWith('gen', 'add');
+    expect(queueNodeForSave).toHaveBeenCalledWith('gen', 'add', 'bookA');
     expect(handler.documentChanged.value).toBe(true);
   });
 
@@ -336,7 +336,7 @@ describe('processByChunk — Text-target mutations (characterData)', () => {
   it('main-book: text-target characterData reaches the queue via the text→element normalization', async () => {
     const chunk = makeChunk('<p id="3">hello</p>');
     await handler.processByChunk([charData(chunk.querySelector('p').firstChild)]);
-    expect(queueNodeForSave).toHaveBeenCalledWith('3', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('3', 'update', 'latest'); // no main-content id in fixture → 'latest'
   });
 
   it('sub-book: text-target characterData resolves the sub-book container (no crash on .closest)', async () => {
@@ -351,7 +351,7 @@ describe('processByChunk — Text-target mutations (characterData)', () => {
     document.body.appendChild(sub);
 
     await handler.processByChunk([charData(chunk.querySelector('p').firstChild)]);
-    expect(queueNodeForSave).toHaveBeenCalledWith('7', 'update');
+    expect(queueNodeForSave).toHaveBeenCalledWith('7', 'update', 'book_sub'); // attributed to the SUB-BOOK, not the active queue
 
     sub.remove();
   });
@@ -404,7 +404,7 @@ describe('processChunkMutations — debounced rebalance + hard ceiling', () => {
     await handler.processChunkMutations(chunk, [overLimitAdd(chunk, 103)], 'bookA');
     expect(mockHandleChunkOverflow).not.toHaveBeenCalled();   // deferred, not split synchronously
     expect(handler.rebalanceDebounceTimer).not.toBeNull();    // a debounce was armed
-    expect(queueNodeForSave).toHaveBeenCalledWith('999', 'add'); // the new node is still queued
+    expect(queueNodeForSave).toHaveBeenCalledWith('999', 'add', 'bookA'); // the new node is still queued
     handler.cancelRebalanceDebounce();
   });
 

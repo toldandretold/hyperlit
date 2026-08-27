@@ -366,14 +366,17 @@ export async function findParagraphByText(page, searchText) {
 }
 
 /**
- * Wait for cloud-sync indicator to go green, with a fallback timeout.
- * Lifted from authoring-workflow.spec.js.
+ * Wait for the save/sync cycle to settle successfully, with a fallback timeout.
+ * Polls #cloudRef's machine-readable state (data-last-sync / data-save-state,
+ * stamped by editIndicator.ts) — NOT the color: the green fill is an
+ * inline-style CSS variable (getAttribute('fill') never matches it) and fades
+ * back to grey after 1.5s, so color polling is unobservable AND racy.
  */
 export async function waitForCloudGreen(page, fallbackMs = 3000) {
   try {
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 5000 });
   } catch {
     await page.waitForTimeout(fallbackMs);

@@ -275,13 +275,24 @@ export class ChunkMutationHandler {
 
               const numericalIdNodes = this.findNumericalIdNodesInChunk(deletedChunk);
 
-              // ✅ FIX: Get bookId from observedChunks using composite key lookup
-              let chunkBookId = null;
-              if (chunkId) {
-                // Find the matching composite key in observedChunks
+              // Resolve the deleted chunk's book from the element it was removed
+              // FROM (mutation.target is still attached). The old approach —
+              // first observedChunks key ending in `:${chunkId}` — is ambiguous
+              // with stacked sub-book editors: EVERY book has a chunk 0, so the
+              // first match could attribute the deletion to the wrong book.
+              let chunkBookId: BookId | null = null;
+              const removalHost = mutation.target instanceof Element ? mutation.target : null;
+              const hostBookEl = removalHost?.closest('[data-book-id]') as HTMLElement | null;
+              const mainHost = removalHost?.closest('.main-content') as HTMLElement | null;
+              if (hostBookEl?.dataset?.bookId) {
+                chunkBookId = asBookId(hostBookEl.dataset.bookId);
+              } else if (mainHost?.id) {
+                chunkBookId = asBookId(mainHost.id);
+              } else if (chunkId) {
+                // Fallback: composite-key lookup (may be ambiguous — last resort)
                 for (const [key, data] of this.observedChunks) {
                   if (key.endsWith(`:${chunkId}`)) {
-                    chunkBookId = data.bookId;
+                    chunkBookId = data.bookId ?? null;
                     break;
                   }
                 }
@@ -808,7 +819,7 @@ export class ChunkMutationHandler {
             if (node.id && replacedNodeIds.has(node.id)) {
               this.queueTocInvalidation(node.id, node);
               if (this.queueNodeForSave) {
-                this.queueNodeForSave(node.id, 'update');
+                this.queueNodeForSave(node.id, 'update', bookId);
               }
               return;
             }
@@ -868,7 +879,7 @@ export class ChunkMutationHandler {
               node.remove();
               // Queue the parent list for save since its structure changed
               if (listParent.id && this.queueNodeForSave) {
-                this.queueNodeForSave(listParent.id, 'update');
+                this.queueNodeForSave(listParent.id, 'update', bookId);
               }
               return;
             }
@@ -884,7 +895,7 @@ export class ChunkMutationHandler {
 
             if (pasteDetected && node.id) {
               if (this.queueNodeForSave) {
-                this.queueNodeForSave(node.id, 'add');
+                this.queueNodeForSave(node.id, 'add', bookId);
               }
             }
 
@@ -897,7 +908,7 @@ export class ChunkMutationHandler {
 
               if (parentWithId && parentWithId.id) {
                 if (this.queueNodeForSave) {
-                  this.queueNodeForSave(parentWithId.id, 'update');
+                  this.queueNodeForSave(parentWithId.id, 'update', bookId);
                 }
                 this.modifiedNodes.add(parentWithId.id);
               }
@@ -920,7 +931,7 @@ export class ChunkMutationHandler {
           this.queueTocInvalidation(parent.id, parent);
 
           if (this.queueNodeForSave) {
-            this.queueNodeForSave(parent.id, 'update');
+            this.queueNodeForSave(parent.id, 'update', bookId);
           }
           this.modifiedNodes.add(parent.id);
         }
@@ -931,7 +942,7 @@ export class ChunkMutationHandler {
     parentsToUpdate.forEach((parent: any) => {
       verbose.content(`Queueing parent node after child removal: ${parent.id}`, 'divEditor/chunkMutationHandler.js');
       if (this.queueNodeForSave) {
-        this.queueNodeForSave(parent.id, 'update');
+        this.queueNodeForSave(parent.id, 'update', bookId);
       }
       this.modifiedNodes.add(parent.id);
     });
@@ -943,7 +954,7 @@ export class ChunkMutationHandler {
         newNodes.forEach((node: any) => {
           if (node.id) {
             if (this.queueNodeForSave) {
-              this.queueNodeForSave(node.id, 'add');
+              this.queueNodeForSave(node.id, 'add', bookId);
             }
           }
         });

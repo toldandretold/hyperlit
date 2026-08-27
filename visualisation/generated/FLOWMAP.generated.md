@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1754 functions in 372 modules · 10 object stores · 10 PG tables · 3634 edges
+**MarkdownDB** schema v28 · 1756 functions in 372 modules · 10 object stores · 10 PG tables · 3641 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -21,6 +21,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `glowCloudOrange` | `components/cloudRef/editIndicator` | — | — | read/write | — |
 | `glowCloudRed` | `components/cloudRef/editIndicator` | — | — | read/write | — |
 | `glowCloudSyncSuccess` | `components/cloudRef/editIndicator` | — | — | read/write | — |
+| `registerPendingWorkCheck` | `components/cloudRef/editIndicator` | — | — | — | — |
 | `ContainerDragger.constructor` | `components/containerDragger/containerDragger` | — | — | — | — |
 | `ContainerDragger.endDragOrResize` | `components/containerDragger/containerDragger` | — | — | read/write | — |
 | `ContainerDragger.handleMouseDown` | `components/containerDragger/containerDragger` | — | — | read | — |
@@ -624,6 +625,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EnterKeyHandler.constructor` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.destroy` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.handleKeyDown` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
+| `ensureMinimumDocumentStructure` | `divEditor/index` | — | — | — | — |
 | `flushAllPendingSaves` | `divEditor/index` | — | — | — | — |
 | `flushInputDebounce` | `divEditor/index` | — | — | — | — |
 | `getPendingSaveNodeIds` | `divEditor/index` | — | — | — | — |
@@ -1704,7 +1706,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ImportBookTransition.updateUrl` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
 | `NewBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
 | `NewBookTransition.createAndTransition` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
-| `NewBookTransition.ensureOrangeIndicator` | `SPA/navigation/pathways/NewBookTransition` | — | — | read | — |
+| `NewBookTransition.ensureOrangeIndicator` | `SPA/navigation/pathways/NewBookTransition` | — | — | read/write | — |
 | `NewBookTransition.ensurePendingSyncsComplete` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
 | `NewBookTransition.enterEditMode` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
 | `NewBookTransition.execute` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |

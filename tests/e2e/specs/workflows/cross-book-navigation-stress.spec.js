@@ -204,8 +204,8 @@ test.describe('Cross-book navigation stress', () => {
 
     // Sync wait
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -277,8 +277,8 @@ test.describe('Cross-book navigation stress', () => {
 
     // Sync wait
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     // Close any open containers FIRST. #ref-overlay (base container's

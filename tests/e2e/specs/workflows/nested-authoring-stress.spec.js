@@ -116,8 +116,8 @@ test.describe('Nested authoring stress', () => {
 
     // Wait for cloud sync to go green so all writes have flushed to backend
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => { /* fallback to time wait */ });
     await page.waitForTimeout(500);
 

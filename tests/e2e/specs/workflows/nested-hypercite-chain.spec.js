@@ -147,8 +147,8 @@ test.describe('Nested hypercite chain', () => {
     await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 }).catch(() => {});
     // Wait for cloud sync to go green so the chain has durable IndexedDB state
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
     await snap('P1 commit complete');
@@ -271,8 +271,8 @@ test.describe('Nested hypercite chain', () => {
 
     // Wait for sync so chain is durable
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -465,8 +465,8 @@ test.describe('Nested hypercite chain', () => {
 
     // Wait for sync so the new hypercite is durable, exit edit mode
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -564,8 +564,8 @@ test.describe('Nested hypercite chain', () => {
     await page.click('#editButton');
     await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 }).catch(() => {});
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     // ── Click the pasted hypercite link → SPA back to book A ────────

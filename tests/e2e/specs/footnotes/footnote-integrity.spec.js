@@ -78,8 +78,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     // Give background download + initial renumber a chance to settle
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     const snap = await checkpoint(page, bookId, 'A_post_import');
@@ -112,8 +112,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     // Wait for background download so the book is fully in IDB (mirrors the
     // user's situation: 272 IDB nodes = 272 PG nodes, no fetch race).
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(500);
 
@@ -169,8 +169,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'C_baseline');
@@ -243,8 +243,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'D_baseline');
@@ -314,8 +314,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'E_baseline');
@@ -378,8 +378,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cloudSvg = document.querySelector('#cloudRef-svg .cls-1');
-      return cloudSvg && cloudSvg.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'F_baseline');
@@ -459,8 +459,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
-      const cs = document.querySelector('#cloudRef-svg .cls-1');
-      return cs && cs.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'G_baseline');
@@ -506,8 +506,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     // give it time to settle before snapshotting.
     await page.waitForTimeout(3000);
     await page.waitForFunction(() => {
-      const cs = document.querySelector('#cloudRef-svg .cls-1');
-      return cs && cs.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'G_after_reload_hydration');
@@ -606,8 +606,8 @@ test.describe('Footnote integrity — reproduction harness', () => {
     });
     await page.waitForTimeout(2500);
     await page.waitForFunction(() => {
-      const cs = document.querySelector('#cloudRef-svg .cls-1');
-      return cs && cs.getAttribute('fill') === '#63B995';
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success' && btn.getAttribute('data-save-state') !== 'saving';
     }, null, { timeout: 20000 }).catch(() => {});
 
     await checkpoint(page, bookId, 'H_baseline');
