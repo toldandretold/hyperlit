@@ -391,8 +391,15 @@ body.hx-detail {
 /* Occurrence picker. The buttons sit inside .hx-selected-actions so they
    inherit its border, aqua hover and disabled opacity; only the square shape
    is overridden here. Kept tight against its counter, and separated from the
-   verdict buttons, because stepping occurrences is not a verdict. */
-.hx-occurrence {
+   verdict buttons, because stepping occurrences is not a verdict.
+
+   :not([hidden]) is load-bearing, NOT decoration. `hidden` only hides via the
+   UA rule `[hidden] { display: none }`, which ANY author `display` declaration
+   outranks — so a bare `.hx-occurrence { display: inline-flex }` left the
+   picker on screen for every candidate, including the single-match ones it
+   hides itself for. The arrows then looked live and did nothing, because
+   moveOccurrence has no second location to step to. */
+.hx-occurrence:not([hidden]) {
   display: inline-flex;
   align-items: center;
   gap: 4px;

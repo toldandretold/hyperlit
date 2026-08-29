@@ -354,6 +354,12 @@ function initDetail(boot: ConsoleBoot): void {
     // hypercite pointing at text nobody chose (the server refuses too).
     if (total < 2 || c.hypercite_id) {
       wrap.hidden = true;
+      // Disabled as well as hidden, so the arrows can never be BOTH visible and
+      // inert — the state a stray author `display` rule put them in once, where
+      // they read as live controls that silently do nothing.
+      prev.disabled = true;
+      next.disabled = true;
+      count.textContent = '';
       return;
     }
 
