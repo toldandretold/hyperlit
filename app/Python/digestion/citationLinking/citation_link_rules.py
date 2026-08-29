@@ -45,7 +45,9 @@ _CITATION_PLAIN = (
     "a bibliography exists but none of the bracketed-year candidates link to it, that is a SUSPICION worth "
     "checking (missing references upstream, OR they were prose-year parentheticals), not a proven bug. "
     "Both (Author YEAR) parentheses AND [Author YEAR] square brackets are recognised; numeric [N] STEM "
-    "cites are handled separately in the PDF path (wrap_stem_citations).")
+    "cites are handled separately in the PDF path (wrap_stem_citations). Numbered (N)/[N] cites are only "
+    "linked against an ordinal-numbered bibliography, and a numbered LIST in prose — \"(1) x, (2) y, "
+    "(3) z\" — is recognised as an enumeration and left alone.")
 from shared.link_base import LinkRule, run_link_rules
 from shared.refkeys import generate_ref_keys
 
@@ -66,6 +68,46 @@ class CitationLinkContext:
         self.anchor_unmatched = 0
         self.skip_citation_scan = False
         self.skip_reason = None
+        self.enumerations_skipped = 0   # numbered groups left alone as prose lists, not citations
+        self.enum_cache = {}            # id(<p>) -> enumeration numbers (per-paragraph, computed once)
+        self._bib_region = None         # lazy: id()s of <p> inside the reference list
+
+    def bibliography_region(self):
+        """id()s of the `<p>` elements that sit INSIDE the reference list — the paragraphs carrying a
+        `bib-entry` anchor, PLUS any short gap of un-extracted entries wedged between two of them.
+
+        Every linker guards with `p.find('a', class_='bib-entry')`, which only recognises references the
+        extractor actually captured. An entry it MISSED (institutional author, title-first — 2c0544c4's
+        "7. Transforming Our World … (United Nations General Assembly, 2015).") stays an ordinary `<p>`
+        in the middle of the reference list, and the author-year scan then "links" that publication year
+        to an unrelated entry via the fuzzy-year fallback. Sandwiching is the positional tell: a stray
+        paragraph between two real bib entries is a reference, not prose. The gap cap is what keeps a
+        document whose references sit MID-body from swallowing the whole text."""
+        if self._bib_region is None:
+            paras = self.soup.find_all('p')
+            marked = [i for i, p in enumerate(paras) if p.find('a', class_='bib-entry')]
+            region = set()
+            for a, b in zip(marked, marked[1:]):
+                if b - a - 1 <= _BIB_REGION_MAX_GAP:
+                    region.update(id(paras[i]) for i in range(a + 1, b))
+            self._bib_region = region
+        return self._bib_region
+
+
+# How many consecutive un-extracted paragraphs may sit between two bibliography entries and still
+# count as part of the reference list. Small on purpose — a long run of prose between two bib
+# anchors means the anchors are NOT one contiguous list, and nothing in between is a reference.
+_BIB_REGION_MAX_GAP = 3
+
+
+def _in_bibliography(ctx, text_node):
+    """True when this text node lives in a reference-list paragraph (extracted entry or a gap entry
+    the extractor missed). Text with no `<p>` parent at all is NOT excluded — the scans have always
+    covered headings/list items/table cells."""
+    p = text_node.find_parent('p')
+    if p is None:
+        return False
+    return bool(p.find('a', class_='bib-entry')) or id(p) in ctx.bibliography_region()
 
 
 def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_delim):
@@ -74,7 +116,7 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
     the ctx accumulators in place."""
     soup = ctx.soup
     bibliography_map = ctx.bibliography_map
-    if not text_node.find_parent("p") or not text_node.find_parent("p").find("a", class_="bib-entry"):
+    if not _in_bibliography(ctx, text_node):
         text = str(text_node)
         matches = list(re.finditer(pattern, text))
         if matches:
@@ -344,6 +386,51 @@ class NumberedParenCitationLinker(LinkRule):
     _GROUP_RE = re.compile(r'\((\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*,\s*\d{1,3})*)\)')
     _OPEN, _CLOSE = '(', ')'
 
+    # ---- enumeration guard -------------------------------------------------------------------
+    # "…the political impact of the SDGs on (1) global governance, (2) domestic political systems,
+    # (3) the integration…" is a five-item LIST, not five citations — but against a dense ordinal
+    # bibliography every member resolves, so the linker happily minted five wrong anchors
+    # (2c0544c4, a Nature paper that actually cites by superscript; those five parentheses were the
+    # only parenthesised numbers in the whole document).
+    #
+    # Shape is what separates the two. A citation attaches to what PRECEDES it — a phrase boundary
+    # ("…on a finite planet (1).") or an author ("Dewatripont et al. (4) found…", "Varian (10)
+    # pointed out…"). An enumerator introduces what FOLLOWS it: it sits after a comma / colon /
+    # lowercase connective ("on", "and") and is followed by the item's own words.
+    #
+    # Neither test is safe alone — PNAS's "the web site journalprices.com (5) reports that…" is
+    # enumerator-SHAPED yet is a real citation. So a group is only left alone when the
+    # enumerator-shaped members of its paragraph ALSO count 1, 2, 3 … : a consecutive ascending run
+    # from 1 is a list, and no citation order looks like that by accident.
+    _ENUM_BEFORE_RE = re.compile(r'(?:^|[,;:(]|\b[a-z]{1,12})\s*$')
+    _ENUM_AFTER_RE = re.compile(r'^\s+[A-Za-z]')
+    _ENUM_MIN_RUN = 2
+
+    def _enumeration_numbers(self, ctx, p):
+        """The numbers in `p` that belong to a prose enumeration — resolvable groups matching those
+        numbers must be left as plain text. Empty set for every ordinary paragraph."""
+        cached = ctx.enum_cache.get(id(p))
+        if cached is not None:
+            return cached
+        text = p.get_text()
+        seq = []
+        for m in self._GROUP_RE.finditer(text):
+            token = m.group(1).strip()
+            if not token.isdigit():
+                continue                                  # ranges / comma groups are never list markers
+            if (self._ENUM_BEFORE_RE.search(text[:m.start()])
+                    and self._ENUM_AFTER_RE.match(text[m.end():])):
+                seq.append(int(token))
+        run = seq[:1]
+        for n in seq[1:]:
+            if n == run[-1] + 1:
+                run.append(n)
+            else:
+                break
+        nums = set(run) if (len(run) >= self._ENUM_MIN_RUN and run[0] == 1) else set()
+        ctx.enum_cache[id(p)] = nums
+        return nums
+
     def _ordinal_map(self, ctx):
         omap = {}
         for anchor in ctx.soup.find_all('a', class_='bib-entry'):
@@ -371,12 +458,13 @@ class NumberedParenCitationLinker(LinkRule):
             if text_node.find_parent('a'):
                 continue
             p = text_node.find_parent('p')
-            if not p or p.find('a', class_='bib-entry'):
+            if not p or _in_bibliography(ctx, text_node):
                 continue
             text = str(text_node)
             matches = [m for m in self._GROUP_RE.finditer(text)]
             if not matches:
                 continue
+            enum_nums = self._enumeration_numbers(ctx, p)
             new_content, last = [], 0
             changed = False
             for m in matches:
@@ -385,6 +473,9 @@ class NumberedParenCitationLinker(LinkRule):
                 expanded = list(range(nums[0], nums[1] + 1)) if (is_range and len(nums) == 2) else nums
                 if not expanded or not all(1 <= n <= span and n in omap for n in expanded):
                     continue                      # a year / equation number / gap — leave the group
+                if len(nums) == 1 and not is_range and nums[0] in enum_nums:
+                    ctx.enumerations_skipped += 1
+                    continue                      # "(1) x, (2) y, (3) z" — a prose list, not citations
                 new_content.append(NavigableString(text[last:m.start()] + self._OPEN))
                 if is_range and len(nums) == 2:
                     a = ctx.soup.new_tag('a', href=f'#{omap[nums[0]]}')
@@ -535,7 +626,8 @@ class AssessmentRecorder(LinkRule):
                 evidence={'candidates': candidates, 'found': citations_found, 'linked': citations_linked,
                           'unlinked': unlinked_n, 'anchor_converted': anchor_converted,
                           'bibliography_entries': bib_n, 'full_miss': full_miss,
-                          'markup_cited': markup_cited, 'unlinked_sample': sample},
+                          'markup_cited': markup_cited, 'unlinked_sample': sample,
+                          'numbered_enumerations_skipped': ctx.enumerations_skipped},
                 question='Did in-text citations link to the bibliography (and if not — real miss or prose-years)?',
                 considered=([{'option': 'link the remaining unmatched citations',
                               'rejected_because': 'their generated keys matched no bibliography entry '

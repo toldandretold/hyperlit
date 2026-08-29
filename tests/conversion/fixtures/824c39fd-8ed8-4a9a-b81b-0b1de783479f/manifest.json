@@ -1,7 +1,7 @@
 {
     "name": "824c39fd-8ed8-4a9a-b81b-0b1de783479f",
     "description": "pulled prod case: 824c39fd-8ed8-4a9a-b81b-0b1de783479f",
-    "license": "is_oa=true oa_status=green work_license=cc-by — license cc-by -> committable",
+    "license": "is_oa=true oa_status=green work_license=cc-by \u2014 license cc-by -> committable",
     "book_id": "824c39fd-8ed8-4a9a-b81b-0b1de783479f",
     "citation_style": "author-year-bracket",
     "footnote_strategy": "sequential",
@@ -9,7 +9,7 @@
     "expected": {
         "references_count": 33,
         "citations_linked": 45,
-        "citations_total": 56,
+        "citations_total": 55,
         "footnotes_count": 2,
         "audit_gaps": 0
     }

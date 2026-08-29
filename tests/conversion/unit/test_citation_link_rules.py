@@ -300,3 +300,67 @@ def test_numbered_bracket_linker_keeps_special_interest_stars(soup):
     anchors = s.find_all('a', class_='in-text-citation')
     assert [a.get_text() for a in anchors] == ['4*', '5*', '6*']
     assert anchors[0]['href'] == '#bib4'
+
+
+# ---------------------------------------------------------------------------
+# NumberedParenCitationLinker enumeration guard — "(1) x, (2) y, (3) z" is a prose LIST, not
+# three citations (2c0544c4: a Nature paper cited by superscript whose only parenthesised numbers
+# were a five-item enumeration; against its dense ordinal bibliography all five "linked").
+# ---------------------------------------------------------------------------
+def test_numbered_paren_linker_skips_prose_enumeration(soup):
+    from digestion.citationLinking.citation_link_rules import NumberedParenCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>the impact of the SDGs on (1) global governance, '
+                                   '(2) domestic political systems and (3) the integration of policies.</p>')
+    NumberedParenCitationLinker().apply(ctx)
+    assert s.find_all('a', class_='in-text-citation') == []
+    assert ctx.citations_linked == 0
+    assert ctx.enumerations_skipped == 3
+    assert '(1) global governance' in s.get_text()
+
+
+def test_numbered_paren_linker_still_links_real_citations(soup):
+    # The PNAS shapes the enumeration guard must NOT touch (965f6773): a phrase-boundary cite, a
+    # narrative cite after an author, and a range. None is an ascending run of list markers.
+    from digestion.citationLinking.citation_link_rules import NumberedParenCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>inflated subscription prices (1-3). Dewatripont et al. (4) '
+                                   'found that libraries pay more. Varian (5) pointed out why.</p>')
+    NumberedParenCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [a.get_text() for a in anchors] == ['1-3', '4', '5']
+    assert anchors[0]['data-refs'] == 'bib1,bib2,bib3'
+    assert ctx.enumerations_skipped == 0
+
+
+def test_numbered_paren_linker_enumeration_run_must_start_at_one(soup):
+    # Consecutive-but-not-from-1 numbers are citation order, not a list — link them.
+    from digestion.citationLinking.citation_link_rules import NumberedParenCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>as noted in (3) and later in (4) the argument holds.</p>')
+    NumberedParenCitationLinker().apply(ctx)
+    assert [a.get_text() for a in s.find_all('a', class_='in-text-citation')] == ['3', '4']
+
+
+# ---------------------------------------------------------------------------
+# Bibliography-region guard — a reference the extractor MISSED still sits inside the reference
+# list, and its publication year must not be "linked" to some other entry (2c0544c4 node 74:
+# "7. Transforming Our World … (United Nations General Assembly, 2015)." → #biermann2017b via the
+# fuzzy-year fallback).
+# ---------------------------------------------------------------------------
+def test_scan_skips_unextracted_entry_wedged_in_the_reference_list(soup):
+    s = soup('<body><p>Body prose citing (Marcuse 2009) here.</p>'
+             '<p><a class="bib-entry" id="b1"></a>1. Marcuse, H. Work (2009).</p>'
+             '<p>2. Transforming Our World (United Nations General Assembly, 2009).</p>'
+             '<p><a class="bib-entry" id="b2"></a>3. Smith, J. Other (2010).</p></body>')
+    found, linked, _ = link_citations_rules(s, {_key('Marcuse 2009'): 'b1'})
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert len(anchors) == 1 and anchors[0].find_parent('p').get_text().startswith('Body prose')
+    assert (found, linked) == (1, 1)
+
+
+def test_bibliography_region_does_not_swallow_prose_between_distant_entries(soup):
+    # A long run of body paragraphs between two bib anchors means they are NOT one contiguous
+    # list — the prose in between must still be scanned.
+    body = ''.join(f'<p>Paragraph {i} citing (Marcuse 2009) here.</p>' for i in range(4))
+    s = soup(f'<body><p><a class="bib-entry" id="b1"></a>Marcuse, H. Work (2009).</p>'
+             f'{body}<p><a class="bib-entry" id="b2"></a>Smith, J. Other (2010).</p></body>')
+    found, linked, _ = link_citations_rules(s, {_key('Marcuse 2009'): 'b1'})
+    assert (found, linked) == (4, 4)
