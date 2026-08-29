@@ -185,6 +185,9 @@ def expand_latex_superscripts(text):
 # which sit inside maths). Math inside $…$ / $$…$$ is masked out first so exponents there are untouched.
 _MATH_SPAN_RE = re.compile(r'\$\$.+?\$\$|\$(?!\$).+?(?<!\$)\$', re.DOTALL)
 _BARE_CARET_FN_RE = re.compile(r'(?<=[A-Za-z0-9.,;:!?)\'"’”])\^(\d{1,3})(?![A-Za-z0-9])')
+# Module-level so the substitution below doesn't need a backslash INSIDE an f-string
+# expression — legal from Python 3.12 (PEP 701), a SyntaxError on 3.11 (prod's python3).
+_WS_RUN_RE = re.compile(r'\s+')
 
 
 def convert_bare_caret_footnotes(text):
@@ -214,7 +217,7 @@ def convert_bare_caret_footnotes(text):
         r'\1 \2–\3', masked)
     masked = re.sub(
         r'(?i)\b(refs?\.?)\s*\^\{(\d{1,3}(?:\s*,\s*\d{1,3})*)\s*,?\}',
-        lambda m: f"{m.group(1)} {re.sub(r'\\s+', '', m.group(2))}", masked)
+        lambda m: f"{m.group(1)} {_WS_RUN_RE.sub('', m.group(2))}", masked)
     # brace form "^{2}" without $-delimiters (79c3d8e4: "en masse^{2}.") — a naked LaTeX-style
     # superscript Mistral emits outside math mode. Genuine exponents live inside $…$ and are
     # masked above, so a surviving ^{N} is a footnote marker. Comma GROUPS expand to one marker
