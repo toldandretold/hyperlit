@@ -19,6 +19,7 @@ import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
 import { DifferentTemplateTransition} from './pathways/DifferentTemplateTransition.js';
 import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
+import { RevealGate } from './RevealGate';
 
 export class NavigationManager {
   static navigationCount = 0;
@@ -58,13 +59,18 @@ export class NavigationManager {
           throw new Error(`Unknown navigation pathway: ${pathway}`);
       }
 
-      // ✅ Success - hide overlay
+      // ✅ Success — but if a resume curtain is holding ("Finding your
+      // previous position…"), wait for the restore to SETTLE before the
+      // reveal. Resolved immediately when no gate is armed; internally
+      // capped (4s) and cancelled by any user gesture, so this can't hang.
+      await RevealGate.completion();
       await ProgressOverlayEnactor.hide();
 
     } catch (error: any) {
       log.error(`Navigation failed for pathway ${pathway}`, '/navigation/NavigationManager.js', error);
 
       // ✅ Error - still hide overlay (guaranteed via finally block in ProgressOverlayEnactor)
+      RevealGate.disarm(); // never hold a curtain over a failed load
       await ProgressOverlayEnactor.hide();
 
       throw error;
@@ -206,13 +212,16 @@ export class NavigationManager {
         });
       }
 
-      // ✅ Success - hide overlay
+      // ✅ Success — resume-curtain gate first (see navigate()); immediate
+      // no-op when unarmed.
+      await RevealGate.completion();
       await ProgressOverlayEnactor.hide();
 
     } catch (error: any) {
       log.error('Structure-aware navigation failed', '/navigation/NavigationManager.js', error);
 
       // ✅ Error - still hide overlay
+      RevealGate.disarm(); // never hold a curtain over a failed load
       await ProgressOverlayEnactor.hide();
 
       throw error;

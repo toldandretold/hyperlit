@@ -22,19 +22,19 @@ function siDb()
 
 function siCleanup(): void
 {
+    $siShelfNames = fn ($q) => $q
+        ->where('name', 'LIKE', 'SI %')
+        ->orWhere('name', 'LIKE', 'Cited by: SI %')
+        ->orWhere('name', 'LIKE', 'Case import: SI %');
     siDb()->table('journal_import_runs')->whereIn(
         'shelf_id',
-        siDb()->table('shelves')->where('name', 'LIKE', 'SI %')->orWhere('name', 'LIKE', 'Cited by: SI %')->pluck('id')
+        siDb()->table('shelves')->where($siShelfNames)->pluck('id')
     )->delete();
     siDb()->table('shelf_items')->whereIn(
         'shelf_id',
-        siDb()->table('shelves')
-            ->where(fn ($q) => $q->where('name', 'LIKE', 'SI %')->orWhere('name', 'LIKE', 'Cited by: SI %'))
-            ->pluck('id')
+        siDb()->table('shelves')->where($siShelfNames)->pluck('id')
     )->delete();
-    siDb()->table('shelves')
-        ->where(fn ($q) => $q->where('name', 'LIKE', 'SI %')->orWhere('name', 'LIKE', 'Cited by: SI %'))
-        ->delete();
+    siDb()->table('shelves')->where($siShelfNames)->delete();
     siDb()->table('canonical_source')->where('title', 'LIKE', 'SI %')->delete();
     siDb()->table('library')->where('book', 'LIKE', 'book_si%')->delete();
     siDb()->table('journal_sources')->where('display_name', 'LIKE', 'SI %')->delete();
@@ -172,6 +172,8 @@ test('shelves lists public shelves with counts, system collection shelves first'
         'name'    => 'Cited by: SI Some Journal',
         'creator' => \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR,
     ]);
+    // The book:import-cases vacuum shelf counts as a system collection too.
+    $caseShelf = siSeedShelf('public', ['name' => 'Case import: SI 2026-08-27 10:00']);
 
     // One canonical-linked item and one canonical-less item on the plain shelf.
     siSeedShelvedWork($plain, [['foundation_source' => 'canonical_pdf_vacuum']]);
@@ -198,6 +200,7 @@ test('shelves lists public shelves with counts, system collection shelves first'
 
     $systemRow = $rows->firstWhere('id', $system->id);
     expect($systemRow['is_system'])->toBeTrue();
+    expect($rows->firstWhere('id', $caseShelf->id)['is_system'])->toBeTrue();
 
     // System shelves sort before non-system ones regardless of size.
     $ours = $rows->filter(fn ($s) => in_array($s['id'], [$plain->id, $system->id], true))->values();
@@ -228,7 +231,8 @@ test('articles nests ALL sibling lanes of a shelved work, and counts canonical-l
         ['foundation_source' => 'journal_html', 'visibility' => 'deleted'],
     ], ['title' => 'SI Deleted Lane Work']);
 
-    // A canonical-less shelf item is excluded from articles, surfaced in unlinked_count.
+    // A canonical-less shelf item still counts in unlinked_count, but now ALSO
+    // appears as a synthetic standalone article (the vacuum-shelf case).
     $bare = 'book_si_bare' . Str::lower(Str::random(4));
     siDb()->table('library')->insert([
         'book'       => $bare,
@@ -248,7 +252,8 @@ test('articles nests ALL sibling lanes of a shelved work, and counts canonical-l
     expect($body['shelf']['id'])->toBe($shelf->id);
     expect($body['shelf']['item_count'])->toBe(3);
     expect($body['shelf']['unlinked_count'])->toBe(1);
-    expect($body['articles'])->toHaveCount(2);
+    expect($body['articles'])->toHaveCount(3);
+    expect(collect($body['articles'])->pluck('canonical_id'))->toContain('book:' . $bare);
 
     $article = collect($body['articles'])->firstWhere('canonical_id', $work['canonical_id']);
     $lanes = collect($article['lanes']);
@@ -259,6 +264,89 @@ test('articles nests ALL sibling lanes of a shelved work, and counts canonical-l
 
     $deletedArticle = collect($body['articles'])->firstWhere('canonical_id', $deleted['canonical_id']);
     expect(collect($deletedArticle['lanes'])->pluck('lane'))->not->toContain('html');
+});
+
+test('a vacuum lane is labelled by what the fetch ladder actually won with, not "pdf"', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+
+    // The vacuum lane runs the whole ContentFetchService ladder: JATS (strategy 0) and the
+    // browser page fetch (strategy 5) never touch a PDF, so labelling their rows 'pdf' lies.
+    $jats = siSeedShelvedWork($shelf, [
+        ['foundation_source' => 'canonical_pdf_vacuum', 'conversion_method' => 'jats_fulltext'],
+    ], ['title' => 'SI Jats Work']);
+    $web = siSeedShelvedWork($shelf, [
+        ['foundation_source' => 'canonical_pdf_vacuum', 'conversion_method' => 'paste_engine_html'],
+    ], ['title' => 'SI Web Work']);
+
+    $body = $this->getJson('/api/maintainer/shelf-import/' . $shelf->id . '/articles')->assertOk()->json();
+    $laneFor = fn (array $work) => collect($body['articles'])
+        ->firstWhere('canonical_id', $work['canonical_id'])['lanes'][0]['lane'];
+
+    expect($laneFor($jats))->toBe('jats');
+    expect($laneFor($web))->toBe('web');
+});
+
+test('a canonical-less shelf book folds to a standalone article: unfetchable, no false approval flag, unimportable', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+
+    // A claimed case book: private, canonical-less, converter-produced.
+    $case = 'book_si_case' . Str::lower(Str::random(4));
+    siDb()->table('library')->insert([
+        'book'              => $case,
+        'title'             => 'SI Case Book',
+        'visibility'        => 'private',
+        'listed'            => false,
+        'has_nodes'         => true,
+        'type'              => 'book',
+        'raw_json'          => '[]',
+        'timestamp'         => 0,
+        'conversion_method' => 'pdf_ocr_auto_raw',
+        'created_at'        => now(),
+    ]);
+    siDb()->table('shelf_items')->insert(['shelf_id' => $shelf->id, 'book' => $case, 'added_at' => now()]);
+
+    // A deleted canonical-less book is excluded entirely.
+    $gone = 'book_si_gone' . Str::lower(Str::random(4));
+    siDb()->table('library')->insert([
+        'book'       => $gone,
+        'title'      => 'SI Gone Book',
+        'visibility' => 'deleted',
+        'listed'     => false,
+        'has_nodes'  => true,
+        'type'       => 'book',
+        'raw_json'   => '[]',
+        'timestamp'  => 0,
+        'created_at' => now(),
+    ]);
+    siDb()->table('shelf_items')->insert(['shelf_id' => $shelf->id, 'book' => $gone, 'added_at' => now()]);
+
+    $body = $this->getJson('/api/maintainer/shelf-import/' . $shelf->id . '/articles')->assertOk()->json();
+
+    $article = collect($body['articles'])->firstWhere('canonical_id', 'book:' . $case);
+    expect($article)->not->toBeNull();
+    expect($article['title'])->toBe('SI Case Book');
+    expect($article['fetchable'])->toBeFalse();          // null doi/urls → import bar disabled
+
+    $lanes = collect($article['lanes']);
+    expect($lanes)->toHaveCount(1);
+    expect($lanes[0]['book'])->toBe($case);
+    expect($lanes[0]['conversion_method'])->toBe('pdf_ocr_auto_raw');
+    expect($lanes[0]['is_version'])->toBeTrue();         // auto_version_book = the book itself
+    expect($lanes[0]['needs_approval'])->toBeFalse();    // no false "⚑ needs approval"
+    expect($lanes[0]['fixture'])->toBeNull();
+    expect($lanes[0]['golden_complete'])->toBeFalse();
+
+    expect(collect($body['articles'])->firstWhere('canonical_id', 'book:' . $gone))->toBeNull();
+
+    // The synthetic id is not a uuid, so run's import validation refuses it.
+    $this->postJson('/api/maintainer/shelf-import/' . $shelf->id . '/run', [
+        'action'       => 'import',
+        'canonical_id' => 'book:' . $case,
+    ])->assertStatus(422);
+    Queue::assertNothingPushed();
 });
 
 // ── Run ──

@@ -27,8 +27,8 @@
     "conversion-modal": { "module": "resources/js/paste/ui/modalManager.ts", "wiring": "deferred:paste conversion progress — wire when next touched" },
     "import-failure-modal": { "module": "resources/js/conversion/bugReportModal.js", "wiring": "deferred:import failure report — wire when next touched (also still .js)" },
     "novel-vacuum-overlay": { "module": "resources/js/paste/handlers/novelVacuumHandler.ts", "wiring": "deferred:paste novel-vacuum flow — wire when next touched" },
-    "navigation-overlay": { "module": "resources/js/SPA/navigation/ProgressOverlayEnactor.ts", "wiring": "inert:pointer-events none, progress display only" },
-    "initial-navigation-overlay": { "module": "resources/views/layout.blade.php (same progress overlay, boot instance)", "wiring": "inert:pointer-events none, progress display only" },
+    "navigation-overlay": { "module": "resources/js/SPA/navigation/ProgressOverlayEnactor.ts", "wiring": "non-modal:resume-curtain mode adds one focusable go-to-top button (focus seats on it; Enter=top, Escape=reveal in place; RevealGate 4s cap); plain progress mode stays inert pointer-events none" },
+    "initial-navigation-overlay": { "module": "resources/views/layout.blade.php (same progress overlay, boot instance)", "wiring": "non-modal:resume-curtain mode adds one focusable go-to-top button (focus seats on it; Enter=top, Escape=reveal in place; RevealGate 4s cap); plain progress mode stays inert pointer-events none" },
     "reconvert-blocking-overlay": { "module": "resources/js/utilities/reconvertHandoff.ts", "wiring": "inert:blocking wait overlay during reconvert handoff, no focusables" },
     "page-drop-overlay": { "module": "resources/js/components/fileDropTarget/fileDropTarget.ts", "wiring": "inert:drag-drop hint, display none until OS drag" },
     "progress-modal": { "module": "resources/css/components/progressModal.css only", "wiring": "css-only:no live JS creator found; prune the CSS or register the module when revived" }

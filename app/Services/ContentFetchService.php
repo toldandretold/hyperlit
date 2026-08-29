@@ -452,6 +452,17 @@ class ContentFetchService
             }
             $triedPdf[$pdfTarget] = true;
 
+            // A URL that NAMES a front-matter excerpt (Cambridge "…pre1_i-ii.pdf/frontmatter.pdf")
+            // can never be the body — park it as the partial fallback without even downloading,
+            // and keep looking for a full copy.
+            if (self::isFrontMatterUrl($pdfTarget)) {
+                if ($partialFallback === null) {
+                    $partialFallback = ['url' => $pdfTarget, 'cand' => $cand,
+                                        'reason' => 'front-matter URL shape (title pages, not the body)'];
+                }
+                continue;
+            }
+
             $result = $this->downloadPdf($pdfTarget, $bookId, $doi);
             if ($result['status'] === 'failed') {
                 $lastFailure = $result['reason'];
@@ -518,7 +529,9 @@ class ContentFetchService
         // points at a bot-walled URL.
         if ($doi || $pdfUrl || $oaUrl) {
             $landing = $doi ? ('https://doi.org/' . $doi) : ($oaUrl ?: $pdfUrl);
-            $target  = $pdfUrl ?: $landing;
+            // A front-matter-shaped pdf_url (Cambridge "…/frontmatter.pdf") is never the body —
+            // aim the browser at the landing page instead so it can discover the real PDF.
+            $target  = ($pdfUrl && !self::isFrontMatterUrl($pdfUrl)) ? $pdfUrl : $landing;
             $result = $this->fetchPdfViaBrowser($target, $landing, $bookId);
             if ($result['status'] !== 'failed') {
                 return $result;
@@ -2285,6 +2298,27 @@ class ContentFetchService
         if (!$lines) return 0;
         File::put("{$path}/nodes.jsonl", implode("\n", $lines));
         return count($lines);
+    }
+
+    /**
+     * A candidate URL that names a FRONT/BACK-MATTER excerpt, not the work's body.
+     * Cambridge Core serves "stamped-<isbn>pre1_i-ii.pdf/frontmatter.pdf" as a book's
+     * "free" bronze copy (case 14b0f260: a 2-page title-page PDF won the OA ladder and
+     * imported as the book). The roman-numeral page range (_i-ii, _vii-xii) is the
+     * print signature of front matter — body pages are arabic. Public static so the
+     * acquisition gate test can pin the shapes directly.
+     */
+    public static function isFrontMatterUrl(string $url): bool
+    {
+        $path = strtolower(rawurldecode(parse_url($url, PHP_URL_PATH) ?? ''));
+
+        return (bool) preg_match(
+            '~/(?:front|back|book)-?matter\.pdf'
+            . '|/toc\.pdf$'
+            . '|stamped-[^/]*pre\d*[_-]'
+            . '|_[ivxlc]{1,7}-[ivxlc]{1,7}\.pdf~',
+            $path
+        );
     }
 
     /**

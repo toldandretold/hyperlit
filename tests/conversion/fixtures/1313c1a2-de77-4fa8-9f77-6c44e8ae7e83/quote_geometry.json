@@ -1,0 +1,1 @@
+[["also deﬁneλ⋄(T ) = λ(T )∩⋄(T ),λσ(T ) = λ(T )∩σ(T ) andσ⋄(T ) = σ(T )∩⋄(T )."], ["Classiﬁer er hd hr mrAblated Feature(s) er hr hd Opinion 72.6 72.0 79.9 73.5 NONE 72.6 79.9 72.0 Sentiment 64.4 61.5 62.7 63.4mention 70.1 79.3 70.8"], ["hr 0.38 0.39 0.37 0.49pr(−|λσ;TCS )/pr(+|λσ;TCS ) 2.2 0.34 er 0.16 0.17 0.22 0.07Table 6:TCS statistics for testing hypotheses Ia and IIa"]]

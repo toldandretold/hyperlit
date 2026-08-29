@@ -138,6 +138,11 @@ export const test = base.extend({
         // stdout live (the consoleErrors gate only surfaces them at assert time,
         // and a test that dies earlier otherwise hides what the page logged).
         if (process.env.E2E_CONSOLE_DEBUG) console.log('[page-err]', msg.text().slice(0, 400));
+      } else if (process.env.E2E_CONSOLE_DEBUG === 'all') {
+        // Full-console triage: stream every page log line to the runner's
+        // stdout so navigation/restoration decision logs (📚 restore vs
+        // cascade, popstate branches) are visible next to the test's steps.
+        console.log(`[page-${msg.type()}]`, msg.text().slice(0, 400));
       }
     });
 

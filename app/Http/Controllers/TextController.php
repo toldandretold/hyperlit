@@ -634,6 +634,14 @@ class TextController extends Controller
                 }
             }
 
+            // Layout-shift guard: stamp width/height onto attr-less media <img>
+            // tags from book_images dims. The prerendered chunk paints BEFORE any
+            // JS runs, so an unsized figure decoding above the restored reading
+            // position shoves the page with no compensator awake — dims reserve
+            // the box up front (`img { height:auto }` derives the ratio).
+            // Render-time only; stored node content is never touched.
+            $html = $this->injectImageDimensions($book, $html);
+
             return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId, 'private' => $private];
         } catch (\Throwable $e) {
             // SEO prerender is best-effort — never let it break the page render.
@@ -642,6 +650,55 @@ class TextController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return null;
+        }
+    }
+
+    /**
+     * Best-effort width/height injection for the prerendered chunk's media imgs.
+     * Reads dims from book_images (measured at ingest; plaintext even for E2EE
+     * books). Any failure returns the HTML unchanged.
+     */
+    private function injectImageDimensions(string $book, string $html): string
+    {
+        if ($html === '' || stripos($html, '<img') === false) {
+            return $html;
+        }
+        try {
+            $rows = \App\Models\PgBookImage::where('book', $book)
+                ->whereNotNull('width')
+                ->whereNotNull('height')
+                ->get(['filename', 'width', 'height'])
+                ->keyBy('filename');
+            if ($rows->isEmpty()) {
+                return $html;
+            }
+            $prefix = '/' . $book . '/media/';
+            $out = preg_replace_callback('/<img\b[^>]*>/i', function (array $m) use ($rows, $prefix) {
+                $tag = $m[0];
+                if (preg_match('/\bwidth\s*=/i', $tag) && preg_match('/\bheight\s*=/i', $tag)) {
+                    return $tag;
+                }
+                if (! preg_match('/\bsrc\s*=\s*["\']([^"\']+)["\']/i', $tag, $srcMatch)) {
+                    return $tag;
+                }
+                $src = $srcMatch[1];
+                if (! str_starts_with($src, $prefix)) {
+                    return $tag;
+                }
+                $filename = rawurldecode(preg_replace('/[?#].*$/', '', substr($src, strlen($prefix))));
+                $row = $rows[$filename] ?? null;
+                if (! $row || ! $row->width || ! $row->height) {
+                    return $tag;
+                }
+                $insert = ' width="' . (int) $row->width . '" height="' . (int) $row->height . '"';
+                return str_ends_with($tag, '/>')
+                    ? substr($tag, 0, -2) . $insert . ' />'
+                    : substr($tag, 0, -1) . $insert . '>';
+            }, $html);
+
+            return $out ?? $html;
+        } catch (\Throwable) {
+            return $html;
         }
     }
 

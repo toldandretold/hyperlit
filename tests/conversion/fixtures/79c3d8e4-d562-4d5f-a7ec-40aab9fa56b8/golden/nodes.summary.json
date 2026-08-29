@@ -11,7 +11,7 @@
     },
     {
       "footnotes": [],
-      "i": 15,
+      "i": 14,
       "references": [
         "stemref_4",
         "stemref_5"
@@ -20,7 +20,7 @@
     },
     {
       "footnotes": [],
-      "i": 16,
+      "i": 15,
       "references": [
         "stemref_6",
         "stemref_7"
@@ -29,7 +29,7 @@
     },
     {
       "footnotes": [],
-      "i": 17,
+      "i": 16,
       "references": [
         "stemref_8",
         "stemref_9",
@@ -39,7 +39,7 @@
     },
     {
       "footnotes": [],
-      "i": 18,
+      "i": 17,
       "references": [
         "stemref_10",
         "stemref_11"
@@ -48,7 +48,7 @@
     },
     {
       "footnotes": [],
-      "i": 20,
+      "i": 19,
       "references": [
         "stemref_12"
       ],
@@ -56,7 +56,7 @@
     },
     {
       "footnotes": [],
-      "i": 21,
+      "i": 20,
       "references": [
         "stemref_13",
         "stemref_14",
@@ -66,7 +66,7 @@
     },
     {
       "footnotes": [],
-      "i": 23,
+      "i": 22,
       "references": [
         "stemref_16",
         "stemref_17"
@@ -75,7 +75,7 @@
     },
     {
       "footnotes": [],
-      "i": 26,
+      "i": 25,
       "references": [
         "stemref_18"
       ],
@@ -83,7 +83,7 @@
     },
     {
       "footnotes": [],
-      "i": 27,
+      "i": 26,
       "references": [
         "stemref_19"
       ],
@@ -91,7 +91,7 @@
     },
     {
       "footnotes": [],
-      "i": 28,
+      "i": 27,
       "references": [
         "stemref_20",
         "stemref_10",
@@ -101,7 +101,7 @@
     },
     {
       "footnotes": [],
-      "i": 29,
+      "i": 28,
       "references": [
         "stemref_16"
       ],
@@ -109,7 +109,7 @@
     },
     {
       "footnotes": [],
-      "i": 30,
+      "i": 29,
       "references": [
         "stemref_19"
       ],
@@ -117,7 +117,7 @@
     },
     {
       "footnotes": [],
-      "i": 32,
+      "i": 31,
       "references": [
         "stemref_22",
         "stemref_16"
@@ -126,7 +126,7 @@
     },
     {
       "footnotes": [],
-      "i": 33,
+      "i": 32,
       "references": [
         "stemref_23",
         "stemref_24"
@@ -135,7 +135,7 @@
     },
     {
       "footnotes": [],
-      "i": 35,
+      "i": 34,
       "references": [
         "stemref_25",
         "stemref_26",
@@ -145,7 +145,7 @@
     },
     {
       "footnotes": [],
-      "i": 36,
+      "i": 35,
       "references": [
         "stemref_28",
         "stemref_29"
@@ -154,7 +154,7 @@
     },
     {
       "footnotes": [],
-      "i": 37,
+      "i": 36,
       "references": [
         "stemref_30"
       ],
@@ -162,7 +162,7 @@
     },
     {
       "footnotes": [],
-      "i": 39,
+      "i": 38,
       "references": [
         "stemref_24"
       ],
@@ -175,7 +175,7 @@
           "marker": "2"
         }
       ],
-      "i": 41,
+      "i": 40,
       "references": [
         "stemref_31"
       ],
@@ -183,7 +183,7 @@
     },
     {
       "footnotes": [],
-      "i": 42,
+      "i": 41,
       "references": [
         "stemref_32"
       ],
@@ -191,7 +191,7 @@
     },
     {
       "footnotes": [],
-      "i": 43,
+      "i": 42,
       "references": [
         "stemref_33",
         "stemref_8"
@@ -200,19 +200,19 @@
     },
     {
       "footnotes": [],
-      "i": 48,
+      "i": 47,
       "references": [
         "stemref_34"
       ],
       "type": "p"
     }
   ],
-  "node_count": 88,
+  "node_count": 87,
   "type_histogram": {
     "a": 2,
     "blockquote": 3,
     "h1": 3,
     "h2": 5,
-    "p": 75
+    "p": 74
   }
 }

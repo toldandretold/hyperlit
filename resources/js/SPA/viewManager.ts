@@ -53,6 +53,8 @@ import {
 } from "../pageLoad/firstChunkPromise";
 // Zero-import leaf — flag-gated boot forensics (see scrolling/scrollTrace).
 import { recordNavDecision } from "../scrolling/scrollTrace";
+import { getSavedAnchor } from "../scrolling/readingAnchor";
+import { RevealGate } from "./navigation/RevealGate";
 import { resetCurrentLazyLoader } from "../pageLoad/lazyLoaderRegistry";
 import { closeHyperlitContainer } from '../hyperlitContainer/index';
 
@@ -328,10 +330,25 @@ export async function universalPageInitializer(progressCallback = null) {
   // marker 9000px below the fold). loadHyperText resets the first-chunk
   // promise synchronously at entry, so the live binding here is this boot's.
   // Fallback to loadPromise covers the no-op branch above.
+  // Resume-curtain (RevealGate): when this boot will restore a saved position,
+  // hold the boot overlay as an opaque "Finding your previous position…"
+  // curtain until the restore SETTLES (NavigationManager awaits
+  // RevealGate.completion() before hiding). Armed only for a plain reader
+  // entry with a locally saved anchor — hash/deep-link jumps, home/user, and
+  // bfcache keep their existing overlay behaviour. A fresh device whose anchor
+  // is server-seeded during loadHyperText is covered by restore.ts's late-arm.
+  // New page entry: the gate allows ONE hold per entry (a reveal — gesture,
+  // stability, cap — permanently releases it until the next entry, so
+  // restore.ts's late-arm can't re-curtain a page the reader dismissed).
+  RevealGate.newBoot();
+  if (currentPageType === 'reader' && !window.location.hash && getSavedAnchor(String(currentBookId))) {
+    RevealGate.arm(String(currentBookId));
+  }
+
   recordNavDecision({ phase: 'restore-scheduled', viaFirstChunk: !!pendingFirstChunkLoadedPromise });
   void (pendingFirstChunkLoadedPromise ?? loadPromise)
     .then(() => restoreScrollPosition())
-    .catch(() => { /* load failure surfaces through loadPromise below */ });
+    .catch(() => { RevealGate.disarm(); /* load failure surfaces through loadPromise below */ });
 
   // Wait for DOM to be properly stable before initializing UI components
   const { waitForLayoutStabilization } = await import('./domReadiness');
@@ -453,6 +470,16 @@ export async function universalPageInitializer(progressCallback = null) {
   // ✅ CRITICAL: Check auth state and update edit button permissions after reader initialization
   await checkEditPermissionsAndUpdateUI();
   verbose.init('Auth state checked and edit permissions updated in reader view', 'viewManager.js');
+
+  // One-shot import flag: the blade inline script reads it to skip the boot
+  // overlay on the import LANDING (content is already painted there). It used
+  // to leak forever — only the tab-switch handlers removed it — which silently
+  // killed the boot overlay AND the resume curtain for every later full load
+  // in the same tab (found via the resume-curtain e2e: imports in the setup
+  // poisoned every subsequent arm). The pre-refactor viewManager cleared it
+  // after successful initialization; restore that. Edit permissions keep
+  // their durable signal (`imported_book_flag`, preserved separately).
+  sessionStorage.removeItem('pending_import_book');
   
   // 🔥 Rebind container managers AFTER content loads
   // Note: footnoteCitationListeners now handled by ButtonRegistry

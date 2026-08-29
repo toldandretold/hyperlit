@@ -28,7 +28,9 @@ class ImportCasesCommand extends Command
         {--downloads : Also sweep ~/Downloads for valid case bundles first}
         {--from= : Sweep an additional directory for bundles}
         {--no-fixture : Import only; skip regression-fixture capture}
-        {--owner= : Local username to claim imported PRIVATE case books (default: most recently active admin)}';
+        {--owner= : Local username to claim imported PRIVATE case books (default: most recently active admin)}
+        {--shelf= : Name the review shelf (default: a timestamped "Case import: …" shelf per run)}
+        {--no-open : Do not open the review shelf in the browser}';
 
     protected $description = 'Ingest all case bundles from tests/conversion/cases/ (import + fixture capture)';
 
@@ -61,6 +63,7 @@ class ImportCasesCommand extends Command
         $ok = 0;
         $failed = 0;
         $harvestCases = 0;
+        $importedBooks = [];
         foreach ($bundles as $tarball) {
             $manifest = $this->bundleManifest($tarball);
             $book = !empty($manifest['book']) ? (string) $manifest['book'] : null;
@@ -100,6 +103,7 @@ class ImportCasesCommand extends Command
 
             File::move($tarball, "{$casesDir}/ingested/" . basename($tarball));
             $ok++;
+            $importedBooks[] = $book;
         }
 
         $this->newLine();
@@ -114,6 +118,8 @@ class ImportCasesCommand extends Command
         if ($ok > 0) {
             $this->line('Or just point Claude at tests/conversion/cases/README.md.');
         }
+
+        $this->collectOntoReviewShelf($importedBooks);
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
@@ -141,19 +147,9 @@ class ImportCasesCommand extends Command
             return;
         }
 
-        $owner = $this->option('owner');
-        if ($owner && !$db->table('users')->where('name', $owner)->exists()) {
-            $this->warn("  --owner={$owner} is not a local user — private book keeps creator \"{$row->creator}\"");
-            return;
-        }
-        $owner = $owner ?: $db->table('users')
-            ->leftJoin('sessions', 'sessions.user_id', '=', 'users.id')
-            ->where('users.is_admin', true)
-            ->groupBy('users.id', 'users.name')
-            ->orderByRaw('max(sessions.last_activity) DESC NULLS LAST')
-            ->value('users.name');
+        $owner = $this->resolveLocalOwner();
         if (!$owner) {
-            $this->warn("  private book keeps creator \"{$row->creator}\" — no local admin to claim it (pass --owner=)");
+            $this->warn("  private book keeps creator \"{$row->creator}\" — no local owner to claim it (pass --owner=)");
             return;
         }
         if ($owner === $row->creator) {
@@ -164,6 +160,82 @@ class ImportCasesCommand extends Command
             ->where(fn ($q) => $q->where('book', $book)->orWhere('book', 'like', $book . '/%'))
             ->update(['creator' => $owner, 'creator_token' => null]);
         $this->line("  private book claimed for local triage: creator \"{$row->creator}\" → \"{$owner}\" (view it logged in as {$owner})");
+    }
+
+    /** Memoized result of resolveLocalOwner() — one lookup (and one warning) per run. */
+    private bool $ownerResolved = false;
+
+    private ?string $localOwner = null;
+
+    /**
+     * The local account that owns this run's claims and review shelf:
+     * --owner=<name> when valid (an invalid name warns and resolves to null —
+     * no fallback guessing), else the most recently active local admin.
+     */
+    private function resolveLocalOwner(): ?string
+    {
+        if ($this->ownerResolved) {
+            return $this->localOwner;
+        }
+        $this->ownerResolved = true;
+
+        $db = DB::connection('pgsql_admin');
+        $owner = $this->option('owner');
+        if ($owner) {
+            if (!$db->table('users')->where('name', $owner)->exists()) {
+                $this->warn("  --owner={$owner} is not a local user");
+
+                return $this->localOwner = null;
+            }
+
+            return $this->localOwner = $owner;
+        }
+
+        return $this->localOwner = $db->table('users')
+            ->leftJoin('sessions', 'sessions.user_id', '=', 'users.id')
+            ->where('users.is_admin', true)
+            ->groupBy('users.id', 'users.name')
+            ->orderByRaw('max(sessions.last_activity) DESC NULLS LAST')
+            ->value('users.name');
+    }
+
+    /**
+     * Gather this run's imports onto a review "vacuum shelf" and open the
+     * shelf-import console on it, so the batch is triaged on its own instead
+     * of amid the whole local DB. Local-dev only, and strictly best-effort:
+     * shelf bookkeeping must never fail an already-successful import run.
+     */
+    private function collectOntoReviewShelf(array $books): void
+    {
+        if ($books === [] || app()->environment('production')) {
+            return;
+        }
+
+        try {
+            $creator = $this->resolveLocalOwner();
+            if (!$creator) {
+                $this->warn('review shelf skipped — no local owner for it (pass --owner=)');
+
+                return;
+            }
+
+            $shelves = app(\App\Services\SourceHarvest\HarvestShelf::class);
+            $shelf = $shelves->ensureCaseShelfFor($creator, $this->option('shelf') ?: now()->format('Y-m-d H:i'));
+            $shelves->addBooks($shelf->id, $books);
+
+            // The console's show route resolves shelf UUIDs (slugs there are
+            // journal aliases), so link by id.
+            $url = rtrim((string) config('app.url'), '/') . "/maintainer/shelf-import/{$shelf->id}";
+            $this->newLine();
+            $this->info('Review this batch: ' . $url);
+
+            if (!$this->option('no-open') && !app()->environment('testing') && PHP_OS_FAMILY === 'Darwin') {
+                // Best-effort — a failure only means no browser tab.
+                (new Process(['open', $url]))->run();
+            }
+        } catch (\Throwable $e) {
+            $this->warn('review shelf failed (imports are fine): ' . $e->getMessage());
+        }
     }
 
     /** The bundle's book id, or null if it isn't a book:export bundle. */

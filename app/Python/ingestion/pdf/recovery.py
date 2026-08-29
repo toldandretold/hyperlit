@@ -245,9 +245,38 @@ def resurrect_glued_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_label=
     return ocr_md, count
 
 
+def split_run_on_numbered_def(num, text):
+    """A pypdf 'def' that is really a RUN-ON of consecutively numbered items on one text
+    block — the affiliation-footer shape (a280cf5b: "1 School of International Development…,
+    UK 2 Programme Strategy…, 3 African Climate…, 4 Institute for…, 5 Watershed…"): only item
+    1 starts a line, so extraction returns ONE def whose text swallows items 2..5. Split on
+    the ascending ' N ' boundaries. Gated: at least TWO boundaries must chain consecutively
+    (a def that merely mentions one number never splits) and every inner segment must be
+    substantial. Trailing 'Correspondence:' contact chrome is trimmed from the last item.
+    Returns [(num, text)] unchanged when the shape does not hold."""
+    flat = re.sub(r'\s+', ' ', text).strip()
+    segs = []
+    cur = num
+    rest = flat
+    while True:
+        m = re.search(rf'\s{cur + 1}\s', rest)
+        if not m:
+            break
+        segs.append((cur, rest[:m.start()].strip().rstrip(',;')))
+        rest = rest[m.end():]
+        cur += 1
+    segs.append((cur, rest.strip()))
+    if len(segs) < 3 or any(len(t) < 15 for _n, t in segs[:-1]):
+        return [(num, text)]
+    last_n, last_t = segs[-1]
+    last_t = re.split(r'\bCorrespondence\b', last_t)[0].strip().rstrip(',;')
+    segs[-1] = (last_n, last_t)
+    return [(n, t) for n, t in segs if t]
+
+
 def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                           page_offsets=None, targeted_pages=None,
-                          allow_overwrite=False):
+                          allow_overwrite=False, only_numbers=None):
     """Return list of (number, text) for footnotes missing from OCR.
 
     Args:
@@ -263,6 +292,17 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
             already in ocr_defs_set (used for mojibake recovery where the
             existing OCR def is corrupt).
     """
+    # Running-footer CHROME rejection: the SAME text pattern-matched under two or more
+    # DIFFERENT numbers is a page-number + running-footer line ("2 PALGRAVE COMMUNICATIONS |
+    # 3:17092 | DOI…" on page 2, "4 PALGRAVE…" on page 4 — a280cf5b linked two authors to
+    # journal chrome). Genuine defs never share identical text.
+    text_counts = {}
+    for page_defs in pypdf_defs_by_page.values():
+        for _n, t in page_defs:
+            key = re.sub(r'\s+', ' ', t).strip().lower()
+            text_counts[key] = text_counts.get(key, 0) + 1
+    chrome = {k for k, c in text_counts.items() if c >= 2}
+
     recovered = []
     seen = set()
     page_offsets = page_offsets or {}
@@ -271,15 +311,26 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
             continue
         offset = page_offsets.get(page_idx, 0)
         for fn_num, fn_text in pypdf_defs_by_page[page_idx]:
-            shifted_num = fn_num + offset
-            if shifted_num in ocr_defs_set and not allow_overwrite:
+            if re.sub(r'\s+', ' ', fn_text).strip().lower() in chrome:
                 continue
-            if shifted_num < 1 or shifted_num > max_ref_number:
-                continue
-            if shifted_num in seen:
-                continue
-            seen.add(shifted_num)
-            recovered.append((shifted_num, fn_text))
+            for split_num, split_text in split_run_on_numbered_def(fn_num, fn_text):
+                shifted_num = split_num + offset
+                if only_numbers is not None and shifted_num not in only_numbers:
+                    continue
+                # A definition opens with prose (letter or quote) — a candidate opening with
+                # punctuation/digits is a BIBLIOGRAPHY fragment the extractor misread
+                # (cece961b: "(4), 1 – 6 . Masalu, D.C., 2000…" became phantom "def 1").
+                # Genuine orphan defs (no ref yet) stay recoverable as visible content.
+                if not re.match(r'''^["'‘“\[(]?[A-Za-z]''', split_text.strip()):
+                    continue
+                if shifted_num in ocr_defs_set and not allow_overwrite:
+                    continue
+                if shifted_num < 1 or shifted_num > max_ref_number:
+                    continue
+                if shifted_num in seen:
+                    continue
+                seen.add(shifted_num)
+                recovered.append((shifted_num, split_text))
     return recovered
 
 

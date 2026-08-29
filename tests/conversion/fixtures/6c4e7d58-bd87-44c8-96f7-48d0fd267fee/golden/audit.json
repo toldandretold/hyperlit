@@ -1,0 +1,35 @@
+{
+    "total_refs": 13,
+    "total_defs": 5,
+    "gaps": [
+        {
+            "missing": 2,
+            "after_ref": 1,
+            "before_ref": 4,
+            "section": 3,
+            "after_ref_context": "Lyla Mehta 12, Shilpi Srivastava 1, Synne Movik 2, Hans Nicolai Adam 3, Rohan D'Souza 4, Devanathan Parthasarathy 5, Lar",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Transformation as praxis: responding to climate change uncer",
+            "before_ref_context": "Lyla Mehta 12, Shilpi Srivastava 1, Synne Movik 2, Hans Nicolai Adam 3, Rohan D'Souza 4, Devanathan Parthasarathy 5, Lar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Transformation as praxis: responding to climate change uncer"
+        },
+        {
+            "missing": 3,
+            "after_ref": 1,
+            "before_ref": 4,
+            "section": 3,
+            "after_ref_context": "Lyla Mehta 12, Shilpi Srivastava 1, Synne Movik 2, Hans Nicolai Adam 3, Rohan D'Souza 4, Devanathan Parthasarathy 5, Lar",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Transformation as praxis: responding to climate change uncer",
+            "before_ref_context": "Lyla Mehta 12, Shilpi Srivastava 1, Synne Movik 2, Hans Nicolai Adam 3, Rohan D'Souza 4, Devanathan Parthasarathy 5, Lar",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "Transformation as praxis: responding to climate change uncer"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

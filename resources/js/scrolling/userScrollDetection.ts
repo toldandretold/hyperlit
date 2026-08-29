@@ -87,6 +87,20 @@ function detectUserScrollStart(event?: any): void {
   }, 1000);
 }
 
+/**
+ * Stamp a synthetic user gesture — the existing "cancel all pending
+ * corrections" seam, invoked programmatically. Advancing lastGestureScrollTime
+ * makes scrollHelpers' landing belt read userTookOver and the imageState belt
+ * drop banked debt, exactly as a real wheel tick would. Used by the
+ * resume-curtain "Go to top" escape so no late correction re-asserts the
+ * abandoned restore target.
+ */
+export function stampSyntheticGesture(): void {
+  const now = Date.now();
+  userScrollState.lastUserScrollTime = now;
+  userScrollState.lastGestureScrollTime = now;
+}
+
 export function isUserCurrentlyScrolling(): boolean {
   const timeSinceLastScroll = Date.now() - userScrollState.lastUserScrollTime;
   return userScrollState.isScrolling || timeSinceLastScroll < 2000;

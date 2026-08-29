@@ -1,0 +1,17 @@
+{
+    "name": "2c0544c4-4204-419c-8c6d-dcb231940ca9",
+    "description": "pulled prod case: 2c0544c4-4204-419c-8c6d-dcb231940ca9",
+    "license": "is_oa=true oa_status=hybrid work_license=cc-by — license cc-by -> committable",
+    "book_id": "2c0544c4-4204-419c-8c6d-dcb231940ca9",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 68,
+        "citations_linked": 19,
+        "citations_total": 24,
+        "footnotes_count": 18,
+        "audit_gaps": 0,
+        "max_unmatched_defs": 1
+    }
+}

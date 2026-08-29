@@ -342,6 +342,7 @@ class NumberedParenCitationLinker(LinkRule):
     description = 'Link (N) / (N-M) parenthesized-number citations to an ordinal-numbered bibliography.'
 
     _GROUP_RE = re.compile(r'\((\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*,\s*\d{1,3})*)\)')
+    _OPEN, _CLOSE = '(', ')'
 
     def _ordinal_map(self, ctx):
         omap = {}
@@ -384,7 +385,7 @@ class NumberedParenCitationLinker(LinkRule):
                 expanded = list(range(nums[0], nums[1] + 1)) if (is_range and len(nums) == 2) else nums
                 if not expanded or not all(1 <= n <= span and n in omap for n in expanded):
                     continue                      # a year / equation number / gap — leave the group
-                new_content.append(NavigableString(text[last:m.start()] + '('))
+                new_content.append(NavigableString(text[last:m.start()] + self._OPEN))
                 if is_range and len(nums) == 2:
                     a = ctx.soup.new_tag('a', href=f'#{omap[nums[0]]}')
                     a['class'] = 'in-text-citation'
@@ -394,14 +395,18 @@ class NumberedParenCitationLinker(LinkRule):
                     a.string = m.group(1)
                     new_content.append(a)
                 else:
+                    # display tokens keep any print annotation (Current Opinion marks papers
+                    # of special interest with */** — "[8*]", "[52*,31*]"); resolution is
+                    # digits-only.
+                    tokens = re.findall(r'\d{1,3}\*{0,2}', m.group(1))
                     for k, n in enumerate(nums):
                         if k:
                             new_content.append(NavigableString(', '))
                         a = ctx.soup.new_tag('a', href=f'#{omap[n]}')
                         a['class'] = 'in-text-citation'
-                        a.string = str(n)
+                        a.string = tokens[k] if k < len(tokens) else str(n)
                         new_content.append(a)
-                new_content.append(NavigableString(')'))
+                new_content.append(NavigableString(self._CLOSE))
                 ctx.citations_found += len(expanded)
                 ctx.citations_linked += len(expanded)
                 last = m.end()
@@ -409,6 +414,25 @@ class NumberedParenCitationLinker(LinkRule):
             if changed:
                 new_content.append(NavigableString(text[last:]))
                 text_node.replace_with(*new_content)
+
+
+class NumberedBracketCitationLinker(NumberedParenCitationLinker):
+    """2A-numbracket: the SQUARE-BRACKET sibling of NumberedParenCitationLinker — links `[50]` /
+    `[35,36]` / `[43--45]` bracketed-number citations against the same ordinal-numbered
+    bibliography, under the same hard self-gates (dense ordinal list, every member resolves).
+    Current Opinion / Vancouver papers cite this way into a "1. Adger W, …: Title…" list
+    (6c4e7d58). Non-wackSTEM only in practice: on a wackSTEM doc the brackets were already
+    wrapped as wackSTEMcite anchors at assembly, and anchored text is skipped here. The extra
+    `--` range separator is Mistral's double-hyphen rendering of an en-dash."""
+
+    name = 'numbered_bracket_citation_linker'
+    description = 'Link [N] / [N-M] / [N,M] bracketed-number citations to an ordinal-numbered bibliography.'
+
+    # \*{0,2} after each number: Current Opinion annotates special-interest papers with
+    # stars on the CITATION ("[8*]", "[52*,31*]") — matched and displayed, resolved by digits.
+    _GROUP_RE = re.compile(
+        r'\[(\d{1,3}\*{0,2}(?:\s*(?:--|[-–])\s*\d{1,3})?(?:\s*,\s*\d{1,3}\*{0,2})*)\]')
+    _OPEN, _CLOSE = '[', ']'
 
 
 class AssessmentRecorder(LinkRule):
@@ -532,6 +556,7 @@ CITATION_LINK_RULES = [
     ParenthesizedCitationLinker(),
     SquareBracketCitationLinker(),
     NumberedParenCitationLinker(),
+    NumberedBracketCitationLinker(),
     AssessmentRecorder(),
 ]
 

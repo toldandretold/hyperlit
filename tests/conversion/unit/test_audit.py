@@ -41,6 +41,26 @@ def test_unmatched_def(soup):
     assert any(u['footnote_id'] == 'Fn2' for u in audit['unmatched_defs'])
 
 
+def test_gap_not_reported_when_number_referenced_elsewhere(soup):
+    # Author-affiliation reuse (2c0544c4): refs run 1,2,1,3 — each descent restarts a
+    # sequence, and the pair (1,3) would report "missing 2" although 2 was referenced
+    # moments earlier. A number referenced ANYWHERE in the document is not a lost marker.
+    body = (f'<p>a{_ref(1, "Fn1")} b{_ref(2, "Fn2")} '
+            f'c{_ref(1, "Fn1b")} d{_ref(3, "Fn3")}</p>')
+    audit = compute_footnote_audit(soup(body), _defs('Fn1', 'Fn2', 'Fn1b', 'Fn3'))
+    assert audit['gaps'] == []
+
+
+def test_genuine_gap_still_reported_across_restarts(soup):
+    # 4 is referenced nowhere — still a real gap even with a repeated-ref restart around it.
+    body = (f'<p>a{_ref(1, "Fn1")} b{_ref(1, "Fn1b")} c{_ref(3, "Fn3")} '
+            f'd{_ref(5, "Fn5")}</p>')
+    audit = compute_footnote_audit(soup(body), _defs('Fn1', 'Fn1b', 'Fn3', 'Fn5'))
+    missing = {g['missing'] for g in audit['gaps']}
+    assert 4 in missing
+    assert 2 in missing  # 2 referenced nowhere either
+
+
 def test_repeated_number_is_treated_as_section_restart(soup):
     # A footnote number going back down (1 ... 1) is read as a NEW section, not a
     # duplicate — the audit splits refs into ascending sequences at each restart.

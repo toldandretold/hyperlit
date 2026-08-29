@@ -158,6 +158,13 @@ def run_pdf_pipeline(fixture, tmp_dir):
         src = os.path.join(fixture['dir'], 'ocr_response.json')
     shutil.copy2(src, os.path.join(tmp_dir, 'ocr_response.json'))
 
+    # Geometric-blockquote cache (written from the source PDF at convert time): stage it so the
+    # PDF-less replay reproduces the geometry pass. Skipped for --ocr-variant — the block texts
+    # were extracted against Mistral's rendering and may not align with a foreign engine's.
+    geo = os.path.join(fixture['dir'], 'quote_geometry.json')
+    if os.path.isfile(geo) and not OCR_VARIANT:
+        shutil.copy2(geo, os.path.join(tmp_dir, 'quote_geometry.json'))
+
     # GROBID experiment mode ONLY (env GROBID_URL set): stage the fixture's source PDF so the
     # bibliography pass can exercise the ML path. Deliberately NOT done by default — the default
     # suite must stay byte-identical with no PDF in the tmp dir (and CI has no GROBID server).

@@ -1,0 +1,16 @@
+{
+    "name": "a280cf5b-9fcd-4f55-9757-706e48ea14f7",
+    "description": "pulled prod case: a280cf5b-9fcd-4f55-9757-706e48ea14f7",
+    "license": "is_oa=true oa_status=gold work_license=cc-by — license cc-by -> committable",
+    "book_id": "a280cf5b-9fcd-4f55-9757-706e48ea14f7",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 65,
+        "citations_linked": 145,
+        "citations_total": 148,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

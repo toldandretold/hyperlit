@@ -28,7 +28,10 @@ def _vprint(msg):
 # Common reference section headers (module-level: shared by the heading scan + the reverse-scan tail).
 REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "literature cited",
                      "reference list", "cited references", "list of references", "references cited",
-                     "citations", "cited works"]
+                     "citations", "cited works",
+                     # Elsevier "Current Opinion" journals title their reference list this way
+                     # (6c4e7d58: 53 numbered entries under it were invisible to the exact match)
+                     "references and recommended reading", "references and further reading"]
 
 # A HEADING-LESS reverse-scan bibliography is believed only if it is a DENSE block (this many
 # entries) OR carries genuine reference STRUCTURE (below). is_likely_reference is loose by design (a
@@ -118,9 +121,19 @@ def _find_reference_paragraphs(soup):
     if not reference_p_tags:
         used_reverse_scan = True
         print("  ⚠️ No references heading found, scanning paragraphs...")
+        # One entry-shaped miss inside the run is tolerated: a YEARLESS in-press entry
+        # ("Walz A, Braendle J, … Experience from customising IPCC scenarios…") fails the
+        # year requirement, and a hard break there discards every entry above it (ed2cbd77:
+        # 11 of ~300 survived). The miss must still OPEN like an author list; two misses in
+        # a row (or body prose) still end the run.
+        _MISS_AUTHOR_SHAPE_RE = re.compile(r"^\s*[A-ZÀ-ÖØ-Þ][\w'’-]+\s+[A-Z]{1,3}\b[,.]?\s")
+        pending_miss = None
         for p in reversed(all_paragraphs):
             text_preview = p.get_text(" ", strip=True)[:80]
             if is_likely_reference(p):
+                if pending_miss is not None:
+                    reference_p_tags.insert(0, pending_miss)
+                    pending_miss = None
                 reference_p_tags.insert(0, p)
                 _vprint(f"  ✓ Detected reference: {text_preview}...")
             elif reference_p_tags:
@@ -128,6 +141,12 @@ def _find_reference_paragraphs(soup):
                 if header_text in REFERENCE_HEADERS:
                     reference_p_tags.insert(0, p)
                     print(f"  \U0001F4D6 Found references header: '{header_text}'")
+                    break
+                text = p.get_text(" ", strip=True)
+                if (pending_miss is None and len(text) < 500
+                        and (_MISS_AUTHOR_SHAPE_RE.match(text) or _has_reference_structure(text))):
+                    pending_miss = p
+                    continue
                 break
 
         # A SHORT heading-less run is only a bibliography if it carries real reference structure — a

@@ -10,6 +10,7 @@ import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { applyDynamicFootnoteNumbers, queueRenderHeal } from './footnoteSelfHeal';
 import { stripTransientNodeClasses } from '../utilities/transientClasses';
 import { handleBrokenImages } from './imageState';
+import { applyImageDims } from './imageDims';
 // E2EE (docs/e2ee.md): registry is a zero-import leaf — a cheap SYNC check so
 // plaintext renders (the overwhelming majority) skip the hydration import entirely.
 import { isBookEncrypted, rootBookId } from '../e2ee/registry';
@@ -278,6 +279,9 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     renderMathElements(temp);
     renderCharts(temp);
     renderHarvestNetworks(temp);
+    // Dims BEFORE handleBrokenImages: its settle-compensation belt skips imgs
+    // that already carry width/height attrs — a sized img needs no chasing.
+    applyImageDims(temp);
     handleBrokenImages(temp, instance);
     // E2EE (docs/e2ee.md): for an encrypted book, swap each media <img> src to a
     // decrypted blob URL on the LIVE nodes (same objects attached to the page).

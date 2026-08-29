@@ -1,0 +1,16 @@
+{
+    "name": "6c4e7d58-bd87-44c8-96f7-48d0fd267fee",
+    "description": "pulled prod case: 6c4e7d58-bd87-44c8-96f7-48d0fd267fee",
+    "license": "is_oa=true oa_status=hybrid work_license=cc-by — license cc-by -> committable",
+    "book_id": "6c4e7d58-bd87-44c8-96f7-48d0fd267fee",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 50,
+        "citations_linked": 52,
+        "citations_total": 53,
+        "footnotes_count": 5,
+        "audit_gaps": 0
+    }
+}

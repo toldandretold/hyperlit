@@ -61,6 +61,14 @@ def compute_footnote_audit(soup, footnote_defs):
     if current_sequence:
         sequences.append(current_sequence)
 
+    # A "missing" number is only a real gap if it is referenced NOWHERE in the document.
+    # Repeated markers (author-affiliation reuse: 1,2,1,3,4,… — 2c0544c4) restart a new
+    # ascending sequence at every descent, so the pair (1,3) would report "missing 2" even
+    # though 2 was referenced moments earlier; that is sequence-shape noise, not a lost marker.
+    all_ref_nums = set()
+    for sequence in sequences:
+        all_ref_nums.update(item[0] for item in sequence)
+
     # Check for gaps and duplicates within each sequence
     for seq_idx, sequence in enumerate(sequences):
         numbers_in_seq = [item[0] for item in sequence]
@@ -90,6 +98,8 @@ def compute_footnote_audit(soup, footnote_defs):
                         })
                     else:
                         for missing in range(current + 1, next_num):
+                            if missing in all_ref_nums:
+                                continue    # referenced elsewhere — sequence noise, not a loss
                             audit_data['gaps'].append({
                                 'missing': missing,
                                 'after_ref': current,

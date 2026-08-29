@@ -1,0 +1,238 @@
+{
+  "version": 1,
+  "classification": "page_bottom",
+  "confidence": 0.75,
+  "signals": {
+    "total_pages": 40,
+    "pages_with_refs": 17,
+    "pages_with_defs": 16,
+    "pages_with_both": 16,
+    "co_location_ratio": 0.9412,
+    "def_clustering_ratio": 0.4,
+    "reset_count": 1,
+    "reset_frequency": 0.0588,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "trailing_def_page_ratio": 0.0,
+    "ref_number_max_page_spread": 2,
+    "numbers_on_multiple_pages": 1,
+    "max_ref_number": 26,
+    "citation_group_ratio": 0.0
+  },
+  "page_summary": [
+    {
+      "index": 2,
+      "refs": [
+        1
+      ],
+      "defs": [
+        1
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 3,
+      "refs": [
+        2
+      ],
+      "defs": [
+        2
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 4,
+      "refs": [
+        3,
+        4
+      ],
+      "defs": [
+        3,
+        4
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 5,
+      "refs": [
+        5,
+        6
+      ],
+      "defs": [
+        5,
+        6
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 6,
+      "refs": [
+        7
+      ],
+      "defs": [
+        7
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 8,
+      "refs": [
+        8
+      ],
+      "defs": [
+        8
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 9,
+      "refs": [
+        9
+      ],
+      "defs": [
+        9
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 11,
+      "refs": [
+        10
+      ],
+      "defs": [
+        10
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 12,
+      "refs": [
+        13
+      ],
+      "defs": [
+        13
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 14,
+      "refs": [
+        12,
+        13
+      ],
+      "defs": [
+        12,
+        13
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 15,
+      "refs": [
+        14
+      ],
+      "defs": [
+        14
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 17,
+      "refs": [
+        15,
+        16
+      ],
+      "defs": [
+        15,
+        16
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 24,
+      "refs": [
+        18
+      ],
+      "defs": [],
+      "trailing_number": null
+    },
+    {
+      "index": 25,
+      "refs": [
+        19
+      ],
+      "defs": [
+        19
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 26,
+      "refs": [
+        20,
+        21,
+        22,
+        23
+      ],
+      "defs": [
+        20,
+        21,
+        22
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 32,
+      "refs": [
+        25
+      ],
+      "defs": [
+        25
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 34,
+      "refs": [
+        26
+      ],
+      "defs": [
+        26
+      ],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "refs and their definitions co-locate on the same pages (footnotes at page bottom)",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "17 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.94/reset-freq 0.06 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 0.94 (need <0.15) and def-clustering 0.40 (need <0.1; or 1-2 def pages with zero co-location on a short doc \u2014 here 16 def page(s), 16 shared)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref page-spread 2 (need >=3) and co-location 0.94 (need <0.2)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    },
+    {
+      "option": "unknown",
+      "rejected_because": "a specific classifier matched",
+      "would_need": "signals that fail every specific classifier"
+    }
+  ],
+  "margin": "co-location 0.94 (gate 0.4/0.5), reset-freq 0.06, max-ref 26",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

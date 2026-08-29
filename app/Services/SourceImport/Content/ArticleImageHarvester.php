@@ -118,7 +118,7 @@ class ArticleImageHarvester
         $handoff = storage_path('app/tmp/article-images/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $bookId));
         File::ensureDirectoryExists($handoff, 0755);
 
-        $seen = [];   // absolute url → stored filename, so a repeated figure downloads once
+        $seen = [];   // absolute url → ['filename','width','height'], so a repeated figure downloads once
         $taken = 0;
 
         /** @var \DOMElement $img */
@@ -141,7 +141,8 @@ class ArticleImageHarvester
             $img->removeAttribute('loading');
 
             if (isset($seen[$absolute])) {
-                $img->setAttribute('src', $this->localUrl($bookId, $seen[$absolute]));
+                $img->setAttribute('src', $this->localUrl($bookId, $seen[$absolute]['filename']));
+                $this->applyDimensions($img, $seen[$absolute]);
                 continue;
             }
 
@@ -173,18 +174,22 @@ class ArticleImageHarvester
                 usleep($delayMs * 1000);
             }
 
-            $filename = $this->download($absolute, $handoff, $fetch);
+            $stored = $this->download($absolute, $handoff, $fetch);
             $taken++;
 
-            if ($filename === null) {
+            if ($stored === null) {
                 // Leave a URL that at least COULD load rather than a guaranteed 404.
                 $img->setAttribute('src', $absolute);
                 $stats['failed']++;
                 continue;
             }
 
-            $seen[$absolute] = $filename;
-            $img->setAttribute('src', $this->localUrl($bookId, $filename));
+            $seen[$absolute] = $stored;
+            $img->setAttribute('src', $this->localUrl($bookId, $stored['filename']));
+            // Intrinsic dimensions into the stored HTML: with `img { height:auto }`
+            // the browser reserves the aspect-ratio box BEFORE decode, so restoring
+            // a reading position mid-article no longer shifts as figures load.
+            $this->applyDimensions($img, $stored);
             $stats['stored']++;
         }
 
@@ -201,11 +206,20 @@ class ArticleImageHarvester
         return $stats;
     }
 
+    /** Stamp width/height attrs from a download record (SVG carries nulls — skipped). */
+    private function applyDimensions(\DOMElement $img, array $stored): void
+    {
+        if (($stored['width'] ?? null) && ($stored['height'] ?? null)) {
+            $img->setAttribute('width', (string) $stored['width']);
+            $img->setAttribute('height', (string) $stored['height']);
+        }
+    }
+
     /**
-     * Fetch one image into the handoff dir. Returns the stored filename, or null if it could not
-     * be had — a missing figure must never fail the article import.
+     * Fetch one image into the handoff dir. Returns ['filename','width','height'] (dims null for
+     * SVG), or null if it could not be had — a missing figure must never fail the article import.
      */
-    private function download(string $url, string $handoff, callable $fetch): ?string
+    private function download(string $url, string $handoff, callable $fetch): ?array
     {
         try {
             $result = $fetch($url);
@@ -226,6 +240,8 @@ class ArticleImageHarvester
 
         // The bytes must actually BE an image: a publisher that blocks hotlinks often answers 200
         // with an HTML "access denied" page, which would otherwise be stored as `figure1.jpg`.
+        $width = null;
+        $height = null;
         if ($extension !== 'svg') {
             $size = @getimagesizefromstring($body);
             if ($size === false) {
@@ -238,6 +254,8 @@ class ArticleImageHarvester
                 Log::info('Article image rejected — placeholder-sized', ['url' => $url, 'w' => $size[0], 'h' => $size[1]]);
                 return null;
             }
+            $width = $size[0] ?? null;
+            $height = $size[1] ?? null;
         }
 
         $filename = $this->filenameFor($url, $extension);
@@ -245,7 +263,7 @@ class ArticleImageHarvester
             return null;
         }
 
-        return $filename;
+        return ['filename' => $filename, 'width' => $width, 'height' => $height];
     }
 
     /**

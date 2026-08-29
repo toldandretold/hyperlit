@@ -50,13 +50,24 @@ export async function setupImageBookScenario(page, spa, {
   imageMode = 'remote',
   imageWidth = 1400,
   imageHeight = 900,
+  // 'media' drops the images as REAL upload files with the markdown — PHP's
+  // max_file_uploads (20 on a default install) silently drops the excess and
+  // prefixes the JSON response with an HTML warning, killing the import. Keep
+  // media-mode drops under that cap: 15 chapters × one image per chapter
+  // (imageEvery = paragraphsPerChapter = 10) → 15 images + 1 md = 16 files.
+  // imageEvery must be ≤ paragraphsPerChapter (10) or NO image ever emits.
+  imageEvery = imageMode === 'media' ? 10 : 3,
+  chapters = imageMode === 'media' ? 15 : undefined,
 } = {}) {
   await attachScrollForensics(page);
 
   const withImages = imageMode !== 'none';
   const { markdown, imageNames, markerText } = generateImageBookMarkdown({
-    imageEvery: withImages ? 3 : Number.MAX_SAFE_INTEGER,
+    imageEvery: withImages ? imageEvery : Number.MAX_SAFE_INTEGER,
     imageMode,
+    // markerChapter defaults to 18 — with fewer chapters it must stay inside
+    // the book or the marker paragraph is never emitted.
+    ...(chapters ? { chapters, markerChapter: Math.max(2, chapters - 4) } : {}),
   });
 
   const bytesByName = new Map(

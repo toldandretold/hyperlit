@@ -53,7 +53,7 @@
       "scope": "model",
       "symptom": "Markers exist but in a shape the current regex/detector misses ([Author YEAR] square brackets, daggers/asterisks, lettered notes, superscript-in-link).",
       "stage": "conversion-core | frontend",
-      "file": "app/Python/digestion/citationLinking/citations.py | app/Python/digestion/footnoteExtraction/footnotes.py | app/Python/ingestion/epub/footnoteMatching.py",
+      "file": "app/Python/digestion/citationLinking/citations.py | app/Python/digestion/footnoteExtraction/footnotes.py | app/Python/ingestion/epub/footnoteMatching.py | app/Python/ingestion/pdf/pdf_shared.py",
       "slot": "the recognition regex / branch inside an existing detector or scan function",
       "recipe": "op:replace the function to broaden its pattern; or op:add a sibling scan and call it. Never widen a pattern so far it produces confident-wrong links.",
       "expressible": "replace",
@@ -304,6 +304,23 @@
       "risk": "low — diagnostic/routing only; but wrong routing wastes a whole expensive run.",
       "examples": [
         "aarushi2025attention"
+      ],
+      "status": "discovered"
+    },
+    {
+      "id": "recover_layout_region",
+      "name": "Recover a flattened print-layout region",
+      "scope": "model",
+      "symptom": "A print-layout REGION (side column of notes, boxed 'Summary points' section, pull-out) was flattened into the body flow by OCR: body sentences interrupted mid-word by a heading, footnote refs/defs in a shape tied to the region ('.(5)' refs + interleaved 'N. Text' notes), or a box's paragraphs merged with surrounding prose.",
+      "stage": "pdf-frontend",
+      "file": "app/Python/ingestion/pdf/assembly.py",
+      "slot": "a document-shape-gated pass on the JOINED markdown (siblings: _convert_sidecolumn_paren_footnotes, _relocate_sentence_interrupting_boxes)",
+      "recipe": "op:add a new gated pass + call it from assemble/post_combine; gate HARD on the document-level shape (ascending ref runs, sentence-flow evidence) — a miss is cheap, a false relocation/conversion rewrites body text.",
+      "expressible": "add",
+      "risk": "medium: a loose gate rewrites ordinary numbered lists or drags real sections around — pin the negative space in unit tests and re-run the corpus.",
+      "examples": [
+        "9bb2f3aa side-column notes",
+        "63817b36 BMJ Summary points box"
       ],
       "status": "discovered"
     }

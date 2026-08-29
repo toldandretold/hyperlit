@@ -39,6 +39,17 @@ vi.mock('../../../resources/js/utilities/operationState', () => ({
 vi.mock('../../../resources/js/search/inTextSearch/searchToolbar', () => ({ isSearchToolbarOpen: vi.fn(() => false) }));
 vi.mock('../../../resources/js/scrolling/userScrollDetection', () => ({ shouldSkipScrollRestoration: vi.fn(() => false) }));
 vi.mock('../../../resources/js/scrolling/navOverlay', () => ({ showNavigationLoading: vi.fn() }));
+// Resume-curtain gate: out of scope here (this test asserts restore's TARGET
+// decision); the stub also keeps the Enactor/imageState import chain out.
+vi.mock('../../../resources/js/SPA/navigation/RevealGate', () => ({
+  RevealGate: {
+    arm: vi.fn(),
+    landed: vi.fn(),
+    disarm: vi.fn(),
+    releaseIfUnclaimed: vi.fn(),
+    completion: vi.fn(() => Promise.resolve()),
+  },
+}));
 // The assertion seam: capture what restore decides to navigate to. vi.hoisted so the spy exists
 // before the hoisted vi.mock factory runs.
 const { navigateToInternalId } = vi.hoisted(() => ({ navigateToInternalId: vi.fn() }));

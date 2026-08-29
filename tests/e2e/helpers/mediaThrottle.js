@@ -44,12 +44,16 @@ export async function throttleImages(page, { pattern, mode = 'delay', delayMs = 
     const url = route.request().url();
     const served = serve ? serve(url) : null;
     if (serve) {
-      if (!served) return route.fulfill({ status: 404, body: 'img.test: unknown' });
+      // .catch: a release()/unroute() during teardown resumes held routes
+      // whose fulfill then lands on a disposed route — "Route is already
+      // handled!" would throw inside the handler and fail the test on a pure
+      // teardown race (bit the resume-curtain wheel arm under full-suite load).
+      if (!served) return route.fulfill({ status: 404, body: 'img.test: unknown' }).catch(() => {});
       return route.fulfill({
         status: 200,
         headers: { 'content-type': 'image/png', 'cache-control': 'no-store' },
         body: served,
-      });
+      }).catch(() => {});
     }
     let response;
     try {

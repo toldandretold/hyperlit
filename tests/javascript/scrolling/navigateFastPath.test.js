@@ -54,7 +54,15 @@ function makeLazyLoader(loadedChunkIds) {
 
 // `chunk_200` hits the resolver's Step-1 "direct" path: { chunkId: 200, resolved: true } with no IDB.
 const TARGET = 'chunk_200';
-const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((r) => setTimeout(r, 5)); };
+// Condition-based flush: a fixed tick budget starves under full-suite CPU load
+// (the nav path's real awaits stretch) and flaked this file. Poll the observable
+// end-state up to a generous deadline; returns as soon as it holds.
+const flush = async (done = () => false) => {
+  for (let i = 0; i < 400; i++) {
+    await new Promise((r) => setTimeout(r, 5));
+    if (done()) return;
+  }
+};
 
 beforeEach(() => {
   document.body.innerHTML = '';
@@ -66,7 +74,7 @@ describe('navigateToInternalId — chunk-level fast-path (no flash on adopted ch
   it('does NOT clear the container when the resolved chunk is already loaded/adopted', async () => {
     const lazyLoader = makeLazyLoader([200]); // chunk 200 already loaded
     navigateToInternalId(TARGET, lazyLoader, /* showOverlay */ false);
-    await flush();
+    await flush(() => lazyLoader.repositionSentinels.mock.calls.length > 0);
 
     // The adopted chunk survived — no clear, no re-render.
     expect(container.querySelector('.chunk[data-chunk-id="200"][data-adopted="1"]')).not.toBeNull();
@@ -80,7 +88,7 @@ describe('navigateToInternalId — chunk-level fast-path (no flash on adopted ch
   it('DOES clear + reload when the resolved chunk is NOT already loaded (genuine off-screen target)', async () => {
     const lazyLoader = makeLazyLoader([0]); // chunk 200 NOT loaded; only chunk 0 is
     navigateToInternalId(TARGET, lazyLoader, false);
-    await flush();
+    await flush(() => lazyLoader.loadChunk.mock.calls.length >= 3);
 
     // The stale DOM was cleared and the resolved window (199/200/201) reloaded.
     expect(container.querySelector('.chunk[data-adopted="1"]')).toBeNull();

@@ -8,10 +8,13 @@ paragraph fully wrapped in quote marks. The heuristic is deliberately asymmetric
 quote stays a normal paragraph (cheap), a false positive rewrites body text as a quote
 (expensive) — so these tests pin the NEGATIVE space as hard as the positive.
 
-KNOWN LIMITATION (accepted): a blockquote typeset WITHOUT quote marks (indentation-only, the
-editor treating the block itself as the quote) is indistinguishable from a body paragraph in
-Mistral's markdown — no indent, no font info survives. Detecting those would need PDF-layout
-analysis, not markdown heuristics. They stay paragraphs.
+KNOWN LIMITATION (narrowed 2026-08, cases 244ae673/3fbb92da/68252cc2): a blockquote typeset
+WITHOUT wrapping quote marks IS now detectable in two specific typographic shapes — (A) the
+paragraph ends ". (Author, 1998, p.5)": sentence-terminal punctuation BEFORE a final
+parenthetical citation with nothing after it (inline citations are the mirror image — period
+AFTER the paren); (B) an attributed colon intro ("As Neocleous (2013: np) argues:") followed by
+a quote-DENSE paragraph (>= 2 internal double-quoted spans). Everything else quoteless stays a
+paragraph — a bare colon intro + plain prose is still pinned negative below.
 """
 
 from ingestion.pdf.assembly import _wrap_quote_blockquotes
@@ -85,6 +88,154 @@ def test_uppercase_native_blockquote_not_merged_backward():
     assert prev + "\n\n" + native in out  # untouched
 
 
+# --- Heuristic A: citation-terminated quote paragraph (case 244ae673 / 68252cc2) ---
+
+DELORIA_QUOTE = ("The indeterminacy of American identities stems, in part, from the nation's "
+                 "inability to deal with Indian people. Americans wanted to feel a natural "
+                 "affinity with the continent, and it was Indians who could teach them such "
+                 "aboriginal closeness. Yet, in order to control the landscape they had to "
+                 "destroy the original inhabitants. (Deloria, 1998, p.5)")
+
+BEAR71_QUOTE = ("She lived her life under near constant surveillance and was continually "
+                "stressed by the interactions with the human world. She was tracked and logged "
+                "as data... We're watching her. She's watching us. And at the same time, we're "
+                "watching ourselves. (Mendez and Allison (2012) Bear 71. National Film Board "
+                "of Canada)")
+
+
+def test_wraps_citation_terminated_quote_no_intro_needed():
+    md = "A previous body paragraph that ends normally.\n\n" + DELORIA_QUOTE + "\n\nMore body."
+    out = _wrap_quote_blockquotes(md)
+    assert '\n\n> ' + DELORIA_QUOTE + '\n\n' in out
+
+
+def test_wraps_citation_terminated_quote_with_nested_paren_source():
+    md = "# Keywords\n\nanimal geographies, camera traps, surveillance\n\n" + BEAR71_QUOTE
+    out = _wrap_quote_blockquotes(md)
+    assert '> ' + BEAR71_QUOTE in out
+
+
+def test_no_wrap_when_period_follows_the_citation():
+    # Inline citation shape: the paren is INSIDE the sentence, period after it.
+    para = ("L. Frank Baum famously asserted in 1890 that the safety of white settlers was "
+            "only guaranteed by the total annihilation of the few remaining Indians "
+            "(as quoted in Hastings, 2007).")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+def test_no_wrap_for_see_also_aside_paren():
+    para = ("The committee reviewed all of the available material over the course of three "
+            "separate sessions and reached broad agreement on the substance of the report "
+            "before the final vote was taken. (See also Smith, 2004)")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+def test_no_wrap_for_parenthesized_full_sentence():
+    para = ("The committee reviewed all of the available material over the course of three "
+            "separate sessions and reached broad agreement on the substance of the report. "
+            "(This point was revisited at length in the 2004 edition of the handbook.)")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+def test_no_wrap_when_terminal_is_bare_closing_quote_before_citation():
+    # 3fbb92da false positive: a quoted TERM right before the citation is mid-sentence, not a
+    # sentence end — "…'feeling rules' (Hochschild, 1983; Gill & Kanai, 2018)".
+    para = ("In this framing there is a move on from conventional understandings of "
+            "neoliberalism as a political and economic rationality, with attention to "
+            "neoliberalism as a project built around ‘feeling rules’ "
+            "(Hochschild, 1983; Gill & Kanai, 2018)")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+def test_no_wrap_for_lowercase_opening_continuation_paragraph():
+    # A body paragraph split at a page break: the continuation opens lowercase and happens to
+    # end with a terminal citation — still not a quotation.
+    para = ("what it makes visible or occludes, how it materialises across different sites, "
+            "and what it does ideologically or performatively, insinuating itself into the "
+            "nooks and crannies of everyday life as a psychological project. "
+            "(Scharff, 2015)")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+def test_no_wrap_for_yearless_terminal_paren():
+    para = ("The committee reviewed all of the available material over the course of three "
+            "separate sessions and reached broad agreement on the substance of the report "
+            "before the final vote. (emphasis added)")
+    assert '> ' not in _wrap_quote_blockquotes("Intro paragraph.\n\n" + para)
+
+
+# --- Heuristic C: epigraph + dash-led attribution line (case 244ae673, Fanon epigraphs) ---
+
+FANON_QUOTE = ('Decolonization, which sets out to change the order of the world, is, obviously, '
+               'a program of complete disorder. But it cannot come as a result of magical '
+               'practices, nor of a natural shock, nor of a friendly understanding.')
+FANON_ATTR = '-Franz Fanon, The Wretched of the Earth, 1963, p. 36'
+
+
+def test_epigraph_with_dash_attribution_wraps_as_one_blockquote():
+    md = FANON_QUOTE + '\n\n' + FANON_ATTR + '\n\n## Introduction\n\nBody text follows here.'
+    out = _wrap_quote_blockquotes(md)
+    assert '> ' + FANON_QUOTE + '\n>\n> ' + FANON_ATTR in out
+
+
+def test_consecutive_epigraphs_each_wrap():
+    second_q = ('Let us admit it, the settler knows perfectly well that no phraseology can be '
+                'a substitute for reality.')
+    second_a = '-Franz Fanon, The Wretched of the Earth, 1963, p. 45'
+    md = FANON_QUOTE + '\n\n' + FANON_ATTR + '\n\n' + second_q + '\n\n' + second_a
+    out = _wrap_quote_blockquotes(md)
+    assert '> ' + FANON_QUOTE + '\n>\n> ' + FANON_ATTR in out
+    assert '> ' + second_q + '\n>\n> ' + second_a in out
+
+
+def test_dash_bullet_list_is_not_an_attribution():
+    # Consecutive dash lines are a LIST — the first item carrying a year must not pull the
+    # preceding paragraph into a blockquote.
+    md = ('An ordinary body paragraph long enough to qualify as a quote candidate for the '
+          'epigraph heuristic if the guards were loose.\n\n'
+          '-First finding, reported in the 2015 survey, was inconclusive\n\n'
+          '-Second finding needs no year at all\n\n'
+          '-Third finding closes the list')
+    assert '> ' not in _wrap_quote_blockquotes(md)
+
+
+def test_yearless_dash_line_is_not_an_attribution():
+    md = ('A paragraph of prose that is long enough to qualify as an epigraph quote '
+          'candidate under the length gate.\n\n'
+          '-A dash line with commas, but no year or page reference anywhere')
+    assert '> ' not in _wrap_quote_blockquotes(md)
+
+
+# --- Heuristic B: attributed colon intro + quote-dense paragraph (case 3fbb92da) ---
+
+NEOCLEOUS_INTRO = ("A small but important literature has begun to interrogate the promotion of "
+                   "resilience as a regulatory ideal. As Mark Neocleous (2013: np) argues:")
+NEOCLEOUS_QUOTE = ('Good subjects will "survive and thrive in any situation", they will '
+                   '"achieve balance" across several insecure and part-time jobs, they have '
+                   '"overcome life\'s hurdles" such as facing retirement without a pension to '
+                   'speak of, and just "bounce back" from whatever life throws, whether it be '
+                   'cut to benefits, wage freezes or global economic meltdown.')
+
+
+def test_wraps_quote_dense_paragraph_after_attributed_colon_intro():
+    out = _wrap_quote_blockquotes(NEOCLEOUS_INTRO + "\n\n" + NEOCLEOUS_QUOTE)
+    assert '> ' + NEOCLEOUS_QUOTE in out
+
+
+def test_no_wrap_quote_dense_without_colon_intro():
+    md = "A previous paragraph that ends with a period.\n\n" + NEOCLEOUS_QUOTE
+    assert '> ' not in _wrap_quote_blockquotes(md)
+
+
+def test_no_wrap_after_attributed_colon_when_paragraph_has_few_quotes():
+    # One quoted term is scare-quoting, not a quotation — must stay a paragraph.
+    para = ('Good subjects are expected to demonstrate "resilience" across several insecure '
+            'and part-time jobs while facing retirement without a pension to speak of, '
+            'whether it be cuts to benefits, wage freezes or global economic meltdown.')
+    out = _wrap_quote_blockquotes(NEOCLEOUS_INTRO + "\n\n" + para)
+    assert '> ' not in out
+
+
 def test_bare_marker_recovery_licenses_def_block():
     # Superscripts lost entirely: marker survives as "…century'. 11" and the page's ascending
     # def block 9/10/11 has ZERO detectable refs — the ref-overlap gate alone would leave every
@@ -146,3 +297,23 @@ def test_bare_number_in_prose_never_converts():
     out, _ = renumber_page_footnotes(page, 1)
     assert '90 percent' in out
     assert '[^90]' not in out
+
+
+def test_bibliography_repeat_author_pair_is_not_an_epigraph():
+    # f07b7fff regression: an author-first entry followed by an em-dash repeat-author entry
+    # ("— Essays…") looked like quote + attribution and ate 2 references.
+    md = ('Rabinow, Paul. Anthropos Today: Reflections on Modern Equipment. Princeton: '
+          'Princeton University Press, 2003.\n\n'
+          '— Essays on the Anthropology of Reason. Princeton: Princeton University Press, 1997.')
+    assert '> ' not in _wrap_quote_blockquotes(md)
+
+
+def test_trailing_period_after_terminal_citation_still_wraps():
+    # Some typesetters close the quote's citation with a period AFTER the paren:
+    # "…vanish from the landscape. (Lawrence, as quoted in Deloria, 1998, p. 4)."
+    para = ('Lawrence argued that in order to meet the demon of the continent head on, '
+            'white Americans needed either to destroy Indians or assimilate them into a '
+            'white American world, both aimed at making Indians vanish from the landscape. '
+            '(Lawrence, as quoted in Deloria, 1998, p. 4).')
+    out = _wrap_quote_blockquotes('Intro paragraph.\n\n' + para + '\n\nNext body paragraph.')
+    assert '> ' + para in out

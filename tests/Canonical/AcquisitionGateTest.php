@@ -628,3 +628,36 @@ test('a WAF captcha header fails immediately as a wall, without escalating to th
     $status = DB::connection('pgsql_admin')->table('library')->where('book', $book)->value('pdf_url_status');
     expect($status)->toContain('AWS WAF');
 })->skip(fn () => !file_exists(base_path('scripts/paste-convert.mjs')), 'paste engine absent');
+
+// ---------------------------------------------------------------------------
+// Front-matter URL gate (case 14b0f260): Cambridge Core served
+// "…/stamped-9781009325837pre1_i-ii.pdf/frontmatter.pdf" as a bronze book's
+// "free" copy and the 2-page title-page PDF won the OA ladder outright — the
+// URL itself NAMES the excerpt, so the ladder must park it as a partial
+// fallback instead of accepting it as the body.
+// ---------------------------------------------------------------------------
+
+test('the Cambridge frontmatter URL shape is recognised as front matter', function () {
+    $won = 'https://www.cambridge.org/core/services/aop-cambridge-core/content/view/'
+         . 'ED03547F55DC52E331FE751F53C8709F/stamped-9781009325837pre1_i-ii.pdf/frontmatter.pdf';
+    expect(ContentFetchService::isFrontMatterUrl($won))->toBeTrue();
+
+    // each component alone is enough
+    expect(ContentFetchService::isFrontMatterUrl('https://x.org/chapters/frontmatter.pdf'))->toBeTrue();
+    expect(ContentFetchService::isFrontMatterUrl('https://x.org/dl/backmatter.pdf'))->toBeTrue();
+    expect(ContentFetchService::isFrontMatterUrl('https://x.org/book/stamped-9781009325837pre1_extra.pdf'))->toBeTrue();
+    expect(ContentFetchService::isFrontMatterUrl('https://x.org/view/section_vii-xii.pdf'))->toBeTrue();
+});
+
+test('real body-PDF URLs are NOT condemned as front matter', function () {
+    foreach ([
+        'https://arxiv.org/pdf/2401.01234.pdf',
+        'https://www.cambridge.org/core/services/aop-cambridge-core/content/view/ABC123/S000712342300001Xa.pdf/full-article.pdf',
+        'https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0123456&type=printable',
+        'https://x.org/papers/chapter_1-20.pdf',
+        'https://x.org/papers/matterhorn-geology.pdf',
+        'https://x.org/pre2020_review.pdf',
+    ] as $url) {
+        expect(ContentFetchService::isFrontMatterUrl($url))->toBeFalse("wrongly flagged: {$url}");
+    }
+});

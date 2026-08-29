@@ -1,0 +1,17 @@
+{
+    "name": "5c548774-49ba-4c42-87ee-d8f90338a13d",
+    "description": "pulled prod case: 5c548774-49ba-4c42-87ee-d8f90338a13d",
+    "license": "is_oa=true oa_status=hybrid work_license=cc-by — license cc-by -> committable",
+    "book_id": "5c548774-49ba-4c42-87ee-d8f90338a13d",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sectioned",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 149,
+        "citations_linked": 242,
+        "citations_total": 259,
+        "footnotes_count": 14,
+        "audit_gaps": 0,
+        "max_unmatched_defs": 14
+    }
+}

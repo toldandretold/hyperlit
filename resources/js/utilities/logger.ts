@@ -60,6 +60,7 @@ const colors = {
   NAV: '#8B5CF6',     // Purple - Navigation
   CONTENT: '#10B981', // Green - Content/Data loading
   USER: '#F59E0B',    // Orange - User interactions
+  WARN: '#F59E0B',    // Orange - Degraded-but-handled outcomes
   ERROR: '#EF4444'    // Red - Errors
 };
 
@@ -81,8 +82,8 @@ function formatTimestamp() {
  * @param {boolean} forceShow - Force show even in non-verbose mode
  */
 function logMessage(level: any, message: any, filePath: any, details: unknown = null, forceShow = false) {
-  // In production, only show errors
-  if (IS_PROD && level !== 'ERROR') {
+  // In production, only show warnings and errors
+  if (IS_PROD && level !== 'ERROR' && level !== 'WARN') {
     return;
   }
 
@@ -96,7 +97,11 @@ function logMessage(level: any, message: any, filePath: any, details: unknown = 
 
   // Errors must emit via console.error so DevTools filters and the e2e
   // console-error gates (which only capture error-type messages) catch them.
-  const emit = level === 'ERROR' ? console.error : console.log;
+  // Warnings emit via console.warn — visible severity WITHOUT tripping those
+  // gates (the point of log.warn: handled degradations, not failures).
+  const emit = level === 'ERROR' ? console.error
+    : level === 'WARN' ? console.warn
+    : console.log;
 
   // Format: HH:MM:SS.mmm [LEVEL] Message (filePath)
   emit(
@@ -144,6 +149,20 @@ export const log = {
    */
   user: (message: any, filePath: any, details: unknown = null) => {
     logMessage('USER', message, filePath, details, true);
+  },
+
+  /**
+   * Warning logging (ALWAYS shown, even in production). Emits via
+   * console.warn — NOT console.error — so DevTools filters rank it as a
+   * warning and the e2e console-error gates (which capture only error-type
+   * messages) do NOT trip on it. Use for degraded-but-handled outcomes: a
+   * best-effort fetch that failed and fell back to cache (nav-aborted
+   * "Failed to fetch" during rapid back/forward is the canonical case), a
+   * recoverable state mismatch, etc. If the caller cannot recover, use
+   * log.error instead.
+   */
+  warn: (message: any, filePath: any, details: unknown = null) => {
+    logMessage('WARN', message, filePath, details, true);
   },
 
   /**

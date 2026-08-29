@@ -87,7 +87,12 @@ export async function resolveHypercite(bookId: BookId, hyperciteId: string): Pro
     return serverHypercite;
 
   } catch (error) {
-    log.error('Network error while fetching hypercite and book content', '/indexedDB/hypercites/helpers.ts', error);
+    // Best-effort server refresh — the caller falls back to the cached record
+    // (or null, which every caller handles). A bare fetch() also rejects with
+    // "TypeError: Failed to fetch" when navigation cancels it mid-flight
+    // (rapid back/forward container restores), which is benign. Warn, don't
+    // error — log.error trips the e2e console-error gates.
+    log.warn('Network error while fetching hypercite and book content (using cached data)', '/indexedDB/hypercites/helpers.ts', error);
     return localHypercite || null;
   }
 }
@@ -139,7 +144,10 @@ export async function fetchHyperciteRecord(bookId: BookId, hyperciteId: string):
 
     return { status: 'ok', record };
   } catch (error) {
-    log.error('fetchHyperciteRecord: network error', '/indexedDB/hypercites/helpers.ts', error);
+    // Same benign class as above: callers treat {status:'error'} as "status
+    // unknown, keep cached/optimistic rendering" — a nav-cancelled fetch
+    // during a back/forward burst must not read as a console ERROR.
+    log.warn('fetchHyperciteRecord: network error', '/indexedDB/hypercites/helpers.ts', error);
     return { status: 'error' };
   }
 }

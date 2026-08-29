@@ -106,9 +106,14 @@ async function showPdfCostEstimate(file: any) {
       const generatedId = generateBookIdFromMetadata(null, pdfTitle, pdfAuthor, pdfYear);
       if (generatedId) {
         const availableId = await findAvailableBookId(generatedId);
-        bookField.value = availableId;
-        updateBookUrlPreview(availableId);
-        bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        // Re-check AFTER the await: findAvailableBookId is a server probe
+        // (multi-second with _v2 retry phases) and the user may have typed
+        // their own id meanwhile — an unconditional assign here clobbered it.
+        if (!bookField.value.trim()) {
+          bookField.value = availableId;
+          updateBookUrlPreview(availableId);
+          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       }
     }
 
@@ -260,9 +265,13 @@ export async function handleFileMetadataExtraction(fileInput: any) {
       const generatedId = generateBookIdFromMetadata(null, metaTitle, meta.author, metaYear);
       if (generatedId) {
         const availableId = await findAvailableBookId(generatedId);
-        bookField.value = availableId;
-        updateBookUrlPreview(availableId);
-        bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        // Re-check AFTER the await (server probe): the user may have typed
+        // their own id meanwhile — an unconditional assign clobbered it.
+        if (!bookField.value.trim()) {
+          bookField.value = availableId;
+          updateBookUrlPreview(availableId);
+          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       }
     }
   } catch (err) {

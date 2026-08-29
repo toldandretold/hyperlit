@@ -1,0 +1,95 @@
+{
+    "total_refs": 0,
+    "total_defs": 14,
+    "gaps": [],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_ckfm",
+            "number": "1",
+            "section": "section_1",
+            "definition_preview": "Climatic Research Unit, University of East Anglia, Norwich, UK"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_dafv",
+            "number": "2",
+            "section": "section_1",
+            "definition_preview": "Center for Governance and Sustainability, University of Massachusetts Boston, United States"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_yafc",
+            "number": "3",
+            "section": "section_1",
+            "definition_preview": "Southasia Institute of Advanced Studies (SIAS), Kathmandu, Nepal"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_qxp8",
+            "number": "4",
+            "section": "section_1",
+            "definition_preview": "Department of Plant Sciences, Norwegian University of Life Sciences, Norway"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_vsoc",
+            "number": "5",
+            "section": "section_1",
+            "definition_preview": "School of Geography, Development and Environment, University of Arizona, USA"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_w7r1",
+            "number": "6",
+            "section": "section_1",
+            "definition_preview": "Department of International Environment and Development Studies, Norwegian University of Life Sciences, Norway"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_5cxa",
+            "number": "7",
+            "section": "section_1",
+            "definition_preview": "Department of Urban and Regional Planning, Norwegian University of Life Sciences, Norway"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_y8de",
+            "number": "8",
+            "section": "section_1",
+            "definition_preview": "Centre for Research Innovation and Technology, Jaramogi Oginga Odinga University of Science and Technology (JOUST), Kenya"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_z0y0",
+            "number": "9",
+            "section": "section_1",
+            "definition_preview": "Department of Sociology and Human Geography, University of Oslo, Norway"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_dpu2",
+            "number": "10",
+            "section": "section_1",
+            "definition_preview": "Department of Urban and Rural Development, Swedish University of Agricultural Sciences"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_4z3a",
+            "number": "11",
+            "section": "section_1",
+            "definition_preview": "Centre for Deliberative Democracy and Global Governance., University of Canberra, Australia"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_4565",
+            "number": "12",
+            "section": "section_1",
+            "definition_preview": "Institute for Study and Development Worldwide, Sydney, Australia"
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_xf50",
+            "number": "13",
+            "section": "section_1",
+            "definition_preview": "cCHANGE Transformation in a Changing Climate, Oslo, Norway<br><br>Global Development Studies, Queen's University, Canada<br><br>Global Change Institute, University of the Witwatersrand, Johannesburg, "
+        },
+        {
+            "footnote_id": "ssection_1_Fn1787808987085_7dcq",
+            "number": "14",
+            "section": "section_1",
+            "definition_preview": "CICERO Centre for International Climate Research, Oslo, Norway"
+        }
+    ],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

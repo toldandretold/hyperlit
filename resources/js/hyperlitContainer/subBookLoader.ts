@@ -198,8 +198,27 @@ async function hydratePreviewNodes(subBookState: any, previewNodeIds: any, fresh
     
     // Create new chunk element with fresh data
     const newChunkEl = createChunkElement(chunkNodes, { bookId: subBookState.bookId });
-    
+
     if (newChunkEl) {
+      // Never clobber a sub-book the user is EDITING: this hydration arrives
+      // late (enrichSubBookFromDB awaits a server timestamp fetch first), so
+      // the innerHTML swap below can land after the container pencil enabled
+      // contenteditable and the user seated a caret — the swap destroys that
+      // element, focus falls to <body>, the first keystrokes silently drop,
+      // and any typed-but-unsaved text is wiped. The editor owns this DOM
+      // now; fresh annotation data simply waits for the next open.
+      const editableHost = chunkEl.closest('.sub-book-content');
+      if (editableHost?.getAttribute('contenteditable') === 'true') {
+        continue;
+      }
+
+      // Identical re-render → skip: the common never-annotated case hydrates
+      // to byte-identical markup, and swapping anyway churns listeners and
+      // kills any caret for zero visual change.
+      if (chunkEl.innerHTML === newChunkEl.innerHTML) {
+        continue;
+      }
+
       // Preserve height to prevent layout shift during re-render
       const originalHeight = chunkEl.offsetHeight;
       chunkEl.style.height = originalHeight + 'px';

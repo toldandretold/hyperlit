@@ -1,0 +1,59 @@
+{
+    "total_refs": 22,
+    "total_defs": 22,
+    "gaps": [
+        {
+            "missing": 17,
+            "after_ref": 16,
+            "before_ref": 19,
+            "section": 1,
+            "after_ref_context": "This triad of settler-native-slave and its selective collapsibility seems to be unique to settler colonial nations. For",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Moves to innocence III: Colonial equivocation",
+            "before_ref_context": "There are important parallels between Occupy/Decolonize and the French/Haitian Revolutions of 1789-1799 and 1791-1804, r",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "IF U.S. LAND WERE DIVIDED LIKE U.S. WEALTH"
+        },
+        {
+            "missing": 18,
+            "after_ref": 16,
+            "before_ref": 19,
+            "section": 1,
+            "after_ref_context": "This triad of settler-native-slave and its selective collapsibility seems to be unique to settler colonial nations. For",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "Moves to innocence III: Colonial equivocation",
+            "before_ref_context": "There are important parallels between Occupy/Decolonize and the French/Haitian Revolutions of 1789-1799 and 1791-1804, r",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "IF U.S. LAND WERE DIVIDED LIKE U.S. WEALTH"
+        },
+        {
+            "missing": 23,
+            "after_ref": 22,
+            "before_ref": 25,
+            "section": 1,
+            "after_ref_context": "0.9% Indigenous22, 99.1% Settlers[^23]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "IF U.S. LAND WERE DIVIDED LIKE U.S. WEALTH",
+            "before_ref_context": "Prison capital of the world25.",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "More on incommensurability"
+        },
+        {
+            "missing": 24,
+            "after_ref": 22,
+            "before_ref": 25,
+            "section": 1,
+            "after_ref_context": "0.9% Indigenous22, 99.1% Settlers[^23]",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "IF U.S. LAND WERE DIVIDED LIKE U.S. WEALTH",
+            "before_ref_context": "Prison capital of the world25.",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "More on incommensurability"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

@@ -1,0 +1,16 @@
+{
+    "name": "244ae673-564e-4600-a8e0-0ed40cd72f0b",
+    "description": "pulled prod case: 244ae673-564e-4600-a8e0-0ed40cd72f0b",
+    "license": "is_oa=true oa_status=green work_license=cc-by — license cc-by -> committable",
+    "book_id": "244ae673-564e-4600-a8e0-0ed40cd72f0b",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 77,
+        "citations_linked": 85,
+        "citations_total": 107,
+        "footnotes_count": 22,
+        "audit_gaps": 4
+    }
+}

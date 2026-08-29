@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1756 functions in 372 modules · 10 object stores · 10 PG tables · 3641 edges
+**MarkdownDB** schema v28 · 1775 functions in 374 modules · 10 object stores · 10 PG tables · 3659 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1256,7 +1256,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `flushRenderHeal` | `lazyLoader/footnoteSelfHeal` | — | — | — | — |
 | `queueRenderHeal` | `lazyLoader/footnoteSelfHeal` | — | — | — | — |
 | `renderHarvestNetworks` | `lazyLoader/graphRenderer` | — | — | read/write | — |
+| `applyImageDims` | `lazyLoader/imageDims` | — | — | read/write | — |
+| `clearImageDimsCache` | `lazyLoader/imageDims` | — | — | — | — |
+| `primeImageDims` | `lazyLoader/imageDims` | — | — | — | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
+| `isBeltQuiet` | `lazyLoader/imageState` | — | — | — | — |
 | `createLazyLoader` | `lazyLoader/index` | `library` `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | read/write | — |
 | `getLastChunkId` | `lazyLoader/index` | — | — | read | — |
 | `loadNextChunkFixed` | `lazyLoader/index` | — | — | read/write | — |
@@ -1520,6 +1524,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setNavigatingState` | `scrolling/userScrollDetection` | — | — | — | — |
 | `setupUserScrollDetection` | `scrolling/userScrollDetection` | — | — | — | — |
 | `shouldSkipScrollRestoration` | `scrolling/userScrollDetection` | — | — | — | — |
+| `stampSyntheticGesture` | `scrolling/userScrollDetection` | — | — | — | — |
 | `destroyWheelScrollForwarder` | `scrolling/wheelScrollForwarder` | — | — | — | — |
 | `initWheelScrollForwarder` | `scrolling/wheelScrollForwarder` | — | — | read | — |
 | `buildSearchIndex` | `search/inTextSearch/searchEngine` | — | — | — | — |
@@ -1728,8 +1733,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ProgressOverlayConductor.showSPATransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.updateProgress` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayEnactor._bindElements` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor._ensureCurtainButton` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor._ensureCurtainSpinner` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
 | `ProgressOverlayEnactor._performHide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
 | `ProgressOverlayEnactor.debug` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
+| `ProgressOverlayEnactor.endResumeCurtain` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read | — |
 | `ProgressOverlayEnactor.forceHide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
 | `ProgressOverlayEnactor.getState` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
 | `ProgressOverlayEnactor.hide` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
@@ -1737,8 +1745,19 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ProgressOverlayEnactor.isVisible` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
 | `ProgressOverlayEnactor.rebind` | `SPA/navigation/ProgressOverlayEnactor` | — | — | — | — |
 | `ProgressOverlayEnactor.show` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
+| `ProgressOverlayEnactor.showResumeCurtain` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |
 | `ProgressOverlayEnactor.update` | `SPA/navigation/ProgressOverlayEnactor` | — | — | write | — |
 | `resolveTargetChunkId` | `SPA/navigation/resolveTargetChunk` | `hyperlights` `nodes` `sessionStorage` | — | — | — |
+| `RevealGate._attachGestureListeners` | `SPA/navigation/RevealGate` | — | — | read | — |
+| `RevealGate._watchStability` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.arm` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.completion` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.disarm` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.goToTop` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.landed` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.newBoot` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.releaseIfUnclaimed` | `SPA/navigation/RevealGate` | — | — | — | — |
+| `RevealGate.revealNow` | `SPA/navigation/RevealGate` | — | — | — | — |
 | `cleanupFromStructure` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupHome` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
 | `cleanupLogoNav` | `SPA/navigation/utils/cleanupHelpers` | — | — | — | — |
@@ -1765,11 +1784,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getPageStructure` | `SPA/navigation/utils/structureDetection` | — | — | read | — |
 | `getSubdomain` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
 | `cleanupReaderView` | `SPA/viewManager` | — | — | — | — |
-| `universalPageInitializer` | `SPA/viewManager` | `sessionStorage` | — | read | — |
+| `universalPageInitializer` | `SPA/viewManager` | `sessionStorage` | `sessionStorage` | read | — |
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 4 · dynamic cycle-breakers (debt): 4 · lazy-loads (code-split): 263
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 266
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1779,8 +1798,10 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - (2 modules) `components/utilities/containerManager`, `hyperlitContainer/core`
 - (3 modules) `hyperlitContainer/containerSwap`, `hyperlitContainer/highlightNav`, `hyperlitContainer/postOpen`
 - (6 modules) `indexedDB/index`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
+- (2 modules) `SPA/navigation/ProgressOverlayEnactor`, `SPA/navigation/RevealGate`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
+- `SPA/navigation/ProgressOverlayEnactor` → `SPA/navigation/RevealGate`
 - `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
 - `components/utilities/containerManager` → `hyperlitContainer/core`
 - `hyperlitContainer/postOpen` → `hyperlitContainer/highlightNav`
@@ -1796,6 +1817,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/FreshPageLoader`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/ImportBookTransition`
 - `SPA/navigation/NavigationManager` → `SPA/navigation/pathways/NewBookTransition`
+- `SPA/navigation/RevealGate` → `pageLoad/currentLazyLoaderState`
+- `SPA/navigation/RevealGate` → `pageLoad/firstChunkPromise`
+- `SPA/navigation/RevealGate` → `scrolling/internalNav`
 - `SPA/navigation/chunkLoadRouter` → `SPA/navigation/loadInitialChunkLocal`
 - `SPA/navigation/chunkLoadRouter` → `pageLoad/initialChunk`
 - `SPA/navigation/pathways/BookToBookTransition` → `components/toast/toast`

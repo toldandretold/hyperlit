@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v42'; // /maintainer jobs + storage triage pages + namespace move
+const CACHE_VERSION = 'v43'; // scroll-restore: imageDims root fix + resume curtain (was 63 commits stale at v42)
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

@@ -131,6 +131,21 @@ interface BeltState {
 }
 const _belts = new WeakMap<Element, BeltState>();
 
+/**
+ * Is the settle-compensation belt quiet on this scroller? Read-only mirror of
+ * the belt's own shutdown predicate (minus the give-up debt cap: a belt still
+ * holding banked debt is NOT quiet — that debt becomes a scroll write). Used
+ * by the resume-curtain reveal gate as the "images have stopped moving the
+ * page" half of its stability check. No belt entry at all = quiet.
+ */
+export function isBeltQuiet(scroller: Element): boolean {
+  const s = _belts.get(scroller);
+  if (!s) return true;
+  return s.pending === 0
+    && performance.now() > s.tailUntil
+    && Math.abs(s.debtPx) < 2;
+}
+
 // Bracket our own write so its bare `scroll` echo doesn't self-cancel the
 // belt (see userScrollDetection: the swallow covers ONLY bare scroll events;
 // wheel/touchmove/keydown gestures still register and shut the loop's

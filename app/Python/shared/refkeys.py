@@ -230,6 +230,11 @@ def is_likely_reference(p_tag):
         rest = m.group(1)
         if (re.match(r"^[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+,\s", rest)
                 or re.match(r"^[A-ZÀ-ÖØ-Þ].{0,60}?\(\d{4}[a-z]?\)", rest, re.DOTALL)
+                # Vancouver format: "Adger W, Barnett J, Brown K: Title. Nat Clim Change 2013,
+                # 3:112-117" — surname + dotless initials, colon before the title (6c4e7d58:
+                # all 53 entries rejected, so its [N,M] citations had nothing to link against).
+                or (re.match(r"^[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+\s+[A-Z]{1,3}[,:]", rest)
+                    and ':' in rest[:120])
                 # lowercase-branded author: "ephemera collective. 2021. Title…"
                 or re.match(r"^[a-zà-ÿ][\w'’-]*(?:\s+[\w'’-]+){0,3}[.,]\s+\(?(?:19|20)\d{2}[a-z]?\)?[.,]", rest)):
             return True

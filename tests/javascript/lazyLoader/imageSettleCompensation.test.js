@@ -219,3 +219,46 @@ describe('imageState fold-anchor compensation belt', () => {
     expect(world.scroller.scrollTop).toBe(0); // belt is gone — no correction
   }, 10000);
 });
+
+// Additive read-only probe for the resume-curtain reveal gate (RevealGate):
+// mirrors the belt's own shutdown predicate. These cases must never require
+// changes to the belt physics above.
+describe('isBeltQuiet (RevealGate stability read)', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  async function attach(world) {
+    vi.resetModules();
+    const mod = await import('../../../resources/js/lazyLoader/imageState');
+    const img = document.createElement('img');
+    const wrap = document.createElement('div');
+    wrap.appendChild(img);
+    mod.handleBrokenImages(wrap, { scrollableParent: world.scroller, pagingMode: false });
+    await FRAME();
+    return { mod, img };
+  }
+
+  it('reports quiet for a scroller with no belt at all', async () => {
+    vi.resetModules();
+    const { isBeltQuiet } = await import('../../../resources/js/lazyLoader/imageState');
+    expect(isBeltQuiet(document.createElement('div'))).toBe(true);
+  });
+
+  it('is not quiet while an image is pending decode', async () => {
+    const world = makeWorld(document);
+    const { mod, img } = await attach(world);
+    expect(mod.isBeltQuiet(world.scroller)).toBe(false);
+    img.dispatchEvent(new Event('load'));
+  });
+
+  it('is not quiet during the settle tail, quiet after it', async () => {
+    const world = makeWorld(document);
+    const { mod, img } = await attach(world);
+    img.dispatchEvent(new Event('load')); // pending → 0, tail 400ms starts
+    expect(mod.isBeltQuiet(world.scroller)).toBe(false); // inside the tail
+    await new Promise((r) => setTimeout(r, 450));
+    await frames(2);
+    expect(mod.isBeltQuiet(world.scroller)).toBe(true);
+  }, 10000);
+});

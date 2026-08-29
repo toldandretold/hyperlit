@@ -31,7 +31,10 @@ function hshelfSeedBook(array $opts = []): string
 }
 
 afterEach(function () {
-    $shelfIds = hshelfDb()->table('shelves')->where('name', 'like', 'Harvested from: HarvTest%')->pluck('id');
+    $shelfIds = hshelfDb()->table('shelves')
+        ->where('name', 'like', 'Harvested from: HarvTest%')
+        ->orWhere('name', 'like', 'Case import: HarvTest%')
+        ->pluck('id');
     if ($shelfIds->isNotEmpty()) {
         hshelfDb()->table('shelf_items')->whereIn('shelf_id', $shelfIds)->delete();
         hshelfDb()->table('shelves')->whereIn('id', $shelfIds)->delete();
@@ -97,6 +100,32 @@ test('returns null when the root book has no named owner (anonymous or missing)'
     $anon = hshelfSeedBook(['title' => 'HarvTest Anon Book', 'creator' => null, 'creator_token' => (string) Str::uuid()]);
     expect(app(HarvestShelf::class)->ensureShelfFor($anon))->toBeNull();
     expect(app(HarvestShelf::class)->ensureShelfFor('harvtest_no_such_book'))->toBeNull();
+});
+
+test('ensureCaseShelfFor creates a PUBLIC prefixed shelf, idempotent per (creator, label)', function () {
+    $svc = app(HarvestShelf::class);
+    $shelf = $svc->ensureCaseShelfFor('harvtest_user', 'HarvTest 2026-08-27 10:00');
+
+    expect($shelf->name)->toBe('Case import: HarvTest 2026-08-27 10:00');
+    expect($shelf->creator)->toBe('harvtest_user');
+    expect($shelf->slug)->not->toBeEmpty();
+
+    // PUBLIC by design: the shelf-import console only serves public shelves,
+    // and this shelf is only ever minted on a local dev box.
+    $row = hshelfDb()->table('shelves')->where('id', $shelf->id)->first();
+    expect($row->visibility)->toBe('public');
+    expect($row->creator_token)->toBeNull();
+
+    // Same label → same shelf (--shelf= accumulates runs); new label → new shelf.
+    expect($svc->ensureCaseShelfFor('harvtest_user', 'HarvTest 2026-08-27 10:00')->id)->toBe($shelf->id);
+    expect($svc->ensureCaseShelfFor('harvtest_user', 'HarvTest 2026-08-27 11:11')->id)->not->toBe($shelf->id);
+
+    // addBooks dedupes across re-runs of the same batch.
+    $a = hshelfSeedBook(['title' => 'HarvTest Case A']);
+    $b = hshelfSeedBook(['title' => 'HarvTest Case B']);
+    $svc->addBooks($shelf->id, [$a, $b]);
+    $svc->addBooks($shelf->id, [$a, $b]);
+    expect(hshelfDb()->table('shelf_items')->where('shelf_id', $shelf->id)->count())->toBe(2);
 });
 
 test('addBooks flushes the shelf render cache (synthetic nodes removed)', function () {

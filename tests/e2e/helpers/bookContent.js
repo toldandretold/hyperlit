@@ -136,7 +136,12 @@ async function waitForReaderLanding(page) {
       if (!urlBookId) return false;
       const main = document.getElementById(urlBookId);
       return !!(main && main.classList.contains('main-content'));
-    }, null, { timeout: 30000 });
+      // 90s: the DB insert phase ("Inserting N nodes") legitimately runs tens
+      // of seconds when background queues (e.g. an embeddings backlog) load
+      // the DB - 30s expired mid-import with the progress panel still up. A
+      // missing queue worker is a DIFFERENT signature ("Waiting to start",
+      // mainIds:[]) and is still diagnosable from the failure message.
+    }, null, { timeout: 90000 });
   } catch (err) {
     lastDiag = await page.evaluate(() => window.__importDiag).catch(() => null);
     throw new Error(`reader landing failed. Diagnostics: ${JSON.stringify(lastDiag)}`);
@@ -255,11 +260,21 @@ export async function importMarkdownBook(page, spa, opts) {
   // Pin an explicit book_<digits> id. The cite-form's metadata extraction
   // (handleFileMetadataExtraction) auto-fills #book with a slug derived from
   // the file's title/author, which lands the reader on /<slug>/edit and breaks
-  // every downstream assumption that ids look like book_<digits>. Let the
-  // async autofill settle, then overwrite it with our own id.
-  await page.waitForTimeout(500);
+  // every downstream assumption that ids look like book_<digits>. A fixed
+  // "settle" sleep raced the async autofill (under load it completed AFTER the
+  // sleep and clobbered the pin — the /image_scroll_book/edit landing failure):
+  // wait for the autofill to have actually written something (capped — some
+  // files yield no metadata), then overwrite, then VERIFY the pin stuck.
+  await page.waitForFunction(
+    () => (document.getElementById('book')?.value || '') !== '',
+    null, { timeout: 3000 },
+  ).catch(() => {});
   const pinnedBookId = 'book_' + Date.now();
-  await page.fill('#book', pinnedBookId);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await page.fill('#book', pinnedBookId);
+    await page.waitForTimeout(200);
+    if ((await page.inputValue('#book')) === pinnedBookId) break;
+  }
 
   await page.click('#createButton');
   await spa.waitForTransition(page);
@@ -281,7 +296,12 @@ export async function importMarkdownBook(page, spa, opts) {
       if (!urlBookId) return false;
       const main = document.getElementById(urlBookId);
       return !!(main && main.classList.contains('main-content'));
-    }, null, { timeout: 30000 });
+      // 90s: the DB insert phase ("Inserting N nodes") legitimately runs tens
+      // of seconds when background queues (e.g. an embeddings backlog) load
+      // the DB - 30s expired mid-import with the progress panel still up. A
+      // missing queue worker is a DIFFERENT signature ("Waiting to start",
+      // mainIds:[]) and is still diagnosable from the failure message.
+    }, null, { timeout: 90000 });
   } catch (err) {
     lastDiag = await page.evaluate(() => window.__importDiag).catch(() => null);
     throw new Error(`importMarkdownBook landing failed. Diagnostics: ${JSON.stringify(lastDiag)}`);

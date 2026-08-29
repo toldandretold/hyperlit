@@ -96,6 +96,9 @@
         <button type="button" id="ji-refetch" title="Go back to the publisher for a fresh copy — for when what we stored isn't the article">⇩ re-fetch</button>
         <button type="button" id="ji-export" title="Bundle blaming the CONVERTER — replays through run_regression.py">⤓ conversion</button>
         <button type="button" id="ji-export-harvest" title="Bundle blaming ACQUISITION — ships canonical_source + fetch_trace.json">⤓ harvest</button>
+        @if(!app()->environment('production'))
+            <button type="button" id="ji-approve-golden" title="Freeze this book's CURRENT conversion as the regression golden — the promote-to-golden step after the converter is fixed (runs run_regression.py --update-golden)">✓ golden</button>
+        @endif
         <span class="ji-actions-status" id="ji-actions-status" role="status" aria-live="polite"></span>
     </div>
 
@@ -122,7 +125,7 @@
         <h2>Reading this page <button type="button" id="ji-help-close" aria-label="Close help">✕</button></h2>
         <ol>
             <li><strong>This shelf's works</strong>, most-cited first — one row per canonical work behind the shelf's books. "Cited by:" shelves are filled by the hypercite console's <strong>⇩ import all OA</strong>.</li>
-            <li><strong>Each imported lane is a sub-row</strong>: <code>pdf</code> (vacuumed PDF + OCR), <code>html</code> (publisher page via the paste engine), <code>ar5iv</code>. Lanes are sibling library rows on one canonical — including siblings that are not on this shelf, because comparing them is the workflow.</li>
+            <li><strong>Each imported lane is a sub-row</strong>: <code>pdf</code> (vacuumed PDF + OCR), <code>html</code> (publisher page via the paste engine), <code>ar5iv</code> — plus <code>jats</code> / <code>web</code> when the vacuum ladder won with publisher XML or a browser-fetched page instead of a PDF. Lanes are sibling library rows on one canonical — including siblings that are not on this shelf, because comparing them is the workflow.</li>
             <li><strong>★ marks the promoted lane</strong> — the one readers resolve to. Promoting from here also swaps the winner onto this shelf in place of demoted siblings.</li>
             <li><strong>Click a lane</strong> to load what we produced (left) beside what we produced it from (right).</li>
             <li><strong>The badges are the evidence</strong>: completeness, the body-presence verdict, which host the copy won from, and any open conversion flags.</li>

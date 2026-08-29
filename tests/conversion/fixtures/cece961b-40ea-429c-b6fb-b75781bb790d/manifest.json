@@ -1,0 +1,16 @@
+{
+    "name": "cece961b-40ea-429c-b6fb-b75781bb790d",
+    "description": "pulled prod case: cece961b-40ea-429c-b6fb-b75781bb790d",
+    "license": "is_oa=true oa_status=hybrid work_license=cc-by — license cc-by -> committable",
+    "book_id": "cece961b-40ea-429c-b6fb-b75781bb790d",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "full",
+    "expected": {
+        "references_count": 87,
+        "citations_linked": 134,
+        "citations_total": 159,
+        "footnotes_count": 0,
+        "audit_gaps": 0
+    }
+}

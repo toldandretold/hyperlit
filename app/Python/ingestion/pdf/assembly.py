@@ -372,6 +372,436 @@ def _unglue_reference_entries(combined):
     return head + section + rest
 
 
+# An embedded "  [^N] Text" segment INSIDE a def paragraph — the OCR glued a whole
+# affiliation/def list into ONE line ("[^1]: Copernicus…  [^2] Department…  [^3] German…",
+# 2c0544c4). The two-plus-space separator + no colon distinguishes an embedded def opener
+# from an inline ref glued to a word.
+_EMBEDDED_GLUED_DEF_RE = re.compile(r'\s{2,}\[\^(\d{1,3})\](?!:)[ \t]+(?=\S)')
+
+
+# A parenthesized footnote ref GLUED to the preceding word or punctuation — "…the Bangalore
+# Outcome Document.(5)", "the existing literature(1)", "involvement,(28)" (9bb2f3aa: IIED/E&U
+# journal style, notes printed in a side column). A spaced "equation (5)" never matches: the
+# paren must ride the preceding character. Mistral also renders some of these superscripted as
+# "^(14)^" / "^{(33)}" — normalised to plain "(N)" before the scan.
+_PAREN_FN_REF_RE = re.compile(r"(?<=[\w.!?,'\"”’])\((\d{1,2})\)")
+_PAREN_SUP_WRAP_RE = re.compile(r'\^\{?\((\d{1,2})\)\}?\^?')
+_NUMDOT_DEF_LINE_RE = re.compile(r'(?m)^(\d{1,2})\.\s+(\S.*)$')
+# A numbered line that reads like a citation NOTE (year / URL / cross-reference apparatus) —
+# the document's OTHER numbered lists (9bb2f3aa carries the 17 SDG goals as "1. End poverty…")
+# share the "N. Text" shape but never this content.
+_NOTE_SHAPE_RE = re.compile(
+    r'(?:19|20)\d\d|https?://|www\.|\bSee reference\b|\baccessed\b|\bIbid\b|\bop\.\s*cit|\bpage \d')
+
+
+def _convert_sidecolumn_paren_footnotes(combined):
+    """Side-column-notes layout: body refs are "(N)" parenthesized numbers glued to the
+    preceding word/punctuation; the notes arrive interleaved as line-start "N. Text" entries
+    (Mistral flattens the side column into the page flow). Convert refs to [^N] and their defs
+    to [^N]: — gated HARD on the document-level shape so ordinary numbered lists, equation
+    references and bibliographies never convert: >= 5 glued paren refs, the ref sequence
+    ascending in document order (at most one descent), defs ascending, and >= 80% of the refs
+    must have a matching def entry."""
+    norm = _PAREN_SUP_WRAP_RE.sub(r'(\1)', combined)
+    refs = [(m.start(), int(m.group(1))) for m in _PAREN_FN_REF_RE.finditer(norm)]
+    if len(refs) < 5:
+        return combined
+    ref_nums = [n for _pos, n in refs]
+    if sum(1 for a, b in zip(ref_nums, ref_nums[1:]) if b <= a) > 1:
+        return combined                    # not an ascending footnote sequence
+    # One candidate LINE per number, not number-blind conversion: prefer the note-shaped line
+    # (year/URL/cross-ref apparatus); a plain line qualifies only when its number is unique in
+    # the document — this keeps the SDG-goals list ("5. Achieve gender equality…") from being
+    # converted over the real note 5, while still admitting a rare apparatus-free note.
+    cands = {}
+    for m in _NUMDOT_DEF_LINE_RE.finditer(norm):
+        n = int(m.group(1))
+        cands.setdefault(n, []).append((m.start(), m.end(), m.group(2),
+                                        bool(_NOTE_SHAPE_RE.search(m.group(2)))))
+    chosen = {}
+    for n, lst in cands.items():
+        shaped = [c for c in lst if c[3]]
+        if shaped:
+            chosen[n] = shaped[0]
+        elif len(lst) == 1:
+            chosen[n] = lst[0]
+    if sum(1 for n in ref_nums if n in chosen) < len(ref_nums) * 0.8:
+        return combined                    # the numbered lines are not these refs' notes
+    linked = {n for n in ref_nums if n in chosen}
+    # DEFER the defs to one contiguous block at the document END — the pipeline's standard
+    # contract (the '## Footnotes' heading is inserted before the FIRST def, so defs left
+    # interleaved where the side column was flattened would split the body with a
+    # mid-document Footnotes section AND render 30+ note paragraphs inside the text flow).
+    # Splice each chosen note line OUT of the flow (descending offsets)…
+    deferred = []
+    for n in sorted(linked, key=lambda n: chosen[n][0], reverse=True):
+        start, end, text, _shaped = chosen[n]
+        deferred.append((n, text))
+        norm = norm[:start] + norm[end:]
+    norm = re.sub(r'\n{3,}', '\n\n', norm)
+    # …convert the refs regex-wise (position-independent)…
+    norm = _PAREN_FN_REF_RE.sub(
+        lambda m: f'[^{m.group(1)}]' if int(m.group(1)) in linked else m.group(0), norm)
+    # …and append the defs ascending at the end.
+    defs_block = '\n\n'.join(f'[^{n}]: {text}'
+                             for n, text in sorted(deferred, key=lambda d: d[0]))
+    return norm.rstrip() + '\n\n' + defs_block
+
+
+def _demote_defless_citation_refs(combined):
+    """2c0544c4: a doc whose ONLY footnote defs are a small author-affiliation universe
+    (defs 1..N, N small) but whose body carries superscript VANCOUVER citations that the
+    caret converters turned into footnote refs. Two demotion classes, both to BRACKET
+    citations ("[13]") that the digestion-side NumberedBracketCitationLinker links to the
+    ordinal bibliography (verified: a bracket single citation-links correctly even when a
+    same-number affiliation def exists — 6c4e7d58's [4]):
+    - numbers BEYOND the def universe matching a '^N. ' bibliography line ([^27]/[^74]);
+    - numbers INSIDE the def universe but sitting OUTSIDE the author block — in this doc
+      shape an affiliation marker only ever attaches to an author NAME in the front matter;
+      a body superscript 13 cites bibliography entry 13, never the Potsdam Institute
+      (the body-[^13]→affiliation link was the wrong-link failure the maintainer caught).
+      Because the SAME numbers serve BOTH regimes (continuous ascending citations vs
+      repeating affiliations), in-universe demotion additionally requires EVIDENCE that
+      the body's superscripts are the citation regime: at least two beyond-universe
+      bib-covered refs must exist. No evidence → in-universe body refs keep their markers.
+    Unprefixed latex superscript RANGES ($^{2-4}$) under the same gates become [2-4] range
+    citations, and adjacent demoted singles merge ([30][31] → [30,31]).
+    Guards keep real footnote docs untouched: needs a contiguous-from-1, small (<=30) def
+    universe AND a numbered bibliography covering the demoted number; def LINES are never
+    touched; author-block occurrences keep their markers so affiliations stay linked."""
+    defs = sorted({int(n) for n in re.findall(r'(?m)^\s*\[\^(\d+)\]\s*:', combined)})
+    # NEAR-contiguous small universe: pypdf recovery can add genuine discursive footnotes
+    # with a gap (6c4e7d58: affiliations 1-5 + recovered notes 7,8 — def 6's text was never
+    # found), so strict contiguity would turn the whole pass off exactly when the number
+    # spaces collide hardest. Coverage >= 70% of 1..max keeps random def sets excluded.
+    if (len(defs) < 3 or defs[0] != 1 or defs[-1] > 30
+            or len(defs) < defs[-1] * 0.7):
+        return combined
+    max_def = defs[-1]
+    bib_nums = {int(n) for n in re.findall(r'(?m)^(\d{1,3})\.\s+\S', combined)}
+    if not bib_nums:
+        return combined
+
+    # The author ZONE ends with the last actual author line: >= 2 markers, name-list shaped
+    # (no sentence-terminal punctuation — body prose paragraphs are single md lines ending
+    # '.', so they never qualify). Window is generous (60 lines) because repository cover
+    # sheets push the real author line deep (2e9728f6: line 29); the SHAPE check is what
+    # keeps abstract/body citations unshielded, not the window.
+    zone_end = 0
+    offset = 0
+    for line in combined.split('\n')[:60]:
+        line_end = offset + len(line) + 1
+        stripped = line.strip()
+        if (len(re.findall(r'\[\^\d{1,2}\]', stripped)) >= 2
+                and not re.search(r'[.!?]\s*$', stripped)):
+            zone_end = line_end
+        offset = line_end
+
+    def eligible(m, n):
+        if n not in bib_nums:
+            return False
+        # def lines stay defs; author-block refs stay affiliation markers
+        if m.start() == 0 or combined[m.start() - 1] == '\n':
+            return False
+        if combined[m.end():m.end() + 1] == ':':
+            return False
+        if n <= max_def and m.start() < zone_end:
+            return False
+        return True
+
+    # EVIDENCE gate for the in-universe class: the regimes share numbers, so demoting an
+    # in-universe body ref is only safe when the doc demonstrably cites by number — either
+    # beyond-universe bib-covered [^N] refs exist, OR the body carries a real population of
+    # LITERAL bracket citations ([4], [8*], [10,11] — 6c4e7d58's citation regime survives as
+    # brackets wherever the sequence validator declined to promote them).
+    beyond = sum(1 for m in re.finditer(r'\[\^(\d+)\]', combined)
+                 if int(m.group(1)) > max_def and eligible(m, int(m.group(1))))
+    literal_brackets = sum(
+        1 for m in re.finditer(r'(?<!\^)\[(\d{1,3})\*{0,2}(?:\s*,\s*\d{1,3}\*{0,2})*\]',
+                               combined)
+        if m.start() > 0 and combined[m.start() - 1] != '\n'
+        and int(m.group(1)) in bib_nums)
+    demote_in_universe = beyond >= 2 or literal_brackets >= 5
+
+    def repl(m):
+        n = int(m.group(1))
+        if not eligible(m, n):
+            return m.group(0)
+        if n <= max_def and not demote_in_universe:
+            return m.group(0)
+        return f'[{n}]'
+    out = re.sub(r'\[\^(\d+)\]', repl, combined)
+
+    if out != combined:
+        # unprefixed latex superscript ranges ("$^{2-4}$") are the same citation regime
+        def range_repl(m):
+            a, b = int(m.group(1)), int(m.group(2))
+            if a < b and a in bib_nums and b in bib_nums and b - a <= 10:
+                return f'[{a}-{b}]'
+            return m.group(0)
+        out = re.sub(r'\$\^\{(\d{1,3})\s*[-–−]+\s*(\d{1,3})\}\$', range_repl, out)
+        # merge adjacent demoted singles into one citation group
+        prev = None
+        while prev != out:
+            prev = out
+            out = re.sub(r'\[(\d{1,3}(?:,\d{1,3})*)\]\[(\d{1,3})\]', r'[\1,\2]', out)
+    return out
+
+
+# A def-shaped entry opening a page FOOTER: "1 As examined in section 2: …" / "1. Text…".
+_FOOTER_RESCUE_DEF_RE = re.compile(r'(?m)^\s*(\d{1,2})[.)]?[ \t]+(?=[A-Z(‘“"\'])')
+
+
+def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
+    """A footnote whose in-text marker Mistral dropped ENTIRELY and whose definition landed in
+    the page FOOTER (5c548774: printed "…interventions were reviewed¹." OCR'd with no marker at
+    all — zero refs, so classification fell to 'none' and no recovery path ever ran, while the
+    def sat in the footer field). For each footer def-shaped entry whose number has no in-text
+    ref: use the PDF TEXT LAYER as the marker witness — the print seam survives there in one of
+    two conventions, "reviewed1. The" (marker before the sentence period) or "risk.9 This"
+    (after it) — insert the marker at the seam (which must match EXACTLY ONCE in the whole
+    document; ambiguity skips) and fold the def in. The marker gets a FRESH number when the
+    printed one is already taken (this doc's author affiliations occupy [^1..14] — reusing the
+    printed 1 would wrong-link to an affiliation). Returns (combined, rescued_count)."""
+    # Candidate set 1 — FOOTER defs (def stranded in the footer field, no def in combined).
+    candidates = []
+    for page in response_dict.get('pages', []):
+        footer = (page.get('footer') or '').strip()
+        if not footer:
+            continue
+        starts = list(_FOOTER_RESCUE_DEF_RE.finditer(footer))
+        for k, m in enumerate(starts):
+            end = starts[k + 1].start() if k + 1 < len(starts) else len(footer)
+            text = re.sub(r'\s+', ' ', footer[m.end():end]).strip()
+            if len(text) >= 20:
+                candidates.append((page.get('index'), int(m.group(1)), text))
+    # Candidate set 2 — ORPHANED defs already IN combined (c2d6bdb1: the Notes-section defs
+    # converted fine, only the in-text superscripts were dropped). def_text None = marker-only
+    # rescue, and the marker MUST keep the def's own number to link to it.
+    for m in re.finditer(r'(?m)^\[\^(\d{1,2})\]:', combined):
+        candidates.append((None, int(m.group(1)), None))
+
+    if not pdf_path:
+        return combined, 0
+    try:
+        page_texts = extract_pypdf_page_texts(pdf_path)
+    except Exception:
+        return combined, 0
+
+    def _norm_head(t):
+        return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:30]
+
+    # Candidate set 3 — DOUBLE LOSS (cece961b): Mistral dropped the markers AND the page-bottom
+    # defs wholesale, but the TEXT LAYER holds both. Defs render as a digit ALONE on its line
+    # followed by the note text ("4⏎Including a distinction between CRZ1a and b…"). The body
+    # MARKER renders identically ("2017).⏎4⏎The regulation states…"), so the decisive gate is
+    # that a candidate's text must be ABSENT from the OCR body — a body continuation exists in
+    # the markdown; a wholesale-dropped def does not.
+    for page_idx, ptext in page_texts.items():
+        lines = ptext.split('\n')
+        for k, line in enumerate(lines):
+            lm = re.match(r'^\s*(\d{1,2})\s*$', line)
+            if not lm or int(lm.group(1)) > 30:
+                continue
+            body_lines = []
+            for nxt in lines[k + 1:]:
+                if re.match(r'^\s*\d{1,2}\s*$', nxt):
+                    break
+                if re.match(r'^[A-Z]\.\s*[A-Z][a-zA-Z\-]+ et al\.\s*$', nxt.strip()):
+                    break                      # running author footer
+                body_lines.append(nxt.strip())
+                if sum(len(b) for b in body_lines) > 600:
+                    break
+            text = re.sub(r'\s+', ' ', ' '.join(body_lines)).strip()
+            if len(text) < 20:
+                continue
+            if _norm_head(text) and _norm_head(text) in re.sub(r'[^a-z0-9]+', ' ',
+                                                               combined.lower()):
+                continue                       # body continuation, not a lost def
+            candidates.append((page_idx, int(lm.group(1)), text))
+
+    if not candidates:
+        return combined, 0
+    used = {int(n) for n in re.findall(r'\[\^(\d{1,3})\]', combined)}
+
+    # Insertions must land in the BODY: a seam matching inside the References/Bibliography
+    # region would decorate a bibliography entry with a phantom marker.
+    refs_m = None
+    for m in re.finditer(r'(?mi)^#{1,6}\s*(?:references|bibliography|works cited|notes)\b.*$',
+                         combined):
+        refs_m = m
+    body_end = refs_m.start() if refs_m else len(combined)
+
+    next_free = max(used, default=0) + 1
+    rescued_defs = []
+    rescued = 0
+    for page_idx, num, def_text in candidates:
+        # A number that already has an IN-TEXT ref is linked material — EXCEPT a FOOTER def
+        # under a page-LOCAL number that collides with a DIFFERENT globally-linked note
+        # (699314f1: footer "2 Briefing note documents…" vs the linked [^2] "What
+        # administration constituted…"). A distinct-text footer def proceeds and takes a
+        # fresh number; everything else with a live ref is skipped.
+        if any(mm.start() > 0 and combined[mm.start() - 1] != '\n'
+               for mm in re.finditer(rf'\[\^{num}\](?!:)', combined)):
+            if def_text is None:
+                continue                # orphan-def marker hunt: this number is linked
+            existing = re.search(rf'(?m)^\[\^{num}\]:\s*(.+)$', combined)
+            def _head(t):
+                return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:30]
+            if not existing:
+                # ref exists but NO def anywhere — this candidate IS the missing definition
+                # (the classic pypdf missing-def recovery, via the split-line shape): attach
+                # it under the ref's own number, no marker insertion needed.
+                if num not in {int(n) for r in rescued_defs
+                               for n in re.findall(r'\[\^(\d+)\]', r)}:
+                    rescued_defs.append(f'[^{num}]: {def_text}')
+                    used.add(num)
+                    rescued += 1
+                continue
+            if _head(existing.group(1)) == _head(def_text):
+                continue                # same note already linked — nothing to rescue
+        ptexts = ([page_texts.get(page_idx)] if page_idx is not None
+                  else list(page_texts.values()))
+        seam = None
+        for ptext in ptexts:
+            if not ptext:
+                continue
+            # marker renderings in the pypdf layer, tightest first:
+            #   glued digit-first   "reviewed1. The"
+            #   glued punct-first   "risk.9 This"
+            #   line-start marker   "ESD.\n1 For"   (the superscript opened a new text run)
+            #   line-end marker     "2010). 2\nThis" (the superscript closed one)
+            m = re.search(rf'([A-Za-z]{{3,}})\s?{num}([.,;:!?])\s+([A-Za-z]{{2,}})', ptext)
+            if m:
+                seam = (m.group(1), m.group(2), m.group(3))
+                break
+            # glued punct-first also after digits/parens: "…Aniekwe et al. (2012).2 The"
+            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.,;:!?]){num}\s+([A-Za-z]{{2,}})', ptext)
+            if m:
+                seam = (m.group(1), '', m.group(2))
+                break
+            m = re.search(rf'([A-Za-z]{{2,}}[.!?)])\n{num} ([A-Za-z]{{2,}})', ptext)
+            if m:
+                seam = (m.group(1), '', m.group(2))
+                break
+            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.!?]) {num}\n([A-Za-z]{{2,}})', ptext)
+            if m:
+                seam = (m.group(1), '', m.group(2))
+                break
+            # digit ALONE on its own line between the punct line and the continuation —
+            # cece961b: "…(Chouhan et al., 2017).⏎4⏎The regulation states…"
+            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.,;!?])\s*\n{num} ?\n\s*([A-Za-z]{{2,}})',
+                          ptext)
+            if m:
+                seam = (m.group(1), '', m.group(2))
+                break
+        if seam is None:
+            continue                    # no witness in the PDF text layer — never guess
+        # follow_tail: further words after the seam in the SAME text-layer context (m/ptext
+        # hold the breaking iteration's match), used to extend an ambiguous witness
+        # ("2017). The" matches twice in the md; "2017). The regulation" matches once —
+        # cece961b's [^4]).
+        follow_tail = re.sub(r'\s+', ' ', ptext[m.end():m.end() + 60]).strip() if m else ''
+        word, punct, follow = (re.escape(s) for s in seam)
+        pattern = rf'{word}{punct}\s+{follow}'
+        # The DIGITLESS seam must not exist anywhere in the text layer itself: if the PDF
+        # carries both "study10 :" (the marker site) and "case study: over" (plain prose,
+        # possibly pages away), the markdown's unique match can be the WRONG site — the
+        # witness and the insertion would be different locations (ad752a46: a law-review
+        # abstract got a phantom [^10] from a seam witnessed 40 pages later).
+        if any(re.search(pattern, pt) for pt in page_texts.values() if pt):
+            continue
+        hits = list(re.finditer(pattern, combined))
+        if len(hits) > 1 and follow_tail:
+            # ambiguous with one follow word — extend the witness word by word until unique
+            extra_words = follow_tail.split()
+            for w in extra_words[:3]:
+                if not re.match(r'^[A-Za-z]{2,}[.,;:]?$', w):
+                    break
+                pattern += rf'\s+{re.escape(w.rstrip(".,;:"))}'
+                hits = list(re.finditer(pattern, combined))
+                if len(hits) <= 1:
+                    break
+        if len(hits) != 1 or hits[0].start() >= body_end:
+            continue                    # reworded, ambiguous, or in the back matter — skip
+        if def_text is None:
+            target = num                # marker-only: must link to the EXISTING def
+        else:
+            target = num if num not in used else next_free
+            if target == next_free:
+                next_free += 1
+        used.add(target)
+        h = hits[0]
+        word_len = len(seam[0])
+        insert_at = h.start() + word_len
+        combined = combined[:insert_at] + f'[^{target}]' + combined[insert_at:]
+        if def_text is not None:
+            rescued_defs.append(f'[^{target}]: {def_text}')
+        rescued += 1
+    if rescued_defs:
+        combined = combined.rstrip() + '\n\n' + '\n\n'.join(rescued_defs)
+    if rescued:
+        print(f"  Footnote-marker rescue: re-injected {rescued} dropped marker(s) via the PDF "
+              f"text layer ({len(rescued_defs)} def(s) folded from page footers)")
+    return combined, rescued
+
+
+_AUTHOR_LINE_MARKER_RE = re.compile(r'\[\^(\d{1,2})\]')
+
+
+def _demote_defless_author_markers(combined):
+    """Strip [^N] markers from an author name-list line when NO marker on the line has a
+    definition anywhere in the document (a280cf5b: Mistral never captured the affiliation
+    block, so the markers are permanently unlinkable literal junk). Shape guards: first 50
+    lines, >= 2 markers, uppercase opener, list punctuation (comma / 'and'), and not a
+    sentence-shaped line — a body paragraph with genuinely missing footnotes keeps its
+    markers (that loss must stay visible in the audit)."""
+    def_nums = set(re.findall(r'(?m)^\s*\[\^(\d+)\]\s*:', combined))
+    lines = combined.split('\n')
+    changed = False
+    for i, line in enumerate(lines[:50]):
+        refs = _AUTHOR_LINE_MARKER_RE.findall(line)
+        if len(refs) < 2 or any(n in def_nums for n in refs):
+            continue
+        stripped = _AUTHOR_LINE_MARKER_RE.sub('', line).strip()
+        if not stripped or not stripped[0].isupper():
+            continue
+        if ',' not in stripped and ' and ' not in stripped:
+            continue                     # not a name list
+        if re.search(r'[.!?]\s*$', stripped):
+            continue                     # sentence-shaped — body prose, keep the markers
+        lines[i] = _AUTHOR_LINE_MARKER_RE.sub('', line)
+        changed = True
+    return '\n'.join(lines) if changed else combined
+
+
+def _split_glued_inline_defs(combined):
+    """Split a single def LINE carrying multiple glued '[^N] Text' segments into one definition
+    per line. Applies only to a line that already IS a definition ('[^1]: …') whose embedded
+    [^N] markers continue the leader's number in a strictly ascending run — a body paragraph's
+    inline refs never look like that."""
+    lines = combined.split('\n')
+    changed = False
+    for i, line in enumerate(lines):
+        lead = re.match(r'^\[\^(\d{1,3})\]\s*:', line)
+        if not lead:
+            continue
+        embedded = _EMBEDDED_GLUED_DEF_RE.findall(line)
+        if len(embedded) < 2:
+            continue
+        nums = [int(lead.group(1))] + [int(n) for n in embedded]
+        if any(b <= a for a, b in zip(nums, nums[1:])):
+            continue                     # not an ascending def run — leave untouched
+        parts = _EMBEDDED_GLUED_DEF_RE.split(line)
+        # parts = [lead-def, num, text, num, text, …]
+        rebuilt = [parts[0].rstrip()]
+        for n, text in zip(parts[1::2], parts[2::2]):
+            rebuilt.append(f'[^{n}]: {text.rstrip()}')
+        lines[i] = '\n\n'.join(rebuilt)
+        changed = True
+    return '\n'.join(lines) if changed else combined
+
+
 class DefaultAssembler(FootnoteAssembler):
     """Generic / unknown path: per-page SPLITS definition paragraphs out of the body (deferred to a
     contiguous block at the document end, page order), post-combine normalizes refs + defs."""
@@ -393,11 +823,20 @@ class DefaultAssembler(FootnoteAssembler):
         ctx.open_def_continuation = still_open
 
     def post_combine(self, ctx, combined):
+        # Side-column-notes shape (".(5)" refs + interleaved "N. Text" notes) — must convert
+        # BEFORE the generic normalisers, which cannot see either form.
+        combined = _convert_sidecolumn_paren_footnotes(combined)
         combined = normalize_all_footnote_refs(combined)
         combined = normalize_footnote_defs(combined)
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
         # Only at start of line (definitions), not inline references
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        # A whole affiliation list OCR-glued into ONE def line → one definition per line.
+        combined = _split_glued_inline_defs(combined)
+        # Re-run the def-gated latex expansion: comma groups ($^{7,8}$ author-affiliation
+        # markers) that failed the gate while defs 2..N were still glued mid-line now see
+        # every def at line start (2c0544c4). Idempotent on already-converted text.
+        combined = expand_latex_superscripts(combined)
         # Author-affiliation block: unglue "[^1]Associate Professor…" defs (link when unambiguous,
         # demote the whole universe when its numbers collide with real footnote defs).
         combined = _resolve_affiliation_block(combined)
@@ -514,9 +953,19 @@ def _convert_numbered_endnote_defs(combined):
     refs = {int(m.group(1)) for m in re.finditer(r'(?<!\n)\[\^(\d+)\]', combined)}
     if not refs or re.search(r'(?m)^\[\^\d+\]:', combined):
         return combined
+    # Prefer the LAST heading actually FOLLOWED by a numbered "1. " run — a doc can carry both
+    # "## Notes" (the numbered endnote list) and a later "## References" (author-year
+    # bibliography, 80bb62b6); blindly taking the last heading anchors on the bibliography and
+    # the endnote list never converts. Falling back to the last match keeps the original
+    # behaviour for front-matter TOC repeats.
+    candidates = list(_ENDNOTE_LIST_HEADING_RE.finditer(combined))
     heading = None
-    for m in _ENDNOTE_LIST_HEADING_RE.finditer(combined):
-        heading = m                                   # LAST such heading (front-matter TOCs repeat them)
+    for m in reversed(candidates):
+        if re.search(r'(?m)^1\. \S', combined[m.end():m.end() + 400]):
+            heading = m
+            break
+    if heading is None and candidates:
+        heading = candidates[-1]
     if heading:
         head, tail = combined[:heading.end()], combined[heading.end():]
     else:
@@ -902,6 +1351,59 @@ _QUOTE_PARA_END_RE = re.compile(
     r"['’”\"]\s*\.?\s*(?:\[\^\d+\]|\d{1,3})?\s*(?:<a class=\"pageNumber\"[^>]*></a>)?\s*$")
 # An intro paragraph that ANNOUNCES a quotation: ends with a colon (optional footnote marker).
 _QUOTE_INTRO_END_RE = re.compile(r':\s*(?:\[\^\d+\]|\d{1,3})?\s*$')
+# A colon intro that ATTRIBUTES the quote — a reporting verb right before the colon
+# ("As Neocleous (2013: np) argues:"). Gates the quote-dense heuristic below.
+_QUOTE_INTRO_REPORTING_RE = re.compile(
+    r"(?i)\b(?:argue[sd]?|writes?|wrote|note[sd]?|state[sd]?|observe[sd]?|explain(?:s|ed)?|"
+    r"puts?\s+it|remark(?:s|ed)?|assert(?:s|ed)?|claim(?:s|ed)?|suggest(?:s|ed)?|"
+    r"describe[sd]?|says?|said|conclude[sd]?|recall(?:s|ed)?|discuss(?:es|ed)?)\s*(?:that)?\s*:\s*$")
+# An intro that ANNOUNCES a passage: "…in the following account from *Custer Died for Your
+# Sins*:" — the "following"/"follows" vocabulary, anywhere before the colon.
+_QUOTE_INTRO_FOLLOWING_RE = re.compile(r"(?i)\bfollow(?:ing|s)\b[^:]*:\s*$")
+# An author-first bibliography entry opener ("Rabinow, Paul. Anthropos Today…") — a paragraph
+# shaped like this is a REFERENCE, never a quotation (guards the epigraph heuristic against
+# em-dash repeat-author entry pairs in a bibliography, f07b7fff).
+_BIB_AUTHOR_FIRST_RE = re.compile(r"^[A-ZÀ-Þ][a-zA-Z'’-]+,\s+[A-Z]")
+# A paragraph END of the form "…sentence terminal, then a parenthetical citation": the
+# block-quote attribution convention ("…inhabitants. (Deloria, 1998, p.5)" — some typesetters
+# add a period AFTER the paren too: "…landscape. (Lawrence, as quoted in Deloria, 1998, p. 4).").
+# The load-bearing discriminator is the sentence punctuation BEFORE the paren — an inline
+# citation sits INSIDE its sentence, so a word precedes the paren ("…remaining Indians
+# (as quoted in Hastings, 2007)."). The terminal must be REAL sentence punctuation (optionally
+# inside a closing quote) — a bare closing quote before the paren is a mid-sentence quoted term
+# ("…'feeling rules' (Hochschild, 1983)"), not a sentence end.
+_QUOTE_CITE_TERMINAL_RE = re.compile(
+    r"[.?!…][\"'’”]?\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*\.?\s*(?:\[\^\d+\])?\s*"
+    r"(?:<a class=\"pageNumber\"[^>]*></a>)?\s*$")
+_QUOTE_CITE_YEARISH_RE = re.compile(r"\b(?:1[5-9]\d\d|20\d\d)[a-z]?\b|\bp{1,2}\.\s*\d")
+# An EPIGRAPH attribution line — a standalone dash-led paragraph naming the source
+# ("-Franz Fanon, The Wretched of the Earth, 1963, p. 36", 244ae673). The dash + a comma-
+# separated citation carrying a year/page is the print convention; a markdown BULLET is a
+# LIST (consecutive dash lines), which the caller checks before wrapping.
+_QUOTE_DASH_ATTRIBUTION_RE = re.compile(r"^[-–—]\s?[A-ZÀ-Þ][^\n]{5,120}$")
+_QUOTE_CITE_ASIDE_RE = re.compile(
+    r"(?i)^\s*(?:see|cf|e\.g|i\.e|for (?:example|a review)|compare|but see|as noted|also)\b")
+_QUOTE_DQUOTE_SPAN_RE = re.compile(r'[“"][^”"]{2,}?[”"]')
+
+
+def _quote_cite_terminal(s):
+    """The paragraph ends in a standalone parenthetical citation (year or page ref inside,
+    not a '(see also …)' aside, not a full parenthesized sentence ending in its own period)."""
+    m = _QUOTE_CITE_TERMINAL_RE.search(s)
+    if not m:
+        return False
+    cite = m.group(1).strip()
+    return (len(cite) <= 120
+            and _QUOTE_CITE_YEARISH_RE.search(cite) is not None
+            and not _QUOTE_CITE_ASIDE_RE.match(cite)
+            and not re.search(r'[.!?]$', cite))
+
+
+def _plain_prose_para(s):
+    """A single-paragraph candidate for quote wrapping: not a heading/list/table/def/native
+    blockquote, one line of prose."""
+    return bool(s) and '\n' not in s and not s.startswith(('>', '#', '-', '*', '|', '[', '!', '<')) \
+        and not re.match(r'^\d+[.)]\s', s)
 
 
 def _wrap_quote_blockquotes(md):
@@ -923,13 +1425,62 @@ def _wrap_quote_blockquotes(md):
                 and _QUOTE_PARA_END_RE.search(s)
                 and _QUOTE_INTRO_END_RE.search(prev_stripped)):
             paras[k] = '> ' + s
+        # Citation-terminated quote (244ae673 / 68252cc2): a substantial plain paragraph whose
+        # final characters are ". (Author, 1998, p.5)" — terminal punctuation BEFORE the paren
+        # and no period after it. That ordering only occurs when the paren is a block-quote
+        # attribution; an inline citation keeps its period after the paren. Needs no intro.
+        # Must open uppercase/quote — a lowercase opener is a page-break continuation of a
+        # body paragraph, not a quotation.
+        elif (_plain_prose_para(s) and len(s) >= 150
+                and (s[0].isupper() or s[0] in _QUOTE_OPEN_CHARS)
+                and _quote_cite_terminal(s)):
+            paras[k] = '> ' + s
+        # Attributed-colon quote (3fbb92da): the intro ends in a reporting verb + colon
+        # ("As Neocleous (2013: np) argues:") and the paragraph itself is quote-DENSE (>= 2
+        # internal double-quoted spans) — a quotation typeset without wrapping quote marks.
+        # A quoteless paragraph after a plain colon intro stays a paragraph (pinned negative).
+        elif (_plain_prose_para(s) and len(s) >= 80
+                and _QUOTE_INTRO_END_RE.search(prev_stripped)
+                and (_QUOTE_INTRO_REPORTING_RE.search(prev_stripped)
+                     or _QUOTE_CITE_YEARISH_RE.search(prev_stripped))
+                and len(_QUOTE_DQUOTE_SPAN_RE.findall(s)) >= 2
+                and re.search(r"[.?!…\"'’”]\s*(?:\[\^\d+\])?\s*$", s)):
+            paras[k] = '> ' + s
         prev_stripped = s
+    # EPIGRAPH shape (244ae673's Fanon quotes): a plain quote paragraph followed by a standalone
+    # dash-led attribution line ("-Franz Fanon, The Wretched of the Earth, 1963, p. 36"). The
+    # attribution must carry a comma-separated citation with a year/page, and must not be a
+    # markdown BULLET (a list is consecutive dash lines — neighbours are checked). Quote and
+    # attribution wrap as ONE blockquote via the '>' connector line.
+    for k, para in enumerate(paras):
+        if para is None or k == 0 or paras[k - 1] is None:
+            continue
+        s = para.strip()
+        if (not _QUOTE_DASH_ATTRIBUTION_RE.match(s)
+                or ',' not in s
+                or ':' in s
+                or not _QUOTE_CITE_YEARISH_RE.search(s)):
+            continue                              # ':' = publisher colon — a repeat-author
+                                                  # bibliography entry, not an attribution
+        nxt = next((paras[j].strip() for j in range(k + 1, len(paras))
+                    if paras[j] is not None and paras[j].strip()), '')
+        if nxt and nxt[0] in '-–—' and not _QUOTE_CITE_YEARISH_RE.search(nxt):
+            continue                              # consecutive dash lines — a bullet list
+        quote = paras[k - 1].strip()
+        if (_plain_prose_para(quote) and len(quote) >= 60
+                and quote[:1] not in '-–—'
+                and not _BIB_AUTHOR_FIRST_RE.match(quote)
+                and (quote[0].isupper() or quote[0] in _QUOTE_OPEN_CHARS)):
+            paras[k - 1] = '> ' + quote + '\n>\n> ' + s
+            paras[k] = None
     # A PAGE-SPANNING quotation Mistral wrapped only half of: the continuation page arrives as a
     # native '> ' paragraph opening in lowercase, while the quote's first half (previous page)
     # sits unwrapped — it opens with a quote char but never closes (cut at the page turn). Pull
     # the first half into the same blockquote, with a '>' separator line so the converter renders
     # ONE <blockquote> ('‘Yet, while all of these changes…' / '> are omitted when…').
     for k, para in enumerate(paras):
+        if para is None:
+            continue
         s = para.strip()
         if not s.startswith('> '):
             continue
@@ -937,9 +1488,9 @@ def _wrap_quote_blockquotes(md):
         if not first_content[:1].islower():
             continue
         j = k - 1
-        while j >= 0 and not paras[j].strip():
+        while j >= 0 and (paras[j] is None or not paras[j].strip()):
             j -= 1
-        if j < 0:
+        if j < 0 or paras[j] is None:
             continue
         prev = paras[j].strip()
         if (prev and prev[0] in _QUOTE_OPEN_CHARS
@@ -949,6 +1500,80 @@ def _wrap_quote_blockquotes(md):
             paras[j] = '> ' + prev + '\n>\n' + s
             paras[k] = None
     return '\n\n'.join(p for p in paras if p is not None)
+
+_BOX_HEADING_PARA_RE = re.compile(r'^#{1,6}[ \t]+\S')
+
+# A BREAKOUT-BOX title — the BMJ-family vocabulary for boxed summaries. Only sections with
+# these titles get the box RENDERING below; a genuine body section that merely got relocated
+# keeps its ordinary paragraphs.
+_BOX_TITLE_RE = re.compile(
+    r'(?i)^#{1,6}[ \t]+(?:summary points?|key (?:points?|messages?|findings?)|'
+    r'learning points?|practice points?|what this (?:study|paper) adds|'
+    r'policy implications?|box \d+[.:]?)\b')
+
+
+def _relocate_sentence_interrupting_boxes(md):
+    """A boxed side-section (BMJ 'Summary points', 63817b36) that print layout drops into the
+    MIDDLE of a body sentence: Mistral emits '…they seek and' → '## Summary points' → the box
+    paragraphs → 'compete for the best…'. Detect the interruption (paragraph before a heading
+    ends mid-sentence; a LOWERCASE-opening paragraph within the next few resumes it), rejoin
+    the split sentence, and move the box after it. Bounded to 8 paragraphs and aborted at the
+    next heading, so a genuine long section is never dragged around; a real heading should
+    never sit mid-sentence, so relocation is safe whenever the shape matches."""
+    paras = re.split(r'\n\s*\n', md)
+    moved = 0
+    i = 0
+    while i < len(paras):
+        p = paras[i].strip()
+        if i > 0 and _BOX_HEADING_PARA_RE.match(p):
+            prev = paras[i - 1].strip()
+            if (prev and len(prev) >= 40                  # a short label ("Review") is page
+                    and not _BOX_HEADING_PARA_RE.match(prev)   # chrome, not a split sentence
+                    and not prev.startswith(('>', '|', '!', '['))
+                    and re.search(r'[a-z,;–—-]$', prev)):
+                for j in range(i + 1, min(i + 9, len(paras))):
+                    q = paras[j].strip()
+                    if not q:
+                        continue
+                    if _BOX_HEADING_PARA_RE.match(q):
+                        break                     # another heading — not a bounded box
+                    if q[0].islower():
+                        box = paras[i:j]
+                        paras[i - 1] = prev + ' ' + q
+                        del paras[i:j + 1]
+                        paras[i:i] = box
+                        # BREAKOUT-BOX rendering: when the relocated section carries a
+                        # box-vocabulary title ("Summary points", "Key messages", …), its
+                        # statements render as ONE inset blockquote under the heading — the
+                        # closest reader primitive to the bordered box in print. A relocated
+                        # section with an ordinary title keeps ordinary paragraphs.
+                        body = [b.strip() for b in box[1:]]
+                        if (_BOX_TITLE_RE.match(box[0].strip())
+                                and 2 <= len(body) <= 8
+                                and all(0 < len(b) < 500
+                                        and not b.startswith(('>', '#', '|', '!', '['))
+                                        for b in body)):
+                            # the box TITLE goes INSIDE the inset as bold text — exactly how
+                            # print renders it (bold label inside the bordered box), so the
+                            # whole unit reads as one secondary block; and it never touches
+                            # the heading machinery (TOC, chapter structure, m4b chapters)
+                            title = re.sub(r'^#{1,6}[ \t]+', '', box[0].strip())
+                            members = [f'**{title}**'] + body
+                            joined = '\n>\n'.join(
+                                '> ' + b.replace('\n', '\n> ') for b in members)
+                            paras[i:i + len(box)] = [joined]
+                            moved += 1
+                            i += 1
+                            break
+                        moved += 1
+                        i += len(box)
+                        break
+        i += 1
+    if moved:
+        print(f"  Relocated {moved} sentence-interrupting boxed section(s) after the sentence "
+              f"they split (side-box flattened into the body mid-sentence)")
+    return '\n\n'.join(paras)
+
 
 _HEADING_LINE_RE = re.compile(r'(?m)^#{1,6}[ \t]+(.+?)\s*$')
 _LEADING_HEADING_RE = re.compile(r'^#{1,6}[ \t]+([^\n]+)')
@@ -1213,7 +1838,7 @@ def _front_matter_chrome(pages, header_names):
 
 
 def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
-                       segment_boundaries=None, footnote_warnings=None):
+                       segment_boundaries=None, footnote_warnings=None, geometry_blocks=None):
     """Assemble pages into markdown, injecting section headings from headers. Thin conductor over the
     PDF_ASSEMBLERS registry: it runs the SHARED spine (running-header detection, sticky-notes
     tracking, page-number anchors, heading injection, numbered-notes→defs) and the SHARED tail
@@ -1593,6 +2218,27 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # colon-introduced, fully quote-wrapped ones as '>' blockquotes so they render as
     # <blockquote>, not <p>. On the joined body, before the deferred defs are appended.
     combined = _wrap_quote_blockquotes(combined)
+    # GEOMETRIC blockquotes — the universal detector: per-line indentation read from the source
+    # PDF (or replayed from the quote_geometry.json cache when the PDF is absent — the fixture
+    # suite) and matched back to markdown paragraphs. Catches indentation-only quotes the
+    # typographic heuristics can never see; absorbs typographically-wrapped members into one
+    # blockquote.
+    try:
+        from ingestion.pdf.quote_geometry import (
+            detect_indented_quote_blocks, wrap_geometry_blockquotes)
+        geo_blocks = geometry_blocks
+        if geo_blocks is None and pdf_path:
+            geo_blocks = detect_indented_quote_blocks(pdf_path)
+        if geo_blocks:
+            combined, geo_wrapped = wrap_geometry_blockquotes(combined, geo_blocks)
+            if geo_wrapped:
+                print(f"  Geometry blockquotes: wrapped {geo_wrapped} paragraph(s) from "
+                      f"{len(geo_blocks)} indented block(s) in the source PDF")
+    except Exception as e:
+        print(f"  Geometry blockquote pass skipped ({e.__class__.__name__})")
+    # A boxed side-section dropped mid-sentence by the print layout → rejoin the sentence and
+    # move the box after it.
+    combined = _relocate_sentence_interrupting_boxes(combined)
     # Append every deferred def (inline splits + footer recoveries, page order) as ONE contiguous
     # block at the end, BEFORE post_combine so its ref/def normalisation still runs over them.
     if ctx.deferred_defs_parts:
@@ -1695,6 +2341,27 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                         "unrecovered": [entry["fn_num"]],
                         "reason": "unreadable_pypdf_candidate",
                     })
+
+    # --- Demote Vancouver-citation refs (bracket citations mis-promoted to footnote markers)
+    # BEFORE the marker rescue: demotion returns bracket-regime tokens to citations, and the
+    # rescue then re-injects genuine footnote markers at their text-layer-witnessed seams —
+    # run the other way round, demotion would eat the rescue's freshly inserted markers
+    # (6c4e7d58's TRIPLE number space: affiliations 1-5, discursive footnotes 6-8, bracket
+    # citations 1-53). ---
+    combined = _demote_defless_citation_refs(combined)
+
+    # --- Rescue refless footer footnotes (marker dropped by OCR, def stranded in the footer,
+    # marker witnessed in the PDF text layer) ---
+    if pdf_path:
+        combined, _n_footer_rescued = _rescue_refless_footer_footnotes(
+            combined, response_dict, pdf_path)
+
+    # --- Demote author-line markers whose defs the OCR never captured ---
+    # a280cf5b: "Roger Few[^1], Daniel Morchain[^2], … and Ramkumar Bendapudi[^5]" with the
+    # affiliation block absent from the ENTIRE OCR response — nothing to link, and the literal
+    # [^N] junk survives into the reader. Runs AFTER pypdf recovery so recovered defs keep
+    # their markers. Narrow shape: a name-list line near the top, every marker defless.
+    combined = _demote_defless_author_markers(combined)
 
     # --- Convert <url> autolinks to clickable links ---
     # Angle-bracket URLs like <https://example.com> get stripped by HTML parsers.

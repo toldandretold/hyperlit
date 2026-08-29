@@ -116,7 +116,7 @@ class ShelfImportController extends Controller
     public function shelves(Request $request)
     {
         $db = DB::connection('pgsql_admin');
-        $systemPrefixes = [HarvestShelf::CITED_NAME_PREFIX, HarvestShelf::JOURNAL_NAME_PREFIX, HarvestShelf::NAME_PREFIX];
+        $systemPrefixes = [HarvestShelf::CITED_NAME_PREFIX, HarvestShelf::JOURNAL_NAME_PREFIX, HarvestShelf::NAME_PREFIX, HarvestShelf::CASE_NAME_PREFIX];
 
         $rows = $db->table('shelves as s')
             ->leftJoin('shelf_items as si', 'si.shelf_id', '=', 's.id')
@@ -150,8 +150,10 @@ class ShelfImportController extends Controller
      * `articles` (main.ts renders both). The work-list is the DISTINCT
      * canonicals behind the shelf's books; the lane query then joins on
      * canonical_source_id so siblings that are NOT on the shelf still appear —
-     * comparing lanes is the workflow. Canonical-less shelf items can't be
-     * assessed here and are surfaced only as `unlinked_count`.
+     * comparing lanes is the workflow. Canonical-less shelf items (the normal
+     * case for book:import-cases vacuum shelves) are appended as synthetic
+     * standalone articles — one per book, nothing to fetch, no promote — so
+     * the batch is still reviewable here lane by lane.
      */
     public function articles(Request $request, string $id, ReconvertQueue $queue)
     {
@@ -185,7 +187,51 @@ class ShelfImportController extends Controller
             ])
             ->get();
 
-        $articles = $this->foldArticles($rows, $this->openFlagCountsByBook(), $queue);
+        // Canonical-less shelf books (case bundles, hand imports): synthesize one
+        // standalone "article" per book so a book:import-cases vacuum shelf is
+        // reviewable here. canonical_id 'book:<id>' is deliberately NOT a uuid —
+        // run()'s import validation refuses it, exactly right for a book with
+        // nothing to re-fetch (fetchable computes false from the null doi/urls).
+        // auto_version_book = the book itself: no false "needs approval" flag,
+        // and ★ promote (canonical-only) stays disabled via is_version.
+        $standalone = $db->table('shelf_items as si')
+            ->join('library as l', 'l.book', '=', 'si.book')
+            ->where('si.shelf_id', $shelf->id)
+            ->whereNull('l.canonical_source_id')
+            ->where('l.visibility', '!=', 'deleted')
+            ->orderBy('si.added_at')
+            ->get([
+                'l.book', 'l.title', 'l.author', 'l.year', 'l.volume', 'l.issue',
+                'l.has_nodes', 'l.listed', 'l.visibility', 'l.conversion_method',
+                'l.foundation_source', 'l.completeness', 'l.completeness_reason',
+                'l.pdf_url_status', 'l.created_at as lane_created_at',
+            ])
+            ->map(fn ($l) => (object) [
+                'canonical_id'        => 'book:' . $l->book,
+                'title'               => $l->title ?: $l->book,
+                'author'              => $l->author,
+                'year'                => $l->year,
+                'volume'              => $l->volume,
+                'issue'               => $l->issue,
+                'doi'                 => null,
+                'cited_by_count'      => null,
+                'is_oa'               => false,
+                'oa_url'              => null,
+                'pdf_url'             => null,
+                'auto_version_book'   => $l->book,
+                'book'                => $l->book,
+                'has_nodes'           => $l->has_nodes,
+                'listed'              => $l->listed,
+                'visibility'          => $l->visibility,
+                'conversion_method'   => $l->conversion_method,
+                'foundation_source'   => $l->foundation_source,
+                'completeness'        => $l->completeness,
+                'completeness_reason' => $l->completeness_reason,
+                'pdf_url_status'      => $l->pdf_url_status,
+                'lane_created_at'     => $l->lane_created_at,
+            ]);
+
+        $articles = $this->foldArticles($rows->concat($standalone), $this->openFlagCountsByBook(), $queue);
 
         return response()->json([
             'shelf' => [

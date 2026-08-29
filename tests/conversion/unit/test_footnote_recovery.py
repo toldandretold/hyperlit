@@ -126,3 +126,33 @@ def test_targeted_pages_restricts_scan():
     got = M.recover_missing_defs(set(), {0: [(1, 'a')], 1: [(2, 'b')]}, max_ref_number=5,
                                  targeted_pages={1})
     assert got == [(2, 'b')]
+
+
+def test_run_on_affiliation_def_splits_on_ascending_boundaries():
+    # a280cf5b: items 2..5 glued mid-line into item 1's text — only 1 starts a line.
+    from ingestion.pdf.recovery import split_run_on_numbered_def
+    text = ('School of International Development, University of East Anglia, Norwich, UK '
+            '2 Programme Strategy and Impact Team (PSIT), Oxfam GB, Oxford, UK '
+            '3 African Climate and Development Initiative, University of Cape Town, South Africa '
+            '4 Institute for Environment and Sanitation Studies, University of Ghana, Accra '
+            '5 Watershed Organisation Trust, Satara road, Pune, India '
+            'Correspondence: (e-mail: r.few@uea.ac.uk)')
+    out = split_run_on_numbered_def(1, text)
+    assert [n for n, _t in out] == [1, 2, 3, 4, 5]
+    assert out[1][1].startswith('Programme Strategy and Impact Team')
+    assert out[4][1] == 'Watershed Organisation Trust, Satara road, Pune, India'  # chrome trimmed
+
+
+def test_def_merely_mentioning_a_number_never_splits():
+    from ingestion.pdf.recovery import split_run_on_numbered_def
+    text = 'As examined in section 2 of the report, the committee reviewed all materials.'
+    assert split_run_on_numbered_def(1, text) == [(1, text)]
+
+
+def test_running_footer_chrome_rejected_by_duplicate_text():
+    # Page-number + running-footer lines pattern-match as defs under DIFFERENT numbers.
+    from ingestion.pdf.recovery import recover_missing_defs
+    chrome = 'PALGRAVE COMMUNICATIONS | 3:17092 | DOI: 10.1057/palcomms.2017.92'
+    defs = {1: [(2, chrome)], 3: [(4, chrome)], 0: [(1, 'A genuine footnote definition text here.')]}
+    out = recover_missing_defs(set(), defs, 10)
+    assert out == [(1, 'A genuine footnote definition text here.')]

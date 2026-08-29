@@ -8,7 +8,7 @@
  *
  * The generator is deterministic (no Date/random), so equal inputs → equal bytes.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'node:fs';
 import { collect, renderAll, writeArtifacts, ARTIFACTS } from '../../../visualisation/js/collect';
 
@@ -17,6 +17,13 @@ import { collect, renderAll, writeArtifacts, ARTIFACTS } from '../../../visualis
 // share it — per-test calls blew the 5s test timeout under CPU contention.
 let _sharedViz = null;
 const collectOnce = () => (_sharedViz ??= collect());
+
+// The FIRST test to touch collectOnce()/renderAll() pays the whole scan against
+// its own timeout, and the scan grows with the codebase — at ~1770 functions it
+// crosses vitest's 5s default whenever suite workers contend for CPU. The scan
+// is deterministic, not hung, so give this file a real ceiling instead of
+// letting load decide.
+vi.setConfig({ testTimeout: 60_000 });
 
 if (process.env.WRITE_FLOWVIZ) {
   const viz = writeArtifacts();

@@ -197,19 +197,32 @@ class GenerateNodeChunks(DocPass):
 
         # Rewrite bare image src to servable route path: img-1.jpeg → /{book_id}/media/img-1.jpeg
         # Also inject width/height from file on disk to prevent layout shift
+        media_prefix = f'/{book_id}/media/'
         for img_tag in content_root.find_all('img'):
             src = img_tag.get('src', '')
-            if src and not src.startswith('/') and not src.startswith('http'):
-                # Inject dimensions from file on disk before rewriting src
-                img_path = os.path.join(output_dir, 'media', src)
+            if not src:
+                continue
+            if not src.startswith('/') and not src.startswith('http'):
+                filename = src
+                rewrite = True
+            elif src.startswith(media_prefix):
+                # Already absolutised by an upstream lane (ar5iv, vibeConverter,
+                # article harvester) — still inject dims, never rewrite src.
+                filename = src[len(media_prefix):]
+                rewrite = False
+            else:
+                continue
+            if not img_tag.get('width') or not img_tag.get('height'):
+                img_path = os.path.join(output_dir, 'media', filename)
                 try:
                     with PILImage.open(img_path) as pil_img:
                         w, h = pil_img.size
                         img_tag['width'] = str(w)
                         img_tag['height'] = str(h)
                 except Exception:
-                    pass  # image missing or unreadable — skip silently
-                img_tag['src'] = f'/{book_id}/media/{src}'
+                    pass  # image missing or unreadable (e.g. SVG) — skip silently
+            if rewrite:
+                img_tag['src'] = f'{media_prefix}{src}'
 
         for node in content_root.find_all(recursive=False):
             if isinstance(node, NavigableString) and not node.strip(): continue

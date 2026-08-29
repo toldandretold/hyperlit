@@ -257,9 +257,29 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
     (scrollOffset !== null && Number.isFinite(scrollOffset)) ? scrollOffset : 0;
   verbose.nav(`Initiating navigation to internal ID: ${targetId}`, 'scrolling/internalNav');
 
+  // 🔢 Supersede epoch: a NEW navigation on this loader invalidates any nav
+  // still in flight. The shared slots below (_navigationResolve, the flags,
+  // the cleanup timer) hold ONE navigation's state — before this epoch, two
+  // interleaved navs (e.g. the resume restore vs the curtain's go-to-top)
+  // both kept running: the stale one repositioned sentinels, scheduled the
+  // cleanup timer over the new nav's, and its fillViewport prepend-shoved the
+  // viewport off the new landing (forensics: 0 → 13523px). _navigateToInternalId
+  // checks the epoch after each await cluster and silently stops when stale.
+  lazyLoader._navEpoch = (lazyLoader._navEpoch || 0) + 1;
+  const myNavEpoch = lazyLoader._navEpoch;
+
   // 🚀 Return a Promise that resolves when navigation is truly complete
   // This fixes iOS Safari race condition where scroll restoration interferes
   return new Promise((resolve, reject) => {
+    // A superseded nav's promise must still settle — its caller may be awaiting
+    // it (RevealGate, chain opens). Resolve it as a non-success before the slot
+    // is overwritten, so the stale nav can never resolve the NEW nav's promise.
+    if (lazyLoader._navigationResolve) {
+      lazyLoader._navigationResolve({ success: false, targetId: lazyLoader.pendingNavigationTarget, superseded: true });
+      lazyLoader._navigationResolve = null;
+      lazyLoader._navigationReject = null;
+    }
+
     // Store resolve/reject on lazyLoader so _navigateToInternalId can call them
     lazyLoader._navigationResolve = resolve;
     lazyLoader._navigationReject = reject;
@@ -321,7 +341,7 @@ export function navigateToInternalId(targetId: string, lazyLoader: any, showOver
       sessionStorage.removeItem(scrollKey);
     }
 
-    _navigateToInternalId(targetId, lazyLoader, progressIndicator);
+    _navigateToInternalId(targetId, lazyLoader, progressIndicator, myNavEpoch);
   });
 }
 
@@ -351,13 +371,26 @@ export function findRenderedTarget(container: any, targetId: string): any {
   return null;
 }
 
-async function _navigateToInternalId(targetId: string, lazyLoader: any, progressIndicator: NavigationProgressIndicator | null = null): Promise<void> {
+async function _navigateToInternalId(targetId: string, lazyLoader: any, progressIndicator: NavigationProgressIndicator | null = null, myNavEpoch: number = 0): Promise<void> {
   // Gesture stamp at navigation start: the resolver/render waits below can take
   // SECONDS (held images, slow network), and if the reader gestures during that
   // wait they have taken over — the eventual landing write would yank the page
   // out from under them (prepend-forensics: landing at t≈5.5s mid scroll-up).
   // Checked right before the final positioning scroll.
   const gestureStampAtNavStart = userScrollState.lastGestureScrollTime;
+
+  // Superseded by a NEWER navigateToInternalId call on this loader? Then every
+  // shared slot (flags, promise, cleanup timer, barrier) now belongs to that
+  // nav — this one must stop SILENTLY: no state writes, no scroll, no cleanup
+  // scheduling. Its promise was already resolved {superseded:true} at the
+  // moment of the takeover. Checked after each await cluster below.
+  const isSuperseded = () => lazyLoader._navEpoch !== myNavEpoch;
+  const bailIfSuperseded = (where: string): boolean => {
+    if (!isSuperseded()) return false;
+    verbose.nav(`Navigation to ${targetId} superseded (${where}) — stopping silently`, 'scrolling/internalNav');
+    recordNavDecision({ phase: 'nav-superseded', targetId, where });
+    return true;
+  };
 
   // Check if the target element is already present and fully rendered (e.g. a server-prerendered +
   // adopted chunk). If so, the resolver + clear+re-render block below is SKIPPED — we scroll straight
@@ -454,6 +487,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
       const { waitForBackgroundDownload } = await import('../pageLoad/backgroundDownload');
       await waitForBackgroundDownload();
+      if (bailIfSuperseded('background-download')) return;
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded
       const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
@@ -516,6 +550,8 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         );
       }
     }
+
+    if (bailIfSuperseded('post-resolve')) return;
 
     // If the primary target couldn't be resolved, show fallback UI
     if (!resolution.resolved) {
@@ -609,6 +645,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       // AWAIT the neighbour loads before repositioning — else reposition sorts a half-built DOM
       // (concurrent inserts) and the sentinels end up scrambled.
       await Promise.all(fills);
+      if (bailIfSuperseded('fast-path-fills')) return;
       lazyLoader.repositionSentinels();
     } else {
       // Clear the container and load the chunk (plus adjacent chunks).
@@ -644,6 +681,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       // must run AFTER every insert completes, not while concurrent loads are still mutating it.
       await Promise.all(chunksToLoad.map((chunkId: any) => lazyLoader.loadChunk(chunkId, "down")));
 
+      if (bailIfSuperseded('chunk-loads')) return;
       lazyLoader.repositionSentinels();
     }
 
@@ -702,6 +740,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
         targetElement = fallbackTarget;
         elementsReady = true;
       } else {
+        if (bailIfSuperseded('target-wait-failed')) return;
         console.warn(`❌ Could not locate target element: ${targetId}`);
         hideNavigationLoading();
         // 🩹 Self-heal: a NUMERIC target that can't be located is a stale saved scroll position
@@ -736,6 +775,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
   // ========= UNIFIED FINAL SCROLL SECTION =========
   // At this point, we have a confirmed ready targetElement
+  if (bailIfSuperseded('pre-final-scroll')) return;
   if (elementsReady && targetElement) {
     if (progressIndicator) {
       progressIndicator.updateProgress(80, "Waiting for layout to stabilize...");
@@ -887,6 +927,12 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     verbose.nav(`SMART CLEANUP: Element at ${currentPosition}px, target ${targetPosition}px, diff ${Math.abs(currentPosition - targetPosition)}px, delay ${cleanupDelay}ms`, 'scrolling/internalNav');
 
+    // Superseded while scrolling? The newer nav owns the (single-slot) cleanup
+    // timer and the barrier — clearing/re-scheduling here would hijack them,
+    // and this timer's fillViewport would fill the viewport around the WRONG
+    // landing (the abandoned-restore prepend-shove, forensics 0 → 13523px).
+    if (bailIfSuperseded('pre-cleanup-schedule')) return;
+
     // Clear any existing cleanup timer and store the new one
     if (navTimers.pendingNavigationCleanupTimer) {
       clearTimeout(navTimers.pendingNavigationCleanupTimer);
@@ -898,6 +944,12 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
     }
 
     navTimers.pendingNavigationCleanupTimer = setTimeout(async () => {
+      // A nav superseded AFTER scheduling: skip the whole cleanup — barrier
+      // signals, fillViewport, and the promise slot all belong to the newer nav.
+      if (bailIfSuperseded('cleanup-timer')) {
+        navTimers.pendingNavigationCleanupTimer = null;
+        return;
+      }
       verbose.nav(`Navigation scroll complete for ${targetId}`, 'scrolling/internalNav');
       navTimers.pendingNavigationCleanupTimer = null; // Clear the reference
 

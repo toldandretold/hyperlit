@@ -245,6 +245,21 @@ def main():
     if img_count:
         print(f"Saved {img_count} images to {media_dir}")
 
+    # Geometric blockquote blocks: detect from the PDF when it is present and CACHE the result
+    # (quote_geometry.json, beside the OCR cache) so PDF-less replays — the fixture suite —
+    # replay the same layout truth deterministically.
+    from ingestion.pdf.quote_geometry import detect_indented_quote_blocks
+    geo_cache = output_dir / "quote_geometry.json"
+    geometry_blocks = None
+    if pdf_path.is_file():
+        geometry_blocks = detect_indented_quote_blocks(str(pdf_path))
+        geo_cache.write_text(json.dumps(geometry_blocks, ensure_ascii=False), encoding="utf-8")
+    elif geo_cache.exists():
+        try:
+            geometry_blocks = json.loads(geo_cache.read_text(encoding="utf-8"))
+        except Exception:
+            geometry_blocks = None
+
     # Assemble markdown — may append additional mojibake warnings to
     # `footnote_warnings` for pypdf-extracted defs we had to reject.
     print("Assembling markdown...")
@@ -256,6 +271,7 @@ def main():
         pdf_path=pdf_path,
         segment_boundaries=segment_boundaries,
         footnote_warnings=footnote_warnings,
+        geometry_blocks=geometry_blocks,
     )
     output_md.write_text(markdown, encoding="utf-8")
 

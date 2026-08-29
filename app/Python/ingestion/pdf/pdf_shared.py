@@ -51,10 +51,23 @@ def progress_heartbeat(start_pct, cap_pct, stage, detail, expected_seconds, inte
         thread.join(timeout=interval + 1)
 
 
+# A UNIT token directly before a superscript 2/3 marks an EXPONENT, not a footnote marker \u2014
+# "2 million km\u00b2" / "km^{2}" / "m\u00b3 of water" (80bb62b6: km\u00b2 linked to endnote 2). The unit must
+# be its own token (preceded by space/digit/start), so "them\u00b2" or "Vietnam\u00b2" never match.
+_UNIT_BEFORE_EXPONENT_RE = re.compile(r'(?:^|[\s\d(/\[])(?:km|cm|mm|nm|\u00b5m|\u03bcm|um|dm|hm|m|ha|s)$')
+
+
+def is_unit_exponent(text, pos, digits):
+    """True when the digits at `pos` are a unit exponent (\u00b2, \u00b3 after km/m/cm/\u2026)."""
+    return digits in ('2', '3') and bool(_UNIT_BEFORE_EXPONENT_RE.search(text[max(0, pos - 8):pos]))
+
+
 def convert_footnotes(text):
     """Convert Unicode superscript numbers to [^N] markdown footnotes."""
     def replace_fn(m):
         num = m.group(0).translate(SUPERSCRIPT_MAP)
+        if is_unit_exponent(text, m.start(), num):
+            return m.group(0)            # km\u00b2 \u2014 keep the literal superscript glyph
         return f"[^{num}]"
     return re.sub(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+', replace_fn, text)
 
@@ -97,6 +110,31 @@ def convert_superscript_citations_to_brackets(text):
 # as well as the single-number case ($^{5}$ / $^5$). A single-number regex left $^{1,2}$ untouched, so
 # the marker rendered as literal "1,2" and never linked to its [^1]:/[^2]: definitions.
 _LATEX_SUP_RE = re.compile(r'\$\^\{?(\d+(?:\s*,\s*\d+)*)\}?\$')
+# ORCID-glyph junk INSIDE a latex superscript \u2014 Mistral renders the ORCID logo after an author's
+# affiliation number as \text{\u2030} (2c0544c4: "Frank Biermann $^{1\text{\u2030}}$"), which defeats
+# _LATEX_SUP_RE and leaves the marker as literal math junk. Strip any digit-free \text{\u2026} payload
+# from inside a numeric superscript group before conversion.
+_LATEX_SUP_TEXT_JUNK_RE = re.compile(r'(\$\^\{\d+(?:\s*,\s*\d+)*)\s*\\text\{[^{}\d]*\}(\}\$)')
+# Nature-style prose citation prefix: "\u2026criticized earlier on, for example, refs. $^{5,6}$" cites
+# the numbered BIBLIOGRAPHY, never a footnote \u2014 expanding it to [^5][^6] wrong-links it to
+# same-numbered author-affiliation defs when both number spaces coexist (2c0544c4).
+_NATURE_REFS_PREFIX_RE = re.compile(r'(?i)\brefs?\.?\s*$')
+# ROMAN-numeral superscript footnote marker \u2014 some journals number footnotes i, ii, \u2026 viii and
+# Mistral renders the markers as $^{vii}$ while the DEF list arrives as arabic superscripts
+# (3fbb92da: refs $^{iii}$/$^{iv}$/$^{vii}$ against defs \u00b9\u2026\u2077). Lowercase roman only, def-gated.
+_LATEX_ROMAN_SUP_RE = re.compile(r'\$\^\{([ivxl]{1,7})\}\$')
+_ROMAN_VALUES = {'i': 1, 'v': 5, 'x': 10, 'l': 50}
+
+
+def _roman_to_int(s):
+    total, prev = 0, 0
+    for ch in reversed(s):
+        v = _ROMAN_VALUES.get(ch, 0)
+        if not v:
+            return None
+        total = total - v if v < prev else total + v
+        prev = max(prev, v)
+    return total if 0 < total <= 30 else None
 
 
 def expand_latex_superscripts(text):
@@ -109,17 +147,33 @@ def expand_latex_superscripts(text):
     ("built environments$^{1,2,4}$" with NO footnote defs) that must stay a rendered math
     superscript, not become literal "[^1][^2][^4]" text. So we only split a comma group when a
     matching definition is present in the same text."""
+    text = _LATEX_SUP_TEXT_JUNK_RE.sub(r'\1\2', text)
+
     # Definition forms: an already-[^N]: def, or a line-start single superscript "$^{1}$ School…".
     def_nums = set(re.findall(r'(?m)^\s*\[\^(\d+)\]:', text))
     def_nums |= set(re.findall(r'(?m)^\s*\$\^\{?(\d+)\}?\$\s', text))
 
     def repl(m):
         nums = re.findall(r'\d+', m.group(1))
+        # "refs. $^{5,6}$" is a Nature-style bibliography citation, not a footnote marker —
+        # demote to plain citation text ("refs. 5,6") instead of wrong-linking to
+        # same-numbered affiliation defs.
+        if _NATURE_REFS_PREFIX_RE.search(text[max(0, m.start() - 8):m.start()]):
+            return ','.join(nums)
+        if len(nums) == 1 and is_unit_exponent(text, m.start(), nums[0]):
+            return {'2': '²', '3': '³'}[nums[0]]              # km$^{2}$ — a unit exponent
         if len(nums) == 1:
             return f'[^{nums[0]}]'
         if any(n in def_nums for n in nums):
             return ''.join(f'[^{n}]' for n in nums)
         return m.group(0)   # comma group with no matching def → leave as a math superscript
+
+    def roman_repl(m):
+        n = _roman_to_int(m.group(1))
+        if n is not None and str(n) in def_nums:
+            return f'[^{n}]'
+        return m.group(0)   # not a plausible roman marker / no matching def → leave as math
+    text = _LATEX_ROMAN_SUP_RE.sub(roman_repl, text)
     return _LATEX_SUP_RE.sub(repl, text)
 
 
@@ -151,15 +205,31 @@ def convert_bare_caret_footnotes(text):
     # line-start definition. Digits-only inside the brackets — pandoc's textual "^[a note]"
     # inline-footnote form can never match. The \[\^? also unwraps a half-converted "^[^64]^".
     masked = re.sub(r'\^(\[\^?\d{1,3}\])\^?', r'\1', masked)
+    # Nature-style prose citation: "refs.^{19--21}" / "refs.^{5,6}" cites the numbered
+    # BIBLIOGRAPHY, not footnotes (2c0544c4) — demote to plain citation text ("refs. 19–21")
+    # BEFORE the footnote conversions below can wrong-link the numbers to same-numbered
+    # affiliation defs. Handles double-hyphen/en-dash/minus ranges and comma groups.
+    masked = re.sub(
+        r'(?i)\b(refs?\.?)\s*\^\{(\d{1,3})\s*(?:--|-|–|−)\s*(\d{1,3})\s*\}',
+        r'\1 \2–\3', masked)
+    masked = re.sub(
+        r'(?i)\b(refs?\.?)\s*\^\{(\d{1,3}(?:\s*,\s*\d{1,3})*)\s*,?\}',
+        lambda m: f"{m.group(1)} {re.sub(r'\\s+', '', m.group(2))}", masked)
     # brace form "^{2}" without $-delimiters (79c3d8e4: "en masse^{2}.") — a naked LaTeX-style
     # superscript Mistral emits outside math mode. Genuine exponents live inside $…$ and are
     # masked above, so a surviving ^{N} is a footnote marker. Comma GROUPS expand to one marker
     # per number ("^{6,7,8,9,10}" — 0fb751c1 stacks five citations on one superscript).
     def _brace_sup(m):
+        if is_unit_exponent(masked, m.start(), m.group(1).strip()):
+            return {'2': '²', '3': '³'}[m.group(1).strip()]   # km^{2} — a unit exponent
         return ''.join(f'[^{n}]' for n in re.findall(r'\d{1,3}', m.group(1)))
     masked = re.sub(r'\^\{(\d{1,3}(?:\s*,\s*\d{1,3})*)\s*,?\}', _brace_sup, masked)
     # inline markers (preceded by a word/punct)
-    masked = _BARE_CARET_FN_RE.sub(lambda m: f'[^{m.group(1)}]', masked)
+    masked = _BARE_CARET_FN_RE.sub(
+        lambda m: ({'2': '²', '3': '³'}[m.group(1)]
+                   if is_unit_exponent(masked, m.start(), m.group(1))
+                   else f'[^{m.group(1)}]'),
+        masked)
     # line-start definition form "^24 Text"
     masked = re.sub(r'(?m)^(\s*)\^(\d{1,3})(?=\s)', r'\1[^\2]', masked)
     for i, s in enumerate(spans):

@@ -134,6 +134,9 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  ├─ PDF   mistral_ocr.py             GOAL → main-text.md   (MARKDOWN of a footnote LAYOUT)
 │  │     orchestrator + re-exports; phase classes split into siblings (folders mirror the tree):
 │  │     pdf_shared.py (bases + helpers leaf) · ocrFetch.py · classification.py · assembly.py · recovery.py
+│  │     quote_geometry.py (zero-import leaf): GEOMETRIC blockquotes — per-line indentation read from the
+│  │       source PDF (pypdf visitor) and aligned back to the markdown; catches indentation-only quotes the
+│  │       typographic heuristics can't see; inert without a PDF (fixture replays)
 │  │     OCR→ocr_response.json ∅replay · PDF_CLASSIFIERS {none|page_bottom|chapter_endnotes|
 │  │       document_endnotes|wackSTEMbibliographyNotes | unknown ✗} · renumber[cond] · segments ·
 │  │       PDF_ASSEMBLERS(per layout) ·

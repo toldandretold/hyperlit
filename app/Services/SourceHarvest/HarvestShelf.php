@@ -174,6 +174,56 @@ class HarvestShelf
         return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $creator];
     }
 
+    /** Shelf display-name prefix for book:import-cases review batches (local dev only). */
+    public const CASE_NAME_PREFIX = 'Case import: ';
+
+    /**
+     * Find-or-create the review shelf for one book:import-cases invocation —
+     * the "vacuum shelf" that gathers a session's ingested case books so the
+     * batch is reviewable at /maintainer/shelf-import/{id} on its own, apart
+     * from the rest of the local DB. Keyed (creator, name) like its siblings:
+     * the default timestamped label mints a fresh shelf per run, while an
+     * explicit --shelf= name accumulates runs onto one shelf.
+     *
+     * PUBLIC on purpose: the shelf-import console only serves public shelves
+     * (ShelfImportController::publicShelf), and this shelf is only ever minted
+     * on a local dev box — the command gates on !production before calling.
+     * The case BOOKS stay private and owner-claimed; only the shelf is public.
+     */
+    public function ensureCaseShelfFor(string $creator, string $label): object
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $name = self::CASE_NAME_PREFIX . Str::limit($label, 230, '…');
+
+        $existing = $db->table('shelves')
+            ->where('creator', $creator)
+            ->where('name', $name)
+            ->select(['id', 'name', 'slug', 'creator'])
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $id = (string) Str::uuid();
+        $slug = ShelfSlug::unique($name, $creator);
+
+        $db->table('shelves')->insert([
+            'id'            => $id,
+            'creator'       => $creator,
+            'creator_token' => null,
+            'name'          => $name,
+            'slug'          => $slug,
+            'description'   => 'Case bundles ingested by book:import-cases — the batch under review in /maintainer/shelf-import.',
+            'visibility'    => 'public',
+            'default_sort'  => 'recent',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $creator];
+    }
+
     /**
      * Reconcile a journal's shelf with the canonical truth: every canonical of
      * the journal whose best version is public and content-bearing belongs on

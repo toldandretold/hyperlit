@@ -4,14 +4,14 @@
       "footnotes": [
         {
           "id": "FN0001",
-          "marker": "1"
+          "marker": "6"
         },
         {
           "id": "FN0002",
-          "marker": "2"
+          "marker": "7"
         }
       ],
-      "i": 18,
+      "i": 16,
       "references": [],
       "type": "p"
     },
@@ -19,11 +19,11 @@
       "footnotes": [
         {
           "id": "FN0003",
-          "marker": "3"
+          "marker": "1"
         },
         {
           "id": "FN0004",
-          "marker": "4"
+          "marker": "2"
         }
       ],
       "i": 19,
@@ -34,25 +34,25 @@
       "footnotes": [
         {
           "id": "FN0005",
-          "marker": "5"
+          "marker": "3"
+        },
+        {
+          "id": "FN0006",
+          "marker": "4"
         }
       ],
-      "i": 21,
+      "i": 20,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
-          "id": "FN0006",
-          "marker": "6"
-        },
-        {
           "id": "FN0007",
-          "marker": "7"
+          "marker": "5"
         }
       ],
-      "i": 23,
+      "i": 22,
       "references": [],
       "type": "p"
     },
@@ -67,7 +67,7 @@
           "marker": "11"
         }
       ],
-      "i": 37,
+      "i": 38,
       "references": [],
       "type": "p"
     },
@@ -82,7 +82,7 @@
           "marker": "13"
         }
       ],
-      "i": 44,
+      "i": 45,
       "references": [],
       "type": "p"
     },
@@ -93,7 +93,7 @@
           "marker": "14"
         }
       ],
-      "i": 48,
+      "i": 49,
       "references": [],
       "type": "p"
     },
@@ -108,7 +108,7 @@
           "marker": "16"
         }
       ],
-      "i": 51,
+      "i": 52,
       "references": [],
       "type": "p"
     },
@@ -123,7 +123,7 @@
           "marker": "18"
         }
       ],
-      "i": 53,
+      "i": 54,
       "references": [],
       "type": "p"
     },
@@ -134,7 +134,7 @@
           "marker": "19"
         }
       ],
-      "i": 55,
+      "i": 56,
       "references": [],
       "type": "p"
     },
@@ -145,7 +145,7 @@
           "marker": "20"
         }
       ],
-      "i": 66,
+      "i": 67,
       "references": [],
       "type": "p"
     },
@@ -164,7 +164,7 @@
           "marker": "23"
         }
       ],
-      "i": 70,
+      "i": 71,
       "references": [],
       "type": "p"
     },
@@ -175,7 +175,7 @@
           "marker": "24"
         }
       ],
-      "i": 71,
+      "i": 72,
       "references": [],
       "type": "p"
     },
@@ -186,7 +186,7 @@
           "marker": "25"
         }
       ],
-      "i": 73,
+      "i": 74,
       "references": [],
       "type": "p"
     },
@@ -205,7 +205,7 @@
           "marker": "28"
         }
       ],
-      "i": 75,
+      "i": 76,
       "references": [],
       "type": "p"
     },
@@ -216,14 +216,14 @@
           "marker": "29"
         }
       ],
-      "i": 76,
+      "i": 77,
       "references": [],
       "type": "p"
     }
   ],
-  "node_count": 131,
+  "node_count": 132,
   "type_histogram": {
-    "a": 2,
+    "a": 3,
     "h1": 7,
     "h2": 7,
     "img": 10,

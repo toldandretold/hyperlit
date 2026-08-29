@@ -154,7 +154,7 @@
 </head>
 
 {{-- THIS IS THE FIX. THIS ONE LINE. --}}
-<body data-page="{{ $pageType ?? 'unknown' }}">
+<body data-page="{{ $pageType ?? 'unknown' }}" data-book="{{ $book ?? '' }}">
 
     {{-- Skip link (WCAG 2.4.1): first focusable on every page; visually hidden
          until keyboard focus. Each page template provides the #main-start anchor. --}}
@@ -186,7 +186,40 @@
             overlay.style.display = 'none';
             console.log('✅ Overlay hidden for imported book - content is immediately available');
         } else if (pageType === 'reader' || pageType === 'home' || pageType === 'user') {
-            // Overlay visible for these page types
+            // Overlay visible for these page types.
+            //
+            // Resume curtain at FIRST PAINT: when this reader load will restore
+            // a saved position, the server-prerendered chunk must never be
+            // glimpsed unpositioned behind the translucent scrim — the pre-JS
+            // window was a visible content flash. Escalate to the opaque
+            // curtain synchronously (this script runs before any content
+            // parses); RevealGate/ProgressOverlayEnactor take over identically
+            // once JS boots, and every hide path clears data-hl-hold. Same
+            // conditions as RevealGate.arm: reader, no hash, saved position.
+            // No transition here — it must be opaque ON the first frame (the
+            // Enactor adds the fade for the reveal).
+            try {
+                const bookId = document.body.getAttribute('data-book');
+                if (pageType === 'reader' && bookId && !window.location.hash) {
+                    const raw = sessionStorage.getItem('scrollPosition_' + bookId)
+                        || localStorage.getItem('scrollPosition_' + bookId);
+                    const saved = raw && raw !== '0' ? JSON.parse(raw) : null;
+                    if (saved && saved.elementId) {
+                        overlay.dataset.hlHold = '1';
+                        overlay.style.background = 'rgba(9, 10, 13, 0.98)';
+                        // Freeze interaction too: pre-JS, a wheel would scroll
+                        // the HIDDEN content underneath (no detector attached
+                        // yet to cancel the coming restore).
+                        overlay.style.setProperty('pointer-events', 'auto', 'important');
+                        const bar = overlay.querySelector('.progress-bar-container');
+                        if (bar) bar.style.display = 'none';
+                        const text = document.getElementById('page-load-progress-text');
+                        if (text) text.textContent = 'Restoring your reading position…';
+                        const details = document.getElementById('page-load-progress-details');
+                        if (details) details.textContent = '';
+                    }
+                }
+            } catch (e) { /* corrupt saved position — never block paint */ }
         } else {
             // Hide overlay for other page types
             overlay.style.display = 'none';
@@ -207,11 +240,15 @@
             }
         });
         
-        // Also clear on visibility change as backup
+        // Also clear on visibility change as backup. EXCEPT while the resume
+        // curtain is holding (data-hl-hold, set by ProgressOverlayEnactor's
+        // curtain mode): tabbing away and back mid-restore must not tear the
+        // "Finding your previous position…" hold down. The hold is hard-capped
+        // at 4s by RevealGate, so this backup's anti-stuck purpose survives.
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 const overlay = document.getElementById('initial-navigation-overlay');
-                if (overlay) {
+                if (overlay && !overlay.dataset.hlHold) {
                     overlay.style.display = 'none';
                 }
                 sessionStorage.removeItem('navigationOverlayActive');

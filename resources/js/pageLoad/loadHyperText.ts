@@ -26,6 +26,8 @@ import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } fr
 
 import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedResolver } from './firstChunkPromise';
 import { setupOnlineSyncListener } from './onlineRetry';
+import { primeImageDims } from '../lazyLoader/imageDims';
+import { rootBookId } from '../e2ee/registry';
 import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 import { isReconvertHandoff } from '../utilities/reconvertHandoff';
 // Zero-import leaf — flag-gated forensics (see scrolling/scrollTrace).
@@ -90,6 +92,10 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
   const currentBook = bookId || book;
   verbose.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
   setupOnlineSyncListener();
+  // Warm the per-book image-dimension map in parallel with the content fetch
+  // so the first chunk render can stamp width/height synchronously (imageDims
+  // self-primes per src on a miss — this is just the race win).
+  void primeImageDims(rootBookId(String(currentBook)));
 
   // E2EE open-gate, cached case (docs/e2ee.md): when the library record is
   // already local and marks the book encrypted, require the vault BEFORE any

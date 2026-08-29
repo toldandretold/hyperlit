@@ -412,6 +412,33 @@ def test_comma_superscript_without_defs_stays_math():
     assert M.normalize_all_footnote_refs('cells$^{13,14}$.') == 'cells$^{13,14}$.'
 
 
+def test_orcid_text_junk_stripped_from_latex_superscript():
+    # 2c0544c4: Mistral renders the ORCID logo after an affiliation number as \text{‰},
+    # defeating the superscript regex — strip the junk and convert normally.
+    assert M.expand_latex_superscripts(
+        'Frank Biermann $^{1\\text{‰}}$, Thomas Hickmann $^{2\\text{‰}}$'
+    ) == 'Frank Biermann [^1], Thomas Hickmann [^2]'
+
+
+def test_nature_refs_prefixed_latex_superscript_demotes_to_plain_citation():
+    # "refs. $^{5,6}$" cites the numbered bibliography — with same-numbered affiliation
+    # defs present, footnote expansion would WRONG-link it; demote to plain text instead.
+    defs = '\n[^5]: Affiliation five\n[^6]: Affiliation six'
+    out = M.expand_latex_superscripts('(for example, refs. $^{5,6}$ )' + defs)
+    assert out.startswith('(for example, refs. 5,6 )')
+    out = M.expand_latex_superscripts('(see ref. $^{1}$)\n[^1]: Affiliation one')
+    assert out.startswith('(see ref. 1)')
+
+
+def test_nature_refs_prefixed_caret_ranges_and_groups_demote_to_plain_citation():
+    # "refs.^{19--21}" / "refs.^{5,6}" — naked-caret renderings of the same Nature-style
+    # bibliography citations; must not become [^19][^20][^21] footnote markers.
+    assert M.convert_bare_caret_footnotes('(for example, refs.^{19--21}).') == '(for example, refs. 19–21).'
+    assert M.convert_bare_caret_footnotes('(for example, refs.^{5,6}).') == '(for example, refs. 5,6).'
+    # unprefixed naked-caret groups keep their existing footnote conversion
+    assert M.convert_bare_caret_footnotes('en masse^{2}.') == 'en masse[^2].'
+
+
 # ---------------------------------------------------------------------------
 # Footer-recovered defs deferred to doc end (generic assembler) — a page-bottom
 # footnote must not wedge between a body sentence and its next-page continuation
@@ -536,3 +563,20 @@ def test_glued_reference_entries_are_split():
     md = M.assemble_markdown({'pages': pages}, classification='unknown', footnote_meta=None, pdf_path=None)
     assert '1063-93.Blinder' not in md          # seam split
     assert re.search(r'(?m)^Blinder, A\. S\., and Solow', md)
+
+
+def test_unit_exponents_never_become_footnote_markers():
+    # 80bb62b6: "2 million km^{2}" linked to endnote 2 — a unit exponent is maths in every
+    # rendering: unicode km², naked-caret km^{2} / km^2, latex km$^{2}$.
+    assert M.convert_footnotes('covered 2 million km², or 12 per cent') == \
+        'covered 2 million km², or 12 per cent'
+    assert M.convert_bare_caret_footnotes('more than 2 million km^{2}, or 12') == \
+        'more than 2 million km², or 12'
+    assert M.convert_bare_caret_footnotes('a volume of 30 m^{3} of water') == \
+        'a volume of 30 m³ of water'
+    assert M.convert_bare_caret_footnotes('roughly 500 km^2 in area') == 'roughly 500 km² in area'
+    assert M.expand_latex_superscripts('an area of 4 km$^{2}$ around') == 'an area of 4 km² around'
+    # sentence-end markers and word-glued markers still convert
+    assert M.convert_footnotes('as noted earlier.² More') == 'as noted earlier.[^2] More'
+    assert M.convert_footnotes('in Vietnam² the war') == 'in Vietnam[^2] the war'
+    assert M.convert_bare_caret_footnotes('en masse^{2}.') == 'en masse[^2].'

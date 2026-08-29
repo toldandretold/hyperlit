@@ -106,6 +106,13 @@ def main():
         shutil.copy2(fn_meta, os.path.join(fixture_dir, 'footnote_meta.json'))
         print('Copied footnote_meta.json')
 
+    # Copy quote_geometry.json (geometric-blockquote cache, written at convert time from the
+    # source PDF) if it exists — PDF-less replays use it to reproduce the geometry pass.
+    geo = os.path.join(source_dir, 'quote_geometry.json')
+    if os.path.isfile(geo):
+        shutil.copy2(geo, os.path.join(fixture_dir, 'quote_geometry.json'))
+        print('Copied quote_geometry.json')
+
     # Run the pipeline to generate golden outputs
     print(f'Running pipeline with book_id={book_id}...')
 

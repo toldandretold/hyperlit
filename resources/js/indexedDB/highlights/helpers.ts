@@ -76,7 +76,12 @@ export async function fetchHyperlightRecord(bookId: BookId, hyperlightId: string
 
     return { status: 'ok', record };
   } catch (error) {
-    log.error('fetchHyperlightRecord: network error', '/indexedDB/highlights/helpers.ts', error);
+    // Best-effort fetch — callers treat {status:'error'} as "status unknown,
+    // keep cached rendering". A bare fetch() rejects with "TypeError: Failed
+    // to fetch" when navigation cancels it mid-flight (rapid back/forward
+    // container restores), which is benign. Warn, don't error — log.error
+    // trips the e2e console-error gates (same class as fetchHyperciteRecord).
+    log.warn('fetchHyperlightRecord: network error', '/indexedDB/highlights/helpers.ts', error);
     return { status: 'error' };
   }
 }

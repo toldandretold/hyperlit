@@ -245,11 +245,11 @@
   ],
   "node_count": 123,
   "type_histogram": {
-    "blockquote": 3,
+    "blockquote": 5,
     "h1": 4,
     "h2": 5,
     "img": 10,
-    "p": 99,
+    "p": 97,
     "table": 2
   }
 }

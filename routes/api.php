@@ -560,6 +560,9 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
         ->where('book', '[A-Za-z0-9_-]+')
         ->middleware('throttle:10,1');
+    Route::post('/maintainer/conversion/golden/{book}', [\App\Http\Controllers\MaintainerController::class, 'approveGolden'])
+        ->where('book', '[A-Za-z0-9_-]+')
+        ->middleware('throttle:10,1');
 
     // Job-failure triage: failures grouped by what actually broke, queue
     // depth, and the per-group actions (retry / forget / case bundle).

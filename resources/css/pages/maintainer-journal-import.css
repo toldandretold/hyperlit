@@ -350,6 +350,9 @@ body.ji-detail {
 .ji-lane-pdf { color: var(--hyperlit-orange, #ff8700); }
 .ji-lane-html { color: var(--hyperlit-aqua, #4eacae); }
 .ji-lane-ar5iv { color: var(--hyperlit-pink, #ee4b96); }
+/* Vacuum-lane rows the fetch ladder filled from something other than a PDF. */
+.ji-lane-jats { color: #5aa869; }
+.ji-lane-web { color: #8a93d6; }
 
 .ji-badge {
   font-size: 0.66rem;
@@ -374,6 +377,10 @@ body.ji-detail {
 .ji-badge-diamond {
   background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 20%, transparent);
   margin-left: 8px;
+}
+.ji-badge-ok {
+  background: color-mix(in srgb, var(--hyperlit-green, #3fae5c) 26%, transparent);
+  color: var(--color-text);
 }
 
 /* Panes: each is a positioning context for its own placeholder. */
@@ -478,9 +485,17 @@ body.ji-detail {
   opacity: 0.45;
   cursor: default;
 }
+/* Same show/fade contract as the .ji-status toast: setStatus() adds .ji-visible and clears it
+   after 4s. Without the fade, the LAST message ever set ("reconverted — reloading") sat on the
+   detail page forever and read as a hang. */
 .ji-actions-status {
   font-size: 0.72rem;
   color: var(--color-text-faint, #888);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.ji-actions-status.ji-visible {
+  opacity: 1;
 }
 
 /* ── Toast (index) ── */

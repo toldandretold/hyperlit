@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "classification": "document_endnotes",
+  "confidence": 1.0,
+  "signals": {
+    "total_pages": 9,
+    "pages_with_refs": 1,
+    "pages_with_defs": 0,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.0,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "trailing_def_page_ratio": 0.0,
+    "ref_number_max_page_spread": 1,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 5,
+    "citation_group_ratio": 0.0
+  },
+  "page_summary": [
+    {
+      "index": 0,
+      "refs": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "defs": [],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "definitions clustered on a few trailing pages, refs scattered through the body",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "1 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "page_bottom",
+      "rejected_because": "co-location 0.00 / def-co-location 0.00 / reset-freq 0.00 fit no page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4; messy-OCR: def-coloc>0.7 & resets>0.4 & notes 0; mid-reset: co>0.4 & def-coloc>0.7 & notes 0)",
+      "would_need": "refs and their definitions sharing the same pages (high co-location)"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.00/reset-freq 0.00 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref page-spread 1 (need >=3)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    },
+    {
+      "option": "unknown",
+      "rejected_because": "a specific classifier matched",
+      "would_need": "signals that fail every specific classifier"
+    }
+  ],
+  "margin": "co-location 0.00 (<0.15 gate), def-clustering 0.00 (<0.1 gate)",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

@@ -58,9 +58,14 @@ trait BuildsImportLanes
                 continue;
             }
 
+            // Regression-suite state for the "✓ golden" step: add_fixture.py seeds
+            // only golden/{references,audit}.json — nodes.summary.json exists only
+            // after a run_regression.py --update-golden, so it marks a frozen golden.
+            $fixtureTree = $queue->fixtureTreeFor($r->book);
+
             $articles[$r->canonical_id]['lanes'][] = [
                 'book'              => $r->book,
-                'lane'              => self::$laneLabels[$r->foundation_source] ?? ($r->foundation_source ?: 'other'),
+                'lane'              => $this->laneLabel($r->foundation_source, $r->conversion_method),
                 'foundation_source' => $r->foundation_source,
                 'conversion_method' => $r->conversion_method,
                 'has_nodes'         => (bool) $r->has_nodes,
@@ -78,6 +83,9 @@ trait BuildsImportLanes
                     && ! $r->listed
                     && $r->book !== $r->auto_version_book
                     && ! in_array($r->conversion_method, AutoVersionResolver::SYSTEM_CONVERSION_METHODS, true),
+                'fixture'           => $fixtureTree,
+                'golden_complete'   => $fixtureTree !== null
+                    && is_file(base_path("tests/conversion/{$fixtureTree}/{$r->book}/golden/nodes.summary.json")),
                 'open_flags'        => $flagged[$r->book]['count'] ?? 0,
                 'maintainer_note'   => $flagged[$r->book]['note'] ?? null,
                 'artifacts'         => $queue->artifactsFor($r->book),
@@ -87,6 +95,28 @@ trait BuildsImportLanes
         }
 
         return array_values($articles);
+    }
+
+    /**
+     * Display label for a lane. Identity is foundation_source (which pipeline minted the
+     * row), but the vacuum lane runs the whole ContentFetchService ladder, so a row it
+     * minted may hold JATS XML (strategy 0) or a browser-fetched page (strategy 5) rather
+     * than an OCR'd PDF — labelling those 'pdf' lies about what's in the row. Name the
+     * lane by what the ladder actually won with. Display-safe: FE logic keys only on
+     * 'html' (the journal_html sibling), never on 'pdf'.
+     */
+    private function laneLabel(?string $foundationSource, ?string $conversionMethod): string
+    {
+        $label = self::$laneLabels[$foundationSource] ?? ($foundationSource ?: 'other');
+        if ($label === 'pdf') {
+            return match ($conversionMethod) {
+                'jats_fulltext'      => 'jats',
+                'paste_engine_html'  => 'web',
+                default              => $label,
+            };
+        }
+
+        return $label;
     }
 
     /**

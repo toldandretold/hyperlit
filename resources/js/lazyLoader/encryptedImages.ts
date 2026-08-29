@@ -21,7 +21,8 @@ const blobUrlCache = new Map<string, string | Promise<string>>();
 // blob URL → canonical src, so the save path can restore the stored src
 const canonicalBySrc = new Map<string, string>();
 
-const MEDIA_RE = /^\/([^/]+)\/media\/([^/?#]+)$/;
+/** Canonical media src shape `/{book}/media/{file}` — shared with imageDims. */
+export const MEDIA_RE = /^\/([^/]+)\/media\/([^/?#]+)$/;
 
 const EXT_MIME: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',

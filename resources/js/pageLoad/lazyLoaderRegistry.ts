@@ -224,8 +224,25 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       }, 300);
     }
 
+    // A restorable saved containerStack takes priority over the server's
+    // autoOpenChain hint below: restoreContainerStack rebuilds the layers in
+    // place with replaceState ONLY, while openContainerChain drives REAL opens
+    // that pushState one history entry per layer. On a popstate/refresh landing
+    // (deep sub-book URL whose entry carries serialized state — the server
+    // can't know the client has it), those pushes TRUNCATE forward history and
+    // splice cs=1..N entries behind the current one, so a later forward is a
+    // silent no-op and back lands one layer short (the nested-hypercite
+    // forward-then-back regression). Same guards as the restore branch below.
+    const savedContainerStack = history.state?.containerStack;
+    const stackRestorable = (savedContainerStack?.length ?? 0) > 0 && (() => {
+      const readerMain = document.querySelector('main.main-content[data-slug]');
+      const renderedBookId = readerMain?.id;
+      const savedBookId = history.state.containerStackBookId;
+      return !!renderedBookId && (!savedBookId || savedBookId === renderedBookId);
+    })();
+
     // Auto-open chain for deep nested sub-book URLs (e.g. /book/2/Fn.../HL_...)
-    if ((window as any).autoOpenChain && (window as any).autoOpenChain.length > 0) {
+    if (!stackRestorable && (window as any).autoOpenChain && (window as any).autoOpenChain.length > 0) {
       const chain = (window as any).autoOpenChain;
       (window as any).autoOpenChain = null; // Prevent re-triggering
       openContainerChain(chain, currentLazyLoader);
@@ -256,6 +273,9 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       const savedBookId = history.state.containerStackBookId;
       const compatLegacyState = !savedBookId; // older entries didn't stamp the book id
       if (renderedBookId && (compatLegacyState || savedBookId === renderedBookId)) {
+        // The saved stack IS the chain (plus module/edit state) — consume the
+        // server hint so nothing re-runs it after the restore.
+        (window as any).autoOpenChain = null;
         pendingContainerRestorePromise = import('../hyperlitContainer/history').then(({ restoreContainerStack }) => {
           return restoreContainerStack(history.state.containerStack, { callsite: 'initializePage.fresh' });
         });

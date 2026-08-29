@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "classification": "none",
+  "confidence": 1.0,
+  "signals": {
+    "total_pages": 12,
+    "pages_with_refs": 0,
+    "pages_with_defs": 0,
+    "pages_with_both": 0,
+    "co_location_ratio": 0.0,
+    "def_clustering_ratio": 0.0,
+    "reset_count": 0,
+    "reset_frequency": 0.0,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "trailing_def_page_ratio": 0.0,
+    "ref_number_max_page_spread": 0,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 0,
+    "citation_group_ratio": 0.0
+  },
+  "page_summary": [],
+  "rationale": "no in-text footnote references found on any page",
+  "considered": [
+    {
+      "option": "page_bottom",
+      "rejected_because": "co-location 0.00 / def-co-location 0.00 / reset-freq 0.00 fit no page_bottom rule (continuous: co>0.4 & resets<0.1 & maxref>10; restart: co>0.5 & resets>0.4; messy-OCR: def-coloc>0.7 & resets>0.4 & notes 0; mid-reset: co>0.4 & def-coloc>0.7 & notes 0)",
+      "would_need": "refs and their definitions sharing the same pages (high co-location)"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 0.00/reset-freq 0.00 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 0.00 (need <0.15) and def-clustering 0.00 (need <0.1; or 1-2 def pages with zero co-location on a short doc \u2014 here 0 def page(s), 0 shared)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref page-spread 0 (need >=3)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    },
+    {
+      "option": "unknown",
+      "rejected_because": "a specific classifier matched",
+      "would_need": "signals that fail every specific classifier"
+    }
+  ],
+  "margin": "0 pages with refs \u2014 unambiguous",
+  "segment_boundaries": [],
+  "footnote_warnings": []
+}

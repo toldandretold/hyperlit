@@ -26,8 +26,23 @@ import { recordNavDecision } from './scrollTrace';
 // Static, downward import of the lazy-loader singleton from its zero-import leaf (no cycle —
 // the leaf imports nothing). This is the real fix; no dynamic-import cycle-breaker needed.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
+// Resume-curtain hold (see SPA/navigation/RevealGate): armed by viewManager
+// (or late-armed below), it keeps the boot overlay up as "Finding your
+// previous position…" until the resume navigation SETTLES.
+import { RevealGate } from '../SPA/navigation/RevealGate';
 
 export async function restoreScrollPosition(): Promise<void> {
+  try {
+    await restoreScrollPositionInner();
+  } finally {
+    // Any path that did NOT hand RevealGate a navigation to watch (bails,
+    // chunk-0 top start, throws) must release the curtain hold here — one
+    // seam instead of a disarm at every early return above.
+    RevealGate.releaseIfUnclaimed();
+  }
+}
+
+async function restoreScrollPositionInner(): Promise<void> {
   // Convert ?scroll= query param to hash (used by Word doc links to avoid # → %23 encoding)
   const scrollParam = new URLSearchParams(window.location.search).get('scroll');
   if (scrollParam) {
@@ -352,5 +367,15 @@ export async function restoreScrollPosition(): Promise<void> {
   // sub-node scroll offset (so refresh lands where the reader was); for a hash target it is null and
   // navigateToInternalId falls back to the 192px header offset.
   recordNavDecision({ phase: 'restore-nav', targetId, savedOffset });
-  navigateToInternalId(targetId, currentLazyLoader, !overlayShown, savedOffset);
+  // Resume (not a deliberate deep-link jump): hold the curtain until this
+  // navigation settles. Late-arm covers the fresh-device case where the anchor
+  // was server-seeded during loadHyperText (viewManager's early arm saw
+  // nothing); arm() is idempotent and refuses when the overlay is already
+  // gone. Deep-link jumps (hasExplicitTarget) keep their own overlay UX.
+  const isResume = !hasExplicitTarget;
+  if (isResume) RevealGate.arm(String(currentLazyLoader.bookId));
+  const navPromise = navigateToInternalId(targetId, currentLazyLoader, !overlayShown, savedOffset);
+  if (isResume) {
+    RevealGate.landed(currentLazyLoader.scrollableParent, navPromise);
+  }
 }

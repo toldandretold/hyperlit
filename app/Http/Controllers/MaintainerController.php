@@ -253,6 +253,23 @@ class MaintainerController extends Controller
         return response()->download($tarball, "{$book}.tar.gz");
     }
 
+    /**
+     * POST /api/maintainer/conversion/golden/{book} — freeze the book's
+     * regression fixture as golden (run_regression.py --update-golden), the
+     * "approve as golden" step after a converter fix. LOCAL ONLY: rewriting
+     * repo files from an HTTP request has no business in production.
+     */
+    public function approveGolden(string $book, \App\Services\Conversion\GoldenApprover $approver)
+    {
+        if (app()->environment('production')) {
+            abort(404);
+        }
+
+        $result = $approver->approve($this->cleanBookId($book));
+
+        return response()->json($result, $result['ok'] ? 200 : 422);
+    }
+
     private function cleanBookId(string $book): string
     {
         return preg_replace('/[^A-Za-z0-9_-]/', '', $book);

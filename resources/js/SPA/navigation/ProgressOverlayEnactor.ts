@@ -41,6 +41,18 @@ export class ProgressOverlayEnactor {
   // Track contenteditable state
   static wasContentEditable = false;
 
+  // Resume-curtain mode (RevealGate): the overlay is escalated from a
+  // translucent progress scrim to an opaque "Finding your previous position…"
+  // hold with a go-to-top escape button. While true, update() must not
+  // overwrite the curtain text with "Loading… N%".
+  static resumeCurtain = false;
+  static curtainButton: any = null;
+  // A hide() refused while the curtain was holding. On a COLD boot the boot
+  // flow's hide call can be the ONLY one (NavigationManager isn't driving), so
+  // if the gate releases AFTER that call was refused, nobody would ever hide
+  // the scrim — endResumeCurtain replays it.
+  static hideDeferredByCurtain = false;
+
   /**
    * Initialize DOM element references
    * Called lazily on first use
@@ -140,6 +152,12 @@ export class ProgressOverlayEnactor {
       return;
     }
 
+    // A stale blade-escalated curtain (bfcache force-hide skipped every JS
+    // cleanup path) must never leak into a plain progress show — reset it.
+    if (!this.resumeCurtain && this.overlay.dataset?.hlHold) {
+      this.endResumeCurtain();
+    }
+
     // Don't interrupt a hide operation
     if (this.state === 'hiding') {
       verbose.debug('ProgressOverlayEnactor.show: Hide in progress, skipping show', 'navigation/ProgressOverlayEnactor.js');
@@ -190,6 +208,10 @@ export class ProgressOverlayEnactor {
       this.progressBar.style.width = adjustedPercent + '%';
     }
 
+    // Curtain mode owns the text — progress callbacks keep feeding the (hidden)
+    // bar but must not clobber "Finding your previous position…".
+    if (this.resumeCurtain) return;
+
     if (this.progressText) {
       this.progressText.textContent = `Loading... ${Math.round(percent)}%`;
       this.progressText.style.opacity = '1'; // Reset opacity in case it was hidden
@@ -199,6 +221,142 @@ export class ProgressOverlayEnactor {
       this.progressDetails.textContent = message;
       this.progressDetails.style.opacity = '1'; // Reset opacity
     }
+  }
+
+  /**
+   * Escalate the (already visible) boot overlay into the resume curtain:
+   * opaque, interaction-blocking, spinner + "Restoring your reading
+   * position…" with a quiet go-to-top text escape. Returns false when the
+   * overlay is gone or a hide
+   * is in flight — the caller (RevealGate) must then release its hold rather
+   * than curtain a page the reader can already see.
+   */
+  static async showResumeCurtain(): Promise<boolean> {
+    this.init();
+    if (!this.overlay) return false;
+
+    // A hide in flight means some path already decided to reveal — do not
+    // re-show over it. Wait it out and report failure.
+    if (this.hidePromise) {
+      try { await this.hidePromise; } catch { /* hide always settles */ }
+      return false;
+    }
+    if (this.state !== 'visible') return false;
+
+    this.resumeCurtain = true;
+    this.hideDeferredByCurtain = false; // fresh hold — no stale replay
+    this.overlay.dataset.hlHold = '1'; // blade visibilitychange guard reads this
+    // Opaque + interaction-blocking (the blade default is a 30% click-through
+    // scrim — the whole point of the curtain is that unpositioned content is
+    // neither visible nor interactive). !important mirrors show()'s override
+    // of the blade inline style. The transition is added BEFORE the background
+    // write: on a fresh boot the blade already painted it opaque (no change →
+    // no animation), while on an SPA book-to-book entry this fades the scrim
+    // to black; either way endResumeCurtain's change fades the reveal instead
+    // of snapping.
+    this.overlay.style.transition = 'background 250ms ease';
+    this.overlay.style.setProperty('background', 'rgba(9, 10, 13, 0.98)');
+    this.overlay.style.setProperty('pointer-events', 'auto', 'important');
+
+    const barContainer = this.overlay.querySelector('.progress-bar-container');
+    if (barContainer) barContainer.style.display = 'none'; // reads as "loading", wrong message
+    this._ensureCurtainSpinner();
+    if (this.progressText) {
+      this.progressText.textContent = 'Restoring your reading position…';
+      this.progressText.style.opacity = '1';
+    }
+    if (this.progressDetails) {
+      this.progressDetails.textContent = '';
+    }
+    this._ensureCurtainButton();
+    verbose.debug('ProgressOverlayEnactor: resume curtain shown', 'navigation/ProgressOverlayEnactor.js');
+    return true;
+  }
+
+  /**
+   * Drop curtain mode WITHOUT hiding the overlay — it returns to the plain
+   * translucent progress scrim (the load may still be running; hide() is
+   * NavigationManager's call). Idempotent.
+   */
+  static endResumeCurtain() {
+    // The blade escalates the curtain at FIRST PAINT (data-hl-hold + opaque
+    // background) before RevealGate ever arms — if the gate then never holds
+    // (restore bails, load fails), the flag is false but the visuals must
+    // still be reset, or a later show() would present an opaque hlHold scrim.
+    const bladeEscalated = !!this.overlay?.dataset?.hlHold;
+    if (!this.resumeCurtain && !bladeEscalated) return;
+    this.resumeCurtain = false;
+    if (!this.overlay) return;
+    delete this.overlay.dataset.hlHold;
+    this.overlay.style.setProperty('background', 'rgba(0, 0, 0, 0.3)');
+    this.overlay.style.setProperty('pointer-events', 'none', 'important');
+    const barContainer = this.overlay.querySelector('.progress-bar-container');
+    if (barContainer) barContainer.style.display = '';
+    if (this.curtainButton) this.curtainButton.style.display = 'none';
+    if (this.curtainSpinner) this.curtainSpinner.style.display = 'none';
+    verbose.debug('ProgressOverlayEnactor: resume curtain ended', 'navigation/ProgressOverlayEnactor.js');
+    // Replay a hide the curtain refused (cold-boot case: that refused call was
+    // the only one coming). Safe re-entrancy: resumeCurtain is false now, so
+    // hide() proceeds; its finally calls endResumeCurtain again, which
+    // early-returns (no curtain, no hlHold).
+    if (this.hideDeferredByCurtain) {
+      this.hideDeferredByCurtain = false;
+      void this.hide();
+    }
+  }
+
+  /**
+   * Create-once the curtain's spinner (replaces the progress bar for this
+   * mode — "hold on a moment", not "loading N%").
+   */
+  static curtainSpinner: any = null;
+
+  static _ensureCurtainSpinner() {
+    const wrapper = this.overlay?.querySelector('#progress-overlay-wrapper');
+    if (!wrapper) return;
+    if (!document.getElementById('resume-curtain-style')) {
+      const style = document.createElement('style');
+      style.id = 'resume-curtain-style';
+      style.textContent = '@keyframes hl-curtain-spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(style);
+    }
+    if (!this.curtainSpinner || !this.curtainSpinner.isConnected) {
+      const spinner = document.createElement('div');
+      spinner.id = 'resume-curtain-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      spinner.style.cssText = 'width:26px;height:26px;margin:0 auto 1.2em;border:2px solid rgba(203,204,204,0.2);border-top-color:#CBCCCC;border-radius:50%;animation:hl-curtain-spin 0.8s linear infinite;';
+      wrapper.insertBefore(spinner, wrapper.firstChild);
+      this.curtainSpinner = spinner;
+    }
+    this.curtainSpinner.style.display = 'block';
+  }
+
+  /**
+   * Create-once the curtain's escape, styled as a quiet underlined text line
+   * (NOT a boxed button): resuming the saved position is the preferred path,
+   * so this must read as an aside, not a call to action. Focus still seats on
+   * it so keyboard users can Enter (go to top) or Escape (reveal in place)
+   * without hunting.
+   */
+  static _ensureCurtainButton() {
+    const wrapper = this.overlay?.querySelector('#progress-overlay-wrapper');
+    if (!wrapper) return;
+    if (!this.curtainButton || !this.curtainButton.isConnected) {
+      const btn = document.createElement('button');
+      btn.id = 'resume-curtain-top-btn';
+      btn.type = 'button';
+      btn.textContent = 'go to top of book instead';
+      btn.style.cssText = 'display:block;margin:1.4em auto 0;padding:0;font-size:13px;color:#9aa0a6;background:none;border:none;text-decoration:underline;text-underline-offset:2px;cursor:pointer;';
+      // Dynamic import: RevealGate statically imports this module — a static
+      // back-import would create a cycle (circular-import TDZ class of bug).
+      btn.addEventListener('click', () => {
+        void import('./RevealGate').then(({ RevealGate }) => RevealGate.goToTop());
+      });
+      wrapper.appendChild(btn);
+      this.curtainButton = btn;
+    }
+    this.curtainButton.style.display = 'block';
+    this.curtainButton.focus({ preventScroll: true });
   }
 
   /**
@@ -215,6 +373,21 @@ export class ProgressOverlayEnactor {
     this.init();
 
     if (!this.overlay) {
+      return Promise.resolve();
+    }
+
+    // Resume-curtain hold: ad-hoc hide callers (internalNav's landing cleanup,
+    // domReadiness fallbacks) fire at "landed", which is exactly when the
+    // curtain must still be up — the settle window is the point. Refuse; the
+    // legitimate hide arrives via NavigationManager AFTER RevealGate resolves
+    // (which ends curtain mode first, so this guard can't wedge: the gate is
+    // hard-capped at 4s and forceHide() bypasses everything).
+    if (this.resumeCurtain) {
+      // Remember the refusal: on a cold boot this may be the boot flow's ONLY
+      // hide call, and the reveal (gesture / stability / cap) can come after
+      // it — endResumeCurtain replays the hide so the scrim can't stay up.
+      this.hideDeferredByCurtain = true;
+      verbose.debug('ProgressOverlayEnactor.hide: deferred — resume curtain holding', 'navigation/ProgressOverlayEnactor.js');
       return Promise.resolve();
     }
 
@@ -278,6 +451,7 @@ export class ProgressOverlayEnactor {
     } finally {
       // ✅ CRITICAL: This ALWAYS runs, even on error
       // Guarantees the overlay gets hidden no matter what
+      this.endResumeCurtain(); // belt: a hidden overlay must never keep curtain state
       if (this.overlay) {
         this.overlay.style.display = 'none';
         this.overlay.style.visibility = 'hidden';
@@ -310,6 +484,12 @@ export class ProgressOverlayEnactor {
 
     verbose.debug('ProgressOverlayEnactor.forceHide: Emergency hide triggered', 'navigation/ProgressOverlayEnactor.js');
 
+    if (this.resumeCurtain) {
+      this.endResumeCurtain(); // belt: a hidden overlay must never keep curtain state
+      // Release the gate too, or NavigationManager stalls on completion()
+      // until the 4s cap. Dynamic import: RevealGate statically imports us.
+      void import('./RevealGate').then(({ RevealGate }) => RevealGate.disarm());
+    }
     if (this.overlay) {
       this.overlay.style.display = 'none';
       this.overlay.style.visibility = 'hidden';

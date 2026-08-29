@@ -248,3 +248,55 @@ def test_citation_registry_order():
     assert names.index('citation_pattern_gate') < names.index('parenthesized_citation_linker')
     assert names.index('parenthesized_citation_linker') < names.index('square_bracket_citation_linker')
     assert names[-1] == 'citation_assessment_recorder'
+    assert 'numbered_bracket_citation_linker' in names
+
+
+# ---------------------------------------------------------------------------
+# NumberedBracketCitationLinker — [N] / [N,M] / [N--M] against an ordinal bibliography
+# (6c4e7d58: Current Opinion Vancouver citations into a "1. Adger W, …: Title…" list).
+# Same hard self-gates as the paren sibling: dense ordinal list, every member resolves.
+# ---------------------------------------------------------------------------
+def _ordinal_bib(soup_fn, n=6, body=''):
+    entries = ''.join(
+        f'<p>{i}. <a class="bib-entry" id="bib{i}" href="#c{i}">Author {i}</a> Title {i}. J 2020.</p>'
+        for i in range(1, n + 1))
+    s = soup_fn(f'<body>{body}{entries}</body>')
+    return s, CitationLinkContext(s, {f'k{i}': f'bib{i}' for i in range(1, n + 1)})
+
+
+def test_numbered_bracket_linker_links_group_and_range(soup):
+    from digestion.citationLinking.citation_link_rules import NumberedBracketCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>diverse groups [2,3]. anxieties [4--6] end.</p>')
+    NumberedBracketCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [a.get_text() for a in anchors[:2]] == ['2', '3']
+    assert anchors[0]['href'] == '#bib2'
+    rng = anchors[2]
+    assert rng['href'] == '#bib4' and rng['data-refs'] == 'bib4,bib5,bib6'
+    assert ctx.citations_linked == 5
+
+
+def test_numbered_bracket_linker_leaves_out_of_range_groups(soup):
+    from digestion.citationLinking.citation_link_rules import NumberedBracketCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>a year [2015] and a gap group [5,9] stay.</p>')
+    NumberedBracketCitationLinker().apply(ctx)
+    assert s.find_all('a', class_='in-text-citation') == []
+    assert '[2015]' in s.get_text() and '[5,9]' in s.get_text()
+
+
+def test_numbered_bracket_linker_requires_dense_ordinal_bib(soup):
+    from digestion.citationLinking.citation_link_rules import NumberedBracketCitationLinker
+    # only 3 ordinal entries — below the >=5 gate; nothing links.
+    s, ctx = _ordinal_bib(soup, 3, '<p>claim [2,3].</p>')
+    NumberedBracketCitationLinker().apply(ctx)
+    assert s.find_all('a', class_='in-text-citation') == []
+
+
+def test_numbered_bracket_linker_keeps_special_interest_stars(soup):
+    # Current Opinion annotates special-interest papers ON the citation: "[8*]", "[52*,31*]".
+    from digestion.citationLinking.citation_link_rules import NumberedBracketCitationLinker
+    s, ctx = _ordinal_bib(soup, 6, '<p>a cascade of uncertainties [4*]. and paired [5*,6*] end.</p>')
+    NumberedBracketCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [a.get_text() for a in anchors] == ['4*', '5*', '6*']
+    assert anchors[0]['href'] == '#bib4'

@@ -45,8 +45,17 @@
       "i": 24,
       "references": [
         "hicks2015",
+        "wilsdon2015",
         "biologyeuropeanmolecularorganisation2016",
         "australian2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 27,
+      "references": [
+        "wilsdon2015"
       ],
       "type": "p"
     },
@@ -118,6 +127,14 @@
       "references": [
         "dustrang2015",
         "europe2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 80,
+      "references": [
+        "wilsdon2015"
       ],
       "type": "p"
     },

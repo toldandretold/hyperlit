@@ -108,9 +108,13 @@ export async function checkBibtexAndReveal() {
       const generatedId = generateBookIdFromMetadata(bibtex, title, author, year);
       if (generatedId) {
         const availableId = await findAvailableBookId(generatedId);
-        bookField.value = availableId;
-        updateBookUrlPreview(availableId);
-        bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        // Re-check AFTER the await (server probe): the user may have typed
+        // their own id meanwhile — an unconditional assign clobbered it.
+        if (!bookField.value) {
+          bookField.value = availableId;
+          updateBookUrlPreview(availableId);
+          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+        }
       }
     }
   }

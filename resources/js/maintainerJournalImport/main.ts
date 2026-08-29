@@ -56,6 +56,8 @@ interface Lane {
   pdf_url_status: string | null;
   is_version: boolean;
   needs_approval: boolean;
+  fixture: string | null;
+  golden_complete: boolean;
   open_flags: number;
   maintainer_note: string | null;
   artifacts: string[];
@@ -342,6 +344,11 @@ function buildLane(lane: Lane): HTMLElement {
   }
   if (lane.fetch_trace?.won_host) badges.push(['dim', lane.fetch_trace.won_host, 'winning OA host']);
   if (lane.open_flags) badges.push(['flag', `${lane.open_flags} flag${lane.open_flags === 1 ? '' : 's'}`, '']);
+  if (lane.fixture) {
+    badges.push(lane.golden_complete
+      ? ['ok', 'golden ✓', `regression golden frozen (${lane.fixture})`]
+      : ['dim', `fixture · ${lane.fixture}`, 'regression fixture captured — golden not yet frozen (✓ golden after the fix)']);
+  }
   if (lane.needs_approval) {
     // Not the same thing as `unlisted`. A losing sibling is unlisted BECAUSE another lane won —
     // correct, and needs nobody. This one has content, is invisible to readers, and cannot ever
@@ -465,6 +472,18 @@ async function selectLane(lane: Lane): Promise<void> {
       : lane.needs_approval
         ? 'This lane did not pass automatic verification (usually no reference list). You have read it — publish it anyway.'
         : 'Make this lane the version readers get';
+
+  // Local-dev only button (the production blade never renders it): freezing a
+  // golden needs a captured fixture to freeze.
+  const golden = document.getElementById('ji-approve-golden') as HTMLButtonElement | null;
+  if (golden) {
+    golden.disabled = !lane.fixture;
+    golden.title = !lane.fixture
+      ? 'No regression fixture captured for this book (book:import-cases captures one at ingest)'
+      : lane.golden_complete
+        ? 'Golden already frozen — re-approve to overwrite it with the current conversion'
+        : 'Freeze the current conversion as the regression golden (run_regression.py --update-golden)';
+  }
 
   renderDetailStrip(lane);
 
@@ -764,6 +783,19 @@ async function reconvertPdfLane(book: string): Promise<void> {
         if (progress.status === 'complete') {
           setStatus('reconverted — reloading');
           if (isDetail) await loadDetail();
+          // The converted pane is an IFRAME of the reader — loadDetail refreshes lane
+          // metadata but never touches it, and the reader inside ran its staleness check
+          // BEFORE the reconvert finished, so without this the pane shows the old
+          // conversion until the lane is manually re-selected.
+          if (selected?.book === book) {
+            const conv = el<HTMLIFrameElement>('ji-converted');
+            try {
+              conv.contentWindow?.location.reload();
+            } catch {
+              conv.src = `/${book}`;
+            }
+          }
+          setStatus('reconverted ✓');
         } else {
           setStatus('reconvert FAILED — see logs');
         }
@@ -843,6 +875,49 @@ async function promoteSelected(force = false): Promise<void> {
   } catch (e) {
     log.error('Promote failed', 'maintainer-journal-import', e);
     setStatus('promote failed — see logs');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/**
+ * Freeze the selected lane's regression golden — the promote-to-golden step of the case loop,
+ * done AFTER the converter fix. The endpoint shells run_regression.py --update-golden and only
+ * exists outside production (the blade doesn't render the button there either).
+ */
+async function approveGolden(): Promise<void> {
+  if (!selected?.fixture) return;
+  if (!window.confirm(
+    `Freeze the CURRENT conversion of\n${selected.book}\nas the regression golden?\n\n`
+    + 'Do this only after the converter fix — it is what run_regression.py will demand forever after.'
+  )) return;
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const button = el<HTMLButtonElement>('ji-approve-golden');
+  button.disabled = true;
+  setStatus('freezing golden… (runs the fixture through the converter)');
+
+  try {
+    const resp = await fetch(`/api/maintainer/conversion/golden/${encodeURIComponent(selected.book)}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
+    const body = await resp.json().catch(() => ({})) as {
+      ok?: boolean; message?: string; tree?: string; output_tail?: string;
+    };
+    if (!resp.ok || !body.ok) {
+      setStatus(body.message || `golden update failed (${resp.status})`);
+      if (body.output_tail) log.error(`update-golden output: ${body.output_tail}`, 'maintainer-journal-import');
+      return;
+    }
+    setStatus(`golden frozen (${body.tree}) — run_regression.py now guards this case`);
+    if (isDetail) await loadDetail();
+  } catch (e) {
+    log.error('Golden approve failed', 'maintainer-journal-import', e);
+    setStatus('golden update failed — see logs');
   } finally {
     button.disabled = false;
   }
@@ -958,6 +1033,8 @@ function wireDetailActions(): void {
   };
   document.getElementById('ji-export')?.addEventListener('click', bundle('conversion'));
   document.getElementById('ji-export-harvest')?.addEventListener('click', bundle('harvest'));
+  // Shelf-import blade only, and only outside production — hence the optional chain.
+  document.getElementById('ji-approve-golden')?.addEventListener('click', () => { void approveGolden(); });
 
   document.getElementById('ji-reconvert')?.addEventListener('click', () => {
     if (!selected) return;
