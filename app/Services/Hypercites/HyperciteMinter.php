@@ -26,8 +26,12 @@ use Illuminate\Support\Str;
  * A refusal flips the candidate to `failed` with the code in `error`; a
  * re-detect re-measures and clears it.
  *
- * No undo-after-apply in v1: remove a wrong hypercite through the reader
- * (delete the hypercite), then reject the candidate so a re-run skips it.
+ * A third refusal, `already_minted`, is ownership rather than staleness: the
+ * candidate still points at a live `hypercites` row, so minting again would
+ * hang a SECOND ↗ off the same citation and orphan the first (the row's
+ * hypercite_id can only remember one). Revert first. It does NOT flip the
+ * candidate to `failed` — the row's real state is "applied, and something
+ * moved underneath it".
  */
 class HyperciteMinter
 {
@@ -48,14 +52,42 @@ class HyperciteMinter
             if (! $candidate) {
                 return ['applied' => false, 'refusal' => 'not_found'];
             }
-            if ($candidate->status === 'applied' && $candidate->hypercite_id) {
-                return [
-                    'applied'     => true,
-                    'hyperciteId' => $candidate->hypercite_id,
-                    'citedBook'   => $candidate->cited_book,
-                    'citedNodeId' => (json_decode((string) $candidate->match_node_ids, true) ?: [null])[0],
-                ];
+            // ── Ownership guard. Deliberately BEFORE the status check, because
+            // status alone is not a safe answer to "did this already mint?": a
+            // re-detect demotes an applied row to `pending` and a later one
+            // promotes it back to `matched` (CandidateDetector::upsert), and a
+            // status-only guard then happily mints a SECOND hypercite over the
+            // live one — two ↗ on one citation, the older of the pair
+            // unrevertable because this row's hypercite_id has moved on. The
+            // hypercites row is the authority, not the candidate's status. ──
+            if ($candidate->hypercite_id) {
+                $live = $db->table('hypercites')
+                    ->where('book', $candidate->cited_book)
+                    ->where('hyperciteId', $candidate->hypercite_id)
+                    ->exists();
+
+                if ($live) {
+                    if ($candidate->status === 'applied') {
+                        return [
+                            'applied'     => true,
+                            'hyperciteId' => $candidate->hypercite_id,
+                            'citedBook'   => $candidate->cited_book,
+                            'citedNodeId' => (json_decode((string) $candidate->match_node_ids, true) ?: [null])[0],
+                        ];
+                    }
+
+                    // Still owns a live hypercite from an earlier apply: revert
+                    // first. Left as-is rather than flipped to `failed` — the
+                    // row's real state is "applied, and the citing node moved".
+                    return ['applied' => false, 'refusal' => 'already_minted'];
+                }
+
+                // Dangling pointer — the hypercite was deleted through the
+                // reader, so the row owns nothing. Clear it and mint afresh.
+                $db->table('hypercite_candidates')->where('id', $candidate->id)
+                    ->update(['hypercite_id' => null, 'updated_at' => now()]);
             }
+
             if ($candidate->status !== 'matched') {
                 return ['applied' => false, 'refusal' => "not_appliable_from_{$candidate->status}"];
             }
@@ -130,6 +162,8 @@ class HyperciteMinter
                 ->where('book', $candidate->citing_book)
                 ->where('node_id', $candidate->citing_node_id)
                 ->update(['content' => $newContent, 'updated_at' => now()]);
+
+            $this->restampSiblings($db, $candidate, $oldContent, $newContent);
 
             // Relocate every other annotation on the spliced node — the anchor
             // shifted all downstream charData offsets.
@@ -208,7 +242,11 @@ class HyperciteMinter
             if (! $candidate) {
                 return ['reverted' => false, 'refusal' => 'not_found'];
             }
-            if ($candidate->status !== 'applied' || ! $candidate->hypercite_id) {
+            // Keyed on OWNERSHIP, not status: a re-detect parks an applied row
+            // at `pending` while it still owns a live hypercite, and gating on
+            // `applied` left exactly those rows unrevertable — and, now that
+            // mint() refuses `already_minted`, unapprovable too.
+            if (! $candidate->hypercite_id) {
                 return ['reverted' => false, 'refusal' => "not_revertable_from_{$candidate->status}"];
             }
 
@@ -216,9 +254,6 @@ class HyperciteMinter
                 ->where('book', $candidate->citing_book)
                 ->where('node_id', $candidate->citing_node_id)
                 ->first(['content']);
-            if (! $citingNode || sha1((string) $citingNode->content) !== $candidate->citing_content_hash) {
-                return ['reverted' => false, 'refusal' => 'stale_citing'];
-            }
 
             // The anchor id lives in the hypercite row's citedIN entry.
             $hypercite = $db->table('hypercites')
@@ -233,11 +268,25 @@ class HyperciteMinter
                 }
             }
 
-            $oldContent = (string) $citingNode->content;
+            $oldContent = (string) ($citingNode->content ?? '');
+            $anchorPresent = $anchorId !== null && str_contains($oldContent, 'id="' . $anchorId . '"');
+
+            // Drifted citing content: refuse, because blind string surgery on
+            // text we no longer recognise could eat real words — UNLESS the
+            // anchor is already gone, i.e. the reconvert that drifted the node
+            // took the splice with it. Then there is nothing to cut and the
+            // revert is pure bookkeeping. Without that escape such a row is
+            // permanently stuck: unrevertable here, and unapprovable in mint()
+            // because it still owns a live hypercite.
+            $stale = ! $citingNode || sha1($oldContent) !== $candidate->citing_content_hash;
+            if ($stale && $anchorPresent) {
+                return ['reverted' => false, 'refusal' => 'stale_citing'];
+            }
+
             $newContent = $oldContent;
-            if ($anchorId !== null) {
+            if ($anchorPresent) {
                 $newContent = preg_replace(
-                    '/\x{2060}?<a\s[^>]*id="' . preg_quote($anchorId, '/') . '"[^>]*>[^<]*<\/a>/us',
+                    '/\x{2060}?<a\s[^>]*id="' . preg_quote((string) $anchorId, '/') . '"[^>]*>[^<]*<\/a>/us',
                     '',
                     $oldContent,
                     1
@@ -248,6 +297,7 @@ class HyperciteMinter
                     ->where('book', $candidate->citing_book)
                     ->where('node_id', $candidate->citing_node_id)
                     ->update(['content' => $newContent, 'updated_at' => now()]);
+                $this->restampSiblings($db, $candidate, $oldContent, $newContent);
                 CharDataRecalculator::recalcForNodes($candidate->citing_book, [
                     $candidate->citing_node_id => ['old' => $oldContent, 'new' => $newContent],
                 ]);
@@ -286,11 +336,18 @@ class HyperciteMinter
         });
     }
 
-    /** Reject: a pure status update, preserved across re-detects as labeled data. */
+    /**
+     * Reject: a pure status update, preserved across re-detects as labeled
+     * data. A row that still owns a minted hypercite is NOT rejectable — a
+     * `rejected` row is skipped by every later re-detect, so rejecting one
+     * would strand its live hypercite and its ↗ with nothing tracking them.
+     * Revert first.
+     */
     public function reject(string $candidateId, ?int $reviewerId): bool
     {
         return DB::connection('pgsql_admin')->table('hypercite_candidates')
             ->where('id', $candidateId)
+            ->whereNull('hypercite_id')
             ->whereIn('status', ['pending', 'matched', 'no_match', 'failed'])
             ->update([
                 'status'      => 'rejected',
@@ -576,6 +633,35 @@ class HyperciteMinter
         }
 
         return null;
+    }
+
+    /**
+     * Carry the OTHER candidates on this node across our own content edit.
+     *
+     * Every sibling candidate measured its offsets against the pre-edit
+     * content, so splicing (or removing) an anchor makes them all look
+     * "changed since detection": the sibling's approve refuses 409
+     * stale_citing, the operator re-detects to clear it, and that re-detect
+     * demotes THIS row out of `applied` — the first step of the cascade that
+     * put two ↗ on one citation in prod (Balarin/Rodríguez, GSCJ).
+     *
+     * Only rows whose stored hash is EXACTLY the content we just edited are
+     * re-stamped: those measured the thing we changed, and an anchor
+     * insertion/removal moves no citation marker and no quote text, so their
+     * measurement still holds. Any other hash is genuine drift (a reconvert,
+     * a user edit) and must stay stale — that is what the guards are for.
+     */
+    private function restampSiblings($db, object $candidate, string $oldContent, string $newContent): void
+    {
+        $db->table('hypercite_candidates')
+            ->where('citing_book', $candidate->citing_book)
+            ->where('citing_node_id', $candidate->citing_node_id)
+            ->where('id', '!=', $candidate->id)
+            ->where('citing_content_hash', sha1($oldContent))
+            ->update([
+                'citing_content_hash' => sha1($newContent),
+                'updated_at'          => now(),
+            ]);
     }
 
     private function refuse($db, object $candidate, string $code): array

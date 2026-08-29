@@ -31,6 +31,14 @@ export interface ScopeMeta {
   publisher: string | null;
 }
 
+/** One place the quote was found in the cited work. */
+export interface MatchLocation {
+  node_ids: string[];
+  char_data: Record<string, { charStart: number; charEnd: number }>;
+  method: 'exact' | 'normalized' | 'fts_fuzzy';
+  score: number | string;
+}
+
 export interface Candidate {
   id: string;
   status: 'pending' | 'matched' | 'no_match' | 'rejected' | 'applied' | 'failed';
@@ -52,11 +60,19 @@ export interface Candidate {
   quote_kind: 'inline' | 'blockquote' | null;
   quote_text: string | null;
   quote_node_id: string | null;
+  // The SELECTED location, mirrored from match_locations[match_location_index].
   match_node_ids: string[] | null;
   match_char_data: Record<string, { charStart: number; charEnd: number }> | null;
   match_method: 'exact' | 'normalized' | 'fts_fuzzy' | null;
   match_score: number | string | null; // Postgres floats arrive as strings via PDO
   match_occurrences: number | null;
+  // Every place the quote was found in the cited work, ranked best-first (body
+  // prose ahead of the title block), for the occurrence picker to step through.
+  match_locations: MatchLocation[];
+  match_location_index: number;
+  // startLine per location, index-aligned with match_locations — the cited pane
+  // scrolls by startLine, so the picker needs one for locations not yet chosen.
+  location_start_lines: (number | string | null)[];
   hypercite_id: string | null;
   anchor_id: string | null; // the citing-side ↗ element id, applied rows only
   auto_approved: boolean;
@@ -182,6 +198,13 @@ export const api = {
     postJson<{ reverted?: boolean; refusal?: string; message?: string }>(
       `/api/maintainer/hypercites/candidates/${encodeURIComponent(id)}/revert`,
       {},
+    ),
+
+  /** Move which occurrence of the quote the hypercite will land on. */
+  chooseOccurrence: (id: string, index: number) =>
+    postJson<{ chosen?: number; refusal?: string; message?: string }>(
+      `/api/maintainer/hypercites/candidates/${encodeURIComponent(id)}/occurrence`,
+      { index },
     ),
 
   batchApprove: (base: string, ids: string[]) =>

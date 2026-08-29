@@ -12,6 +12,7 @@ function apCandidate(array $overrides = []): object
     return (object) array_merge([
         'status'            => 'matched',
         'has_quote'         => true,
+        'quote_kind'        => 'inline',
         'match_method'      => 'exact',
         'match_occurrences' => 1,
         'quote_text'        => 'a verbatim quotation comfortably past the forty-character floor for auto approval',
@@ -30,6 +31,16 @@ test('every relaxation disqualifies', function () {
     expect(AutoApprovePolicy::qualifies(apCandidate(['status' => 'pending'])))->toBeFalse();
     expect(AutoApprovePolicy::qualifies(apCandidate(['status' => 'rejected'])))->toBeFalse();
     expect(AutoApprovePolicy::qualifies(apCandidate(['quote_text' => 'too short'])))->toBeFalse();
+});
+
+test('a blockquote never auto-approves, however strong the match', function () {
+    // An inline quote's marks are a boundary the citing AUTHOR wrote. A
+    // blockquote's attribution is inferred positionally and its extent is
+    // inferred by stripping furniture — good enough to propose, not to mint
+    // unattended. Same candidate, one field apart.
+    expect(AutoApprovePolicy::qualifies(apCandidate(['quote_kind' => 'inline'])))->toBeTrue();
+    expect(AutoApprovePolicy::qualifies(apCandidate(['quote_kind' => 'blockquote'])))->toBeFalse();
+    expect(AutoApprovePolicy::qualifies(apCandidate(['quote_kind' => null])))->toBeFalse();
 });
 
 test('normalization decides the length, not raw characters', function () {

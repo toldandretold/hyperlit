@@ -187,6 +187,65 @@ function hxSeedMatchedCandidate(object $journal, array $candidateOpts = [], ?str
     ];
 }
 
+/**
+ * A SECOND candidate on the SAME citing node, citing a different work — the
+ * paragraph-cites-two-works shape, which is the ordinary case and the one that
+ * made minting either of them look like drift to the other. Pair it with a
+ * citing-HTML override carrying both markers.
+ */
+function hxSeedSiblingCandidate(object $journal, array $fx, string $refId, string $quote): array
+{
+    $cited = hxSeedHeldWork($journal->id, 'HX Second Cited Article');
+
+    $citedHtml = '<p id="30" data-node-id="' . $cited['book'] . '_n7">Historically, ' . $quote . ' in practice.</p>';
+    hxSeedNode($cited['book'], $cited['book'] . '_n7', 7, $citedHtml);
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $fx['citing']['book'],
+        'referenceId'         => $refId,
+        'content'             => 'Hardin, G. (1968) The Tragedy of the Commons.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+
+    $charStart = mb_strpos(strip_tags($citedHtml), $quote);
+    $candidateId = (string) Str::uuid();
+    hxDb()->table('hypercite_candidates')->insert([
+        'id'                         => $candidateId,
+        'journal_source_id'          => $journal->id,
+        'citing_canonical_source_id' => $fx['citing']['canonical_id'],
+        'cited_canonical_source_id'  => $cited['canonical_id'],
+        'citing_book'                => $fx['citing']['book'],
+        'cited_book'                 => $cited['book'],
+        'is_internal'                => true,
+        'reference_id'               => $refId,
+        'occurrence_index'           => 0,
+        'citing_node_id'             => $fx['citing']['book'] . '_n1',
+        'marker_offset'              => 120,
+        'has_quote'                  => true,
+        'quote_kind'                 => 'inline',
+        'quote_text'                 => $quote,
+        'quote_node_id'              => $fx['citing']['book'] . '_n1',
+        // Measured against the SAME pre-splice content as its sibling — which
+        // is exactly why minting one used to strand the other.
+        'citing_content_hash'        => sha1($fx['citing_html']),
+        'match_node_ids'             => json_encode([$cited['book'] . '_n7']),
+        'match_char_data'            => json_encode([
+            $cited['book'] . '_n7' => ['charStart' => $charStart, 'charEnd' => $charStart + mb_strlen($quote)],
+        ]),
+        'match_method'               => 'exact',
+        'match_score'                => 1.0,
+        'match_occurrences'          => 1,
+        'cited_content_hash'         => sha1($citedHtml),
+        'status'                     => 'matched',
+        'created_at'                 => now(),
+        'updated_at'                 => now(),
+    ]);
+
+    return ['candidate_id' => $candidateId, 'cited' => $cited, 'quote' => $quote];
+}
+
 // ── Gating ──
 
 test('both pages 404 for guests and non-admins, render for admins', function () {
@@ -280,6 +339,14 @@ test('candidates come back with both sides resolved and filters apply', function
     expect((int) $c['citing_start_line'])->toBe(1);
     expect((int) $c['cited_start_line'])->toBe(5);
     expect($body['status_counts']['matched'])->toBe(1);
+
+    // The occurrence picker's contract. A row seeded before locations existed
+    // carries none, and must still resolve its one start line from the mirror —
+    // otherwise every pre-existing candidate loses its cited-pane deep link.
+    expect($c)->toHaveKeys(['match_locations', 'match_location_index', 'location_start_lines']);
+    expect($c['match_locations'])->toBe([]);
+    expect($c['match_location_index'])->toBe(0);
+    expect(array_map('intval', $c['location_start_lines']))->toBe([5]);
 
     // A filter that excludes it.
     $filtered = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates?status=applied")
@@ -441,7 +508,33 @@ test('revert removes the anchor, deletes the hypercite, and re-arms the candidat
     expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
 });
 
-test('revert refuses 409 when the citing node changed after the apply', function () {
+test('revert refuses 409 when the citing node drifted with the anchor still in it', function () {
+    // Staleness alone is not the refusal — cutting the ↗ out of text we no
+    // longer recognise is. So the guard fires while the anchor is STILL there.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+
+    $spliced = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    // Drift the node around the anchor, keeping the splice intact.
+    hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->update(['content' => $spliced . '<p>a paragraph added since the apply</p>']);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")
+        ->assertStatus(409)->assertJson(['refusal' => 'stale_citing']);
+});
+
+test('revert of a drifted node whose anchor is already gone is pure bookkeeping', function () {
+    // The reconvert that drifted the node took the ↗ with it. There is nothing
+    // left to cut, so refusing would strand the row forever: unrevertable here,
+    // and unapprovable in mint() because it still owns a live hypercite.
     $this->loginUser(['is_admin' => true]);
     $journal = hxSeedJournal();
     $fx = hxSeedMatchedCandidate($journal);
@@ -450,10 +543,22 @@ test('revert refuses 409 when the citing node changed after the apply', function
     hxDb()->table('nodes')
         ->where('book', $fx['citing']['book'])
         ->where('node_id', $fx['citing']['book'] . '_n1')
-        ->update(['content' => '<p data-node-id="x">edited since apply</p>']);
+        ->update(['content' => '<p data-node-id="x">rewritten by a reconvert, anchor and all</p>']);
 
     $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")
-        ->assertStatus(409)->assertJson(['refusal' => 'stale_citing']);
+        ->assertOk()->assertJson(['reverted' => true]);
+
+    // The hypercite is gone and the candidate owns nothing — so it is workable
+    // again rather than stuck between the two guards.
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(0);
+    $candidate = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
+    expect($candidate->hypercite_id)->toBeNull();
+
+    // The node itself is left exactly as the reconvert wrote it — no surgery.
+    expect(hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content'))->toBe('<p data-node-id="x">rewritten by a reconvert, anchor and all</p>');
 });
 
 test('approve is idempotent — a double press returns the same hypercite and splices nothing new', function () {
@@ -474,6 +579,107 @@ test('approve is idempotent — a double press returns the same hypercite and sp
         ->where('node_id', $fx['citing']['book'] . '_n1')
         ->value('content');
     expect(substr_count($content, 'class="open-icon"'))->toBe(1);
+});
+
+test('approving one citation in a paragraph leaves its sibling appliable', function () {
+    // The trigger for the prod ↗↗ (Balarin/Rodríguez, GSCJ). Minting rewrites
+    // the node, so every OTHER candidate measured against the pre-splice
+    // content looked drifted: the sibling refused 409 stale_citing, the
+    // operator re-detected to clear it, and that re-detect demoted the
+    // already-applied row — step one of the cascade that minted a second ↗.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $quoteA = 'the commons is not a tragedy but a shared achievement of governance';
+    $quoteB = 'enclosure was never the only path out of overuse';
+    $fx = hxSeedMatchedCandidate($journal, [], '<p id="10" data-node-id="{node}">As argued, "' . $quoteA
+        . '" <a href="#ostrom1990" class="in-text-citation">(Ostrom 1990)</a>. Historically, ' . $quoteB
+        . ' <a href="#hardin1968" class="in-text-citation">(Hardin 1968)</a>.</p>');
+    $sibling = hxSeedSiblingCandidate($journal, $fx, 'hardin1968', $quoteB);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    // Used to be 409 stale_citing — the first mint's own edit staled this row.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$sibling['candidate_id']}/approve")->assertOk();
+
+    $content = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    expect(substr_count($content, 'class="open-icon"'))->toBe(2);
+
+    // Both rows applied AND current against the live content, so a re-detect
+    // has nothing to demote and the cascade never starts.
+    foreach ([$fx['candidate_id'], $sibling['candidate_id']] as $id) {
+        $row = hxDb()->table('hypercite_candidates')->where('id', $id)->first();
+        expect($row->status)->toBe('applied');
+        expect($row->citing_content_hash)->toBe(sha1($content));
+    }
+});
+
+test('a candidate that still owns a hypercite refuses to mint a second one', function () {
+    // The backstop. Whatever churns the status — this simulates the re-detect
+    // that used to park the row at `pending` and then promote it back to
+    // `matched` — the live hypercites row is the authority, not the status.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $first = $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertOk()->json();
+
+    hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])
+        ->update(['status' => 'matched']);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertStatus(409)->assertJson(['refusal' => 'already_minted']);
+
+    $content = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    expect(substr_count($content, 'class="open-icon"'))->toBe(1);
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
+    // The refusal leaves the row alone rather than flipping it to `failed` —
+    // it is still applied, still owning $first, still revertable.
+    expect(hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->value('hypercite_id'))
+        ->toBe($first['hyperciteId']);
+
+    // …and revert is the way out, from the churned status too.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/revert")
+        ->assertOk()->assertJson(['reverted' => true]);
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(0);
+});
+
+test('a dangling hypercite_id does not block a re-mint', function () {
+    // The mirror case: the hypercite was deleted through the reader, so the
+    // pointer owns nothing. Refusing here would strand the candidate.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->delete();
+    hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])
+        ->update(['status' => 'matched']);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
+});
+
+test('reject refuses a candidate that still owns a hypercite', function () {
+    // A rejected row is skipped by every later re-detect, so rejecting one
+    // that owns a live hypercite would strand the hypercite and its ↗ with
+    // nothing tracking them. Revert first.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/reject")
+        ->assertStatus(422);
+
+    expect(hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->value('status'))
+        ->toBe('applied');
 });
 
 test('approve refuses 409 stale_citing when the citing node changed since detection', function () {
@@ -747,6 +953,356 @@ test('the detector builds a matched, quote-bearing candidate from seeded article
         );
     expect(hxDb()->table('hypercite_candidates')->where('citing_book', $citing['book'])->count())->toBe(1);
     expect(hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->value('status'))->toBe('rejected');
+});
+
+test('a re-detect parks an applied candidate whose node moved, and never re-promotes it', function () {
+    // The second half of the prod ↗↗ cascade. The old code demoted an applied
+    // row to `pending` ONCE; the next detect matched neither special case, fell
+    // through to the generic update, and wrote `matched` — a row with a live
+    // hypercite became approvable again, and one click minted a second ↗.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $fx = hxSeedMatchedCandidate($journal);
+
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")->assertOk();
+    $mintedId = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->value('hypercite_id');
+
+    // Both books have been ATTEMPTED, so detect skips the bibliography scan.
+    hxDb()->table('bibliography')->where('book', $fx['citing']['book'])->update(['match_method' => 'doi']);
+    hxDb()->table('bibliography')->insert([
+        'book'         => $fx['cited']['book'],
+        'referenceId'  => 'placeholder',
+        'content'      => 'placeholder',
+        'match_method' => 'no_match',
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+
+    // A reconvert rewrites the citing node under the live hypercite. Marker and
+    // quote survive, so detection still derives the same candidate — it is the
+    // HASH that moved.
+    $spliced = hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content');
+    $drifted = str_replace('</p>', ' A sentence added by the reconvert.</p>', $spliced);
+    hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->update(['content' => $drifted, 'plainText' => strip_tags($drifted)]);
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+    $detect = function () use ($journal, $runId) {
+        app(\App\Services\Hypercites\CandidateDetector::class)->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+    };
+
+    $detect();
+    $row = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
+    expect($row->status)->toBe('pending');
+    expect($row->error)->toBe('content_changed_since_apply');
+    expect($row->hypercite_id)->toBe($mintedId);
+
+    // THIS is the pass that used to hand it back as `matched`.
+    $detect();
+    $row = hxDb()->table('hypercite_candidates')->where('id', $fx['candidate_id'])->first();
+    expect($row->status)->toBe('pending');
+    expect($row->hypercite_id)->toBe($mintedId);
+
+    // So the console cannot mint over the live one, and nothing was duplicated.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$fx['candidate_id']}/approve")
+        ->assertStatus(409)->assertJson(['refusal' => 'already_minted']);
+    expect(hxDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(1);
+    expect(substr_count((string) hxDb()->table('nodes')
+        ->where('book', $fx['citing']['book'])
+        ->where('node_id', $fx['citing']['book'] . '_n1')
+        ->value('content'), 'class="open-icon"'))->toBe(1);
+});
+
+test('a multi-paragraph blockquote with a trailing attribution still matches the cited text', function () {
+    // The production failure this covers, end to end. A blockquote is a quote
+    // with no marks saying where it stops, so it reaches the locator carrying
+    // (a) its own trailing citation and (b) paragraph-join glue — `plainText`
+    // is strip_tags of the HTML, which joins `</p><p>` with NOTHING, so the
+    // block reads "…document content.The same passage…". Neither the exact nor
+    // the straddle stage can match through that, and the fuzzy fallback slides
+    // its fixed-length window off the true span, minting a wrong cited-side
+    // range. Cleaned, this matches verbatim.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $citing = hxSeedHeldWork($journal->id, 'HX Block Citing');
+    $cited = hxSeedHeldWork($journal->id, 'HX Block Cited');
+
+    $para1 = 'Indexing is a process in which terms are assigned by human indexers '
+        . 'according to their perception and understanding of the document content.';
+    $para2 = 'The assignment is subsequently filed alphabetically or in some other sequence.';
+
+    // Intro sentence ending in a colon, carrying the only citation marker.
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">As it has been put '
+            . '(<a href="#qin2000" class="in-text-citation">Qin, 2000</a>):</p>'
+    );
+    // …and the block it introduces: two paragraphs, plus the citing author's
+    // own attribution, which appears nowhere in the source.
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_bq',
+        2,
+        '<blockquote id="20" data-node-id="' . $citing['book'] . '_bq">'
+            . '<p>' . $para1 . '</p><p>' . $para2 . '(Qin,2000, p. 166)</p></blockquote>',
+        'blockquote'
+    );
+    // The cited work carries the passage as ordinary prose, properly spaced.
+    hxSeedNode(
+        $cited['book'],
+        $cited['book'] . '_n3',
+        3,
+        '<p id="30" data-node-id="' . $cited['book'] . '_n3">' . $para1 . ' ' . $para2 . '</p>'
+    );
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'qin2000',
+        'content'             => 'Qin (2000) HX Block Cited.',
+        'canonical_source_id' => $cited['canonical_id'],
+        'match_method'        => 'doi',
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+    hxDb()->table('bibliography')->insert([
+        'book'         => $cited['book'],
+        'referenceId'  => 'placeholder',
+        'content'      => 'placeholder',
+        'match_method' => 'no_match',
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    app(\App\Services\Hypercites\CandidateDetector::class)
+        ->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+
+    $candidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])
+        ->where('reference_id', 'qin2000')
+        ->first();
+
+    expect($candidate)->not->toBeNull();
+    expect($candidate->quote_kind)->toBe('blockquote');
+    // The quote lives in the BLOCK, not in the node carrying the marker.
+    expect($candidate->quote_node_id)->toBe($citing['book'] . '_bq');
+    expect($candidate->citing_node_id)->toBe($citing['book'] . '_n1');
+
+    // The stored text is the borrowed words only — attribution gone, the
+    // paragraph join repaired.
+    expect($candidate->quote_text)->toBe($para1 . ' ' . $para2);
+    expect($candidate->quote_text)->not->toContain('p. 166');
+    expect($candidate->quote_text)->not->toContain('content.The');
+
+    // …and it lands on hard evidence, not the fuzzy fallback.
+    expect($candidate->status)->toBe('matched');
+    expect($candidate->match_method)->toBe('exact');
+    $span = json_decode($candidate->match_char_data, true)[$cited['book'] . '_n3'];
+    $citedPlain = hxDb()->table('nodes')->where('book', $cited['book'])
+        ->where('node_id', $cited['book'] . '_n3')->value('plainText');
+    expect(mb_substr($citedPlain, $span['charStart'], $span['charEnd'] - $span['charStart']))
+        ->toBe($para1 . ' ' . $para2);
+
+    // Strong as that match is, a blockquote is never minted unattended: its
+    // attribution is inferred from position, not written by the author.
+    expect(\App\Services\Hypercites\AutoApprovePolicy::qualifies($candidate))->toBeFalse();
+});
+
+test('every occurrence is stored, the body one ranks first, and the reviewer can move the target', function () {
+    // The live UX failure: a quote matching 9 places showed "9 occurrences —
+    // check it's the right one" while displaying the only location kept, which
+    // in an OA article is the title block. Here the SAME phrase appears in the
+    // cited work's title node and in its body.
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $title = 'Promoting meaningful and equitable relationships? Exploring the '
+        . 'Global Challenges Research Fund funding criteria';
+    $citing = hxSeedHeldWork($journal->id, 'HX Occurrence Citing');
+    $cited = hxSeedHeldWork($journal->id, 'HX Occurrence Cited', ['title' => $title]);
+
+    $quote = 'meaningful and equitable research partnerships across the whole programme';
+
+    hxSeedNode(
+        $citing['book'],
+        $citing['book'] . '_n1',
+        1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">GCRF explicitly called for "' . $quote
+            . '" (<a href="#grieve2020" class="in-text-citation">Grieve and Mitchell, 2020</a>: 514).</p>'
+    );
+    // Front matter FIRST in document order — the trap.
+    hxSeedNode($cited['book'], $cited['book'] . '_front', 1,
+        '<p id="1" data-node-id="' . $cited['book'] . '_front">' . $title
+            . '. This paper asks for ' . $quote . ' and reports on them.</p>');
+    hxSeedNode($cited['book'], $cited['book'] . '_body', 5,
+        '<p id="5" data-node-id="' . $cited['book'] . '_body">We argue throughout for '
+            . $quote . ', which the criteria did not deliver.</p>');
+
+    hxDb()->table('bibliography')->insert([
+        'book'                => $citing['book'],
+        'referenceId'         => 'grieve2020',
+        'content'             => 'Grieve and Mitchell (2020).',
+        'canonical_source_id' => $cited['canonical_id'],
+        'match_method'        => 'doi',
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+    hxDb()->table('bibliography')->insert([
+        'book' => $cited['book'], 'referenceId' => 'placeholder', 'content' => 'placeholder',
+        'match_method' => 'no_match', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $detect = function () use ($journal) {
+        $runId = (string) Str::uuid();
+        hxDb()->table('hypercite_runs')->insert([
+            'id' => $runId, 'journal_source_id' => $journal->id, 'action' => 'detect',
+            'status' => 'running', 'counts' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        app(\App\Services\Hypercites\CandidateDetector::class)->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+    };
+    $detect();
+
+    $candidate = hxDb()->table('hypercite_candidates')
+        ->where('citing_book', $citing['book'])->where('reference_id', 'grieve2020')->first();
+
+    // Both places kept — that list is what the picker steps through.
+    $locations = json_decode((string) $candidate->match_locations, true);
+    expect($locations)->toHaveCount(2);
+    expect($candidate->match_occurrences)->toBe(2);
+
+    // …and the BODY one is the default, though it comes second in the document.
+    expect($locations[0]['node_ids'])->toBe([$cited['book'] . '_body']);
+    expect($locations[1]['node_ids'])->toBe([$cited['book'] . '_front']);
+    expect((int) $candidate->match_location_index)->toBe(0);
+    expect(json_decode((string) $candidate->match_node_ids, true))->toBe([$cited['book'] . '_body']);
+
+    // Each location carries its own stale guard, or mint would refuse.
+    foreach ($locations as $location) {
+        expect($location['cited_content_hash'])->toBeString();
+    }
+
+    // ── Move the target to the front-matter occurrence ──
+    $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/occurrence", ['index' => 1])
+        ->assertOk()->assertJson(['chosen' => 1]);
+
+    $moved = hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->first();
+    expect((int) $moved->match_location_index)->toBe(1);
+    expect(json_decode((string) $moved->match_node_ids, true))->toBe([$cited['book'] . '_front']);
+    expect($moved->cited_content_hash)->toBe($locations[1]['cited_content_hash']);
+
+    // An out-of-range index is refused rather than silently clamped.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/occurrence", ['index' => 7])
+        ->assertStatus(422)->assertJson(['refusal' => 'no_such_occurrence']);
+
+    // ── A re-detect must not undo the reviewer's choice ──
+    $detect();
+    $afterRedetect = hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->first();
+    expect((int) $afterRedetect->match_location_index)->toBe(1);
+    expect(json_decode((string) $afterRedetect->match_node_ids, true))->toBe([$cited['book'] . '_front']);
+
+    // ── Approve mints against the CHOSEN occurrence, not the ranked default ──
+    $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/approve")->assertOk();
+    $hypercite = hxDb()->table('hypercites')->where('book', $cited['book'])->first();
+    expect(json_decode((string) $hypercite->node_id, true))->toBe([$cited['book'] . '_front']);
+    expect(array_keys(json_decode((string) $hypercite->charData, true)))->toBe([$cited['book'] . '_front']);
+
+    // …and the target is frozen once minted: revert first.
+    $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/occurrence", ['index' => 0])
+        ->assertStatus(409)->assertJson(['refusal' => 'already_minted']);
+});
+
+test('a re-detect resets the pick when the chosen occurrence is gone from the cited text', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    $citing = hxSeedHeldWork($journal->id, 'HX Vanish Citing');
+    $cited = hxSeedHeldWork($journal->id, 'HX Vanish Cited');
+    $quote = 'a passage repeated in two separate places of the cited work entirely';
+
+    hxSeedNode($citing['book'], $citing['book'] . '_n1', 1,
+        '<p id="10" data-node-id="' . $citing['book'] . '_n1">They write "' . $quote
+            . '" (<a href="#w2020" class="in-text-citation">W 2020</a>).</p>');
+    hxSeedNode($cited['book'], $cited['book'] . '_a', 1,
+        '<p id="1" data-node-id="' . $cited['book'] . '_a">First: ' . $quote . '.</p>');
+    hxSeedNode($cited['book'], $cited['book'] . '_b', 5,
+        '<p id="5" data-node-id="' . $cited['book'] . '_b">Second: ' . $quote . '.</p>');
+
+    hxDb()->table('bibliography')->insert([
+        'book' => $citing['book'], 'referenceId' => 'w2020', 'content' => 'W (2020).',
+        'canonical_source_id' => $cited['canonical_id'], 'match_method' => 'doi',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    hxDb()->table('bibliography')->insert([
+        'book' => $cited['book'], 'referenceId' => 'placeholder', 'content' => 'placeholder',
+        'match_method' => 'no_match', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $detect = function () use ($journal) {
+        $runId = (string) Str::uuid();
+        hxDb()->table('hypercite_runs')->insert([
+            'id' => $runId, 'journal_source_id' => $journal->id, 'action' => 'detect',
+            'status' => 'running', 'counts' => '{}', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        app(\App\Services\Hypercites\CandidateDetector::class)->detect(
+            \App\Services\Hypercites\DetectionScope::forJournal(\App\Models\JournalSource::find($journal->id)),
+            $runId,
+        );
+    };
+    $detect();
+
+    $candidate = hxDb()->table('hypercite_candidates')->where('citing_book', $citing['book'])->first();
+    $this->postJson("/api/maintainer/hypercites/candidates/{$candidate->id}/occurrence", ['index' => 1])
+        ->assertOk();
+
+    // The chosen passage is edited out of the cited work.
+    hxDb()->table('nodes')->where('book', $cited['book'])->where('node_id', $cited['book'] . '_b')
+        ->update(['content' => '<p id="5" data-node-id="' . $cited['book'] . '_b">Second: something else now.</p>',
+            'plainText' => 'Second: something else now.']);
+
+    $detect();
+
+    // The pick cannot be honoured, so the fresh top-ranked location stands —
+    // and the row is workable rather than pointing at text that is gone.
+    $after = hxDb()->table('hypercite_candidates')->where('id', $candidate->id)->first();
+    expect((int) $after->match_location_index)->toBe(0);
+    expect(json_decode((string) $after->match_node_ids, true))->toBe([$cited['book'] . '_a']);
+    expect($after->match_occurrences)->toBe(1);
 });
 
 test('a quoted title containing a possessive plural is resolved against the cited text', function () {

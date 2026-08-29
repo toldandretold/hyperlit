@@ -388,6 +388,32 @@ body.hx-detail {
   gap: 10px;
 }
 
+/* Occurrence picker. The buttons sit inside .hx-selected-actions so they
+   inherit its border, aqua hover and disabled opacity; only the square shape
+   is overridden here. Kept tight against its counter, and separated from the
+   verdict buttons, because stepping occurrences is not a verdict. */
+.hx-occurrence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  padding-right: 10px;
+  border-right: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+.hx-selected-actions .hx-occ-btn {
+  min-width: 24px;
+  padding: 3px 0;
+  line-height: 1;
+  text-align: center;
+}
+.hx-occ-count {
+  font-size: 0.75rem;
+  color: var(--color-text-faint, #888);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Panes */
 .hx-pane {
   position: relative;

@@ -195,14 +195,29 @@ export function generateBibtexFromForm(data: any) {
   return generatedBibtex;
 }
 
-export function buildBibtexEntry({ book, title, author }: any) {
+export function buildBibtexEntry({ book, title, author, year }: any) {
   // Use book ID as citation key (book is the primary key)
   // Here we store the *raw* author ID field in the bibtex.
-  return `@book{${book},
-  author = {${author}},
-  title  = {${title}},
-  year   = {${new Date().getFullYear()}},
-}`;
+  //
+  // The year comes from the RECORD and is omitted when it has none. This used
+  // to stamp `new Date().getFullYear()` unconditionally, which is not a
+  // fallback but a fabrication: every consumer formats this field as the
+  // work's publication date, so an article imported in 2026 rendered as
+  // "(2026)" in its hypercite panel while the citing book's bibliography —
+  // reading canonical_source — correctly said (2024). formatBibtexToCitation
+  // already degrades a missing year to "Unknown Year", which is honest.
+  const lines = [
+    `@book{${book},`,
+    `  author = {${author}},`,
+    `  title  = {${title}},`,
+  ];
+  const cleanYear = year === undefined || year === null ? '' : String(year).trim();
+  if (cleanYear !== '') {
+    lines.push(`  year   = {${cleanYear}},`);
+  }
+  lines.push('}');
+
+  return lines.join('\n');
 }
 
 /**

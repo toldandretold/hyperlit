@@ -10,6 +10,7 @@ use App\Models\JournalSource;
 use App\Services\Hypercites\AutoApprovePolicy;
 use App\Services\Hypercites\CitedWorksQuery;
 use App\Services\Hypercites\HyperciteMinter;
+use App\Services\Hypercites\MatchLocations;
 use App\Services\SourceHarvest\HarvestShelf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -242,6 +243,16 @@ class HyperciteConsoleController extends Controller
         if ($request->filled('status') && in_array($request->query('status'), self::CANDIDATE_STATUSES, true)) {
             $q->where('hc.status', $request->query('status'));
         }
+        // Ownership, not status. The console's permanent "applied hypercites"
+        // list asks for `minted` rather than status=applied because a
+        // re-detect parks an applied row at `pending` while its ↗ is still on
+        // the page — and a live hypercite silently dropping out of that list is
+        // exactly how a duplicate mint went unnoticed.
+        if ($request->has('minted')) {
+            $request->boolean('minted')
+                ? $q->whereNotNull('hc.hypercite_id')
+                : $q->whereNull('hc.hypercite_id');
+        }
         if ($request->has('has_quote')) {
             $q->where('hc.has_quote', $request->boolean('has_quote'));
         }
@@ -269,6 +280,7 @@ class HyperciteConsoleController extends Controller
                 'hc.citing_node_id', 'hc.marker_offset', 'hc.claim_start', 'hc.claim_end',
                 'hc.has_quote', 'hc.quote_kind', 'hc.quote_text', 'hc.quote_node_id',
                 'hc.match_node_ids', 'hc.match_char_data', 'hc.match_method', 'hc.match_score', 'hc.match_occurrences',
+                'hc.match_locations', 'hc.match_location_index',
                 'hc.hypercite_id', 'hc.auto_approved', 'hc.reviewed_at', 'hc.applied_at',
                 DB::connection('pgsql_admin')->raw('COALESCE(citing.title, citing_lib.title) as citing_title'),
                 'citing.author as citing_author', 'citing.year as citing_year',
@@ -280,6 +292,10 @@ class HyperciteConsoleController extends Controller
             ->map(function ($r) {
                 $r->match_node_ids = json_decode((string) $r->match_node_ids, true);
                 $r->match_char_data = json_decode((string) $r->match_char_data, true);
+                // The occurrence picker needs every location's spans to re-mark
+                // the cited pane; attachStartLines() adds where each one sits.
+                $r->match_locations = MatchLocations::decode($r->match_locations);
+                $r->match_location_index = (int) ($r->match_location_index ?? 0);
                 $r->quote_text = $r->quote_text !== null ? Str::limit($r->quote_text, 600) : null;
 
                 return $r;
@@ -328,6 +344,12 @@ class HyperciteConsoleController extends Controller
      * Attach citing_start_line / cited_start_line to candidate rows in one
      * batched (book, node_id) → startLine lookup.
      *
+     * Every LOCATION gets a start line, not just the selected one
+     * (`location_start_lines`, index-aligned with `match_locations`): the
+     * occurrence picker has to scroll the cited pane to a location the reviewer
+     * has not chosen yet, and the pane scrolls by startLine. They stay in the
+     * same batched query — one more (book, node_id) pair per occurrence.
+     *
      * @param \Illuminate\Support\Collection<int, object> $rows
      */
     private function attachStartLines($rows): void
@@ -335,9 +357,8 @@ class HyperciteConsoleController extends Controller
         $pairs = [];
         foreach ($rows as $r) {
             $pairs["{$r->citing_book}\x00{$r->citing_node_id}"] = [$r->citing_book, $r->citing_node_id];
-            $firstCited = is_array($r->match_node_ids) ? ($r->match_node_ids[0] ?? null) : null;
-            if ($firstCited) {
-                $pairs["{$r->cited_book}\x00{$firstCited}"] = [$r->cited_book, $firstCited];
+            foreach ($this->locationNodeIds($r) as $nodeId) {
+                $pairs["{$r->cited_book}\x00{$nodeId}"] = [$r->cited_book, $nodeId];
             }
         }
         if ($pairs === []) {
@@ -363,19 +384,55 @@ class HyperciteConsoleController extends Controller
             $r->cited_start_line = $firstCited
                 ? ($startLines["{$r->cited_book}\x00{$firstCited}"] ?? null)
                 : null;
+            $r->location_start_lines = array_map(
+                fn ($nodeId) => $startLines["{$r->cited_book}\x00{$nodeId}"] ?? null,
+                $this->locationNodeIds($r),
+            );
         }
     }
 
     /**
-     * For applied candidates: the ↗ anchor's element id in the citing book,
-     * parsed from the hypercites row's citedIN entry — the reader's hash
-     * resolver finds it by content scan, landing the pane on the arrow itself.
+     * The first cited node id of each of a candidate's match locations, in
+     * `match_locations` order. Falls back to the mirrored `match_node_ids` for
+     * rows detected before locations were stored, so an old candidate still
+     * resolves its one start line.
+     *
+     * @return list<string>
+     */
+    private function locationNodeIds(object $r): array
+    {
+        $locations = MatchLocations::decode($r->match_locations ?? null);
+        if ($locations === []) {
+            $first = is_array($r->match_node_ids) ? ($r->match_node_ids[0] ?? null) : null;
+
+            return $first ? [$first] : [];
+        }
+
+        $out = [];
+        foreach ($locations as $location) {
+            $nodeId = $location['node_ids'][0] ?? null;
+            if ($nodeId) {
+                $out[] = $nodeId;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * For candidates that own a minted hypercite: the ↗ anchor's element id in
+     * the citing book, parsed from the hypercites row's citedIN entry — the
+     * reader's hash resolver finds it by content scan, landing the pane on the
+     * arrow itself. Keyed on hypercite_id rather than status === 'applied',
+     * because a re-detect parks an applied row at `pending` while its ↗ is
+     * still very much on the page — and that is precisely the row a reviewer
+     * needs to look at.
      *
      * @param \Illuminate\Support\Collection<int, object> $rows
      */
     private function attachAnchorIds($rows): void
     {
-        $applied = $rows->filter(fn ($r) => $r->status === 'applied' && $r->hypercite_id);
+        $applied = $rows->filter(fn ($r) => (bool) $r->hypercite_id);
         foreach ($rows as $r) {
             $r->anchor_id = null;
         }
@@ -493,9 +550,68 @@ class HyperciteConsoleController extends Controller
     /* ───────────────────────── Verdicts ───────────────────────── */
 
     /**
+     * POST /api/maintainer/hypercites/candidates/{id}/occurrence — choose WHICH
+     * match in the cited work this hypercite should land on.
+     *
+     * A quote can appear in its source many times, and the reviewer is the only
+     * one who can say which occurrence the citing author meant. Detection ranks
+     * the list and mirrors the top entry; this moves the mirror to the entry the
+     * reviewer stepped to, so approve() mints against what the pane is showing.
+     * Nothing else changes — the mirror IS the interface every downstream reader
+     * already uses (MatchLocations).
+     *
+     * Refuses while the candidate owns a live hypercite: the minted row's
+     * charData was copied from the mirror at mint time, so moving the mirror
+     * underneath it would leave the hypercite pointing at text nobody chose and
+     * the console describing a location that is not the one on the page. Revert
+     * first — the same ownership rule mint() and unmint() enforce.
+     */
+    public function chooseOccurrence(Request $request, string $id)
+    {
+        $index = $request->integer('index');
+        $db = DB::connection('pgsql_admin');
+
+        $candidate = $db->table('hypercite_candidates')
+            ->where('id', $id)
+            ->first(['id', 'hypercite_id', 'match_locations']);
+
+        if (! $candidate) {
+            return response()->json(['message' => 'Candidate not found.'], 404);
+        }
+        if ($candidate->hypercite_id) {
+            return response()->json([
+                'message' => 'This candidate already owns a hypercite — revert it before moving the target.',
+                'refusal' => 'already_minted',
+            ], 409);
+        }
+
+        $locations = MatchLocations::decode($candidate->match_locations);
+        if (! isset($locations[$index])) {
+            return response()->json([
+                'message' => 'No such occurrence for this candidate.',
+                'refusal' => 'no_such_occurrence',
+            ], 422);
+        }
+
+        $mirror = MatchLocations::mirror($locations, $index);
+        $db->table('hypercite_candidates')->where('id', $id)
+            ->update($mirror + ['updated_at' => now()]);
+
+        return response()->json([
+            'chosen'          => $index,
+            'match_node_ids'  => $locations[$index]['node_ids'] ?? [],
+            'match_char_data' => $locations[$index]['char_data'] ?? [],
+            'match_method'    => $mirror['match_method'],
+            'match_score'     => $mirror['match_score'],
+        ]);
+    }
+
+    /**
      * POST /api/maintainer/hypercites/candidates/{id}/approve — mint. Sync:
      * two row writes and a string splice. 409 carries the stale-guard refusal
-     * so the page can say "re-detect first" instead of a generic failure.
+     * so the page can say "re-detect first" instead of a generic failure —
+     * and `already_minted`, which means the opposite: revert first, this
+     * candidate still owns a live hypercite.
      */
     public function approve(Request $request, string $id, HyperciteMinter $minter)
     {
@@ -505,6 +621,7 @@ class HyperciteConsoleController extends Controller
             $refusal = $result['refusal'] ?? 'unknown';
             $status = match (true) {
                 $refusal === 'not_found'            => 404,
+                $refusal === 'already_minted'       => 409,
                 str_starts_with($refusal, 'stale_') => 409,
                 default                             => 422,
             };

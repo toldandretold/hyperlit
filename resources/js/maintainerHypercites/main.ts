@@ -132,9 +132,15 @@ function initDetail(boot: ConsoleBoot): void {
   };
 
   const statusBadge = (c: Candidate): string => {
+    // Error first, and deliberately not gated on a status: the detector writes
+    // content_changed_since_apply on a `pending` row (CandidateDetector::upsert),
+    // never on `failed`, so the old status === 'failed' gate meant this badge
+    // never appeared for the case it was written for — a still-applied
+    // hypercite whose citing node moved underneath it.
+    if (c.error === 'content_changed_since_apply') return 'changed';
     if (c.status === 'applied') return 'applied';
     if (c.status === 'rejected') return 'rejected';
-    if (c.status === 'failed') return c.error === 'content_changed_since_apply' ? 'changed' : 'failed';
+    if (c.status === 'failed') return 'failed';
     if (c.status === 'no_match') return 'not found';
     return c.has_quote ? '' : 'no quote';
   };
@@ -150,9 +156,12 @@ function initDetail(boot: ConsoleBoot): void {
       // PERMANENT record of applied hypercites for this scope — the whole
       // point of approving is that the result outlives the review session,
       // so it must survive a refresh regardless of what the filter shows.
+      // `minted` (hypercite_id is set), not status=applied: a re-detect parks
+      // an applied row at `pending` while its ↗ is still live, and asking by
+      // status hid exactly the rows a reviewer most needs to see.
       const [payload, appliedPayload] = await Promise.all([
         api.candidates(state.base, filters()),
-        api.candidates(state.base, { status: 'applied' }),
+        api.candidates(state.base, { minted: '1' }),
       ]);
       state.candidates = payload.candidates;
       state.applied = appliedPayload.candidates;
@@ -302,12 +311,97 @@ function initDetail(boot: ConsoleBoot): void {
    * the mark then, and the pane deep-links to it.
    */
   function citedMarks(c: Candidate): MarkSpec[] {
-    if (c.status === 'applied' || !c.match_char_data) return [];
-    return Object.entries(c.match_char_data).map(([nodeId, span]) => ({
+    if (c.status === 'applied') return [];
+    // Prefer the SELECTED location's spans over the mirrored columns: the
+    // arrows update the selection locally and re-render before the server
+    // round-trip settles, so reading the mirror here would mark the previous
+    // occurrence for one frame.
+    const chosen = c.match_locations?.[c.match_location_index]?.char_data ?? c.match_char_data;
+    if (!chosen) return [];
+    return Object.entries(chosen).map(([nodeId, span]) => ({
       nodeId,
       range: { start: span.charStart, end: span.charEnd },
     }));
   }
+
+  /**
+   * Where the cited pane should scroll for the selected occurrence. Falls back
+   * to the mirrored `cited_start_line` for rows detected before locations were
+   * stored.
+   */
+  function citedStartLine(c: Candidate): string | null {
+    const line = c.location_start_lines?.[c.match_location_index] ?? c.cited_start_line;
+    return line !== null && line !== undefined ? String(line) : null;
+  }
+
+  /**
+   * The `↑ 3 / 9 ↓` picker. Hidden whenever there is nothing to choose between,
+   * so the ordinary single-match candidate looks exactly as it did.
+   *
+   * No wrap-around, ends disabled — matching hyperlitContainer/highlightNav —
+   * because with a visible counter the disabled end IS the "that's all of them"
+   * signal, and a silent jump from 9 back to 1 reads as a glitch.
+   */
+  function renderOccurrencePicker(c: Candidate): void {
+    const wrap = el<HTMLSpanElement>('hx-occurrence');
+    const prev = el<HTMLButtonElement>('hx-occ-prev');
+    const next = el<HTMLButtonElement>('hx-occ-next');
+    const count = el<HTMLSpanElement>('hx-occ-count');
+    if (!wrap || !prev || !next || !count) return;
+
+    const total = c.match_locations?.length ?? 0;
+    // An applied row's target is fixed: moving it would leave the minted
+    // hypercite pointing at text nobody chose (the server refuses too).
+    if (total < 2 || c.hypercite_id) {
+      wrap.hidden = true;
+      return;
+    }
+
+    const at = c.match_location_index;
+    wrap.hidden = false;
+    count.textContent = `${at + 1} / ${total}`;
+    prev.disabled = at <= 0;
+    next.disabled = at >= total - 1;
+    prev.title = `Previous occurrence (${at + 1} / ${total})`;
+    next.title = `Next occurrence (${at + 1} / ${total})`;
+  }
+
+  /** Step the selection, persist it, and move the cited pane onto it. */
+  async function moveOccurrence(delta: number): Promise<void> {
+    const c = state.selected;
+    if (!c) return;
+    const target = c.match_location_index + delta;
+    const location = c.match_locations?.[target];
+    if (!location) return;
+
+    const status = el<HTMLSpanElement>('hx-selected-status');
+    // Optimistic: the panes reload on the way, and the server is authoritative
+    // on the next load. A refusal below puts the index back.
+    const previous = c.match_location_index;
+    c.match_location_index = target;
+    c.match_char_data = location.char_data;
+    c.match_node_ids = location.node_ids;
+    c.match_method = location.method;
+    c.match_score = location.score;
+    select(c, true);
+
+    try {
+      const { data } = await api.chooseOccurrence(c.id, target);
+      if (typeof data.chosen !== 'number') {
+        c.match_location_index = previous;
+        select(c, true);
+        if (status) status.textContent = data.message ?? `could not move (${data.refusal ?? 'refused'})`;
+      }
+    } catch (err) {
+      log.error('hypercites: choose occurrence failed', 'maintainer', err);
+      c.match_location_index = previous;
+      select(c, true);
+      if (status) status.textContent = 'could not move — see console';
+    }
+  }
+
+  el<HTMLButtonElement>('hx-occ-prev')?.addEventListener('click', () => void moveOccurrence(-1));
+  el<HTMLButtonElement>('hx-occ-next')?.addEventListener('click', () => void moveOccurrence(1));
 
   function select(c: Candidate, forcePanes = false): void {
     state.selected = c;
@@ -324,9 +418,10 @@ function initDetail(boot: ConsoleBoot): void {
     // approve/revert changed the citing book's CONTENT, not its URL.
     const citingTarget = c.citing_start_line !== null ? String(c.citing_start_line) : null;
     citingPane.show(c.citing_book, citingTarget, `citing — ${c.citing_title ?? c.citing_book}`, citingMarks(c), forcePanes);
-    const citedTarget = c.status === 'applied' && c.hypercite_id
-      ? c.hypercite_id
-      : (c.cited_start_line !== null ? String(c.cited_start_line) : null);
+    // Ownership, not status: a re-detect parks an applied row at `pending`
+    // with its hypercite still live, and that row should still open on the
+    // real hypercite rather than falling back to a bare line number.
+    const citedTarget = c.hypercite_id ? c.hypercite_id : citedStartLine(c);
     citedPane.show(c.cited_book, citedTarget, `cited — ${c.cited_title ?? c.cited_book}`, citedMarks(c), forcePanes);
 
     const card = el<HTMLDivElement>('hx-selected');
@@ -344,24 +439,36 @@ function initDetail(boot: ConsoleBoot): void {
       // and "1".toFixed throws — which silently killed select() right here,
       // leaving the revert button permanently hidden (caught by the e2e spec).
       c.match_method ? `${c.match_method} ${Number(c.match_score ?? 0).toFixed(2)}` : null,
-      (c.match_occurrences ?? 0) > 1 ? `${c.match_occurrences} occurrences — check it's the right one` : null,
+      // Still worth saying — but it is now an instruction the reviewer can act
+      // on, with the arrows beside the verdict buttons.
+      (c.match_occurrences ?? 0) > 1 ? `${c.match_occurrences} occurrences — step through to pick` : null,
       c.error,
     ].filter(Boolean);
     metaEl.textContent = bits.join(' · ');
     quoteEl.textContent = c.quote_text ?? '(no direct quote — citation-only candidate)';
     quoteEl.hidden = false;
+    renderOccurrencePicker(c);
 
-    approve.disabled = c.status !== 'matched';
-    approve.title = c.status === 'matched'
-      ? 'Mint the hypercite'
-      : `Not appliable from status "${c.status}"${c.has_quote ? '' : ' — no quote was detected'}`;
+    // A candidate that still owns a hypercite is never appliable whatever its
+    // status says — the server refuses `already_minted`, because minting again
+    // hangs a second ↗ off the same citation and orphans the first.
+    const owns = Boolean(c.hypercite_id);
+    approve.disabled = c.status !== 'matched' || owns;
+    approve.title = owns
+      ? 'Already minted — revert first if this needs re-applying.'
+      : c.status === 'matched'
+        ? 'Mint the hypercite'
+        : `Not appliable from status "${c.status}"${c.has_quote ? '' : ' — no quote was detected'}`;
     // Mirror approve's pattern: always VISIBLE, disabled when inapplicable —
     // a button that only exists in one state is a button nobody can find.
+    // Gated on OWNERSHIP, not on status === 'applied': a re-detect parks an
+    // applied row at `pending` while its hypercite is still live, and the old
+    // status gate left exactly those rows with no way out of the console.
     const revert = el<HTMLButtonElement>('hx-revert');
     if (revert) {
       revert.hidden = false;
-      revert.disabled = c.status !== 'applied';
-      revert.title = c.status === 'applied'
+      revert.disabled = !owns;
+      revert.title = owns
         ? 'Undo this hypercite: the ↗ is removed from the citing article and the link deleted; the candidate returns to matched.'
         : 'Only an applied hypercite can be reverted — select one under “applied hypercites”.';
     }
@@ -383,6 +490,7 @@ function initDetail(boot: ConsoleBoot): void {
         // take the review context with it. select() re-runs so the card shows
         // ↩ revert and the cited pane lands on the real hypercite.
         c.status = 'applied';
+        c.error = null;
         c.hypercite_id = data.hyperciteId ?? null;
         c.anchor_id = data.anchorId ?? null;
         if (!state.applied.some((a) => a.id === c.id)) state.applied.unshift(c);
@@ -394,7 +502,15 @@ function initDetail(boot: ConsoleBoot): void {
         select(c, true); // force: the citing pane's content changed under the same URL
         if (status) status.textContent = `✓ hypercited (${data.hyperciteId})`;
       } else if (http === 409) {
-        if (status) status.textContent = `stale (${data.refusal}) — re-run detect, then re-review`;
+        // already_minted is the OPPOSITE of stale — the row still owns a live
+        // hypercite, so re-detecting is exactly the wrong advice. Refetch so
+        // the buttons stop offering an approve the server will never accept.
+        if (data.refusal === 'already_minted') {
+          if (status) status.textContent = 'already minted — ↩ revert first, then re-approve';
+          await loadCandidates();
+        } else if (status) {
+          status.textContent = `stale (${data.refusal}) — re-run detect, then re-review`;
+        }
       } else {
         if (status) status.textContent = data.message ?? `refused (${data.refusal ?? http})`;
       }
@@ -413,6 +529,7 @@ function initDetail(boot: ConsoleBoot): void {
       const { status: http, data } = await api.revert(c.id);
       if (data.reverted) {
         c.status = 'matched';
+        c.error = null;
         c.hypercite_id = null;
         c.anchor_id = null;
         state.applied = state.applied.filter((a) => a.id !== c.id);
@@ -446,22 +563,29 @@ function initDetail(boot: ConsoleBoot): void {
   });
 
   /* ── Batch approve: offered only when the visible filter is the policy's
-        shape (matched + exact), and the server re-checks every row anyway. ── */
+        shape (matched + exact), and the server re-checks every row anyway.
+
+        BLOCKQUOTES ARE EXCLUDED HERE TOO — mirroring AutoApprovePolicy, which
+        refuses them however exact the match, because their attribution is
+        inferred from position rather than written by the author. Without the
+        mirror the button offers rows the server will always skip, and the count
+        in the confirm prompt is a promise the batch cannot keep. ── */
+
+  const batchEligible = (c: Candidate): boolean =>
+    c.status === 'matched' && c.match_method === 'exact'
+    && (c.match_occurrences ?? 1) === 1 && c.quote_kind === 'inline';
 
   function updateBatchButton(): void {
     const btn = el<HTMLButtonElement>('hx-batch-approve');
     if (!btn) return;
     const f = filters();
     const eligible = f.status === 'matched' && f.match_method === 'exact'
-      && state.candidates.filter((c) => c.status === 'matched' && c.match_method === 'exact').length > 0;
+      && state.candidates.some(batchEligible);
     btn.hidden = !eligible;
   }
 
   el<HTMLButtonElement>('hx-batch-approve')?.addEventListener('click', async () => {
-    const ids = state.candidates
-      .filter((c) => c.status === 'matched' && c.match_method === 'exact' && (c.match_occurrences ?? 1) === 1)
-      .map((c) => c.id)
-      .slice(0, 25);
+    const ids = state.candidates.filter(batchEligible).map((c) => c.id).slice(0, 25);
     if (!ids.length) return;
     if (!window.confirm(`Approve ${ids.length} exact-match candidates? The server re-checks each against the policy.`)) return;
     setRunStatus('batch approving…');

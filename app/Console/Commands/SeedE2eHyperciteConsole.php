@@ -92,6 +92,17 @@ class SeedE2eHyperciteConsole extends Command
             . $quote . '" (<a href="#flint2022" class="in-text-citation">Flint et al, 2022</a>: 81). During one FGD it was said.</p>';
         $this->node($admin, self::CITING_BOOK, $citingNode, 1, $citingHtml);
 
+        // The cited work carries the quote TWICE: once in its front matter and
+        // once in the body. That is the ordinary shape of an OA article, and it
+        // is what the occurrence picker exists for — front matter comes first in
+        // document order, so an unranked detector would park the reviewer on the
+        // title block. Ranking puts the body node first; the ↑↓ arrows reach the
+        // other one.
+        $citedFrontNode = self::CITED_BOOK . '_n1';
+        $citedFrontHtml = '<p id="1" data-node-id="' . $citedFrontNode . '">E2E Cited Article. '
+            . 'This paper examines ' . $quote . ' across the programme.</p>';
+        $this->node($admin, self::CITED_BOOK, $citedFrontNode, 1, $citedFrontHtml);
+
         $citedNode = self::CITED_BOOK . '_n5';
         $citedHtml = '<p id="5" data-node-id="' . $citedNode . '">One criticism is '
             . $quote . ' and its feedback loops.</p>';
@@ -116,6 +127,26 @@ class SeedE2eHyperciteConsole extends Command
             'UTF-8'
         ));
         $charStart = mb_strpos($plainCited, $quote);
+
+        // Ranked as the detector would rank it: body first, front matter second.
+        $plainCitedFront = html_entity_decode(strip_tags($citedFrontHtml), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $frontStart = mb_strpos($plainCitedFront, $quote);
+        $matchLocations = [
+            [
+                'node_ids'           => [$citedNode],
+                'char_data'          => [$citedNode => ['charStart' => $charStart, 'charEnd' => $charStart + mb_strlen($quote)]],
+                'method'             => 'exact',
+                'score'              => 1.0,
+                'cited_content_hash' => sha1($citedHtml),
+            ],
+            [
+                'node_ids'           => [$citedFrontNode],
+                'char_data'          => [$citedFrontNode => ['charStart' => $frontStart, 'charEnd' => $frontStart + mb_strlen($quote)]],
+                'method'             => 'exact',
+                'score'              => 1.0,
+                'cited_content_hash' => sha1($citedFrontHtml),
+            ],
+        ];
 
         $admin->table('hypercite_candidates')->insert([
             'id'                         => (string) Str::uuid(),
@@ -142,7 +173,9 @@ class SeedE2eHyperciteConsole extends Command
             ]),
             'match_method'               => 'exact',
             'match_score'                => 1.0,
-            'match_occurrences'          => 1,
+            'match_occurrences'          => count($matchLocations),
+            'match_locations'            => json_encode($matchLocations),
+            'match_location_index'       => 0,
             'cited_content_hash'         => sha1($citedHtml),
             'status'                     => 'matched',
             'created_at'                 => now(),

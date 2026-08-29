@@ -28,6 +28,15 @@ use Illuminate\Support\Str;
  */
 class CandidateDetector
 {
+    /**
+     * How many nodes either side of a citing node are handed to QuoteDetector
+     * for blockquote attribution. Only the CONTIGUOUS blockquote run starting
+     * at the immediate neighbour is ever used, so this bounds the run length
+     * rather than the reach — a blockquote separated from its marker by an
+     * ordinary paragraph is still (correctly) not attributed.
+     */
+    private const NEIGHBOUR_WINDOW = 4;
+
     public function __construct(
         private CitationParser $parser,
         private QuoteDetector $quotes,
@@ -121,6 +130,15 @@ class CandidateDetector
                 // OTHER citations stand between a quote and each marker.
                 $allMarkerOffsets = array_map('intval', array_values($entry['citationPositions']));
 
+                // Neighbour window, built ONCE per node rather than per marker
+                // (it depends only on position). QuoteDetector walks it for a
+                // contiguous blockquote run — a quotation split over several
+                // <blockquote> siblings is one quote, and passing only the
+                // immediate neighbour truncated it to its last paragraph.
+                $idx = $order[$nodeId] ?? null;
+                $citingShape = $this->nodeShape($nodesById[$nodeId] ?? null, $nodeId, $plain);
+                [$prevNodes, $nextNodes] = $this->neighbourWindow($nodesById, $orderedIds, $idx);
+
                 foreach ($entry['citationPositions'] as $refId => $markerOffset) {
                     if (! isset($refMap[$refId])) {
                         continue;
@@ -128,13 +146,12 @@ class CandidateDetector
                     $cited = $refMap[$refId];
                     $occurrence[$refId] = ($occurrence[$refId] ?? -1) + 1;
 
-                    $idx = $order[$nodeId] ?? null;
                     $quote = $this->quotes->detect(
                         $plain,
                         (int) $markerOffset,
-                        $this->nodeShape($nodesById[$nodeId] ?? null, $nodeId, $plain),
-                        $idx !== null && $idx > 0 ? $this->nodeShape($nodesById[$orderedIds[$idx - 1]], $orderedIds[$idx - 1]) : null,
-                        $idx !== null && $idx < count($orderedIds) - 1 ? $this->nodeShape($nodesById[$orderedIds[$idx + 1]], $orderedIds[$idx + 1]) : null,
+                        $citingShape,
+                        $prevNodes,
+                        $nextNodes,
                         // ALL markers, ours included: the detector decides which
                         // citation a quote belongs to. Co-citations share one
                         // offset ("(A 2020; B 2021)"), so both legitimately own it.
@@ -160,6 +177,8 @@ class CandidateDetector
                         'quote_text'                 => $quote['text'] ?? null,
                         'quote_node_id'              => $quote['node_id'] ?? null,
                         'citing_content_hash'        => sha1((string) ($nodesById[$nodeId]->content ?? '')),
+                        'match_locations'            => null,
+                        'match_location_index'       => 0,
                         'match_node_ids'             => null,
                         'match_char_data'            => null,
                         'match_method'               => null,
@@ -172,9 +191,11 @@ class CandidateDetector
 
                     if ($quote !== null) {
                         $counts['with_quote']++;
+                        // `type` rides along for the front-matter ranking, and
+                        // the fetch is cached per cited book, so it is free.
                         $citedNodes = $citedNodesCache[$cited['book']]
                             ??= $db->table('nodes')->where('book', $cited['book'])
-                                ->orderBy('startLine')->get(['node_id', 'content', 'plainText'])->all();
+                                ->orderBy('startLine')->get(['node_id', 'content', 'plainText', 'type'])->all();
 
                         // Resolve competing readings of the quote against the
                         // CITED TEXT, longest first: a single-quote house style
@@ -184,14 +205,19 @@ class CandidateDetector
                         // evidence only (no fuzzy) while choosing; the fallback
                         // reading below still gets the full ladder.
                         $candidates = $quote['candidates'] ?? [$quote['text']];
-                        $match = null;
+                        $locations = [];
                         $matchedText = $quote['text'];
 
                         if (count($candidates) > 1) {
                             foreach ($candidates as $candidate) {
-                                $found = $this->locator->locate($citedNodes, $this->searchText($quote['kind'], $candidate), allowFuzzy: false);
-                                if ($found !== null) {
-                                    $match = $found;
+                                $found = $this->locator->locateAll(
+                                    $citedNodes,
+                                    $this->searchText($quote['kind'], $candidate),
+                                    allowFuzzy: false,
+                                    citedTitle: $cited['title'] ?? null,
+                                );
+                                if ($found !== []) {
+                                    $locations = $found;
                                     $matchedText = $candidate;
                                     break;
                                 }
@@ -199,17 +225,27 @@ class CandidateDetector
                         }
                         // Nothing verified (or only one reading): the
                         // nearest-closer reading, full ladder including fuzzy.
-                        $match ??= $this->locator->locate($citedNodes, $this->searchText($quote['kind'], $quote['text']));
+                        if ($locations === []) {
+                            $locations = $this->locator->locateAll(
+                                $citedNodes,
+                                $this->searchText($quote['kind'], $quote['text']),
+                                citedTitle: $cited['title'] ?? null,
+                            );
+                        }
 
-                        if ($match !== null) {
+                        if ($locations !== []) {
                             $counts['matched']++;
+                            // Each location carries its OWN stale guard: the
+                            // reviewer can move the target, and mint() checks
+                            // the hash of whichever node set is selected.
+                            foreach ($locations as $i => $location) {
+                                $locations[$i]['cited_content_hash'] =
+                                    $this->hashNodes($citedNodes, $location['node_ids']);
+                            }
                             $row['quote_text'] = $matchedText;
-                            $row['match_node_ids'] = json_encode($match['node_ids']);
-                            $row['match_char_data'] = json_encode($match['char_data']);
-                            $row['match_method'] = $match['method'];
-                            $row['match_score'] = $match['score'];
-                            $row['match_occurrences'] = $match['occurrences'];
-                            $row['cited_content_hash'] = $this->hashNodes($citedNodes, $match['node_ids']);
+                            $row['match_locations'] = json_encode($locations);
+                            $row['match_occurrences'] = count($locations);
+                            $row = array_merge($row, MatchLocations::mirror($locations, 0));
                             $row['status'] = 'matched';
                         } else {
                             $counts['no_match']++;
@@ -259,7 +295,7 @@ class CandidateDetector
      * their footnoteId IS the refId CitationParser emits for footnote-only
      * books). Self-citations are excluded.
      *
-     * @return array<string, array{canonical_id:string, book:string}>
+     * @return array<string, array{canonical_id:string, book:string, title:?string}>
      */
     private function heldCitedWorksByRefId(string $citingBook, ?string $citingCanonicalId): array
     {
@@ -293,26 +329,73 @@ class CandidateDetector
         }
 
         // Resolve each distinct cited canonical to its readable version, once.
+        // The TITLE rides along for QuoteLocator's front-matter ranking — a
+        // node containing the work's own title is its title block or a running
+        // head, never the passage someone quoted.
         $held = [];
         foreach (array_unique($refToCanonical) as $cid) {
             $canonical = CanonicalSource::on('pgsql_admin')->find($cid);
             $resolved = $canonical ? $this->versions->bestPublicContentVersion($canonical) : null;
             if ($resolved) {
-                $held[$cid] = $resolved['book'];
+                $held[$cid] = [
+                    'book'  => $resolved['book'],
+                    'title' => $canonical->title
+                        ?: $db->table('library')->where('book', $resolved['book'])->value('title'),
+                ];
             }
         }
 
         $out = [];
         foreach ($refToCanonical as $refId => $cid) {
-            if (isset($held[$cid]) && $held[$cid] !== $citingBook) {
-                $out[$refId] = ['canonical_id' => $cid, 'book' => $held[$cid]];
+            if (isset($held[$cid]) && $held[$cid]['book'] !== $citingBook) {
+                $out[$refId] = [
+                    'canonical_id' => $cid,
+                    'book'         => $held[$cid]['book'],
+                    'title'        => $held[$cid]['title'],
+                ];
             }
         }
 
         return $out;
     }
 
-    /** Blockquotes search on a capped prefix; inline quotes search whole. */
+    /**
+     * The neighbour nodes QuoteDetector may attribute a blockquote from: up to
+     * NEIGHBOUR_WINDOW either side, in DOCUMENT order. The detector decides how
+     * far the blockquote run actually extends; this just supplies the window.
+     *
+     * @param array<string, object> $nodesById
+     * @param string[] $orderedIds
+     * @return array{0: array<int, array>, 1: array<int, array>} [prev, next]
+     */
+    private function neighbourWindow(array $nodesById, array $orderedIds, ?int $idx): array
+    {
+        if ($idx === null) {
+            return [[], []];
+        }
+
+        $prev = [];
+        for ($k = max(0, $idx - self::NEIGHBOUR_WINDOW); $k < $idx; $k++) {
+            $prev[] = $this->nodeShape($nodesById[$orderedIds[$k]] ?? null, $orderedIds[$k]);
+        }
+
+        $next = [];
+        $last = min(count($orderedIds) - 1, $idx + self::NEIGHBOUR_WINDOW);
+        for ($k = $idx + 1; $k <= $last; $k++) {
+            $next[] = $this->nodeShape($nodesById[$orderedIds[$k]] ?? null, $orderedIds[$k]);
+        }
+
+        return [$prev, $next];
+    }
+
+    /**
+     * Blockquotes search on a capped prefix; inline quotes search whole. The
+     * text arriving here is ALREADY cleaned of the citing author's furniture
+     * (QuoteDetector::blockquoteText), so the cap now falls on real quoted
+     * words. Consequence to know: for a blockquote longer than the cap, the
+     * located `match_char_data` — and so the minted hypercite's highlight on
+     * the cited side — covers the prefix, not the whole passage.
+     */
     private function searchText(?string $kind, string $text): string
     {
         return $kind === 'blockquote'
@@ -334,7 +417,18 @@ class CandidateDetector
         return sha1(implode("\x00", $parts));
     }
 
-    /** @return array{node_id:string, plainText:string, is_blockquote:bool} */
+    /**
+     * `content` rides along so QuoteDetector::blockquoteText can rebuild a
+     * multi-paragraph blockquote's text with its paragraph separators intact —
+     * `plainText` has already lost them (`get_text(strip=True)` / `strip_tags`
+     * join `</p><p>` with nothing at all).
+     *
+     * Both blockquote checks are load-bearing: the div-editor save path writes
+     * `'type' => $item['type'] ?? null` (DbNodeController), so an edited node's
+     * type can legitimately be null while its content still opens <blockquote>.
+     *
+     * @return array{node_id:string, plainText:string, content:string, is_blockquote:bool}
+     */
     private function nodeShape(?object $node, string $nodeId, ?string $decodedPlain = null): array
     {
         $plain = $decodedPlain ?? html_entity_decode(
@@ -342,20 +436,27 @@ class CandidateDetector
             ENT_QUOTES | ENT_HTML5,
             'UTF-8'
         );
+        $content = (string) ($node->content ?? '');
 
         return [
             'node_id'       => $nodeId,
             'plainText'     => $plain,
+            'content'       => $content,
             'is_blockquote' => ($node->type ?? null) === 'blockquote'
-                || str_starts_with(ltrim((string) ($node->content ?? '')), '<blockquote'),
+                || str_starts_with(ltrim($content), '<blockquote'),
         ];
     }
 
     /**
      * Upsert on the stable key, honouring human verdicts: `rejected` rows are
-     * labeled data and survive re-runs untouched; `applied` rows survive while
-     * the citing node still matches the hash they were applied against, and
-     * flip back to pending (flagged) when a reconvert rewrote the splice site.
+     * labeled data and survive re-runs untouched; rows that still OWN a minted
+     * hypercite survive while the citing node matches the hash they were
+     * applied against, and once it drifts they are parked at `pending`
+     * (flagged) and stay there across every later re-detect — a re-derived
+     * `matched` would make a second mint on the same citation one click away.
+     *
+     * A chosen OCCURRENCE is a human verdict too, and is carried across by
+     * carryOccurrenceChoice().
      */
     private function upsert($db, array $row): void
     {
@@ -363,7 +464,8 @@ class CandidateDetector
             ->where('citing_book', $row['citing_book'])
             ->where('reference_id', $row['reference_id'])
             ->where('occurrence_index', $row['occurrence_index'])
-            ->first(['id', 'status', 'citing_content_hash']);
+            ->first(['id', 'status', 'citing_content_hash', 'hypercite_id',
+                'match_locations', 'match_location_index']);
 
         if (! $existing) {
             $row['id'] = (string) Str::uuid();
@@ -379,18 +481,73 @@ class CandidateDetector
         if ($existing->status === 'rejected' && ! $hashChanged) {
             return;
         }
-        if ($existing->status === 'applied') {
-            if (! $hashChanged) {
+        // Keyed on OWNERSHIP (hypercite_id), not on status. A row that still
+        // owns a minted hypercite must never be re-derived into an approvable
+        // state: unchanged content is the usual no-op, and once the citing node
+        // moves the row is parked at `pending` and flagged — and STAYS parked
+        // on every later re-detect.
+        //
+        // The old code keyed on `status === 'applied'` and so demoted only
+        // once. The very next detect saw `pending`, matched neither special
+        // case, and fell through to the generic update below — which carries
+        // `status = 'matched'`. A row with a live hypercite was approvable
+        // again, and one click minted a SECOND ↗ onto the same citation
+        // (Balarin/Rodríguez, GSCJ). Ownership is cleared only by an explicit
+        // revert (HyperciteMinter::unmint).
+        if ($existing->hypercite_id) {
+            if ($existing->status === 'applied' && ! $hashChanged) {
                 return;
             }
-            // A reconvert rewrote the citing node under an applied hypercite:
-            // surface it for re-confirmation rather than silently re-deriving.
             $row['status'] = 'pending';
             $row['error'] = 'content_changed_since_apply';
         }
 
+        $row = $this->carryOccurrenceChoice($row, $existing);
+
         $row['updated_at'] = now();
         $db->table('hypercite_candidates')->where('id', $existing->id)->update($row);
+    }
+
+    /**
+     * Carry a reviewer's chosen occurrence across a re-detect.
+     *
+     * Detection always ranks its fresh list and mirrors index 0, which is right
+     * for a new row and wrong for a reviewed one: a reviewer who stepped past
+     * the title block to the body occurrence would silently be moved back to
+     * the title block by the next run, with nothing in the UI to show it had
+     * happened. The table's contract is that human verdicts survive a re-run —
+     * that is why `rejected` early-returns above — and a picked occurrence is
+     * exactly such a verdict.
+     *
+     * The choice is matched by PLACE, not by index: ranking is not stable
+     * across runs (a reconvert can add or remove occurrences), so index 3 in
+     * the old list is not index 3 in the new one. When the chosen place is gone
+     * from the cited text entirely, the fresh top-ranked location stands — the
+     * reviewer will see the candidate re-surface as `matched` and can re-pick.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function carryOccurrenceChoice(array $row, object $existing): array
+    {
+        $priorIndex = (int) ($existing->match_location_index ?? 0);
+        if ($priorIndex === 0) {
+            return $row;
+        }
+
+        $prior = MatchLocations::decode($existing->match_locations ?? null);
+        $chosen = $prior[$priorIndex] ?? null;
+        if ($chosen === null) {
+            return $row;
+        }
+
+        $fresh = MatchLocations::decode($row['match_locations'] ?? null);
+        $stillAt = MatchLocations::indexOfPlace($fresh, $chosen);
+        if ($stillAt === null) {
+            return $row;
+        }
+
+        return array_merge($row, MatchLocations::mirror($fresh, $stillAt));
     }
 
     private function step($db, string $runId, string $detail, array $counts): void

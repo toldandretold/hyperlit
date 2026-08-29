@@ -298,6 +298,12 @@ export async function createNewBook() {
       title: "Untitled",
       author: username || (anonToken ? "anon" : null), // Use username, or "anon" if anonymous
       type: "book",
+      // A book authored right now really is published this year, so the year
+      // is set HERE, on the record, rather than invented inside
+      // buildBibtexEntry — which used to stamp the current year onto every
+      // entry it built, including regenerations for books imported years
+      // earlier (that is how a 2024 article rendered as "(2026)").
+      year: String(new Date().getFullYear()),
       timestamp: createdAt,
       base_timestamp: createdAt,
       creator: username,

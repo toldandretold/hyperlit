@@ -145,6 +145,16 @@
                 <div class="hx-selected-meta" id="hx-selected-meta"></div>
                 <blockquote class="hx-selected-quote" id="hx-selected-quote"></blockquote>
                 <div class="hx-selected-actions">
+                    {{-- Occurrence picker. A quote can appear many times in the
+                         cited work and only a human can say which one the
+                         citing author meant; the ranked default is the body
+                         occurrence, not the title block it used to land on.
+                         Hidden unless there is a choice to make. --}}
+                    <span class="hx-occurrence" id="hx-occurrence" hidden>
+                        <button type="button" class="hx-occ-btn" id="hx-occ-prev" aria-label="Previous occurrence">↑</button>
+                        <span class="hx-occ-count" id="hx-occ-count" role="status" aria-live="polite"></span>
+                        <button type="button" class="hx-occ-btn" id="hx-occ-next" aria-label="Next occurrence">↓</button>
+                    </span>
                     <button type="button" id="hx-approve" title="Mint the hypercite: the quoted passage in the cited article becomes the target, and a ↗ appears after the citation marker in the citing article.">✓ hypercite</button>
                     <button type="button" id="hx-reject" title="Not a valid link — recorded, and kept as labeled data for the auto-approve policy.">✕ reject</button>
                     <button type="button" id="hx-revert" hidden title="Undo this hypercite: the ↗ is removed from the citing article and the link deleted; the candidate returns to matched for re-review.">↩ revert</button>
