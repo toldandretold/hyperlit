@@ -108,6 +108,8 @@ class JournalImportController extends Controller
                 'openalex_source_id'  => $j->openalex_source_id,
                 'is_diamond'          => (bool) $j->is_diamond,
                 'diamond_provenance'  => $j->diamond_provenance,
+                // Read-only here (the row is an <a>); the toggle lives on the detail page.
+                'certified'           => $j->certified_at !== null,
                 'works_count'         => $j->works_count,
                 'cited_by_count'      => $j->cited_by_count,
                 'last_harvested_at'   => $j->last_harvested_at?->toIso8601String(),
@@ -167,6 +169,7 @@ class JournalImportController extends Controller
                 'issn_l'             => $journal->issn_l,
                 'openalex_source_id' => $journal->openalex_source_id,
                 'is_diamond'         => (bool) $journal->is_diamond,
+                'certified'          => $journal->certified_at !== null,
                 'works_count'        => $journal->works_count,
                 'cited_by_count'     => $journal->cited_by_count,
                 'last_harvested_at'  => $journal->last_harvested_at?->toIso8601String(),
@@ -175,6 +178,36 @@ class JournalImportController extends Controller
             ],
             'estimate' => $estimate,
             'articles' => $articles,
+        ]);
+    }
+
+    /**
+     * POST /api/maintainer/journal-import/{slug}/certify — put this journal on the homepage.
+     *
+     * Certification is a PERSON vouching for a journal they have read the conversions of, which
+     * is a different claim from `is_diamond` (DOAJ's machine-checkable fact about APCs). Only
+     * certified journals are listed in the homepage copy, and the homepage additionally drops any
+     * with no readable article — so this flag says "worth showing", never "has content".
+     *
+     * Synchronous, and deliberately NOT one of the ACTIONS: enumerate/import_all are queued
+     * because they fetch, OCR and cost money, and they take the journal's in-flight exclusion
+     * lock. A one-column write must not block an import running beside it, so this follows the
+     * promote/resolveFlags precedent instead.
+     */
+    public function certify(Request $request, string $slug)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        $certified = $request->boolean('certified');
+        $journal->certified_at = $certified ? now() : null;
+        $journal->save();
+
+        return response()->json([
+            'certified'    => $journal->certified_at !== null,
+            'certified_at' => $journal->certified_at?->toIso8601String(),
         ]);
     }
 

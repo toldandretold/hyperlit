@@ -414,7 +414,7 @@ function createFootnoteSupElement(footnoteId, displayNumber) {
   sup.textContent = displayNumber;
   return sup;
 }
-function processFootnoteReferences(htmlContent, footnoteMappings, formatType = "general") {
+function processFootnoteReferences(htmlContent, footnoteMappings, formatType = "general", options = {}) {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = htmlContent;
   const supElements = tempDiv.querySelectorAll("sup");
@@ -507,7 +507,7 @@ function processFootnoteReferences(htmlContent, footnoteMappings, formatType = "
         });
       }
     }
-    const skipPlainTextPattern = ["cambridge", "oup", "taylor-francis", "sage"].includes(formatType);
+    const skipPlainTextPattern = options.skipPlainTextScan === true || ["cambridge", "oup", "taylor-francis", "sage"].includes(formatType);
     if (!skipPlainTextPattern) {
       const plainFootnotePattern = /([.!?])\s*(\d{1,2})(?=\s+[A-Z]|\s*$)/g;
       while ((match = plainFootnotePattern.exec(text)) !== null) {
@@ -892,7 +892,11 @@ var BaseFormatProcessor = class {
       }
     });
     if (footnoteMappings.size > 0) {
-      const linkedHtml = processFootnoteReferences(dom.innerHTML, footnoteMappings, this.formatType);
+      const linkedHtml = processFootnoteReferences(dom.innerHTML, footnoteMappings, this.formatType, {
+        // Set by a processor whose markers were already resolved structurally —
+        // the prose scanner would only invent extra ones from sentence-final digits.
+        skipPlainTextScan: this.skipPlainTextFootnoteScan === true
+      });
       dom.innerHTML = linkedHtml;
       console.log(`  - Footnote linking complete: ${footnotes.length} footnotes`);
     }
@@ -1123,6 +1127,13 @@ var MAX_SANDWICH_GAP = 3;
 var MAX_MISS_LENGTH = 500;
 var MIN_ORDINALS_FOR_DENSITY = 3;
 var MIN_ORDINAL_DENSITY = 0.5;
+function ordinalDensity(nums) {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const span = (sorted[sorted.length - 1] ?? 0) - (sorted[0] ?? 0) + 1;
+  if (span <= 0) return 0;
+  return new Set(sorted).size / span;
+}
 var ARTICLE_CHROME_RE = new RegExp(
   "^\\s*(?:article\\s+copyright\\b|copyright\\s*[:\xA9]|\xA9\\s*\\d{4}|orcid(?:\\s+id)?\\s*[:.]|(?:how\\s+)?to\\s+cite\\s+this\\s+(?:article|paper|work)\\b|cite\\s+this\\s+(?:article|paper|work)\\s+as\\b|published\\s+by\\s+.{0,80}?\\bon\\s+\\d{1,2}\\s+\\w+\\s+\\d{4}\\s*$|(?:submitted|received|revised|accepted)\\s+on\\s+\\d{1,2}\\s+\\w+\\s+\\d{4}\\b|competing\\s+interests?\\s*[:.]|conflicts?\\s+of\\s+interest\\s*[:.]|correspondence\\s*[:.]|e-?mail\\s*[:.]|received\\s*[:.].{0,60}accepted\\s*[:.]|this\\s+is\\s+an\\s+open[- ]access\\s+article\\b)",
   "i"
@@ -1238,15 +1249,340 @@ function applyOrdinalDensityGate(accepted) {
     if (match?.[1]) ordinals.push({ el, n: parseInt(match[1], 10) });
   }
   if (ordinals.length < MIN_ORDINALS_FOR_DENSITY) return [...accepted];
-  const nums = ordinals.map((o) => o.n).sort((a, b) => a - b);
-  const span = (nums[nums.length - 1] ?? 0) - (nums[0] ?? 0) + 1;
-  const density = span > 0 ? new Set(nums).size / span : 0;
-  if (span > 0 && density >= MIN_ORDINAL_DENSITY) return [...accepted];
+  if (ordinalDensity(ordinals.map((o) => o.n)) >= MIN_ORDINAL_DENSITY) return [...accepted];
   const dropped = new Set(ordinals.map((o) => o.el));
   return accepted.filter((el) => !dropped.has(el));
 }
 function normalizeText(text) {
   return (text || "").replace(/\s+/g, " ").trim();
+}
+
+// resources/js/paste/utils/anchor-footnotes.ts
+var MIN_COHORT = 3;
+var MAX_ID_HOPS = 3;
+var MIN_DIRECTION_AGREEMENT = 0.9;
+var MIN_DEFINITION_TEXT = 20;
+var MIN_DEFINITION_TEXT_SHARE = 0.8;
+var MAX_MARKER_TEXT = 12;
+var SUPERSCRIPT_DIGITS = {
+  "\u2070": "0",
+  "\xB9": "1",
+  "\xB2": "2",
+  "\xB3": "3",
+  "\u2074": "4",
+  "\u2075": "5",
+  "\u2076": "6",
+  "\u2077": "7",
+  "\u2078": "8",
+  "\u2079": "9"
+};
+function parseMarkerNumber(text) {
+  if (!text) return null;
+  let value = "";
+  for (const char of text) {
+    value += SUPERSCRIPT_DIGITS[char] ?? char;
+  }
+  value = value.replace(/[\s ]/g, "").replace(/^[[({【]+/, "").replace(/[\])}】]+$/, "").replace(/^[*†‡§¶]+/, "").replace(/[*†‡§¶]+$/, "").replace(/[.):;,]+$/, "");
+  if (!/^\d{1,4}$/.test(value)) return null;
+  return String(parseInt(value, 10));
+}
+function extractFragment(href) {
+  if (!href) return null;
+  const match = href.match(/#([A-Za-z_][\w:.\-]*)$/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+function maskDigits(fragment) {
+  return fragment.replace(/\d+/g, "N");
+}
+function textOf(el) {
+  return (el?.textContent || "").replace(/\s+/g, " ").trim();
+}
+function buildTargetMap(root) {
+  const map = /* @__PURE__ */ new Map();
+  root.querySelectorAll("[id]").forEach((el) => {
+    const id = el.getAttribute("id");
+    if (id && !map.has(id)) map.set(id, el);
+  });
+  root.querySelectorAll("a[name]").forEach((el) => {
+    const name = el.getAttribute("name");
+    if (name && !map.has(name)) map.set(name, el);
+  });
+  return map;
+}
+function identityOf(anchor, root, linkedIds) {
+  let el = anchor;
+  let hops = 0;
+  while (el && el !== root && hops <= MAX_ID_HOPS) {
+    const id = el.getAttribute("id") || el.getAttribute("name");
+    if (id && linkedIds.has(id)) return id;
+    el = el.parentElement;
+    hops += 1;
+  }
+  return null;
+}
+function supAffinity(anchor) {
+  return anchor.closest("sup") !== null || anchor.querySelector("sup") !== null;
+}
+function blockOf(el, root) {
+  const block = el.closest("p, li, dd, td, blockquote") || el.closest("div, section") || el;
+  if (block === root) return null;
+  if (/^H[1-6]$/.test(block.tagName)) return null;
+  return block;
+}
+function isBacklink(anchor, markerIds) {
+  const fragment = extractFragment(anchor.getAttribute("href"));
+  return fragment !== null && markerIds.has(fragment);
+}
+function definitionText(block, markerIds) {
+  let length = textOf(block).length;
+  block.querySelectorAll("a[href]").forEach((a) => {
+    if (isBacklink(a, markerIds)) length -= textOf(a).length;
+  });
+  return length;
+}
+function resolveAnchorFootnotes(root) {
+  const empty = (rejected) => ({ footnotes: [], tier: null, shape: null, rejected });
+  const targets = buildTargetMap(root);
+  if (targets.size === 0) return empty("no-edges");
+  const order = /* @__PURE__ */ new Map();
+  root.querySelectorAll("*").forEach((el, index) => order.set(el, index));
+  const positionOf = (el) => order.get(el) ?? -1;
+  const anchors = Array.from(root.querySelectorAll("a[href]"));
+  const linkedIds = /* @__PURE__ */ new Set();
+  anchors.forEach((a) => {
+    const fragment = extractFragment(a.getAttribute("href"));
+    if (fragment && targets.has(fragment)) linkedIds.add(fragment);
+  });
+  if (linkedIds.size === 0) return empty("no-edges");
+  const edges = [];
+  anchors.forEach((anchor) => {
+    const targetId = extractFragment(anchor.getAttribute("href"));
+    if (!targetId) return;
+    const target = targets.get(targetId);
+    if (!target || target === anchor) return;
+    edges.push({ anchor, targetId, target, sourceId: identityOf(anchor, root, linkedIds) });
+  });
+  if (edges.length < MIN_COHORT) return empty("no-edges");
+  const reciprocal = resolveReciprocal(root, edges, targets, positionOf);
+  if (reciprocal) return reciprocal;
+  return resolveOneWay(root, edges, positionOf);
+}
+function resolveReciprocal(root, edges, targets, positionOf) {
+  const bySource = /* @__PURE__ */ new Map();
+  edges.forEach((edge) => {
+    if (!edge.sourceId) return;
+    const list = bySource.get(edge.sourceId);
+    if (list) list.push(edge);
+    else bySource.set(edge.sourceId, [edge]);
+  });
+  const cohorts = /* @__PURE__ */ new Map();
+  const seen = /* @__PURE__ */ new Set();
+  edges.forEach((edge) => {
+    if (!edge.sourceId) return;
+    const back = (bySource.get(edge.targetId) || []).find((candidate) => candidate.targetId === edge.sourceId);
+    if (!back) return;
+    const tripKey = [edge.sourceId, edge.targetId].sort().join("\0");
+    if (seen.has(tripKey)) return;
+    seen.add(tripKey);
+    const here = targets.get(edge.sourceId);
+    if (!here) return;
+    const key = [maskDigits(edge.sourceId), maskDigits(edge.targetId)].sort().join(" <-> ");
+    const trip = {
+      a: { id: edge.sourceId, anchor: edge.anchor, el: here },
+      b: { id: edge.targetId, anchor: back.anchor, el: edge.target }
+    };
+    const list = cohorts.get(key);
+    if (list) list.push(trip);
+    else cohorts.set(key, [trip]);
+  });
+  if (cohorts.size === 0) return null;
+  const allTrips = Array.from(cohorts.values()).flat();
+  const shapes = Array.from(cohorts.keys());
+  if (allTrips.length < MIN_COHORT) return { footnotes: [], tier: null, shape: null, rejected: "cohort" };
+  const forward = allTrips.filter((t) => positionOf(t.a.anchor) < positionOf(t.b.anchor)).length / allTrips.length;
+  const oriented = forward >= MIN_DIRECTION_AGREEMENT ? allTrips.map((t) => orient(t.a, t.b)) : forward <= 1 - MIN_DIRECTION_AGREEMENT ? allTrips.map((t) => orient(t.b, t.a)) : null;
+  if (!oriented) return { footnotes: [], tier: null, shape: null, rejected: "direction" };
+  const rejected = null;
+  const resolved = buildCohort(root, oriented, positionOf);
+  if (!resolved) return { footnotes: [], tier: null, shape: null, rejected: rejected ?? "density" };
+  resolved.sort((a, b) => positionOf(a.definitionBlock) - positionOf(b.definitionBlock));
+  return { footnotes: resolved, tier: "reciprocal", shape: shapes.join(", "), rejected: null };
+}
+function orient(marker, definition) {
+  return {
+    markerAnchor: marker.anchor,
+    markerId: marker.id,
+    definitionAnchorId: definition.id,
+    definitionEl: definition.el
+  };
+}
+function buildCohort(root, pairs, positionOf) {
+  const markerIds = new Set(pairs.map((p) => p.markerId));
+  const byDefinition = /* @__PURE__ */ new Map();
+  for (const pair of pairs) {
+    const block = blockOf(pair.definitionEl, root);
+    if (!block) return null;
+    const list = byDefinition.get(block);
+    if (list) list.push(pair);
+    else byDefinition.set(block, [pair]);
+  }
+  if (byDefinition.size < MIN_COHORT) return null;
+  const blocks = Array.from(byDefinition.keys());
+  for (const block of blocks) {
+    if (blocks.some((other) => other !== block && block.contains(other))) return null;
+  }
+  const substantial = blocks.filter((b) => definitionText(b, markerIds) >= MIN_DEFINITION_TEXT).length;
+  if (substantial / blocks.length < MIN_DEFINITION_TEXT_SHARE) return null;
+  const entries = Array.from(byDefinition.entries()).sort(([a], [b]) => positionOf(a) - positionOf(b));
+  const parsed = entries.map(([, group]) => {
+    const first = group[0];
+    if (!first) return null;
+    return parseMarkerNumber(textOf(first.markerAnchor)) ?? lastDigits(first.markerId) ?? lastDigits(first.definitionAnchorId);
+  });
+  const usable = parsed.every((value) => value !== null) && new Set(parsed).size === parsed.length;
+  const ordinals = usable ? parsed.map((value) => value) : entries.map((_entry, index) => String(index + 1));
+  if (ordinalDensity(ordinals.map((n) => parseInt(n, 10))) < MIN_ORDINAL_DENSITY) return null;
+  return entries.map(([block, group], index) => {
+    const markers = new Set(group.map((p) => p.markerAnchor));
+    const definitionId = group[0]?.definitionAnchorId;
+    if (definitionId) {
+      root.querySelectorAll("a[href]").forEach((anchor) => {
+        if (markers.has(anchor) || block.contains(anchor)) return;
+        if (extractFragment(anchor.getAttribute("href")) === definitionId) markers.add(anchor);
+      });
+    }
+    return {
+      ordinal: ordinals[index] ?? String(index + 1),
+      markers: Array.from(markers).sort((a, b) => positionOf(a) - positionOf(b)),
+      definitionBlock: block,
+      backlinks: Array.from(block.querySelectorAll("a[href]")).filter((a) => isBacklink(a, markerIds))
+    };
+  });
+}
+function lastDigits(value) {
+  const match = (value || "").match(/(\d+)(?!.*\d)/);
+  return match?.[1] ? String(parseInt(match[1], 10)) : null;
+}
+function resolveOneWay(root, edges, positionOf) {
+  const empty = (rejected2) => ({ footnotes: [], tier: null, shape: null, rejected: rejected2 });
+  const cohorts = /* @__PURE__ */ new Map();
+  edges.forEach((edge) => {
+    const key = maskDigits(edge.targetId);
+    const list = cohorts.get(key);
+    if (list) list.push(edge);
+    else cohorts.set(key, [edge]);
+  });
+  let best = null;
+  let rejected = "cohort";
+  for (const [shape, group] of cohorts) {
+    if (group.length < MIN_COHORT) continue;
+    if (!group.every((e) => positionOf(e.anchor) < positionOf(e.target))) {
+      rejected = "direction";
+      continue;
+    }
+    const markersLookRight = group.every((e) => {
+      const text = textOf(e.anchor);
+      if (text.length > MAX_MARKER_TEXT) return false;
+      return supAffinity(e.anchor) || parseMarkerNumber(text) !== null;
+    });
+    if (!markersLookRight) {
+      rejected = "direction";
+      continue;
+    }
+    const byDefinition = /* @__PURE__ */ new Map();
+    for (const edge of group) {
+      const block = blockOf(edge.target, root);
+      if (!block) {
+        continue;
+      }
+      const list = byDefinition.get(block);
+      if (list) list.push(edge);
+      else byDefinition.set(block, [edge]);
+    }
+    if (byDefinition.size < MIN_COHORT) {
+      rejected = "cohort";
+      continue;
+    }
+    const blocks = Array.from(byDefinition.keys());
+    if (!blocks.every((b) => textOf(b).length >= MIN_DEFINITION_TEXT)) {
+      rejected = "cohort";
+      continue;
+    }
+    const positions = blocks.map(positionOf).sort((a, b) => a - b);
+    const median = positions[Math.floor(positions.length / 2)] ?? 0;
+    const allPositions = group.map((e) => positionOf(e.anchor)).concat(positions).sort((a, b) => a - b);
+    const overallMedian = allPositions[Math.floor(allPositions.length / 2)] ?? 0;
+    const oneParent = new Set(blocks.map((b) => b.parentElement)).size === 1;
+    if (!oneParent && median <= overallMedian) {
+      rejected = "direction";
+      continue;
+    }
+    if (looksLikeBibliography(root, blocks)) {
+      rejected = "bibliography";
+      continue;
+    }
+    const entries = Array.from(byDefinition.entries()).sort(([a], [b]) => positionOf(a) - positionOf(b));
+    const parsed = entries.map(([, g]) => {
+      const first = g[0];
+      return first ? parseMarkerNumber(textOf(first.anchor)) ?? lastDigits(first.targetId) : null;
+    });
+    const usable = parsed.every((v) => v !== null) && new Set(parsed).size === parsed.length;
+    const ordinals = usable ? parsed.map((v) => v) : entries.map((_e, i) => String(i + 1));
+    const nums = ordinals.map((n) => parseInt(n, 10));
+    if (ordinalDensity(nums) < MIN_ORDINAL_DENSITY) {
+      rejected = "density";
+      continue;
+    }
+    if (Math.min(...nums) > 2) {
+      rejected = "density";
+      continue;
+    }
+    const footnotes = entries.map(([block, g], index) => ({
+      ordinal: ordinals[index] ?? String(index + 1),
+      markers: g.map((e) => e.anchor).sort((a, b) => positionOf(a) - positionOf(b)),
+      definitionBlock: block,
+      backlinks: []
+    }));
+    if (!best || footnotes.length > best.footnotes.length) best = { shape, footnotes };
+  }
+  if (!best) return empty(rejected);
+  return { footnotes: best.footnotes, tier: "one-way", shape: best.shape, rejected: null };
+}
+function looksLikeBibliography(root, blocks) {
+  if (blocks.length === 0) return false;
+  const structured = blocks.filter((b) => hasReferenceStructure(textOf(b))).length / blocks.length;
+  if (structured >= 0.6) return true;
+  const heading = Array.from(root.querySelectorAll("h1, h2, h3, h4, h5, h6")).find((h) => isReferenceHeading(h.textContent));
+  if (!heading) return false;
+  const after = blocks.filter((b) => Boolean(heading.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)).length / blocks.length;
+  return after >= 0.5 && structured >= 0.3;
+}
+var RESIDUE_RE = /^[\s ^↩↑←↩↰[\](){}.,;:•·|-]*$/;
+function applyAnchorFootnotes(resolved, doc = document) {
+  resolved.forEach((footnote) => {
+    footnote.markers.forEach((anchor) => {
+      const sup = doc.createElement("sup");
+      sup.setAttribute("fn-count-id", footnote.ordinal);
+      sup.textContent = footnote.ordinal;
+      const parent = anchor.parentElement;
+      const wrapping = parent && parent.tagName === "SUP" && parent.children.length === 1 && parent.children[0] === anchor;
+      (wrapping ? parent : anchor).replaceWith(sup);
+    });
+    footnote.backlinks.forEach((link) => {
+      let ancestor = link.parentElement;
+      link.remove();
+      while (ancestor && ancestor !== footnote.definitionBlock && footnote.definitionBlock.contains(ancestor) && ancestor.children.length === 0 && RESIDUE_RE.test(ancestor.textContent || "")) {
+        const next = ancestor.parentElement;
+        ancestor.remove();
+        ancestor = next;
+      }
+    });
+  });
 }
 
 // resources/js/paste/format-processors/general-processor.ts
@@ -1268,10 +1604,35 @@ var GeneralProcessor = class extends BaseFormatProcessor {
   async extractFootnotes(dom, bookId) {
     const footnotes = [];
     const footnoteMappings = /* @__PURE__ */ new Map();
+    this.skipPlainTextFootnoteScan = false;
+    const anchorResult = resolveAnchorFootnotes(dom);
+    if (anchorResult.footnotes.length > 0) {
+      console.log(`  - \u{1F517} Anchor footnote system (${anchorResult.tier}, ${anchorResult.shape}): ${anchorResult.footnotes.length} notes`);
+      applyAnchorFootnotes(anchorResult.footnotes);
+      this.skipPlainTextFootnoteScan = true;
+      anchorResult.footnotes.forEach((resolved) => {
+        const identifier = resolved.ordinal;
+        const uniqueId = this.generateFootnoteId(bookId, identifier);
+        const uniqueRefId = this.generateFootnoteRefId(bookId, identifier);
+        footnotes.push(this.createFootnote(
+          uniqueId,
+          resolved.definitionBlock.innerHTML.trim().replace(/^\s*\[?\d+\]?[.)]?\s*/, ""),
+          identifier,
+          uniqueRefId,
+          `anchor-${anchorResult.tier}`
+        ));
+        const parentList = resolved.definitionBlock.parentElement;
+        resolved.definitionBlock.remove();
+        if (parentList && (parentList.tagName === "UL" || parentList.tagName === "OL") && parentList.children.length === 0) {
+          parentList.remove();
+        }
+      });
+      return footnotes;
+    }
     const refIdentifiers = /* @__PURE__ */ new Set();
     const supElements = dom.querySelectorAll("sup");
     supElements.forEach((sup) => {
-      const identifier = sup.textContent.trim() || sup.getAttribute("fn-count-id");
+      const identifier = parseMarkerNumber(sup.textContent) || sup.getAttribute("fn-count-id");
       if (identifier && /^\d+$/.test(identifier)) {
         refIdentifiers.add(identifier);
       }
@@ -1299,8 +1660,8 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       dom.querySelectorAll("li").forEach((li) => {
         const firstAnchor = li.querySelector("a");
         if (firstAnchor) {
-          const anchorText = firstAnchor.textContent.trim();
-          if (/^\d+$/.test(anchorText) && refIdentifiers.has(anchorText) && !potentialParagraphDefs.has(anchorText)) {
+          const anchorText = parseMarkerNumber(firstAnchor.textContent);
+          if (anchorText && refIdentifiers.has(anchorText) && !potentialParagraphDefs.has(anchorText)) {
             potentialParagraphDefs.set(anchorText, li);
             liDefsFound.push(anchorText);
             return;
@@ -4289,25 +4650,38 @@ var BristolUPProcessor = class extends BaseFormatProcessor {
 };
 
 // resources/js/paste/format-detection/format-registry.ts
+function defineFormat(definition) {
+  const signature = definition.signature ?? definition.selectors ?? [];
+  const supporting = definition.supporting ?? [];
+  const domain = definition.domain ?? [];
+  return {
+    signature,
+    supporting,
+    domain,
+    selectors: [...signature, ...supporting, ...domain],
+    processor: definition.processor,
+    priority: definition.priority,
+    description: definition.description
+  };
+}
 var FORMAT_REGISTRY = {
-  // NOTE: Formats are checked in priority order (highest first)
-  // More specific formats should have higher priority
   // Science Direct - Priority 5
-  "science-direct": {
-    selectors: [
+  "science-direct": defineFormat({
+    signature: [
       '[data-xocs-content-id^="b"]',
-      ".anchor.anchor-primary[data-sd-ui-side-panel-opener]",
-      "span.reference[id]"
+      ".anchor.anchor-primary[data-sd-ui-side-panel-opener]"
     ],
+    // `class="reference"` is a plausible class on any site.
+    supporting: ["span.reference[id]"],
     processor: ScienceDirectProcessor,
     priority: 5,
     description: "Science Direct content with XOCS data attributes"
-  },
+  }),
   // MIT Press (direct.mit.edu, Silverchair) - Priority 5
   // Distinguished from OUP by data-content-id / data-modal-source-id (OUP uses
   // bare content-id), so it must be checked before OUP.
-  "mit-press": {
-    selectors: [
+  "mit-press": defineFormat({
+    signature: [
       'a[data-modal-source-id^="bib"]',
       '[data-content-id^="bib"]',
       '.fn[content-id^="fn"]'
@@ -4315,10 +4689,10 @@ var FORMAT_REGISTRY = {
     processor: MitPressProcessor,
     priority: 5,
     description: "MIT Press (direct.mit.edu) Silverchair content with data-content-id attributes"
-  },
+  }),
   // OUP (Oxford University Press) - Priority 4
-  "oup": {
-    selectors: [
+  "oup": defineFormat({
+    signature: [
       '[content-id^="bib"]',
       ".js-splitview-ref-item",
       '.footnote[content-id^="fn"]'
@@ -4326,12 +4700,18 @@ var FORMAT_REGISTRY = {
     processor: OupProcessor,
     priority: 4,
     description: "Oxford University Press content with content-id attributes"
-  },
+  }),
   // Springer - Priority 4
-  "springer": {
-    selectors: [
+  "springer": defineFormat({
+    signature: [
       '[id^="ref-CR"]',
-      'a[href*="#ref-CR"]',
+      'a[href*="#ref-CR"]'
+    ],
+    // `Fn`-prefixed ids are SELF-INFLICTED: base-processor mints footnote ids as
+    // `Fn{timestamp}_{rand}`, so re-pasting Hyperlit's own output used to detect
+    // as Springer. Demoting the id selector without its href twin would be
+    // cosmetic, so both move.
+    supporting: [
       '[id^="Fn"]',
       'a[href*="#Fn"]',
       'a[data-track="click"][data-track-label="link"][href*="springer.com"]'
@@ -4339,38 +4719,37 @@ var FORMAT_REGISTRY = {
     processor: SpringerProcessor,
     priority: 4,
     description: "Springer Nature content with ref-CR and Fn ID patterns"
-  },
+  }),
   // Substack - Priority 4
-  "substack": {
-    selectors: [
+  "substack": defineFormat({
+    signature: [
       'a[data-component-name="FootnoteAnchorToDOM"]',
-      ".footnote-content",
-      'a[href*="substack.com"][href*="#footnote-"]',
-      '[id^="footnote-anchor-"]'
+      '[id^="footnote-anchor-"]',
+      'a[href*="substack.com"][href*="#footnote-"]'
     ],
+    supporting: [".footnote-content"],
     processor: SubstackProcessor,
     priority: 4,
     description: "Substack newsletter content with FootnoteAnchorToDOM components"
-  },
+  }),
   // Wiley Online Library - Priority 4
-  "wiley": {
-    selectors: [
+  "wiley": defineFormat({
+    signature: [
       "a.bibLink",
-      // Primary: citation links with bibLink class
+      // citation links with bibLink class
       "[data-bib-id]",
-      // Reference list items with data-bib-id
-      'a.tab-link[href^="#"][data-tab="pane-pcw-references"]',
-      // Citation links pointing to references pane
-      'a[href*="onlinelibrary.wiley"]'
-      // Fallback: Wiley domain links
+      // reference list items
+      'a.tab-link[href^="#"][data-tab="pane-pcw-references"]'
+      // links into the references pane
     ],
+    domain: ['a[href*="onlinelibrary.wiley"]'],
     processor: WileyProcessor,
     priority: 4,
     description: "Wiley Online Library journals with bibId-based citations"
-  },
+  }),
   // Cambridge - Priority 3
-  "cambridge": {
-    selectors: [
+  "cambridge": defineFormat({
+    signature: [
       ".xref.fn",
       ".circle-list__item__grouped__content",
       '[id^="reference-"][id$="-content"]'
@@ -4378,59 +4757,60 @@ var FORMAT_REGISTRY = {
     processor: CambridgeProcessor,
     priority: 3,
     description: "Cambridge University Press content with xref.fn links"
-  },
+  }),
   // Taylor & Francis - Priority 4
-  "taylor-francis": {
-    selectors: [
+  "taylor-francis": defineFormat({
+    signature: [
       ".ref-lnk.lazy-ref.bibr",
       ".NLM_sec",
       ".hlFld-Abstract",
-      'li[id^="CIT"]',
-      'a[href*="tandfonline.com"]'
-      // Catch T&F by domain
+      'li[id^="CIT"]'
     ],
+    domain: ['a[href*="tandfonline.com"]'],
     processor: TaylorFrancisProcessor,
     priority: 4,
     description: "Taylor & Francis content with CIT IDs"
-  },
+  }),
   // Bristol University Press Digital - Priority 5
   // Must outrank sage (3): a BUP page matches sage's generic `[role="listitem"]` selector and
   // was being processed by SageProcessor, which left the hidden mixed-citation duplicates and
-  // the whole surrounding site in the imported book.
-  "bristol-up": {
-    selectors: [
-      'a[href*="bristoluniversitypressdigital.com"]',
+  // the whole surrounding site in the imported book. (The signature/supporting split below is
+  // the real fix for that class of bug; the priority ordering is kept for the tie-break.)
+  "bristol-up": defineFormat({
+    signature: [
       ".content-references-list",
-      '.reference[id^="CIT"]',
-      "#articleBody"
+      '.reference[id^="CIT"]'
     ],
+    // A generic CMS id — any site can have one.
+    supporting: ["#articleBody"],
+    domain: ['a[href*="bristoluniversitypressdigital.com"]'],
     processor: BristolUPProcessor,
     priority: 5,
     description: "Bristol University Press Digital (Global Social Challenges Journal et al.)"
-  },
+  }),
   // Sage - Priority 3
-  "sage": {
-    selectors: [
-      'a[href*="sagepub.com"]',
-      // SAGE domain links (most reliable)
-      'a[role="doc-noteref"]',
-      // SAGE footnote links
-      ".citations",
-      ".ref",
-      '[role="listitem"]'
-    ],
+  "sage": defineFormat({
+    signature: [],
+    // NONE of these is Sage-specific. `[role="doc-noteref"]` is the standard
+    // W3C DPUB-ARIA role for a footnote reference — Pandoc and every other
+    // conforming generator emits it, so it identifies "this page has footnotes",
+    // not "this page is Sage". `.citations`, `.ref` and `[role="listitem"]` fire
+    // on a large slice of the web; `[role="listitem"]` is on every Webflow
+    // Collection List. Sage is therefore identified by its domain alone.
+    supporting: ['a[role="doc-noteref"]', ".citations", ".ref", '[role="listitem"]'],
+    domain: ['a[href*="sagepub.com"]'],
     processor: SageProcessor,
     priority: 3,
     description: "Sage Publications content"
-  },
+  }),
   // General - Priority 0 (fallback, always matches)
-  "general": {
+  "general": defineFormat({
     selectors: [],
     // Empty = matches anything (fallback)
     processor: GeneralProcessor,
     priority: 0,
     description: "General format (fallback for unrecognized formats)"
-  }
+  })
 };
 function getFormatsByPriority() {
   return Object.entries(FORMAT_REGISTRY).sort(([, a], [, b]) => b.priority - a.priority);
@@ -4440,63 +4820,68 @@ function getFormatConfig(formatType) {
 }
 
 // resources/js/paste/format-detection/format-detector.ts
+function countMatches(root, selectors, formatType) {
+  const hits = [];
+  for (const selector of selectors) {
+    try {
+      const count = root.querySelectorAll(selector).length;
+      if (count > 0) hits.push({ selector, count });
+    } catch (error) {
+      console.warn(`Invalid selector "${selector}" for format "${formatType}":`, error);
+    }
+  }
+  return hits;
+}
+function scoreFormats(root) {
+  return getFormatsByPriority().map(([formatType, config]) => {
+    const signatureHits = countMatches(root, config.signature, formatType);
+    const supportingHits = countMatches(root, config.supporting, formatType);
+    const domainHits = countMatches(root, config.domain, formatType);
+    const totalMatches = [...signatureHits, ...supportingHits, ...domainHits].reduce((sum, hit) => sum + hit.count, 0);
+    return { formatType, config, signatureHits, supportingHits, domainHits, totalMatches };
+  });
+}
+function logDetection(score, label, hits) {
+  console.log(`\u{1F4DA} Detected ${score.formatType} format${label}:`);
+  console.log(`  - Matched ${hits.length}/${score.config.selectors.length} selector patterns`);
+  console.log(`  - Total elements: ${score.totalMatches}`);
+  console.log(`  - Priority: ${score.config.priority}`);
+  console.log(`  - Description: ${score.config.description}`);
+  hits.forEach((hit) => console.log(`    \u2713 ${hit.selector} (${hit.count} matches)`));
+  if (score.supportingHits.length > 0 && hits !== score.supportingHits) {
+    const corroborating = score.supportingHits.map((h) => `${h.selector} (${h.count})`).join(", ");
+    console.log(`    \xB7 corroborating: ${corroborating}`);
+  }
+}
 function detectFormat(htmlContent) {
   if (!htmlContent || typeof htmlContent !== "string") {
     console.log("\u{1F4DA} No HTML content provided, using general format");
     return "general";
   }
   const tempDiv = createTempDOM(htmlContent);
-  const formats = getFormatsByPriority();
   console.log("\u{1F50D} Detecting format from pasted content...");
   let domainOnlyFallback = null;
-  for (const [formatType, config] of formats) {
-    if (config.selectors.length === 0) {
+  for (const score of scoreFormats(tempDiv)) {
+    if (score.config.selectors.length === 0) {
       if (domainOnlyFallback) {
-        const { formatType: fbType, matchedSelectors: fbSels, totalMatches: fbTotal, config: fbConfig } = domainOnlyFallback;
-        console.log(`\u{1F4DA} Detected ${fbType} format (domain-only fallback):`);
-        console.log(`  - Matched ${fbSels.length}/${fbConfig.selectors.length} selector patterns`);
-        console.log(`  - Total elements: ${fbTotal}`);
-        console.log(`  - Priority: ${fbConfig.priority}`);
-        console.log(`  - Description: ${fbConfig.description}`);
-        fbSels.forEach((sel) => {
-          const count = tempDiv.querySelectorAll(sel).length;
-          console.log(`    \u2713 ${sel} (${count} matches)`);
-        });
-        return fbType;
+        logDetection(domainOnlyFallback, " (domain-only fallback)", domainOnlyFallback.domainHits);
+        return domainOnlyFallback.formatType;
       }
-      console.log(`\u{1F4DA} Using fallback format: ${formatType}`);
-      return formatType;
+      console.log(`\u{1F4DA} Using fallback format: ${score.formatType}`);
+      return score.formatType;
     }
-    const matchedSelectors = [];
-    let totalMatches = 0;
-    for (const selector of config.selectors) {
-      try {
-        const elements = tempDiv.querySelectorAll(selector);
-        if (elements.length > 0) {
-          matchedSelectors.push(selector);
-          totalMatches += elements.length;
-        }
-      } catch (error) {
-        console.warn(`Invalid selector "${selector}" for format "${formatType}":`, error);
-      }
+    if (score.signatureHits.length > 0) {
+      logDetection(score, "", score.signatureHits);
+      return score.formatType;
     }
-    if (matchedSelectors.length > 0) {
-      const allDomainOnly = matchedSelectors.every((sel) => /^a\[href\*=/.test(sel));
-      if (allDomainOnly && !domainOnlyFallback) {
-        console.log(`  \u23F3 ${formatType}: domain-only match, saving as fallback`);
-        domainOnlyFallback = { formatType, matchedSelectors, totalMatches, config };
-        continue;
-      }
-      console.log(`\u{1F4DA} Detected ${formatType} format:`);
-      console.log(`  - Matched ${matchedSelectors.length}/${config.selectors.length} selector patterns`);
-      console.log(`  - Total elements: ${totalMatches}`);
-      console.log(`  - Priority: ${config.priority}`);
-      console.log(`  - Description: ${config.description}`);
-      matchedSelectors.forEach((sel) => {
-        const count = tempDiv.querySelectorAll(sel).length;
-        console.log(`    \u2713 ${sel} (${count} matches)`);
-      });
-      return formatType;
+    if (score.domainHits.length > 0 && !domainOnlyFallback) {
+      console.log(`  \u23F3 ${score.formatType}: domain-only match, saving as fallback`);
+      domainOnlyFallback = score;
+      continue;
+    }
+    if (score.supportingHits.length > 0) {
+      const seen = score.supportingHits.map((h) => `${h.selector} (${h.count})`).join(", ");
+      console.log(`  \u23ED\uFE0F ${score.formatType}: only generic selectors matched, not decisive \u2014 ${seen}`);
     }
   }
   console.warn("\u26A0\uFE0F No format matched, falling back to general");
@@ -4516,54 +4901,28 @@ function getProcessorForContent(htmlContent) {
   };
 }
 function detectFormatVerbose(htmlContent) {
-  const tempDiv = createTempDOM(htmlContent);
-  const formats = getFormatsByPriority();
-  const results = [];
-  for (const [formatType, config] of formats) {
-    if (config.selectors.length === 0) {
-      results.push({
-        formatType,
-        matched: true,
-        matchCount: 0,
-        priority: config.priority,
-        description: config.description,
-        matchedSelectors: []
-      });
-      continue;
-    }
-    const matchedSelectors = [];
-    let totalMatches = 0;
-    for (const selector of config.selectors) {
-      try {
-        const elements = tempDiv.querySelectorAll(selector);
-        if (elements.length > 0) {
-          matchedSelectors.push({
-            selector,
-            count: elements.length
-          });
-          totalMatches += elements.length;
-        }
-      } catch (error) {
-      }
-    }
-    results.push({
-      formatType,
-      matched: matchedSelectors.length > 0,
-      matchCount: totalMatches,
-      priority: config.priority,
-      description: config.description,
-      matchedSelectors
-    });
-  }
-  results.sort((a, b) => b.priority - a.priority);
-  const detectedFormat = results.find((r) => r.matched);
+  const tempDiv = createTempDOM(htmlContent || "");
+  const allResults = scoreFormats(tempDiv).map((score) => ({
+    formatType: score.formatType,
+    // A format is only "matched" in the sense that DECIDES anything when a
+    // signature or domain selector hit; generic corroboration does not count.
+    matched: score.config.selectors.length === 0 || score.signatureHits.length > 0 || score.domainHits.length > 0,
+    matchCount: score.totalMatches,
+    priority: score.config.priority,
+    description: score.config.description,
+    matchedSelectors: [...score.signatureHits, ...score.supportingHits, ...score.domainHits].map((hit) => ({ selector: hit.selector, count: hit.count })),
+    signatureSelectors: score.signatureHits.map((hit) => hit.selector),
+    supportingSelectors: score.supportingHits.map((hit) => hit.selector),
+    domainSelectors: score.domainHits.map((hit) => hit.selector)
+  }));
   return {
-    detectedFormat: detectedFormat?.formatType || "general",
-    allResults: results
+    detectedFormat: detectFormat(htmlContent),
+    allResults
   };
 }
 export {
   detectFormat,
   detectFormatVerbose,
-  getProcessorForContent
+  getProcessorForContent,
+  scoreFormats
 };

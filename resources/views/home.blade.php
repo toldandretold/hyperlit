@@ -121,6 +121,23 @@
       <h2>5. Write with citations, footnotes and endlessly-nested highlights.</h2>
         
         <h1 class="copy-statement">Hyperlit is an <a href="https://github.com/toldandretold/hyperlit" tabindex="-1">open-source</a> docuverse for open-access text. Use it to grow and till the digital knowledge commons.</h1>
+
+        {{-- The journals we host, each linking to its /j/{slug} hero page (journal-scoped
+             semantic search + shelf-backed feeds). Server-rendered from the certified rows
+             in the journal registry: certified by an operator AND holding at least one
+             readable article, so this can never link to an empty journal page — see
+             CertifiedJournalsQuery and docs/journal-harvest.md. The whole block is absent
+             when nothing is certified, rather than an intro with an empty list under it.
+             Lives INSIDE .welcome-copy deliberately: that's what gets the scroll-fade mask
+             and the display:none when a feed opens. --}}
+        @if (!empty($certifiedJournals))
+          <h2 class="copy-journals-intro">We are currently importing, and systematically hyperciting, diamond open access journals:</h2>
+          <ul class="copy-journal-list">
+            @foreach ($certifiedJournals as $journal)
+              <li><a href="/j/{{ $journal['slug'] }}" tabindex="-1">{{ $journal['display_name'] }} · {{ $journal['readable'] }} article{{ $journal['readable'] === 1 ? '' : 's' }} <span class="open-icon">↗</span></a></li>
+            @endforeach
+          </ul>
+        @endif
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}

@@ -393,3 +393,70 @@ test('the focused page route renders with the book title', function () {
     $this->get("/3d/{$book}")->assertOk()->assertViewIs('docuverse')
         ->assertSee('Dv Focus Title')->assertSee('in the docuverse');
 });
+
+// ── Journal lit-up mode (/3d/j/{slug}, ?journal=) ────────────────────────────
+
+function dvSeedJournal(): object
+{
+    $id = (string) Str::uuid();
+    dvDb()->table('journal_sources')->insert([
+        'id'                 => $id,
+        'openalex_source_id' => 'S_DVTEST_' . Str::upper(Str::random(6)),
+        'display_name'       => 'DvTest Journal',
+        'issn_l'             => '7777-000' . random_int(0, 9),
+        'slug'               => 'dvtest-' . Str::lower(Str::random(8)),
+        'is_diamond'         => true,
+        'created_at'         => now(),
+        'updated_at'         => now(),
+    ]);
+
+    return (object) ['id' => $id, 'slug' => DB::connection('pgsql_admin')->table('journal_sources')->where('id', $id)->value('slug')];
+}
+
+test('?journal returns the lit-up set WITHOUT scoping the graph', function () {
+    $owner = $this->loginUser();
+    $journal = dvSeedJournal();
+    try {
+        // A journal article (canonical linked, held) hypercited by an outside book…
+        $article = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Journal Article']);
+        $canonical = dvSeedCanonical(['title' => 'Dv Journal Canonical', 'journal_source_id' => $journal->id, 'auto_version_book' => $article]);
+        dvDb()->table('library')->where('book', $article)->update(['canonical_source_id' => $canonical]);
+        $citer = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Journal Citer']);
+        dvSeedHypercite($article, ["/{$citer}#hypercite_j1"]);
+
+        // …and a completely unrelated pair elsewhere in the docuverse.
+        $x = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Unrelated X']);
+        $y = $this->makeBook($owner, ['visibility' => 'public', 'title' => 'Dv Unrelated Y']);
+        dvSeedHypercite($x, ["/{$y}#hypercite_j2"]);
+
+        $resp = $this->getJson("/api/docuverse/data?layers=hypercite&journal={$journal->slug}")->assertOk();
+
+        // Lit set = the journal article's node id (its canonical) — nothing else.
+        expect($resp->json('focusSet'))->toBe([$canonical]);
+        // NOT scoped: the unrelated pair is still on the map.
+        $nodeIds = collect($resp->json('nodes'))->pluck('id');
+        expect($nodeIds)->toContain($x);
+        expect($nodeIds)->toContain($y);
+        expect(collect($resp->json('edges')))->toHaveCount(2);
+        // Single-book focus stays null in journal mode.
+        expect($resp->json('focus'))->toBeNull();
+    } finally {
+        dvDb()->table('journal_sources')->where('id', $journal->id)->delete();
+    }
+});
+
+test('unknown journal slug is a 404 on both the data endpoint and the page', function () {
+    $this->getJson('/api/docuverse/data?layers=hypercite&journal=no-such-journal-here')->assertNotFound();
+    $this->get('/3d/j/no-such-journal-here')->assertNotFound();
+});
+
+test('the journal page route renders with the journal name and a way back', function () {
+    $journal = dvSeedJournal();
+    try {
+        $this->get("/3d/j/{$journal->slug}")->assertOk()->assertViewIs('docuverse')
+            ->assertSee('DvTest Journal')->assertSee('lit up in the docuverse')
+            ->assertSee('/j/' . $journal->slug, false);
+    } finally {
+        dvDb()->table('journal_sources')->where('id', $journal->id)->delete();
+    }
+});

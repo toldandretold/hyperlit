@@ -37,4 +37,10 @@ export interface DocuversePayload {
   layers: EdgeKind[];
   /** Node id of the focused work (/3d/{bookId} — its connected component), or null. */
   focus: string | null;
+  /**
+   * Node ids to LIGHT UP without scoping the graph (/3d/j/{slug} — a
+   * journal's articles glowing in the whole docuverse). Optional: absent on
+   * older payloads.
+   */
+  focusSet?: string[];
 }

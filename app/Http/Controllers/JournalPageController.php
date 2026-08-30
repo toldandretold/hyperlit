@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\JournalSource;
-use App\Services\CanonicalVersions\BestVersionService;
 use App\Services\JournalHarvest\JournalAboutComposer;
+use App\Services\JournalHarvest\JournalHyperciteMap;
+use App\Services\JournalHarvest\JournalReadableCount;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,13 +38,10 @@ class JournalPageController extends Controller
             abort(404, 'Journal not found');
         }
 
-        $bestVersion = BestVersionService::sqlCoalesceExpression('cs');
-
-        $readable = DB::table('canonical_source as cs')
-            ->join('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
-            ->where('cs.journal_source_id', $journal->id)
-            ->where('l.has_nodes', true)
-            ->count();
+        // One definition of "readable", shared with the homepage's certified-journal
+        // list — see JournalReadableCount. Still the DEFAULT connection, so the
+        // count stays the caller's RLS view of `library`.
+        $readable = app(JournalReadableCount::class)->for($journal->id);
 
         $total = DB::table('canonical_source')
             ->where('journal_source_id', $journal->id)
@@ -77,6 +75,12 @@ class JournalPageController extends Controller
             'about'           => app(JournalAboutComposer::class)->compose($journal),
             'readable'        => $readable,
             'total'           => $total,
+            // Both blob variants render while the keeper is being chosen —
+            // drop the loser from the blade once decided (see the map service).
+            'hyperciteMaps'   => [
+                'all'       => app(JournalHyperciteMap::class)->svg($journal, 'all'),
+                'connected' => app(JournalHyperciteMap::class)->svg($journal, 'connected'),
+            ],
         ]);
     }
 

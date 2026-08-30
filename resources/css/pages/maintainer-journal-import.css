@@ -382,6 +382,19 @@ body.ji-detail {
   background: color-mix(in srgb, var(--hyperlit-green, #3fae5c) 26%, transparent);
   color: var(--color-text);
 }
+/* orange, not aqua: it must read as a DIFFERENT kind of claim from ◆ diamond
+   sitting next to it — one is DOAJ's fact, this one is a person's judgement */
+.ji-badge-certified {
+  background: color-mix(in srgb, var(--hyperlit-orange, #ff8700) 26%, transparent);
+  color: var(--color-text);
+  margin-left: 8px;
+}
+
+/* the certify toggle's on-state, same orange as the badge it produces */
+#ji-certify.ji-on {
+  background: color-mix(in srgb, var(--hyperlit-orange, #ff8700) 30%, transparent);
+  color: var(--color-text);
+}
 
 /* Panes: each is a positioning context for its own placeholder. */
 .ji-pane {

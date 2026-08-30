@@ -158,6 +158,142 @@ const BASELINES = [
     inTextCitations: 0,
     footnoteMarkers: 0,
   },
+  // ---------------------------------------------------------------------
+  // General lane: internal-link footnote systems, one per generator shape.
+  // These exist because the engine used to detect footnotes by guessing
+  // anchor NAMES from a five-word list. utils/anchor-footnotes.ts reads the
+  // id/fragment structure instead, so each of these resolves without the
+  // engine knowing anything about the CMS that produced it.
+  // ---------------------------------------------------------------------
+  {
+    // Word / Google Docs "Save as Web Page": _ftnref1 <-> _ftn1, and the ids
+    // live on `a[name]` with no `id` attribute at all — which is why the
+    // resolver's target map has to index `a[name]` as well as `[id]`.
+    file: 'generic-anchor-footnotes-word.html',
+    format: 'general',
+    footnotes: 4,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 4,
+  },
+  {
+    // Pandoc: fnref1 <-> fn1, with the <sup> INSIDE the anchor and a trailing
+    // "↩︎" back-link. Pins two things: sup-affinity must look inside the anchor
+    // as well as outside it, and `[role="doc-noteref"]` (a standard W3C
+    // DPUB-ARIA role, not a Sage marking) must not divert this to SageProcessor.
+    file: 'generic-anchor-footnotes-pandoc.html',
+    format: 'general',
+    footnotes: 4,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 4,
+  },
+  {
+    // MkDocs: fnref:1 <-> fn:1. The colon makes `#fn:1` an INVALID CSS
+    // selector, so this pins that fragments are resolved through a map and
+    // never through querySelector('#' + id), which would throw.
+    file: 'generic-anchor-footnotes-mkdocs.html',
+    format: 'general',
+    footnotes: 4,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 4,
+  },
+  {
+    // Marker -> definition with NO back-link: the tier-2 path, where the
+    // round-trip evidence is missing and every other gate has to carry it.
+    file: 'generic-anchor-footnotes-oneway.html',
+    format: 'general',
+    footnotes: 4,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 4,
+  },
+  {
+    // NEGATIVE: an in-page table of contents plus "back to top" links and a
+    // numbered <ol>. Internal anchors everywhere, no footnotes anywhere.
+    file: 'generic-anchor-toc-links.html',
+    format: 'general',
+    footnotes: 0,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 0,
+  },
+  {
+    // NEGATIVE: numeric [N] citations linking into a References section. This
+    // has exactly the tier-2 shape, and it belongs to the REFERENCE extractor —
+    // so footnotes must stay 0 while the four entries land as references.
+    file: 'generic-anchor-numeric-citations.html',
+    format: 'general',
+    footnotes: 0,
+    references: 4,
+    inTextCitations: 0,
+    footnoteMarkers: 0,
+  },
+  {
+    // Real capture: progressive.international, "Thornton: The NIEO as
+    // Cautionary Tale". The HARDEST general-lane shape so far — 19 notes with
+    // NO back-links, NO <sup>, and markers that are a bare digit superscripted
+    // purely by CSS: `<a href="https://…/en/#ref-1" style="top: -4px">1</a>`.
+    //
+    // Locks two relaxations, both of which had silently dropped all 19:
+    //  1. A bare number is an acceptable marker. Rejecting it per-element was
+    //     right about a lone link and wrong about a cohort; the dense ascending
+    //     run into substantial tail-clustered blocks is the actual evidence.
+    //  2. A "References" heading does not by itself mean bibliography. These
+    //     are Chicago-style notes ("Bret Benjamin, 'Bookend to Bandung,'
+    //     Humanity 6, no. 1 (2015), 44.") under exactly that word. The entries
+    //     must corroborate — a bibliography entry leads "Surname, Forename",
+    //     these lead with a forename or with "See…".
+    file: 'web-progressive-international-bare-markers.html',
+    format: 'general',
+    footnotes: 19,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 19,
+  },
+  {
+    // Real capture: Wikipedia (MediaWiki/Parsoid), "New International Economic
+    // Order". cite_ref-N <-> cite_note-N, absolute hrefs, the identity id on the
+    // parent <sup> rather than the anchor, and 31 markers sharing 21 notes
+    // because several refs are cited more than once.
+    //
+    // Locks the COHORT MERGE. MediaWiki emits four naming variants of one
+    // system (plain `cite_ref-2`, named `cite_ref-auto4_1-0`, `cite_ref-decl_1-0`,
+    // `cite_ref-auto_1-0`). Scoring ordinal density per variant, the named
+    // subset reads 1,3,4,10,11,15 — density 0.4 — and was discarded, losing 6
+    // notes to the reference extractor. Density is a property of the sequence,
+    // so it is computed once over the merged set.
+    //
+    // The 14 references are the article's separate "Further reading" list, which
+    // IS a bibliography and correctly stays one.
+    file: 'web-wikipedia-cite-notes.html',
+    format: 'general',
+    footnotes: 21,
+    references: 14,
+    inTextCitations: 0,
+    footnoteMarkers: 31,
+  },
+  {
+    // Real capture, prod case book_1787965215968 (common-wealth.org, Webflow).
+    // A textbook reciprocal anchor system: marker id="pub-footnote-N" -> href
+    // "…#footnote-N", definition id="footnote-N" -> back to "…#pub-footnote-N",
+    // 54 pairs, hrefs absolute, marker text "[1]".
+    //
+    // Locks TWO things. (1) Detection: this used to come back as `sage` off the
+    // generic `[role="listitem"]` selector — Webflow puts that role on every
+    // Collection List item — and SageProcessor then found nothing. (2) The
+    // anchor resolver: the five-word fragment vocabulary
+    // (/#(?:_?ftn|fn|note|_edn)(\d+)$/) never matched `#footnote-1`, so the
+    // definitions were extracted by a blind plain-text scanner and NOTHING
+    // linked to them.
+    file: 'web-commonwealth-footnotes.html',
+    format: 'general',
+    footnotes: 54,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 54,
+  },
   {
     file: 'substack.html',
     format: 'substack',

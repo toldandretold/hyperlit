@@ -11,7 +11,7 @@ import type { DocuversePayload } from './types';
 
 declare global {
   interface Window {
-    __docuverse?: { focus: string | null };
+    __docuverse?: { focus: string | null; journal?: string | null };
   }
 }
 
@@ -118,8 +118,10 @@ async function loadAndRender(): Promise<void> {
 
   try {
     const focus = window.__docuverse?.focus;
+    const journal = window.__docuverse?.journal;
     const params = new URLSearchParams({ layers: layers.join(',') });
     if (focus) params.set('focus', focus);
+    if (journal) params.set('journal', journal); // lit-up set, graph unscoped
     const resp = await fetch(`/api/docuverse/data?${params}`);
     if (!resp.ok) throw new Error(`data fetch failed (${resp.status})`);
     const payload = (await resp.json()) as DocuversePayload;

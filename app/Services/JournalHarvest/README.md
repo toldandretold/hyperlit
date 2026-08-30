@@ -65,6 +65,12 @@ php artisan journal:harvest global-social-challenges-journal --max-works=25 --us
 
 Re-run until it says "journal fully harvested" (each run resumes where the last stopped; `remaining eligible` is printed at the end). Assigned books collect on a public `Journal: <name>` shelf. Then `php artisan journal:list` shows `last harvested` and you pick the next journal down the citation ranking.
 
+## Step 6 — certify it, so the homepage links to it
+
+Once the journal reads well, press **☆ certify** in the header of `/maintainer/journal-import/{slug}`. That is what puts it in the homepage copy ("We are currently importing, and systematically hyperciting, diamond open access journals:"), linked to its `/j/{slug}` page with its readable-article count. It is your judgement and nothing computes it — `◆ diamond` is DOAJ's fact about APCs, this is you saying the conversions are worth a visitor's time.
+
+You never have to un-certify a journal to fix a broken one: the homepage independently drops any certified journal with no readable article, so an emptied journal disappears from it on the next request. Un-certify only when you actually want the journal off the homepage.
+
 ## The operator console: /maintainer/journal-import
 
 `/maintainer/journal-import` lists journals — what's already underway (with imported/remaining counts) and the ranked worklist of what's next, straight off the registry. Clicking one opens `/maintainer/journal-import/{slug}`: every article the journal has, and under each article every imported **lane**.
@@ -110,6 +116,8 @@ Worked example, the GSCJ pilot article: the PDF lane gives 4 headings and 46 ref
 ## The public pages
 
 Every registry journal gets a homepage-class page at `/j/{slug}` (e.g. `/j/global-social-challenges-journal`) — the lava-lamp hero with the hyperlit logo + the journal's name, about copy, and three feed buttons: **Most Recent** (publication order: year → volume → issue), **Most Connected**, **Most Lit** — scoped to that journal's articles. `/j` lists all diamond journals ranked by citations.
+
+The Hyperlit homepage lists only the **certified** ones (step 6), and only while they have a readable article — so `/j` is the registry and the homepage is the curated shelf. Both counts come from `JournalReadableCount`, the single definition of "how many of this journal's articles can actually be read".
 
 The feeds are **shelf-backed**: the buttons drive the existing public shelf render endpoint (`sort=published|connected|lit`) against the journal's shelf, so a feed costs nothing until someone actually visits it and rides all the existing shelf machinery (lazy render, cache invalidation, scoped search). `journal:sync-shelves {slug?}` reconciles shelf membership with the canonical truth (`canonical_source.journal_source_id`) and heals year/volume/issue onto version rows; `journal:harvest` runs the same reconcile in its stage 4. The search box on the page searches THIS journal only (public shelf search endpoint).
 

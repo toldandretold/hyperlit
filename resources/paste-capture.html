@@ -119,7 +119,10 @@ function slugify(s) {
 
 function suggestFilename(html) {
   const { format } = detectFormat(html);
-  let prefix = format === 'general' ? 'unknown' : format;
+  // A `general` detection means no publisher matched — that is the
+  // GeneralProcessor lane, and its real captures are named `web-…`
+  // (see tests/paste/fixtures/clipboard/README.md).
+  let prefix = format === 'general' ? 'web' : format;
   // Pull a likely article title from the captured HTML.
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
     || html.match(/<h1[^>]*>([^<]+)<\/h1>/i)

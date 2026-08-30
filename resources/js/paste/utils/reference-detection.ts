@@ -33,10 +33,25 @@ const MAX_SANDWICH_GAP = 3;
 const MAX_MISS_LENGTH = 500;
 
 /** Ordinal-prefixed candidates need at least this many before the density gate applies. */
-const MIN_ORDINALS_FOR_DENSITY = 3;
+export const MIN_ORDINALS_FOR_DENSITY = 3;
 
 /** Below this density, ordinal-prefixed candidates are endnotes, not a numbered bibliography. */
-const MIN_ORDINAL_DENSITY = 0.5;
+export const MIN_ORDINAL_DENSITY = 0.5;
+
+/**
+ * How completely a set of ordinals fills the span it covers.
+ *
+ * `1..16` scores 1.0 — a real numbered list. `42, 64, 68, 81` scores 0.1 —
+ * scattered endnote numbers that merely look like a list. Shared with
+ * `utils/anchor-footnotes.ts`, which applies the same test to footnote cohorts.
+ */
+export function ordinalDensity(nums: readonly number[]): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const span = (sorted[sorted.length - 1] ?? 0) - (sorted[0] ?? 0) + 1;
+  if (span <= 0) return 0;
+  return new Set(sorted).size / span;
+}
 
 // ---------------------------------------------------------------------------
 // LAYER 1 — article chrome (reject)
@@ -334,10 +349,7 @@ function applyOrdinalDensityGate(accepted: readonly Element[]): Element[] {
 
   if (ordinals.length < MIN_ORDINALS_FOR_DENSITY) return [...accepted];
 
-  const nums = ordinals.map((o) => o.n).sort((a, b) => a - b);
-  const span = (nums[nums.length - 1] ?? 0) - (nums[0] ?? 0) + 1;
-  const density = span > 0 ? new Set(nums).size / span : 0;
-  if (span > 0 && density >= MIN_ORDINAL_DENSITY) return [...accepted];
+  if (ordinalDensity(ordinals.map((o) => o.n)) >= MIN_ORDINAL_DENSITY) return [...accepted];
 
   const dropped = new Set(ordinals.map((o) => o.el));
   return accepted.filter((el) => !dropped.has(el));

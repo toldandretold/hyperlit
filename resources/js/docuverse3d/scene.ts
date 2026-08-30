@@ -173,25 +173,65 @@ export function startScene(stage: HTMLElement, payload: DocuversePayload): () =>
   dir.position.set(60, 120, 100);
   scene.add(dir);
 
+  // The lit-up set (/3d/j/{slug} — a journal's articles glowing in the whole
+  // docuverse). Members keep their kind colour but EMIT it: a real glow,
+  // distinct from the single-book focus below (theme-text colour, enlarged).
+  const focusSet = new Set(payload.focusSet ?? []);
+
   const nodeMeshes: THREE.Mesh[] = [];
   payload.nodes.forEach((node) => {
     const pos = positions.get(node.id);
     if (!pos) return;
     // The focused work (/3d/{bookId}) is the theme-text standout, enlarged.
     const isFocus = node.id === payload.focus;
+    const isLit = focusSet.has(node.id);
+    const kindColor = KIND_COLORS[node.kind] ?? textColor;
+    const material = new THREE.MeshStandardMaterial({
+      color: isFocus ? textColor : kindColor,
+      roughness: 0.55,
+      metalness: 0.1,
+    });
+    if (isLit) {
+      material.emissive = kindColor.clone();
+      material.emissiveIntensity = 0.6;
+    }
     const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(nodeRadius(node, deg.get(node.id) ?? 0) * (isFocus ? 1.6 : 1), 24, 16),
-      new THREE.MeshStandardMaterial({
-        color: isFocus ? textColor : (KIND_COLORS[node.kind] ?? textColor),
-        roughness: 0.55,
-        metalness: 0.1,
-      }),
+      new THREE.SphereGeometry(
+        nodeRadius(node, deg.get(node.id) ?? 0) * (isFocus ? 1.6 : isLit ? 1.35 : 1),
+        24,
+        16,
+      ),
+      material,
     );
     mesh.position.set(pos.x, pos.y, pos.z);
     mesh.userData.node = node;
+    // Click-selection (interaction.ts) restores THIS on deselect — hard-black
+    // would extinguish a lit journal node.
+    mesh.userData.baseEmissive = material.emissive.getHex();
     nodeMeshes.push(mesh);
     scene.add(mesh);
   });
+
+  // Open framed on the lit patch: target its centroid, back off in proportion
+  // to its spread. Runs before homePos/homeTarget capture, so the Reset
+  // button returns to the journal framing for free.
+  if (focusSet.size > 0) {
+    const litPos = payload.nodes
+      .filter((n) => focusSet.has(n.id))
+      .map((n) => positions.get(n.id))
+      .filter((p): p is NonNullable<typeof p> => !!p);
+    if (litPos.length > 0) {
+      const centroid = new THREE.Vector3();
+      litPos.forEach((p) => centroid.add(new THREE.Vector3(p.x, p.y, p.z)));
+      centroid.divideScalar(litPos.length);
+      const spread = Math.max(
+        ...litPos.map((p) => centroid.distanceTo(new THREE.Vector3(p.x, p.y, p.z))),
+      );
+      controls.target.copy(centroid);
+      camera.position.set(centroid.x, centroid.y + spread * 0.35, centroid.z + Math.max(60, spread * 2.4));
+      controls.update();
+    }
+  }
 
   // ── Edges ──
   // Hypercites: the brand SPECTRUM runs along each edge — subdivided segments

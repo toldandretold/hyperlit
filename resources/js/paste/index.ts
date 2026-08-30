@@ -539,6 +539,7 @@ async function handlePaste(event: any) {
 
       if (!config) {
         const generalConfig = getFormatConfig('general');
+        if (!generalConfig) throw new Error('Format registry is missing the "general" fallback');
         const ProcessorClass = generalConfig.processor;
         const processor = new ProcessorClass();
         const result = await processor.process(rawHtml, targetBookId);
@@ -648,10 +649,15 @@ async function handlePaste(event: any) {
       event,
       insertionPoint,
       contentToProcess,
-      !!htmlContent,
-      formatType, // Pass the detected format
-      extractedFootnotes, // Pass processor-extracted footnotes
-      extractedReferences // Pass processor-extracted references
+      {
+        isHtmlContent: !!htmlContent,
+        formatType,
+        extractedFootnotes,
+        extractedReferences,
+        // The fallback extractor must see the ORIGINAL clipboard HTML, not the
+        // format processor's transformed output.
+        pristineHtml: pristineClipboardHtml || undefined,
+      }
     );
 
     if (!pasteResult || !pasteResult.chunks || pasteResult.chunks.length === 0) {
@@ -660,6 +666,11 @@ async function handlePaste(event: any) {
 
     const newAndUpdatedNodes = pasteResult.chunks;
     const pasteBook = pasteResult.book;
+    // Read the counts BACK from the handler: when the format processor found
+    // nothing and the fallback extractor ran, these are the only accurate
+    // numbers, and they are what the conversion summary reports.
+    extractedFootnotes = pasteResult.footnotes ?? extractedFootnotes;
+    extractedReferences = pasteResult.references ?? extractedReferences;
 
     // Get the correct lazy loader based on context
     let loader: any;

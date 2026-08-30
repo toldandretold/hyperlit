@@ -377,6 +377,12 @@ Route::get('/q/{parentBook}/{subId}/data', [QuantizerController::class, 'subBook
 // its focused-3D URL (tiny blast radius, deliberate).
 Route::get('/3d/docuverse', [\App\Http\Controllers\DocuverseController::class, 'show'])
     ->name('docuverse.show');
+// The whole docuverse with a journal's articles LIT UP (not scoped) — the
+// journal hero links here. Two segments, so it can never collide with the
+// single-segment {rootBook} route below.
+Route::get('/3d/j/{slug}', [\App\Http\Controllers\DocuverseController::class, 'showJournal'])
+    ->where('slug', '[a-z0-9-]+')
+    ->name('docuverse.journal');
 // One book's corner of the docuverse — the connected component around it
 // (the yield report links here: the harvest confirmed it into a network).
 Route::get('/3d/{rootBook}', [\App\Http\Controllers\DocuverseController::class, 'show'])

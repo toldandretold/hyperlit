@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1788 functions in 377 modules · 10 object stores · 10 PG tables · 3676 edges
+**MarkdownDB** schema v28 · 1794 functions in 377 modules · 10 object stores · 10 PG tables · 3680 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1143,6 +1143,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `updateIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
 | `createNodeKey` | `indexedDB/core/utilities` | — | — | — | — |
 | `getLocalStorageKey` | `indexedDB/core/utilities` | — | — | — | — |
+| `isSyntheticFeedBook` | `indexedDB/core/utilities` | — | — | — | — |
+| `isUserHomeVariantBook` | `indexedDB/core/utilities` | — | — | — | — |
 | `parseNodeId` | `indexedDB/core/utilities` | — | — | — | — |
 | `toPublicNode` | `indexedDB/core/utilities` | — | — | — | — |
 | `getAllFootnotesForBook` | `indexedDB/footnotes/index` | `footnotes` | — | — | — |
@@ -1302,12 +1304,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hidePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
 | `updatePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
 | `initializeTimeMachine` | `pageLoad/timeMachine` | — | — | read/write | — |
-| `processContentForFootnotesAndReferences` | `paste/fallback-processor` | — | — | read | `↑route:/api/db/footnotes/upsert` `↑route:/api/db/references/upsert` |
-| `saveFootnotesToIndexedDB` | `paste/fallback-processor` | — | `footnotes` | — | — |
-| `saveReferencesToIndexedDB` | `paste/fallback-processor` | — | `bibliography` | — | — |
-| `detectFormat` | `paste/format-detection/format-detector` | — | — | read | — |
-| `detectFormatVerbose` | `paste/format-detection/format-detector` | — | — | read | — |
+| `processContentForFootnotesAndReferences` | `paste/fallback-processor` | — | — | — | — |
+| `detectFormat` | `paste/format-detection/format-detector` | — | — | — | — |
+| `detectFormatVerbose` | `paste/format-detection/format-detector` | — | — | — | — |
 | `getProcessorForContent` | `paste/format-detection/format-detector` | — | — | — | — |
+| `scoreFormats` | `paste/format-detection/format-detector` | — | — | read | — |
 | `getFormatConfig` | `paste/format-detection/format-registry` | — | — | — | — |
 | `getFormatsByPriority` | `paste/format-detection/format-registry` | — | — | — | — |
 | `registerFormat` | `paste/format-detection/format-registry` | — | — | — | — |
@@ -1406,6 +1407,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleHypercitePaste` | `paste/handlers/hyperciteHandler` | — | — | read/write | `↑route:/api/db/hypercites/upsert` |
 | `saveCurrentParagraph` | `paste/handlers/hyperciteHandler` | — | — | read | — |
 | `handleLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
+| `resolveExtraction` | `paste/handlers/largePasteHandler` | — | — | — | — |
 | `undoLastLargePaste` | `paste/handlers/largePasteHandler` | — | — | read/write | — |
 | `handleNovelVacuum` | `paste/handlers/novelVacuumHandler` | — | — | read/write | — |
 | `handleSmallPaste` | `paste/handlers/smallPasteHandler` | — | — | read/write | — |
@@ -1419,6 +1421,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showConversionModal` | `paste/ui/modalManager` | — | — | read/write | — |
 | `hidePasteUndoToast` | `paste/ui/pasteUndoToast` | — | — | read/write | — |
 | `showPasteUndoToast` | `paste/ui/pasteUndoToast` | — | — | read/write | — |
+| `applyAnchorFootnotes` | `paste/utils/anchor-footnotes` | — | — | write | — |
+| `extractFragment` | `paste/utils/anchor-footnotes` | — | — | — | — |
+| `maskDigits` | `paste/utils/anchor-footnotes` | — | — | — | — |
+| `parseMarkerNumber` | `paste/utils/anchor-footnotes` | — | — | — | — |
+| `resolveAnchorFootnotes` | `paste/utils/anchor-footnotes` | — | — | read | — |
 | `ensureSpaceAfterAnchor` | `paste/utils/anchorSpacing` | — | — | write | — |
 | `processInTextCitations` | `paste/utils/citation-linker` | — | — | read/write | — |
 | `convertTextToHtml` | `paste/utils/content-converter` | — | — | read/write | — |
@@ -1445,8 +1452,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `processFootnoteReferences` | `paste/utils/footnote-linker` | — | — | read/write | — |
 | `isBlockElement` | `paste/utils/html-block-parser` | — | — | — | — |
 | `parseHtmlToBlocks` | `paste/utils/html-block-parser` | — | — | write | — |
-| `isRealLink` | `paste/utils/html-preprocessor` | — | — | — | — |
-| `preprocessHTMLContent` | `paste/utils/html-preprocessor` | — | — | read/write | — |
 | `flattenForInlineHost` | `paste/utils/inline-fragment` | — | — | write | — |
 | `getInsertionPoint` | `paste/utils/insertion-point-calculator` | — | — | read | — |
 | `detectMarkdown` | `paste/utils/markdown-detector` | — | — | — | — |
@@ -1467,6 +1472,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hasReferenceStructure` | `paste/utils/reference-detection` | — | — | — | — |
 | `isArticleChrome` | `paste/utils/reference-detection` | — | — | — | — |
 | `isReferenceShaped` | `paste/utils/reference-detection` | — | — | — | — |
+| `ordinalDensity` | `paste/utils/reference-detection` | — | — | — | — |
 | `isReferenceHeading` | `paste/utils/reference-headings` | — | — | — | — |
 | `generateReferenceKeys` | `paste/utils/reference-key-generator` | — | — | — | — |
 | `addUniqueReference` | `paste/utils/transform-helpers` | — | — | — | — |

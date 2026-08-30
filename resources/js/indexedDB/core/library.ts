@@ -4,6 +4,7 @@
  */
 
 import { openDatabase } from './connection';
+import { isSyntheticFeedBook, isUserHomeVariantBook } from './utilities';
 import { buildBibtexEntry } from '../../utilities/bibtexProcessor';
 import { parseSubBookId } from '../../utilities/subBookIdHelper';
 
@@ -462,9 +463,13 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
       request.onerror = () => reject(request.error);
     });
 
-    // Filter out special homepage books (these are virtual/generated)
-    const specialBooks = ['most-recent', 'most-connected', 'most-lit'];
-    const userBooks = libraryRecords.filter(r => r && r.book && !specialBooks.includes(r.book));
+    // Filter out server-generated synthetic feeds (homepage feeds, shelf
+    // renders, sorted variants) and the user's own home-book variants —
+    // none of them are "books" a reader saved for offline.
+    const userPageBook = (window as any).userPageBook as string | undefined;
+    const userBooks = libraryRecords.filter(r => r && r.book
+      && !isSyntheticFeedBook(r.book)
+      && !isUserHomeVariantBook(r.book, userPageBook));
 
     // Get all unique book IDs from nodes store
     const booksWithNodes = await new Promise<Set<IDBValidKey>>((resolve, reject) => {

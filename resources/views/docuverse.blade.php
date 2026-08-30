@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $focusTitle ? $focusTitle . ' — in the Docuverse' : 'The Docuverse — Hyperlit' }}</title>
+    <title>{{ $focusTitle ? $focusTitle . ' — in the Docuverse' : (($focusJournal['name'] ?? null) ? $focusJournal['name'] . ' — in the Docuverse' : 'The Docuverse — Hyperlit') }}</title>
     <meta name="robots" content="noindex">
     @vite(['resources/css/pages/docuverse.css'])
 </head>
@@ -27,6 +27,11 @@
             <h1>{{ $focusTitle }}</h1>
             <span class="dv-header-sub">in the docuverse</span>
             <a href="/{{ $focusBook }}">&larr; Book</a>
+            <a href="/3d/docuverse">Whole docuverse &rarr;</a>
+        @elseif($focusJournal)
+            <h1>{{ $focusJournal['name'] }}</h1>
+            <span class="dv-header-sub">lit up in the docuverse</span>
+            <a href="/j/{{ $focusJournal['slug'] }}">&larr; Journal</a>
             <a href="/3d/docuverse">Whole docuverse &rarr;</a>
         @else
             <h1>The Docuverse</h1>
@@ -56,6 +61,11 @@
         <div id="dv-legend-body">
             @if($focusBook)
                 <div><span class="dot" style="background:var(--color-text)"></span>This book</div>
+            @endif
+            @if($focusJournal)
+                {{-- Lit journal nodes keep their kind colour and glow (emissive) —
+                     the ring swatch reads as "glowing", not a fourth kind. --}}
+                <div><span class="dot" style="background:transparent;box-shadow:0 0 5px 2px var(--dv-node-held)"></span>This journal&rsquo;s articles</div>
             @endif
             <div><span class="dot" style="background:var(--dv-node-held)"></span>Canonical source <span class="dv-legend-sub">&mdash; verified on an external database</span></div>
             <div><span class="dot" style="background:var(--dv-node-book)"></span>Source <span class="dv-legend-sub">&mdash; in hyperlit, not linked to an external record</span></div>
@@ -113,7 +123,7 @@
     <div class="dv-status" id="dv-status">Charting the docuverse&hellip;</div>
 
     <script>
-        window.__docuverse = { focus: @json($focusBook) };
+        window.__docuverse = { focus: @json($focusBook), journal: @json($focusJournal['slug'] ?? null) };
     </script>
     @vite(['resources/js/docuverse3d/main.ts'])
 </body>

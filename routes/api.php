@@ -618,6 +618,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('book', '[A-Za-z0-9_-]+');
     Route::post('/maintainer/journal-import/promote/{book}', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'promote'])
         ->where('book', '[A-Za-z0-9_-]+');
+    // Vouch for a journal: certified journals are the ones the homepage links out to.
+    // Synchronous like promote/resolve — it writes one column, so it must not take the
+    // journal's in-flight run lock and stall behind an import.
+    Route::post('/maintainer/journal-import/{slug}/certify', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'certify'])
+        ->where('slug', '[a-z0-9-]+');
 
     // Shelf-import console: journal-import's assessment workflow over any public shelf.
     // Only `shelves` (picker), `articles` and `run` are shelf-scoped — promote / resolve /

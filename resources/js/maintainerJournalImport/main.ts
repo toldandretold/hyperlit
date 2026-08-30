@@ -25,6 +25,8 @@ interface JournalRow {
   openalex_source_id: string;
   is_diamond: boolean;
   diamond_provenance: string | null;
+  /** An operator vouched for this journal — it is listed on the homepage. Toggled on the detail page. */
+  certified: boolean;
   works_count: number | null;
   cited_by_count: number | null;
   last_harvested_at: string | null;
@@ -189,6 +191,17 @@ function renderJournalList(listId: string, emptyId: string, rows: JournalRow[], 
       item.appendChild(badge);
     }
 
+    // Read-only: the row is an <a>, so the toggle can't live here (a button inside an
+    // anchor is invalid markup). It's on the journal's own page, which is where you'd
+    // have just read the conversions you're vouching for.
+    if (j.certified) {
+      const badge = document.createElement('span');
+      badge.className = 'ji-badge ji-badge-certified';
+      badge.textContent = '★ certified';
+      badge.title = 'Listed on the Hyperlit homepage';
+      item.appendChild(badge);
+    }
+
     list.appendChild(item);
   }
 }
@@ -234,6 +247,8 @@ async function loadDetail(): Promise<void> {
       `${est.already_harvested ?? 0} imported · ${est.eligible ?? 0} eligible · ${est.total ?? 0} enumerated`
       + (j.publisher ? ` · ${j.publisher}` : '');
     link.href = j.public_page;
+    // Server truth, every reload — the flag is settable from anywhere with the API.
+    paintCertifyButton(!!j.certified);
   }
 
   // The selected lane is a snapshot of the previous payload; re-point it at the fresh row so the
@@ -1236,6 +1251,38 @@ function wireJournalActions(): void {
     if (node) node.textContent = text;
   };
 
+  const certify = document.getElementById('ji-certify');
+  certify?.addEventListener('click', () => {
+    // The button's own pressed state is the current value — it is painted from the
+    // server on every loadDetail(), so there is no separate copy to drift.
+    const next = certify.getAttribute('aria-pressed') !== 'true';
+    void (async () => {
+      const headers = await csrfHeaders();
+      if (!headers) return;
+      certify.setAttribute('disabled', 'true');
+      try {
+        const resp = await fetch(`${apiBase()}/certify`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ certified: next }),
+        });
+        if (!resp.ok) {
+          log.error(`Certify failed (${resp.status})`, 'maintainer-journal-import');
+          setJournalStatus(`could not certify (${resp.status})`);
+          return;
+        }
+        const data = await resp.json();
+        paintCertifyButton(!!data.certified);
+        setJournalStatus(data.certified
+          ? 'certified — listed on the homepage once it has a readable article'
+          : 'no longer certified — removed from the homepage');
+      } finally {
+        certify.removeAttribute('disabled');
+      }
+    })();
+  });
+
   document.getElementById('ji-enumerate')?.addEventListener('click', () => {
     void runAction({ action: 'enumerate' }, setJournalStatus, buttons);
   });
@@ -1256,6 +1303,18 @@ function wireJournalActions(): void {
 
     void runAction({ action: 'import_all', lanes, limit }, setJournalStatus, buttons);
   });
+}
+
+/**
+ * Paint the certify toggle from a known state. Absent on the shelf console, which has no
+ * journal to certify — every caller is a no-op there.
+ */
+function paintCertifyButton(certified: boolean): void {
+  const button = document.getElementById('ji-certify');
+  if (!button) return;
+  button.setAttribute('aria-pressed', certified ? 'true' : 'false');
+  button.classList.toggle('ji-on', certified);
+  button.textContent = certified ? '★ certified' : '☆ certify';
 }
 
 // ── Shelf index page ───────────────────────────────────────────────────────

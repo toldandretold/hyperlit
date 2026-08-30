@@ -925,6 +925,43 @@ class UserHomeServerController extends Controller
             return response()->json(['bookId' => $bookName]);
         }
 
+        return $this->renderSortedFeed($username, $sanitizedUsername, $visibility, $sort, true);
+    }
+
+    /**
+     * Public sorted render of a user's public library (no auth required).
+     * Mirrors renderSorted() but resolves user by username, hardcodes public visibility.
+     */
+    public function publicRenderSorted(Request $request, string $username)
+    {
+        $request->validate([
+            'sort' => 'required|string|in:recent,connected,lit,title,author',
+        ]);
+
+        $user = \App\Models\User::findByNamePublic($username);
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $actualUsername = $user->name;
+        $sanitizedUsername = $this->sanitizeUsername($actualUsername);
+        $sort = $request->sort;
+
+        // "recent" = default book, no synthetic needed
+        if ($sort === 'recent') {
+            return response()->json(['bookId' => $sanitizedUsername]);
+        }
+
+        return $this->renderSortedFeed($actualUsername, $sanitizedUsername, 'public', $sort, false);
+    }
+
+    /**
+     * The shared body of renderSorted()/publicRenderSorted(). Owner and public
+     * differ only in: which visibilities are included ('all' is owner-only),
+     * the isOwner/isPrivate card flags, and the synthetic row's visibility.
+     */
+    private function renderSortedFeed(string $username, string $sanitizedUsername, string $visibility, string $sort, bool $isOwner)
+    {
         $syntheticBookId = $sanitizedUsername . '_' . $visibility . '_' . $sort;
 
         // Check cache — a ranking sort's order changes behind the render, so it
@@ -985,102 +1022,12 @@ class UserHomeServerController extends Controller
         $chunks = [];
         $positionId = 100;
         foreach ($records as $i => $record) {
-            $isPrivate = ($visibility === 'all' && ($record->visibility ?? 'public') === 'private');
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, true, false, $i, 'public', false, $isPrivate);
+            $isPrivate = ($isOwner && $visibility === 'all' && ($record->visibility ?? 'public') === 'private');
+            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', false, $isPrivate);
             $positionId++;
         }
         if ($records->isEmpty()) {
-            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0, $visibility === 'all' ? 'public' : $visibility);
-        }
-        foreach (array_chunk($chunks, 500) as $batch) {
-            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
-        }
-
-        return response()->json(['bookId' => $syntheticBookId]);
-    }
-
-    /**
-     * Public sorted render of a user's public library (no auth required).
-     * Mirrors renderSorted() but resolves user by username, hardcodes public visibility.
-     */
-    public function publicRenderSorted(Request $request, string $username)
-    {
-        $request->validate([
-            'sort' => 'required|string|in:recent,connected,lit,title,author',
-        ]);
-
-        $user = \App\Models\User::findByNamePublic($username);
-        if (!$user) {
-            return response()->json(['error' => 'User not found'], 404);
-        }
-
-        $actualUsername = $user->name;
-        $sanitizedUsername = $this->sanitizeUsername($actualUsername);
-        $sort = $request->sort;
-
-        // "recent" = default book, no synthetic needed
-        if ($sort === 'recent') {
-            return response()->json(['bookId' => $sanitizedUsername]);
-        }
-
-        $syntheticBookId = $sanitizedUsername . '_public_' . $sort;
-
-        // Check cache — a ranking sort's order changes behind the render, so it
-        // expires; title/author/recent stay cached as before.
-        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()
-            && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
-            return response()->json(['bookId' => $syntheticBookId]);
-        }
-
-        // Fetch + sort
-        $records = DB::connection('pgsql_admin')->table('library')
-            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_highlights', 'hypercite_connections', 'reference_connections'])
-            ->where('creator', $actualUsername)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->where('visibility', 'public')
-            ->get();
-
-        $records = match ($sort) {
-            'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
-            'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
-            // Same definition as the shelf feeds — see ConnectionCountQuery.
-            'connected' => ConnectionCountQuery::sortConnected($records),
-            'lit' => ConnectionCountQuery::sortLit($records),
-            default => $records->sortByDesc('created_at'),
-        };
-        $records = $records->values();
-
-        // Create synthetic library entry + nodes
-        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
-            ['book' => $syntheticBookId],
-            [
-                'title' => $actualUsername . "'s library ({$sort})",
-                'visibility' => 'public',
-                'listed' => false,
-                'creator' => $actualUsername,
-                'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_home_sorted', 'username' => $actualUsername, 'visibility' => 'public', 'sort' => $sort]),
-                'timestamp' => round(microtime(true) * 1000),
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
-        );
-
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
-
-        $generator = new LibraryCardGenerator();
-        $chunks = [];
-        $positionId = 100;
-        foreach ($records as $i => $record) {
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, false, false, $i);
-            $positionId++;
-        }
-        if ($records->isEmpty()) {
-            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, false, true, 0, 'public');
+            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, $isOwner, true, 0, $visibility === 'all' ? 'public' : $visibility);
         }
         foreach (array_chunk($chunks, 500) as $batch) {
             DB::connection('pgsql_admin')->table('nodes')->insert($batch);

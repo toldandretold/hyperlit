@@ -3,17 +3,86 @@
  * Identifies the format of pasted HTML content using CSS selectors
  */
 
-import { getFormatsByPriority, getFormatConfig } from './format-registry';
+import { getFormatsByPriority, getFormatConfig, type FormatConfig } from './format-registry';
 import { createTempDOM } from '../utils/dom-utils';
 
+export interface FormatScore {
+  formatType: string;
+  config: FormatConfig;
+  /** Vendor-specific selectors that matched — these are what DECIDE a format. */
+  signatureHits: SelectorHit[];
+  /** Generic selectors that matched — corroboration for the log line only. */
+  supportingHits: SelectorHit[];
+  /** Publisher-domain selectors that matched — a demoted fallback. */
+  domainHits: SelectorHit[];
+  totalMatches: number;
+}
+
+export interface SelectorHit {
+  selector: string;
+  count: number;
+}
+
+function countMatches(root: Element, selectors: readonly string[], formatType: string): SelectorHit[] {
+  const hits: SelectorHit[] = [];
+  for (const selector of selectors) {
+    try {
+      const count = root.querySelectorAll(selector).length;
+      if (count > 0) hits.push({ selector, count });
+    } catch (error: unknown) {
+      console.warn(`Invalid selector "${selector}" for format "${formatType}":`, error);
+    }
+  }
+  return hits;
+}
+
 /**
- * Detect the format of HTML content
- * Uses CSS selector matching against registered formats
+ * Score every registered format against the content, in priority order.
+ *
+ * Single source of truth for matching, so `detectFormat` and
+ * `detectFormatVerbose` cannot drift apart — they did before, because the
+ * verbose variant reimplemented the loop and omitted the domain-fallback rule
+ * entirely, disagreeing on any Wiley / T&F / Sage domain-only payload.
+ */
+export function scoreFormats(root: Element): FormatScore[] {
+  return getFormatsByPriority().map(([formatType, config]) => {
+    const signatureHits = countMatches(root, config.signature, formatType);
+    const supportingHits = countMatches(root, config.supporting, formatType);
+    const domainHits = countMatches(root, config.domain, formatType);
+    const totalMatches = [...signatureHits, ...supportingHits, ...domainHits]
+      .reduce((sum, hit) => sum + hit.count, 0);
+
+    return { formatType, config, signatureHits, supportingHits, domainHits, totalMatches };
+  });
+}
+
+function logDetection(score: FormatScore, label: string, hits: readonly SelectorHit[]) {
+  console.log(`📚 Detected ${score.formatType} format${label}:`);
+  console.log(`  - Matched ${hits.length}/${score.config.selectors.length} selector patterns`);
+  console.log(`  - Total elements: ${score.totalMatches}`);
+  console.log(`  - Priority: ${score.config.priority}`);
+  console.log(`  - Description: ${score.config.description}`);
+  hits.forEach((hit) => console.log(`    ✓ ${hit.selector} (${hit.count} matches)`));
+  if (score.supportingHits.length > 0 && hits !== score.supportingHits) {
+    const corroborating = score.supportingHits.map((h) => `${h.selector} (${h.count})`).join(', ');
+    console.log(`    · corroborating: ${corroborating}`);
+  }
+}
+
+/**
+ * Detect the format of HTML content.
+ *
+ * A format is CHOSEN only on a `signature` match. `supporting` selectors are too
+ * generic to decide anything — before that distinction existed, a Webflow
+ * think-tank page matched sage's `[role="listitem"]` on 2 elements and was
+ * handed to SageProcessor (prod report book_1787965215968). `domain` matches are
+ * held back and used only if nothing matched structurally, so quoting a
+ * publisher's URL cannot hijack the format.
  *
  * @param {string} htmlContent - HTML content to analyze
  * @returns {string} - Format type identifier (e.g., 'cambridge', 'oup', 'general')
  */
-export function detectFormat(htmlContent: any) {
+export function detectFormat(htmlContent: string | null | undefined): string {
   if (!htmlContent || typeof htmlContent !== 'string') {
     console.log('📚 No HTML content provided, using general format');
     return 'general';
@@ -21,75 +90,36 @@ export function detectFormat(htmlContent: any) {
 
   const tempDiv = createTempDOM(htmlContent);
 
-  // Get formats sorted by priority (highest first)
-  const formats = getFormatsByPriority();
-
   console.log('🔍 Detecting format from pasted content...');
 
   // Domain-only matches are saved as fallback — structural matches always win
-  let domainOnlyFallback: any = null;
+  let domainOnlyFallback: FormatScore | null = null;
 
-  for (const [formatType, config] of formats) {
+  for (const score of scoreFormats(tempDiv)) {
     // Fallback format (general) has no selectors - always matches
-    if (config.selectors.length === 0) {
-      // Use domain-only fallback if we found one, otherwise use general
+    if (score.config.selectors.length === 0) {
       if (domainOnlyFallback) {
-        const { formatType: fbType, matchedSelectors: fbSels, totalMatches: fbTotal, config: fbConfig } = domainOnlyFallback;
-        console.log(`📚 Detected ${fbType} format (domain-only fallback):`);
-        console.log(`  - Matched ${fbSels.length}/${fbConfig.selectors.length} selector patterns`);
-        console.log(`  - Total elements: ${fbTotal}`);
-        console.log(`  - Priority: ${fbConfig.priority}`);
-        console.log(`  - Description: ${fbConfig.description}`);
-        fbSels.forEach((sel: any) => {
-          const count = tempDiv.querySelectorAll(sel).length;
-          console.log(`    ✓ ${sel} (${count} matches)`);
-        });
-        return fbType;
+        logDetection(domainOnlyFallback, ' (domain-only fallback)', domainOnlyFallback.domainHits);
+        return domainOnlyFallback.formatType;
       }
-      console.log(`📚 Using fallback format: ${formatType}`);
-      return formatType;
+      console.log(`📚 Using fallback format: ${score.formatType}`);
+      return score.formatType;
     }
 
-    // Check if any selector matches
-    const matchedSelectors: any[] = [];
-    let totalMatches = 0;
-
-    for (const selector of config.selectors) {
-      try {
-        const elements = tempDiv.querySelectorAll(selector);
-        if (elements.length > 0) {
-          matchedSelectors.push(selector);
-          totalMatches += elements.length;
-        }
-      } catch (error: any) {
-        console.warn(`Invalid selector "${selector}" for format "${formatType}":`, error);
-      }
+    if (score.signatureHits.length > 0) {
+      logDetection(score, '', score.signatureHits);
+      return score.formatType;
     }
 
-    // If we found matches, check whether they're all domain-based (href*=)
-    if (matchedSelectors.length > 0) {
-      const allDomainOnly = matchedSelectors.every((sel: any) => /^a\[href\*=/.test(sel));
+    if (score.domainHits.length > 0 && !domainOnlyFallback) {
+      console.log(`  ⏳ ${score.formatType}: domain-only match, saving as fallback`);
+      domainOnlyFallback = score;
+      continue;
+    }
 
-      if (allDomainOnly && !domainOnlyFallback) {
-        // Save as fallback — continue checking lower-priority formats for structural matches
-        console.log(`  ⏳ ${formatType}: domain-only match, saving as fallback`);
-        domainOnlyFallback = { formatType, matchedSelectors, totalMatches, config };
-        continue;
-      }
-
-      console.log(`📚 Detected ${formatType} format:`);
-      console.log(`  - Matched ${matchedSelectors.length}/${config.selectors.length} selector patterns`);
-      console.log(`  - Total elements: ${totalMatches}`);
-      console.log(`  - Priority: ${config.priority}`);
-      console.log(`  - Description: ${config.description}`);
-
-      // Log which selectors matched (helpful for debugging)
-      matchedSelectors.forEach((sel: any) => {
-        const count = tempDiv.querySelectorAll(sel).length;
-        console.log(`    ✓ ${sel} (${count} matches)`);
-      });
-
-      return formatType;
+    if (score.supportingHits.length > 0) {
+      const seen = score.supportingHits.map((h) => `${h.selector} (${h.count})`).join(', ');
+      console.log(`  ⏭️ ${score.formatType}: only generic selectors matched, not decisive — ${seen}`);
     }
   }
 
@@ -124,64 +154,35 @@ export function getProcessorForContent(htmlContent: any) {
  * Detect format and return detailed information
  * Useful for debugging and logging
  *
+ * Delegates the verdict to `detectFormat` rather than re-deriving it: the two
+ * used to reimplement the same loop and the verbose one omitted the
+ * domain-fallback rule, so they disagreed on any domain-only payload.
+ *
  * @param {string} htmlContent - HTML content to analyze
  * @returns {Object} - Detailed format information
  */
-export function detectFormatVerbose(htmlContent: any) {
-  const tempDiv = createTempDOM(htmlContent);
-  const formats = getFormatsByPriority();
+export function detectFormatVerbose(htmlContent: string | null | undefined) {
+  const tempDiv = createTempDOM(htmlContent || '');
 
-  const results: any[] = [];
-
-  for (const [formatType, config] of formats) {
-    if (config.selectors.length === 0) {
-      results.push({
-        formatType,
-        matched: true,
-        matchCount: 0,
-        priority: config.priority,
-        description: config.description,
-        matchedSelectors: []
-      });
-      continue;
-    }
-
-    const matchedSelectors: any[] = [];
-    let totalMatches = 0;
-
-    for (const selector of config.selectors) {
-      try {
-        const elements = tempDiv.querySelectorAll(selector);
-        if (elements.length > 0) {
-          matchedSelectors.push({
-            selector,
-            count: elements.length
-          });
-          totalMatches += elements.length;
-        }
-      } catch (error: any) {
-        // Skip invalid selectors
-      }
-    }
-
-    results.push({
-      formatType,
-      matched: matchedSelectors.length > 0,
-      matchCount: totalMatches,
-      priority: config.priority,
-      description: config.description,
-      matchedSelectors
-    });
-  }
-
-  // Sort by priority
-  results.sort((a, b) => b.priority - a.priority);
-
-  // Find the first match
-  const detectedFormat = results.find((r: any) => r.matched);
+  const allResults = scoreFormats(tempDiv).map((score) => ({
+    formatType: score.formatType,
+    // A format is only "matched" in the sense that DECIDES anything when a
+    // signature or domain selector hit; generic corroboration does not count.
+    matched: score.config.selectors.length === 0
+      || score.signatureHits.length > 0
+      || score.domainHits.length > 0,
+    matchCount: score.totalMatches,
+    priority: score.config.priority,
+    description: score.config.description,
+    matchedSelectors: [...score.signatureHits, ...score.supportingHits, ...score.domainHits]
+      .map((hit) => ({ selector: hit.selector, count: hit.count })),
+    signatureSelectors: score.signatureHits.map((hit) => hit.selector),
+    supportingSelectors: score.supportingHits.map((hit) => hit.selector),
+    domainSelectors: score.domainHits.map((hit) => hit.selector),
+  }));
 
   return {
-    detectedFormat: detectedFormat?.formatType || 'general',
-    allResults: results
+    detectedFormat: detectFormat(htmlContent),
+    allResults,
   };
 }

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\JournalHarvest\CertifiedJournalsQuery;
+
 class HomeController extends Controller
 {
     /**
@@ -9,7 +11,7 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function index()
+    public function index(CertifiedJournalsQuery $certifiedJournals)
     {
         return view('home', [
             'pageType' => 'home',
@@ -22,6 +24,11 @@ class HomeController extends Controller
             // pressed (the lava-lamp hero). The crawlable SEO body is the
             // .welcome-copy copy in home.blade.php + the JSON-LD below.
             'jsonLd' => $this->buildHomeJsonLd(),
+            // The diamond journals we host, for the copy block at the end of
+            // .welcome-copy. Certified + at least one readable article, so the
+            // list can never point at an empty journal page. No response cache
+            // on this route, so a certify toggle is live on the next request.
+            'certifiedJournals' => $certifiedJournals->forHomepage(),
         ]);
     }
 

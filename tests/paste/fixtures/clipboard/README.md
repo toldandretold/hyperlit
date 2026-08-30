@@ -53,6 +53,7 @@ publisher redesigns their site, and tests run instantly with no network.
 - **`springer-fn-`** — Springer (footnote style)
 - **`springer-ad-`** — Springer (author-date style)
 - **`generic-`** — synthetic fixture for the GeneralProcessor fallback (no publisher markup). Used when the real payload can't be committed — e.g. `generic-bracket-endnotes.html` mirrors the *shape* of a private user paste (prod case book_1786957563012: plain-text `[N]` markers + `[N] …` endnote paragraphs) with neutral stand-in text.
+- **`web-`** — a REAL clipboard capture from a non-publisher page, i.e. the GeneralProcessor lane. Unlike `generic-`, the payload is verbatim: full CMS chrome, absolute-URL fragments, inline styles. These are the fixtures that keep `resources/js/paste/utils/anchor-footnotes.ts` honest, because the anchor vocabulary is whatever the CMS happened to choose — `pub-footnote-N` on Webflow, `cite_ref-N` on MediaWiki, `_ftnref1` out of Word. Name as `web-<site>-<shape>.html`.
 
 ## Reference URLs used to seed this corpus
 

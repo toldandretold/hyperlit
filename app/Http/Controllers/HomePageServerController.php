@@ -13,14 +13,13 @@ Most Connected: Ranks by hypercite_connections, then reference_connections as a
 Most Lit: Ranks by hypercite_connections + total_highlights — human annotation
   activity, deliberately EXCLUDING the machine-detected reference edges so it
   says something different from Most Connected.
-Both scores are written by App\Services\Connections\ConnectionCountQuery, which
-owns the definition (both directions, distinct counterparts, inbound weighted
-double, self/same-owner edges dropped). created_at is the final tiebreaker.
-
-The ranking logic ensures that:
-Higher metric values get lower ranking numbers (1 = best)
-When two books have the same metric value, the one created first gets the better ranking
-Each book gets a unique ranking number (1, 2, 3, etc.) 
+Both the SCORES and the SORTS are owned by App\Services\Connections\
+ConnectionCountQuery (both directions, distinct counterparts, inbound weighted
+double, self/same-owner edges dropped): this controller calls recompute() then
+sortConnected()/sortLit() — the same delegation every shelf/user feed uses, so
+all feeds agree. created_at (newest first) is the final tiebreaker. Card HTML
+comes from the shared App\Services\LibraryCardGenerator (escaped citations,
+bibtex-aware) — do not hand-roll cards or rankings here again.
 
 call this in terminal to update the nodes table with:
 
@@ -38,6 +37,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
 use App\Services\Connections\ConnectionCountQuery;
+use App\Services\LibraryCardGenerator;
 
 class HomePageServerController extends Controller
 {
@@ -102,22 +102,24 @@ class HomePageServerController extends Controller
         (new ConnectionCountQuery())->recompute();
 
         // Get all library records with the required columns, excluding unlisted books
+        $cardColumns = [
+            'book',
+            'recent',
+            'total_highlights',
+            'hypercite_connections',
+            'reference_connections',
+            'total_views',
+            'created_at',
+            'bibtex',
+            'title',
+            'author',
+            'year',
+            'publisher',
+            'journal',
+            'encrypted',
+        ];
         $libraryRecords = DB::table('library')
-            ->select([
-                'book',
-                'recent',
-                'total_highlights',
-                'hypercite_connections',
-                'reference_connections',
-                'total_views',
-                'created_at',
-                'bibtex',
-                'title',
-                'author',
-                'year',
-                'publisher',
-                'journal'
-            ])
+            ->select($cardColumns)
             ->where('listed', true)
             ->whereNotIn('visibility', ['private', 'deleted'])
             ->whereNotIn('book', ['stats', 'most-recent', 'most-connected', 'most-lit'])
@@ -127,32 +129,27 @@ class HomePageServerController extends Controller
         // Use admin connection to bypass RLS for system-generated content
         $adminDb = DB::connection('pgsql_admin');
 
-        // Calculate rankings
-        $rankings = $this->calculateRankings($libraryRecords);
-
-        // Pin book at top of most-recent list
-        $pinnedBookInRecords = $libraryRecords->contains('book', self::PINNED_BOOK_ID);
-        if (!$pinnedBookInRecords) {
-            $pinnedRecord = DB::table('library')
-                ->select([
-                    'book', 'recent', 'total_highlights', 'hypercite_connections',
-                    'reference_connections',
-                    'total_views', 'created_at', 'bibtex', 'title', 'author',
-                    'year', 'publisher', 'journal'
-                ])
+        // Pin book at top of most-recent. If it isn't in the ranked set (e.g.
+        // unlisted) it's fetched separately and appears ONLY in most-recent —
+        // it never enters the connected/lit rankings.
+        $pinnedRecord = $libraryRecords->firstWhere('book', self::PINNED_BOOK_ID)
+            ?? DB::table('library')
+                ->select($cardColumns)
                 ->where('book', self::PINNED_BOOK_ID)
                 ->first();
 
-            if ($pinnedRecord) {
-                $libraryRecords->push($pinnedRecord);
-            }
+        $mostRecent = $libraryRecords
+            ->sortByDesc(fn ($r) => strtotime($r->created_at))
+            ->reject(fn ($r) => $r->book === self::PINNED_BOOK_ID)
+            ->values();
+        if ($pinnedRecord) {
+            $mostRecent->prepend($pinnedRecord);
         }
 
-        // Shift all mostRecent rankings down by 1 and pin at position 1
-        foreach ($rankings['mostRecent'] as $book => $rank) {
-            $rankings['mostRecent'][$book] = $rank + 1;
-        }
-        $rankings['mostRecent'][self::PINNED_BOOK_ID] = 1;
+        // The one connectedness definition (review gate): both sorts delegate
+        // to ConnectionCountQuery — never re-rank locally.
+        $mostConnected = ConnectionCountQuery::sortConnected($libraryRecords)->values();
+        $mostLit = ConnectionCountQuery::sortLit($libraryRecords)->values();
 
         // Clear existing entries for our special books
         $adminDb->table('nodes')->whereIn('book', [
@@ -165,9 +162,9 @@ class HomePageServerController extends Controller
         $this->createLibraryEntries($adminDb);
 
         // Create entries for each special book
-        $this->createNodesForBook('most-recent', $libraryRecords, $rankings['mostRecent'], $adminDb);
-        $this->createNodesForBook('most-connected', $libraryRecords, $rankings['mostConnected'], $adminDb);
-        $this->createNodesForBook('most-lit', $libraryRecords, $rankings['mostLit'], $adminDb);
+        $this->writeFeedNodes('most-recent', $mostRecent, $adminDb);
+        $this->writeFeedNodes('most-connected', $mostConnected, $adminDb);
+        $this->writeFeedNodes('most-lit', $mostLit, $adminDb);
 
         return response()->json([
             'success' => true,
@@ -208,420 +205,25 @@ class HomePageServerController extends Controller
         $adminDb->table('library')->insert($libraryEntries);
     }
 
-    private function createNodesForBook($bookName, $libraryRecords, $positionData, $adminDb)
+    /**
+     * Write one ranked feed as libraryCard nodes. Card HTML comes from the
+     * shared LibraryCardGenerator (same cards as shelf/user-home renders —
+     * escaped citations, data-node-id, card-citation wrapper).
+     */
+    private function writeFeedNodes(string $bookName, $records, $adminDb): void
     {
+        $generator = new LibraryCardGenerator();
         $chunks = [];
-        $currentTime = Carbon::now();
 
-        foreach ($libraryRecords as $record) {
-            // Get the position ID based on book type
-            $positionId = $positionData[$record->book] ?? null;
-
-            if ($positionId === null) {
-                continue;
-            }
-
-            // Calculate chunk_id (0 for positions 1-100, 1 for 101-200, etc.)
-            $chunkId = floor(($positionId - 1) / 100);
-
-            // Generate content with citation
-            $citationHtml = $this->generateCitationHtml($record);
-            $content = '<p class="libraryCard" id="' . $positionId . '">'
-                    . $citationHtml
-                    . '<a href="/' . $record->book . '"><span class="open-icon">↗</span></a>'
-                    . '<a href="#" class="book-actions" data-book="' . $record->book . '" title="Actions" aria-label="Actions">'
-                    . '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
-                    . '<circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>'
-                    . '</svg></a>'
-                    . '</p>';
-
-            // Create the chunk entry
-            $chunks[] = [
-                'book' => $bookName,
-                'chunk_id' => $chunkId,
-                'startLine' => $positionId,
-                'node_id' => $bookName . '_' . $record->book . '_card',
-                'content' => $content,
-                'plainText' => strip_tags($citationHtml),
-                'type' => 'p',
-                'created_at' => $currentTime,
-                'updated_at' => $currentTime
-            ];
+        foreach ($records->values() as $i => $record) {
+            // positionId = $i + 1 → startLine 1..N; the generator's
+            // floor($i / 100) chunk math matches the old floor((pos - 1) / 100).
+            $chunks[] = $generator->generateLibraryCardChunk($record, $bookName, $i + 1, false, false, $i);
         }
 
-        // Insert all chunks for this book
-        if (!empty($chunks)) {
-            $adminDb->table('nodes')->insert($chunks);
+        foreach (array_chunk($chunks, 500) as $batch) {
+            $adminDb->table('nodes')->insert($batch);
         }
-    }
-
-    private function generateCitationHtml($record)
-    {
-        // First try to parse bibtex if it exists
-        if (!empty($record->bibtex)) {
-            $citationHtml = $this->parseBibtexToHtml($record->bibtex);
-            if (!empty($citationHtml)) {
-                return $citationHtml;
-            }
-        }
-
-        // Fallback to using individual fields
-        return $this->generateFallbackCitation($record);
-    }
-
-    private function generateFallbackCitation($record)
-    {
-        $html = '';
-
-        // Check if we have any meaningful data
-        $hasTitle = !empty($record->title);
-        $hasAuthor = !empty($record->author);
-        $hasYear = !empty($record->year);
-        $hasPublisher = !empty($record->publisher);
-        $hasJournal = !empty($record->journal);
-
-        // If we have no meaningful citation data, use default
-        if (!$hasTitle && !$hasAuthor && !$hasYear && !$hasPublisher && !$hasJournal) {
-            return 'Anon., <em>Unreferenced</em>';
-        }
-
-        // Author
-        if ($hasAuthor) {
-            $author = $this->anonymizeIfNeeded($record->author);
-            $html .= "<strong>{$author}</strong>. ";
-        } else {
-            $html .= "<strong>Anon.</strong> ";
-        }
-
-        // Title
-        if ($hasTitle) {
-            // Determine if it should be italicized (assume book if no journal)
-            if ($hasJournal) {
-                $html .= "\"{$record->title}.\" ";
-            } else {
-                $html .= "<em>{$record->title}</em>. ";
-            }
-        } else {
-            $html .= "<em>Unreferenced</em>. ";
-        }
-
-        // Journal
-        if ($hasJournal) {
-            $html .= "<em>{$record->journal}</em>. ";
-        }
-
-        // Publisher
-        if ($hasPublisher && !$hasJournal) {
-            $html .= "{$record->publisher}. ";
-        }
-
-        // Year
-        if ($hasYear) {
-            $html .= "{$record->year}";
-        }
-
-        // Clean up extra spaces and add final period if needed
-        $html = preg_replace('/\s+/', ' ', $html);
-        $html = trim($html);
-        
-        if (!empty($html) && !in_array(substr($html, -1), ['.', '!', '?'])) {
-            $html .= '.';
-        }
-
-        return $html;
-    }
-
-    private function parseBibtexToHtml($bibtex)
-    {
-        if (empty($bibtex)) {
-            return '';
-        }
-
-        // Parse BibTeX entry
-        $parsed = $this->parseBibtexEntry($bibtex);
-        
-        if (empty($parsed)) {
-            return '';
-        }
-
-        // Generate HTML based on entry type
-        return $this->generateHtmlCitation($parsed);
-    }
-
-    private function parseBibtexEntry($bibtex)
-    {
-        // Remove extra whitespace and normalize
-        $bibtex = trim($bibtex);
-        
-        // Match the entry type and key
-        if (!preg_match('/@(\w+)\s*\{\s*([^,]+)\s*,/', $bibtex, $matches)) {
-            return null;
-        }
-
-        $entryType = strtolower($matches[1]);
-        $key = trim($matches[2]);
-
-        // Extract fields
-        $fields = [];
-        
-        // Match field = {value} or field = "value" patterns
-        preg_match_all('/(\w+)\s*=\s*[{"](.*?)["}](?=\s*,|\s*})/s', $bibtex, $fieldMatches, PREG_SET_ORDER);
-        
-        foreach ($fieldMatches as $match) {
-            $fieldName = strtolower(trim($match[1]));
-            $fieldValue = trim($match[2]);
-            $fields[$fieldName] = $fieldValue;
-        }
-
-        return [
-            'type' => $entryType,
-            'key' => $key,
-            'fields' => $fields
-        ];
-    }
-
-    private function generateHtmlCitation($parsed)
-    {
-        $fields = $parsed['fields'];
-        $type = $parsed['type'];
-
-        // Helper function to get field value
-        $get = function($field) use ($fields) {
-            return $fields[$field] ?? '';
-        };
-
-        $html = '';
-
-        // Author with anonymization check
-        if ($author = $get('author')) {
-            // Check if author should be anonymized
-            $author = $this->anonymizeIfNeeded($author);
-            $html .= "<strong>{$author}</strong>. ";
-        }
-        // Title
-        if ($title = $get('title')) {
-            if (in_array($type, ['book', 'inbook', 'incollection'])) {
-                $html .= "<em>{$title}</em>. ";
-            } else {
-                $html .= "\"{$title}.\" ";
-            }
-        }
-
-        // Handle different entry types
-        switch ($type) {
-            case 'article':
-                // Match JavaScript bibtexProcessor.js formatting
-                if ($journal = $get('journal')) {
-                    $html .= ", <em>{$journal}</em>";
-                }
-                if ($volume = $get('volume')) {
-                    $html .= ", {$volume}";
-                    if ($number = $get('number')) {
-                        $html .= "({$number})";
-                    }
-                }
-                if ($year = $get('year')) {
-                    $html .= " ({$year})";
-                }
-                if ($pages = $get('pages')) {
-                    $html .= ", {$pages}";
-                }
-                break;
-
-            case 'book':
-            case 'inbook':
-                if ($publisher = $get('publisher')) {
-                    $html .= "{$publisher}";
-                }
-                if ($address = $get('address')) {
-                    $html .= ", {$address}";
-                }
-                break;
-
-            case 'incollection':
-                if ($booktitle = $get('booktitle')) {
-                    $html .= "In <em>{$booktitle}</em>";
-                }
-                if ($editor = $get('editor')) {
-                    $html .= ", edited by {$editor}";
-                }
-                if ($publisher = $get('publisher')) {
-                    $html .= ". {$publisher}";
-                }
-                break;
-
-            case 'inproceedings':
-            case 'conference':
-                if ($booktitle = $get('booktitle')) {
-                    $html .= "In <em>{$booktitle}</em>";
-                }
-                if ($organization = $get('organization')) {
-                    $html .= ". {$organization}";
-                }
-                break;
-
-            case 'phdthesis':
-            case 'mastersthesis':
-                if ($school = $get('school')) {
-                    $html .= "{$school}";
-                }
-                break;
-
-            case 'techreport':
-                if ($institution = $get('institution')) {
-                    $html .= "{$institution}";
-                }
-                if ($number = $get('number')) {
-                    $html .= ", Technical Report {$number}";
-                }
-                break;
-
-            case 'misc':
-            case 'unpublished':
-                if ($howpublished = $get('howpublished')) {
-                    $html .= "{$howpublished}";
-                }
-                break;
-        }
-
-        // Year (skip for articles - handled in case above)
-        if ($type !== 'article' && ($year = $get('year'))) {
-            $html .= ", {$year}";
-        }
-
-        // Pages (if not already added)
-        if (!in_array($type, ['article']) && ($pages = $get('pages'))) {
-            $html .= ", pp. {$pages}";
-        }
-
-        // DOI
-        if ($doi = $get('doi')) {
-            $html .= ". DOI: <a href=\"https://doi.org/{$doi}\" target=\"_blank\">{$doi}</a>";
-        }
-
-        // Note
-        if ($note = $get('note')) {
-            $html .= ". {$note}";
-        }
-
-        // Clean up extra spaces and add final period if needed
-        $html = preg_replace('/\s+/', ' ', $html);
-        $html = trim($html);
-        
-        if (!empty($html) && !in_array(substr($html, -1), ['.', '!', '?'])) {
-            $html .= '.';
-        }
-
-        return $html;
-    }
-
-    private function anonymizeIfNeeded($author)
-    {
-        // Only anonymize if it looks like a UUID (matches JavaScript bibtexProcessor.js logic)
-        if (preg_match('/^[0-9a-fA-F-]{36}$/', $author)) {
-            return 'Anon.';
-        }
-
-        return $author;
-    }
-
-    private function calculateRankings($libraryRecords)
-    {
-        // Most Recent: Based on created_at (newest first)
-        $mostRecent = $this->rankByCreationDate($libraryRecords);
-
-        // Most Connected: hypercite edges first, reference edges as the second
-        // key — a composite metric, compared element-wise by rankByMetric. Any
-        // text with a minted hypercite therefore outranks every text without one.
-        $mostConnected = $this->rankByMetric(
-            $libraryRecords,
-            function ($record) {
-                return [
-                    (int) ($record->hypercite_connections ?? 0),
-                    (int) ($record->reference_connections ?? 0),
-                ];
-            }
-        );
-
-        // Most Lit: human annotation activity — hypercite edges + hyperlights.
-        // Reference edges are excluded on purpose: they are machine-detected, and
-        // including them would make this rank almost identically to Most Connected.
-        $mostLit = $this->rankByMetric(
-            $libraryRecords,
-            function($record) {
-                return (int) ($record->hypercite_connections ?? 0) + (int) ($record->total_highlights ?? 0);
-            }
-        );
-
-        return [
-            'mostRecent' => $mostRecent,
-            'mostConnected' => $mostConnected,
-            'mostLit' => $mostLit
-        ];
-    }
-
-    private function rankByMetric($records, $metricCallback)
-    {
-        // Convert records to array and calculate metric values
-        $recordsWithMetric = $records->map(function ($record) use ($metricCallback) {
-            if (is_callable($metricCallback)) {
-                $metricValue = $metricCallback($record);
-            } else {
-                $metricValue = $record->{$metricCallback} ?? 0;
-            }
-
-            return [
-                'book' => $record->book,
-                'metric_value' => $metricValue,
-                'created_at' => $record->created_at
-            ];
-        })->toArray();
-
-        // Sort by metric value (descending), then by created_at (ascending for
-        // tiebreaker). A metric may be an ARRAY of keys (Most Connected passes
-        // [hypercites, references]); PHP's <=> compares arrays element-wise, so
-        // a composite metric needs no special case here.
-        usort($recordsWithMetric, function ($a, $b) {
-            // First compare by metric value (higher is better, so descending)
-            if ($a['metric_value'] !== $b['metric_value']) {
-                return $b['metric_value'] <=> $a['metric_value'];
-            }
-            
-            // If metric values are equal, sort by created_at (earlier is better)
-            return strtotime($a['created_at']) <=> strtotime($b['created_at']);
-        });
-
-        // Assign rankings (1 = best/highest)
-        $rankings = [];
-        foreach ($recordsWithMetric as $index => $record) {
-            $rankings[$record['book']] = $index + 1;
-        }
-
-        return $rankings;
-    }
-
-    private function rankByCreationDate($records)
-    {
-        // Convert records to array with creation dates
-        $recordsWithDate = $records->map(function ($record) {
-            return [
-                'book' => $record->book,
-                'created_at' => $record->created_at
-            ];
-        })->toArray();
-
-        // Sort by created_at (descending - newest first)
-        usort($recordsWithDate, function ($a, $b) {
-            return strtotime($b['created_at']) <=> strtotime($a['created_at']);
-        });
-
-        // Assign rankings (1 = most recent)
-        $rankings = [];
-        foreach ($recordsWithDate as $index => $record) {
-            $rankings[$record['book']] = $index + 1;
-        }
-
-        return $rankings;
     }
 
     public static function invalidateCache()

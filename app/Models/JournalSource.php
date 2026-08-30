@@ -47,6 +47,9 @@ class JournalSource extends Model
         'last_harvested_at',
         'harvest_stats',
         'shelf_id',
+        // A person vouched for this journal — drives the homepage list. NOT
+        // is_diamond, which is DOAJ's fact about APCs. See docs/journal-harvest.md.
+        'certified_at',
     ];
 
     protected $casts = [
@@ -66,6 +69,7 @@ class JournalSource extends Model
         'harvest_stats' => 'array',
         'last_synced_at' => 'datetime',
         'last_harvested_at' => 'datetime',
+        'certified_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

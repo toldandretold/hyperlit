@@ -27,26 +27,72 @@ import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
 
 // Snapshot for undo support lives in the ../pasteSnapshot leaf (see clearPasteSnapshot importers).
 
+export interface LargePasteOptions {
+  isHtmlContent?: boolean;
+  formatType?: string;
+  extractedFootnotes?: any[];
+  extractedReferences?: any[];
+  /** The untouched clipboard HTML, for the fallback extractor. See below. */
+  pristineHtml?: string;
+}
+
+/**
+ * Decide what the fallback extractor's output is allowed to replace.
+ *
+ * The fallback re-runs the WHOLE GeneralProcessor, so adopting its
+ * `processedContent` throws away the publisher processor's ordered tag-stripping.
+ * That is right when the format was misdetected (the fallback found the notes
+ * the publisher processor could not) and wrong when the article genuinely has
+ * no notes (the publisher's cleanup was correct and we would be discarding it
+ * for nothing). So: adopt the body only when the fallback actually found
+ * something.
+ *
+ * Pure, so it can be tested without standing up IndexedDB.
+ */
+export function resolveExtraction(
+  current: { content: any; footnotes: any[]; references: any[] },
+  fallback: { processedContent?: any; footnotes?: any[]; references?: any[] } | null,
+) {
+  const footnotes = fallback?.footnotes ?? [];
+  const references = fallback?.references ?? [];
+  const found = footnotes.length + references.length > 0;
+
+  if (!found) return { ...current, usedFallback: false };
+
+  return {
+    content: fallback?.processedContent ? sanitizeHtml(fallback.processedContent) : current.content,
+    footnotes,
+    references,
+    usedFallback: true,
+  };
+}
+
 /**
  * Handle large paste operations (>10 nodes)
  * @param {Event} event - Paste event
  * @param {Object} insertionPoint - Insertion point data
  * @param {string} pastedContent - Content to paste
- * @param {boolean} isHtmlContent - Whether content is HTML
- * @param {string} formatType - Detected format type
- * @param {Array} extractedFootnotes - Processor-extracted footnotes
- * @param {Array} extractedReferences - Processor-extracted references
- * @returns {Promise<Array>} - Array of written chunks
+ * @param {Object} options - See LargePasteOptions
+ * @returns {Promise<Object>} - { chunks, book, footnotes, references, usedFallback }
  */
 export async function handleLargePaste(
   event: any,
   insertionPoint: any,
   pastedContent: any,
-  isHtmlContent = false,
-  formatType = 'general',
-  extractedFootnotes: any[] = [],
-  extractedReferences: any[] = []
+  options: LargePasteOptions = {}
 ) {
+  const {
+    isHtmlContent = false,
+    formatType = 'general',
+    pristineHtml,
+  } = options;
+  // Locals, NOT parameters. Reassigning a parameter is invisible to the caller,
+  // which is why every fallback-path glitch report used to arrive at triage
+  // claiming "Footnotes 0, References 0" while 54 had actually been extracted.
+  let extractedFootnotes: any[] = options.extractedFootnotes ?? [];
+  let extractedReferences: any[] = options.extractedReferences ?? [];
+  let usedFallback = false;
+
   event.preventDefault();
 
   // Wait for background download if still in progress (chunked lazy loading)
@@ -68,12 +114,22 @@ export async function handleLargePaste(
   if (extractedFootnotes.length === 0 && extractedReferences.length === 0) {
     try {
       console.log(`📝 No footnotes/references from processor, using fallback extractor...`);
-      // SECURITY: Pass sanitized content to fallback processor
-      const result = await processContentForFootnotesAndReferences(processedContent, insertionPoint.book, isHtmlContent, formatType);
-      // SECURITY: Re-sanitize result to ensure it's clean
-      processedContent = result.processedContent ? sanitizeHtml(result.processedContent) : processedContent;
-      extractedFootnotes = result.footnotes;
-      extractedReferences = result.references;
+      // Feed it the PRISTINE clipboard HTML, not `processedContent` — that is
+      // the format processor's already-transformed output, so the fallback was
+      // re-running the whole GeneralProcessor over DOM another processor had
+      // stripped and rewritten (prod case book_1787965215968: a Sage-mangled
+      // page yielded 13 references built out of body prose).
+      const fallbackInput = pristineHtml || processedContent;
+      const result = await processContentForFootnotesAndReferences(fallbackInput, insertionPoint.book, isHtmlContent, formatType);
+      // SECURITY: re-sanitize any body we adopt.
+      const resolved = resolveExtraction(
+        { content: processedContent, footnotes: extractedFootnotes, references: extractedReferences },
+        result,
+      );
+      processedContent = resolved.content;
+      extractedFootnotes = resolved.footnotes;
+      extractedReferences = resolved.references;
+      usedFallback = resolved.usedFallback;
       console.log(`✅ Extracted ${extractedFootnotes.length} footnotes and ${extractedReferences.length} references.`);
     } catch (error: any) {
       console.error('❌ Error processing footnotes/references:', error);
@@ -330,7 +386,15 @@ export async function handleLargePaste(
 
   // Return data for DOM insertion
   // PostgreSQL sync will happen in background after DOM is visible (in index.js)
-  return { chunks: toWrite, book: insertionPoint.book };
+  // The counts travel back so the caller's conversion summary reflects what was
+  // ACTUALLY extracted — the fallback path used to be invisible from outside.
+  return {
+    chunks: toWrite,
+    book: insertionPoint.book,
+    footnotes: extractedFootnotes,
+    references: extractedReferences,
+    usedFallback,
+  };
 }
 
 /**

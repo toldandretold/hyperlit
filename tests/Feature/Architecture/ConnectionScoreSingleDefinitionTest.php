@@ -63,9 +63,15 @@ test('nothing ranks on total_citations any more', function () {
 test('every connected/lit sort arm delegates to ConnectionCountQuery', function () {
     $sites = [];
     foreach (connGateSources() as $path => $source) {
-        // A feed sort arm, e.g. "'connected' => ..." in a match block.
-        if (preg_match("/'(connected|lit)'\s*=>/", $source)) {
-            $sites[$path] = $source;
+        // A feed SORT arm: "'connected' => …sort…" in a match block. The
+        // sort-verb requirement keeps unrelated array keys out (e.g.
+        // JournalPageController's hypercite-map modes are keyed
+        // 'all'/'connected' but sort nothing).
+        foreach (preg_split('/\R/', $source) as $line) {
+            if (preg_match("/'(connected|lit)'\s*=>/", $line) && preg_match('/sort/i', $line)) {
+                $sites[$path] = $source;
+                break;
+            }
         }
     }
 
@@ -84,6 +90,18 @@ test('every connected/lit sort arm delegates to ConnectionCountQuery', function 
     }
 
     expect($undelegated)->toBe([], 'These sort a connected/lit feed without delegating: '.implode(', ', $undelegated));
+});
+
+test('the homepage feeds delegate their ranking to ConnectionCountQuery', function () {
+    // The homepage used to rank with its own usort over a composite metric —
+    // same intent as sortConnected/sortLit, separate code, so a weight change
+    // in the one definition silently skipped the busiest page. It now calls
+    // the service's sorts directly (no match arm, hence not caught above).
+    $source = file_get_contents(base_path('app/Http/Controllers/HomePageServerController.php'));
+
+    expect($source)->toContain('ConnectionCountQuery::sortConnected');
+    expect($source)->toContain('ConnectionCountQuery::sortLit');
+    expect(str_contains($source, 'usort'))->toBeFalse('HomePageServerController must not re-implement ranking with usort — delegate to ConnectionCountQuery.');
 });
 
 test('no second self-citation rule', function () {

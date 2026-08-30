@@ -46,7 +46,12 @@ export function createFootnoteSupHTML(footnoteId: any, displayNumber: any) {
  * @param {string} formatType - Format type identifier (e.g., 'oup', 'taylor-francis')
  * @returns {string} - HTML with linked footnote references
  */
-export function processFootnoteReferences(htmlContent: any, footnoteMappings: any, formatType = 'general') {
+export function processFootnoteReferences(
+  htmlContent: any,
+  footnoteMappings: any,
+  formatType = 'general',
+  options: { skipPlainTextScan?: boolean } = {}
+) {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = htmlContent;
 
@@ -178,7 +183,11 @@ export function processFootnoteReferences(htmlContent: any, footnoteMappings: an
     // Handle plain text footnote numbers AFTER punctuation
     // SKIP for HTML formats where footnotes are already marked with <sup> tags
     // (Cambridge, OUP, Taylor & Francis, etc.)
-    const skipPlainTextPattern = ['cambridge', 'oup', 'taylor-francis', 'sage'].includes(formatType);
+    // Also skipped when the caller already resolved its markers structurally:
+    // with a large mapping live, this pattern turns every sentence-final digit
+    // in the body into a phantom marker.
+    const skipPlainTextPattern = options.skipPlainTextScan === true
+      || ['cambridge', 'oup', 'taylor-francis', 'sage'].includes(formatType);
 
     if (!skipPlainTextPattern) {
       // CONSERVATIVE pattern for plain-text footnote detection:

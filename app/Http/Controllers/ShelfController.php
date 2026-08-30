@@ -398,7 +398,39 @@ class ShelfController extends Controller
         }
 
         $sort = $request->query('sort', $shelf->default_sort ?? 'recent');
-        $syntheticBookId = 'shelf_' . $id . '_' . $sort;
+
+        return $this->renderShelfFeed($shelf, $id, $sort, true);
+    }
+
+    /**
+     * Public render of a shelf (no auth required).
+     * Mirrors render() but only works for public shelves, no pins, and marks private books as locked.
+     */
+    public function publicRender(Request $request, string $id)
+    {
+        $shelf = DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', $id)
+            ->where('visibility', 'public')
+            ->first();
+
+        if (!$shelf) {
+            return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        $sort = $request->query('sort', $shelf->default_sort ?? 'recent');
+
+        return $this->renderShelfFeed($shelf, $id, $sort, false);
+    }
+
+    /**
+     * The shared body of render()/publicRender(). Owner and public differ only
+     * in: synthetic id suffix (`_pub`), the pin overlay (owner only), locked
+     * cards for non-public members (public only), and the synthetic library
+     * row's visibility/raw_json.
+     */
+    private function renderShelfFeed(object $shelf, string $id, string $sort, bool $isOwner)
+    {
+        $syntheticBookId = 'shelf_' . $id . '_' . $sort . ($isOwner ? '' : '_pub');
 
         // Check if already rendered (cache hit)
         $existing = DB::connection('pgsql_admin')->table('nodes')
@@ -418,134 +450,6 @@ class ShelfController extends Controller
         // are excluded — BookDeletionService removes shelf memberships on delete,
         // but rows stranded BEFORE that cleanup existed (e.g. retracted harvest
         // junk) must not render as "No content available" corpse cards.
-        $items = DB::connection('pgsql_admin')->table('shelf_items')
-            ->join('library', 'shelf_items.book', '=', 'library.book')
-            ->where('shelf_items.shelf_id', $id)
-            ->where('library.visibility', '!=', 'deleted')
-            ->select([
-                'library.book', 'library.title', 'library.author', 'library.year',
-                'library.volume', 'library.issue',
-                'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
-                'library.total_views', 'library.total_highlights',
-                'library.hypercite_connections', 'library.reference_connections',
-                'shelf_items.added_at', 'shelf_items.manual_position',
-            ])
-            ->get();
-
-        // Apply sort
-        $items = match ($sort) {
-            'title' => $items->sortBy(fn($i) => mb_strtolower($i->title ?? '')),
-            'author' => $items->sortBy(fn($i) => mb_strtolower($i->author ?? '')),
-            'views' => $items->sortByDesc('total_views'),
-            // Docuverse connectedness, both directions — ConnectionCountQuery owns
-            // the definition and the tie-breaking so all four sort sites agree.
-            'connected' => ConnectionCountQuery::sortConnected($items),
-            'lit' => ConnectionCountQuery::sortLit($items),
-            'added' => $items->sortByDesc('added_at'),
-            'manual' => $items->sortBy('manual_position'),
-            // Publication order for journals: year → volume → issue, all desc.
-            // Stable sorts applied in reverse so year is primary and issues
-            // stay ordered within a volume. Volume/issue are strings ("12",
-            // "S1", "3-4") — compare by their first integer, missing sinks.
-            'published' => $items->sortByDesc('created_at')
-                ->sortByDesc(fn($i) => self::biblioNumber($i->issue ?? null))
-                ->sortByDesc(fn($i) => self::biblioNumber($i->volume ?? null))
-                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
-            // Plain publication year, for non-journal archives.
-            'year' => $items->sortByDesc('created_at')
-                ->sortByDesc(fn($i) => (int) ($i->year ?: 0)),
-            default => $items->sortByDesc('created_at'), // 'recent'
-        };
-
-        // Overlay pins on top
-        $pins = DB::connection('pgsql_admin')->table('shelf_pins')
-            ->where('shelf_key', 'shelf:' . $id)
-            ->where('creator', $user->name)
-            ->orderBy('position')
-            ->pluck('book')
-            ->toArray();
-
-        if (!empty($pins)) {
-            $pinnedItems = $items->whereIn('book', $pins)->sortBy(function ($item) use ($pins) {
-                return array_search($item->book, $pins);
-            });
-            $unpinnedItems = $items->whereNotIn('book', $pins);
-            $items = $pinnedItems->merge($unpinnedItems);
-        }
-
-        $items = $items->values();
-
-        // Generate nodes using LibraryCardGenerator
-        $generator = new LibraryCardGenerator();
-        $chunks = [];
-        $positionId = 100;
-
-        foreach ($items as $i => $record) {
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, true, false, $i);
-            $positionId++;
-        }
-
-        if ($items->isEmpty()) {
-            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, true, true, 0);
-        }
-
-        // Ensure library record exists for the synthetic book
-        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
-            ['book' => $syntheticBookId],
-            [
-                'title' => $shelf->name,
-                'visibility' => $shelf->visibility,
-                'listed' => false,
-                'creator' => $user->name,
-                'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'shelf', 'shelf_id' => $id, 'sort' => $sort]),
-                'timestamp' => round(microtime(true) * 1000),
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
-        );
-
-        // Insert nodes — single-flight so concurrent first-viewers of the same
-        // shelf don't race the shared synthetic rows (F12; see writeRenderNodes).
-        $this->writeRenderNodes($syntheticBookId, $chunks);
-
-        return response()->json(['bookId' => $syntheticBookId]);
-    }
-
-    /**
-     * Public render of a shelf (no auth required).
-     * Mirrors render() but only works for public shelves, no pins, and marks private books as locked.
-     */
-    public function publicRender(Request $request, string $id)
-    {
-        $shelf = DB::connection('pgsql_admin')->table('shelves')
-            ->where('id', $id)
-            ->where('visibility', 'public')
-            ->first();
-
-        if (!$shelf) {
-            return response()->json(['error' => 'Shelf not found'], 404);
-        }
-
-        $sort = $request->query('sort', $shelf->default_sort ?? 'recent');
-        $syntheticBookId = 'shelf_' . $id . '_' . $sort . '_pub';
-
-        // Check if already rendered (cache hit)
-        $existing = DB::connection('pgsql_admin')->table('nodes')
-            ->where('book', $syntheticBookId)
-            ->exists();
-
-        // A ranking sort's order changes behind the render, so its cache expires;
-        // every other sort stays cached until the shelf is mutated.
-        if ($existing && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
-            return response()->json(['bookId' => $syntheticBookId]);
-        }
-        if ($existing) {
-            DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
-        }
-
-        // Fetch shelf items joined with library for citation data + visibility.
-        // Deleted books excluded — same corpse-card guard as render().
         $items = DB::connection('pgsql_admin')->table('shelf_items')
             ->join('library', 'shelf_items.book', '=', 'library.book')
             ->where('shelf_items.shelf_id', $id)
@@ -586,7 +490,24 @@ class ShelfController extends Controller
             default => $items->sortByDesc('created_at'), // 'recent'
         };
 
-        // No pin overlay for public view
+        // Overlay pins on top (owner view only)
+        if ($isOwner) {
+            $pins = DB::connection('pgsql_admin')->table('shelf_pins')
+                ->where('shelf_key', 'shelf:' . $id)
+                ->where('creator', $shelf->creator)
+                ->orderBy('position')
+                ->pluck('book')
+                ->toArray();
+
+            if (!empty($pins)) {
+                $pinnedItems = $items->whereIn('book', $pins)->sortBy(function ($item) use ($pins) {
+                    return array_search($item->book, $pins);
+                });
+                $unpinnedItems = $items->whereNotIn('book', $pins);
+                $items = $pinnedItems->merge($unpinnedItems);
+            }
+        }
+
         $items = $items->values();
 
         // Generate nodes using LibraryCardGenerator
@@ -595,13 +516,18 @@ class ShelfController extends Controller
         $positionId = 100;
 
         foreach ($items as $i => $record) {
-            $locked = ($record->book_visibility ?? 'public') !== 'public';
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, false, false, $i, 'public', $locked);
+            $locked = !$isOwner && ($record->book_visibility ?? 'public') !== 'public';
+            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', $locked);
             $positionId++;
         }
 
         if ($items->isEmpty()) {
-            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, false, true, 0);
+            $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, $isOwner, true, 0);
+        }
+
+        $rawJson = ['type' => 'shelf', 'shelf_id' => $id, 'sort' => $sort];
+        if (!$isOwner) {
+            $rawJson['public'] = true;
         }
 
         // Ensure library record exists for the synthetic book
@@ -609,11 +535,11 @@ class ShelfController extends Controller
             ['book' => $syntheticBookId],
             [
                 'title' => $shelf->name,
-                'visibility' => 'public',
+                'visibility' => $isOwner ? $shelf->visibility : 'public',
                 'listed' => false,
                 'creator' => $shelf->creator,
                 'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'shelf', 'shelf_id' => $id, 'sort' => $sort, 'public' => true]),
+                'raw_json' => json_encode($rawJson),
                 'timestamp' => round(microtime(true) * 1000),
                 'updated_at' => now(),
                 'created_at' => now(),

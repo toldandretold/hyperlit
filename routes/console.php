@@ -18,6 +18,12 @@ Schedule::job(\App\Jobs\UpdateHomepageJob::class)
 Schedule::command('cleanup:anonymous-sessions')
     ->daily();
 
+// Sweep stale import-failure upload backups daily. (Rescued from the deleted
+// dead app/Console/Kernel.php — nothing ever bound that class in this Laravel
+// 11 skeleton, so this sweep silently never ran.)
+Schedule::command('uploads:clean-import-failures')
+    ->daily();
+
 // Give back credit holds whose job was killed without releasing them (a
 // reservation increments users.debits for real, so a leaked hold is money).
 Schedule::command('billing:reap-reservations')

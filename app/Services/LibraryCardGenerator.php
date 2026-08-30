@@ -84,6 +84,8 @@ class LibraryCardGenerator
 
     /**
      * Generate citation HTML from a library record.
+     * Precedence: E2EE lock label → parsed bibtex → structured fields.
+     * The E2EE check MUST stay first: an encrypted book's bibtex is ciphertext.
      */
     public function generateCitationHtml($record): string
     {
@@ -93,6 +95,13 @@ class LibraryCardGenerator
         // keep them visually in sync.
         if (!empty($record->encrypted)) {
             return self::ENCRYPTED_LOCK_SVG . ' <em>Encrypted book</em>';
+        }
+
+        if (!empty($record->bibtex)) {
+            $bibtexHtml = $this->parseBibtexToHtml($record->bibtex);
+            if ($bibtexHtml !== '') {
+                return $bibtexHtml;
+            }
         }
 
         $hasTitle = !empty($record->title);
@@ -107,7 +116,7 @@ class LibraryCardGenerator
 
         $html = '';
         if ($hasAuthor) {
-            $html .= '<strong>' . e($record->author) . '</strong>. ';
+            $html .= '<strong>' . e($this->anonymizeIfNeeded($record->author)) . '</strong>. ';
         } else {
             $html .= '<strong>Anon.</strong> ';
         }
@@ -138,5 +147,185 @@ class LibraryCardGenerator
             $html .= '.';
         }
         return $html;
+    }
+
+    /**
+     * Parse a raw BibTeX entry into citation HTML. Empty string when the
+     * entry can't be parsed (caller falls back to structured fields).
+     * Public so the escaping/formatting contract is unit-testable directly.
+     */
+    public function parseBibtexToHtml(string $bibtex): string
+    {
+        if (trim($bibtex) === '') {
+            return '';
+        }
+
+        $parsed = $this->parseBibtexEntry($bibtex);
+        if (empty($parsed)) {
+            return '';
+        }
+
+        return $this->generateHtmlCitation($parsed);
+    }
+
+    private function parseBibtexEntry(string $bibtex): ?array
+    {
+        $bibtex = trim($bibtex);
+
+        if (!preg_match('/@(\w+)\s*\{\s*([^,]+)\s*,/', $bibtex, $matches)) {
+            return null;
+        }
+
+        $entryType = strtolower($matches[1]);
+        $key = trim($matches[2]);
+
+        $fields = [];
+        preg_match_all('/(\w+)\s*=\s*[{"](.*?)["}](?=\s*,|\s*})/s', $bibtex, $fieldMatches, PREG_SET_ORDER);
+        foreach ($fieldMatches as $match) {
+            $fields[strtolower(trim($match[1]))] = trim($match[2]);
+        }
+
+        return [
+            'type' => $entryType,
+            'key' => $key,
+            'fields' => $fields,
+        ];
+    }
+
+    /**
+     * Field values come from user-supplied bibtex — every interpolation is
+     * escaped with e(). Formatting mirrors the JS bibtexProcessor.js output.
+     */
+    private function generateHtmlCitation(array $parsed): string
+    {
+        $fields = $parsed['fields'];
+        $type = $parsed['type'];
+
+        $get = fn (string $field): string => $fields[$field] ?? '';
+
+        $html = '';
+
+        if ($author = $get('author')) {
+            $html .= '<strong>' . e($this->anonymizeIfNeeded($author)) . '</strong>. ';
+        }
+        if ($title = $get('title')) {
+            if (in_array($type, ['book', 'inbook', 'incollection'])) {
+                $html .= '<em>' . e($title) . '</em>. ';
+            } else {
+                $html .= '"' . e($title) . '." ';
+            }
+        }
+
+        switch ($type) {
+            case 'article':
+                if ($journal = $get('journal')) {
+                    $html .= ', <em>' . e($journal) . '</em>';
+                }
+                if ($volume = $get('volume')) {
+                    $html .= ', ' . e($volume);
+                    if ($number = $get('number')) {
+                        $html .= '(' . e($number) . ')';
+                    }
+                }
+                if ($year = $get('year')) {
+                    $html .= ' (' . e($year) . ')';
+                }
+                if ($pages = $get('pages')) {
+                    $html .= ', ' . e($pages);
+                }
+                break;
+
+            case 'book':
+            case 'inbook':
+                if ($publisher = $get('publisher')) {
+                    $html .= e($publisher);
+                }
+                if ($address = $get('address')) {
+                    $html .= ', ' . e($address);
+                }
+                break;
+
+            case 'incollection':
+                if ($booktitle = $get('booktitle')) {
+                    $html .= 'In <em>' . e($booktitle) . '</em>';
+                }
+                if ($editor = $get('editor')) {
+                    $html .= ', edited by ' . e($editor);
+                }
+                if ($publisher = $get('publisher')) {
+                    $html .= '. ' . e($publisher);
+                }
+                break;
+
+            case 'inproceedings':
+            case 'conference':
+                if ($booktitle = $get('booktitle')) {
+                    $html .= 'In <em>' . e($booktitle) . '</em>';
+                }
+                if ($organization = $get('organization')) {
+                    $html .= '. ' . e($organization);
+                }
+                break;
+
+            case 'phdthesis':
+            case 'mastersthesis':
+                if ($school = $get('school')) {
+                    $html .= e($school);
+                }
+                break;
+
+            case 'techreport':
+                if ($institution = $get('institution')) {
+                    $html .= e($institution);
+                }
+                if ($number = $get('number')) {
+                    $html .= ', Technical Report ' . e($number);
+                }
+                break;
+
+            case 'misc':
+            case 'unpublished':
+                if ($howpublished = $get('howpublished')) {
+                    $html .= e($howpublished);
+                }
+                break;
+        }
+
+        if ($type !== 'article' && ($year = $get('year'))) {
+            $html .= ', ' . e($year);
+        }
+
+        if ($type !== 'article' && ($pages = $get('pages'))) {
+            $html .= ', pp. ' . e($pages);
+        }
+
+        if ($doi = $get('doi')) {
+            $html .= '. DOI: <a href="https://doi.org/' . e($doi) . '" target="_blank" rel="noopener">' . e($doi) . '</a>';
+        }
+
+        if ($note = $get('note')) {
+            $html .= '. ' . e($note);
+        }
+
+        $html = preg_replace('/\s+/', ' ', $html);
+        $html = trim($html);
+        if (!empty($html) && !in_array(substr($html, -1), ['.', '!', '?'])) {
+            $html .= '.';
+        }
+
+        return $html;
+    }
+
+    /**
+     * A bare-UUID author is an anonymous creator id, not a name
+     * (matches the JS bibtexProcessor.js logic).
+     */
+    private function anonymizeIfNeeded(string $author): string
+    {
+        if (preg_match('/^[0-9a-fA-F-]{36}$/', $author)) {
+            return 'Anon.';
+        }
+
+        return $author;
     }
 }

@@ -8,6 +8,12 @@ import { BaseFormatProcessor } from './base-processor';
 import { wrapLooseNodes, unwrap } from '../utils/dom-utils';
 import { isReferenceHeading } from '../utils/reference-headings';
 import { collectReferenceRun, hasEarlyYear, isReferenceShaped } from '../utils/reference-detection';
+import {
+  applyAnchorFootnotes,
+  parseMarkerNumber,
+  resolveAnchorFootnotes,
+  type ResolvedFootnote,
+} from '../utils/anchor-footnotes';
 
 export class GeneralProcessor extends BaseFormatProcessor {
   [key: string]: any;
@@ -30,13 +36,54 @@ export class GeneralProcessor extends BaseFormatProcessor {
     const footnotes: any[] = [];
     const footnoteMappings = new Map();
 
+    // The plain-text scanner in footnote-linker turns "…ended in 1979. 12 The
+    // next…" into a marker whenever a same-numbered mapping exists. Harmless
+    // when there are a handful of notes; with 54 live mappings it manufactures
+    // phantom markers all over the body. Only enabled when nothing structural
+    // claimed the markers.
+    this.skipPlainTextFootnoteScan = false;
+
+    // 0. STRUCTURAL: a real internal-link footnote system, detected by shape
+    //    rather than by guessing anchor names. See utils/anchor-footnotes.ts.
+    const anchorResult = resolveAnchorFootnotes(dom);
+    if (anchorResult.footnotes.length > 0) {
+      console.log(`  - 🔗 Anchor footnote system (${anchorResult.tier}, ${anchorResult.shape}): ${anchorResult.footnotes.length} notes`);
+      applyAnchorFootnotes(anchorResult.footnotes);
+      this.skipPlainTextFootnoteScan = true;
+
+      anchorResult.footnotes.forEach((resolved: ResolvedFootnote) => {
+        const identifier = resolved.ordinal;
+        const uniqueId = this.generateFootnoteId(bookId, identifier);
+        const uniqueRefId = this.generateFootnoteRefId(bookId, identifier);
+
+        footnotes.push(this.createFootnote(
+          uniqueId,
+          resolved.definitionBlock.innerHTML.trim().replace(/^\s*\[?\d+\]?[.)]?\s*/, ''),
+          identifier,
+          uniqueRefId,
+          `anchor-${anchorResult.tier}`
+        ));
+
+        // MOVE the definition out of the body — appendStaticSections re-emits it.
+        const parentList = resolved.definitionBlock.parentElement;
+        resolved.definitionBlock.remove();
+        if (parentList && (parentList.tagName === 'UL' || parentList.tagName === 'OL')
+            && parentList.children.length === 0) {
+          parentList.remove();
+        }
+      });
+
+      return footnotes;
+    }
+
     // 1. Find all footnote references - both <sup> tags and <a href="#ftnN"> links
     const refIdentifiers = new Set();
 
-    // 1a. Check <sup> tags with numeric content
+    // 1a. Check <sup> tags with numeric content. parseMarkerNumber, not a bare
+    // /^\d+$/, so a decorated marker ("[1]", "(1)", "¹") is not thrown away.
     const supElements = dom.querySelectorAll('sup');
     supElements.forEach((sup: any) => {
-      const identifier = sup.textContent.trim() || sup.getAttribute('fn-count-id');
+      const identifier = parseMarkerNumber(sup.textContent) || sup.getAttribute('fn-count-id');
       if (identifier && /^\d+$/.test(identifier)) {
         refIdentifiers.add(identifier);
       }
@@ -76,8 +123,8 @@ export class GeneralProcessor extends BaseFormatProcessor {
         // Strategy A: <li> starts with <a> containing a number (e.g. <a href="...">7</a>)
         const firstAnchor = li.querySelector('a');
         if (firstAnchor) {
-          const anchorText = firstAnchor.textContent.trim();
-          if (/^\d+$/.test(anchorText) && refIdentifiers.has(anchorText) && !potentialParagraphDefs.has(anchorText)) {
+          const anchorText = parseMarkerNumber(firstAnchor.textContent);
+          if (anchorText && refIdentifiers.has(anchorText) && !potentialParagraphDefs.has(anchorText)) {
             potentialParagraphDefs.set(anchorText, li);
             liDefsFound.push(anchorText);
             return;

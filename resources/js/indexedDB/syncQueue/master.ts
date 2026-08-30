@@ -5,7 +5,7 @@
 
 import { openDatabase } from '../core/connection';
 import { debounce } from '../../utilities/debounce';
-import { toPublicNode } from '../core/utilities';
+import { toPublicNode, isSyntheticFeedBook } from '../core/utilities';
 import { pendingSyncs } from './queue';
 import { refreshCsrfToken } from '../../utilities/auth/index';
 // Pure helper extracted so the cross-book filter + fallback can be unit-tested
@@ -771,13 +771,13 @@ export const debouncedMasterSync = debounce(async () => {
     return;
   }
 
-  // Determine book ID from queued data, skipping synthetic homepage books
-  const syntheticBooks = ['most-recent', 'most-connected', 'most-lit'];
-
-  // Filter out synthetic book items that can't be synced
+  // Filter out server-generated synthetic feed books (homepage feeds, shelf
+  // renders, sorted variants) — they're rebuilt wholesale server-side and
+  // must never be pushed back. The user's OWN home/account books are NOT
+  // excluded: those are legitimately edited and synced.
   for (const [key, item] of pendingSyncs) {
     const bookId = item?.data?.book;
-    if (syntheticBooks.includes(bookId as string) || bookId?.endsWith('/timemachine')) {
+    if (isSyntheticFeedBook(bookId as string) || bookId?.endsWith('/timemachine')) {
       pendingSyncs.delete(key);
     }
   }

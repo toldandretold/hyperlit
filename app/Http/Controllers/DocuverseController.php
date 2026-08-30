@@ -52,7 +52,31 @@ class DocuverseController extends Controller
             $focusTitle = strip_tags($row->title ?? $rootBook);
         }
 
-        return view('docuverse', ['focusBook' => $rootBook, 'focusTitle' => $focusTitle]);
+        return view('docuverse', [
+            'focusBook' => $rootBook,
+            'focusTitle' => $focusTitle,
+            'focusJournal' => null,
+        ]);
+    }
+
+    /**
+     * /3d/j/{slug} — the whole docuverse with a JOURNAL's articles lit up.
+     * Unlike book focus this does NOT scope the graph: the journal's patch
+     * glows and the camera opens framed on it, but the viewer can fly off and
+     * see everything else. The journal page's hero links here.
+     */
+    public function showJournal(string $slug)
+    {
+        $journal = \App\Models\JournalSource::where('slug', $slug)->first();
+        if (!$journal) {
+            abort(404);
+        }
+
+        return view('docuverse', [
+            'focusBook' => null,
+            'focusTitle' => null,
+            'focusJournal' => ['slug' => $journal->slug, 'name' => $journal->display_name],
+        ]);
     }
 
     public function data(Request $request): JsonResponse
@@ -194,6 +218,25 @@ class DocuverseController extends Controller
             ));
         }
 
+        // ── Journal lit-up set (?journal={slug}) ──
+        // NOT a scope: the whole graph ships; the client just glows these
+        // nodes and frames the camera on them. Journal articles' graph node
+        // ids ARE their canonical ids ($nodeIdForBook), so the seed set is a
+        // straight pluck; it is intersected with the present nodes below so
+        // the payload never carries ids the scene can't use.
+        $focusSeeds = null;
+        if (($journalSlug = (string) $request->query('journal', '')) !== '') {
+            $journal = \App\Models\JournalSource::where('slug', $journalSlug)->first();
+            if (!$journal) {
+                abort(404);
+            }
+            $focusSeeds = DB::connection('pgsql_admin')->table('canonical_source')
+                ->where('journal_source_id', $journal->id)
+                ->pluck('id')
+                ->flip()
+                ->all();
+        }
+
         // ── Connected-only node set ──
         $nodeIds = [];
         foreach ($edges as $e) {
@@ -255,6 +298,9 @@ class DocuverseController extends Controller
             'edges' => $edges,
             'layers' => $layers,
             'focus' => $focusNodeId,
+            'focusSet' => $focusSeeds === null
+                ? []
+                : array_values(array_map(strval(...), array_keys(array_intersect_key($nodeIds, $focusSeeds)))),
         ]);
     }
 

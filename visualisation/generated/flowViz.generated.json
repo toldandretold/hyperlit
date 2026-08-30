@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1788,
+    "fnCount": 1794,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3676,
+    "edgeCount": 3680,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5455,7 +5455,6 @@
         "school",
         "timestamp",
         "title",
-        "total_citations",
         "total_highlights",
         "total_views",
         "type",
@@ -10425,6 +10424,22 @@
       "leaf": true
     },
     {
+      "id": "indexedDB/core/utilities:isSyntheticFeedBook",
+      "label": "isSyntheticFeedBook",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/core/utilities",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/core/utilities:isUserHomeVariantBook",
+      "label": "isUserHomeVariantBook",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "indexedDB/core/utilities",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/core/utilities:parseNodeId",
       "label": "parseNodeId",
       "kind": "fn",
@@ -11865,23 +11880,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/fallback-processor",
-      "leaf": false
-    },
-    {
-      "id": "paste/fallback-processor:saveFootnotesToIndexedDB",
-      "label": "saveFootnotesToIndexedDB",
-      "kind": "fn",
-      "stage": "infra",
-      "module": "paste/fallback-processor",
-      "leaf": false
-    },
-    {
-      "id": "paste/fallback-processor:saveReferencesToIndexedDB",
-      "label": "saveReferencesToIndexedDB",
-      "kind": "fn",
-      "stage": "infra",
-      "module": "paste/fallback-processor",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "paste/format-detection/format-detector:detectFormat",
@@ -11889,7 +11888,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-detection/format-detector",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "paste/format-detection/format-detector:detectFormatVerbose",
@@ -11897,7 +11896,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-detection/format-detector",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "paste/format-detection/format-detector:getProcessorForContent",
@@ -11906,6 +11905,14 @@
       "stage": "infra",
       "module": "paste/format-detection/format-detector",
       "leaf": true
+    },
+    {
+      "id": "paste/format-detection/format-detector:scoreFormats",
+      "label": "scoreFormats",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-detection/format-detector",
+      "leaf": false
     },
     {
       "id": "paste/format-detection/format-registry:getFormatConfig",
@@ -12692,6 +12699,14 @@
       "leaf": false
     },
     {
+      "id": "paste/handlers/largePasteHandler:resolveExtraction",
+      "label": "resolveExtraction",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/handlers/largePasteHandler",
+      "leaf": true
+    },
+    {
       "id": "paste/handlers/largePasteHandler:undoLastLargePaste",
       "label": "undoLastLargePaste",
       "kind": "fn",
@@ -12793,6 +12808,46 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/ui/pasteUndoToast",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:applyAnchorFootnotes",
+      "label": "applyAnchorFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchor-footnotes",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:extractFragment",
+      "label": "extractFragment",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchor-footnotes",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:maskDigits",
+      "label": "maskDigits",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchor-footnotes",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:parseMarkerNumber",
+      "label": "parseMarkerNumber",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchor-footnotes",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "label": "resolveAnchorFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/anchor-footnotes",
       "leaf": false
     },
     {
@@ -13004,22 +13059,6 @@
       "leaf": false
     },
     {
-      "id": "paste/utils/html-preprocessor:isRealLink",
-      "label": "isRealLink",
-      "kind": "fn",
-      "stage": "infra",
-      "module": "paste/utils/html-preprocessor",
-      "leaf": true
-    },
-    {
-      "id": "paste/utils/html-preprocessor:preprocessHTMLContent",
-      "label": "preprocessHTMLContent",
-      "kind": "fn",
-      "stage": "infra",
-      "module": "paste/utils/html-preprocessor",
-      "leaf": false
-    },
-    {
       "id": "paste/utils/inline-fragment:flattenForInlineHost",
       "label": "flattenForInlineHost",
       "kind": "fn",
@@ -13174,6 +13213,14 @@
     {
       "id": "paste/utils/reference-detection:isReferenceShaped",
       "label": "isReferenceShaped",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:ordinalDensity",
+      "label": "ordinalDensity",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/utils/reference-detection",
@@ -19049,6 +19096,8 @@
       "fnIds": [
         "indexedDB/core/utilities:createNodeKey",
         "indexedDB/core/utilities:getLocalStorageKey",
+        "indexedDB/core/utilities:isSyntheticFeedBook",
+        "indexedDB/core/utilities:isUserHomeVariantBook",
         "indexedDB/core/utilities:parseNodeId",
         "indexedDB/core/utilities:toPublicNode"
       ]
@@ -19702,11 +19751,9 @@
       "id": "paste/fallback-processor",
       "label": "paste/fallback-processor",
       "stage": "infra",
-      "band": "sync",
+      "band": "store",
       "fnIds": [
-        "paste/fallback-processor:processContentForFootnotesAndReferences",
-        "paste/fallback-processor:saveFootnotesToIndexedDB",
-        "paste/fallback-processor:saveReferencesToIndexedDB"
+        "paste/fallback-processor:processContentForFootnotesAndReferences"
       ]
     },
     {
@@ -19717,7 +19764,8 @@
       "fnIds": [
         "paste/format-detection/format-detector:detectFormat",
         "paste/format-detection/format-detector:detectFormatVerbose",
-        "paste/format-detection/format-detector:getProcessorForContent"
+        "paste/format-detection/format-detector:getProcessorForContent",
+        "paste/format-detection/format-detector:scoreFormats"
       ]
     },
     {
@@ -19944,6 +19992,7 @@
       "band": "sync",
       "fnIds": [
         "paste/handlers/largePasteHandler:handleLargePaste",
+        "paste/handlers/largePasteHandler:resolveExtraction",
         "paste/handlers/largePasteHandler:undoLastLargePaste"
       ]
     },
@@ -20013,6 +20062,19 @@
       "fnIds": [
         "paste/ui/pasteUndoToast:hidePasteUndoToast",
         "paste/ui/pasteUndoToast:showPasteUndoToast"
+      ]
+    },
+    {
+      "id": "paste/utils/anchor-footnotes",
+      "label": "paste/utils/anchor-footnotes",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/anchor-footnotes:applyAnchorFootnotes",
+        "paste/utils/anchor-footnotes:extractFragment",
+        "paste/utils/anchor-footnotes:maskDigits",
+        "paste/utils/anchor-footnotes:parseMarkerNumber",
+        "paste/utils/anchor-footnotes:resolveAnchorFootnotes"
       ]
     },
     {
@@ -20114,16 +20176,6 @@
       ]
     },
     {
-      "id": "paste/utils/html-preprocessor",
-      "label": "paste/utils/html-preprocessor",
-      "stage": "infra",
-      "band": "capture",
-      "fnIds": [
-        "paste/utils/html-preprocessor:isRealLink",
-        "paste/utils/html-preprocessor:preprocessHTMLContent"
-      ]
-    },
-    {
       "id": "paste/utils/inline-fragment",
       "label": "paste/utils/inline-fragment",
       "stage": "infra",
@@ -20188,7 +20240,8 @@
         "paste/utils/reference-detection:hasEarlyYear",
         "paste/utils/reference-detection:hasReferenceStructure",
         "paste/utils/reference-detection:isArticleChrome",
-        "paste/utils/reference-detection:isReferenceShaped"
+        "paste/utils/reference-detection:isReferenceShaped",
+        "paste/utils/reference-detection:ordinalDensity"
       ]
     },
     {
@@ -29452,21 +29505,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__paste/fallback-processor:processContentForFootnotesAndReferences",
+      "id": "dom__domread__paste/format-detection/format-detector:scoreFormats",
       "source": "dom",
-      "target": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__paste/format-detection/format-detector:detectFormat",
-      "source": "dom",
-      "target": "paste/format-detection/format-detector:detectFormat",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__paste/format-detection/format-detector:detectFormatVerbose",
-      "source": "dom",
-      "target": "paste/format-detection/format-detector:detectFormatVerbose",
+      "target": "paste/format-detection/format-detector:scoreFormats",
       "rel": "domread"
     },
     {
@@ -29872,6 +29913,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "source": "dom",
+      "target": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/utils/citation-linker:processInTextCitations",
       "source": "dom",
       "target": "paste/utils/citation-linker:processInTextCitations",
@@ -29923,12 +29970,6 @@
       "id": "dom__domread__paste/utils/footnote-linker:processFootnoteReferences",
       "source": "dom",
       "target": "paste/utils/footnote-linker:processFootnoteReferences",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__paste/utils/html-preprocessor:preprocessHTMLContent",
-      "source": "dom",
-      "target": "paste/utils/html-preprocessor:preprocessHTMLContent",
       "rel": "domread"
     },
     {
@@ -35461,6 +35502,18 @@
       "dataPath": true
     },
     {
+      "id": "indexedDB/core/library:getAllOfflineAvailableBooks__call__indexedDB/core/utilities:isSyntheticFeedBook",
+      "source": "indexedDB/core/library:getAllOfflineAvailableBooks",
+      "target": "indexedDB/core/utilities:isSyntheticFeedBook",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/core/library:getAllOfflineAvailableBooks__call__indexedDB/core/utilities:isUserHomeVariantBook",
+      "source": "indexedDB/core/library:getAllOfflineAvailableBooks",
+      "target": "indexedDB/core/utilities:isUserHomeVariantBook",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/core/library:getLibraryObjectFromIndexedDB__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:getLibraryObjectFromIndexedDB",
       "target": "indexedDB/core/connection:openDatabase",
@@ -38242,63 +38295,9 @@
       "rel": "domwrite"
     },
     {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__call__paste/fallback-processor:saveFootnotesToIndexedDB",
-      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "paste/fallback-processor:saveFootnotesToIndexedDB",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__call__paste/fallback-processor:saveReferencesToIndexedDB",
-      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "paste/fallback-processor:saveReferencesToIndexedDB",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__route:/api/db/footnotes/upsert",
-      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "route:/api/db/footnotes/upsert",
-      "rel": "push",
-      "label": "/api/db/footnotes/upsert"
-    },
-    {
-      "id": "paste/fallback-processor:processContentForFootnotesAndReferences__push__route:/api/db/references/upsert",
-      "source": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "target": "route:/api/db/references/upsert",
-      "rel": "push",
-      "label": "/api/db/references/upsert"
-    },
-    {
-      "id": "paste/fallback-processor:saveFootnotesToIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "paste/fallback-processor:saveFootnotesToIndexedDB",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "paste/fallback-processor:saveFootnotesToIndexedDB__write__store:footnotes",
-      "source": "paste/fallback-processor:saveFootnotesToIndexedDB",
-      "target": "store:footnotes",
-      "rel": "write"
-    },
-    {
-      "id": "paste/fallback-processor:saveReferencesToIndexedDB__call__indexedDB/core/connection:openDatabase",
-      "source": "paste/fallback-processor:saveReferencesToIndexedDB",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "paste/fallback-processor:saveReferencesToIndexedDB__write__store:bibliography",
-      "source": "paste/fallback-processor:saveReferencesToIndexedDB",
-      "target": "store:bibliography",
-      "rel": "write"
-    },
-    {
-      "id": "paste/format-detection/format-detector:detectFormat__call__paste/format-detection/format-registry:getFormatsByPriority",
+      "id": "paste/format-detection/format-detector:detectFormat__call__paste/format-detection/format-detector:scoreFormats",
       "source": "paste/format-detection/format-detector:detectFormat",
-      "target": "paste/format-detection/format-registry:getFormatsByPriority",
+      "target": "paste/format-detection/format-detector:scoreFormats",
       "rel": "call"
     },
     {
@@ -38308,9 +38307,15 @@
       "rel": "call"
     },
     {
-      "id": "paste/format-detection/format-detector:detectFormatVerbose__call__paste/format-detection/format-registry:getFormatsByPriority",
+      "id": "paste/format-detection/format-detector:detectFormatVerbose__call__paste/format-detection/format-detector:detectFormat",
       "source": "paste/format-detection/format-detector:detectFormatVerbose",
-      "target": "paste/format-detection/format-registry:getFormatsByPriority",
+      "target": "paste/format-detection/format-detector:detectFormat",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:detectFormatVerbose__call__paste/format-detection/format-detector:scoreFormats",
+      "source": "paste/format-detection/format-detector:detectFormatVerbose",
+      "target": "paste/format-detection/format-detector:scoreFormats",
       "rel": "call"
     },
     {
@@ -38329,6 +38334,12 @@
       "id": "paste/format-detection/format-detector:getProcessorForContent__call__paste/format-detection/format-registry:getFormatConfig",
       "source": "paste/format-detection/format-detector:getProcessorForContent",
       "target": "paste/format-detection/format-registry:getFormatConfig",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-detection/format-detector:scoreFormats__call__paste/format-detection/format-registry:getFormatsByPriority",
+      "source": "paste/format-detection/format-detector:scoreFormats",
+      "target": "paste/format-detection/format-registry:getFormatsByPriority",
       "rel": "call"
     },
     {
@@ -38564,6 +38575,24 @@
       "source": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__call__paste/utils/anchor-footnotes:applyAnchorFootnotes",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "target": "paste/utils/anchor-footnotes:applyAnchorFootnotes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__call__paste/utils/anchor-footnotes:parseMarkerNumber",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "target": "paste/utils/anchor-footnotes:parseMarkerNumber",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__call__paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
+      "target": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "rel": "call"
     },
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__domwrite__dom",
@@ -39317,8 +39346,13 @@
       "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/fallback-processor:processContentForFootnotesAndReferences",
       "source": "paste/handlers/largePasteHandler:handleLargePaste",
       "target": "paste/fallback-processor:processContentForFootnotesAndReferences",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/handlers/largePasteHandler:resolveExtraction",
+      "source": "paste/handlers/largePasteHandler:handleLargePaste",
+      "target": "paste/handlers/largePasteHandler:resolveExtraction",
+      "rel": "call"
     },
     {
       "id": "paste/handlers/largePasteHandler:handleLargePaste__call__paste/pasteSnapshot:setPasteSnapshot",
@@ -39537,6 +39571,48 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/utils/anchor-footnotes:applyAnchorFootnotes__domwrite__dom",
+      "source": "paste/utils/anchor-footnotes:applyAnchorFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/anchor-footnotes:extractFragment",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/anchor-footnotes:extractFragment",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/anchor-footnotes:maskDigits",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/anchor-footnotes:maskDigits",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/anchor-footnotes:parseMarkerNumber",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/anchor-footnotes:parseMarkerNumber",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/reference-detection:hasReferenceStructure",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/reference-detection:hasReferenceStructure",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/reference-detection:ordinalDensity",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/reference-detection:ordinalDensity",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/anchor-footnotes:resolveAnchorFootnotes__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/utils/anchor-footnotes:resolveAnchorFootnotes",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
+    },
+    {
       "id": "paste/utils/anchorSpacing:ensureSpaceAfterAnchor__domwrite__dom",
       "source": "paste/utils/anchorSpacing:ensureSpaceAfterAnchor",
       "target": "dom",
@@ -39675,18 +39751,6 @@
       "rel": "domwrite"
     },
     {
-      "id": "paste/utils/html-preprocessor:preprocessHTMLContent__call__paste/utils/html-preprocessor:isRealLink",
-      "source": "paste/utils/html-preprocessor:preprocessHTMLContent",
-      "target": "paste/utils/html-preprocessor:isRealLink",
-      "rel": "call"
-    },
-    {
-      "id": "paste/utils/html-preprocessor:preprocessHTMLContent__domwrite__dom",
-      "source": "paste/utils/html-preprocessor:preprocessHTMLContent",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "paste/utils/inline-fragment:flattenForInlineHost__call__paste/utils/dom-utils:isBlockElement",
       "source": "paste/utils/inline-fragment:flattenForInlineHost",
       "target": "paste/utils/dom-utils:isBlockElement",
@@ -39756,6 +39820,12 @@
       "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:isArticleChrome",
       "source": "paste/utils/reference-detection:collectReferenceRun",
       "target": "paste/utils/reference-detection:isArticleChrome",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:ordinalDensity",
+      "source": "paste/utils/reference-detection:collectReferenceRun",
+      "target": "paste/utils/reference-detection:ordinalDensity",
       "rel": "call"
     },
     {
@@ -47768,6 +47838,11 @@
     },
     {
       "source": "indexedDB/core/library",
+      "target": "indexedDB/core/utilities",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/core/library",
       "target": "indexedDB/syncQueue/queue",
       "kind": "static"
     },
@@ -48703,11 +48778,6 @@
     },
     {
       "source": "paste/fallback-processor",
-      "target": "indexedDB/index",
-      "kind": "static"
-    },
-    {
-      "source": "paste/fallback-processor",
       "target": "paste/format-processors/general-processor",
       "kind": "static"
     },
@@ -48719,11 +48789,6 @@
     {
       "source": "paste/fallback-processor",
       "target": "paste/utils/footnote-linker",
-      "kind": "static"
-    },
-    {
-      "source": "paste/fallback-processor",
-      "target": "paste/utils/html-preprocessor",
       "kind": "static"
     },
     {
@@ -48869,6 +48934,11 @@
     {
       "source": "paste/format-processors/general-processor",
       "target": "paste/format-processors/base-processor",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/utils/anchor-footnotes",
       "kind": "static"
     },
     {
@@ -49319,6 +49389,16 @@
     {
       "source": "paste/ui/pasteUndoToast",
       "target": "paste/pasteSnapshot",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/anchor-footnotes",
+      "target": "paste/utils/reference-detection",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/anchor-footnotes",
+      "target": "paste/utils/reference-headings",
       "kind": "static"
     },
     {

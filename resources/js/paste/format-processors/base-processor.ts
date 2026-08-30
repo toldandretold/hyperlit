@@ -227,7 +227,11 @@ export class BaseFormatProcessor {
 
     // Apply footnote reference linking
     if (footnoteMappings.size > 0) {
-      const linkedHtml = processFootnoteReferences(dom.innerHTML, footnoteMappings, this.formatType);
+      const linkedHtml = processFootnoteReferences(dom.innerHTML, footnoteMappings, this.formatType, {
+        // Set by a processor whose markers were already resolved structurally —
+        // the prose scanner would only invent extra ones from sentence-final digits.
+        skipPlainTextScan: this.skipPlainTextFootnoteScan === true,
+      });
       dom.innerHTML = linkedHtml;
       console.log(`  - Footnote linking complete: ${footnotes.length} footnotes`);
     }

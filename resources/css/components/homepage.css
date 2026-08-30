@@ -216,6 +216,31 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
   margin-top: 1.4em;
 }
 
+/* ---------- the journals we host (certified registry rows) ---------- */
+
+/* sits under the closing statement, so it needs the gap the numbered steps
+   don't — those follow each other */
+.welcome-copy .copy-journals-intro {
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+}
+
+/* one journal per line, no bullets. Matched to .welcome-copy h2 rather than
+   inheriting: an <li> is not a heading, and the intro above it IS an h2 — the
+   two must read as one block at every viewport width */
+.welcome-copy .copy-journal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.1em;
+  font-size: clamp(1.35rem, 3vw, 1.9rem);
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.welcome-copy .copy-journal-list li {
+  margin: 0 0 0.5em;
+}
+
 .welcome-copy a {
   /* pink text vanishes over the pink lava — black with a thick pink underline
      stays legible over both the white backdrop and the hills */

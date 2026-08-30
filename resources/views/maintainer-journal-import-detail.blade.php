@@ -49,6 +49,14 @@
                 <button type="button" id="ji-bulk-import"
                         title="Import the most-cited eligible works that have no lane yet. HTML is free; PDF runs OCR and is charged to you.">⇩ import</button>
             </span>
+            {{-- Certification is the editorial half of this console: everything else here decides
+                 whether a CONVERSION is good, this decides whether the JOURNAL is ready to show
+                 visitors. It is what puts a journal in the homepage copy — nothing automatic can
+                 grant it, because "I have read these and they're right" is not a thing a gate can
+                 check. The homepage additionally drops any certified journal with no readable
+                 article, so this never has to be un-set to fix an emptied journal. --}}
+            <button type="button" id="ji-certify" aria-pressed="false"
+                    title="Show this journal on the Hyperlit homepage. Certify it once you've read the conversions — it only appears there while it has at least one readable article.">☆ certify</button>
             <span class="ji-actions-status" id="ji-journal-status" role="status" aria-live="polite"></span>
         </div>
 
@@ -172,6 +180,7 @@
             <li><strong>★ marks the promoted lane</strong> — the one <code>/j/&lt;slug&gt;</code>, the shelf and readers resolve to. The others stay imported but unlisted.</li>
             <li><strong>Click a lane</strong> to load what we produced (left) beside what we produced it from (right): the PDF for the PDF lane, the fetched publisher page for the HTML lane.</li>
             <li><strong>The badges are the evidence</strong>: completeness, the body-presence verdict, which host the copy won from, and any open conversion flags.</li>
+            <li><strong>☆ certify when the journal is ready to show people.</strong> That is what puts it in the homepage copy, linked to its <code>/j/&lt;slug&gt;</code> page. It is your judgement, not a gate — <code>◆ diamond</code> is DOAJ's fact about APCs, this is you saying the conversions are worth reading. A certified journal with no readable article is silently left off the homepage, so you never have to un-certify one to fix it.</li>
             <li><strong>An article with no lanes</strong> selects too — the bar offers <code>PDF</code>, <code>HTML</code> or <code>both</code>. HTML is free; PDF runs OCR and is charged to you.</li>
         </ol>
         <h3>Reconvert or re-fetch?</h3>

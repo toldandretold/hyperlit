@@ -258,7 +258,7 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
       syntheticEvent,
       insertionPoint,
       htmlContent,
-      true, 'general', [], []
+      { isHtmlContent: true, formatType: 'general' }
     );
 
     // Kill the navigation progress overlay that handleLargePaste spawned

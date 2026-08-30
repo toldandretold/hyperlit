@@ -122,7 +122,14 @@ export function attachInteraction(deps: InteractionDeps): () => void {
   };
 
   const setSelected = (mesh: THREE.Mesh | null): void => {
-    if (selected) (selected.material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+    // Restore the mesh's OWN base emissive, not hard black — lit journal
+    // nodes (/3d/j/{slug} focusSet) glow via emissive, and deselecting one
+    // must not extinguish it. scene.ts stamps userData.baseEmissive on build.
+    if (selected) {
+      (selected.material as THREE.MeshStandardMaterial).emissive.setHex(
+        (selected.userData.baseEmissive as number | undefined) ?? 0x000000,
+      );
+    }
     selected = mesh;
     if (mesh) (mesh.material as THREE.MeshStandardMaterial).emissive.setHex(0x554400);
   };

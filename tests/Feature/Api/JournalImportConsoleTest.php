@@ -663,3 +663,82 @@ test('resolve is admin-gated, validates the resolution, and 404s an unknown lane
         ['resolution' => 'nonsense'])->assertStatus(422);
 });
 
+
+// ── Certification (the homepage signal) ──
+
+test('certify sets certified_at, and certified=false clears it', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/certify", ['certified' => true])
+        ->assertOk()
+        ->assertJson(['certified' => true]);
+
+    // Read back on the DEFAULT connection, not pgsql_admin: the seed row is committed
+    // outside the test transaction, but the endpoint's write lives INSIDE it, so the
+    // admin connection cannot see it and would report a stale null.
+    expect(\App\Models\JournalSource::find($journal->id)->certified_at)->not->toBeNull();
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/certify", ['certified' => false])
+        ->assertOk()
+        ->assertJson(['certified' => false]);
+
+    expect(\App\Models\JournalSource::find($journal->id)->certified_at)->toBeNull();
+});
+
+test('certify is admin-gated and 404s an unknown journal', function () {
+    $journal = jconSeedJournal();
+
+    $this->loginUser(); // not admin
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/certify", ['certified' => true])
+        ->assertStatus(403);
+
+    $this->loginUser(['is_admin' => true]);
+    $this->postJson('/api/maintainer/journal-import/no-such-journal/certify', ['certified' => true])
+        ->assertStatus(404);
+
+    // The rejected attempt must not have written anything.
+    expect(\App\Models\JournalSource::find($journal->id)->certified_at)->toBeNull();
+});
+
+test('certifying does not take the journal run lock, so it never blocks an import', function () {
+    // Deliberately NOT one of the ACTIONS: a one-column write must not queue a job or
+    // collide with an in-flight journal-wide run the way enumerate/import_all do.
+    Queue::fake();
+
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/certify", ['certified' => true])
+        ->assertOk();
+
+    Queue::assertNothingPushed();
+    expect(jconDb()->table('journal_import_runs')->where('journal_source_id', $journal->id)->count())
+        ->toBe(0);
+});
+
+test('the console payloads carry the certified flag', function () {
+    $this->loginUser(['is_admin' => true]);
+    $certified = jconSeedJournal(['display_name' => 'JCon Certified', 'certified_at' => now()]);
+    $plain     = jconSeedJournal(['display_name' => 'JCon Plain']);
+
+    $rows = collect($this->getJson('/api/maintainer/journal-import/journals')->json('next'));
+    expect($rows->firstWhere('slug', $certified->slug)['certified'])->toBeTrue();
+    expect($rows->firstWhere('slug', $plain->slug)['certified'])->toBeFalse();
+
+    $this->getJson("/api/maintainer/journal-import/{$certified->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('journal.certified', true);
+});
+
+test('the detail page ships the certify toggle main.ts wires', function () {
+    // main.ts paints and binds #ji-certify by id; dropping the button from the blade
+    // would silently leave the flag settable only by API.
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $html = $this->get('/maintainer/journal-import/' . $journal->slug)->assertOk()->getContent();
+
+    expect($html)->toContain('id="ji-certify"');
+    expect($html)->toContain('aria-pressed="false"');
+});
