@@ -1,21 +1,23 @@
-// Conversion-quality feedback ("Report an issue"). Two surfaces:
-//   1. a transient toast on opening a COMMONS book (auto-harvested, owner-less
-//      — otherwise no one would flag a bad conversion), and
-//   2. a persistent note in the source panel's Librarian section — on EVERY
-//      book, including private ones: the book's own librarian is often the
-//      first to spot mismatched footnotes / citations / headings and wants the
-//      book on the maintainer reconvert queue too.
-// Both route a report to the maintainers via the existing conversion-feedback
-// endpoint (audit.json / assessment.json attached server-side); a 'bad' rating
-// also raises a ConversionFlag onto the reconvert queue. Honest framing: this
-// feeds a converter-fix + batch-reconvert loop, not an instant self-heal.
+// Conversion-quality feedback ("Report an issue") — a persistent note in the
+// source panel's Librarian section, on EVERY book including private ones: the
+// book's own librarian is often the first to spot mismatched footnotes /
+// citations / headings and wants the book on the maintainer reconvert queue.
+// A report routes to the maintainers via the conversion-feedback endpoint
+// (audit.json / assessment.json attached server-side); a 'bad' rating also
+// raises a ConversionFlag onto the reconvert queue. Honest framing: this feeds
+// a converter-fix + batch-reconvert loop, not an instant self-heal.
+//
+// There is deliberately NO reader-entry toast. It used to interrupt every
+// opening of a commons book; on journal-import texts (human-reviewed as they
+// land) it was pure noise, and anyone who reaches an auto-converted text either
+// imported it themselves or found it good enough to read. The report path lives
+// here in the panel, where someone who does spot a problem will look for it.
 import { book } from '../../app';
 import { checklistDialog, alertDialog } from '../dialog/dialog';
 import { isCommonsBook } from './researchWorkflows';
 import { log } from '../../utilities/logger';
 
 const FILE = 'components/sourceContainer/commonsFeedback.ts';
-const TOAST_ID = 'commons-harvest-toast';
 
 const ISSUE_TYPES = [
   { value: 'footnotes_not_matched', label: "Footnotes aren't linked / are missing their links" },
@@ -76,83 +78,4 @@ export async function handleCommonsFeedback(): Promise<void> {
     log.error('Commons feedback failed', FILE, err);
     await alertDialog({ title: 'Report a conversion issue', message: "Couldn't send the report just now. Please try again later." });
   }
-}
-
-/** Silent positive signal ("No issue") — seeds the good-conversion record. */
-function sendGoodRating(bookId: string): void {
-  fetch('/api/integrity/conversion-feedback', {
-    method: 'POST',
-    headers: postHeaders(),
-    credentials: 'include',
-    body: JSON.stringify({ bookId, rating: 'good', timestamp: new Date().toISOString() }),
-  }).catch(() => { /* best-effort */ });
-}
-
-export function hideCommonsHarvestToast(): void {
-  const t = document.getElementById(TOAST_ID);
-  if (!t) return;
-  t.style.opacity = '0';
-  setTimeout(() => t.remove(), 200);
-}
-
-/**
- * A transient glass toast at the top of the page, shown once when a reader opens
- * a commons book — so they know from the outset it was auto-converted. Buttons:
- * Report an issue (checklist) / No issue (positive, dismiss) / Cancel (dismiss).
- * Auto-hides; pauses on hover. Mirrors the post-conversion feedback toast.
- */
-export function showCommonsHarvestToast(bookId: string): void {
-  hideCommonsHarvestToast();
-
-  const isLight = document.body.classList.contains('theme-light') || document.body.classList.contains('theme-sepia');
-  const glassBg = isLight ? 'rgba(40,36,32,0.80)' : 'rgba(30,30,50,0.6)';
-
-  const toast = document.createElement('div');
-  toast.id = TOAST_ID;
-  Object.assign(toast.style, {
-    position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
-    background: glassBg, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-    color: '#e0e0e0', padding: '12px 18px', borderRadius: '8px', fontSize: '13px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-    display: 'flex', flexDirection: 'column', gap: '10px', zIndex: '99999',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.3)', opacity: '0', transition: 'opacity 0.2s ease',
-    width: 'calc(100vw - 32px)', maxWidth: '560px',
-  });
-
-  const text = document.createElement('span');
-  text.textContent = 'This text was converted automatically by the Knowledge Commons Harvester.';
-  text.style.lineHeight = '1.4';
-
-  const row = document.createElement('div');
-  Object.assign(row.style, { display: 'flex', gap: '8px', flexWrap: 'wrap' });
-
-  const mkBtn = (label: string, primary = false): HTMLButtonElement => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    Object.assign(b.style, {
-      background: primary ? '#4EACAE' : 'transparent',
-      color: primary ? '#221F20' : '#e0e0e0',
-      border: primary ? 'none' : '1px solid rgba(224,224,224,0.4)',
-      padding: '5px 14px', borderRadius: '4px', fontSize: '13px', cursor: 'pointer',
-      flexShrink: '0', whiteSpace: 'nowrap', fontFamily: 'inherit',
-    });
-    return b;
-  };
-
-  const reportBtn = mkBtn('Report an issue', true);
-  reportBtn.addEventListener('click', () => { hideCommonsHarvestToast(); handleCommonsFeedback(); });
-  const noIssueBtn = mkBtn('No issue');
-  noIssueBtn.addEventListener('click', () => { sendGoodRating(bookId); hideCommonsHarvestToast(); });
-  const cancelBtn = mkBtn('Cancel');
-  cancelBtn.addEventListener('click', () => hideCommonsHarvestToast());
-
-  row.append(reportBtn, noIssueBtn, cancelBtn);
-  toast.append(text, row);
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => { toast.style.opacity = '1'; });
-
-  // Auto-hide, but never yank it away while the reader is hovering it.
-  let timer = window.setTimeout(hideCommonsHarvestToast, 14000);
-  toast.addEventListener('mouseenter', () => clearTimeout(timer));
-  toast.addEventListener('mouseleave', () => { timer = window.setTimeout(hideCommonsHarvestToast, 6000); });
 }

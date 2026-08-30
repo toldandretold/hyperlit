@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1794,
+    "fnCount": 1792,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3680,
+    "edgeCount": 3674,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2234,22 +2234,6 @@
     {
       "id": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
       "label": "handleCommonsFeedback",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/commonsFeedback",
-      "leaf": false
-    },
-    {
-      "id": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "label": "hideCommonsHarvestToast",
-      "kind": "fn",
-      "stage": "components",
-      "module": "components/sourceContainer/commonsFeedback",
-      "leaf": false
-    },
-    {
-      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
-      "label": "showCommonsHarvestToast",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/commonsFeedback",
@@ -16986,9 +16970,7 @@
       "band": "components",
       "fnIds": [
         "components/sourceContainer/commonsFeedback:commonsFeedbackNoteHtml",
-        "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
-        "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-        "components/sourceContainer/commonsFeedback:showCommonsHarvestToast"
+        "components/sourceContainer/commonsFeedback:handleCommonsFeedback"
       ]
     },
     {
@@ -23607,31 +23589,6 @@
       "rel": "call"
     },
     {
-      "id": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast__domwrite__dom",
-      "source": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
-      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__call__components/sourceContainer/commonsFeedback:handleCommonsFeedback",
-      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
-      "target": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__call__components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
-      "target": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "rel": "call"
-    },
-    {
-      "id": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast__domwrite__dom",
-      "source": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook__call__indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
       "source": "components/sourceContainer/creatorTools/deleteBook:handleDeleteBook",
       "target": "indexedDB/utilities/cleanup:deleteBookFromIndexedDB",
@@ -27270,18 +27227,6 @@
       "id": "dom__domread__components/sourceContainer/commonsFeedback:handleCommonsFeedback",
       "source": "dom",
       "target": "components/sourceContainer/commonsFeedback:handleCommonsFeedback",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "source": "dom",
-      "target": "components/sourceContainer/commonsFeedback:hideCommonsHarvestToast",
-      "rel": "domread"
-    },
-    {
-      "id": "dom__domread__components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
-      "source": "dom",
-      "target": "components/sourceContainer/commonsFeedback:showCommonsHarvestToast",
       "rel": "domread"
     },
     {

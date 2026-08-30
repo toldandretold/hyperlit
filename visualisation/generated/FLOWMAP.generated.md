@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1794 functions in 377 modules · 10 object stores · 10 PG tables · 3680 edges
+**MarkdownDB** schema v28 · 1792 functions in 377 modules · 10 object stores · 10 PG tables · 3674 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -266,8 +266,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `commonsFeedbackNoteHtml` | `components/sourceContainer/commonsFeedback` | — | — | — | — |
 | `handleCommonsFeedback` | `components/sourceContainer/commonsFeedback` | — | — | read | — |
-| `hideCommonsHarvestToast` | `components/sourceContainer/commonsFeedback` | — | — | read/write | — |
-| `showCommonsHarvestToast` | `components/sourceContainer/commonsFeedback` | — | — | read/write | — |
 | `combineIcon` | `components/sourceContainer/creatorTools/combineIcon` | — | — | — | — |
 | `handleDeleteBook` | `components/sourceContainer/creatorTools/deleteBook` | — | — | read/write | — |
 | `computeHarvestProgress` | `components/sourceContainer/creatorTools/harvestField` | — | — | — | — |
