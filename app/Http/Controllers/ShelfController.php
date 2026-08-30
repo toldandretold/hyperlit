@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Shelf;
 use App\Models\ShelfItem;
 use App\Models\ShelfPin;
+use App\Services\Connections\ConnectionCountQuery;
+use App\Services\Connections\ConnectionRefresher;
 use App\Services\EmbeddingService;
 use App\Services\LibraryCardGenerator;
 use App\Services\SearchService;
@@ -403,8 +405,13 @@ class ShelfController extends Controller
             ->where('book', $syntheticBookId)
             ->exists();
 
-        if ($existing) {
+        // A ranking sort's order changes behind the render, so its cache expires;
+        // every other sort stays cached until the shelf is mutated.
+        if ($existing && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
             return response()->json(['bookId' => $syntheticBookId]);
+        }
+        if ($existing) {
+            DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
         }
 
         // Fetch shelf items joined with library for citation data. Deleted books
@@ -419,7 +426,8 @@ class ShelfController extends Controller
                 'library.book', 'library.title', 'library.author', 'library.year',
                 'library.volume', 'library.issue',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
-                'library.total_views', 'library.total_citations', 'library.total_highlights',
+                'library.total_views', 'library.total_highlights',
+                'library.hypercite_connections', 'library.reference_connections',
                 'shelf_items.added_at', 'shelf_items.manual_position',
             ])
             ->get();
@@ -429,8 +437,10 @@ class ShelfController extends Controller
             'title' => $items->sortBy(fn($i) => mb_strtolower($i->title ?? '')),
             'author' => $items->sortBy(fn($i) => mb_strtolower($i->author ?? '')),
             'views' => $items->sortByDesc('total_views'),
-            'connected' => $items->sortByDesc('total_citations'),
-            'lit' => $items->sortByDesc(fn($i) => ($i->total_citations ?? 0) + ($i->total_highlights ?? 0)),
+            // Docuverse connectedness, both directions — ConnectionCountQuery owns
+            // the definition and the tie-breaking so all four sort sites agree.
+            'connected' => ConnectionCountQuery::sortConnected($items),
+            'lit' => ConnectionCountQuery::sortLit($items),
             'added' => $items->sortByDesc('added_at'),
             'manual' => $items->sortBy('manual_position'),
             // Publication order for journals: year → volume → issue, all desc.
@@ -525,8 +535,13 @@ class ShelfController extends Controller
             ->where('book', $syntheticBookId)
             ->exists();
 
-        if ($existing) {
+        // A ranking sort's order changes behind the render, so its cache expires;
+        // every other sort stays cached until the shelf is mutated.
+        if ($existing && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
             return response()->json(['bookId' => $syntheticBookId]);
+        }
+        if ($existing) {
+            DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->delete();
         }
 
         // Fetch shelf items joined with library for citation data + visibility.
@@ -539,7 +554,8 @@ class ShelfController extends Controller
                 'library.book', 'library.title', 'library.author', 'library.year',
                 'library.volume', 'library.issue',
                 'library.publisher', 'library.journal', 'library.bibtex', 'library.created_at',
-                'library.total_views', 'library.total_citations', 'library.total_highlights',
+                'library.total_views', 'library.total_highlights',
+                'library.hypercite_connections', 'library.reference_connections',
                 'library.visibility as book_visibility',
                 'shelf_items.added_at', 'shelf_items.manual_position',
             ])
@@ -550,8 +566,10 @@ class ShelfController extends Controller
             'title' => $items->sortBy(fn($i) => mb_strtolower($i->title ?? '')),
             'author' => $items->sortBy(fn($i) => mb_strtolower($i->author ?? '')),
             'views' => $items->sortByDesc('total_views'),
-            'connected' => $items->sortByDesc('total_citations'),
-            'lit' => $items->sortByDesc(fn($i) => ($i->total_citations ?? 0) + ($i->total_highlights ?? 0)),
+            // Docuverse connectedness, both directions — ConnectionCountQuery owns
+            // the definition and the tie-breaking so all four sort sites agree.
+            'connected' => ConnectionCountQuery::sortConnected($items),
+            'lit' => ConnectionCountQuery::sortLit($items),
             'added' => $items->sortByDesc('added_at'),
             'manual' => $items->sortBy('manual_position'),
             // Publication order for journals: year → volume → issue, all desc.

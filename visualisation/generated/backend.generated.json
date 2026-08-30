@@ -733,7 +733,6 @@
                 "school",
                 "timestamp",
                 "title",
-                "total_citations",
                 "total_highlights",
                 "total_views",
                 "type",
@@ -817,8 +816,6 @@
             "controller": "DbLibraryController",
             "method": "updateAllLibraryStats",
             "tables": [
-                "hypercites",
-                "hyperlights",
                 "library"
             ],
             "shape": [
@@ -838,15 +835,14 @@
             "controller": "DbLibraryController",
             "method": "updateBookStats",
             "tables": [
-                "hypercites",
-                "hyperlights",
                 "library"
             ],
             "shape": [
                 "book",
+                "hypercite_connections",
                 "message",
+                "reference_connections",
                 "success",
-                "total_citations",
                 "total_highlights"
             ],
             "endpoints": [
@@ -1177,27 +1173,7 @@
         },
         {
             "source": "controller:DbLibraryController@updateAllLibraryStats",
-            "target": "pg:hypercites",
-            "rel": "write"
-        },
-        {
-            "source": "controller:DbLibraryController@updateAllLibraryStats",
-            "target": "pg:hyperlights",
-            "rel": "write"
-        },
-        {
-            "source": "controller:DbLibraryController@updateAllLibraryStats",
             "target": "pg:library",
-            "rel": "write"
-        },
-        {
-            "source": "controller:DbLibraryController@updateBookStats",
-            "target": "pg:hypercites",
-            "rel": "write"
-        },
-        {
-            "source": "controller:DbLibraryController@updateBookStats",
-            "target": "pg:hyperlights",
             "rel": "write"
         },
         {

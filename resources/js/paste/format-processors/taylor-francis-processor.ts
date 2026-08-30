@@ -5,6 +5,7 @@
 
 import { BaseFormatProcessor } from './base-processor';
 import { unwrap, isReferenceSectionHeading } from '../utils/dom-utils';
+import { isReferenceHeading } from '../utils/reference-headings';
 import {
   unwrapContainers,
   removeSectionsByHeading,
@@ -256,7 +257,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     if (references.length === 0) {
       const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
       for (const heading of headings) {
-        if (/references|bibliography/i.test(heading.textContent.trim())) {
+        if (isReferenceHeading(heading.textContent)) {
           let nextElement = heading.nextElementSibling;
           while (nextElement) {
             if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {

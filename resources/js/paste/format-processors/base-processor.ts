@@ -9,6 +9,7 @@ import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements,
 import { generateReferenceKeys } from '../utils/reference-key-generator';
 import { processInTextCitations } from '../utils/citation-linker';
 import { processFootnoteReferences } from '../utils/footnote-linker';
+import { flattenForInlineHost } from '../utils/inline-fragment';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 
 export class BaseFormatProcessor {
@@ -290,28 +291,33 @@ export class BaseFormatProcessor {
       footnotes.forEach((footnote: any) => {
         const p = document.createElement('p');
 
+        // Flatten BEFORE the number checks: a block-level payload would otherwise
+        // split on the next reparse into "<p …>1. </p>" plus a naked untagged
+        // <p> holding the text. See utils/inline-fragment.ts.
+        const content = flattenForInlineHost(footnote.content);
+
         // Check if content already visually starts with the number (avoid double numbering)
         // Use helper to check actual visible text, not raw HTML
         // Handles cases where numbers are wrapped: "<span>1.</span> Text"
         const contentStartsWithNumberDot = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier}.`
         );
         const contentStartsWithNumberSpace = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier} `
         );
         const contentStartsWithNumberParen = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier})`
         );
 
         if (contentStartsWithNumberDot || contentStartsWithNumberSpace || contentStartsWithNumberParen) {
           // Content already has number, don't prepend
-          p.innerHTML = footnote.content;
+          p.innerHTML = content;
         } else {
           // Prepend number
-          p.innerHTML = `${footnote.originalIdentifier}. ${footnote.content}`;
+          p.innerHTML = `${footnote.originalIdentifier}. ${content}`;
         }
 
         p.setAttribute('data-static-content', 'footnotes');
@@ -330,7 +336,9 @@ export class BaseFormatProcessor {
       // Add each reference as a paragraph (content already cleaned)
       references.forEach((reference: any) => {
         const p = document.createElement('p');
-        p.innerHTML = reference.content;
+        // A block-level payload cannot nest here — flatten it or the entry lands
+        // in the node store as an empty tagged <p> plus an untagged orphan.
+        p.innerHTML = flattenForInlineHost(reference.content);
         p.setAttribute('data-static-content', 'bibliography');
         dom.appendChild(p);
       });

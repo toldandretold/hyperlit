@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Models\PgLibrary;
+use App\Services\Connections\ConnectionCountQuery;
+use App\Services\Connections\ConnectionRefresher;
 use App\Services\LibraryCardGenerator;
 use Illuminate\Http\Request;
 
@@ -925,14 +927,16 @@ class UserHomeServerController extends Controller
 
         $syntheticBookId = $sanitizedUsername . '_' . $visibility . '_' . $sort;
 
-        // Check cache
-        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()) {
+        // Check cache — a ranking sort's order changes behind the render, so it
+        // expires; title/author/recent stay cached as before.
+        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()
+            && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
             return response()->json(['bookId' => $syntheticBookId]);
         }
 
         // Fetch + sort
         $query = DB::connection('pgsql_admin')->table('library')
-            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights', 'visibility'])
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_highlights', 'hypercite_connections', 'reference_connections', 'visibility'])
             ->where('creator', $username)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
@@ -952,8 +956,9 @@ class UserHomeServerController extends Controller
         $records = match ($sort) {
             'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
             'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
-            'connected' => $records->sortByDesc('total_citations'),
-            'lit' => $records->sortByDesc(fn($r) => ($r->total_citations ?? 0) + ($r->total_highlights ?? 0)),
+            // Same definition as the shelf feeds — see ConnectionCountQuery.
+            'connected' => ConnectionCountQuery::sortConnected($records),
+            'lit' => ConnectionCountQuery::sortLit($records),
             default => $records->sortByDesc('created_at'),
         };
         $records = $records->values();
@@ -1020,14 +1025,16 @@ class UserHomeServerController extends Controller
 
         $syntheticBookId = $sanitizedUsername . '_public_' . $sort;
 
-        // Check cache
-        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()) {
+        // Check cache — a ranking sort's order changes behind the render, so it
+        // expires; title/author/recent stay cached as before.
+        if (DB::connection('pgsql_admin')->table('nodes')->where('book', $syntheticBookId)->exists()
+            && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
             return response()->json(['bookId' => $syntheticBookId]);
         }
 
         // Fetch + sort
         $records = DB::connection('pgsql_admin')->table('library')
-            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_citations', 'total_highlights'])
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_highlights', 'hypercite_connections', 'reference_connections'])
             ->where('creator', $actualUsername)
             ->where('book', '!=', $sanitizedUsername)
             ->where('book', '!=', $sanitizedUsername . 'Private')
@@ -1040,8 +1047,9 @@ class UserHomeServerController extends Controller
         $records = match ($sort) {
             'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
             'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
-            'connected' => $records->sortByDesc('total_citations'),
-            'lit' => $records->sortByDesc(fn($r) => ($r->total_citations ?? 0) + ($r->total_highlights ?? 0)),
+            // Same definition as the shelf feeds — see ConnectionCountQuery.
+            'connected' => ConnectionCountQuery::sortConnected($records),
+            'lit' => ConnectionCountQuery::sortLit($records),
             default => $records->sortByDesc('created_at'),
         };
         $records = $records->values();

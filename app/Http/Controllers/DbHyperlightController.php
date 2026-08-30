@@ -9,6 +9,7 @@ use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Services\BookDeletionService;
+use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -835,6 +836,19 @@ class DbHyperlightController extends Controller
         // Use SECURITY DEFINER function to bypass RLS for this specific update
         foreach ($uniqueBookIds as $bookId) {
             DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+        }
+
+        // Keep total_highlights (half of the "Most Lit" score) current. ONLY the
+        // hyperlight half of the recompute: a highlight cannot change a
+        // connection count, and this runs on every save. The rendered feeds are
+        // deliberately NOT flushed here — per-save shelf invalidation would be
+        // far too aggressive; the connected/lit renders carry a staleness TTL
+        // for exactly this case.
+        try {
+            (new ConnectionCountQuery())->recomputeHighlights(array_values($uniqueBookIds));
+        } catch (\Throwable $e) {
+            // Never fail a highlight save over a ranking column.
+            Log::warning('Hyperlight count recompute failed (non-fatal)', ['error' => $e->getMessage()]);
         }
 
         Log::info('Updated annotations_updated_at for books', [

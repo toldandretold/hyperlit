@@ -37,7 +37,7 @@ class HyperciteMinter
 {
     /**
      * @return array{applied:bool, refusal?:string, hyperciteId?:string, anchorId?:string,
-     *               citedBook?:string, citedNodeId?:string}
+     *               citedBook?:string, citingBook?:string, citedNodeId?:string}
      */
     public function mint(string $candidateId, ?int $reviewerId, bool $auto = false): array
     {
@@ -213,6 +213,7 @@ class HyperciteMinter
                 'hyperciteId' => $hyperciteId,
                 'anchorId'    => $anchorId,
                 'citedBook'   => $candidate->cited_book,
+                'citingBook'  => $candidate->citing_book,
                 'citedNodeId' => $matchNodeIds[0],
             ];
         });
@@ -227,7 +228,7 @@ class HyperciteMinter
      * hash no longer matches), because blind string surgery on drifted
      * content could eat real text.
      *
-     * @return array{reverted:bool, refusal?:string}
+     * @return array{reverted:bool, refusal?:string, citedBook?:string, citingBook?:string}
      */
     public function unmint(string $candidateId, ?int $reviewerId): array
     {
@@ -332,7 +333,14 @@ class HyperciteMinter
                 'cited'     => $candidate->cited_book,
             ]);
 
-            return ['reverted' => true];
+            // Both endpoints ride back out so the caller can refresh their
+            // connection counts and flush the feeds that rank on them
+            // (ConnectionRefresher) — an unmint drops an edge just as a mint adds one.
+            return [
+                'reverted'   => true,
+                'citedBook'  => $candidate->cited_book,
+                'citingBook' => $candidate->citing_book,
+            ];
         });
     }
 

@@ -7,6 +7,7 @@ use App\Jobs\DetectHyperciteCandidatesJob;
 use App\Jobs\ImportCitedBulkJob;
 use App\Jobs\ImportCitedSourceJob;
 use App\Models\JournalSource;
+use App\Services\Connections\ConnectionRefresher;
 use App\Services\Hypercites\AutoApprovePolicy;
 use App\Services\Hypercites\CitedWorksQuery;
 use App\Services\Hypercites\HyperciteMinter;
@@ -613,9 +614,16 @@ class HyperciteConsoleController extends Controller
      * and `already_minted`, which means the opposite: revert first, this
      * candidate still owns a live hypercite.
      */
-    public function approve(Request $request, string $id, HyperciteMinter $minter)
+    public function approve(Request $request, string $id, HyperciteMinter $minter, ConnectionRefresher $refresher)
     {
         $result = $minter->mint($id, $request->user()?->id);
+
+        if ($result['applied'] ?? false) {
+            // A new edge changes both books' connection scores AND invalidates
+            // every cached feed that ranks on them — without this the journal
+            // page keeps serving the pre-mint order forever.
+            $refresher->refresh([$result['citingBook'] ?? null, $result['citedBook'] ?? null]);
+        }
 
         if (! ($result['applied'] ?? false)) {
             $refusal = $result['refusal'] ?? 'unknown';
@@ -640,9 +648,13 @@ class HyperciteConsoleController extends Controller
      * anchor unspliced, hypercites row deleted, candidate back to `matched`
      * for re-review. 409 when the citing node drifted since the apply.
      */
-    public function revert(Request $request, string $id, HyperciteMinter $minter)
+    public function revert(Request $request, string $id, HyperciteMinter $minter, ConnectionRefresher $refresher)
     {
         $result = $minter->unmint($id, $request->user()?->id);
+
+        if ($result['reverted'] ?? false) {
+            $refresher->refresh([$result['citingBook'] ?? null, $result['citedBook'] ?? null]);
+        }
 
         if (! ($result['reverted'] ?? false)) {
             $refusal = $result['refusal'] ?? 'unknown';
@@ -707,6 +719,7 @@ class HyperciteConsoleController extends Controller
         $db = DB::connection('pgsql_admin');
         $userId = $request->user()?->id;
         $results = ['applied' => 0, 'skipped_policy' => 0, 'failed' => 0];
+        $touched = [];
 
         foreach ($db->table('hypercite_candidates')
             ->whereIn('id', $ids)
@@ -718,7 +731,15 @@ class HyperciteConsoleController extends Controller
             }
             $r = $minter->mint($candidate->id, $userId);
             $results[($r['applied'] ?? false) ? 'applied' : 'failed']++;
+            if ($r['applied'] ?? false) {
+                $touched[] = $r['citingBook'] ?? null;
+                $touched[] = $r['citedBook'] ?? null;
+            }
         }
+
+        // ONE refresh for the whole batch: per-mint would recompute and flush
+        // the same shelves up to `batch_approve_max` times over.
+        app(ConnectionRefresher::class)->refresh($touched);
 
         return response()->json($results);
     }

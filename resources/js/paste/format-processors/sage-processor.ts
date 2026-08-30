@@ -10,6 +10,7 @@
 
 import { BaseFormatProcessor } from './base-processor';
 import { isReferenceSectionHeading } from '../utils/dom-utils';
+import { isReferenceHeading } from '../utils/reference-headings';
 import {
   unwrapContainers,
   removeSectionsByHeading,
@@ -287,10 +288,9 @@ export class SageProcessor extends BaseFormatProcessor {
       const allElements = Array.from<any>(dom.children);
       let referenceSectionStartIndex = -1;
 
-      const refHeadings = /^(references|bibliography|notes|sources)$/i;
       for (let i = 0; i < allElements.length; i++) {
         const el = allElements[i];
-        if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
+        if (/^H[1-6]$/.test(el.tagName) && isReferenceHeading(el.textContent)) {
           referenceSectionStartIndex = i;
           break;
         }

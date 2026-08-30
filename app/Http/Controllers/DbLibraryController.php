@@ -14,10 +14,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Responses\ApiResponse;
 use App\Models\AnonymousSession;
-use App\Models\PgHypercite;
 use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Services\BookDeletionService;
+use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Security\NodeHtmlSanitizer;
 use App\Services\ShelfCacheInvalidator;
 use Illuminate\Http\Request;
@@ -365,7 +365,7 @@ class DbLibraryController extends Controller
      *     pages:?string, url:?string, note:?string, school:?string, volume:?string, issue:?string,
      *     booktitle:?string, chapter:?string, editor:?string, fileName:?string, fileType:?string,
      *     visibility:string, license:string, custom_license_text:?string, annotations_updated_at:int,
-     *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int, total_citations:int,
+     *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int,
      *     raw_json:string, created_at:mixed, updated_at:mixed }
      *
      * NOTE: `creator`/`creator_token` are server-determined here (getCreatorInfo), not taken from the
@@ -435,7 +435,10 @@ class DbLibraryController extends Controller
                         'recent' => $item['recent'] ?? null,
                         'total_views' => $item['total_views'] ?? 0,
                         'total_highlights' => $item['total_highlights'] ?? 0,
-                        'total_citations' => $item['total_citations'] ?? 0,
+                        // No client-supplied connection count: hypercite_connections /
+                        // reference_connections are derived server-side by
+                        // ConnectionCountQuery. Accepting them from the payload would
+                        // let a client seed its own ranking.
                         // E2EE (docs/e2ee.md): a book can be born encrypted — the client
                         // sends the flag + its vault-wrapped DEK; the PgLibrary saving
                         // hook then pins private/unlisted/slug-less.
@@ -618,43 +621,27 @@ class DbLibraryController extends Controller
         }
     }
 
+    /**
+     * Both of these used to be per-book loops with their own inlined definition
+     * of "how connected" / "how lit". They now delegate to the one owner,
+     * ConnectionCountQuery, which is set-based and counts BOTH directions —
+     * having two definitions is how the old citation column drifted into meaning
+     * "inbound hypercites, for listed books only".
+     */
     private function updateTotalCitesColumnInternal()
     {
         try {
-            $books = PgLibrary::distinct()->pluck('book');
-
-            foreach ($books as $book) {
-                $hypercites = PgHypercite::where('book', $book)->get();
-                $totalCites = 0;
-
-                foreach ($hypercites as $hypercite) {
-                    if ($hypercite->citedIN) {
-                        $citedInArray = is_array($hypercite->citedIN)
-                            ? $hypercite->citedIN
-                            : json_decode($hypercite->citedIN, true);
-
-                        if (is_array($citedInArray)) {
-                            foreach ($citedInArray as $citation) {
-                                if (! $this->isSelfCitation($citation, $book)) {
-                                    $totalCites++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                PgLibrary::where('book', $book)->update(['total_citations' => $totalCites]);
-            }
+            $changed = (new ConnectionCountQuery())->recompute();
 
             return [
                 'success' => true,
-                'message' => 'Total cites column updated successfully',
-                'updated_books' => $books->count(),
+                'message' => 'Connection counts updated successfully',
+                'updated_books' => $changed,
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Error updating total cites column: '.$e->getMessage(),
+                'message' => 'Error updating connection counts: '.$e->getMessage(),
             ];
         }
     }
@@ -662,17 +649,14 @@ class DbLibraryController extends Controller
     private function updateTotalHighlightsColumnInternal()
     {
         try {
-            $books = PgLibrary::distinct()->pluck('book');
-
-            foreach ($books as $book) {
-                $highlightCount = PgHyperlight::where('book', $book)->count();
-                PgLibrary::where('book', $book)->update(['total_highlights' => $highlightCount]);
-            }
+            // Only the hyperlight half — the chain calls this right after the
+            // connection recompute, which already covered the rest.
+            $changed = (new ConnectionCountQuery())->recomputeHighlights();
 
             return [
                 'success' => true,
                 'message' => 'Total highlights column updated successfully',
-                'updated_books' => $books->count(),
+                'updated_books' => $changed,
             ];
         } catch (\Exception $e) {
             return [
@@ -722,76 +706,65 @@ class DbLibraryController extends Controller
         }
     }
 
+    /**
+     * NOTE on the transaction boundary: it wraps ONLY the `recent` renumber.
+     * That renumber touches every library row on the DEFAULT (RLS) connection,
+     * so anything running inside it that writes `library` via `pgsql_admin`
+     * would be a second connection contending for rows the open transaction
+     * holds — it blocks until lock timeout rather than failing fast. Both the
+     * connection recompute and the homepage rebuild write library through
+     * pgsql_admin, so they run AFTER the commit.
+     */
     public function updateBookStats($book)
     {
-        return DB::transaction(function () use ($book) {
-            try {
-                // Update recent column (this affects all books, so we run it)
+        try {
+            if (! PgLibrary::where('book', $book)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Book '{$book}' not found in library",
+                ], 404);
+            }
+
+            DB::transaction(function () {
                 $recentResult = $this->updateRecentColumnInternal();
                 if (! $recentResult['success']) {
                     throw new \Exception('Failed to update recent column');
                 }
+            });
 
-                // Update cites for specific book
-                $hypercites = PgHypercite::where('book', $book)->get();
-                $totalCites = 0;
+            // Connection counts + highlights for this book, via the single owner
+            // of that definition. Scoped to the book's root: a sub-book's edges
+            // credit its parent, which is where the score lives.
+            $root = ConnectionCountQuery::rootBook($book);
+            (new ConnectionCountQuery())->recompute([$root]);
 
-                foreach ($hypercites as $hypercite) {
-                    if ($hypercite->citedIN) {
-                        $citedInArray = is_array($hypercite->citedIN)
-                            ? $hypercite->citedIN
-                            : json_decode($hypercite->citedIN, true);
+            $stats = PgLibrary::where('book', $root)
+                ->first(['hypercite_connections', 'reference_connections', 'total_highlights']);
 
-                        if (is_array($citedInArray)) {
-                            foreach ($citedInArray as $citation) {
-                                if (! $this->isSelfCitation($citation, $book)) {
-                                    $totalCites++;
-                                }
-                            }
-                        }
-                    }
-                }
+            // Chain: update the homepage only once the book's stats are in.
+            $homepageResponse = (new \App\Http\Controllers\HomePageServerController)
+                ->updateHomePageBooks(new Request);
 
-                // Update highlights for specific book
-                $highlightCount = PgHyperlight::where('book', $book)->count();
-
-                // Update the library record
-                $updated = PgLibrary::where('book', $book)->update([
-                    'total_citations' => $totalCites,
-                    'total_highlights' => $highlightCount,
-                ]);
-
-                if ($updated === 0) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => "Book '{$book}' not found in library",
-                    ], 404);
-                }
-
-                // Chain: Update homepage ONLY after book stats are confirmed updated
-                $homePageController = new \App\Http\Controllers\HomePageServerController;
-                $homepageResponse = $homePageController->updateHomePageBooks(new Request);
-
-                $homepageData = $homepageResponse->getData(true);
-                if (! isset($homepageData['success']) || ! $homepageData['success']) {
-                    throw new \Exception('Homepage update failed');
-                }
-
-                return response()->json([
-                    'success' => true,
-                    'message' => "Stats updated for book: {$book} and homepage updated",
-                    'book' => $book,
-                    'total_citations' => $totalCites,
-                    'total_highlights' => $highlightCount,
-                ]);
-
-            } catch (\Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error updating book stats: '.$e->getMessage(),
-                ], 500);
+            $homepageData = $homepageResponse->getData(true);
+            if (! isset($homepageData['success']) || ! $homepageData['success']) {
+                throw new \Exception('Homepage update failed');
             }
-        });
+
+            return response()->json([
+                'success' => true,
+                'message' => "Stats updated for book: {$book} and homepage updated",
+                'book' => $book,
+                'hypercite_connections' => (int) ($stats->hypercite_connections ?? 0),
+                'reference_connections' => (int) ($stats->reference_connections ?? 0),
+                'total_highlights' => (int) ($stats->total_highlights ?? 0),
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating book stats: '.$e->getMessage(),
+            ], 500);
+        }
     }
 
     public function updateTotalViewsColumn()
@@ -809,22 +782,10 @@ class DbLibraryController extends Controller
         }
     }
 
-    private function isSelfCitation($citation, $currentBook)
-    {
-        if (preg_match('/^\/([^#]+)#/', $citation, $matches)) {
-            $citedBook = $matches[1];
-
-            return $citedBook === $currentBook;
-        }
-
-        if (preg_match('/^\/([^\/]+)\//', $citation, $matches)) {
-            $citedBook = $matches[1];
-
-            return $citedBook === $currentBook;
-        }
-
-        return false;
-    }
+    // isSelfCitation() lived here. It only ever caught a book citing ITSELF, so
+    // a user ring-citing their own OTHER books scored in full. The replacement
+    // rule (self-loop AND same-real-owner, applied after sub-book rollup) lives
+    // in ConnectionCountQuery — do not reinstate a local copy.
 
     /**
      * Check if a book ID already exists in the database

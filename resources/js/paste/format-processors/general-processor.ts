@@ -6,6 +6,8 @@
 
 import { BaseFormatProcessor } from './base-processor';
 import { wrapLooseNodes, unwrap } from '../utils/dom-utils';
+import { isReferenceHeading } from '../utils/reference-headings';
+import { collectReferenceRun, hasEarlyYear, isReferenceShaped } from '../utils/reference-detection';
 
 export class GeneralProcessor extends BaseFormatProcessor {
   [key: string]: any;
@@ -256,9 +258,22 @@ export class GeneralProcessor extends BaseFormatProcessor {
    * numeric citations into a reference list, not endnote markers.
    */
   hasReferenceSectionHeading(dom: Element) {
-    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
-    return Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'))
-      .some((el: Element) => refHeadings.test((el.textContent || '').trim()));
+    return this.findReferenceSectionHeading(dom) !== null;
+  }
+
+  /**
+   * Find the document's references/bibliography heading, ANYWHERE in the tree.
+   *
+   * Clipboard payloads are essentially always wrapped in a container <div>, and
+   * extraction runs at Stage 3 — BEFORE transformStructure() unwraps those
+   * wrappers — so the old `dom.children` walk found nothing on any real web
+   * paste. That made the heading branch dead code and pushed every paste onto
+   * the heading-less path, which is how book_1788040795553 got a References
+   * section built out of its own body prose.
+   */
+  findReferenceSectionHeading(dom: Element): Element | null {
+    const headings = Array.from(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+    return headings.find((el: Element) => isReferenceHeading(el.textContent)) || null;
   }
 
   /**
@@ -280,10 +295,19 @@ export class GeneralProcessor extends BaseFormatProcessor {
   }
 
   /**
-   * Extract references - prioritizes anchor-based detection over heuristics
-   * Strategy:
-   * 1. Find all paragraphs with <a name="ref..."> anchors - these ARE the references
-   * 2. Only fall back to heuristics if no anchor-based refs found
+   * Extract references.
+   *
+   * STRATEGY 1 — anchor-based (`<a name="ref…">`): structural, trusted outright.
+   * STRATEGY 2 — shape + cohort, via utils/reference-detection.ts.
+   *
+   * Strategy 2 used to be "find a References heading among dom.children, and
+   * failing that scan EVERY paragraph bottom-up keeping anything that starts
+   * with a capital and contains four digits". Both halves were broken: the
+   * heading walk could never see through the clipboard's wrapper <div>, and the
+   * fallback predicate accepts ordinary news prose ("…faced something similar in
+   * 1773 when Parliament…"). It also copied rather than moved, so every false
+   * positive appeared twice — once in the body, once under a fabricated
+   * "References" heading. That is the book_1788040795553 report.
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
@@ -293,166 +317,173 @@ export class GeneralProcessor extends BaseFormatProcessor {
     const references: any[] = [];
 
     // STRATEGY 1: Anchor-based detection (most reliable)
-    // Find all paragraphs containing <a name="ref..."> anchors
-    const anchorRefs = dom.querySelectorAll('a[name^="ref"]');
+    const anchorRefs = Array.from<Element>(dom.querySelectorAll('a[name^="ref"]'));
     if (anchorRefs.length > 0) {
-      console.log(`  - 🎯 Found ${anchorRefs.length} anchor-based references (using anchor detection)`);
+      anchorRefs.forEach((anchor: Element) => {
+        // Never lift the paste wrapper: an ambiguous container (the root, or one
+        // holding several ref anchors) is not a single reference entry.
+        const container = anchor.closest('p, li') || anchor.parentElement;
+        if (!container || container === dom) return;
+        if (container.querySelectorAll('a[name^="ref"]').length !== 1) return;
 
-      anchorRefs.forEach((anchor: any) => {
-        const container = anchor.closest('p, li, div');
-        if (!container) return;
-
-        const ref = {
-          content: container.outerHTML,
-          originalText: container.textContent.trim(),
+        references.push({
+          // innerHTML, NOT outerHTML — appendStaticSections hosts this inside a
+          // fresh <p> and a block cannot nest there.
+          content: container.innerHTML,
+          originalText: (container.textContent || '').trim(),
           type: 'anchor-based',
           needsKeyGeneration: true,
-          originalAnchorId: anchor.getAttribute('name')
-        };
+          originalAnchorId: anchor.getAttribute('name'),
+        });
 
-        references.push(ref);
+        // MOVE, don't copy — appendStaticSections re-emits it.
+        const parent = container.parentElement;
+        container.remove();
+        if (parent && (parent.tagName === 'UL' || parent.tagName === 'OL') && parent.children.length === 0) {
+          parent.remove();
+        }
       });
 
-      console.log(`  - Extracted ${references.length} anchor-based references`);
+      if (references.length > 0) {
+        console.log(`  - Extracted ${references.length} anchor-based references`);
+        return references;
+      }
+    }
+
+    // STRATEGY 2: shape + cohort detection.
+    const referenceHeading = this.findReferenceSectionHeading(dom);
+    const candidates = referenceHeading
+      ? this.collectSectionBlocks(dom, referenceHeading)
+      : this.collectCandidateBlocks(dom);
+
+    const accepted = collectReferenceRun(candidates, { headingAnchored: Boolean(referenceHeading) });
+
+    if (accepted.length === 0) {
+      console.log(
+        referenceHeading
+          ? '  - References heading found but no entries matched'
+          : '  - No reference section detected'
+      );
       return references;
     }
 
-    // STRATEGY 2: Heuristic-based detection (fallback)
-    console.log(`  - No anchor-based references found, using heuristic detection`);
-
-    // Find "References" or "Bibliography" section
-    const allElements = Array.from<any>(dom.children);
-    let referenceSectionStartIndex = -1;
-
-    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i];
-      if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
-        referenceSectionStartIndex = i;
-        console.log(`  - Found reference section at index ${i}: "${el.textContent.trim()}"`);
-        break;
-      }
-    }
-
-    // Helper: Check if text looks like the start of a reference
-    const looksLikeReferenceStart = (text: any) => {
-      if (!text || text.length < 10) return false;
-      const trimmed = text.trim();
-      // Starts with capital letter (including Unicode like Ö, É) or numbered format [1]
-      const startsWithAuthor = /^[A-ZÖÄÜÉÈÊËÀÂÎÏÔÛÇ]/.test(trimmed);
-      const startsWithNumber = /^\[\d+\]/.test(trimmed);
-      const hasYear = /\d{4}/.test(trimmed);
-      return (startsWithAuthor || startsWithNumber) && hasYear;
-    };
-
-    // Helper: Extract individual references from a paragraph (handles <br> separated refs)
-    const extractRefsFromParagraph = (p: any, isInRefSection: any) => {
-      const extracted: any[] = [];
-      const html = p.innerHTML;
-
-      // Check if paragraph contains <br> tags (incl. attribute-bearing, e.g. DeepL <br data-dl-uid="1">)
-      if (/<br\b[^>]*>/i.test(html)) {
-        // Split on <br> tags
-        const parts = html.split(/<br\b[^>]*>/i).map((s: any) => s.trim()).filter((s: any) => s);
-
-        // Check if multiple parts look like separate references
-        const refLikeParts = parts.filter((part: any) => {
-          const temp = document.createElement('div');
-          temp.innerHTML = part;
-          return looksLikeReferenceStart(temp.textContent);
-        });
-
-        // Only split if most parts look like references (avoid splitting body paragraphs)
-        if (isInRefSection || refLikeParts.length >= parts.length * 0.7) {
-          parts.forEach((part: any) => {
-            const temp = document.createElement('div');
-            temp.innerHTML = part;
-            const text = temp.textContent.trim();
-
-            if (looksLikeReferenceStart(text)) {
-              const ref = {
-                content: `<p>${part}</p>`,
-                originalText: text,
-                type: 'html-br-split',
-                needsKeyGeneration: true
-              };
-
-              extracted.push(ref);
-            }
-          });
-
-          if (extracted.length > 0) {
-            console.log(`  - Split paragraph into ${extracted.length} references (was <br>-separated)`);
-            return extracted;
-          }
-        }
-      }
-
-      // No splitting - treat as single reference if it looks like one
-      const text = p.textContent.trim();
-      if (looksLikeReferenceStart(text)) {
-        const ref = {
-          content: p.outerHTML,
-          originalText: text,
-          type: 'html-paragraph',
-          needsKeyGeneration: true
-        };
-
-        extracted.push(ref);
-      }
-
-      return extracted;
-    };
-
-    let elementsToScan: any[] = [];
-    let isInRefSection = false;
-
-    if (referenceSectionStartIndex !== -1) {
-      // Scan only elements after the reference heading
-      elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter((el: any) => el.tagName === 'P');
-      isInRefSection = true;
-    } else {
-      // No heading found - scan all paragraphs in reverse (bottom-up)
-      elementsToScan = Array.from<any>(dom.querySelectorAll('p')).reverse();
-    }
-
-    console.log(`  - Scanning ${elementsToScan.length} potential reference paragraphs`);
-
-    const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
-
-    elementsToScan.forEach((p: any) => {
-      const text = p.textContent.trim();
-      if (!text) return;
-
-      // Skip if this looks like body text with in-text citations (not a reference list item)
-      if (!isInRefSection) {
-        // A "[N]" marker mid-paragraph means body prose citing notes
-        // ("…of his own land.[2] In this way…"), not a reference entry —
-        // a genuine numbered entry only has "[N]" at position 0.
-        const markerPattern = /\[\d+\]/g;
-        let markerMatch;
-        while ((markerMatch = markerPattern.exec(text)) !== null) {
-          if (markerMatch.index > 0) return;
-        }
-
-        const citeMatch = text.match(inTextCitePattern);
-        if (citeMatch) {
-          const content = citeMatch[1];
-          // Reject if it contains author-date citation pattern like (Smith, 2019)
-          if (content.includes(',') || /[a-zA-Z]{2,}.*\d{4}/.test(content)) {
-            return;
-          }
-        }
-      }
-
-      // Extract references (handles both single refs and <br>-separated refs)
-      const refs = extractRefsFromParagraph(p, isInRefSection);
-      references.push(...refs);
+    accepted.forEach((el: Element) => {
+      references.push(...this.buildReferencesFromBlock(el));
+      // MOVE into the static section. Leaving the source in place is what
+      // produced the duplicated body paragraphs.
+      el.remove();
     });
 
-    console.log(`  - Extracted ${references.length} potential references`);
+    // appendStaticSections emits its own <h2>References</h2>; leaving the source
+    // heading behind would show two.
+    if (referenceHeading && references.length > 0) referenceHeading.remove();
+
+    console.log(`  - Extracted ${references.length} references`);
 
     return references;
+  }
+
+  /**
+   * Every block that could be a bibliography entry, in document order, with
+   * nested duplicates dropped (a <p> inside an <li> is not a second candidate).
+   */
+  collectCandidateBlocks(dom: Element): Element[] {
+    const blocks = Array.from<Element>(dom.querySelectorAll('p, li'));
+    const seen = new Set(blocks);
+    return blocks.filter((el: Element) => {
+      let parent = el.parentElement;
+      while (parent && parent !== dom) {
+        if (seen.has(parent)) return false;
+        parent = parent.parentElement;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * The blocks belonging to a reference section, walked in document order from
+   * its heading to the next same-or-higher-level heading.
+   *
+   * Two wrinkles ported from bibliography.py:75-118. A LOWER-level heading is an
+   * alphabetical marker inside the bibliography ("A", "B", …) and is skipped. A
+   * same-or-higher-level heading normally ends the section, unless the blocks
+   * right after it are themselves reference-like with their year near the start
+   * — then it is an OCR/markup artifact and collection continues.
+   */
+  collectSectionBlocks(dom: Element, heading: Element): Element[] {
+    const ordered = Array.from<Element>(dom.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li'));
+    const start = ordered.indexOf(heading);
+    if (start === -1) return [];
+
+    const headingLevel = parseInt(heading.tagName.slice(1), 10);
+    const candidates = new Set(this.collectCandidateBlocks(dom));
+    const collected: Element[] = [];
+
+    for (let i = start + 1; i < ordered.length; i++) {
+      const el = ordered[i];
+      if (!el) continue;
+
+      if (/^H[1-6]$/.test(el.tagName)) {
+        if (parseInt(el.tagName.slice(1), 10) > headingLevel) continue;
+        if (this.looksLikeArtifactHeading(ordered, i)) continue;
+        break;
+      }
+
+      if (candidates.has(el)) collected.push(el);
+    }
+
+    return collected;
+  }
+
+  /** True when the blocks following `ordered[index]` read as more references. */
+  looksLikeArtifactHeading(ordered: Element[], index: number): boolean {
+    let total = 0;
+    let refLike = 0;
+    for (let i = index + 1; i < ordered.length && total < 3; i++) {
+      const el = ordered[i];
+      if (!el || /^H[1-6]$/.test(el.tagName)) continue;
+      total += 1;
+      const text = (el.textContent || '').trim();
+      if (isReferenceShaped(text) && hasEarlyYear(text)) refLike += 1;
+    }
+    return total >= 2 && refLike >= 2;
+  }
+
+  /**
+   * Turn one accepted block into reference objects, splitting <br>-separated
+   * entries (incl. attribute-bearing tags, e.g. DeepL's `<br data-dl-uid="1">`).
+   * Only splits when EVERY part reads as an entry, so a stray <br> inside a
+   * single reference cannot shred it.
+   */
+  buildReferencesFromBlock(el: Element): any[] {
+    const html = el.innerHTML;
+
+    if (/<br\b[^>]*>/i.test(html)) {
+      const parts = html.split(/<br\b[^>]*>/i).map((s: string) => s.trim()).filter((s: string) => s);
+      if (parts.length > 1) {
+        const texts = parts.map((part: string) => {
+          const temp = document.createElement('div');
+          temp.innerHTML = part;
+          return (temp.textContent || '').trim();
+        });
+
+        if (texts.every((text: string) => isReferenceShaped(text))) {
+          return parts.map((part: string, i: number) => ({
+            content: part,
+            originalText: texts[i],
+            type: 'html-br-split',
+            needsKeyGeneration: true,
+          }));
+        }
+      }
+    }
+
+    return [{
+      content: html,
+      originalText: (el.textContent || '').trim(),
+      type: 'html-paragraph',
+      needsKeyGeneration: true,
+    }];
   }
 
   /**

@@ -10,6 +10,7 @@
 
 import { BaseFormatProcessor } from './base-processor';
 import { isReferenceSectionHeading } from '../utils/dom-utils';
+import { isReferenceHeading } from '../utils/reference-headings';
 import {
   unwrapContainers,
   removeSectionsByHeading,
@@ -220,9 +221,8 @@ export class CambridgeProcessor extends BaseFormatProcessor {
     // Find the References/Bibliography heading anywhere in the tree.
     // Clipboard payloads commonly wrap the article in a container element, so
     // a direct-children walk over `dom.children` misses the heading entirely.
-    const refHeadings = /^(references|bibliography|works cited)$/i;
     const headings = Array.from<any>(dom.querySelectorAll('h1, h2, h3, h4, h5, h6'));
-    const referenceHeading = headings.find((h: any) => refHeadings.test(h.textContent.trim()));
+    const referenceHeading = headings.find((h: any) => isReferenceHeading(h.textContent));
 
     // ONLY process if we found a References heading
     if (!referenceHeading) {
@@ -266,7 +266,10 @@ export class CambridgeProcessor extends BaseFormatProcessor {
       }
 
       references.push({
-        content: p.outerHTML,
+        // innerHTML, NOT outerHTML — appendStaticSections hosts this inside a
+        // fresh <p>, and a nested block splits into an empty tagged node plus an
+        // untagged orphan on the next reparse (see PATH 1's note above).
+        content: p.innerHTML,
         originalText: text,
         type: 'cambridge-reference',
         needsKeyGeneration: true

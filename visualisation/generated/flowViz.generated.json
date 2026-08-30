@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1775,
-    "moduleCount": 374,
+    "fnCount": 1788,
+    "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3659,
+    "edgeCount": 3676,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5538,8 +5538,6 @@
       "method": "updateAllLibraryStats",
       "group": "content",
       "tables": [
-        "hypercites",
-        "hyperlights",
         "library"
       ],
       "shape": [
@@ -5557,15 +5555,14 @@
       "method": "updateBookStats",
       "group": "content",
       "tables": [
-        "hypercites",
-        "hyperlights",
         "library"
       ],
       "shape": [
         "book",
+        "hypercite_connections",
         "message",
+        "reference_connections",
         "success",
-        "total_citations",
         "total_highlights"
       ]
     },
@@ -12167,6 +12164,30 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
+      "label": "GeneralProcessor.buildReferencesFromBlock",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+      "label": "GeneralProcessor.collectCandidateBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.collectSectionBlocks",
+      "label": "GeneralProcessor.collectSectionBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.constructor",
       "label": "GeneralProcessor.constructor",
       "kind": "fn",
@@ -12191,12 +12212,28 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
+      "label": "GeneralProcessor.findReferenceSectionHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
       "label": "GeneralProcessor.hasReferenceSectionHeading",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/general-processor",
-      "leaf": false
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
+      "label": "GeneralProcessor.looksLikeArtifactHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": true
     },
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
@@ -12983,6 +13020,14 @@
       "leaf": false
     },
     {
+      "id": "paste/utils/inline-fragment:flattenForInlineHost",
+      "label": "flattenForInlineHost",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/inline-fragment",
+      "leaf": false
+    },
+    {
       "id": "paste/utils/insertion-point-calculator:getInsertionPoint",
       "label": "getInsertionPoint",
       "kind": "fn",
@@ -13084,6 +13129,62 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:collectReferenceRun",
+      "label": "collectReferenceRun",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:followsCiteLabel",
+      "label": "followsCiteLabel",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:hasEarlyYear",
+      "label": "hasEarlyYear",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:hasReferenceStructure",
+      "label": "hasReferenceStructure",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:isArticleChrome",
+      "label": "isArticleChrome",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-detection:isReferenceShaped",
+      "label": "isReferenceShaped",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-detection",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/reference-headings:isReferenceHeading",
+      "label": "isReferenceHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/reference-headings",
       "leaf": true
     },
     {
@@ -19689,10 +19790,15 @@
       "stage": "infra",
       "band": "capture",
       "fnIds": [
+        "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
+        "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+        "paste/format-processors/general-processor:GeneralProcessor.collectSectionBlocks",
         "paste/format-processors/general-processor:GeneralProcessor.constructor",
         "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
         "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+        "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
         "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+        "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
         "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
         "paste/format-processors/general-processor:GeneralProcessor.transformStructure"
       ]
@@ -20018,6 +20124,15 @@
       ]
     },
     {
+      "id": "paste/utils/inline-fragment",
+      "label": "paste/utils/inline-fragment",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/utils/inline-fragment:flattenForInlineHost"
+      ]
+    },
+    {
       "id": "paste/utils/insertion-point-calculator",
       "label": "paste/utils/insertion-point-calculator",
       "stage": "infra",
@@ -20060,6 +20175,29 @@
         "paste/utils/normalizer:normalizeSpaces",
         "paste/utils/normalizer:stripHyperciteTags",
         "paste/utils/normalizer:stripMarkTags"
+      ]
+    },
+    {
+      "id": "paste/utils/reference-detection",
+      "label": "paste/utils/reference-detection",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/utils/reference-detection:collectReferenceRun",
+        "paste/utils/reference-detection:followsCiteLabel",
+        "paste/utils/reference-detection:hasEarlyYear",
+        "paste/utils/reference-detection:hasReferenceStructure",
+        "paste/utils/reference-detection:isArticleChrome",
+        "paste/utils/reference-detection:isReferenceShaped"
+      ]
+    },
+    {
+      "id": "paste/utils/reference-headings",
+      "label": "paste/utils/reference-headings",
+      "stage": "infra",
+      "band": "store",
+      "fnIds": [
+        "paste/utils/reference-headings:isReferenceHeading"
       ]
     },
     {
@@ -25584,33 +25722,9 @@
       "rel": "push"
     },
     {
-      "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:hypercites",
-      "source": "controller:DbLibraryController@updateAllLibraryStats",
-      "target": "pg:hypercites",
-      "rel": "push"
-    },
-    {
-      "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:hyperlights",
-      "source": "controller:DbLibraryController@updateAllLibraryStats",
-      "target": "pg:hyperlights",
-      "rel": "push"
-    },
-    {
       "id": "controller:DbLibraryController@updateAllLibraryStats__push__pg:library",
       "source": "controller:DbLibraryController@updateAllLibraryStats",
       "target": "pg:library",
-      "rel": "push"
-    },
-    {
-      "id": "controller:DbLibraryController@updateBookStats__push__pg:hypercites",
-      "source": "controller:DbLibraryController@updateBookStats",
-      "target": "pg:hypercites",
-      "rel": "push"
-    },
-    {
-      "id": "controller:DbLibraryController@updateBookStats__push__pg:hyperlights",
-      "source": "controller:DbLibraryController@updateBookStats",
-      "target": "pg:hyperlights",
       "rel": "push"
     },
     {
@@ -29428,6 +29542,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.collectSectionBlocks",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.collectSectionBlocks",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
       "source": "dom",
       "target": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
@@ -29440,9 +29566,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
       "source": "dom",
-      "target": "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
       "rel": "domread"
     },
     {
@@ -38212,6 +38338,12 @@
       "rel": "call"
     },
     {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections__call__paste/utils/inline-fragment:flattenForInlineHost",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
+      "target": "paste/utils/inline-fragment:flattenForInlineHost",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections__domwrite__dom",
       "source": "paste/format-processors/base-processor:BaseFormatProcessor.appendStaticSections",
       "target": "dom",
@@ -38374,6 +38506,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences__domwrite__dom",
       "source": "paste/format-processors/cambridge-processor:CambridgeProcessor.extractReferences",
       "target": "dom",
@@ -38416,16 +38554,52 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock__call__paste/utils/reference-detection:isReferenceShaped",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
+      "target": "paste/utils/reference-detection:isReferenceShaped",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock__domwrite__dom",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes__domwrite__dom",
       "source": "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
       "target": "dom",
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.extractReferences__call__paste/utils/reference-detection:collectReferenceRun",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
+      "target": "paste/utils/reference-detection:collectReferenceRun",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.extractReferences__domwrite__dom",
       "source": "paste/format-processors/general-processor:GeneralProcessor.extractReferences",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading__call__paste/utils/reference-detection:hasEarlyYear",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
+      "target": "paste/utils/reference-detection:hasEarlyYear",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading__call__paste/utils/reference-detection:isReferenceShaped",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
+      "target": "paste/utils/reference-detection:isReferenceShaped",
+      "rel": "call"
     },
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber__domwrite__dom",
@@ -38572,6 +38746,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-processors/sage-processor:SageProcessor.extractReferences__call__paste/utils/transform-helpers:addUniqueReference",
       "source": "paste/format-processors/sage-processor:SageProcessor.extractReferences",
       "target": "paste/utils/transform-helpers:addUniqueReference",
@@ -38636,6 +38816,12 @@
       "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
     },
     {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences__call__paste/utils/transform-helpers:cloneAndClean",
@@ -38798,6 +38984,12 @@
       "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractFootnotes",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/reference-headings:isReferenceHeading",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "target": "paste/utils/reference-headings:isReferenceHeading",
+      "rel": "call"
     },
     {
       "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/transform-helpers:addUniqueReference",
@@ -39495,6 +39687,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/utils/inline-fragment:flattenForInlineHost__call__paste/utils/dom-utils:isBlockElement",
+      "source": "paste/utils/inline-fragment:flattenForInlineHost",
+      "target": "paste/utils/dom-utils:isBlockElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/inline-fragment:flattenForInlineHost__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/utils/inline-fragment:flattenForInlineHost",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/inline-fragment:flattenForInlineHost__domwrite__dom",
+      "source": "paste/utils/inline-fragment:flattenForInlineHost",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "paste/utils/insertion-point-calculator:getInsertionPoint__call__indexedDB/types:parseChunkId",
       "source": "paste/utils/insertion-point-calculator:getInsertionPoint",
       "target": "indexedDB/types:parseChunkId",
@@ -39529,6 +39739,36 @@
       "source": "paste/utils/normalizer:normalizeListItems",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:followsCiteLabel",
+      "source": "paste/utils/reference-detection:collectReferenceRun",
+      "target": "paste/utils/reference-detection:followsCiteLabel",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:hasReferenceStructure",
+      "source": "paste/utils/reference-detection:collectReferenceRun",
+      "target": "paste/utils/reference-detection:hasReferenceStructure",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:isArticleChrome",
+      "source": "paste/utils/reference-detection:collectReferenceRun",
+      "target": "paste/utils/reference-detection:isArticleChrome",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/reference-detection:hasReferenceStructure__call__paste/utils/reference-detection:isArticleChrome",
+      "source": "paste/utils/reference-detection:hasReferenceStructure",
+      "target": "paste/utils/reference-detection:isArticleChrome",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/reference-detection:isReferenceShaped__call__paste/utils/reference-detection:isArticleChrome",
+      "source": "paste/utils/reference-detection:isReferenceShaped",
+      "target": "paste/utils/reference-detection:isArticleChrome",
+      "rel": "call"
     },
     {
       "id": "paste/utils/transform-helpers:cleanTFFootnoteContent__domwrite__dom",
@@ -48573,6 +48813,11 @@
     },
     {
       "source": "paste/format-processors/base-processor",
+      "target": "paste/utils/inline-fragment",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/base-processor",
       "target": "paste/utils/normalizer",
       "kind": "static"
     },
@@ -48613,6 +48858,11 @@
     },
     {
       "source": "paste/format-processors/cambridge-processor",
+      "target": "paste/utils/reference-headings",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/cambridge-processor",
       "target": "paste/utils/transform-helpers",
       "kind": "static"
     },
@@ -48627,6 +48877,16 @@
       "kind": "static"
     },
     {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/utils/reference-detection",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/utils/reference-headings",
+      "kind": "static"
+    },
+    {
       "source": "paste/format-processors/mit-press-processor",
       "target": "paste/format-processors/base-processor",
       "kind": "static"
@@ -48679,6 +48939,11 @@
     {
       "source": "paste/format-processors/sage-processor",
       "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/sage-processor",
+      "target": "paste/utils/reference-headings",
       "kind": "static"
     },
     {
@@ -48693,6 +48958,11 @@
     },
     {
       "source": "paste/format-processors/science-direct-processor",
+      "target": "paste/utils/reference-headings",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/science-direct-processor",
       "target": "paste/utils/transform-helpers",
       "kind": "static"
     },
@@ -48744,6 +49014,11 @@
     {
       "source": "paste/format-processors/taylor-francis-processor",
       "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/taylor-francis-processor",
+      "target": "paste/utils/reference-headings",
       "kind": "static"
     },
     {
@@ -49054,6 +49329,11 @@
     {
       "source": "paste/utils/content-converter",
       "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "paste/utils/inline-fragment",
+      "target": "paste/utils/dom-utils",
       "kind": "static"
     },
     {

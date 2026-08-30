@@ -9,6 +9,7 @@
  */
 
 import { BaseFormatProcessor } from './base-processor';
+import { isReferenceHeading } from '../utils/reference-headings';
 import {
   unwrapContainers,
   cloneAndClean,
@@ -134,7 +135,7 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
       const headings = dom.querySelectorAll('h1, h2, h3, h4, h5, h6');
 
       for (const heading of headings) {
-        if (/references|bibliography/i.test(heading.textContent.trim())) {
+        if (isReferenceHeading(heading.textContent)) {
           console.log(`📚 ScienceDirect: Found references section: "${heading.textContent.trim()}"`);
 
           let nextElement = heading.nextElementSibling;

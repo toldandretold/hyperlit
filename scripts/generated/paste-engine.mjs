@@ -548,6 +548,29 @@ function processFootnoteReferences(htmlContent, footnoteMappings, formatType = "
   return tempDiv.innerHTML;
 }
 
+// resources/js/paste/utils/inline-fragment.ts
+function flattenForInlineHost(html, doc = document) {
+  if (!html) return html ?? "";
+  if (!/<[a-z]/i.test(html)) return html;
+  const temp = doc.createElement("div");
+  temp.innerHTML = html;
+  let guard = 0;
+  for (; ; ) {
+    const sole = temp.childNodes.length === 1 ? temp.children[0] : void 0;
+    if (guard >= 5 || !sole || !isBlockElement(sole.tagName)) break;
+    temp.innerHTML = sole.innerHTML;
+    guard += 1;
+  }
+  Array.from(temp.children).forEach((child) => {
+    if (!isBlockElement(child.tagName)) return;
+    if (child.previousSibling && child.parentNode) {
+      child.parentNode.insertBefore(doc.createElement("br"), child);
+    }
+    unwrap(child);
+  });
+  return temp.innerHTML;
+}
+
 // resources/js/utilities/sanitizeConfig.ts
 import DOMPurify from "dompurify";
 var ADD_ATTR = [
@@ -913,22 +936,23 @@ var BaseFormatProcessor = class {
       dom.appendChild(heading);
       footnotes.forEach((footnote) => {
         const p = document.createElement("p");
+        const content = flattenForInlineHost(footnote.content);
         const contentStartsWithNumberDot = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier}.`
         );
         const contentStartsWithNumberSpace = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier} `
         );
         const contentStartsWithNumberParen = visuallyStartsWith(
-          footnote.content,
+          content,
           `${footnote.originalIdentifier})`
         );
         if (contentStartsWithNumberDot || contentStartsWithNumberSpace || contentStartsWithNumberParen) {
-          p.innerHTML = footnote.content;
+          p.innerHTML = content;
         } else {
-          p.innerHTML = `${footnote.originalIdentifier}. ${footnote.content}`;
+          p.innerHTML = `${footnote.originalIdentifier}. ${content}`;
         }
         p.setAttribute("data-static-content", "footnotes");
         dom.appendChild(p);
@@ -941,7 +965,7 @@ var BaseFormatProcessor = class {
       dom.appendChild(heading);
       references.forEach((reference) => {
         const p = document.createElement("p");
-        p.innerHTML = reference.content;
+        p.innerHTML = flattenForInlineHost(reference.content);
         p.setAttribute("data-static-content", "bibliography");
         dom.appendChild(p);
       });
@@ -1042,6 +1066,188 @@ var BaseFormatProcessor = class {
     };
   }
 };
+
+// resources/js/paste/utils/reference-headings.ts
+var REFERENCE_HEADINGS = [
+  // English — reference lists
+  "references",
+  "reference",
+  "reference list",
+  "references cited",
+  "cited references",
+  "list of references",
+  "citations",
+  // English — bibliographies
+  "bibliography",
+  "bibliographies",
+  "selected bibliography",
+  "works cited",
+  "works consulted",
+  "cited works",
+  "literature cited",
+  // English — sources
+  "sources",
+  "primary sources",
+  "secondary sources",
+  // Compound forms (safe: the qualifier disambiguates them from a notes section)
+  "notes and references",
+  "references and notes",
+  "references and further reading",
+  "references and recommended reading",
+  "further reading",
+  "suggested reading",
+  // Non-English
+  "literatur",
+  "literaturverzeichnis",
+  "bibliographie",
+  "r\xE9f\xE9rences",
+  "referenties",
+  "bibliograf\xEDa",
+  "bibliografia",
+  "referencias",
+  "refer\xEAncias"
+];
+var HEADING_SET = new Set(REFERENCE_HEADINGS);
+var LEADING_PREFIX_RE = /^(?:(?:appendix|annex|chapter|section|part)\s+[a-z0-9]{1,4}\s*[:.–—-]?\s*|[0-9]{1,2}(?:\.[0-9]{1,2})*(?:\s*[.):–—-]\s*|\s+)|[ivxlc]{1,5}\s*[.):]\s*)/;
+function isReferenceHeading(headingText) {
+  if (!headingText) return false;
+  let normalized = headingText.trim().toLowerCase().replace(/\s+/g, " ").replace(/[‘’]/g, "'");
+  normalized = normalized.replace(/[:.\s]+$/, "");
+  normalized = normalized.replace(LEADING_PREFIX_RE, "").trim();
+  return HEADING_SET.has(normalized);
+}
+
+// resources/js/paste/utils/reference-detection.ts
+var MIN_RUN_LENGTH = 3;
+var MAX_SANDWICH_GAP = 3;
+var MAX_MISS_LENGTH = 500;
+var MIN_ORDINALS_FOR_DENSITY = 3;
+var MIN_ORDINAL_DENSITY = 0.5;
+var ARTICLE_CHROME_RE = new RegExp(
+  "^\\s*(?:article\\s+copyright\\b|copyright\\s*[:\xA9]|\xA9\\s*\\d{4}|orcid(?:\\s+id)?\\s*[:.]|(?:how\\s+)?to\\s+cite\\s+this\\s+(?:article|paper|work)\\b|cite\\s+this\\s+(?:article|paper|work)\\s+as\\b|published\\s+by\\s+.{0,80}?\\bon\\s+\\d{1,2}\\s+\\w+\\s+\\d{4}\\s*$|(?:submitted|received|revised|accepted)\\s+on\\s+\\d{1,2}\\s+\\w+\\s+\\d{4}\\b|competing\\s+interests?\\s*[:.]|conflicts?\\s+of\\s+interest\\s*[:.]|correspondence\\s*[:.]|e-?mail\\s*[:.]|received\\s*[:.].{0,60}accepted\\s*[:.]|this\\s+is\\s+an\\s+open[- ]access\\s+article\\b)",
+  "i"
+);
+function isArticleChrome(text) {
+  return ARTICLE_CHROME_RE.test(text || "");
+}
+var CITE_LABEL_RE = /^\s*(?:how\s+)?to\s+cite\s+this\s+(?:article|paper|work)\b/i;
+function followsCiteLabel(el) {
+  let previous = el?.previousElementSibling ?? null;
+  let hops = 0;
+  while (previous && hops < 2) {
+    if (previous.tagName === "P") {
+      return CITE_LABEL_RE.test(normalizeText(previous.textContent));
+    }
+    previous = previous.previousElementSibling;
+    hops += 1;
+  }
+  return false;
+}
+var ORDINAL_PREFIX_RE = /^\s*\d{1,4}[.)]\s+/;
+var REF_STRUCTURE_RE = /^\s*[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+,\s+(?:[A-ZÀ-ÖØ-Þ]\.|[A-ZÀ-ÖØ-Þ][a-zà-ÿß])|^\s*[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+.{0,40}?\(\d{4}[a-z]?\)/;
+var REF_STRUCTURE_START_RE = /^\s*(?:\[\d+\]|\[\d{4}\]|[—–‒―⸺⸻-]{1,3}[.,\s]|(?:von|van|de|du|da|del|della|le|la|los|las|den|der|het|ten|ter)\s+[A-ZÀ-ÖØ-Þ])/i;
+var VANCOUVER_RE = /^\s*[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+\s+[A-Z]{1,3}[,:]/;
+var MISS_AUTHOR_SHAPE_RE = /^\s*[A-ZÀ-ÖØ-Þ][\w'’-]+\s+[A-Z]{1,3}\b[,.]?\s/;
+function hasReferenceStructure(text) {
+  const trimmed = normalizeText(text);
+  if (!trimmed) return false;
+  if (isArticleChrome(trimmed)) return false;
+  if (matchesStructure(trimmed)) return true;
+  const withoutOrdinal = trimmed.replace(ORDINAL_PREFIX_RE, "");
+  return withoutOrdinal !== trimmed && matchesStructure(withoutOrdinal);
+}
+function matchesStructure(text) {
+  if (REF_STRUCTURE_RE.test(text)) return true;
+  if (REF_STRUCTURE_START_RE.test(text)) return true;
+  return VANCOUVER_RE.test(text) && text.slice(0, 120).includes(":");
+}
+function isReferenceShaped(text) {
+  const trimmed = normalizeText(text);
+  if (!trimmed) return false;
+  if (!/\d{4}/.test(trimmed)) return false;
+  if (isArticleChrome(trimmed)) return false;
+  if (/^\s*\[\d+\]/.test(trimmed)) return true;
+  const withoutOrdinal = trimmed.replace(ORDINAL_PREFIX_RE, "");
+  if (withoutOrdinal !== trimmed) {
+    if (/^[A-ZÀ-ÖØ-Þ][a-zA-ZÀ-ÿßẞ'’-]+,\s/.test(withoutOrdinal)) return true;
+    if (/^[A-ZÀ-ÖØ-Þ][\s\S]{0,60}?\(\d{4}[a-z]?\)/.test(withoutOrdinal)) return true;
+    if (VANCOUVER_RE.test(withoutOrdinal) && withoutOrdinal.slice(0, 120).includes(":")) return true;
+    if (/^[a-zà-ÿ][\w'’-]*(?:\s+[\w'’-]+){0,3}[.,]\s+\(?(?:19|20)\d{2}[a-z]?\)?[.,]/.test(withoutOrdinal)) {
+      return true;
+    }
+  }
+  if (/^\s*\[\d{4}\]/.test(trimmed)) return true;
+  if (/^\s*(?:von|van|de|du|da|del|della|le|la|los|las|den|der|het|ten|ter)\s+[A-ZÀ-ÖØ-Þ]/i.test(trimmed)) {
+    return true;
+  }
+  if (/^\s*[—–‒―⸺⸻-]{1,3}[.,\s]/.test(trimmed)) return true;
+  const firstChar = trimmed.charAt(0);
+  return firstChar !== firstChar.toLowerCase() && firstChar === firstChar.toUpperCase();
+}
+function hasEarlyYear(text, window = 80) {
+  return /\d{4}/.test(normalizeText(text).slice(0, window));
+}
+function collectReferenceRun(blocks, options = {}) {
+  const {
+    headingAnchored = false,
+    minRunLength = MIN_RUN_LENGTH,
+    maxSandwichGap = MAX_SANDWICH_GAP
+  } = options;
+  const isMember = headingAnchored ? isReferenceShaped : hasReferenceStructure;
+  const accepted = [];
+  let pending = [];
+  const isTolerableMiss = (el, text) => pending.length < maxSandwichGap && text.length > 0 && text.length < MAX_MISS_LENGTH && !isArticleChrome(text) && !followsCiteLabel(el) && (MISS_AUTHOR_SHAPE_RE.test(text) || hasReferenceStructure(text));
+  if (headingAnchored) {
+    for (const el of blocks) {
+      const text = normalizeText(el.textContent);
+      if (!text) continue;
+      if (isMember(text) && !followsCiteLabel(el)) {
+        accepted.push(...pending);
+        pending = [];
+        accepted.push(el);
+      } else if (isTolerableMiss(el, text)) {
+        pending.push(el);
+      } else {
+        pending = [];
+      }
+    }
+  } else {
+    for (let i = blocks.length - 1; i >= 0; i -= 1) {
+      const el = blocks[i];
+      if (!el) continue;
+      const text = normalizeText(el.textContent);
+      if (!text) continue;
+      if (isMember(text) && !followsCiteLabel(el)) {
+        accepted.unshift(...pending);
+        pending = [];
+        accepted.unshift(el);
+      } else if (accepted.length > 0 && isTolerableMiss(el, text)) {
+        pending.unshift(el);
+      } else {
+        break;
+      }
+    }
+    if (accepted.length < minRunLength) return [];
+  }
+  return applyOrdinalDensityGate(accepted);
+}
+function applyOrdinalDensityGate(accepted) {
+  const ordinals = [];
+  for (const el of accepted) {
+    const match = normalizeText(el.textContent).match(/^\s*(\d{1,4})[.)]\s/);
+    if (match?.[1]) ordinals.push({ el, n: parseInt(match[1], 10) });
+  }
+  if (ordinals.length < MIN_ORDINALS_FOR_DENSITY) return [...accepted];
+  const nums = ordinals.map((o) => o.n).sort((a, b) => a - b);
+  const span = (nums[nums.length - 1] ?? 0) - (nums[0] ?? 0) + 1;
+  const density = span > 0 ? new Set(nums).size / span : 0;
+  if (span > 0 && density >= MIN_ORDINAL_DENSITY) return [...accepted];
+  const dropped = new Set(ordinals.map((o) => o.el));
+  return accepted.filter((el) => !dropped.has(el));
+}
+function normalizeText(text) {
+  return (text || "").replace(/\s+/g, " ").trim();
+}
 
 // resources/js/paste/format-processors/general-processor.ts
 var GeneralProcessor = class extends BaseFormatProcessor {
@@ -1225,8 +1431,21 @@ var GeneralProcessor = class extends BaseFormatProcessor {
    * numeric citations into a reference list, not endnote markers.
    */
   hasReferenceSectionHeading(dom) {
-    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
-    return Array.from(dom.querySelectorAll("h1, h2, h3, h4, h5, h6")).some((el) => refHeadings.test((el.textContent || "").trim()));
+    return this.findReferenceSectionHeading(dom) !== null;
+  }
+  /**
+   * Find the document's references/bibliography heading, ANYWHERE in the tree.
+   *
+   * Clipboard payloads are essentially always wrapped in a container <div>, and
+   * extraction runs at Stage 3 — BEFORE transformStructure() unwraps those
+   * wrappers — so the old `dom.children` walk found nothing on any real web
+   * paste. That made the heading branch dead code and pushed every paste onto
+   * the heading-less path, which is how book_1788040795553 got a References
+   * section built out of its own body prose.
+   */
+  findReferenceSectionHeading(dom) {
+    const headings = Array.from(dom.querySelectorAll("h1, h2, h3, h4, h5, h6"));
+    return headings.find((el) => isReferenceHeading(el.textContent)) || null;
   }
   /**
    * Remove a leading "[N]" identifier from a definition element's first
@@ -1246,10 +1465,19 @@ var GeneralProcessor = class extends BaseFormatProcessor {
     return clone.innerHTML.trim();
   }
   /**
-   * Extract references - prioritizes anchor-based detection over heuristics
-   * Strategy:
-   * 1. Find all paragraphs with <a name="ref..."> anchors - these ARE the references
-   * 2. Only fall back to heuristics if no anchor-based refs found
+   * Extract references.
+   *
+   * STRATEGY 1 — anchor-based (`<a name="ref…">`): structural, trusted outright.
+   * STRATEGY 2 — shape + cohort, via utils/reference-detection.ts.
+   *
+   * Strategy 2 used to be "find a References heading among dom.children, and
+   * failing that scan EVERY paragraph bottom-up keeping anything that starts
+   * with a capital and contains four digits". Both halves were broken: the
+   * heading walk could never see through the clipboard's wrapper <div>, and the
+   * fallback predicate accepts ordinary news prose ("…faced something similar in
+   * 1773 when Parliament…"). It also copied rather than moved, so every false
+   * positive appeared twice — once in the body, once under a fabricated
+   * "References" heading. That is the book_1788040795553 report.
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
@@ -1257,119 +1485,139 @@ var GeneralProcessor = class extends BaseFormatProcessor {
    */
   async extractReferences(dom, bookId) {
     const references = [];
-    const anchorRefs = dom.querySelectorAll('a[name^="ref"]');
+    const anchorRefs = Array.from(dom.querySelectorAll('a[name^="ref"]'));
     if (anchorRefs.length > 0) {
-      console.log(`  - \u{1F3AF} Found ${anchorRefs.length} anchor-based references (using anchor detection)`);
       anchorRefs.forEach((anchor) => {
-        const container = anchor.closest("p, li, div");
-        if (!container) return;
-        const ref = {
-          content: container.outerHTML,
-          originalText: container.textContent.trim(),
+        const container = anchor.closest("p, li") || anchor.parentElement;
+        if (!container || container === dom) return;
+        if (container.querySelectorAll('a[name^="ref"]').length !== 1) return;
+        references.push({
+          // innerHTML, NOT outerHTML — appendStaticSections hosts this inside a
+          // fresh <p> and a block cannot nest there.
+          content: container.innerHTML,
+          originalText: (container.textContent || "").trim(),
           type: "anchor-based",
           needsKeyGeneration: true,
           originalAnchorId: anchor.getAttribute("name")
-        };
-        references.push(ref);
+        });
+        const parent = container.parentElement;
+        container.remove();
+        if (parent && (parent.tagName === "UL" || parent.tagName === "OL") && parent.children.length === 0) {
+          parent.remove();
+        }
       });
-      console.log(`  - Extracted ${references.length} anchor-based references`);
+      if (references.length > 0) {
+        console.log(`  - Extracted ${references.length} anchor-based references`);
+        return references;
+      }
+    }
+    const referenceHeading = this.findReferenceSectionHeading(dom);
+    const candidates = referenceHeading ? this.collectSectionBlocks(dom, referenceHeading) : this.collectCandidateBlocks(dom);
+    const accepted = collectReferenceRun(candidates, { headingAnchored: Boolean(referenceHeading) });
+    if (accepted.length === 0) {
+      console.log(
+        referenceHeading ? "  - References heading found but no entries matched" : "  - No reference section detected"
+      );
       return references;
     }
-    console.log(`  - No anchor-based references found, using heuristic detection`);
-    const allElements = Array.from(dom.children);
-    let referenceSectionStartIndex = -1;
-    const refHeadings = /^(references|bibliography|works cited|sources)$/i;
-    for (let i = 0; i < allElements.length; i++) {
-      const el = allElements[i];
-      if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
-        referenceSectionStartIndex = i;
-        console.log(`  - Found reference section at index ${i}: "${el.textContent.trim()}"`);
+    accepted.forEach((el) => {
+      references.push(...this.buildReferencesFromBlock(el));
+      el.remove();
+    });
+    if (referenceHeading && references.length > 0) referenceHeading.remove();
+    console.log(`  - Extracted ${references.length} references`);
+    return references;
+  }
+  /**
+   * Every block that could be a bibliography entry, in document order, with
+   * nested duplicates dropped (a <p> inside an <li> is not a second candidate).
+   */
+  collectCandidateBlocks(dom) {
+    const blocks = Array.from(dom.querySelectorAll("p, li"));
+    const seen = new Set(blocks);
+    return blocks.filter((el) => {
+      let parent = el.parentElement;
+      while (parent && parent !== dom) {
+        if (seen.has(parent)) return false;
+        parent = parent.parentElement;
+      }
+      return true;
+    });
+  }
+  /**
+   * The blocks belonging to a reference section, walked in document order from
+   * its heading to the next same-or-higher-level heading.
+   *
+   * Two wrinkles ported from bibliography.py:75-118. A LOWER-level heading is an
+   * alphabetical marker inside the bibliography ("A", "B", …) and is skipped. A
+   * same-or-higher-level heading normally ends the section, unless the blocks
+   * right after it are themselves reference-like with their year near the start
+   * — then it is an OCR/markup artifact and collection continues.
+   */
+  collectSectionBlocks(dom, heading) {
+    const ordered = Array.from(dom.querySelectorAll("h1, h2, h3, h4, h5, h6, p, li"));
+    const start = ordered.indexOf(heading);
+    if (start === -1) return [];
+    const headingLevel = parseInt(heading.tagName.slice(1), 10);
+    const candidates = new Set(this.collectCandidateBlocks(dom));
+    const collected = [];
+    for (let i = start + 1; i < ordered.length; i++) {
+      const el = ordered[i];
+      if (!el) continue;
+      if (/^H[1-6]$/.test(el.tagName)) {
+        if (parseInt(el.tagName.slice(1), 10) > headingLevel) continue;
+        if (this.looksLikeArtifactHeading(ordered, i)) continue;
         break;
       }
+      if (candidates.has(el)) collected.push(el);
     }
-    const looksLikeReferenceStart = (text) => {
-      if (!text || text.length < 10) return false;
-      const trimmed = text.trim();
-      const startsWithAuthor = /^[A-ZÖÄÜÉÈÊËÀÂÎÏÔÛÇ]/.test(trimmed);
-      const startsWithNumber = /^\[\d+\]/.test(trimmed);
-      const hasYear = /\d{4}/.test(trimmed);
-      return (startsWithAuthor || startsWithNumber) && hasYear;
-    };
-    const extractRefsFromParagraph = (p, isInRefSection2) => {
-      const extracted = [];
-      const html = p.innerHTML;
-      if (/<br\b[^>]*>/i.test(html)) {
-        const parts = html.split(/<br\b[^>]*>/i).map((s) => s.trim()).filter((s) => s);
-        const refLikeParts = parts.filter((part) => {
+    return collected;
+  }
+  /** True when the blocks following `ordered[index]` read as more references. */
+  looksLikeArtifactHeading(ordered, index) {
+    let total = 0;
+    let refLike = 0;
+    for (let i = index + 1; i < ordered.length && total < 3; i++) {
+      const el = ordered[i];
+      if (!el || /^H[1-6]$/.test(el.tagName)) continue;
+      total += 1;
+      const text = (el.textContent || "").trim();
+      if (isReferenceShaped(text) && hasEarlyYear(text)) refLike += 1;
+    }
+    return total >= 2 && refLike >= 2;
+  }
+  /**
+   * Turn one accepted block into reference objects, splitting <br>-separated
+   * entries (incl. attribute-bearing tags, e.g. DeepL's `<br data-dl-uid="1">`).
+   * Only splits when EVERY part reads as an entry, so a stray <br> inside a
+   * single reference cannot shred it.
+   */
+  buildReferencesFromBlock(el) {
+    const html = el.innerHTML;
+    if (/<br\b[^>]*>/i.test(html)) {
+      const parts = html.split(/<br\b[^>]*>/i).map((s) => s.trim()).filter((s) => s);
+      if (parts.length > 1) {
+        const texts = parts.map((part) => {
           const temp = document.createElement("div");
           temp.innerHTML = part;
-          return looksLikeReferenceStart(temp.textContent);
+          return (temp.textContent || "").trim();
         });
-        if (isInRefSection2 || refLikeParts.length >= parts.length * 0.7) {
-          parts.forEach((part) => {
-            const temp = document.createElement("div");
-            temp.innerHTML = part;
-            const text2 = temp.textContent.trim();
-            if (looksLikeReferenceStart(text2)) {
-              const ref = {
-                content: `<p>${part}</p>`,
-                originalText: text2,
-                type: "html-br-split",
-                needsKeyGeneration: true
-              };
-              extracted.push(ref);
-            }
-          });
-          if (extracted.length > 0) {
-            console.log(`  - Split paragraph into ${extracted.length} references (was <br>-separated)`);
-            return extracted;
-          }
+        if (texts.every((text) => isReferenceShaped(text))) {
+          return parts.map((part, i) => ({
+            content: part,
+            originalText: texts[i],
+            type: "html-br-split",
+            needsKeyGeneration: true
+          }));
         }
       }
-      const text = p.textContent.trim();
-      if (looksLikeReferenceStart(text)) {
-        const ref = {
-          content: p.outerHTML,
-          originalText: text,
-          type: "html-paragraph",
-          needsKeyGeneration: true
-        };
-        extracted.push(ref);
-      }
-      return extracted;
-    };
-    let elementsToScan = [];
-    let isInRefSection = false;
-    if (referenceSectionStartIndex !== -1) {
-      elementsToScan = allElements.slice(referenceSectionStartIndex + 1).filter((el) => el.tagName === "P");
-      isInRefSection = true;
-    } else {
-      elementsToScan = Array.from(dom.querySelectorAll("p")).reverse();
     }
-    console.log(`  - Scanning ${elementsToScan.length} potential reference paragraphs`);
-    const inTextCitePattern = /\(([^)]*?\d{4}[^)]*?)\)/;
-    elementsToScan.forEach((p) => {
-      const text = p.textContent.trim();
-      if (!text) return;
-      if (!isInRefSection) {
-        const markerPattern = /\[\d+\]/g;
-        let markerMatch;
-        while ((markerMatch = markerPattern.exec(text)) !== null) {
-          if (markerMatch.index > 0) return;
-        }
-        const citeMatch = text.match(inTextCitePattern);
-        if (citeMatch) {
-          const content = citeMatch[1];
-          if (content.includes(",") || /[a-zA-Z]{2,}.*\d{4}/.test(content)) {
-            return;
-          }
-        }
-      }
-      const refs = extractRefsFromParagraph(p, isInRefSection);
-      references.push(...refs);
-    });
-    console.log(`  - Extracted ${references.length} potential references`);
-    return references;
+    return [{
+      content: html,
+      originalText: (el.textContent || "").trim(),
+      type: "html-paragraph",
+      needsKeyGeneration: true
+    }];
   }
   /**
    * Transform structure: wrap loose nodes and unwrap unnecessary containers
@@ -1631,9 +1879,8 @@ var CambridgeProcessor = class extends BaseFormatProcessor {
       });
       container.remove();
     });
-    const refHeadings = /^(references|bibliography|works cited)$/i;
     const headings = Array.from(dom.querySelectorAll("h1, h2, h3, h4, h5, h6"));
-    const referenceHeading = headings.find((h) => refHeadings.test(h.textContent.trim()));
+    const referenceHeading = headings.find((h) => isReferenceHeading(h.textContent));
     if (!referenceHeading) {
       console.log("\u{1F4DA} Cambridge: No References/Bibliography heading found, skipping reference extraction");
       return references;
@@ -1660,7 +1907,10 @@ var CambridgeProcessor = class extends BaseFormatProcessor {
         return;
       }
       references.push({
-        content: p.outerHTML,
+        // innerHTML, NOT outerHTML — appendStaticSections hosts this inside a
+        // fresh <p>, and a nested block splits into an empty tagged node plus an
+        // untagged orphan on the next reparse (see PATH 1's note above).
+        content: p.innerHTML,
         originalText: text,
         type: "cambridge-reference",
         needsKeyGeneration: true
@@ -1902,7 +2152,7 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
     if (references.length === 0) {
       const headings = dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
       for (const heading of headings) {
-        if (/references|bibliography/i.test(heading.textContent.trim())) {
+        if (isReferenceHeading(heading.textContent)) {
           let nextElement = heading.nextElementSibling;
           while (nextElement) {
             if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
@@ -2683,10 +2933,9 @@ var SageProcessor = class extends BaseFormatProcessor {
       console.log("\u{1F4DA} Sage: No specific elements found, using general reference detection");
       const allElements = Array.from(dom.children);
       let referenceSectionStartIndex = -1;
-      const refHeadings = /^(references|bibliography|notes|sources)$/i;
       for (let i = 0; i < allElements.length; i++) {
         const el = allElements[i];
-        if (/^H[1-6]$/.test(el.tagName) && refHeadings.test(el.textContent.trim())) {
+        if (/^H[1-6]$/.test(el.tagName) && isReferenceHeading(el.textContent)) {
           referenceSectionStartIndex = i;
           break;
         }
@@ -2935,7 +3184,7 @@ var ScienceDirectProcessor = class extends BaseFormatProcessor {
       console.log("\u{1F4DA} ScienceDirect: No reference spans found, searching for reference list items");
       const headings = dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
       for (const heading of headings) {
-        if (/references|bibliography/i.test(heading.textContent.trim())) {
+        if (isReferenceHeading(heading.textContent)) {
           console.log(`\u{1F4DA} ScienceDirect: Found references section: "${heading.textContent.trim()}"`);
           let nextElement = heading.nextElementSibling;
           while (nextElement) {

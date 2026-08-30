@@ -1,14 +1,21 @@
 <?php
 
-/*This controller pulls four columns from the library data table in postgreSQL: 
-[recent, total_highlights, total_hypercites, created_at]
-It processes them into three special books in the nodes table: 
+/*This controller pulls the ranking columns from the library data table in postgreSQL:
+[recent, total_highlights, hypercite_connections, reference_connections, created_at]
+It processes them into three special books in the nodes table:
 [most-recent, most-connected, most-lit]
 
 This is calculated according to the following logic:
 Most Recent: Uses the recent column directly (no processing needed)
-Most Connected: Ranks books by total_citations in descending order, with created_at as tiebreaker
-Most Lit: Ranks books by the sum of total_citations + total_highlights in descending order, with created_at as tiebreaker
+Most Connected: Ranks by hypercite_connections, then reference_connections as a
+  second key — so any text with a minted hypercite outranks every text without
+  one, and below that line the not-yet-minted reference edges decide.
+Most Lit: Ranks by hypercite_connections + total_highlights — human annotation
+  activity, deliberately EXCLUDING the machine-detected reference edges so it
+  says something different from Most Connected.
+Both scores are written by App\Services\Connections\ConnectionCountQuery, which
+owns the definition (both directions, distinct counterparts, inbound weighted
+double, self/same-owner edges dropped). created_at is the final tiebreaker.
 
 The ranking logic ensures that:
 Higher metric values get lower ranking numbers (1 = best)
@@ -30,8 +37,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;
-use App\Models\PgHyperlight;
-use App\Models\PgHypercite;
+use App\Services\Connections\ConnectionCountQuery;
 
 class HomePageServerController extends Controller
 {
@@ -87,13 +93,22 @@ class HomePageServerController extends Controller
 
     private function generateHomePageBooks()
     {
+        // Refresh the ranking columns FIRST, then read them. Corpus-wide and
+        // set-based: this also runs inline on a cache miss, so it must never
+        // become a per-book loop. Deliberately not restricted to `listed` books
+        // — the harvested journal corpus is minted listed = false and its counts
+        // were NULL forever because the old recompute skipped it. WHICH books
+        // the homepage ranks is the separate `where('listed', true)` below.
+        (new ConnectionCountQuery())->recompute();
+
         // Get all library records with the required columns, excluding unlisted books
         $libraryRecords = DB::table('library')
             ->select([
                 'book',
                 'recent',
                 'total_highlights',
-                'total_citations',
+                'hypercite_connections',
+                'reference_connections',
                 'total_views',
                 'created_at',
                 'bibtex',
@@ -112,9 +127,6 @@ class HomePageServerController extends Controller
         // Use admin connection to bypass RLS for system-generated content
         $adminDb = DB::connection('pgsql_admin');
 
-        // Recalculate stats from hyperlights/hypercites tables to ensure accuracy
-        $this->recalculateLibraryStats($libraryRecords, $adminDb);
-
         // Calculate rankings
         $rankings = $this->calculateRankings($libraryRecords);
 
@@ -123,7 +135,8 @@ class HomePageServerController extends Controller
         if (!$pinnedBookInRecords) {
             $pinnedRecord = DB::table('library')
                 ->select([
-                    'book', 'recent', 'total_highlights', 'total_citations',
+                    'book', 'recent', 'total_highlights', 'hypercite_connections',
+                    'reference_connections',
                     'total_views', 'created_at', 'bibtex', 'title', 'author',
                     'year', 'publisher', 'journal'
                 ])
@@ -517,17 +530,26 @@ class HomePageServerController extends Controller
         // Most Recent: Based on created_at (newest first)
         $mostRecent = $this->rankByCreationDate($libraryRecords);
 
-        // Most Connected: Based on total_citations
+        // Most Connected: hypercite edges first, reference edges as the second
+        // key — a composite metric, compared element-wise by rankByMetric. Any
+        // text with a minted hypercite therefore outranks every text without one.
         $mostConnected = $this->rankByMetric(
-            $libraryRecords, 
-            'total_citations'
+            $libraryRecords,
+            function ($record) {
+                return [
+                    (int) ($record->hypercite_connections ?? 0),
+                    (int) ($record->reference_connections ?? 0),
+                ];
+            }
         );
 
-        // Most Lit: Based on total_citations + total_highlights
+        // Most Lit: human annotation activity — hypercite edges + hyperlights.
+        // Reference edges are excluded on purpose: they are machine-detected, and
+        // including them would make this rank almost identically to Most Connected.
         $mostLit = $this->rankByMetric(
-            $libraryRecords, 
+            $libraryRecords,
             function($record) {
-                return ($record->total_citations ?? 0) + ($record->total_highlights ?? 0);
+                return (int) ($record->hypercite_connections ?? 0) + (int) ($record->total_highlights ?? 0);
             }
         );
 
@@ -555,7 +577,10 @@ class HomePageServerController extends Controller
             ];
         })->toArray();
 
-        // Sort by metric value (descending), then by created_at (ascending for tiebreaker)
+        // Sort by metric value (descending), then by created_at (ascending for
+        // tiebreaker). A metric may be an ARRAY of keys (Most Connected passes
+        // [hypercites, references]); PHP's <=> compares arrays element-wise, so
+        // a composite metric needs no special case here.
         usort($recordsWithMetric, function ($a, $b) {
             // First compare by metric value (higher is better, so descending)
             if ($a['metric_value'] !== $b['metric_value']) {
@@ -604,70 +629,11 @@ class HomePageServerController extends Controller
         Cache::forget(self::CACHE_KEY);
     }
 
-    /**
-     * Recalculate total_highlights and total_citations for all listed books.
-     * Called before ranking calculation to ensure fresh stats.
-     */
-    private function recalculateLibraryStats($libraryRecords, $adminDb)
-    {
-        foreach ($libraryRecords as $record) {
-            $highlightCount = PgHyperlight::where('book', $record->book)->count();
-            $totalCites = $this->countCitationsForBook($record->book);
-
-            $adminDb->table('library')->where('book', $record->book)->update([
-                'total_highlights' => $highlightCount,
-                'total_citations' => $totalCites
-            ]);
-
-            // Update the record object so we don't need to re-fetch
-            $record->total_highlights = $highlightCount;
-            $record->total_citations = $totalCites;
-        }
-    }
-
-    /**
-     * Count citations for a book, excluding self-citations.
-     * Parses citedIN arrays from hypercites table.
-     */
-    private function countCitationsForBook($book)
-    {
-        $hypercites = PgHypercite::where('book', $book)->get();
-        $totalCites = 0;
-
-        foreach ($hypercites as $hypercite) {
-            if ($hypercite->citedIN) {
-                $citedInArray = is_array($hypercite->citedIN)
-                    ? $hypercite->citedIN
-                    : json_decode($hypercite->citedIN, true);
-
-                if (is_array($citedInArray)) {
-                    foreach ($citedInArray as $citation) {
-                        if (!$this->isSelfCitation($citation, $book)) {
-                            $totalCites++;
-                        }
-                    }
-                }
-            }
-        }
-
-        return $totalCites;
-    }
-
-    /**
-     * Check if a citation references the same book (self-citation).
-     */
-    private function isSelfCitation($citation, $currentBook)
-    {
-        if (preg_match('/^\/([^#]+)#/', $citation, $matches)) {
-            $citedBook = $matches[1];
-            return $citedBook === $currentBook;
-        }
-
-        if (preg_match('/^\/([^\/]+)\//', $citation, $matches)) {
-            $citedBook = $matches[1];
-            return $citedBook === $currentBook;
-        }
-
-        return false;
-    }
+    // The per-book stats recompute that used to live here (recalculateLibraryStats
+    // + countCitationsForBook + isSelfCitation) is gone: it ran two queries PER
+    // BOOK, counted INBOUND hypercites only, and skipped every `listed = false`
+    // book — which is the whole harvested journal corpus. Its replacement is the
+    // set-based App\Services\Connections\ConnectionCountQuery, called at the top
+    // of generateHomePageBooks(). Do not reintroduce a second definition of
+    // "how connected is this book" here.
 }

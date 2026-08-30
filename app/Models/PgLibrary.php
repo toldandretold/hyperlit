@@ -56,6 +56,8 @@ class PgLibrary extends Model
         'total_views',
         'total_citations',
         'total_highlights',
+        'hypercite_connections',
+        'reference_connections',
         'creator',
         'creator_token',
         'visibility',
@@ -98,6 +100,8 @@ class PgLibrary extends Model
         'total_views' => 'integer',
         'total_citations' => 'integer',
         'total_highlights' => 'integer',
+        'hypercite_connections' => 'integer',
+        'reference_connections' => 'integer',
         'gate_defaults' => 'array',
         'listed' => 'boolean',
         'has_nodes' => 'boolean',
@@ -149,10 +153,15 @@ class PgLibrary extends Model
             }
         });
 
-        // Only invalidate cache when citation/highlight counts change
+        // Only invalidate cache when the counts the homepage ranks on change
         static::updating(function ($library) {
-            $isDirty = $library->isDirty(['total_citations', 'total_highlights']);
-            
+            $isDirty = $library->isDirty([
+                'total_citations',
+                'total_highlights',
+                'hypercite_connections',
+                'reference_connections',
+            ]);
+
             if ($isDirty) {
                 HomePageServerController::invalidateCache();
             }

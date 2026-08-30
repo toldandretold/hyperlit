@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1775 functions in 374 modules · 10 object stores · 10 PG tables · 3659 edges
+**MarkdownDB** schema v28 · 1788 functions in 377 modules · 10 object stores · 10 PG tables · 3676 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1340,10 +1340,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CambridgeProcessor.extractReferences` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
 | `CambridgeProcessor.linkFootnotes` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
 | `CambridgeProcessor.transformStructure` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
+| `GeneralProcessor.buildReferencesFromBlock` | `paste/format-processors/general-processor` | — | — | write | — |
+| `GeneralProcessor.collectCandidateBlocks` | `paste/format-processors/general-processor` | — | — | read | — |
+| `GeneralProcessor.collectSectionBlocks` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.constructor` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.extractFootnotes` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.extractReferences` | `paste/format-processors/general-processor` | — | — | read/write | — |
-| `GeneralProcessor.hasReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | read | — |
+| `GeneralProcessor.findReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | read | — |
+| `GeneralProcessor.hasReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | — | — |
+| `GeneralProcessor.looksLikeArtifactHeading` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.stripLeadingBracketNumber` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.transformStructure` | `paste/format-processors/general-processor` | — | — | read | — |
 | `MitPressProcessor.constructor` | `paste/format-processors/mit-press-processor` | — | — | — | — |
@@ -1442,6 +1447,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `parseHtmlToBlocks` | `paste/utils/html-block-parser` | — | — | write | — |
 | `isRealLink` | `paste/utils/html-preprocessor` | — | — | — | — |
 | `preprocessHTMLContent` | `paste/utils/html-preprocessor` | — | — | read/write | — |
+| `flattenForInlineHost` | `paste/utils/inline-fragment` | — | — | write | — |
 | `getInsertionPoint` | `paste/utils/insertion-point-calculator` | — | — | read | — |
 | `detectMarkdown` | `paste/utils/markdown-detector` | — | — | — | — |
 | `footnoteDefinitionsToHtml` | `paste/utils/markdown-processor` | — | — | — | — |
@@ -1455,6 +1461,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `normalizeSpaces` | `paste/utils/normalizer` | — | — | — | — |
 | `stripHyperciteTags` | `paste/utils/normalizer` | — | — | — | — |
 | `stripMarkTags` | `paste/utils/normalizer` | — | — | — | — |
+| `collectReferenceRun` | `paste/utils/reference-detection` | — | — | — | — |
+| `followsCiteLabel` | `paste/utils/reference-detection` | — | — | — | — |
+| `hasEarlyYear` | `paste/utils/reference-detection` | — | — | — | — |
+| `hasReferenceStructure` | `paste/utils/reference-detection` | — | — | — | — |
+| `isArticleChrome` | `paste/utils/reference-detection` | — | — | — | — |
+| `isReferenceShaped` | `paste/utils/reference-detection` | — | — | — | — |
+| `isReferenceHeading` | `paste/utils/reference-headings` | — | — | — | — |
 | `generateReferenceKeys` | `paste/utils/reference-key-generator` | — | — | — | — |
 | `addUniqueReference` | `paste/utils/transform-helpers` | — | — | — | — |
 | `cleanTFFootnoteContent` | `paste/utils/transform-helpers` | — | — | read/write | — |

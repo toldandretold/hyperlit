@@ -144,6 +144,21 @@ const BASELINES = [
     footnoteMarkers: 1,
   },
   {
+    // Synthetic fixture (shape of prod case book_1788040795553): news-site
+    // clipboard HTML — div-wrapped, no references section anywhere, body prose
+    // carrying bare years ("…in 1773 when Parliament…", "February 2025").
+    // Locks the GeneralProcessor shape+cohort gate: no bibliography exists, so
+    // none is invented. Regression: every year-bearing paragraph was cloned into
+    // a fabricated "References" section as an empty tagged <p> plus a duplicate
+    // body <p>.
+    file: 'generic-news-prose-years.html',
+    format: 'general',
+    footnotes: 0,
+    references: 0,
+    inTextCitations: 0,
+    footnoteMarkers: 0,
+  },
+  {
     file: 'substack.html',
     format: 'substack',
     footnotes: 35, // .footnote-content divs (bare footnote-anchor-N id format)

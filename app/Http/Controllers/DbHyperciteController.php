@@ -7,6 +7,7 @@ use App\Models\PgNode;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Http\Responses\ApiResponse;
+use App\Services\Connections\ConnectionRefresher;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -212,6 +213,15 @@ class DbHyperciteController extends Controller
             }
             $this->refreshAnnotationIndex($indexUpdates);
 
+            // Refresh both endpoints of every new edge — the cited book (which
+            // owns the row) and the citing books named inside citedIN.
+            $touchedBooks = [];
+            foreach ($records as $rec) {
+                $touchedBooks[] = $rec['book'] ?? null;
+                $touchedBooks = array_merge($touchedBooks, ConnectionRefresher::booksFromCitedIn($rec['citedIN'] ?? []));
+            }
+            app(ConnectionRefresher::class)->refresh($touchedBooks);
+
             Log::info('DbHyperciteController::bulkCreate - Success', [
                 'records_inserted' => count($records)
             ]);
@@ -276,6 +286,7 @@ class DbHyperciteController extends Controller
 
                 $processedCount = 0;
                 $processedBookIds = [];
+                $touchedBooks = [];
                 $indexUpdates = [];   // book => [hyperciteId => firstNodeId] for the cached deep-link index
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
@@ -382,6 +393,14 @@ class DbHyperciteController extends Controller
                     $processedCount++;
                     if ($bookId) {
                         $processedBookIds[] = $bookId;
+                        // The CITING side of each edge too: its outbound
+                        // connection count changed, and it lives only inside
+                        // citedIN ("/{citingBook}#{anchor}") — there is no row
+                        // on the citing book to notice otherwise.
+                        $touchedBooks = array_merge(
+                            $touchedBooks,
+                            ConnectionRefresher::booksFromCitedIn($item['citedIN'] ?? []),
+                        );
                         // Keep the deep-link index fresh: a cite created after the last cache warm
                         // isn't in index.json. Record id → its first node (chunk resolved in bulk below).
                         $nids = is_array($item['node_id'] ?? null)
@@ -404,6 +423,12 @@ class DbHyperciteController extends Controller
                 // (cache-less) window. SECURITY DEFINER fn handles the cross-book case where
                 // the citer doesn't own the cited public book.
                 $this->updateAnnotationsTimestamp($processedBookIds);
+
+                // Both endpoints of every edge just changed their connection
+                // scores. One refresh for the whole sync, after the loop.
+                app(ConnectionRefresher::class)->refresh(
+                    array_merge($processedBookIds, $touchedBooks)
+                );
 
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount
