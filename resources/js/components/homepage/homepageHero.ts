@@ -31,6 +31,7 @@ import { setPerimeterButtonsHidden } from '../../utilities/operationState';
 let clickHandler: ((e: Event) => void) | null = null;
 let scrollHandler: (() => void) | null = null;
 let observer: MutationObserver | null = null;
+let colonObserver: ResizeObserver | null = null;
 let fadeRaf = 0;
 let returnTimer = 0;
 
@@ -117,9 +118,30 @@ function closeFeed(): void {
   trackFadeFor(750);
 }
 
+/**
+ * Journal lockup: the colon squares track the MEASURED title-block height
+ * (writes --colon-h on the lockup — see journalHome.css). Line count isn't
+ * knowable in CSS, and a flex-stretch %-height chain collapses against the
+ * auto-height lockup, so the hero measures the h1 and re-measures on wrap
+ * changes via ResizeObserver. No-op on pages without the lockup (home).
+ */
+function watchJournalColon(): void {
+  const title = document.querySelector<HTMLElement>('.journal-logo-lockup .journal-title');
+  const lockup = title?.closest<HTMLElement>('.journal-logo-lockup');
+  if (!title || !lockup) return;
+  const apply = (): void => {
+    lockup.style.setProperty('--colon-h', `${title.offsetHeight}px`);
+  };
+  apply();
+  colonObserver?.disconnect();
+  colonObserver = new ResizeObserver(apply);
+  colonObserver.observe(title);
+}
+
 export function initHomepageHero(): void {
   const page = heroRoot();
   if (!page) return;
+  watchJournalColon(); // journal pages only; re-arms on SPA re-init (fresh DOM)
   if (clickHandler) { syncHeroState(); return; } // create-once + re-sync on SPA re-init
 
   suppressTabRestore(); // the homepage always boots to the hero
@@ -231,4 +253,6 @@ export function destroyHomepageHero(): void {
   fadeRaf = 0;
   observer?.disconnect();
   observer = null;
+  colonObserver?.disconnect();
+  colonObserver = null;
 }

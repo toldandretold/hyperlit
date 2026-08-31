@@ -8,17 +8,20 @@
 /* ---------- logo lockup: colon squares + journal name ---------- */
 
 body[data-page="journal"] .journal-logo-lockup {
-  /* The colon squares read as the counter (negative space) of an implied H —
-     the emptiness around them is part of the mark. The gap to the text is
-     therefore exactly ONE SQUARE WIDTH: the SVG is 28.33×85 (1:3), so a
-     square's width = colon height / 3, derived from the shared variable so
-     the proportion holds at every viewport size. */
-  --colon-h: clamp(2.4rem, 7vw, 3.6rem);
+  /* The colon matches the RENDERED TITLE BLOCK — one line or three, any
+     viewport or width setting. Line count isn't knowable in CSS and a
+     %-height chain collapses against the auto-height lockup, so homepageHero
+     MEASURES the h1 (ResizeObserver) and writes --colon-h here in px. The
+     fallback ≈ one title line covers the pre-JS first frame. The gap to the
+     text is ONE SQUARE WIDTH: the SVG is 28.33×85 (1:3), so square width =
+     colon height / 3. */
+  --title-fs: clamp(1.4rem, 4.5vw, 2.1rem);
+  --colon-fallback: calc(var(--title-fs) * 1.15);
   display: flex !important;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: calc(var(--colon-h) / 3);
+  gap: calc(var(--colon-h, var(--colon-fallback)) / 3);
 }
 
 body[data-page="journal"] .journal-colon-link {
@@ -31,13 +34,12 @@ body[data-page="journal"] .journal-colon-link {
    (that sizing is for the full wordmark; the colon is 1:3 narrow). */
 body[data-page="journal"] #app-container.lava-lamp-background .fixed-header #imageContainer svg.journal-colon {
   width: auto;
-  height: var(--colon-h, clamp(2.4rem, 7vw, 3.6rem));
-  transition: height 0.6s ease-in-out;
+  height: var(--colon-h, var(--colon-fallback, clamp(2.4rem, 7vw, 3.6rem)));
 }
 
 body[data-page="journal"] .journal-title {
   margin: 0;
-  font-size: clamp(1.4rem, 4.5vw, 2.1rem);
+  font-size: var(--title-fs, clamp(1.4rem, 4.5vw, 2.1rem));
   font-weight: 600;
   line-height: 1.15;
   text-align: left;
