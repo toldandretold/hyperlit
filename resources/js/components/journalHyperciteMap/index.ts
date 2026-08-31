@@ -20,6 +20,8 @@
  * to touch taps.
  */
 
+import { getSavedAnchor } from '../../scrolling/readingAnchor';
+
 const CARD_ID = 'journal-map-card';
 const OFFSET = 14;
 
@@ -80,7 +82,7 @@ function fillCard(el: HTMLDivElement, node: HTMLElement, linked: boolean): void 
   const titleText = node.getAttribute('data-title') ?? '';
   if (linked) {
     const link = document.createElement('a');
-    link.href = node.getAttribute('href') ?? '#';
+    link.href = effectiveHref(node);
     link.textContent = `${titleText} →`;
     Object.assign(link.style, {
       color: 'inherit',
@@ -124,6 +126,50 @@ function mapNodeFrom(target: EventTarget | null): HTMLElement | null {
   return target instanceof Element
     ? (target.closest('a[data-map-node]') as HTMLElement | null)
     : null;
+}
+
+/**
+ * Where a node's link should actually go. Hypercited dots carry `data-intro`
+ * — the first hypercite's URL fragment. A visitor with NO saved reading
+ * position for that book lands straight on hypercited text (the system
+ * introducing itself); anyone who has read it before navigates plain and the
+ * reader restores their position. getSavedAnchor is the sanctioned
+ * restore-flavoured read of the saved reading position.
+ */
+function effectiveHref(node: HTMLElement): string {
+  const href = node.getAttribute('href') ?? '#';
+  const intro = node.getAttribute('data-intro');
+  if (!intro || href.includes('#')) return href;
+  const book = decodeURIComponent(href.replace(/^\//, ''));
+  if (getSavedAnchor(book)) return href;
+  return `${href}#${intro}`;
+}
+
+/** Finger-sized reach for finger-blind dots: a touch can miss by ~this many
+ *  CSS px and still land on the nearest node. */
+const TAP_ASSIST_RADIUS = 28;
+
+/**
+ * The nearest node to a touch point, within TAP_ASSIST_RADIUS. The dots are a
+ * few rendered pixels wide (and packed at blob density), so requiring a
+ * direct hit made mobile taps hopeless — same philosophy as the reader's
+ * footnoteTapExtender. Works on the hero map AND the figureViewer clone
+ * (both are `svg` holding a[data-map-node] anchors).
+ */
+function nearestMapNode(from: Element, x: number, y: number): HTMLElement | null {
+  const svg = from.closest('svg');
+  if (!svg || !svg.querySelector('a[data-map-node]')) return null;
+  let best: HTMLElement | null = null;
+  let bestDist = TAP_ASSIST_RADIUS;
+  svg.querySelectorAll<SVGCircleElement>('a[data-map-node] circle').forEach((circle) => {
+    const r = circle.getBoundingClientRect();
+    const d = Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2));
+    if (d < bestDist) {
+      bestDist = d;
+      best = circle.closest('a[data-map-node]') as HTMLElement | null;
+    }
+  });
+  return best;
 }
 
 function isTouch(): boolean {
@@ -266,7 +312,19 @@ function onClick(event: MouseEvent): void {
     return;
   }
 
-  const node = mapNodeFrom(target);
+  let node = mapNodeFrom(target);
+  if (!node && isTouch() && target) {
+    // Missed-by-a-little touch: snap to the nearest dot in reach.
+    node = nearestMapNode(target, event.clientX, event.clientY);
+  }
+  if (node && !isTouch()) {
+    // Desktop click navigates — retarget to the intro deep-link (first-time
+    // visitors only) by rewriting the href BEFORE the default/SPA navigation
+    // reads it. Idempotent: effectiveHref keeps an existing hash.
+    node.setAttribute('href', effectiveHref(node));
+    return; // let the click proceed normally
+  }
+
   if (node && isTouch()) {
     // Tap = inspect, not navigate (labels only live in the card). The pinned
     // card's title link does the navigating.

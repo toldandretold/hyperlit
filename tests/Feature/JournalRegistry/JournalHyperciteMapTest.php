@@ -75,17 +75,28 @@ function jmapBook(string $title, ?JournalSource $journal = null, array $opts = [
     return $book;
 }
 
-/** One hypercite edge: a passage of $cited quoted inside $citing. */
-function jmapHypercite(string $cited, string $citing): void
+/** One hypercite edge: a passage of $cited quoted inside $citing. Returns the hyperciteId. */
+function jmapHypercite(string $cited, string $citing, ?string $anchor = null): string
 {
+    $hyperciteId = 'hypercite_' . Str::lower(Str::random(8));
     jmapDb()->table('hypercites')->insert([
         'book'        => $cited,
-        'hyperciteId' => 'hypercite_' . Str::lower(Str::random(8)),
-        'citedIN'     => json_encode(["/{$citing}#hypercite_" . Str::lower(Str::random(6))]),
+        'hyperciteId' => $hyperciteId,
+        'citedIN'     => json_encode(["/{$citing}#" . ($anchor ?? 'hypercite_' . Str::lower(Str::random(6)))]),
         'raw_json'    => '{}',
         'charData'    => '{}',
         'created_at'  => now(),
     ]);
+
+    return $hyperciteId;
+}
+
+/** The full <a …> opening tag for a book's dot, for per-node attribute asserts. */
+function jmapAnchorTag(string $svg, string $book): string
+{
+    preg_match('/<a href="\/' . preg_quote($book, '/') . '"[^>]*>/', $svg, $m);
+
+    return $m[0] ?? '';
 }
 
 function jmapSvg(JournalSource $journal): ?string
@@ -195,6 +206,22 @@ test('article and partner titles are escaped', function () {
     expect($svg)->not->toContain('<script>');
     expect($svg)->not->toContain('<b>');
     expect($svg)->toContain('&lt;script&gt;');
+});
+
+test('hypercited dots carry an intro deep-link: own hyperciteId inbound, the ↗ anchor outbound', function () {
+    $journal = jmapJournal();
+    $cited = jmapBook('JMap Intro Cited', $journal);     // has its own hypercites row
+    $citing = jmapBook('JMap Intro Citing', $journal);   // only the ↗ anchor in its content
+    jmapBook('JMap Intro Quiet', $journal);              // untouched
+    $hyperciteId = jmapHypercite($cited, $citing, 'anchor_intro42');
+
+    $svg = jmapSvg($journal);
+
+    expect(jmapAnchorTag($svg, $cited))->toContain('data-intro="' . $hyperciteId . '"');
+    expect(jmapAnchorTag($svg, $citing))->toContain('data-intro="anchor_intro42"');
+
+    $quietTag = jmapAnchorTag($svg, jmapDb()->table('library')->where('title', 'JMap Intro Quiet')->value('book'));
+    expect($quietTag)->not->toContain('data-intro');
 });
 
 // ── the page ─────────────────────────────────────────────────────────────────

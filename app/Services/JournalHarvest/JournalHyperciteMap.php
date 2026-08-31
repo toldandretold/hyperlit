@@ -75,7 +75,7 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:v5",
+            "journal-hypercite-map:{$journal->id}:v6",
             self::CACHE_TTL,
             fn () => $this->build($journal),
         );
@@ -90,9 +90,9 @@ class JournalHyperciteMap
             return null;
         }
 
-        [$internalEdges, $spokes, $external] = $this->edges($articles);
+        [$internalEdges, $spokes, $external, $intro] = $this->edges($articles);
 
-        return $this->draw($journal, $articles, $internalEdges, $spokes, $external);
+        return $this->draw($journal, $articles, $internalEdges, $spokes, $external, $intro);
     }
 
     /** The journal's readable PUBLIC articles: book => {title, author, year}. */
@@ -118,15 +118,27 @@ class JournalHyperciteMap
      * @param  array<string, array{title:string, author:?string, year:mixed}>  $articles
      * @return array{0: array<int, array{0:string,1:string}>,
      *               1: array<int, array{0:string,1:string}>,
-     *               2: array<string, array{title:string, author:?string, year:mixed}>}  [internalEdges, spokes(article, partner), partners]
+     *               2: array<string, array{title:string, author:?string, year:mixed}>,
+     *               3: array<string, string>}  [internalEdges, spokes(article, partner), partners, introFragments]
      */
     private function edges(array $articles): array
     {
         // Whole-table load, like DocuverseController::data — hypercites is a
         // small table and the citing side only exists inside citedIN strings.
+        // Ordered by id so the INTRO fragment (below) is deterministic: the
+        // earliest-minted hypercite wins.
         $rows = DB::connection('pgsql_admin')->table('hypercites')
             ->whereRaw('"citedIN" IS NOT NULL AND "citedIN"::text NOT IN (\'[]\', \'null\')')
-            ->get(['book', 'citedIN']);
+            ->orderBy('id')
+            ->get(['book', 'hyperciteId', 'citedIN']);
+
+        // A dot's INTRO deep-link: land a first-time visitor ON hypercited
+        // text (the click handler skips it when the reader has a saved
+        // position). Inbound beats outbound — the cited book's own
+        // #hyperciteId opens on the underlined passage; the citing side only
+        // has its ↗ anchor (the fragment inside the citedIN entry).
+        $inFrag = [];
+        $outFrag = [];
 
         $pairs = [];
         foreach ($rows as $r) {
@@ -146,6 +158,11 @@ class JournalHyperciteMap
                 $bIn = isset($articles[$citing]);
                 if (!$aIn && !$bIn) {
                     continue;
+                }
+                $inFrag[$cited] ??= (string) $r->hyperciteId;
+                $anchor = parse_url((string) $url, PHP_URL_FRAGMENT);
+                if (is_string($anchor) && $anchor !== '') {
+                    $outFrag[$citing] ??= $anchor;
                 }
                 // Undirected for the visual — dedup on the sorted pair.
                 [$lo, $hi] = $cited < $citing ? [$cited, $citing] : [$citing, $cited];
@@ -187,7 +204,7 @@ class JournalHyperciteMap
         // Only partners that survived the visibility gate AND still have a spoke.
         $keep = array_unique(array_column($spokes, 1));
 
-        return [$internalEdges, $spokes, $external->only($keep)->all()];
+        return [$internalEdges, $spokes, $external->only($keep)->all(), $inFrag + $outFrag];
     }
 
     private function rootBook(string $book): string
@@ -209,6 +226,7 @@ class JournalHyperciteMap
         array $internalEdges,
         array $spokes,
         array $external,
+        array $intro,
     ): string {
         // Degree per article (any hypercite edge) drives ordering + emphasis.
         $degree = [];
@@ -273,7 +291,7 @@ class JournalHyperciteMap
             $pos[$partner] = [$ringR * cos($angle), $ringR * sin($angle), $angle];
         }
 
-        return $this->emit($journal, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR);
+        return $this->emit($journal, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR, $intro);
     }
 
     private function emit(
@@ -287,6 +305,7 @@ class JournalHyperciteMap
         array $spokes,
         float $blobRadius,
         float $ringR,
+        array $intro,
     ): string {
         // ── Solve the viewBox↔pixel scale ──
         // The blob/ring geometry is fixed viewBox units; dots/strokes are
@@ -340,7 +359,7 @@ class JournalHyperciteMap
                 ? min($rLitBase + 0.8 * $k * ($deg - 1), self::R_LIT_CAP_PX * $k)
                 : $rPlain;
             $opacity = $lit ? '1' : '0.5';
-            $s[] = $this->anchorOpen($book, $articles[$book] ?? null, $lit ? 'lit' : 'article', $deg)
+            $s[] = $this->anchorOpen($book, $articles[$book] ?? null, $lit ? 'lit' : 'article', $deg, $intro[$book] ?? null)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($r) . '"'
                 . ' fill="' . self::INK . '" fill-opacity="' . $opacity . '"></circle></a>';
         }
@@ -352,7 +371,7 @@ class JournalHyperciteMap
                 continue;
             }
             [$x, $y] = $pos[$book];
-            $s[] = $this->anchorOpen($book, $meta, 'beyond', 0)
+            $s[] = $this->anchorOpen($book, $meta, 'beyond', 0, $intro[$book] ?? null)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($rExternal) . '"'
                 . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="' . $this->n($k) . '"></circle></a>';
         }
@@ -368,9 +387,13 @@ class JournalHyperciteMap
      * tooltip would double up with the card. aria-label keeps the node named
      * for screen readers; tabindex="-1" is the welcome-copy keyboard model.
      *
+     * data-intro carries the FIRST hypercite's URL fragment: the click handler
+     * appends it for visitors with no saved reading position, so their first
+     * landing opens on hypercited text — the system introducing itself.
+     *
      * @param  ?array{title:string, author:?string, year:mixed}  $meta
      */
-    private function anchorOpen(string $book, ?array $meta, string $kind, int $degree): string
+    private function anchorOpen(string $book, ?array $meta, string $kind, int $degree, ?string $introFragment = null): string
     {
         $title = $meta['title'] ?? $book;
 
@@ -381,6 +404,7 @@ class JournalHyperciteMap
             . ($meta !== null && $meta['author'] !== null && $meta['author'] !== '' ? ' data-author="' . e((string) $meta['author']) . '"' : '')
             . ($meta !== null && ($meta['year'] ?? null) ? ' data-year="' . e((string) $meta['year']) . '"' : '')
             . ($degree > 0 ? ' data-connections="' . $degree . '"' : '')
+            . ($introFragment !== null && $introFragment !== '' ? ' data-intro="' . e($introFragment) . '"' : '')
             . '>';
     }
 
