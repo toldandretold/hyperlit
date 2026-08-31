@@ -23,6 +23,8 @@ import { pendingFirstChunkLoadedPromise, currentLazyLoader, buildChainFromUrl, o
 const navigateToHyperciteTarget = (...a: any[]) => import('../../../hypercites/index').then((m) => (m.navigateToHyperciteTarget as any)(...a));
 const navigateToFootnoteTarget = (...a: any[]) => import('../../../hypercites/navigation').then((m) => (m.navigateToFootnoteTarget as any)(...a));
 import { navigateToInternalId, resetUserScrollState } from '../../../scrolling/index';
+import { primeImageDims } from '../../../lazyLoader/imageDims';
+import { rootBookId } from '../../../e2ee/registry';
 
 export class BookToBookTransition {
   static isTransitioning = false;
@@ -82,7 +84,18 @@ export class BookToBookTransition {
         
         // Guarantee immediate visibility
         ProgressOverlayConductor.showBookToBookTransition(5, `Loading ${toBook}...`, toBook);
-        
+
+        // Prime the image-dimension map NOW — as early as possible, before the
+        // cleanup/fetch/render below — so it is resolved by the time chunks
+        // render and applyImageDims can stamp width/height SYNCHRONOUSLY (which
+        // reserves space and prevents the layout shift that shoves the restored
+        // reading position). Cold load does this in loadHyperText; the SPA
+        // back/forward path (this transition, incl. the client-only re-render)
+        // otherwise never primed it, so media images stamped their dims late and
+        // the marker drifted on return. Fire-and-forget + deduped per book, so a
+        // repeat nav reuses the resolved map for free.
+        try { void primeImageDims(rootBookId(String(toBook))); } catch (e) { /* non-fatal */ }
+
         // Save scroll position before destroying the old reader
         if (currentLazyLoader?.forceSaveScrollPosition) {
           currentLazyLoader.forceSaveScrollPosition();

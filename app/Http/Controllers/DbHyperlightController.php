@@ -844,12 +844,24 @@ class DbHyperlightController extends Controller
         // deliberately NOT flushed here — per-save shelf invalidation would be
         // far too aggressive; the connected/lit renders carry a staleness TTL
         // for exactly this case.
-        try {
-            (new ConnectionCountQuery())->recomputeHighlights(array_values($uniqueBookIds));
-        } catch (\Throwable $e) {
-            // Never fail a highlight save over a ranking column.
-            Log::warning('Hyperlight count recompute failed (non-fatal)', ['error' => $e->getMessage()]);
-        }
+        //
+        // DEFERRED via afterCommit: recomputeHighlights UPDATEs `library` via
+        // pgsql_admin, and the SECURITY DEFINER `update_annotations_timestamp`
+        // above locks those SAME library rows on the DEFAULT connection. If this
+        // method were ever called inside an open DEFAULT transaction (it is
+        // currently UNWIRED — no caller — but its DbHyperciteController sibling
+        // IS wired into the unified-sync transaction), an inline admin recompute
+        // would self-deadlock cross-connection (the 2026-08-30 outage pattern).
+        // afterCommit runs it once the transaction has committed/released locks,
+        // and immediately when there is no open transaction.
+        DB::afterCommit(function () use ($uniqueBookIds) {
+            try {
+                (new ConnectionCountQuery())->recomputeHighlights(array_values($uniqueBookIds));
+            } catch (\Throwable $e) {
+                // Never fail a highlight save over a ranking column.
+                Log::warning('Hyperlight count recompute failed (non-fatal)', ['error' => $e->getMessage()]);
+            }
+        });
 
         Log::info('Updated annotations_updated_at for books', [
             'books' => $uniqueBookIds,

@@ -220,7 +220,13 @@ class DbHyperciteController extends Controller
                 $touchedBooks[] = $rec['book'] ?? null;
                 $touchedBooks = array_merge($touchedBooks, ConnectionRefresher::booksFromCitedIn($rec['citedIN'] ?? []));
             }
-            app(ConnectionRefresher::class)->refresh($touchedBooks);
+            // Deferred: this method also runs inside UnifiedSyncController's
+            // DB::transaction, and the refresh recompute writes `library` via
+            // pgsql_admin — a second connection that blocks forever on the rows
+            // the open default-connection transaction has locked (the
+            // cross-connection deadlock class in CLAUDE.md §Connectedness).
+            // afterCommit runs immediately when no transaction is open.
+            DB::afterCommit(fn () => app(ConnectionRefresher::class)->refresh($touchedBooks));
 
             Log::info('DbHyperciteController::bulkCreate - Success', [
                 'records_inserted' => count($records)
@@ -426,9 +432,14 @@ class DbHyperciteController extends Controller
 
                 // Both endpoints of every edge just changed their connection
                 // scores. One refresh for the whole sync, after the loop.
-                app(ConnectionRefresher::class)->refresh(
-                    array_merge($processedBookIds, $touchedBooks)
-                );
+                // Deferred: upsert() is called inside UnifiedSyncController's
+                // DB::transaction, whose updateAnnotationsTimestamp / library
+                // upsert lock the same `library` rows the recompute UPDATEs via
+                // pgsql_admin — inline, the request deadlocks against itself
+                // and wedges the FPM pool (2026-08-30 e2e outage). afterCommit
+                // runs immediately when no transaction is open.
+                $refreshBooks = array_merge($processedBookIds, $touchedBooks);
+                DB::afterCommit(fn () => app(ConnectionRefresher::class)->refresh($refreshBooks));
 
                 Log::info('DbHyperciteController::upsert - Success', [
                     'records_processed' => $processedCount

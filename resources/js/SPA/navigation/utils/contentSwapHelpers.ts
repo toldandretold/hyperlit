@@ -243,6 +243,21 @@ export async function navigateToHash(hash: any, structure = 'reader') {
  */
 export function updateUrl(url: any, options: any = {}) {
   try {
+    // A popstate-driven transition can reach this line AFTER the user has
+    // already moved the history AGAIN (rapid back/forward: the next popstate
+    // is queued behind this transition by handlePopstate's coalescing).
+    // replaceState would then stamp THIS transition's URL onto the NEWER
+    // entry the browser has moved to — e.g. the book entry the user just
+    // went back to gets rewritten to "/", and the reconcile pass sees
+    // "URL matches rendered structure, nothing to do". Only normalize the
+    // entry when the current location still belongs to this transition.
+    if (options.isPopstate) {
+      const targetPath = new URL(url, window.location.origin).pathname;
+      if (window.location.pathname !== targetPath) {
+        verbose.nav('updateUrl: history moved on mid-transition — skipping stale popstate URL write', '/navigation/utils/contentSwapHelpers.js');
+        return;
+      }
+    }
     const currentUrl = window.location.pathname + window.location.hash;
     if (currentUrl !== url) {
       // Preserve existing history state and add transition metadata

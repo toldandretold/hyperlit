@@ -97,85 +97,92 @@ test('stored XSS: malicious node + highlight fires in a victim browser', async (
     { data: { book, title: 'xss poc', visibility: 'public', timestamp: 1700000000 } });
   expect(create.ok(), `public book creation should succeed (got ${create.status()})`).toBeTruthy();
 
-  const node = await postRetry(apage, '/api/db/nodes/upsert',
-    { book, data: [{ book, node_id: nodeId, chunk_id: 1, startLine: 1, type: 'text', content: nodeHtml, plainText: 'begin end' }] });
-  expect(node.ok(), `node write should succeed (got ${node.status()})`).toBeTruthy();
+  // From here the throwaway PUBLIC book exists and can surface at the top of the
+  // homepage feed for every concurrently-running spec — the delete must run on
+  // EVERY exit path (a mid-test expect throw used to skip it, stranding
+  // rt_xss_* books that other specs then clicked as "the first book link").
+  try {
 
-  // Attach a highlight to the node so applyHighlights() runs on render — this is
-  // the path that innerHTMLs the raw content into a detached div pre-sanitise.
-  await postRetry(apage, '/api/db/hyperlights/upsert', {
-    data: [{
-      book,
-      hyperlight_id: 'rt_hl_' + rand,
-      node_id: [nodeId],
-      charData: { [nodeId]: { charStart: 0, charEnd: 5 } },
-      highlightedText: 'begin',
-      highlightedHTML: '<mark>begin</mark>',
-      annotation: 'poc',
-      startLine: 1,
-      time_since: 1700000000,
-    }],
-  });
+    const node = await postRetry(apage, '/api/db/nodes/upsert',
+      { book, data: [{ book, node_id: nodeId, chunk_id: 1, startLine: 1, type: 'text', content: nodeHtml, plainText: 'begin end' }] });
+    expect(node.ok(), `node write should succeed (got ${node.status()})`).toBeTruthy();
 
-  // ---- VIEWER: open the public book in the reader and watch for execution ----
-  //
-  // Use a FRESH, ANONYMOUS context — this is the real threat model: any visitor
-  // who opens the attacker's PUBLIC book. (The render path is viewer-agnostic and
-  // the malicious highlight is public/hidden=false, so it's served to everyone.)
-  const vctx = await browser.newContext();
-  const vpage = await vctx.newPage();
-  await vpage.goto(BASE + '/');           // establish an anon session first
-  await vpage.waitForTimeout(800);
+    // Attach a highlight to the node so applyHighlights() runs on render — this is
+    // the path that innerHTMLs the raw content into a detached div pre-sanitise.
+    await postRetry(apage, '/api/db/hyperlights/upsert', {
+      data: [{
+        book,
+        hyperlight_id: 'rt_hl_' + rand,
+        node_id: [nodeId],
+        charData: { [nodeId]: { charStart: 0, charEnd: 5 } },
+        highlightedText: 'begin',
+        highlightedHTML: '<mark>begin</mark>',
+        annotation: 'poc',
+        startLine: 1,
+        time_since: 1700000000,
+      }],
+    });
 
-  let beaconHit = false;
-  let dataFetched = false;
-  vpage.on('request', (req) => {
-    if (req.url().includes('__' + MARKER + '__')) beaconHit = true;
-    if (req.url().includes(`/books/${book}/`)) dataFetched = true;
-  });
-  vpage.on('dialog', (d) => d.dismiss().catch(() => {}));
+    // ---- VIEWER: open the public book in the reader and watch for execution ----
+    //
+    // Use a FRESH, ANONYMOUS context — this is the real threat model: any visitor
+    // who opens the attacker's PUBLIC book. (The render path is viewer-agnostic and
+    // the malicious highlight is public/hidden=false, so it's served to everyone.)
+    const vctx = await browser.newContext();
+    const vpage = await vctx.newPage();
+    await vpage.goto(BASE + '/');           // establish an anon session first
+    await vpage.waitForTimeout(800);
 
-  // Try the reader routes most likely to run the lazy loader.
-  let benignRendered = false;
-  for (const path of [`/${book}`, `/${book}/edit`]) {
-    // domcontentloaded, NOT networkidle — the SPA's Reverb websocket / polling
-    // keeps the network perpetually busy, so networkidle would hang to timeout.
-    await vpage.goto(BASE + path, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await vpage.waitForTimeout(4000);
-    benignRendered = await vpage.evaluate((m) => document.body.innerText.includes(m), MARKER).catch(() => false);
-    const f = await vpage.evaluate(() => window.__XSS === 1).catch(() => false);
-    if (benignRendered || f || beaconHit) break;
+    let beaconHit = false;
+    let dataFetched = false;
+    vpage.on('request', (req) => {
+      if (req.url().includes('__' + MARKER + '__')) beaconHit = true;
+      if (req.url().includes(`/books/${book}/`)) dataFetched = true;
+    });
+    vpage.on('dialog', (d) => d.dismiss().catch(() => {}));
+
+    // Try the reader routes most likely to run the lazy loader.
+    let benignRendered = false;
+    for (const path of [`/${book}`, `/${book}/edit`]) {
+      // domcontentloaded, NOT networkidle — the SPA's Reverb websocket / polling
+      // keeps the network perpetually busy, so networkidle would hang to timeout.
+      await vpage.goto(BASE + path, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await vpage.waitForTimeout(4000);
+      benignRendered = await vpage.evaluate((m) => document.body.innerText.includes(m), MARKER).catch(() => false);
+      const f = await vpage.evaluate(() => window.__XSS === 1).catch(() => false);
+      if (benignRendered || f || beaconHit) break;
+    }
+
+    const flag = await vpage.evaluate(() => window.__XSS === 1).catch(() => false);
+    const fired = flag || beaconHit;
+
+    // Inspect the LIVE DOM the victim actually sees.
+    const liveDom = await vpage.evaluate(() => {
+      const imgs = Array.from(document.querySelectorAll('img'));
+      return {
+        imgWithOnerror: imgs.some((i) => i.hasAttribute('onerror')),
+        scriptInBody: !!document.querySelector('article script, main script, [data-book-id] script'),
+        htmlSnippet: (document.querySelector('[data-book-id]') || document.body).innerHTML.slice(0, 500),
+      };
+    }).catch(() => ({ imgWithOnerror: null, scriptInBody: null, htmlSnippet: '' }));
+
+    console.log(`[xss-poc] book=${book} fired=${fired} (flag=${flag}, beacon=${beaconHit}) `
+      + `dataFetched=${dataFetched} benignRendered=${benignRendered} `
+      + `liveImgOnerror=${liveDom.imgWithOnerror} liveScript=${liveDom.scriptInBody}`);
+    console.log(`[xss-poc] victim DOM snippet: ${liveDom.htmlSnippet.replace(/\s+/g, ' ')}`);
+
+    // Guard against a meaningless "didn't fire": the victim must have actually
+    // loaded and rendered the book, otherwise the negative proves nothing.
+    expect(dataFetched, 'victim must have fetched the book data (else the test exercised nothing)').toBeTruthy();
+    expect(benignRendered, 'victim must have rendered the node content (the benign marker)').toBeTruthy();
+
+    // The security expectation: with content provably rendered, the payload must
+    // NOT have executed and must NOT be present in the live DOM.
+    expect(fired, `XSS payload executed in the victim browser (flag=${flag}, beacon=${beaconHit})`).toBeFalsy();
+    expect(liveDom.imgWithOnerror, 'no <img onerror> should survive into the live DOM').toBeFalsy();
+  } finally {
+    // Cleanup the throwaway book on EVERY exit path (see comment at creation).
+    token = await xsrf(apage).catch(() => token);
+    await apage.request.delete(BASE + '/api/books/' + book, { headers: headers(token) }).catch(() => {});
   }
-
-  const flag = await vpage.evaluate(() => window.__XSS === 1).catch(() => false);
-  const fired = flag || beaconHit;
-
-  // Inspect the LIVE DOM the victim actually sees.
-  const liveDom = await vpage.evaluate(() => {
-    const imgs = Array.from(document.querySelectorAll('img'));
-    return {
-      imgWithOnerror: imgs.some((i) => i.hasAttribute('onerror')),
-      scriptInBody: !!document.querySelector('article script, main script, [data-book-id] script'),
-      htmlSnippet: (document.querySelector('[data-book-id]') || document.body).innerHTML.slice(0, 500),
-    };
-  }).catch(() => ({ imgWithOnerror: null, scriptInBody: null, htmlSnippet: '' }));
-
-  console.log(`[xss-poc] book=${book} fired=${fired} (flag=${flag}, beacon=${beaconHit}) `
-    + `dataFetched=${dataFetched} benignRendered=${benignRendered} `
-    + `liveImgOnerror=${liveDom.imgWithOnerror} liveScript=${liveDom.scriptInBody}`);
-  console.log(`[xss-poc] victim DOM snippet: ${liveDom.htmlSnippet.replace(/\s+/g, ' ')}`);
-
-  // Cleanup the throwaway book (best-effort).
-  token = await xsrf(apage);
-  await apage.request.delete(BASE + '/api/books/' + book, { headers: headers(token) }).catch(() => {});
-
-  // Guard against a meaningless "didn't fire": the victim must have actually
-  // loaded and rendered the book, otherwise the negative proves nothing.
-  expect(dataFetched, 'victim must have fetched the book data (else the test exercised nothing)').toBeTruthy();
-  expect(benignRendered, 'victim must have rendered the node content (the benign marker)').toBeTruthy();
-
-  // The security expectation: with content provably rendered, the payload must
-  // NOT have executed and must NOT be present in the live DOM.
-  expect(fired, `XSS payload executed in the victim browser (flag=${flag}, beacon=${beaconHit})`).toBeFalsy();
-  expect(liveDom.imgWithOnerror, 'no <img onerror> should survive into the live DOM').toBeFalsy();
 });

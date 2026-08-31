@@ -156,14 +156,22 @@ class LibraryService
      */
     protected function syncHomepage(string $username, PgLibrary $library): void
     {
-        try {
-            app(UserHomeServerController::class)->updateBookOnUserPage($username, $library);
-        } catch (\Exception $e) {
-            Log::warning('Failed to sync homepage', [
-                'user' => $username,
-                'book' => $library->book,
-                'error' => $e->getMessage()
-            ]);
-        }
+        // updateBookOnUserPage writes the owner's home book via pgsql_admin — a
+        // SEPARATE connection from the DEFAULT transaction that update()/create()
+        // open around this call. Running it inline is the cross-connection
+        // deadlock pattern (see ConnectionRefresher / DbLibraryController). Defer
+        // to afterCommit: it fires once the transaction commits and releases its
+        // locks, and immediately when there is no open transaction (updateStats).
+        DB::afterCommit(function () use ($username, $library) {
+            try {
+                app(UserHomeServerController::class)->updateBookOnUserPage($username, $library);
+            } catch (\Exception $e) {
+                Log::warning('Failed to sync homepage', [
+                    'user' => $username,
+                    'book' => $library->book,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        });
     }
 }

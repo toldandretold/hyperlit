@@ -113,3 +113,37 @@ test('an encrypted record never renders its bibtex (ciphertext)', function () {
     expect($html)->toContain('Encrypted book');
     expect($html)->not->toContain('Leaked Ciphertext');
 });
+
+test('patchBibtexFields replaces an existing field value in place', function () {
+    $bib = "@book{b1,\n  author = {Old Author},\n  title  = {Old Title},\n  year   = {2020},\n}";
+    $patched = (new LibraryCardGenerator())->patchBibtexFields($bib, ['title' => 'New Title']);
+
+    expect($patched)->toContain('title  = {New Title}');
+    expect($patched)->toContain('author = {Old Author}');
+    expect($patched)->toContain('year   = {2020}');
+});
+
+test('patchBibtexFields inserts a field the entry does not have', function () {
+    $bib = "@book{b1,\n  title  = {Only Title},\n}";
+    $patched = (new LibraryCardGenerator())->patchBibtexFields($bib, ['author' => 'Someone']);
+
+    expect($patched)->toContain('author = {Someone}');
+    expect((new LibraryCardGenerator())->parseBibtexToHtml($patched))->toContain('Someone');
+});
+
+test('patchBibtexFields leaves unparseable bibtex untouched', function () {
+    expect((new LibraryCardGenerator())->patchBibtexFields('not bibtex', ['title' => 'X']))->toBe('not bibtex');
+});
+
+test('a literal "null" bibtex author is rendered author-less, not as "null."', function () {
+    // buildBibtexEntry used to interpolate a null author as the string "null";
+    // rows minted before that fix still carry it (the library-home-sync card bug).
+    $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
+        'bibtex' => '@book{x, author = {null}, title = {Untitled}, year = {2026}}',
+    ]));
+
+    expect($html)->not->toContain('null');
+    expect($html)->toContain('Untitled');
+    expect($html)->not->toContain(', 2026'); // no ". , 2026" separator artifact
+    expect($html)->toContain('2026');
+});

@@ -120,6 +120,39 @@ test('no second self-citation rule', function () {
     expect($offenders)->toBe([]);
 });
 
+test('sync-internal edge refreshes defer past the wrapping transaction', function () {
+    // UnifiedSyncController wraps the whole sync in DB::transaction and calls
+    // these controllers' upserts INSIDE it. ConnectionRefresher's recompute
+    // writes `library` via pgsql_admin — a second connection that blocks
+    // forever on rows the open default-connection transaction has locked
+    // (updateAnnotationsTimestamp / the library upsert touch the same rows).
+    // Inline, the request deadlocks against itself and wedges the whole FPM
+    // pool (2026-08-30: 1h36m site outage mid-e2e). Every refresh in a
+    // sync-internal controller must be deferred with DB::afterCommit, which
+    // runs immediately when no transaction is open (direct route hits).
+    $syncInternal = [
+        'app/Http/Controllers/DbNodeController.php',
+        'app/Http/Controllers/DbHyperciteController.php',
+        'app/Http/Controllers/DbHyperlightController.php',
+        'app/Http/Controllers/DbFootnoteController.php',
+        'app/Http/Controllers/DbReferencesController.php',
+        'app/Http/Controllers/DbLibraryController.php',
+    ];
+
+    $offenders = [];
+    foreach ($syncInternal as $path) {
+        $source = file_get_contents(base_path($path));
+        foreach (preg_split('/\R/', $source) as $n => $line) {
+            if (preg_match('/ConnectionRefresher(::class\))?->refresh\(|ConnectionRefresher\)->refresh\(/', $line)
+                && ! str_contains($line, 'afterCommit')) {
+                $offenders[] = $path.':'.($n + 1);
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], 'Wrap these refresh calls in DB::afterCommit(fn () => …) — they can run inside the unified-sync transaction and deadlock cross-connection: '.implode(', ', $offenders));
+});
+
 test('the ranking weights are declared, not scattered', function () {
     // Weighting is a policy knob (inbound is worth more because it is the one
     // direction you cannot self-inflate). Keeping it on the service means

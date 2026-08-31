@@ -139,3 +139,13 @@ test('DELETE /api/books/{book} 403s for a non-owner of a public book', function 
     $this->loginUser();   // different user
     $this->assertApiError($this->deleteJson("/api/books/{$book}"), 403);
 });
+
+// NOTE: the stale-write bibliographic-preservation fix (a late client sync must
+// not revert a fresher title/bibtex — DbLibraryController::upsert's $isStale
+// branch) is covered end-to-end by tests/e2e/specs/workflows/library-home-sync.spec.js
+// and at the unit level by tests/Unit/LibraryCardBibtexTest.php. It is NOT tested
+// here because a SUCCESSFUL upsert write deadlocks under RefreshDatabase: the
+// write path (updateBookOnUserPage / ShelfCacheInvalidator) touches `library`
+// via pgsql_admin while the test transaction holds the row on the default
+// connection — the same cross-connection block this suite avoids by only
+// asserting guards that return BEFORE any write (see the file docblock).

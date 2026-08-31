@@ -233,7 +233,16 @@ export async function clickFirstBookLink(page) {
   await openHomeFeed(page);
   // Wait for at least one book card to be rendered
   await page.waitForSelector('.libraryCard a', { timeout: 10000 });
-  // Click the first one
+  // Prefer a canonical /book_<ts> link: callers assert the landed book id has
+  // that shape, and with parallel workers the top of the feed can transiently
+  // be another spec's slugged public book (e.g. the stored-xss spec's
+  // rt_xss_* throwaway) — clicking that fails the caller's sanity assert.
+  const canonical = page.locator('.libraryCard a[href^="/book_"]');
+  if (await canonical.count()) {
+    await canonical.first().click();
+    return;
+  }
+  // Fall back to the first card of any shape.
   await page.locator('.libraryCard a').first().click();
 }
 

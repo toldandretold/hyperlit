@@ -540,6 +540,9 @@ export class LinkNavigationHandler {
 
     try {
       let evt = event;
+      // Bound the convergence loop so a genuinely-unresolvable URL (e.g. a
+      // deleted book that keeps rendering a fallback) can't spin forever.
+      let guard = 0;
       do {
         this.pendingPopstate = false;
         await this._handlePopstateInner(evt);
@@ -547,10 +550,54 @@ export class LinkNavigationHandler {
         // CURRENT entry — a synthetic event carrying the live history.state, since
         // the real event object is stale (only its .state is read, in the enter log).
         evt = { state: history.state };
+        // CONVERGENCE: a rapid back/forward burst can deliver popstates that
+        // this handler processes out of order (a slow, un-abortable
+        // DifferentTemplateTransition finishing after a newer one), leaving the
+        // DOM rendering one page while the browser URL points at another — the
+        // "burst back lands on home" desync. `pendingPopstate` only catches
+        // events that overlapped THIS run; it misses a stale transition that
+        // already completed. So also re-reconcile whenever the rendered DOM
+        // doesn't match the live URL, until they agree.
+        if (!this.pendingPopstate && !this.domMatchesUrl() && guard < 3) {
+          guard++;
+          this.pendingPopstate = true;
+          verbose.nav(`Popstate convergence: DOM (${getPageStructure()}) does not match URL (${location.pathname}) — reconciling again (pass ${guard})`, '/navigation/LinkNavigationHandler.js');
+        }
       } while (this.pendingPopstate);
     } finally {
       this.isReloading = false;
     }
+  }
+
+  /**
+   * Does the currently-rendered DOM structure/book match the live browser URL?
+   * Used by handlePopstate to detect a stale-transition desync after a rapid
+   * back/forward burst and reconcile until the two agree.
+   */
+  static domMatchesUrl(): boolean {
+    const path = window.location.pathname;
+    // Skip-link and other non-content fragments never drive a page render.
+    if (window.location.hash === '#main-start') return true;
+
+    const urlBookId = this.extractBookSlugFromPath(path);
+    const structure = getPageStructure();
+
+    if (path === '/') return structure === 'home';
+    const segs = path.split('/').filter(Boolean);
+    if (segs[0] === 'j') return structure === 'journal';
+    if (segs[0] === 'u') return structure === 'user';
+
+    // A single-segment (or deeper HL_/Fn_ cascade) content URL wants a reader
+    // showing THAT book. Compare against the rendered book id/slug.
+    if (urlBookId) {
+      if (structure !== 'reader') return false;
+      const main: any = document.querySelector('.main-content');
+      const renderedId = main?.id || null;
+      const renderedSlug = main?.getAttribute?.('data-slug') || null;
+      return urlBookId === renderedId || (!!renderedSlug && urlBookId === renderedSlug);
+    }
+    // Unknown shape — don't force a reconcile we can't reason about.
+    return true;
   }
 
   static async _handlePopstateInner(event: any) {
@@ -616,7 +663,17 @@ export class LinkNavigationHandler {
       && urlBookId !== renderedBookId
       && !(renderedSlug && urlBookId === renderedSlug);
     const effectiveSlug = _bookSlug || renderedSlug;
-    if (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug)) {
+    // STRUCTURE MISMATCH: the URL names a book (reader) but the page currently
+    // rendered isn't a reader at all. This is the rapid back/forward reconcile
+    // case — a reader→home nav left the stale `book` global equal to urlBookId,
+    // so the same-book clause below would wrongly no-op while the HOME dom is on
+    // screen (the "burst back lands on home" bug). Whenever the rendered
+    // structure doesn't match the URL's target, force the cross-structure nav.
+    const renderedStructure = getPageStructure();
+    const urlWantsReader = !!urlBookId;
+    const structureMismatch = urlWantsReader && renderedStructure !== 'reader';
+    if (structureMismatch
+        || (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug))) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)

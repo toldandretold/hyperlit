@@ -206,11 +206,14 @@ export function buildBibtexEntry({ book, title, author, year }: any) {
   // "(2026)" in its hypercite panel while the citing book's bibliography —
   // reading canonical_source — correctly said (2024). formatBibtexToCitation
   // already degrades a missing year to "Unknown Year", which is honest.
-  const lines = [
-    `@book{${book},`,
-    `  author = {${author}},`,
-    `  title  = {${title}},`,
-  ];
+  // The author is omitted when absent, like the year — interpolating a null
+  // here stored the literal string "null" as the author, which then rendered
+  // as "<strong>null</strong>" on every library card built from this entry.
+  const lines = [`@book{${book},`];
+  if (author !== undefined && author !== null && String(author).trim() !== '') {
+    lines.push(`  author = {${author}},`);
+  }
+  lines.push(`  title  = {${title}},`);
   const cleanYear = year === undefined || year === null ? '' : String(year).trim();
   if (cleanYear !== '') {
     lines.push(`  year   = {${cleanYear}},`);

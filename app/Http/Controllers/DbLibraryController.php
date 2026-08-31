@@ -234,7 +234,16 @@ class DbLibraryController extends Controller
                     // Preserve newer timestamps - never downgrade
                     $newTimestamp = $data['timestamp'] ?? $libraryRecord->timestamp;
                     $visibility = $data['visibility'] ?? $libraryRecord->visibility;
-                    if ($libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp) {
+                    // A write whose timestamp is OLDER than the stored one is stale — a
+                    // later sync racing a fresher edit (e.g. the client's queued
+                    // library sync landing after a source-panel title change). It must
+                    // be a no-op on ALL bibliographic metadata, not just the title:
+                    // preserving `title` while letting a stale `bibtex`/`author`/… clobber
+                    // desyncs the card, which renders bibtex in preference to the columns
+                    // (the "renamed book still shows the old title" bug). $isStale drives
+                    // the whole-record preservation below.
+                    $isStale = $libraryRecord->timestamp && $newTimestamp && $libraryRecord->timestamp > $newTimestamp;
+                    if ($isStale) {
                         $newTimestamp = $libraryRecord->timestamp;
                         $title = $libraryRecord->title;
                         $visibility = $libraryRecord->visibility;
@@ -274,6 +283,45 @@ class DbLibraryController extends Controller
                             : $libraryRecord->gate_defaults,
                         'raw_json' => json_encode($this->cleanItemForStorage($data)),
                     ];
+
+                    if ($isStale) {
+                        // Stale write: preserve EVERY bibliographic field from the stored
+                        // record so a late sync can't partially clobber citation metadata
+                        // (the card reads bibtex, so a stale bibtex silently reverts a
+                        // fresher title/author edit). annotations_updated_at still advances
+                        // via max() below — a stale write may legitimately carry a newer
+                        // annotation clock even when its citation metadata is behind.
+                        foreach ([
+                            'title', 'author', 'type', 'bibtex', 'url', 'year', 'journal',
+                            'pages', 'publisher', 'school', 'note', 'volume', 'issue',
+                            'booktitle', 'chapter', 'editor', 'license', 'custom_license_text',
+                            'visibility', 'listed', 'gate_defaults',
+                        ] as $f) {
+                            $updateData[$f] = $libraryRecord->$f;
+                        }
+                    } elseif (! isset($data['bibtex']) && ! empty($libraryRecord->bibtex)) {
+                        // Cards render the BIBTEX in preference to these columns, so a
+                        // partial upsert that changes citation fields without sending a
+                        // bibtex must write the same values into the stored entry —
+                        // otherwise the card shows the pre-edit title/author forever.
+                        $bibtexPatch = array_filter([
+                            'title' => isset($data['title']) ? $title : null,
+                            'author' => $data['author'] ?? null,
+                            'year' => $data['year'] ?? null,
+                            'journal' => $data['journal'] ?? null,
+                            'publisher' => $data['publisher'] ?? null,
+                            'pages' => $data['pages'] ?? null,
+                            'volume' => $data['volume'] ?? null,
+                            'number' => $data['issue'] ?? null,
+                            'editor' => $data['editor'] ?? null,
+                            'booktitle' => $data['booktitle'] ?? null,
+                            'school' => $data['school'] ?? null,
+                        ], fn ($v) => $v !== null);
+                        if ($bibtexPatch !== []) {
+                            $updateData['bibtex'] = app(\App\Services\LibraryCardGenerator::class)
+                                ->patchBibtexFields($libraryRecord->bibtex, $bibtexPatch);
+                        }
+                    }
                 } else {
                     // Non-owners can only update annotations_updated_at (for their highlights/hypercites)
                     // Must use SECURITY DEFINER function to bypass RLS policy
@@ -312,21 +360,34 @@ class DbLibraryController extends Controller
 
                 if ($isOwner && $libraryRecord->creator) {
                     $newVisibility = $libraryRecord->visibility;
-
-                    if ($oldVisibility !== $newVisibility) {
-                        // Visibility changed — move the card between home books in place
-                        // (O(1) instead of regenerating both home books)
-                        app(UserHomeServerController::class)
-                            ->moveBookBetweenHomeBooks($libraryRecord->creator, $libraryRecord, $oldVisibility, $newVisibility);
-                    } else {
-                        app(UserHomeServerController::class)->updateBookOnUserPage($libraryRecord->creator, $libraryRecord);
-                    }
-
-                    // Shelves cache rendered cards from `library`, so a metadata edit
-                    // (title/author/visibility) would otherwise show stale data on any
-                    // shelf containing this book. Flush those shelves so they rebuild
-                    // with fresh data on next view. (Mirrors the home-book update above.)
-                    (new ShelfCacheInvalidator)->flushShelvesContaining($libraryRecord->book);
+                    // Home-book card + shelf-cache updates write `library`/`nodes`
+                    // for the OWNER's home books and the `shelf_*` renders via
+                    // pgsql_admin. Those are a SEPARATE connection from this open
+                    // DEFAULT transaction (and, via UnifiedSyncController::sync, an
+                    // even-outer one) — running them inline is the cross-connection
+                    // deadlock pattern that took the site down (see
+                    // ConnectionRefresher / updateBookStats). They are fire-and-forget
+                    // (no return value is used here), so defer to afterCommit: it
+                    // runs once the OUTERMOST transaction has committed and released
+                    // its locks, and immediately when there is no open transaction.
+                    $creator = $libraryRecord->creator;
+                    $bookForShelf = $libraryRecord->book;
+                    $visChanged = $oldVisibility !== $newVisibility;
+                    DB::afterCommit(function () use ($creator, $libraryRecord, $oldVisibility, $newVisibility, $visChanged, $bookForShelf) {
+                        if ($visChanged) {
+                            // Visibility changed — move the card between home books in
+                            // place (O(1) instead of regenerating both home books).
+                            app(UserHomeServerController::class)
+                                ->moveBookBetweenHomeBooks($creator, $libraryRecord, $oldVisibility, $newVisibility);
+                        } else {
+                            app(UserHomeServerController::class)->updateBookOnUserPage($creator, $libraryRecord);
+                        }
+                        // Shelves cache rendered cards from `library`, so a metadata
+                        // edit (title/author/visibility) would otherwise show stale
+                        // data on any shelf containing this book. Flush those shelves
+                        // so they rebuild with fresh data on next view.
+                        (new ShelfCacheInvalidator)->flushShelvesContaining($bookForShelf);
+                    });
                 }
 
                 Log::info('Library record updated successfully', [
@@ -505,7 +566,15 @@ class DbLibraryController extends Controller
                     );
 
                     if ($createdRecord->wasRecentlyCreated && $creatorInfo['creator']) {
-                        app(UserHomeServerController::class)->addBookToUserPage($creatorInfo['creator'], $createdRecord);
+                        // Adds the card to the owner's home book via pgsql_admin —
+                        // a separate connection from this open DEFAULT transaction.
+                        // Defer past commit so it can't block cross-connection (the
+                        // deadlock pattern); fire-and-forget, runs immediately when
+                        // no transaction is open.
+                        $creator = $creatorInfo['creator'];
+                        DB::afterCommit(function () use ($creator, $createdRecord) {
+                            app(UserHomeServerController::class)->addBookToUserPage($creator, $createdRecord);
+                        });
                     }
 
                     return response()->json([
@@ -1055,22 +1124,15 @@ class DbLibraryController extends Controller
                         'slug' => null,
                     ]);
 
-                    // Scrub server-derived plaintext for the whole tree
+                    // Scrub server-derived plaintext for the whole tree. This
+                    // UPDATE fires the versioning trigger, which mirrors the OLD
+                    // (still-plaintext) row versions into nodes_history — that
+                    // residue is scrubbed AFTER this transaction commits (see the
+                    // nodes_history delete below the transaction block).
                     DB::update(
                         'UPDATE nodes SET "plainText" = NULL, embedding = NULL WHERE book = ? OR book LIKE ?',
                         [$book, $book.'/%'],
                     );
-
-                    // ...and the plaintext RESIDUE the row-scrub misses:
-                    // 1. nodes_history (temporal mirror) keeps OLD row versions —
-                    //    including pre-encryption plaintext content. Admin conn:
-                    //    the mirror isn't covered by the app role's RLS policies.
-                    DB::connection('pgsql_admin')
-                        ->table('nodes_history')
-                        ->where(function ($q) use ($book) {
-                            $q->where('book', $book)->orWhere('book', 'like', $book.'/%');
-                        })
-                        ->delete();
 
                     // 2. Conversion artifacts on disk (uploaded source, markdown,
                     //    assessment traces) under resources/markdown/{book}. media/
@@ -1111,6 +1173,24 @@ class DbLibraryController extends Controller
             Log::error('Encryption transition failed', ['book' => $book, 'error' => $e->getMessage()]);
 
             return response()->json(['success' => false, 'message' => 'Encryption transition failed'], 500);
+        }
+
+        // Plaintext RESIDUE scrub — AFTER the transaction commits, for two
+        // reasons: (a) the scrub `UPDATE nodes` inside the transaction fired the
+        // versioning trigger, which INSERTED the old plaintext row versions into
+        // nodes_history on the DEFAULT connection; only once committed are those
+        // rows visible to the pgsql_admin DELETE — running it inside the
+        // transaction left pre-encryption plaintext in the mirror forever.
+        // (b) A pgsql_admin write inside the open DEFAULT transaction is the
+        // cross-connection deadlock pattern; here the locks are already released.
+        // (Reached only on a successful encrypt — the catch above returns early.)
+        if ($encrypting) {
+            DB::connection('pgsql_admin')
+                ->table('nodes_history')
+                ->where(function ($q) use ($book) {
+                    $q->where('book', $book)->orWhere('book', 'like', $book.'/%');
+                })
+                ->delete();
         }
 
         \App\Services\E2ee\EncryptedBookGuard::forget($book);

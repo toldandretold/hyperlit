@@ -168,6 +168,53 @@ class LibraryCardGenerator
         return $this->generateHtmlCitation($parsed);
     }
 
+    /**
+     * Patch field values into an existing BibTeX entry, keeping every field it
+     * already has. Cards render bibtex in PREFERENCE to the structured library
+     * columns, so a metadata edit that only updates the columns (the partial
+     * /api/db/library/upsert the source panel and tests use) must write the
+     * same values into the stored bibtex or the card shows the old ones
+     * forever. Returns the bibtex unchanged when it doesn't parse — the card
+     * generator already falls back to the structured columns in that case.
+     *
+     * @param  array<string,string|null>  $fields  bibtex field => new value
+     */
+    public function patchBibtexFields(string $bibtex, array $fields): string
+    {
+        if (trim($bibtex) === '' || $this->parseBibtexEntry($bibtex) === null) {
+            return $bibtex;
+        }
+
+        foreach ($fields as $field => $value) {
+            if ($value === null || trim((string) $value) === '') {
+                continue;
+            }
+            // Braces would terminate the {…} value early; the card renderer
+            // escapes on output, so flattening them here loses nothing.
+            $clean = str_replace(['{', '}'], '', (string) $value);
+            $pattern = '/(\b' . preg_quote($field, '/') . '\s*=\s*)[{"].*?["}](?=\s*,|\s*\})/s';
+            if (preg_match($pattern, $bibtex)) {
+                $bibtex = preg_replace($pattern, '${1}{' . $this->quoteReplacement($clean) . '}', $bibtex, 1);
+            } else {
+                // Field absent: insert right after the "@type{key," opener.
+                $bibtex = preg_replace(
+                    '/(@\w+\s*\{\s*[^,]+\s*,)/',
+                    '${1}' . "\n  {$field} = {" . $this->quoteReplacement($clean) . '},',
+                    $bibtex,
+                    1,
+                );
+            }
+        }
+
+        return $bibtex;
+    }
+
+    /** Escape preg_replace replacement metacharacters ($ and \) in a value. */
+    private function quoteReplacement(string $value): string
+    {
+        return str_replace(['\\', '$'], ['\\\\', '\\$'], $value);
+    }
+
     private function parseBibtexEntry(string $bibtex): ?array
     {
         $bibtex = trim($bibtex);
@@ -205,7 +252,11 @@ class LibraryCardGenerator
 
         $html = '';
 
-        if ($author = $get('author')) {
+        // "null" is not an author: buildBibtexEntry used to interpolate a null
+        // author as the literal string, and rows minted before that fix still
+        // carry it. Render those entries author-less rather than as "null.".
+        $author = $get('author');
+        if ($author !== '' && strtolower($author) !== 'null') {
             $html .= '<strong>' . e($this->anonymizeIfNeeded($author)) . '</strong>. ';
         }
         if ($title = $get('title')) {
@@ -292,7 +343,12 @@ class LibraryCardGenerator
         }
 
         if ($type !== 'article' && ($year = $get('year'))) {
-            $html .= ', ' . e($year);
+            // The ", " separator only makes sense mid-clause; after a sentence
+            // end (or on an otherwise empty citation) it rendered ". , 2026".
+            $trimmed = rtrim($html);
+            $html = ($trimmed === '' || str_ends_with($trimmed, '.'))
+                ? $trimmed . ' ' . e($year)
+                : $html . ', ' . e($year);
         }
 
         if ($type !== 'article' && ($pages = $get('pages'))) {

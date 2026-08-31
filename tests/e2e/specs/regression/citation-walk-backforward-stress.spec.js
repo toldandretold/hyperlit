@@ -228,37 +228,42 @@ test.describe('citation walk — back/forward stress', () => {
     expect(hashlessA, `book A landings lost the #${clip.id} hash on back/forward:\n${JSON.stringify(hashlessA)}`).toHaveLength(0);
 
     // ── RAPID-BACK BURST: press back faster than a transition settles, colliding with an in-flight
-    // transition. Old behaviour hung (concurrent) or stalled up to 8s (serialized-wait). With
-    // abort-aware supersede each new press cancels the previous → no timeout, no hang.
+    // transition. Old behaviour hung (concurrent) or stalled up to 8s (serialized-wait). The
+    // popstate handler now COALESCES a burst — one reconcile chain resolves to the final history
+    // entry — so overlapping BookToBook supersedes need never fire; the proof of health is that the
+    // burst SETTLES fast and the reader stays alive.
     await page.goForward().catch(() => {});
     await page.waitForTimeout(1200);
-    const burstStart = Date.now();
-    // Fire history.back() rapidly IN-BROWSER (no Playwright round-trip between presses, no awaiting
-    // navigation) so popstates land WHILE a transition is still running → real lock contention.
-    await page.evaluate(async () => {
-      // 15ms gaps (was 40): cached back-navs now settle in <40ms, so the old
-      // pacing never produced an actual collision on a fast machine.
+    // Fire the burst AND measure settle time IN-BROWSER: from the first back() until the reader is
+    // stable (nav overlay hidden + main-content present). This excludes Playwright round-trips and
+    // the fixed stabilization waits below, so it reflects the PRODUCT's true settle time — not the
+    // harness's ~5s overlay-appear floor + 2.5s pad, which used to masquerade as an 8s "stall".
+    const burstSettleMs = await page.evaluate(async () => {
+      const t0 = performance.now();
       for (let i = 0; i < 12; i++) { window.history.back(); await new Promise(r => setTimeout(r, 15)); }
+      const stable = () => {
+        const ov = document.getElementById('initial-navigation-overlay');
+        const s = ov && getComputedStyle(ov);
+        const overlayHidden = !ov || s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0';
+        return overlayHidden && !!document.querySelector('.main-content');
+      };
+      const deadline = performance.now() + 9000;
+      while (!stable() && performance.now() < deadline) { await new Promise(r => requestAnimationFrame(r)); }
+      return Math.round(performance.now() - t0);
     });
+    // Let any trailing correction settle before the cached-fetch assertion below.
     await spa.waitForTransition(page).catch(() => {});
-    await page.waitForTimeout(2500);
-    const burstMs = Date.now() - burstStart;
+    await page.waitForTimeout(1500);
     // The reader must still be alive (not hung) — a click must work immediately after the burst.
     const aliveAfterBurst = await page.evaluate(() => !!document.querySelector('.main-content'));
-    console.log('RAPID-BACK BURST took', burstMs, 'ms; transitionStalls=', transitionStalls.length, 'supersedeBails=', supersedeBails.length, 'alive=', aliveAfterBurst);
+    console.log('RAPID-BACK BURST settled in', burstSettleMs, 'ms; transitionStalls=', transitionStalls.length, 'supersedeBails=', supersedeBails.length, 'alive=', aliveAfterBurst);
 
-    // ── ASSERTION 4: rapid back/forward must not stall on / time out the transition lock, and must
-    // not hang the reader. (8s timeout fired even once = a stall; burst blowing past ~10s = hang.)
+    // ── ASSERTION 4: rapid back/forward must not stall on / time out the transition lock, must not
+    // hang the reader, and must settle promptly. (A "Previous transition timed out" log = the 3s
+    // serialized-wait stall; a settle time near the 9s in-browser deadline = a hang.)
     expect(transitionStalls, `a transition timed out waiting on a previous one (the 3s freeze):\n${transitionStalls.join('\n')}`).toHaveLength(0);
     expect(aliveAfterBurst, 'reader was destroyed/hung after the rapid-back burst').toBe(true);
-    expect(burstMs, `5 rapid back presses took ${burstMs}ms — transitions are stalling/hanging`).toBeLessThan(10000);
-    // Proof the burst genuinely collided (so 0 stalls means the SUPERSEDE handled it, not that the
-    // presses never overlapped). The abort-aware cancel path must have fired at least once — OR the
-    // transitions were so fast (cached back-navs can settle in <15ms) that no press could overlap,
-    // which is itself proof there's no stall to supersede. Only fail when there was no collision
-    // AND the burst dragged (slow transitions that somehow never collided = the guard lost its teeth).
-    const collidedOrInstant = supersedeBails.length > 0 || burstMs < 4000;
-    expect(collidedOrInstant, `no supersede fired AND the burst took ${burstMs}ms — presses overlapped nothing yet transitions were slow`).toBe(true);
+    expect(burstSettleMs, `a 12-press back burst took ${burstSettleMs}ms to settle — coalesced back/forward should resolve in well under a second`).toBeLessThan(4000);
 
     // ── ASSERTION 3 (Part B): a CACHED book must never server-fetch on back/forward (the lag).
     console.log('SERVER FETCHES DURING REPLAY:', fetchesDuringReplay.length);

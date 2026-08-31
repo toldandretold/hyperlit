@@ -163,7 +163,15 @@ class StripeController extends Controller
         // Perform the credit update directly via admin connection to bypass RLS.
         $creditAmount = (float) $creditAmount;
 
-        $entry = DB::transaction(function () use ($target, $creditAmount, $stripeSessionId) {
+        // ATOMICITY: the credit increment and the ledger row MUST be all-or-nothing.
+        // Both writes go through pgsql_admin, so the transaction must be opened ON
+        // that connection — a `DB::transaction` on the DEFAULT connection governs a
+        // connection nothing here writes to, so it rolled back NOTHING. Without this
+        // a ledger-insert failure left the credit applied but no ledger row; Stripe
+        // then retried the webhook, the idempotency probe (keyed on the ledger row)
+        // found none, and the user was CREDITED AGAIN. On the admin connection the
+        // two writes commit together or not at all, so a retry re-runs cleanly.
+        $entry = DB::connection('pgsql_admin')->transaction(function () use ($target, $creditAmount, $stripeSessionId) {
             $admin = DB::connection('pgsql_admin');
 
             $admin->table('users')

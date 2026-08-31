@@ -168,7 +168,12 @@ class BookMigrationService
         }
 
         try {
-            DB::transaction(function () use ($bookId, $updates) {
+            // ATOMICITY: every write below goes through pgsql_admin, so the two-pass
+            // renumber must be wrapped in a transaction ON that connection — a
+            // `DB::transaction` on the DEFAULT connection governs a connection none
+            // of these writes touch, so a mid-renumber failure would commit a
+            // PARTIALLY renumbered book (some rows moved, some not) with no rollback.
+            DB::connection('pgsql_admin')->transaction(function () use ($bookId, $updates) {
                 // Pass 1: Move all rows to temporary negative startLines to avoid conflicts
                 foreach ($updates as $update) {
                     DB::connection('pgsql_admin')->table('nodes')
