@@ -106,7 +106,12 @@ test('two journal articles hypercited together draw two lit dots and an internal
     expect($svg)->toContain('JMap Article Beta');
     expect($svg)->toContain('href="/' . $a . '"');
     expect($svg)->toContain('href="/' . $b . '"');
-    expect(substr_count($svg, '#EE4A95'))->toBeGreaterThanOrEqual(3); // 2 lit dots + edge
+    // 2 lit dots + 1 internal edge, all in the hero ink (brand pink vanished
+    // against the pink lava-lamp background — never reintroduce it here).
+    expect(substr_count($svg, '<circle'))->toBe(2);
+    expect(substr_count($svg, '<path'))->toBe(1);
+    expect($svg)->not->toContain('#EE4A95');
+    expect($svg)->toContain('#221F20');
 });
 
 test('a hypercite with an outside book draws a spoke and the partner label, both directions', function () {
@@ -122,7 +127,7 @@ test('a hypercite with an outside book draws a spoke and the partner label, both
     expect($svg)->toContain('JMap Outside Quoter');
     expect($svg)->toContain('JMap Outside Source');
     expect($svg)->toContain('href="/' . $out1 . '"');
-    expect($svg)->toContain('#4EACAE'); // spoke + partner dots
+    expect($svg)->toContain('#2E7D80'); // spoke + partner dots (darkened aqua)
 });
 
 test('an invisible outside partner never leaks: edge dropped, title absent', function () {

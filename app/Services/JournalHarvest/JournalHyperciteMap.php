@@ -28,8 +28,13 @@ use Illuminate\Support\Facades\DB;
  * whose outside endpoint is private or contentless is dropped entirely — an
  * invisible book's title must never leak into a public page.
  *
- * Colors are fixed brand hex, not theme vars: the hero copy is always
+ * Colors are fixed hex, not theme vars: the hero copy is always
  * #221F20-on-lava-lamp regardless of the reader theme (homepage.css).
+ * Everything INTERNAL (article dots, article↔article edges) draws in that ink
+ * — the lava lamp is pink/orange, so brand pink disappears into it (the first
+ * ship did exactly that). Aqua is reserved for the OUTSIDE world: partner
+ * books and the spokes reaching them, darkened from the raw brand stop for
+ * the same reason.
  */
 class JournalHyperciteMap
 {
@@ -53,9 +58,7 @@ class JournalHyperciteMap
     /** Fixed hero palette (see class docblock). */
     private const INK = '#221F20';
 
-    private const PINK = '#EE4A95';
-
-    private const AQUA = '#4EACAE';
+    private const AQUA = '#2E7D80'; // darkened brand aqua — the raw #4EACAE washes out on the lamp
 
     /**
      * The map SVG, or null when there is nothing to draw
@@ -64,7 +67,7 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal, string $mode): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:{$mode}:v1",
+            "journal-hypercite-map:{$journal->id}:{$mode}:v2",
             self::CACHE_TTL,
             fn () => $this->build($journal, $mode),
         );
@@ -304,13 +307,13 @@ class JournalHyperciteMap
             if (!isset($pos[$a], $pos[$b])) {
                 continue;
             }
-            $s[] = $this->curve($pos[$a], $pos[$b], 0.62, self::PINK, 0.55, 1.4);
+            $s[] = $this->curve($pos[$a], $pos[$b], 0.62, self::INK, 0.6, 1.5);
         }
         foreach ($spokes as [$a, $b]) {
             if (!isset($pos[$a], $pos[$b])) {
                 continue;
             }
-            $s[] = $this->curve($pos[$a], $pos[$b], 1.12, self::AQUA, 0.6, 1.2);
+            $s[] = $this->curve($pos[$a], $pos[$b], 1.12, self::AQUA, 0.8, 1.3);
         }
 
         // Blob dots: hypercited articles in brand pink, sized by degree;
@@ -320,8 +323,8 @@ class JournalHyperciteMap
             $deg = $degree[$book] ?? 0;
             $lit = $deg > 0;
             $r = $lit ? min(self::R_LIT + 0.8 * ($deg - 1), 9) : self::R_PLAIN;
-            $fill = $lit ? self::PINK : self::INK;
-            $opacity = $lit ? '1' : '0.35';
+            $fill = self::INK;
+            $opacity = $lit ? '1' : '0.5';
             $s[] = '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1">'
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($r) . '"'
                 . ' fill="' . $fill . '" fill-opacity="' . $opacity . '"><title>' . e($articles[$book] ?? $book) . '</title></circle></a>';
@@ -339,10 +342,10 @@ class JournalHyperciteMap
             $onLeft = $x < 0;
             $s[] = '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1">'
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n(self::R_EXTERNAL) . '"'
-                . ' fill="' . self::AQUA . '"><title>' . e($title) . '</title></circle>'
+                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="1"><title>' . e($title) . '</title></circle>'
                 . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * (self::R_EXTERNAL + 5)) . '" y="' . $this->n($y + 3) . '"'
                 . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="10" font-family="sans-serif"'
-                . ' fill="' . self::INK . '" fill-opacity="0.7">' . e($short) . '</text></a>';
+                . ' fill="' . self::INK . '" fill-opacity="0.9">' . e($short) . '</text></a>';
         }
 
         $s[] = '</svg>';
