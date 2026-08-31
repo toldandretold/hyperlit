@@ -128,6 +128,10 @@ test('a hypercite with an outside book draws a spoke and the partner label, both
     expect($svg)->toContain('JMap Outside Source');
     expect($svg)->toContain('href="/' . $out1 . '"');
     expect($svg)->toContain('#2E7D80'); // spoke + partner dots (darkened aqua)
+    // Titles ride data-title for the hover/tap card — no inline <text> labels,
+    // which is what lets the network fill the full width.
+    expect($svg)->not->toContain('<text');
+    expect($svg)->toContain('data-title="JMap Outside Quoter"');
 });
 
 test('an invisible outside partner never leaks: edge dropped, title absent', function () {

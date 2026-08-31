@@ -108,6 +108,32 @@
          Crawlable SEO body for the journal page. --}}
     <span id="main-start" tabindex="-1"></span>
     <section class="welcome-copy journal-about" aria-label="About this journal">
+      {{-- Hypercite network FIRST — the cool visual is the opening beat of the
+           scroll reveal, ahead of the about copy. The journal's articles as a
+           blob (hypercited ones solid and interconnected) with spokes to
+           hypercited books beyond the journal; no inline labels — titles live
+           in the hover/tap card. Server-rendered inline SVG — see
+           JournalHyperciteMap. --}}
+      @if($hyperciteMap ?? null)
+        <div class="journal-hypercite-map">
+          {!! $hyperciteMap !!}
+          <ul class="journal-map-legend" aria-label="Hypercite network legend">
+            <li><span class="jml-dot jml-lit"></span>hypercited article <em>(bigger = more connections)</em></li>
+            <li><span class="jml-dot jml-plain"></span>article</li>
+            <li><span class="jml-line"></span>articles hypercited together</li>
+            <li><span class="jml-dot jml-ext"></span>hypercited book beyond the journal</li>
+          </ul>
+          {{-- The yield report's action pair: expand overlay (wired by
+               components/journalHyperciteMap → figureViewer, glass surround) +
+               the 3D deep link. target="_blank": the 3D page is standalone
+               (non-SPA); LinkNavigationHandler also skips /3d/ links as
+               belt-and-braces. --}}
+          <div class="journal-map-actions">
+            <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
+            <a href="/3d/j/{{ $journal->slug }}" target="_blank" rel="noopener" tabindex="-1" aria-label="See this journal lit up in the 3D docuverse">See in 3D network &rarr;</a>
+          </div>
+        </div>
+      @endif
       @if($about['custom'])
         <h1 class="mega">{{ $about['custom'] }}</h1>
       @else
@@ -127,28 +153,6 @@
         </ul>
       @endif
       <h2 class="journal-about-counts">{{ number_format($readable) }} of {{ number_format($total) }} article{{ $total === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet harvested.@endif</h2>
-      {{-- Hypercite network: the journal's articles as a blob (hypercited ones
-           solid and interconnected) with spokes to hypercited books beyond the
-           journal. Server-rendered inline SVG — see JournalHyperciteMap. --}}
-      @if($hyperciteMap ?? null)
-        <div class="journal-hypercite-map">
-          {!! $hyperciteMap !!}
-          <ul class="journal-map-legend" aria-label="Hypercite network legend">
-            <li><span class="jml-dot jml-lit"></span>hypercited article <em>(bigger = more connections)</em></li>
-            <li><span class="jml-dot jml-plain"></span>article</li>
-            <li><span class="jml-line"></span>articles hypercited together</li>
-            <li><span class="jml-dot jml-ext"></span>hypercited book beyond the journal</li>
-          </ul>
-          {{-- The yield report's action pair: expand overlay (wired by
-               components/journalHyperciteMap → figureViewer) + the 3D deep
-               link. target="_blank": the 3D page is standalone (non-SPA);
-               LinkNavigationHandler also skips /3d/ links as belt-and-braces. --}}
-          <div class="journal-map-actions">
-            <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
-            <a href="/3d/j/{{ $journal->slug }}" target="_blank" rel="noopener" tabindex="-1" aria-label="See this journal lit up in the 3D docuverse">See in 3D network &rarr;</a>
-          </div>
-        </div>
-      @endif
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when a feed button is pressed. --}}

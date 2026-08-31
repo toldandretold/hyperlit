@@ -33,6 +33,12 @@ interface FigureViewerOptions {
    *  Defaults to the dark reader background — figures drawn in LIGHT ink
    *  (e.g. the journal hypercite network) must pass their own. */
   background?: string;
+  /** Translucent blurred overlay instead of the solid theme background, so
+   *  the page's own colours glow through (the journal hero's lava lamp).
+   *  Same chrome and controls; only the surround changes. NOTE: rgba
+   *  background, never `opacity` on the overlay — opacity scales the
+   *  backdrop blur away (the overlay-opacity-scales-backdrop-blur bug). */
+  glassOverlay?: boolean;
 }
 
 const ZOOM_STEP = 1.25;
@@ -147,6 +153,11 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
     color: 'var(--color-text, #e0e0e0)',
   });
   overlay.id = 'figure-viewer-overlay';
+  if (options.glassOverlay) {
+    overlay.style.background = 'rgba(34, 31, 32, 0.35)';
+    overlay.style.setProperty('backdrop-filter', 'blur(16px) saturate(1.4)');
+    overlay.style.setProperty('-webkit-backdrop-filter', 'blur(16px) saturate(1.4)');
+  }
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-label', options.title ?? 'Expanded figure');

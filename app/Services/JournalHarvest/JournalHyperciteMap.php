@@ -47,21 +47,16 @@ class JournalHyperciteMap
 
     private const SPIRAL_SPACING = 11.0; // ≈ nearest-neighbour distance in the blob
 
-    private const LABEL_CHARS = 26;
-
     /**
      * ON-SCREEN pixel sizes at the rendered width. The blob geometry is
      * data-driven (viewBox units), so emit() SOLVES the viewBox↔pixel scale
-     * and multiplies every cosmetic size by it — labels, dots and edge
-     * widths then render the same physical size whether the journal has 8
-     * articles or 400. (The first two ships set font in raw viewBox units:
-     * ~7px, then ~11px on screen — both unreadable next to the legend.)
+     * and multiplies every cosmetic size by it — dots and edge widths render
+     * the same physical size whether the journal has 8 articles or 400.
+     * No inline text labels: titles live in the hover/tap card
+     * (components/journalHyperciteMap), which lets the network itself fill
+     * the full width.
      */
     private const RENDER_WIDTH_PX = 680.0;
-
-    private const LABEL_FONT_PX = 15.0; // ≈ the legend's clamp(0.85rem, …, 1rem)
-
-    private const GLYPH_EM = 0.55; // average glyph width as a fraction of font size
 
     private const R_PLAIN_PX = 3.0;
 
@@ -80,7 +75,7 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:v4",
+            "journal-hypercite-map:{$journal->id}:v5",
             self::CACHE_TTL,
             fn () => $this->build($journal),
         );
@@ -294,21 +289,17 @@ class JournalHyperciteMap
         float $ringR,
     ): string {
         // ── Solve the viewBox↔pixel scale ──
-        // The blob/ring geometry is fixed viewBox units; labels/dots/strokes
-        // are specified in ON-SCREEN pixels and multiplied by $k (viewBox
-        // units per rendered pixel). Total width = 2·core + 2k·P where P is
-        // the per-side pixel chrome (margins + label room), and k = width /
-        // RENDER_WIDTH — solving gives the closed form below.
-        $hasLabels = $external !== [];
-        $core = $hasLabels ? $ringR : $blobRadius;
-        $chromePx = (self::R_EXTERNAL_PX + 14)
-            + ($hasLabels ? (self::LABEL_CHARS * self::GLYPH_EM * self::LABEL_FONT_PX + 10) : 0);
+        // The blob/ring geometry is fixed viewBox units; dots/strokes are
+        // specified in ON-SCREEN pixels and multiplied by $k (viewBox units
+        // per rendered pixel). Total width = 2·core + 2k·P where P is the
+        // per-side pixel margin, and k = width / RENDER_WIDTH — solving gives
+        // the closed form below.
+        $core = $external !== [] ? $ringR : $blobRadius;
+        $chromePx = self::R_EXTERNAL_PX + 14;
         $k = 2 * $core / (self::RENDER_WIDTH_PX - 2 * $chromePx);
-        $font = self::LABEL_FONT_PX * $k;
-        $labelRoom = $hasLabels ? (self::LABEL_CHARS * self::GLYPH_EM * $font + 10 * $k) : 0;
-        $extent = $core + (self::R_EXTERNAL_PX + 14) * $k;
-        $width = 2 * ($extent + $labelRoom);
-        $minX = -$extent - $labelRoom;
+        $extent = $core + $chromePx * $k;
+        $width = 2 * $extent;
+        $minX = -$extent;
         $minY = -$extent;
         $height = 2 * $extent;
 
@@ -354,23 +345,16 @@ class JournalHyperciteMap
                 . ' fill="' . self::INK . '" fill-opacity="' . $opacity . '"></circle></a>';
         }
 
-        // External partners: aqua dots with short labels on the outward side.
+        // External partners: aqua dots, no inline labels — titles surface in
+        // the hover/tap card, which is what lets the network fill the width.
         foreach ($external as $book => $meta) {
             if (!isset($pos[$book])) {
                 continue;
             }
             [$x, $y] = $pos[$book];
-            $title = $meta['title'];
-            $short = mb_strlen($title) > self::LABEL_CHARS
-                ? mb_substr($title, 0, self::LABEL_CHARS - 1) . '…'
-                : $title;
-            $onLeft = $x < 0;
             $s[] = $this->anchorOpen($book, $meta, 'beyond', 0)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($rExternal) . '"'
-                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="' . $this->n($k) . '"></circle>'
-                . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * ($rExternal + 6 * $k)) . '" y="' . $this->n($y + $font / 3) . '"'
-                . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="' . $this->n($font) . '" font-family="sans-serif"'
-                . ' fill="' . self::INK . '" fill-opacity="0.9">' . e($short) . '</text></a>';
+                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="' . $this->n($k) . '"></circle></a>';
         }
 
         $s[] = '</svg>';
