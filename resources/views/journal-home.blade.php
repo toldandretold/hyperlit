@@ -108,12 +108,29 @@
          Crawlable SEO body for the journal page. --}}
     <span id="main-start" tabindex="-1"></span>
     <section class="welcome-copy journal-about" aria-label="About this journal">
-      {{-- Hypercite network FIRST — the cool visual is the opening beat of the
-           scroll reveal, ahead of the about copy. The journal's articles as a
-           blob (hypercited ones solid and interconnected) with spokes to
-           hypercited books beyond the journal; no inline labels — titles live
-           in the hover/tap card. Server-rendered inline SVG — see
-           JournalHyperciteMap. --}}
+      @if($about['custom'])
+        <h1 class="mega">{{ $about['custom'] }}</h1>
+      @else
+        <h1 class="mega journal-about-paragraph">{{ $about['paragraph'] }}</h1>
+        @if(!empty($about['keywords']))
+          <h2 class="journal-about-meta">{{ implode(' · ', $about['keywords']) }}</h2>
+        @endif
+        @if(!empty($about['subjects']))
+          <h2 class="journal-about-meta">{{ implode(' · ', $about['subjects']) }}</h2>
+        @endif
+      @endif
+      @if(!empty($about['links']))
+        <ul class="journal-about-links">
+          @foreach($about['links'] as $label => $url)
+            <li><a href="{{ $url }}" rel="noopener" tabindex="-1">{{ $label }} <span class="open-icon">↗</span></a></li>
+          @endforeach
+        </ul>
+      @endif
+      <h2 class="journal-about-counts">{{ number_format($readable) }} of {{ number_format($total) }} article{{ $total === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet harvested.@endif</h2>
+      {{-- Hypercite network: the journal's articles as a blob (hypercited ones
+           solid and interconnected) with spokes to hypercited books beyond the
+           journal; no inline labels — titles live in the hover/tap card.
+           Server-rendered inline SVG — see JournalHyperciteMap. --}}
       @if($hyperciteMap ?? null)
         <div class="journal-hypercite-map">
           {!! $hyperciteMap !!}
@@ -134,25 +151,6 @@
           </div>
         </div>
       @endif
-      @if($about['custom'])
-        <h1 class="mega">{{ $about['custom'] }}</h1>
-      @else
-        <h1 class="mega journal-about-paragraph">{{ $about['paragraph'] }}</h1>
-        @if(!empty($about['keywords']))
-          <h2 class="journal-about-meta">{{ implode(' · ', $about['keywords']) }}</h2>
-        @endif
-        @if(!empty($about['subjects']))
-          <h2 class="journal-about-meta">{{ implode(' · ', $about['subjects']) }}</h2>
-        @endif
-      @endif
-      @if(!empty($about['links']))
-        <ul class="journal-about-links">
-          @foreach($about['links'] as $label => $url)
-            <li><a href="{{ $url }}" rel="noopener" tabindex="-1">{{ $label }} <span class="open-icon">↗</span></a></li>
-          @endforeach
-        </ul>
-      @endif
-      <h2 class="journal-about-counts">{{ number_format($readable) }} of {{ number_format($total) }} article{{ $total === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet harvested.@endif</h2>
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when a feed button is pressed. --}}

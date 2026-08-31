@@ -80,9 +80,8 @@ body[data-page="journal"] .journal-about .journal-about-counts {
 
 /* ---------- hypercite network (inline SVG from JournalHyperciteMap) ---------- */
 
-/* The network leads the scroll reveal — sits above the about copy. */
 body[data-page="journal"] .journal-about .journal-hypercite-map {
-  margin: 0 0 2.5em;
+  margin: 2em 0 1em;
 }
 
 /* Mini legend under the network. Swatch colors mirror the SVG's fixed hero
