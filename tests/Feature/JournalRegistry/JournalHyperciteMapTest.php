@@ -88,9 +88,9 @@ function jmapHypercite(string $cited, string $citing): void
     ]);
 }
 
-function jmapSvg(JournalSource $journal, string $mode): ?string
+function jmapSvg(JournalSource $journal): ?string
 {
-    return (new JournalHyperciteMap())->svg($journal, $mode);
+    return (new JournalHyperciteMap())->svg($journal);
 }
 
 test('two journal articles hypercited together draw two lit dots and an internal edge', function () {
@@ -99,7 +99,7 @@ test('two journal articles hypercited together draw two lit dots and an internal
     $b = jmapBook('JMap Article Beta', $journal);
     jmapHypercite($a, $b);
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
     expect($svg)->toContain('<svg');
     expect($svg)->toContain('JMap Article Alpha');
@@ -122,7 +122,7 @@ test('a hypercite with an outside book draws a spoke and the partner label, both
     jmapHypercite($article, $out1);
     jmapHypercite($out2, $article);
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
     expect($svg)->toContain('JMap Outside Quoter');
     expect($svg)->toContain('JMap Outside Source');
@@ -138,12 +138,14 @@ test('an invisible outside partner never leaks: edge dropped, title absent', fun
     jmapHypercite($article, $private);
     jmapHypercite($stub, $article);
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
-    // Both edges vanish entirely, so 'connected' has nothing left to draw.
-    expect($svg)->toBeEmpty();
-    expect((string) $svg)->not->toContain('JMap Secret Diary');
-    expect((string) $svg)->not->toContain('JMap Empty Stub');
+    // Both edges vanish entirely: the article renders as an ordinary faint
+    // dot, and neither invisible title appears anywhere in the SVG.
+    expect($svg)->toContain('JMap Lonely Article');
+    expect($svg)->not->toContain('JMap Secret Diary');
+    expect($svg)->not->toContain('JMap Empty Stub');
+    expect(substr_count($svg, '<path'))->toBe(0);
 });
 
 test('a citedIN entry pointing at a sub-book folds to the root book', function () {
@@ -153,32 +155,29 @@ test('a citedIN entry pointing at a sub-book folds to the root book', function (
     // The quoting anchor lives in a footnote sub-book of the outside work.
     jmapHypercite($article, $outside . '/Fn12');
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
     expect($svg)->toContain('href="/' . $outside . '"');
     expect((string) $svg)->not->toContain('Fn12');
 });
 
-test("mode 'all' keeps unconnected articles as faint dots; 'connected' omits them", function () {
+test('unconnected articles stay on the map as faint dots; hypercited ones draw solid', function () {
     $journal = jmapJournal();
     $lit = jmapBook('JMap Lit Article', $journal);
-    $quiet = jmapBook('JMap Quiet Article', $journal);
-    $other = jmapBook('JMap Lit Partner', $journal);
-    jmapHypercite($lit, $other);
+    jmapBook('JMap Quiet Article', $journal);
+    jmapHypercite($lit, jmapBook('JMap Lit Partner', $journal));
 
-    $all = jmapSvg($journal, 'all');
-    $connected = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
-    expect($all)->toContain('JMap Quiet Article');
-    expect($connected)->not->toContain('JMap Quiet Article');
-    expect($connected)->toContain('JMap Lit Article');
+    expect($svg)->toContain('JMap Quiet Article');
+    expect($svg)->toContain('JMap Lit Article');
+    // Faint (0.5) for the quiet article, solid (1) for the hypercited pair.
+    expect($svg)->toContain('fill-opacity="0.5"');
+    expect(substr_count($svg, 'fill-opacity="1"'))->toBe(2);
 });
 
-test('empty journal renders nothing in either mode', function () {
-    $journal = jmapJournal();
-
-    expect(jmapSvg($journal, 'all'))->toBeNull();
-    expect(jmapSvg($journal, 'connected'))->toBeNull();
+test('empty journal renders nothing', function () {
+    expect(jmapSvg(jmapJournal()))->toBeNull();
 });
 
 test('article and partner titles are escaped', function () {
@@ -187,7 +186,7 @@ test('article and partner titles are escaped', function () {
     $partner = jmapBook('JMap "Quoted" & <b>Partner</b>');
     jmapHypercite($article, $partner);
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
     expect($svg)->not->toContain('<script>');
     expect($svg)->not->toContain('<b>');
@@ -204,6 +203,7 @@ test('the journal page renders the map and the lit-up 3D link', function () {
     $html = $this->get('/j/' . $journal->slug)->assertOk()->getContent();
 
     expect($html)->toContain('journal-hypercite-map');
+    expect($html)->toContain('journal-map-legend');
     expect($html)->toContain('JMap Page Article A');
     expect($html)->toContain('/3d/j/' . $journal->slug);
     // The deferral/feed contract must survive the new section.
@@ -225,11 +225,11 @@ test('the svg is responsive and labelled', function () {
     $a = jmapBook('JMap Resp A', $journal);
     jmapHypercite($a, jmapBook('JMap Resp B', $journal));
 
-    $svg = jmapSvg($journal, 'connected');
+    $svg = jmapSvg($journal);
 
     expect($svg)->toContain('viewBox="');
     expect($svg)->toContain('role="img"');
-    expect($svg)->toContain('aria-label="Hypercite map of ' . e($journal->display_name) . '"');
+    expect($svg)->toContain('aria-label="Hypercite network of ' . e($journal->display_name) . '"');
     expect($svg)->toContain('width:100%');
     expect($svg)->toContain('tabindex="-1"'); // welcome-copy keyboard model
 });

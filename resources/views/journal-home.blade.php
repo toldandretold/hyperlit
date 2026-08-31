@@ -127,15 +127,18 @@
         </ul>
       @endif
       <h2 class="journal-about-counts">{{ number_format($readable) }} of {{ number_format($total) }} article{{ $total === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet harvested.@endif</h2>
-      {{-- Hypercite map: the journal's articles as a blob (hypercited ones lit
-           and interconnected) with spokes to hypercited books beyond the
-           journal. Server-rendered inline SVG — see JournalHyperciteMap.
-           TEMPORARY: both blob variants render for comparison; delete the
-           loser's line + captions once chosen. --}}
-      @if(($hyperciteMaps['all'] ?? null) || ($hyperciteMaps['connected'] ?? null))
+      {{-- Hypercite network: the journal's articles as a blob (hypercited ones
+           solid and interconnected) with spokes to hypercited books beyond the
+           journal. Server-rendered inline SVG — see JournalHyperciteMap. --}}
+      @if($hyperciteMap ?? null)
         <div class="journal-hypercite-map">
-          @if($hyperciteMaps['all'])<p class="journal-map-caption">A — all articles</p>{!! $hyperciteMaps['all'] !!}@endif
-          @if($hyperciteMaps['connected'])<p class="journal-map-caption">B — hypercited only</p>{!! $hyperciteMaps['connected'] !!}@endif
+          {!! $hyperciteMap !!}
+          <ul class="journal-map-legend" aria-label="Hypercite network legend">
+            <li><span class="jml-dot jml-lit"></span>hypercited article <em>(bigger = more connections)</em></li>
+            <li><span class="jml-dot jml-plain"></span>article</li>
+            <li><span class="jml-line"></span>articles hypercited together</li>
+            <li><span class="jml-dot jml-ext"></span>hypercited book beyond the journal</li>
+          </ul>
         </div>
       @endif
       @if($readable > 0)

@@ -18,9 +18,9 @@ use Illuminate\Support\Facades\DB;
  * content — a blade view has no such constraint, and inlining means no new JS
  * component, no ButtonRegistry surface, and the visual is SEO-visible.
  *
- * Modes (both rendered on the page while the winner is being chosen):
- *  - 'all'       — every readable article is a dot; hypercited ones brighter.
- *  - 'connected' — only articles participating in hypercites.
+ * Every readable article is a dot (the blob reads as "the journal" even when
+ * hypercites are sparse); hypercited articles draw solid + larger. A
+ * hypercited-only variant was built and compared — the all-articles shape won.
  *
  * Data reads go through pgsql_admin with EXPLICIT public + has_nodes gates
  * (the CitedWorksQuery `held`-subquery pattern): the output is then
@@ -53,29 +53,37 @@ class JournalHyperciteMap
 
     private const R_EXTERNAL = 4.5;
 
-    private const LABEL_CHARS = 24;
+    private const LABEL_CHARS = 26;
+
+    /**
+     * Partner-label glyph size in viewBox units. The SVG scales to its
+     * container, so what matters is this against the ~2×ringR viewBox — 14
+     * lands around browser-default text size at the 680px max width; the
+     * first ship's 10 rendered ~7px and was unreadable.
+     */
+    private const LABEL_FONT = 14.0;
+
+    /** Estimated average glyph width for LABEL_FONT, for viewBox label room. */
+    private const LABEL_GLYPH_W = 7.7;
 
     /** Fixed hero palette (see class docblock). */
     private const INK = '#221F20';
 
     private const AQUA = '#2E7D80'; // darkened brand aqua — the raw #4EACAE washes out on the lamp
 
-    /**
-     * The map SVG, or null when there is nothing to draw
-     * ('connected': no hypercite edges; 'all': no readable articles).
-     */
-    public function svg(JournalSource $journal, string $mode): ?string
+    /** The map SVG, or null when the journal has no readable articles. */
+    public function svg(JournalSource $journal): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:{$mode}:v2",
+            "journal-hypercite-map:{$journal->id}:v3",
             self::CACHE_TTL,
-            fn () => $this->build($journal, $mode),
+            fn () => $this->build($journal),
         );
     }
 
     // ── data ─────────────────────────────────────────────────────────────────
 
-    private function build(JournalSource $journal, string $mode): ?string
+    private function build(JournalSource $journal): ?string
     {
         $articles = $this->journalArticles($journal); // book => title
         if ($articles === []) {
@@ -84,14 +92,10 @@ class JournalHyperciteMap
 
         [$internalEdges, $spokes, $external] = $this->edges($articles);
 
-        if ($mode === 'connected' && $internalEdges === [] && $spokes === []) {
-            return null;
-        }
-
-        return $this->draw($journal, $mode, $articles, $internalEdges, $spokes, $external);
+        return $this->draw($journal, $articles, $internalEdges, $spokes, $external);
     }
 
-    /** The journal's readable PUBLIC articles: book => title. */
+    /** The journal's readable PUBLIC articles: book => {title, author, year}. */
     private function journalArticles(JournalSource $journal): array
     {
         $best = BestVersionService::sqlCoalesceExpression('cs');
@@ -101,8 +105,9 @@ class JournalHyperciteMap
             ->where('cs.journal_source_id', $journal->id)
             ->where('l.has_nodes', true)
             ->where('l.visibility', 'public')
-            ->pluck('l.title', 'l.book')
-            ->map(fn ($t) => (string) $t)
+            ->get(['l.book', 'l.title', 'l.author', 'l.year'])
+            ->keyBy('book')
+            ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
             ->all();
     }
 
@@ -110,10 +115,10 @@ class JournalHyperciteMap
      * Hypercite edges touching the journal, split into internal pairs and
      * spokes to visible outside books.
      *
-     * @param  array<string, string>  $articles
+     * @param  array<string, array{title:string, author:?string, year:mixed}>  $articles
      * @return array{0: array<int, array{0:string,1:string}>,
      *               1: array<int, array{0:string,1:string}>,
-     *               2: array<string, string>}  [internalEdges, spokes(article, partner), partnerTitles]
+     *               2: array<string, array{title:string, author:?string, year:mixed}>}  [internalEdges, spokes(article, partner), partners]
      */
     private function edges(array $articles): array
     {
@@ -162,8 +167,9 @@ class JournalHyperciteMap
             ->whereIn('book', array_keys($outside))
             ->where('has_nodes', true)
             ->where('visibility', 'public')
-            ->pluck('title', 'book')
-            ->map(fn ($t) => (string) $t);
+            ->get(['book', 'title', 'author', 'year'])
+            ->keyBy('book')
+            ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year]);
 
         $internalEdges = [];
         $spokes = [];
@@ -180,9 +186,8 @@ class JournalHyperciteMap
 
         // Only partners that survived the visibility gate AND still have a spoke.
         $keep = array_unique(array_column($spokes, 1));
-        $partnerTitles = $external->only($keep)->all();
 
-        return [$internalEdges, $spokes, $partnerTitles];
+        return [$internalEdges, $spokes, $external->only($keep)->all()];
     }
 
     private function rootBook(string $book): string
@@ -193,14 +198,13 @@ class JournalHyperciteMap
     // ── layout + drawing ─────────────────────────────────────────────────────
 
     /**
-     * @param  array<string, string>  $articles  book => title
+     * @param  array<string, array{title:string, author:?string, year:mixed}>  $articles
      * @param  array<int, array{0:string,1:string}>  $internalEdges
      * @param  array<int, array{0:string,1:string}>  $spokes
-     * @param  array<string, string>  $external  book => title
+     * @param  array<string, array{title:string, author:?string, year:mixed}>  $external
      */
     private function draw(
         JournalSource $journal,
-        string $mode,
         array $articles,
         array $internalEdges,
         array $spokes,
@@ -216,18 +220,15 @@ class JournalHyperciteMap
             $degree[$article] = ($degree[$article] ?? 0) + 1;
         }
 
-        // Blob membership: connected first (they take the centre of the
-        // spiral), then — mode 'all' only — the plain articles, title-sorted
-        // for determinism. Capped; connected articles win the cut.
+        // Blob membership: hypercited articles first (they take the centre of
+        // the spiral), then the rest, title-sorted for determinism. Capped;
+        // hypercited articles win the cut.
+        $title = fn (string $book): string => $articles[$book]['title'] ?? '';
         $connected = array_keys($degree);
-        usort($connected, fn ($x, $y) => [$degree[$y], $articles[$x] ?? ''] <=> [$degree[$x], $articles[$y] ?? '']);
-        $blob = $connected;
-        if ($mode === 'all') {
-            $plain = array_diff(array_keys($articles), $connected);
-            usort($plain, fn ($x, $y) => strcmp($articles[$x], $articles[$y]));
-            $blob = array_merge($blob, $plain);
-        }
-        $blob = array_slice($blob, 0, self::MAX_BLOB_DOTS);
+        usort($connected, fn ($x, $y) => [$degree[$y], $title($x)] <=> [$degree[$x], $title($y)]);
+        $plain = array_diff(array_keys($articles), $connected);
+        usort($plain, fn ($x, $y) => strcmp($title($x), $title($y)));
+        $blob = array_slice(array_merge($connected, $plain), 0, self::MAX_BLOB_DOTS);
         if ($blob === []) {
             return ''; // callers treat '' like null via the blade truthiness check
         }
@@ -272,12 +273,11 @@ class JournalHyperciteMap
             $pos[$partner] = [$ringR * cos($angle), $ringR * sin($angle), $angle];
         }
 
-        return $this->emit($journal, $mode, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR);
+        return $this->emit($journal, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR);
     }
 
     private function emit(
         JournalSource $journal,
-        string $mode,
         array $articles,
         array $external,
         array $pos,
@@ -289,7 +289,7 @@ class JournalHyperciteMap
         float $ringR,
     ): string {
         // Bounds: the ring (or blob) plus horizontal room for partner labels.
-        $labelRoom = $external === [] ? 0 : (self::LABEL_CHARS * 5.5 + 10);
+        $labelRoom = $external === [] ? 0 : (self::LABEL_CHARS * self::LABEL_GLYPH_W + 10);
         $extent = ($external === [] ? $blobRadius : $ringR) + self::R_EXTERNAL + 14;
         $minX = -$extent - $labelRoom;
         $width = 2 * ($extent + $labelRoom);
@@ -298,8 +298,8 @@ class JournalHyperciteMap
 
         $s = [];
         $s[] = '<svg viewBox="' . $this->n($minX) . ' ' . $this->n($minY) . ' ' . $this->n($width) . ' ' . $this->n($height) . '"'
-            . ' role="img" aria-label="Hypercite map of ' . e($journal->display_name) . '"'
-            . ' style="display:block;width:100%;max-width:640px;height:auto;margin:0 auto">';
+            . ' role="img" aria-label="Hypercite network of ' . e($journal->display_name) . '"'
+            . ' style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto">';
 
         // Edges first, under the dots. Internal pairs bow toward the blob
         // centre; spokes bow gently outward on their way to the ring.
@@ -316,41 +316,63 @@ class JournalHyperciteMap
             $s[] = $this->curve($pos[$a], $pos[$b], 1.12, self::AQUA, 0.8, 1.3);
         }
 
-        // Blob dots: hypercited articles in brand pink, sized by degree;
-        // plain articles (mode 'all') faint ink.
+        // Blob dots: hypercited articles solid ink, sized by degree; the rest
+        // faint ink.
         foreach ($inBlob as $book => $_) {
             [$x, $y] = $pos[$book];
             $deg = $degree[$book] ?? 0;
             $lit = $deg > 0;
             $r = $lit ? min(self::R_LIT + 0.8 * ($deg - 1), 9) : self::R_PLAIN;
-            $fill = self::INK;
             $opacity = $lit ? '1' : '0.5';
-            $s[] = '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1">'
+            $s[] = $this->anchorOpen($book, $articles[$book] ?? null, $lit ? 'lit' : 'article', $deg)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($r) . '"'
-                . ' fill="' . $fill . '" fill-opacity="' . $opacity . '"><title>' . e($articles[$book] ?? $book) . '</title></circle></a>';
+                . ' fill="' . self::INK . '" fill-opacity="' . $opacity . '"></circle></a>';
         }
 
         // External partners: aqua dots with short labels on the outward side.
-        foreach ($external as $book => $title) {
+        foreach ($external as $book => $meta) {
             if (!isset($pos[$book])) {
                 continue;
             }
             [$x, $y] = $pos[$book];
+            $title = $meta['title'];
             $short = mb_strlen($title) > self::LABEL_CHARS
                 ? mb_substr($title, 0, self::LABEL_CHARS - 1) . '…'
                 : $title;
             $onLeft = $x < 0;
-            $s[] = '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1">'
+            $s[] = $this->anchorOpen($book, $meta, 'beyond', 0)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n(self::R_EXTERNAL) . '"'
-                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="1"><title>' . e($title) . '</title></circle>'
-                . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * (self::R_EXTERNAL + 5)) . '" y="' . $this->n($y + 3) . '"'
-                . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="10" font-family="sans-serif"'
+                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="1"></circle>'
+                . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * (self::R_EXTERNAL + 6)) . '" y="' . $this->n($y + self::LABEL_FONT / 3) . '"'
+                . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="' . $this->n(self::LABEL_FONT) . '" font-family="sans-serif"'
                 . ' fill="' . self::INK . '" fill-opacity="0.9">' . e($short) . '</text></a>';
         }
 
         $s[] = '</svg>';
 
         return implode('', $s);
+    }
+
+    /**
+     * The opening <a> for a node: link + the data the hover card reads
+     * (components/journalHyperciteMap). No SVG <title> child — the native
+     * tooltip would double up with the card. aria-label keeps the node named
+     * for screen readers; tabindex="-1" is the welcome-copy keyboard model.
+     *
+     * @param  ?array{title:string, author:?string, year:mixed}  $meta
+     */
+    private function anchorOpen(string $book, ?array $meta, string $kind, int $degree): string
+    {
+        $title = $meta['title'] ?? $book;
+
+        return '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1"'
+            . ' aria-label="' . e($title) . '"'
+            . ' data-map-node="' . $kind . '"'
+            . ' data-title="' . e($title) . '"'
+            . ($meta !== null && $meta['author'] !== null && $meta['author'] !== '' ? ' data-author="' . e((string) $meta['author']) . '"' : '')
+            . ($meta !== null && ($meta['year'] ?? null) ? ' data-year="' . e((string) $meta['year']) . '"' : '')
+            . ($degree > 0 ? ' data-connections="' . $degree . '"' : '')
+            . '>';
     }
 
     /** A quadratic curve whose control point is the midpoint scaled by $pull toward/away from the origin. */

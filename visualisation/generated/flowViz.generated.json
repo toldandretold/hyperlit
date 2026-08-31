@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1792,
+    "fnCount": 1793,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3674,
+    "edgeCount": 3679,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -14661,6 +14661,14 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
+      "label": "LinkNavigationHandler.domMatchesUrl",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/LinkNavigationHandler",
+      "leaf": false
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.extractBookPathFromHyperlightUrl",
       "label": "LinkNavigationHandler.extractBookPathFromHyperlightUrl",
       "kind": "fn",
@@ -20633,6 +20641,7 @@
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.attachGlobalLinkClickHandler",
+        "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.extractBookPathFromHyperlightUrl",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.extractBookSlugFromPath",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.getBookIdFromUrl",
@@ -30209,6 +30218,12 @@
       "id": "dom__domread__SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "source": "dom",
       "target": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
+      "source": "dom",
+      "target": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
       "rel": "domread"
     },
     {
@@ -41497,6 +41512,12 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__SPA/navigation/utils/structureDetection:getPageStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "SPA/navigation/utils/structureDetection:getPageStructure",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible__call__SPA/navigation/utils/structureDetection:areStructuresCompatible",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible",
       "target": "SPA/navigation/utils/structureDetection:areStructuresCompatible",
@@ -41506,6 +41527,12 @@
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.attachGlobalLinkClickHandler__call__scrolling/navOverlay:hideNavigationLoading",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.attachGlobalLinkClickHandler",
       "target": "scrolling/navOverlay:hideNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl__call__SPA/navigation/utils/structureDetection:getPageStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
+      "target": "SPA/navigation/utils/structureDetection:getPageStructure",
       "rel": "call"
     },
     {
@@ -41536,6 +41563,12 @@
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePageFocus__call__scrolling/navOverlay:hideNavigationLoading",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePageFocus",
       "target": "scrolling/navOverlay:hideNavigationLoading",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate__call__SPA/navigation/utils/structureDetection:getPageStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate",
+      "target": "SPA/navigation/utils/structureDetection:getPageStructure",
       "rel": "call"
     },
     {
@@ -41636,6 +41669,13 @@
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.cleanupNavigationOverlays",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.execute__call__lazyLoader/imageDims:primeImageDims",
+      "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.execute",
+      "target": "lazyLoader/imageDims:primeImageDims",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.execute__call__scrolling/userScrollDetection:resetUserScrollState",
@@ -44104,6 +44144,11 @@
     {
       "source": "SPA/navigation/pathways/BookToBookTransition",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/BookToBookTransition",
+      "target": "lazyLoader/imageDims",
       "kind": "static"
     },
     {

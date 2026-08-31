@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1792 functions in 377 modules · 10 object stores · 10 PG tables · 3674 edges
+**MarkdownDB** schema v28 · 1793 functions in 377 modules · 10 object stores · 10 PG tables · 3679 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1624,6 +1624,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LinkNavigationHandler._handlePopstateInner` | `SPA/navigation/LinkNavigationHandler` | `sessionStorage` | — | read | — |
 | `LinkNavigationHandler.areStructuresCompatible` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.attachGlobalLinkClickHandler` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.domMatchesUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
 | `LinkNavigationHandler.extractBookPathFromHyperlightUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.extractBookSlugFromPath` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.getBookIdFromUrl` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |

@@ -75,12 +75,7 @@ class JournalPageController extends Controller
             'about'           => app(JournalAboutComposer::class)->compose($journal),
             'readable'        => $readable,
             'total'           => $total,
-            // Both blob variants render while the keeper is being chosen —
-            // drop the loser from the blade once decided (see the map service).
-            'hyperciteMaps'   => [
-                'all'       => app(JournalHyperciteMap::class)->svg($journal, 'all'),
-                'connected' => app(JournalHyperciteMap::class)->svg($journal, 'connected'),
-            ],
+            'hyperciteMap'    => app(JournalHyperciteMap::class)->svg($journal),
         ]);
     }
 

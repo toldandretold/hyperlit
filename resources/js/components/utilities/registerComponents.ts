@@ -85,6 +85,11 @@ import {
 } from '../journal/journalSearch';
 
 import {
+  initJournalHyperciteMap,
+  destroyJournalHyperciteMap
+} from '../journalHyperciteMap';
+
+import {
   initializeHomepageButtons,
   destroyHomepageDisplayUnit
 } from '../homepage/homepageDisplayUnit';
@@ -468,6 +473,17 @@ export function registerAllComponents() {
     name: 'journalSearch',
     initFn: initializeJournalSearch,
     destroyFn: destroyJournalSearch,
+    pages: ['journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Hover card for the hero's hypercite-network SVG (server-rendered by
+  // JournalHyperciteMap; the anchors carry data-map-node/-title/-author/-year).
+  buttonRegistry.register({
+    name: 'journalHyperciteMap',
+    initFn: initJournalHyperciteMap,
+    destroyFn: destroyJournalHyperciteMap,
     pages: ['journal'],
     dependencies: [],
     required: false

@@ -78,18 +78,59 @@ body[data-page="journal"] .journal-about .journal-about-counts {
   opacity: 0.75;
 }
 
-/* ---------- hypercite map (inline SVG from JournalHyperciteMap) ---------- */
+/* ---------- hypercite network (inline SVG from JournalHyperciteMap) ---------- */
 
 body[data-page="journal"] .journal-about .journal-hypercite-map {
   margin: 2em 0 1em;
 }
 
-/* Comparison captions — removed with the losing variant once one is chosen. */
-body[data-page="journal"] .journal-about .journal-map-caption {
-  font-size: clamp(0.8rem, 1.4vw, 0.95rem);
-  opacity: 0.55;
-  text-align: center;
-  margin: 1.5em 0 0.25em;
+/* Mini legend under the network. Swatch colors mirror the SVG's fixed hero
+   palette (ink + darkened aqua) — see JournalHyperciteMap's docblock. */
+body[data-page="journal"] .journal-about .journal-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4em 1.6em;
+  margin: 1em 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+  opacity: 0.85;
+}
+
+body[data-page="journal"] .journal-about .journal-map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+}
+
+body[data-page="journal"] .journal-about .journal-map-legend em {
+  font-style: normal;
+  opacity: 0.65;
+}
+
+body[data-page="journal"] .journal-about .jml-dot {
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+body[data-page="journal"] .journal-about .jml-lit { background: #221f20; }
+
+body[data-page="journal"] .journal-about .jml-plain { background: rgba(34, 31, 32, 0.5); }
+
+body[data-page="journal"] .journal-about .jml-ext {
+  background: #2e7d80;
+  box-shadow: 0 0 0 1px rgba(34, 31, 32, 0.5);
+}
+
+body[data-page="journal"] .journal-about .jml-line {
+  width: 1.1em;
+  height: 0;
+  border-top: 2px solid rgba(34, 31, 32, 0.6);
+  border-radius: 1px;
+  flex-shrink: 0;
 }
 
 body[data-page="journal"] .journal-about .journal-docuverse-link {
