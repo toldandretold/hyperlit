@@ -16,6 +16,7 @@ class StripeController extends Controller
 {
     public function __construct(
         private BillingService $billing,
+        private \App\Services\Billing\StripeTopUpCreditor $creditor,
     ) {}
 
     /**
@@ -77,6 +78,28 @@ class StripeController extends Controller
             'success_url' => $this->withCheckoutFlag($returnUrl, 'success'),
             'cancel_url'  => $this->withCheckoutFlag($returnUrl, 'cancel'),
         ]);
+
+        // Record the session locally so a top-up is never "running blind": if the
+        // credit webhook is later missed or errors, billing:reconcile-stripe finds
+        // this pending row, checks Stripe for payment, and credits/alerts. Written
+        // via pgsql_admin (this table is server-only, no RLS) and best-effort — a
+        // bookkeeping failure must never block the user's checkout.
+        try {
+            DB::connection('pgsql_admin')->table('stripe_checkout_sessions')->insert([
+                'session_id'    => $session->id,
+                'user_id'       => $user->id,
+                'credit_amount' => $amount,
+                'status'        => 'pending',
+                'attempts'      => 0,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to record stripe_checkout_sessions row (checkout still proceeds)', [
+                'session_id' => $session->id,
+                'error'      => $e->getMessage(),
+            ]);
+        }
 
         return response()->json([
             'checkout_url' => $session->url,
@@ -159,39 +182,11 @@ class StripeController extends Controller
             return response()->json(['error' => 'User not found'], 400);
         }
 
-        // Webhook runs outside any user session, so RLS blocks User::find().
-        // Perform the credit update directly via admin connection to bypass RLS.
+        // Apply the credit through the ONE shared, idempotent, atomic definition
+        // (also used by billing:reconcile-stripe). Webhook runs outside any user
+        // session, so the creditor uses pgsql_admin to bypass RLS.
         $creditAmount = (float) $creditAmount;
-
-        // ATOMICITY: the credit increment and the ledger row MUST be all-or-nothing.
-        // Both writes go through pgsql_admin, so the transaction must be opened ON
-        // that connection — a `DB::transaction` on the DEFAULT connection governs a
-        // connection nothing here writes to, so it rolled back NOTHING. Without this
-        // a ledger-insert failure left the credit applied but no ledger row; Stripe
-        // then retried the webhook, the idempotency probe (keyed on the ledger row)
-        // found none, and the user was CREDITED AGAIN. On the admin connection the
-        // two writes commit together or not at all, so a retry re-runs cleanly.
-        $entry = DB::connection('pgsql_admin')->transaction(function () use ($target, $creditAmount, $stripeSessionId) {
-            $admin = DB::connection('pgsql_admin');
-
-            $admin->table('users')
-                ->where('id', $target->id)
-                ->increment('credits', $creditAmount);
-
-            $updated = $admin->table('users')->where('id', $target->id)->first();
-
-            return $admin->table('billing_ledger')->insertGetId([
-                'id'            => \Illuminate\Support\Str::uuid()->toString(),
-                'user_id'       => $target->id,
-                'type'          => 'credit',
-                'amount'        => $creditAmount,
-                'description'   => 'Stripe top-up',
-                'category'      => 'stripe_topup',
-                'metadata'      => json_encode(['stripe_session_id' => $stripeSessionId]),
-                'balance_after' => (float) $updated->credits - (float) $updated->debits,
-                'created_at'    => now(),
-            ]);
-        });
+        $this->creditor->applyCredit((int) $target->id, $creditAmount, $stripeSessionId);
 
         // Refresh the pre-rendered Account book so the balance card shows the
         // top-up. Best-effort inside refreshAccountBook — a regen failure

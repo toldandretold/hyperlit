@@ -31,6 +31,13 @@ Schedule::command('billing:reap-reservations')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Credit any paid-but-uncredited Stripe top-ups the webhook missed, and alert on
+// stuck ones — so a paying user is never left waiting on Stripe's ~72h retry.
+Schedule::command('billing:reconcile-stripe')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Cleanup old anonymous private books daily
 Schedule::job(\App\Jobs\DatabaseCleanupJob::class)
     ->daily()
