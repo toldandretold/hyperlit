@@ -139,12 +139,15 @@
             <li><span class="jml-line"></span>articles hypercited together</li>
             <li><span class="jml-dot jml-ext"></span>hypercited book beyond the journal</li>
           </ul>
+          {{-- The yield report's action pair: expand overlay (wired by
+               components/journalHyperciteMap → figureViewer) + the 3D deep
+               link. target="_blank": the 3D page is standalone (non-SPA);
+               LinkNavigationHandler also skips /3d/ links as belt-and-braces. --}}
+          <div class="journal-map-actions">
+            <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
+            <a href="/3d/j/{{ $journal->slug }}" target="_blank" rel="noopener" tabindex="-1" aria-label="See this journal lit up in the 3D docuverse">See in 3D network &rarr;</a>
+          </div>
         </div>
-      @endif
-      @if($readable > 0)
-        {{-- target="_blank": the 3D page is standalone (non-SPA); LinkNavigationHandler
-             also skips /3d/ links as belt-and-braces. --}}
-        <p class="journal-docuverse-link"><a href="/3d/j/{{ $journal->slug }}" target="_blank" rel="noopener" tabindex="-1">See this journal lit up in the 3D docuverse <span class="open-icon">↗</span></a></p>
       @endif
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content

@@ -47,24 +47,29 @@ class JournalHyperciteMap
 
     private const SPIRAL_SPACING = 11.0; // ≈ nearest-neighbour distance in the blob
 
-    private const R_PLAIN = 3.0;
-
-    private const R_LIT = 5.0;
-
-    private const R_EXTERNAL = 4.5;
-
     private const LABEL_CHARS = 26;
 
     /**
-     * Partner-label glyph size in viewBox units. The SVG scales to its
-     * container, so what matters is this against the ~2×ringR viewBox — 14
-     * lands around browser-default text size at the 680px max width; the
-     * first ship's 10 rendered ~7px and was unreadable.
+     * ON-SCREEN pixel sizes at the rendered width. The blob geometry is
+     * data-driven (viewBox units), so emit() SOLVES the viewBox↔pixel scale
+     * and multiplies every cosmetic size by it — labels, dots and edge
+     * widths then render the same physical size whether the journal has 8
+     * articles or 400. (The first two ships set font in raw viewBox units:
+     * ~7px, then ~11px on screen — both unreadable next to the legend.)
      */
-    private const LABEL_FONT = 14.0;
+    private const RENDER_WIDTH_PX = 680.0;
 
-    /** Estimated average glyph width for LABEL_FONT, for viewBox label room. */
-    private const LABEL_GLYPH_W = 7.7;
+    private const LABEL_FONT_PX = 15.0; // ≈ the legend's clamp(0.85rem, …, 1rem)
+
+    private const GLYPH_EM = 0.55; // average glyph width as a fraction of font size
+
+    private const R_PLAIN_PX = 3.0;
+
+    private const R_LIT_PX = 5.0;
+
+    private const R_LIT_CAP_PX = 9.0;
+
+    private const R_EXTERNAL_PX = 4.5;
 
     /** Fixed hero palette (see class docblock). */
     private const INK = '#221F20';
@@ -75,7 +80,7 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:v3",
+            "journal-hypercite-map:{$journal->id}:v4",
             self::CACHE_TTL,
             fn () => $this->build($journal),
         );
@@ -288,18 +293,36 @@ class JournalHyperciteMap
         float $blobRadius,
         float $ringR,
     ): string {
-        // Bounds: the ring (or blob) plus horizontal room for partner labels.
-        $labelRoom = $external === [] ? 0 : (self::LABEL_CHARS * self::LABEL_GLYPH_W + 10);
-        $extent = ($external === [] ? $blobRadius : $ringR) + self::R_EXTERNAL + 14;
-        $minX = -$extent - $labelRoom;
+        // ── Solve the viewBox↔pixel scale ──
+        // The blob/ring geometry is fixed viewBox units; labels/dots/strokes
+        // are specified in ON-SCREEN pixels and multiplied by $k (viewBox
+        // units per rendered pixel). Total width = 2·core + 2k·P where P is
+        // the per-side pixel chrome (margins + label room), and k = width /
+        // RENDER_WIDTH — solving gives the closed form below.
+        $hasLabels = $external !== [];
+        $core = $hasLabels ? $ringR : $blobRadius;
+        $chromePx = (self::R_EXTERNAL_PX + 14)
+            + ($hasLabels ? (self::LABEL_CHARS * self::GLYPH_EM * self::LABEL_FONT_PX + 10) : 0);
+        $k = 2 * $core / (self::RENDER_WIDTH_PX - 2 * $chromePx);
+        $font = self::LABEL_FONT_PX * $k;
+        $labelRoom = $hasLabels ? (self::LABEL_CHARS * self::GLYPH_EM * $font + 10 * $k) : 0;
+        $extent = $core + (self::R_EXTERNAL_PX + 14) * $k;
         $width = 2 * ($extent + $labelRoom);
+        $minX = -$extent - $labelRoom;
         $minY = -$extent;
         $height = 2 * $extent;
+
+        // Rendered-pixel sizes, converted to viewBox units. Plain dots are
+        // clamped against the spiral spacing so a dense blob stays a field of
+        // distinct dots rather than a smear.
+        $rPlain = min(self::R_PLAIN_PX * $k, 0.4 * self::SPIRAL_SPACING);
+        $rLitBase = min(self::R_LIT_PX * $k, 0.8 * self::SPIRAL_SPACING);
+        $rExternal = self::R_EXTERNAL_PX * $k;
 
         $s = [];
         $s[] = '<svg viewBox="' . $this->n($minX) . ' ' . $this->n($minY) . ' ' . $this->n($width) . ' ' . $this->n($height) . '"'
             . ' role="img" aria-label="Hypercite network of ' . e($journal->display_name) . '"'
-            . ' style="display:block;width:100%;max-width:680px;height:auto;margin:0 auto">';
+            . ' style="display:block;width:100%;max-width:' . $this->n(self::RENDER_WIDTH_PX) . 'px;height:auto;margin:0 auto">';
 
         // Edges first, under the dots. Internal pairs bow toward the blob
         // centre; spokes bow gently outward on their way to the ring.
@@ -307,13 +330,13 @@ class JournalHyperciteMap
             if (!isset($pos[$a], $pos[$b])) {
                 continue;
             }
-            $s[] = $this->curve($pos[$a], $pos[$b], 0.62, self::INK, 0.6, 1.5);
+            $s[] = $this->curve($pos[$a], $pos[$b], 0.62, self::INK, 0.6, 1.5 * $k);
         }
         foreach ($spokes as [$a, $b]) {
             if (!isset($pos[$a], $pos[$b])) {
                 continue;
             }
-            $s[] = $this->curve($pos[$a], $pos[$b], 1.12, self::AQUA, 0.8, 1.3);
+            $s[] = $this->curve($pos[$a], $pos[$b], 1.12, self::AQUA, 0.8, 1.3 * $k);
         }
 
         // Blob dots: hypercited articles solid ink, sized by degree; the rest
@@ -322,7 +345,9 @@ class JournalHyperciteMap
             [$x, $y] = $pos[$book];
             $deg = $degree[$book] ?? 0;
             $lit = $deg > 0;
-            $r = $lit ? min(self::R_LIT + 0.8 * ($deg - 1), 9) : self::R_PLAIN;
+            $r = $lit
+                ? min($rLitBase + 0.8 * $k * ($deg - 1), self::R_LIT_CAP_PX * $k)
+                : $rPlain;
             $opacity = $lit ? '1' : '0.5';
             $s[] = $this->anchorOpen($book, $articles[$book] ?? null, $lit ? 'lit' : 'article', $deg)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($r) . '"'
@@ -341,10 +366,10 @@ class JournalHyperciteMap
                 : $title;
             $onLeft = $x < 0;
             $s[] = $this->anchorOpen($book, $meta, 'beyond', 0)
-                . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n(self::R_EXTERNAL) . '"'
-                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="1"></circle>'
-                . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * (self::R_EXTERNAL + 6)) . '" y="' . $this->n($y + self::LABEL_FONT / 3) . '"'
-                . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="' . $this->n(self::LABEL_FONT) . '" font-family="sans-serif"'
+                . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($rExternal) . '"'
+                . ' fill="' . self::AQUA . '" stroke="' . self::INK . '" stroke-opacity="0.5" stroke-width="' . $this->n($k) . '"></circle>'
+                . '<text x="' . $this->n($x + ($onLeft ? -1 : 1) * ($rExternal + 6 * $k)) . '" y="' . $this->n($y + $font / 3) . '"'
+                . ' text-anchor="' . ($onLeft ? 'end' : 'start') . '" font-size="' . $this->n($font) . '" font-family="sans-serif"'
                 . ' fill="' . self::INK . '" fill-opacity="0.9">' . e($short) . '</text></a>';
         }
 

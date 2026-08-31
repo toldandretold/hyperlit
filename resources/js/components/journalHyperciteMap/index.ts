@@ -1,8 +1,11 @@
 /**
- * Hover card for the journal hero's hypercite network (the inline SVG from
- * app/Services/JournalHarvest/JournalHyperciteMap). Each node is an
- * `<a data-map-node …>` carrying title/author/year/connections — hovering one
- * shows a small fixed-position card; clicking still just follows the link.
+ * Hover card + expand button for the journal hero's hypercite network (the
+ * inline SVG from app/Services/JournalHarvest/JournalHyperciteMap). Each node
+ * is an `<a data-map-node …>` carrying title/author/year/connections —
+ * hovering one shows a small fixed-position card; clicking still just follows
+ * the link. The blade's #journal-map-expand button opens the SVG in the
+ * shared figureViewer overlay (the yield report's expand), passing a light
+ * backdrop because the map draws in ink, not the reader's light-on-dark.
  *
  * Same pattern as graphRenderer's citation card: one singleton div, inline
  * styles (no reader.css churn, and no overlay-inventory surface — it is a
@@ -127,6 +130,22 @@ function onPointerOut(event: PointerEvent): void {
   }
 }
 
+function onClick(event: MouseEvent): void {
+  const target = event.target instanceof Element ? event.target.closest('#journal-map-expand') : null;
+  if (!target) return;
+  const svg = document.querySelector<SVGSVGElement>('.journal-hypercite-map svg');
+  if (!svg) return;
+  void import('../../utilities/figureViewer').then(({ openFigureViewer }) => {
+    openFigureViewer(svg, {
+      title: svg.getAttribute('aria-label') ?? 'Hypercite network',
+      downloadName: 'hypercite-network.svg',
+      // The map draws in the hero's dark ink — figureViewer's default dark
+      // backdrop would swallow it.
+      background: '#f2ede4',
+    });
+  });
+}
+
 /** Create-once + reset: document delegation survives SPA navigation. */
 export function initJournalHyperciteMap(): void {
   card = ensureCard();
@@ -135,6 +154,7 @@ export function initJournalHyperciteMap(): void {
   document.addEventListener('pointerover', onPointerOver);
   document.addEventListener('pointermove', onPointerMove);
   document.addEventListener('pointerout', onPointerOut);
+  document.addEventListener('click', onClick);
   wired = true;
 }
 
@@ -143,6 +163,7 @@ export function destroyJournalHyperciteMap(): void {
     document.removeEventListener('pointerover', onPointerOver);
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerout', onPointerOut);
+    document.removeEventListener('click', onClick);
     wired = false;
   }
   card?.remove();

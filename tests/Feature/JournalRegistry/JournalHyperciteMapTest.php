@@ -204,6 +204,7 @@ test('the journal page renders the map and the lit-up 3D link', function () {
 
     expect($html)->toContain('journal-hypercite-map');
     expect($html)->toContain('journal-map-legend');
+    expect($html)->toContain('journal-map-expand');
     expect($html)->toContain('JMap Page Article A');
     expect($html)->toContain('/3d/j/' . $journal->slug);
     // The deferral/feed contract must survive the new section.

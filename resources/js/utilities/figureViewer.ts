@@ -29,6 +29,10 @@ interface FigureViewerOptions {
   /** Base filename for downloads, extension replaced per format
    *  (default figure.svg / figure.png / figure.jpg). */
   downloadName?: string;
+  /** Backdrop painted behind the figure (viewer, SVG download, JPEG fill).
+   *  Defaults to the dark reader background — figures drawn in LIGHT ink
+   *  (e.g. the journal hypercite network) must pass their own. */
+  background?: string;
 }
 
 const ZOOM_STEP = 1.25;
@@ -79,11 +83,11 @@ function naturalSize(figure: Figure): { w: number; h: number } {
   return { w: rect.width || 800, h: rect.height || 600 };
 }
 
-/** Serialize an SVG for standalone download (dark backdrop baked in). */
-function svgDownloadUrl(svg: SVGSVGElement): string {
+/** Serialize an SVG for standalone download (backdrop baked in). */
+function svgDownloadUrl(svg: SVGSVGElement, background: string): string {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  clone.style.background = DARK_BG;
+  clone.style.background = background;
   const markup = new XMLSerializer().serializeToString(clone);
   return URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
 }
@@ -97,9 +101,9 @@ function triggerDownload(href: string, filename: string): void {
 
 /** Rasterize the SVG through a canvas and download as JPEG (no alpha, so the
  * dark background is painted first). Async by nature — best-effort. */
-function downloadSvgAsJpeg(svg: SVGSVGElement, name: string): void {
+function downloadSvgAsJpeg(svg: SVGSVGElement, name: string, background: string): void {
   const { w, h } = naturalSize(svg);
-  const url = svgDownloadUrl(svg);
+  const url = svgDownloadUrl(svg, background);
   const img = new Image();
   img.onload = () => {
     URL.revokeObjectURL(url);
@@ -108,7 +112,7 @@ function downloadSvgAsJpeg(svg: SVGSVGElement, name: string): void {
     canvas.height = Math.round(h * JPEG_SCALE);
     const ctx = canvas.getContext('2d');
     if (!ctx) return; // canvas unavailable (ancient browser / test env)
-    ctx.fillStyle = DARK_BG;
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob) => {
@@ -133,6 +137,7 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   const natural = naturalSize(figure);
   const aspect = natural.h / natural.w || 0.75;
   const baseName = (options.downloadName ?? 'figure.svg').replace(/\.[a-z]+$/i, '');
+  const background = options.background ?? DARK_BG;
 
   const overlay = el('div', {
     position: 'fixed',
@@ -162,6 +167,11 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   const stage = el('div', { position: 'relative', margin: '0 auto' });
   shown.style.maxWidth = 'none';
   shown.style.display = 'block';
+  if (options.background) {
+    // Light-ink figures paint their own backdrop card; the chrome stays themed.
+    shown.style.background = options.background;
+    shown.style.borderRadius = '10px';
+  }
   stage.appendChild(shown);
   scroller.appendChild(stage);
   overlay.appendChild(scroller);
@@ -287,12 +297,12 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   if (isSvg) {
     const dlSvg = controlButton('⤓ SVG', 'Download as SVG');
     dlSvg.addEventListener('click', () => {
-      svgBlobUrl ??= svgDownloadUrl(shown as SVGSVGElement);
+      svgBlobUrl ??= svgDownloadUrl(shown as SVGSVGElement, background);
       triggerDownload(svgBlobUrl, `${baseName}.svg`);
     });
     const dlJpg = controlButton('⤓ JPG', 'Download as JPG');
     dlJpg.addEventListener('click', () => {
-      downloadSvgAsJpeg(shown as SVGSVGElement, `${baseName}.jpg`);
+      downloadSvgAsJpeg(shown as SVGSVGElement, `${baseName}.jpg`, background);
     });
     bar.append(dlSvg, dlJpg);
   } else {

@@ -88,10 +88,11 @@ body[data-page="journal"] .journal-about .journal-hypercite-map {
    palette (ink + darkened aqua) — see JournalHyperciteMap's docblock. */
 body[data-page="journal"] .journal-about .journal-map-legend {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.4em 1.6em;
-  margin: 1em 0 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45em;
+  width: fit-content;
+  margin: 1em auto 0;
   padding: 0;
   list-style: none;
   font-size: clamp(0.85rem, 1.5vw, 1rem);
@@ -133,11 +134,24 @@ body[data-page="journal"] .journal-about .jml-line {
   flex-shrink: 0;
 }
 
-body[data-page="journal"] .journal-about .journal-docuverse-link {
-  margin: 1.25em 0;
-  font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+/* Action pair under the network — the yield report's expand/3D buttons, in
+   the hero's fixed ink (the reader-theme vars graphRenderer uses would go
+   light-on-light here). */
+body[data-page="journal"] .journal-about .journal-map-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 1.25em 0 0.5em;
 }
 
-body[data-page="journal"] .journal-about .journal-docuverse-link a {
-  text-decoration: underline;
+body[data-page="journal"] .journal-about .journal-map-actions button,
+body[data-page="journal"] .journal-about .journal-map-actions a {
+  font: 0.9rem/1 sans-serif;
+  padding: 0.5em 0.9em;
+  border: 1px solid rgba(34, 31, 32, 0.45);
+  border-radius: 6px;
+  background: none;
+  color: #221f20;
+  text-decoration: none;
+  cursor: pointer;
 }
