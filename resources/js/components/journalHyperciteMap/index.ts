@@ -170,6 +170,78 @@ function onPointerOut(event: PointerEvent): void {
   }
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** The hypercite glyph (the reader's ↗-mint button icon, viewBox 0 0 36 36). */
+const HYPERCITE_ICON_PATHS = [
+  'M17.71,24.31h-4.82v-3.71c0-1.36.28-2.44.85-3.23.57-.79,1.54-1.49,2.92-2.09l1.04,1.97c-.85.4-1.44.8-1.76,1.19-.32.39-.51.86-.54,1.4h2.3v4.47h0ZM23.32,24.31h-4.82v-3.71c0-1.36.28-2.44.85-3.23.57-.79,1.54-1.49,2.92-2.09l1.04,1.97c-.85.4-1.44.8-1.76,1.19-.32.39-.51.86-.54,1.4h2.3v4.47h0Z',
+  'M30.34,2.51h-13.47c-2.97,0-5.39,2.42-5.39,5.39-2.97,0-5.39,2.42-5.39,5.39v13.47c0,2.97,2.42,5.39,5.39,5.39h13.47c2.97,0,5.39-2.42,5.39-5.39,2.97,0,5.39-2.42,5.39-5.39V7.9c0-2.97-2.42-5.39-5.39-5.39ZM27.65,26.76c0,1.49-1.21,2.69-2.69,2.69h-13.47c-1.49,0-2.69-1.21-2.69-2.69v-13.47c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47ZM33.04,21.37c0,1.49-1.21,2.69-2.69,2.69v-10.78c0-2.97-2.42-5.39-5.39-5.39h-10.78c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47Z',
+];
+
+function svgEl<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string>): SVGElementTagNameMap[K] {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+/**
+ * Dress the download clone as shareable art: the brand lava gradient behind
+ * everything, breathing room, and a bottom-left caption — hypercite glyph +
+ * the journal's name. Runs on a detached clone (figureViewer's
+ * decorateDownload seam); the on-screen figure never sees any of this.
+ */
+function decorateDownload(clone: SVGSVGElement): void {
+  const vb = clone.viewBox.baseVal;
+  if (!vb || !vb.width) return;
+
+  const margin = vb.width * 0.07;
+  const captionBand = vb.width * 0.1;
+  const x = vb.x - margin;
+  const y = vb.y - margin;
+  const w = vb.width + 2 * margin;
+  const h = vb.height + 2 * margin + captionBand;
+  clone.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  clone.style.background = ''; // the gradient rect IS the background
+
+  // Brand lava gradient (the homepage lamp's palette), SVG-native so it
+  // survives serialization and canvas rasterization.
+  const defs = svgEl('defs', {});
+  const grad = svgEl('linearGradient', { id: 'jhm-dl-grad', x1: '0', y1: '0', x2: '0.35', y2: '1' });
+  ([['0', '#ee4b96'], ['0.3', '#e8639a'], ['0.65', '#ef8d34'], ['1', '#4eacae']] as const)
+    .forEach(([offset, color]) => grad.appendChild(svgEl('stop', { offset, 'stop-color': color })));
+  defs.appendChild(grad);
+  const backdrop = svgEl('rect', {
+    x: String(x), y: String(y), width: String(w), height: String(h), fill: 'url(#jhm-dl-grad)',
+  });
+  clone.insertBefore(backdrop, clone.firstChild);
+  clone.insertBefore(defs, backdrop);
+
+  // Bottom-left caption: glyph + journal name, in the map's ink.
+  const journal = (clone.getAttribute('aria-label') ?? '').replace(/^Hypercite network of /, '');
+  const glyph = captionBand * 0.52;
+  const gx = x + margin * 0.75;
+  const gy = y + h - margin * 0.55 - glyph;
+  const icon = svgEl('g', {
+    transform: `translate(${gx}, ${gy}) scale(${glyph / 36})`,
+    fill: '#221F20',
+  });
+  HYPERCITE_ICON_PATHS.forEach((d) => icon.appendChild(svgEl('path', { d })));
+  clone.appendChild(icon);
+
+  if (journal) {
+    const label = svgEl('text', {
+      x: String(gx + glyph * 1.25),
+      y: String(gy + glyph * 0.72),
+      'font-family': 'sans-serif',
+      'font-weight': '600',
+      'font-size': String(glyph * 0.52),
+      fill: '#221F20',
+    });
+    label.textContent = journal;
+    clone.appendChild(label);
+  }
+}
+
 /** Capture-phase: must beat LinkNavigationHandler + the anchor's default. */
 function onClick(event: MouseEvent): void {
   const target = event.target instanceof Element ? event.target : null;
@@ -181,9 +253,11 @@ function onClick(event: MouseEvent): void {
       openFigureViewer(svg, {
         title: svg.getAttribute('aria-label') ?? 'Hypercite network',
         downloadName: 'hypercite-network.svg',
-        // Solid light backdrop for DOWNLOADS only (the map draws in ink);
-        // on screen the glass overlay + veil let the lava lamp glow through.
+        // Downloads become shareable art: lava gradient + glyph + journal
+        // name (decorateDownload); background is just the JPEG's base fill
+        // under the gradient. On screen, glass all the way.
         background: '#f2ede4',
+        decorateDownload,
         glassOverlay: true,
         // Square figure — open with the whole network visible, not fit-width.
         fit: 'contain',

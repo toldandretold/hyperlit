@@ -74,8 +74,11 @@ body.theme-light {
   --status-error: #dc3545;
 }
 
-/* Change logo text color for light theme */
-body.theme-light #top {
+/* Change logo text color for light theme. Scoped to BOTH the reader header
+   (#top) and the lava-lamp hero (home wordmark + journal lockup title read
+   the same var and were falling back to white here). */
+body.theme-light #top,
+body.theme-light #app-container.lava-lamp-background {
   --logo-text-color: #2C2C2C;
 }
 

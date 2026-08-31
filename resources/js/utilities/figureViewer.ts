@@ -33,6 +33,11 @@ interface FigureViewerOptions {
    *  Defaults to the dark reader background — figures drawn in LIGHT ink
    *  (e.g. the journal hypercite network) must pass their own. */
   background?: string;
+  /** Dress the DOWNLOAD clone (SVG + the JPEG rasterized from it) — inject
+   *  backgrounds, captions, logos. Runs on a detached clone after the solid
+   *  `background` style is applied; the on-screen figure is untouched. May
+   *  change the clone's viewBox (the JPEG canvas re-reads it). */
+  decorateDownload?: (clone: SVGSVGElement) => void;
   /** Open sized so the WHOLE figure is visible at once ('contain') instead
    *  of the default fit-to-width ('width' — right for tall figures like the
    *  yield report's tree, wrong for square ones like the journal network). */
@@ -93,12 +98,26 @@ function naturalSize(figure: Figure): { w: number; h: number } {
   return { w: rect.width || 800, h: rect.height || 600 };
 }
 
-/** Serialize an SVG for standalone download (backdrop baked in). */
-function svgDownloadUrl(svg: SVGSVGElement, background: string): string {
+/** The dressed standalone clone downloads serialize/rasterize from. */
+function downloadClone(
+  svg: SVGSVGElement,
+  background: string,
+  decorate?: (clone: SVGSVGElement) => void,
+): SVGSVGElement {
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
   clone.style.background = background;
-  const markup = new XMLSerializer().serializeToString(clone);
+  decorate?.(clone);
+  return clone;
+}
+
+/** Serialize an SVG for standalone download (backdrop + decoration baked in). */
+function svgDownloadUrl(
+  svg: SVGSVGElement,
+  background: string,
+  decorate?: (clone: SVGSVGElement) => void,
+): string {
+  const markup = new XMLSerializer().serializeToString(downloadClone(svg, background, decorate));
   return URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
 }
 
@@ -111,9 +130,18 @@ function triggerDownload(href: string, filename: string): void {
 
 /** Rasterize the SVG through a canvas and download as JPEG (no alpha, so the
  * dark background is painted first). Async by nature — best-effort. */
-function downloadSvgAsJpeg(svg: SVGSVGElement, name: string, background: string): void {
-  const { w, h } = naturalSize(svg);
-  const url = svgDownloadUrl(svg, background);
+function downloadSvgAsJpeg(
+  svg: SVGSVGElement,
+  name: string,
+  background: string,
+  decorate?: (clone: SVGSVGElement) => void,
+): void {
+  // Size the canvas from the DRESSED clone — decoration may grow the viewBox
+  // (caption band), and the undecorated size would squash the render.
+  const dressed = downloadClone(svg, background, decorate);
+  const { w, h } = naturalSize(dressed);
+  const markup = new XMLSerializer().serializeToString(dressed);
+  const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
   const img = new Image();
   img.onload = () => {
     URL.revokeObjectURL(url);
@@ -159,6 +187,7 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   overlay.id = 'figure-viewer-overlay';
   if (options.glassOverlay) {
     overlay.style.background = 'rgba(34, 31, 32, 0.35)';
+    overlay.style.color = '#f1f2f2'; // dark glass surface → light chrome in every theme
     overlay.style.setProperty('backdrop-filter', 'blur(16px) saturate(1.4)');
     overlay.style.setProperty('-webkit-backdrop-filter', 'blur(16px) saturate(1.4)');
   }
@@ -249,6 +278,10 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   let dragStart = { x: 0, y: 0, left: 0, top: 0 };
   scroller.addEventListener('pointerdown', (e: PointerEvent) => {
     if (e.button !== 0 || e.pointerType === 'touch') return;
+    // Links inside the figure stay clickable: pointer CAPTURE redirects the
+    // ensuing click to the scroller, which silently killed anchor navigation
+    // (the journal network's nodes). Drag starts from non-link space only.
+    if ((e.target as Element).closest?.('a')) return;
     dragging = true;
     dragStart = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
     scroller.style.cursor = 'grabbing';
@@ -301,6 +334,9 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
     padding: '8px 12px',
     borderRadius: '10px',
     background: 'rgba(0, 0, 0, 0.55)',
+    // The pill is always dark, so its text is always light — inheriting the
+    // theme text colour went dark-on-dark in sepia/light.
+    color: '#e0e0e0',
     backdropFilter: 'blur(6px)',
   });
 
@@ -325,12 +361,12 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   if (isSvg) {
     const dlSvg = controlButton('⤓ SVG', 'Download as SVG');
     dlSvg.addEventListener('click', () => {
-      svgBlobUrl ??= svgDownloadUrl(shown as SVGSVGElement, background);
+      svgBlobUrl ??= svgDownloadUrl(shown as SVGSVGElement, background, options.decorateDownload);
       triggerDownload(svgBlobUrl, `${baseName}.svg`);
     });
     const dlJpg = controlButton('⤓ JPG', 'Download as JPG');
     dlJpg.addEventListener('click', () => {
-      downloadSvgAsJpeg(shown as SVGSVGElement, `${baseName}.jpg`, background);
+      downloadSvgAsJpeg(shown as SVGSVGElement, `${baseName}.jpg`, background, options.decorateDownload);
     });
     bar.append(dlSvg, dlJpg);
   } else {

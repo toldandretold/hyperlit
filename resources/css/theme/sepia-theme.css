@@ -74,8 +74,11 @@ body.theme-sepia {
   --status-error: #dc3545;
 }
 
-/* Change logo text color for sepia theme */
-body.theme-sepia #top {
+/* Change logo text color for sepia theme. Scoped to BOTH the reader header
+   (#top) and the lava-lamp hero (home wordmark + journal lockup title read
+   the same var and were falling back to white-on-cream here). */
+body.theme-sepia #top,
+body.theme-sepia #app-container.lava-lamp-background {
   --logo-text-color: #3A2F1F;
 }
 
