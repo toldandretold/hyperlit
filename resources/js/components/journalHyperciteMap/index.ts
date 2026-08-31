@@ -42,7 +42,9 @@ function ensureCard(): HTMLDivElement {
   el.id = CARD_ID;
   Object.assign(el.style, {
     position: 'fixed',
-    zIndex: '9999',
+    // Above figureViewer's overlay (10000) — the expanded network is the
+    // same anchors (a clone), so the card must ride over the glass too.
+    zIndex: '10001',
     maxWidth: '280px',
     padding: '10px 12px',
     borderRadius: '8px',

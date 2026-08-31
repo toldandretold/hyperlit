@@ -183,11 +183,10 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   shown.style.maxWidth = 'none';
   shown.style.display = 'block';
   if (options.glassOverlay) {
-    // Glass all the way down: a faint veil for ink contrast, the page's
-    // colours still glowing through. options.background stays SOLID for
+    // Fully transparent figure — ONE uniform glass surface (the overlay's
+    // blur) behind everything; a card/veil here would read as a second,
+    // differently-blurred panel. options.background stays SOLID for
     // downloads only (a translucent standalone file would be unreadable).
-    shown.style.background = 'rgba(255, 255, 255, 0.35)';
-    shown.style.borderRadius = '10px';
   } else if (options.background) {
     // Light-ink figures paint their own backdrop card; the chrome stays themed.
     shown.style.background = options.background;
