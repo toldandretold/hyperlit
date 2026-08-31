@@ -33,6 +33,10 @@ interface FigureViewerOptions {
    *  Defaults to the dark reader background — figures drawn in LIGHT ink
    *  (e.g. the journal hypercite network) must pass their own. */
   background?: string;
+  /** Open sized so the WHOLE figure is visible at once ('contain') instead
+   *  of the default fit-to-width ('width' — right for tall figures like the
+   *  yield report's tree, wrong for square ones like the journal network). */
+  fit?: 'width' | 'contain';
   /** Translucent blurred overlay instead of the solid theme background, so
    *  the page's own colours glow through (the journal hero's lava lamp).
    *  Same chrome and controls; only the surround changes. NOTE: rgba
@@ -178,7 +182,13 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   const stage = el('div', { position: 'relative', margin: '0 auto' });
   shown.style.maxWidth = 'none';
   shown.style.display = 'block';
-  if (options.background) {
+  if (options.glassOverlay) {
+    // Glass all the way down: a faint veil for ink contrast, the page's
+    // colours still glowing through. options.background stays SOLID for
+    // downloads only (a translucent standalone file would be unreadable).
+    shown.style.background = 'rgba(255, 255, 255, 0.35)';
+    shown.style.borderRadius = '10px';
+  } else if (options.background) {
     // Light-ink figures paint their own backdrop card; the chrome stays themed.
     shown.style.background = options.background;
     shown.style.borderRadius = '10px';
@@ -188,8 +198,16 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   overlay.appendChild(scroller);
 
   const fitWidth = (): number => Math.max(window.innerWidth - 48, 320);
-  // Open at fit-to-viewport-width; zooming multiplies from there.
-  const baseWidth = Math.min(Math.max(natural.w, fitWidth()), window.innerWidth * 3);
+  // 'contain' also respects the padded viewport HEIGHT so the whole figure is
+  // on screen at open (56px title + 88px controls, per the scroller padding).
+  const fitContain = (): number => {
+    const availH = Math.max(window.innerHeight - 56 - 88 - 16, 240);
+    return Math.max(Math.min(fitWidth(), availH / aspect), 240);
+  };
+  // Opening size; zooming multiplies from there.
+  const baseWidth = options.fit === 'contain'
+    ? fitContain()
+    : Math.min(Math.max(natural.w, fitWidth()), window.innerWidth * 3);
   let zoom = 1;
   let rotation = 0; // 0 | 90 | 180 | 270
 

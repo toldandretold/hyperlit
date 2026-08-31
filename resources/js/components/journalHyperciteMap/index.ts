@@ -179,10 +179,12 @@ function onClick(event: MouseEvent): void {
       openFigureViewer(svg, {
         title: svg.getAttribute('aria-label') ?? 'Hypercite network',
         downloadName: 'hypercite-network.svg',
-        // The map draws in the hero's dark ink — figureViewer's default dark
-        // backdrop would swallow it; glass lets the lava lamp glow through.
+        // Solid light backdrop for DOWNLOADS only (the map draws in ink);
+        // on screen the glass overlay + veil let the lava lamp glow through.
         background: '#f2ede4',
         glassOverlay: true,
+        // Square figure — open with the whole network visible, not fit-width.
+        fit: 'contain',
       });
     });
     return;
