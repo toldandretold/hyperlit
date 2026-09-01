@@ -40,6 +40,10 @@ class ArchivePageController extends Controller
 
         $readable = $shelfId ? $readableCount->for($archive->id, $shelfId) : 0;
 
+        // The blade renders about UNESCAPED (links belong in archive copy).
+        // The write path already sanitizes; this covers rows saved before it did.
+        $archive->about = \App\Services\Security\NodeHtmlSanitizer::clean($archive->about);
+
         $description = $archive->display_name
             . " — a hypertext archive on Hyperlit: {$readable} readable document"
             . ($readable === 1 ? '' : 's') . '.';

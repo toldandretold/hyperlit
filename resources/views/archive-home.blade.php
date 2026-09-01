@@ -115,9 +115,12 @@
     <section class="welcome-copy journal-about" aria-label="About this archive">
       @php($aboutParas = array_values(array_filter(array_map('trim', preg_split('/\R{2,}/', (string) ($archive->about ?? ''))))))
       @if(!empty($aboutParas))
-        <h1 class="mega">{{ $aboutParas[0] }}</h1>
+        {{-- Raw output is deliberate: about copy may carry links to the scraped
+             source. Sanitized via NodeHtmlSanitizer on save AND in the
+             controller before render. --}}
+        <h1 class="mega">{!! $aboutParas[0] !!}</h1>
         @foreach(array_slice($aboutParas, 1) as $para)
-          <h2 class="journal-about-meta">{{ $para }}</h2>
+          <h2 class="journal-about-meta">{!! $para !!}</h2>
         @endforeach
       @else
         <h1 class="mega">{{ $archive->display_name }} — a hypertext archive on Hyperlit.</h1>

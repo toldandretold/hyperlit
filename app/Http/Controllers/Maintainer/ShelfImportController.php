@@ -428,7 +428,11 @@ class ShelfImportController extends Controller
         $archive = ArchiveSource::firstOrNew(['shelf_id' => $shelf->id]);
         $archive->slug = $validated['slug'];
         $archive->display_name = $validated['display_name'];
-        $archive->about = ($validated['about'] ?? '') !== '' ? $validated['about'] : null;
+        // About copy may carry real HTML (links to the scraped source) — it
+        // renders UNESCAPED on /a/{slug}, so the write path sanitizes (house
+        // pattern: NodeHtmlSanitizer on every user-text field).
+        $about = ($validated['about'] ?? '') !== '' ? $validated['about'] : null;
+        $archive->about = \App\Services\Security\NodeHtmlSanitizer::clean($about);
         $archive->certified_at = $request->boolean('certified')
             ? ($archive->certified_at ?? now())
             : null;

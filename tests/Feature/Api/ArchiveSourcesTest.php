@@ -86,18 +86,35 @@ function archSeedArchive(string $shelfId, array $opts = []): object
 
 test('archive page renders name, about copy and shelf feed tabs for a public shelf', function () {
     $shelfId = archSeedShelf(2);
-    $archive = archSeedArchive($shelfId);
+    $archive = archSeedArchive($shelfId, [
+        'about' => "ArchTest first paragraph.\n\nArchTest imported from <a href=\"https://example.org/src\">the source</a>.",
+    ]);
 
     $resp = $this->get('/a/' . $archive->slug);
     $resp->assertStatus(200)
         ->assertSee('ArchTest Archive')
         ->assertSee('ArchTest first paragraph.')
-        ->assertSee('ArchTest second paragraph.')
+        // About copy renders UNESCAPED — links to the scraped source are the point.
+        ->assertSee('<a href="https://example.org/src">the source</a>', false)
         ->assertSee('data-shelf-id="' . $shelfId . '"', false)
         ->assertSee('2 documents readable');
 
     // Auto-load deferral contract, same as home/journal pages.
     $resp->assertDontSee('arranger-button active', false);
+});
+
+test('about copy is sanitized: links survive the save and render, scripts do not', function () {
+    $shelfId = archSeedShelf(1);
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson("/api/maintainer/shelf-import/{$shelfId}/archive", [
+        'slug' => 'archtest-xss', 'display_name' => 'ArchTest XSS',
+        'about' => 'Docs from <a href="https://example.org/x">here</a>.<script>alert(1)</script>',
+    ])->assertStatus(200);
+
+    $stored = (string) DB::table('archive_sources')->where('shelf_id', $shelfId)->value('about');
+    expect($stored)->toContain('<a href="https://example.org/x">')
+        ->and($stored)->not->toContain('<script');
 });
 
 test('archive page over a private shelf says not yet public and offers no feeds', function () {
