@@ -7,6 +7,7 @@ use App\Models\ImportItem;
 use App\Services\DocumentImport\ImportBatches;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Import batches: the API behind the import-queue widget. Thin HTTP layer —
@@ -24,7 +25,16 @@ class ImportBatchController extends Controller
     /**
      * POST /api/import-batches — create a batch + items (pending_upload)
      * before any file bytes move, so the widget shows the whole queue
-     * immediately. Optionally creates the auto-shelf.
+     * immediately. Optionally creates the auto-shelf, OR appends to an
+     * EXISTING shelf via `shelf_id` (the maintainer shelf-import drop
+     * target). The two are mutually exclusive.
+     *
+     * shelf_id is authorized HERE and nowhere else: the completion-time
+     * append (ImportBatches::onJobTerminal → HarvestShelf::addBooks) runs
+     * on pgsql_admin and bypasses shelf_items RLS, so this check is the
+     * security gate. Allowed: admins (any shelf — system-owned archive
+     * shelves included) or the shelf's own creator. Everyone else gets the
+     * same 404 an unknown uuid gets, so shelf existence doesn't leak.
      */
     public function store(Request $request)
     {
@@ -32,6 +42,7 @@ class ImportBatchController extends Controller
             'label' => 'required|string|max:255',
             'source' => 'required|string|in:files,folder,vault',
             'auto_shelf' => 'boolean',
+            'shelf_id' => 'nullable|uuid',
             'items' => 'required|array|min:1|max:100',
             'items.*.book' => 'required|string|max:255|regex:/^[a-zA-Z0-9_-]+$/',
             'items.*.title' => 'nullable|string|max:255',
@@ -43,6 +54,29 @@ class ImportBatchController extends Controller
             return response()->json(['message' => 'No valid session'], 401);
         }
 
+        $explicitShelf = null;
+        if (!empty($validated['shelf_id'])) {
+            if (!empty($validated['auto_shelf'])) {
+                return response()->json(['message' => 'auto_shelf and shelf_id are mutually exclusive'], 422);
+            }
+
+            // pgsql_admin: the target may be a system-owned shelf invisible
+            // to the caller's RLS context — authorization is explicit below.
+            $shelf = DB::connection('pgsql_admin')->table('shelves')
+                ->where('id', $validated['shelf_id'])
+                ->first(['id', 'name', 'slug', 'creator']);
+
+            $allowed = $shelf && (
+                (Auth::user()?->isAdmin() ?? false)
+                || $shelf->creator === ($creatorInfo['creator'] ?? null)
+            );
+            if (!$allowed) {
+                return response()->json(['message' => 'Shelf not found'], 404);
+            }
+
+            $explicitShelf = ['id' => $shelf->id, 'name' => $shelf->name, 'slug' => $shelf->slug];
+        }
+
         $result = $this->batches->createBatch(
             $validated['items'],
             $validated['label'],
@@ -50,6 +84,7 @@ class ImportBatchController extends Controller
             (bool) ($validated['auto_shelf'] ?? false),
             $creatorInfo,
             Auth::id(),
+            $explicitShelf,
         );
 
         return response()->json($result, 201);

@@ -103,6 +103,27 @@ class ImportController extends Controller
             'title' => 'required|string|max:255',
             'author' => 'nullable|string|max:255',
             'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
+            // Bibliographic pass-through fields (cite form + scrape-folder
+            // manifests — docs/web-scrape-import.md). Written to `library`
+            // below; light shape validation only.
+            'url' => 'nullable|string|max:2048',
+            'publisher' => 'nullable|string|max:255',
+            'journal' => 'nullable|string|max:255',
+            'booktitle' => 'nullable|string|max:255',
+            'editor' => 'nullable|string|max:255',
+            'school' => 'nullable|string|max:255',
+            'type' => 'nullable|string|max:50',
+            'language' => 'nullable|string|max:35',
+            'volume' => 'nullable|string|max:100',
+            'issue' => 'nullable|string|max:100',
+            'pages' => 'nullable|string|max:100',
+            'chapter' => 'nullable|string|max:100',
+            'note' => 'nullable|string|max:5000',
+            'bibtex' => 'nullable|string|max:20000',
+            // Scrape-folder provenance breadcrumbs — land in raw_json only.
+            'imported_via' => 'nullable|string|max:50',
+            'manifest_schema_version' => 'nullable|integer',
+            'scrape_site' => 'nullable|string|max:255',
             'markdown_file' => 'nullable|array',
             'markdown_file.*' => [
                 'nullable',
@@ -386,6 +407,7 @@ class ImportController extends Controller
                 'booktitle' => $request->input('booktitle'),
                 'chapter' => $request->input('chapter'),
                 'editor' => $request->input('editor'),
+                'language' => $request->input('language'),
                 'timestamp' => round(microtime(true) * 1000),
                 'visibility' => 'private',
                 'creator' => $creatorInfo['creator'],
@@ -407,7 +429,7 @@ class ImportController extends Controller
         $formData = $request->only([
             'title', 'author', 'type', 'year', 'url', 'pages',
             'journal', 'publisher', 'school', 'note', 'bibtex',
-            'volume', 'issue', 'booktitle', 'chapter', 'editor',
+            'volume', 'issue', 'booktitle', 'chapter', 'editor', 'language',
         ]);
 
         // Test-only artificial processing window: the e2e "queue grows while

@@ -62,6 +62,7 @@ return [
     'dev',       // developer tools (/dev/conversion-tests)
     'maintainer', // operator triage (/maintainer/conversion, /maintainer/jobs)
     'j',         // journal pages (/j/{slug} — planned; slugs already minted in journal_sources)
+    'a',         // archive pages (/a/{slug} — archive_sources registry over public shelves)
 
     // Data + misc
     'books',

@@ -38,12 +38,17 @@ class ImportBatches
      * auto-shelf the completed books will be added to. HTTP context only.
      *
      * $items: [{book, title?, filename?}, ...] in upload order.
+     * $explicitShelf: an EXISTING shelf ['id','name','slug'] the completed
+     * books should append to instead of an auto-shelf. Must already be
+     * authorized by the caller (admin or shelf owner — see
+     * ImportBatchController::store): the completion-time append runs on
+     * pgsql_admin and BYPASSES shelf_items RLS.
      * Returns ['id' => ..., 'shelf' => ['id','name','slug']|null].
      */
-    public function createBatch(array $items, string $label, string $source, bool $autoShelf, array $creatorInfo, ?int $userId): array
+    public function createBatch(array $items, string $label, string $source, bool $autoShelf, array $creatorInfo, ?int $userId, ?array $explicitShelf = null): array
     {
-        $shelf = null;
-        if ($autoShelf && !empty($creatorInfo['creator'])) {
+        $shelf = $explicitShelf;
+        if ($shelf === null && $autoShelf && !empty($creatorInfo['creator'])) {
             $shelf = $this->ensureShelf($label, $creatorInfo['creator']);
         }
 

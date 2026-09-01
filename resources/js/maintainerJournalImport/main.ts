@@ -13,6 +13,7 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
+import { initShelfDrop } from './shelfDrop';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
 } from '../utilities/sourceFrameTheme';
@@ -1389,6 +1390,125 @@ function renderShelfIndex(): void {
   }
 }
 
+// ── Archive-page panel (shelf mode) ────────────────────────────────────────
+
+/**
+ * The archive_sources editor: slug + display name + pasted about copy + the
+ * certified ★. One record per shelf, written synchronously via
+ * /api/maintainer/shelf-import/{id}/archive — the /a/{slug} page and the
+ * homepage's certified-archives list render from it.
+ */
+function wireArchivePanel(): void {
+  if (!has('ji-archive-panel')) return;
+
+  const panel = el<HTMLElement>('ji-archive-panel');
+  const toggle = el<HTMLButtonElement>('ji-archive-toggle');
+  const slugInput = el<HTMLInputElement>('ji-archive-slug');
+  const nameInput = el<HTMLInputElement>('ji-archive-name');
+  const aboutInput = el<HTMLTextAreaElement>('ji-archive-about');
+  const saveBtn = el<HTMLButtonElement>('ji-archive-save');
+  const certifyBtn = el<HTMLButtonElement>('ji-archive-certify');
+  const pageLink = el<HTMLAnchorElement>('ji-archive-link');
+  const statusEl = el<HTMLElement>('ji-archive-status');
+
+  let certified = false;
+  let loaded = false;
+
+  const paint = (archive: { slug: string; display_name: string; about: string | null; certified: boolean; public_page: string } | null): void => {
+    if (archive) {
+      slugInput.value = archive.slug;
+      nameInput.value = archive.display_name;
+      aboutInput.value = archive.about ?? '';
+      certified = archive.certified;
+      pageLink.href = archive.public_page;
+      pageLink.hidden = false;
+    } else {
+      certified = false;
+      pageLink.hidden = true;
+    }
+    certifyBtn.textContent = certified ? '★ certified' : '☆ certify';
+    certifyBtn.classList.toggle('ji-certified', certified);
+  };
+
+  const status = (text: string): void => {
+    statusEl.textContent = text;
+    statusEl.classList.add('ji-visible');
+    window.setTimeout(() => statusEl.classList.remove('ji-visible'), 4000);
+  };
+
+  const load = async (): Promise<void> => {
+    try {
+      const resp = await fetch(`${apiBase()}/archive`, { credentials: 'include' });
+      if (!resp.ok) {
+        status(`could not load the archive record (${resp.status})`);
+        return;
+      }
+      const data = await resp.json();
+      paint(data.archive ?? null);
+      loaded = true;
+    } catch (e) {
+      log.error('Archive record load failed', 'maintainer-journal-import', e);
+    }
+  };
+
+  const save = async (): Promise<void> => {
+    const slug = slugInput.value.trim();
+    const displayName = nameInput.value.trim();
+    if (!slug || !displayName) {
+      status('slug and display name are required');
+      return;
+    }
+    const headers = await csrfHeaders();
+    if (!headers) return;
+    saveBtn.disabled = true;
+    certifyBtn.disabled = true;
+    try {
+      const resp = await fetch(`${apiBase()}/archive`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          slug,
+          display_name: displayName,
+          about: aboutInput.value.trim() || null,
+          certified,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        status(String((data as { message?: string }).message || `save failed (${resp.status})`));
+        return;
+      }
+      paint((data as { archive: Parameters<typeof paint>[0] }).archive);
+      status('saved');
+    } catch (e) {
+      log.error('Archive record save failed', 'maintainer-journal-import', e);
+      status('save failed — see logs');
+    } finally {
+      saveBtn.disabled = false;
+      certifyBtn.disabled = false;
+    }
+  };
+
+  toggle.addEventListener('click', () => {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open && !loaded) void load();
+  });
+  el<HTMLButtonElement>('ji-archive-close').addEventListener('click', () => {
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  });
+  saveBtn.addEventListener('click', () => void save());
+  certifyBtn.addEventListener('click', () => {
+    certified = !certified;
+    certifyBtn.textContent = certified ? '★ certified' : '☆ certify';
+    certifyBtn.classList.toggle('ji-certified', certified);
+    void save();
+  });
+}
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 
 wireHelp();
@@ -1398,6 +1518,13 @@ if (isDetail) {
   wireDetailActions();
   wireJournalActions();
   wireFailuresPanel();
+  // Shelf mode: the page is a drop target — dropped files import onto THIS
+  // shelf and the articles pane reloads when the batch settles — and carries
+  // the archive-page record editor.
+  if (boot.mode === 'shelf' && boot.shelfId) {
+    initShelfDrop(boot.shelfId, () => void loadDetail());
+    wireArchivePanel();
+  }
   void loadDetail();
 } else if (has('ji-shelf-list')) {
   el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderShelfIndex);

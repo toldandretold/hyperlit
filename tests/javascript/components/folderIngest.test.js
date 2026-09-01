@@ -177,6 +177,106 @@ describe('planAsBatch (drop while another import is running)', () => {
   });
 });
 
+describe('scrape-folder manifest.json (docs/web-scrape-import.md)', () => {
+  const jsonFile = (obj) => new File([JSON.stringify(obj)], 'manifest.json', { type: 'application/json' });
+
+  const manifest = (documents, extra = {}) => jsonFile({
+    schema_version: 1,
+    source: { site: 'ris.org.in', scraper: 'scrape:ris-nam', scraped_at: '2026-09-01T00:00:00Z' },
+    documents,
+    ...extra,
+  });
+
+  test('metadata attaches by relPath and manifest title beats the filename title', async () => {
+    const plan = await buildIngestPlan([
+      collected(pdfFile('doc-one.pdf'), 'pdfs/doc-one.pdf'),
+      collected(pdfFile('doc-two.pdf'), 'pdfs/doc-two.pdf'),
+      collected(manifest({
+        'pdfs/doc-one.pdf': { title: 'Belgrade Declaration', author: 'NAM', year: 1961, url: 'https://ris.org.in/x.pdf' },
+      })),
+    ], 'nam-archive');
+
+    expect(plan.kind).toBe('batch');
+    expect(plan.manifest).toEqual({ schemaVersion: 1, site: 'ris.org.in' });
+    const one = plan.bundles.find((b) => b.filename === 'doc-one.pdf');
+    expect(one.title).toBe('Belgrade Declaration');
+    expect(one.metadata).toMatchObject({ author: 'NAM', year: 1961, url: 'https://ris.org.in/x.pdf' });
+    // No manifest entry → filename title, null metadata (permitted, logged).
+    const two = plan.bundles.find((b) => b.filename === 'doc-two.pdf');
+    expect(two.title).toBe('doc-two');
+    expect(two.metadata).toBeNull();
+  });
+
+  test('basename keys match when the relPath key is absent', async () => {
+    const plan = await buildIngestPlan([
+      collected(pdfFile('doc.pdf'), 'deep/dir/doc.pdf'),
+      collected(manifest({ 'doc.pdf': { title: 'By Basename' } })),
+    ], 'scrape');
+    expect(plan.bundles[0].title).toBe('By Basename');
+  });
+
+  test('manifest.json never becomes a bundle and forces batch for a single file', async () => {
+    const plan = await buildIngestPlan([
+      collected(pdfFile('only.pdf')),
+      collected(manifest({ 'only.pdf': { title: 'The Only One' } })),
+    ], 'scrape');
+
+    // Without the manifest this would be kind 'single' (form flow) — which
+    // would silently drop the metadata. The manifest forces a batch of one.
+    expect(plan.kind).toBe('batch');
+    expect(plan.bundles).toHaveLength(1);
+    expect(plan.bundles[0].filename).toBe('only.pdf');
+    expect(plan.bundles[0].title).toBe('The Only One');
+  });
+
+  test('a single md with a manifest routes through the vault branch, not one-book-folder', async () => {
+    const plan = await buildIngestPlan([
+      collected(mdFile('text.md', '# Hi\n\n![fig](fig.png)')),
+      collected(imgFile('fig.png')),
+      collected(manifest({ 'text.md': { title: 'Manifest MD', language: 'en' } })),
+    ], 'scrape');
+
+    expect(plan.kind).toBe('batch');
+    expect(plan.bundles).toHaveLength(1);
+    expect(plan.bundles[0].title).toBe('Manifest MD');
+    expect(plan.bundles[0].metadata).toMatchObject({ language: 'en' });
+    expect(plan.bundles[0].images.map((f) => f.name)).toEqual(['fig.png']);
+  });
+
+  test('malformed manifest is tolerated: the drop proceeds metadata-less', async () => {
+    const broken = new File(['{not json'], 'manifest.json', { type: 'application/json' });
+    const plan = await buildIngestPlan([
+      collected(pdfFile('a.pdf')),
+      collected(pdfFile('b.pdf')),
+      collected(broken),
+    ], 'scrape');
+
+    expect(plan.kind).toBe('batch');
+    expect(plan.manifest).toBeNull();
+    expect(plan.bundles.map((b) => b.metadata)).toEqual([null, null]);
+  });
+
+  test('unknown manifest keys are stripped at parse time', async () => {
+    const plan = await buildIngestPlan([
+      collected(pdfFile('a.pdf')),
+      collected(manifest({ 'a.pdf': { title: 'Clean', evil_key: 'nope', doi: '10.1/x' } })),
+    ], 'scrape');
+    expect(plan.bundles[0].metadata).toEqual({ title: 'Clean' });
+  });
+
+  test('a manifest in a subfolder is ignored (root-only rule)', async () => {
+    const nested = new File([JSON.stringify({ schema_version: 1, documents: { 'a.pdf': { title: 'X' } } })],
+      'manifest.json', { type: 'application/json' });
+    const plan = await buildIngestPlan([
+      collected(pdfFile('a.pdf')),
+      collected(pdfFile('b.pdf')),
+      collected(nested, 'sub/manifest.json'),
+    ], 'scrape');
+    expect(plan.manifest).toBeNull();
+    expect(plan.bundles.map((b) => b.metadata)).toEqual([null, null]);
+  });
+});
+
 describe('collectPickedFiles', () => {
   const withRelPath = (file, rel) => {
     Object.defineProperty(file, 'webkitRelativePath', { value: rel });

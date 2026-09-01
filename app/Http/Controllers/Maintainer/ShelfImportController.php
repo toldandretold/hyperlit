@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Maintainer;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Maintainer\Concerns\BuildsImportLanes;
 use App\Jobs\JournalImportActionJob;
+use App\Models\ArchiveSource;
 use App\Models\JournalSource;
 use App\Services\CanonicalVersions\AutoVersionResolver;
 use App\Services\Conversion\ReconvertQueue;
@@ -348,5 +349,74 @@ class ShelfImportController extends Controller
         JournalImportActionJob::dispatch($runId);
 
         return response()->json(['run_id' => $runId, 'already_running' => false]);
+    }
+
+    /**
+     * GET /api/maintainer/shelf-import/{id}/archive — this shelf's archive
+     * page record (archive_sources), or archive:null when it has none yet.
+     */
+    public function archive(Request $request, string $id)
+    {
+        $shelf = $this->publicShelf($id);
+        if (! $shelf) {
+            return response()->json(['message' => 'Shelf not found (or not public).'], 404);
+        }
+
+        $archive = ArchiveSource::where('shelf_id', $shelf->id)->first();
+
+        return response()->json(['archive' => $archive ? $this->archivePayload($archive) : null]);
+    }
+
+    /**
+     * POST /api/maintainer/shelf-import/{id}/archive — create or update the
+     * archive page record: slug + display name + hand-written about copy +
+     * the certified ★ (the homepage-listing human signal). Synchronous
+     * one-row write, following the journal certify precedent. The shelf must
+     * be public — same gate as the console itself, and the /a page's feed
+     * only exists for a public shelf anyway.
+     */
+    public function saveArchive(Request $request, string $id)
+    {
+        $shelf = $this->publicShelf($id);
+        if (! $shelf) {
+            return response()->json(['message' => 'Shelf not found (or not public).'], 404);
+        }
+
+        $validated = $request->validate([
+            'slug'         => 'required|string|max:100|regex:/^[a-z0-9-]+$/',
+            'display_name' => 'required|string|max:255',
+            'about'        => 'nullable|string|max:20000',
+            'certified'    => 'boolean',
+        ]);
+
+        $slugTaken = ArchiveSource::where('slug', $validated['slug'])
+            ->where('shelf_id', '!=', $shelf->id)
+            ->exists();
+        if ($slugTaken) {
+            return response()->json(['message' => "Slug \"{$validated['slug']}\" already names another archive."], 422);
+        }
+
+        $archive = ArchiveSource::firstOrNew(['shelf_id' => $shelf->id]);
+        $archive->slug = $validated['slug'];
+        $archive->display_name = $validated['display_name'];
+        $archive->about = ($validated['about'] ?? '') !== '' ? $validated['about'] : null;
+        $archive->certified_at = $request->boolean('certified')
+            ? ($archive->certified_at ?? now())
+            : null;
+        $archive->save();
+
+        return response()->json(['archive' => $this->archivePayload($archive)]);
+    }
+
+    /** @return array<string, mixed> */
+    private function archivePayload(ArchiveSource $archive): array
+    {
+        return [
+            'slug'         => $archive->slug,
+            'display_name' => $archive->display_name,
+            'about'        => $archive->about,
+            'certified'    => $archive->certified_at !== null,
+            'public_page'  => '/a/' . $archive->slug,
+        ];
     }
 }

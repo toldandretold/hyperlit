@@ -29,6 +29,33 @@ export interface CollectedFile {
   relPath: string;
 }
 
+/**
+ * Per-document metadata from a scrape folder's manifest.json (see
+ * docs/web-scrape-import.md). Every field maps 1:1 onto a POST /import-file
+ * request field, which the server writes to `library` AUTHORITATIVELY —
+ * pipeline-extracted metadata only fills blanks.
+ */
+export interface ManifestEntry {
+  title?: string;
+  author?: string;
+  year?: string | number;
+  /** Source-page provenance → library.url. */
+  url?: string;
+  publisher?: string;
+  journal?: string;
+  type?: string;
+  language?: string;
+  note?: string;
+  bibtex?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  booktitle?: string;
+  chapter?: string;
+  editor?: string;
+  school?: string;
+}
+
 export interface ImportBundle {
   /** The document that becomes the book (md, pdf, epub, ...). */
   mainFile: File;
@@ -38,6 +65,8 @@ export interface ImportBundle {
   rewrittenMain: File | null;
   title: string;
   filename: string;
+  /** Manifest metadata for this document, when the drop carried one. */
+  metadata: ManifestEntry | null;
 }
 
 export interface IngestPlan {
@@ -55,6 +84,8 @@ export interface IngestPlan {
   source: 'files' | 'folder' | 'vault';
   /** Images in the drop referenced by no markdown file (skipped). */
   unreferencedImages: number;
+  /** Set when the drop carried a root-level manifest.json (a scrape folder). */
+  manifest: { schemaVersion: number; site?: string } | null;
 }
 
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
@@ -225,6 +256,7 @@ export function planAsBatch(plan: IngestPlan): IngestPlan {
       rewrittenMain: null,
       title: titleFromFilename(main.name),
       filename: main.name,
+      metadata: null,
     }],
   };
 }
@@ -288,6 +320,83 @@ export function rewriteWikilinkImageEmbeds(mdText: string): string {
   );
 }
 
+/* ── Scrape-folder manifest ─────────────────────────────────────────────── */
+
+/** The manifest fields we accept — an explicit whitelist, never blind iteration. */
+const MANIFEST_ENTRY_KEYS: ReadonlyArray<keyof ManifestEntry> = [
+  'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
+  'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
+];
+
+interface ParsedManifest {
+  /** Entries keyed by relPath AND basename (relPath wins on collision). */
+  entries: Map<string, ManifestEntry>;
+  schemaVersion: number;
+  site?: string;
+}
+
+function sanitizeManifestEntry(raw: unknown): ManifestEntry | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const source = raw as Record<string, unknown>;
+  const entry: ManifestEntry = {};
+  for (const key of MANIFEST_ENTRY_KEYS) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) {
+      entry[key] = value.trim();
+    } else if (key === 'year' && typeof value === 'number') {
+      entry.year = value;
+    }
+  }
+  return Object.keys(entry).length ? entry : null;
+}
+
+/**
+ * Read a scrape folder's root-level manifest.json (docs/web-scrape-import.md).
+ * Never fails the drop: malformed JSON or an unexpected shape logs a verbose
+ * warning and returns null, and the import proceeds metadata-less.
+ */
+async function readManifest(collected: CollectedFile[]): Promise<ParsedManifest | null> {
+  const manifestFile = collected.find((c) => c.relPath.toLowerCase() === 'manifest.json');
+  if (!manifestFile) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(await manifestFile.file.text());
+    if (typeof parsed !== 'object' || parsed === null) throw new Error('manifest root is not an object');
+    const root = parsed as { schema_version?: unknown; source?: { site?: unknown }; documents?: unknown };
+    const docs = root.documents;
+    if (typeof docs !== 'object' || docs === null) throw new Error('manifest has no documents map');
+
+    const entries = new Map<string, ManifestEntry>();
+    const byRelPath = new Set<string>();
+    for (const [key, raw] of Object.entries(docs as Record<string, unknown>)) {
+      const entry = sanitizeManifestEntry(raw);
+      if (!entry) continue;
+      const relKey = key.replace(/\\/g, '/').toLowerCase();
+      entries.set(relKey, entry);
+      byRelPath.add(relKey);
+      // Basename convenience alias — an exact relPath entry always wins.
+      const baseKey = basenameOf(relKey);
+      if (!byRelPath.has(baseKey) && !entries.has(baseKey)) entries.set(baseKey, entry);
+    }
+
+    const site = typeof root.source?.site === 'string' ? root.source.site : undefined;
+    const schemaVersion = typeof root.schema_version === 'number' ? root.schema_version : 1;
+    return { entries, schemaVersion, site };
+  } catch (err) {
+    verbose.content(
+      `folderIngest: unreadable manifest.json — importing without metadata (${err instanceof Error ? err.message : String(err)})`,
+      '/components/importQueue/folderIngest.ts',
+    );
+    return null;
+  }
+}
+
+function metaFor(manifest: ParsedManifest | null, relPath: string): ManifestEntry | null {
+  if (!manifest) return null;
+  const key = relPath.replace(/\\/g, '/').toLowerCase();
+  return manifest.entries.get(key) ?? manifest.entries.get(basenameOf(key)) ?? null;
+}
+
 /* ── Plan building ──────────────────────────────────────────────────────── */
 
 /**
@@ -297,7 +406,11 @@ export function rewriteWikilinkImageEmbeds(mdText: string): string {
  *  - two or more .md (the vault case) → one book per md, images routed by
  *    reference (other doc files in the folder become their own books too);
  *  - zero .md, one importable doc → the single-file form flow;
- *  - zero .md, several docs → one book per doc.
+ *  - zero .md, several docs → one book per doc;
+ *  - a root-level manifest.json (a scrape folder) → ALWAYS a batch, even for
+ *    a single document. The single/one-book shortcuts route through the form
+ *    input and a post-hoc planAsBatch rebuilds bundles from plan.files — both
+ *    would silently drop the manifest metadata, so batching is forced HERE.
  */
 export async function buildIngestPlan(
   collected: CollectedFile[],
@@ -308,13 +421,28 @@ export async function buildIngestPlan(
   const images = importable.filter((c) => isImageFile(c.file.name));
   const docs = importable.filter((c) => !isMarkdownFile(c.file.name) && !isImageFile(c.file.name));
 
+  // manifest.json itself can never become a bundle — json is not an
+  // acceptable import extension, so it is invisible to the filters above.
+  const manifest = await readManifest(collected);
+  const planManifest = manifest ? { schemaVersion: manifest.schemaVersion, site: manifest.site } : null;
+
   if (importable.length === 0) {
-    return { kind: 'none', files: [], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: 0 };
+    return { kind: 'none', files: [], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: 0, manifest: planManifest };
+  }
+
+  if (manifest) {
+    // An unmatched file imports with its filename title; a low match count is
+    // the scraper-bug signal (wrong keys, renamed files).
+    const matched = importable.filter((c) => metaFor(manifest, c.relPath) !== null).length;
+    verbose.content(
+      `folderIngest: manifest.json matched ${matched}/${importable.length} importable file(s)`,
+      '/components/importQueue/folderIngest.ts',
+    );
   }
 
   // One markdown file, no other documents: the classic one-book folder.
   const onlyMd = mds[0];
-  if (mds.length === 1 && onlyMd && docs.length === 0) {
+  if (!manifest && mds.length === 1 && onlyMd && docs.length === 0) {
     return {
       kind: 'one-book-folder',
       files: [onlyMd.file, ...images.map((i) => i.file)],
@@ -322,27 +450,32 @@ export async function buildIngestPlan(
       folderName: rootDirName,
       source: 'folder',
       unreferencedImages: 0,
+      manifest: null,
     };
   }
 
   // No markdown: single doc → existing flow; several → plain batch.
   if (mds.length === 0) {
     const onlyDoc = docs[0];
-    if (docs.length === 1 && onlyDoc && images.length === 0) {
-      return { kind: 'single', files: [onlyDoc.file], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: 0 };
+    if (!manifest && docs.length === 1 && onlyDoc && images.length === 0) {
+      return { kind: 'single', files: [onlyDoc.file], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: 0, manifest: null };
     }
     const onlyImportable = importable[0];
-    if (docs.length === 0 && importable.length === 1 && onlyImportable) {
+    if (!manifest && docs.length === 0 && importable.length === 1 && onlyImportable) {
       // A lone image is importable as a book in the existing flow.
-      return { kind: 'single', files: [onlyImportable.file], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: images.length ? images.length - 1 : 0 };
+      return { kind: 'single', files: [onlyImportable.file], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: images.length ? images.length - 1 : 0, manifest: null };
     }
-    const bundles = docs.map((d) => ({
-      mainFile: d.file,
-      images: [],
-      rewrittenMain: null,
-      title: titleFromFilename(d.file.name),
-      filename: d.file.name,
-    }));
+    const bundles = docs.map((d) => {
+      const metadata = metaFor(manifest, d.relPath);
+      return {
+        mainFile: d.file,
+        images: [],
+        rewrittenMain: null,
+        title: metadata?.title || titleFromFilename(d.file.name),
+        filename: d.file.name,
+        metadata,
+      };
+    });
     if (images.length) {
       verbose.content(`folderIngest: ${images.length} image(s) in a no-markdown drop are skipped`, '/components/importQueue/folderIngest.ts');
     }
@@ -353,6 +486,7 @@ export async function buildIngestPlan(
       folderName: rootDirName,
       source: rootDirName ? 'folder' : 'files',
       unreferencedImages: images.length,
+      manifest: planManifest,
     };
   }
 
@@ -392,22 +526,26 @@ export async function buildIngestPlan(
       ? null
       : new File([rewritten], md.file.name, { type: md.file.type || 'text/markdown' });
 
+    const metadata = metaFor(manifest, md.relPath);
     bundles.push({
       mainFile: md.file,
       images: bundleImages,
       rewrittenMain,
-      title: titleFromFilename(md.file.name),
+      title: metadata?.title || titleFromFilename(md.file.name),
       filename: md.file.name,
+      metadata,
     });
   }
 
   for (const doc of docs) {
+    const metadata = metaFor(manifest, doc.relPath);
     bundles.push({
       mainFile: doc.file,
       images: [],
       rewrittenMain: null,
-      title: titleFromFilename(doc.file.name),
+      title: metadata?.title || titleFromFilename(doc.file.name),
       filename: doc.file.name,
+      metadata,
     });
   }
 
@@ -423,5 +561,6 @@ export async function buildIngestPlan(
     folderName: rootDirName,
     source: 'vault',
     unreferencedImages: unreferenced,
+    manifest: planManifest,
   };
 }

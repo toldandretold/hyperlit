@@ -128,6 +128,73 @@ test('batch create validates item book ids and caps size', function () {
     $this->postJson('/api/import-batches', batchPayload(0))->assertStatus(422);
 });
 
+/* ----------------  explicit shelf_id (maintainer shelf-import drop)  ---------------- */
+
+/** Seed a committed shelf on pgsql_admin (visible to the controller's admin-connection lookup). */
+function seedAdminShelf(string $creator, string $visibility = 'public'): string
+{
+    $shelfId = (string) Str::uuid();
+    DB::connection('pgsql_admin')->table('shelves')->insert([
+        'id' => $shelfId, 'creator' => $creator, 'name' => 'batchtest target ' . Str::random(4),
+        'slug' => 'batchtest-target-' . Str::random(4), 'visibility' => $visibility,
+        'default_sort' => 'recent', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    return $shelfId;
+}
+
+test('admin can target any existing shelf via shelf_id and no new shelf is created', function () {
+    $systemUser = $this->seedUser(['email' => 'batch_sysowner@test.local']);
+    $shelfId = seedAdminShelf($systemUser->name);
+
+    $admin = $this->seedUser(['email' => 'batch_admin@test.local', 'is_admin' => true]);
+    $this->actingAs($admin);
+
+    $before = DB::connection('pgsql_admin')->table('shelves')->count();
+    $resp = $this->postJson('/api/import-batches', batchPayload(2, ['shelf_id' => $shelfId]));
+
+    $resp->assertStatus(201);
+    expect($resp->json('shelf.id'))->toBe($shelfId)
+        ->and(ImportBatch::find($resp->json('id'))->shelf_id)->toBe($shelfId)
+        ->and(DB::connection('pgsql_admin')->table('shelves')->count())->toBe($before);
+});
+
+test('a shelf owner can target their own shelf via shelf_id', function () {
+    $owner = $this->seedUser(['email' => 'batch_shelfown@test.local']);
+    $shelfId = seedAdminShelf($owner->name, 'private');
+    $this->actingAs($owner);
+
+    $resp = $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => $shelfId]));
+    $resp->assertStatus(201);
+    expect(ImportBatch::find($resp->json('id'))->shelf_id)->toBe($shelfId);
+});
+
+test('a stranger targeting someone else\'s shelf_id gets 404 and no batch is created', function () {
+    $victim = $this->seedUser(['email' => 'batch_victim@test.local']);
+    $shelfId = seedAdminShelf($victim->name);
+
+    $attacker = $this->seedUser(['email' => 'batch_shelfatk@test.local']);
+    $this->actingAs($attacker);
+
+    $payload = batchPayload(1, ['shelf_id' => $shelfId]);
+    $this->postJson('/api/import-batches', $payload)->assertStatus(404);
+    expect(ImportBatch::where('label', $payload['label'])->exists())->toBeFalse();
+});
+
+test('unknown, malformed, or auto_shelf-combined shelf_id is refused', function () {
+    $admin = $this->seedUser(['email' => 'batch_admin2@test.local', 'is_admin' => true]);
+    $this->actingAs($admin);
+
+    $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => (string) Str::uuid()]))
+        ->assertStatus(404);
+    $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => 'not-a-uuid']))
+        ->assertStatus(422);
+
+    $shelfId = seedAdminShelf($admin->name);
+    $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => $shelfId, 'auto_shelf' => true]))
+        ->assertStatus(422);
+});
+
 /* ----------------  my-imports  ---------------- */
 
 test('my-imports is RLS-scoped to the caller', function () {

@@ -694,3 +694,97 @@ body.ji-detail {
   outline: none;
   border-color: var(--hyperlit-aqua, #4eacae);
 }
+
+/* Shelf drop target (detail page): drag affordance + batch progress line. */
+#ji-drop-hint {
+  position: fixed;
+  inset: 12px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--hyperlit-aqua, #4eacae);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-bg, #111) 82%, transparent);
+  color: var(--color-text);
+  font-size: 1rem;
+  pointer-events: none;
+}
+#ji-drop-hint[hidden] {
+  display: none;
+}
+#ji-drop-status {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 61;
+  max-width: min(80vw, 560px);
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  background: color-mix(in srgb, var(--color-text) 8%, var(--color-bg, #111));
+  color: var(--color-text);
+  font-size: 0.8rem;
+}
+#ji-drop-status[hidden] {
+  display: none;
+}
+
+/* Archive-page panel (shelf detail): the /a/{slug} record editor. */
+#ji-archive-toggle {
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.ji-archive-panel {
+  max-width: 560px;
+}
+.ji-archive-hint {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  margin: 4px 0 10px;
+}
+.ji-archive-field {
+  display: block;
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+.ji-archive-field input,
+.ji-archive-field textarea {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+.ji-archive-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.ji-archive-actions button {
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+.ji-archive-actions button.ji-certified {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}

@@ -125,6 +125,18 @@ Route::prefix('j')->group(function () {
         ->name('journal.show');
 });
 
+// Public archive pages (archive_sources registry over public shelves) — same
+// prefix pattern ('a' in config/reserved-routes.php). An archive's feed IS its
+// shelf; this page is the hero shell + hand-written about copy. See
+// docs/web-scrape-import.md.
+Route::prefix('a')->group(function () {
+    Route::get('/', [App\Http\Controllers\ArchivePageController::class, 'index'])
+        ->name('archive.index');
+    Route::get('/{slug}', [App\Http\Controllers\ArchivePageController::class, 'show'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('archive.show');
+});
+
 // File import route - requires authentication (logged in or valid anonymous session)
 Route::post('/import-file', [App\Http\Controllers\ImportController::class, 'store'])
     ->middleware('author')

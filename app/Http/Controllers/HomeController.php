@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Archives\CertifiedArchivesQuery;
 use App\Services\JournalHarvest\CertifiedJournalsQuery;
 
 class HomeController extends Controller
@@ -11,7 +12,7 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function index(CertifiedJournalsQuery $certifiedJournals)
+    public function index(CertifiedJournalsQuery $certifiedJournals, CertifiedArchivesQuery $certifiedArchives)
     {
         return view('home', [
             'pageType' => 'home',
@@ -29,6 +30,9 @@ class HomeController extends Controller
             // list can never point at an empty journal page. No response cache
             // on this route, so a certify toggle is live on the next request.
             'certifiedJournals' => $certifiedJournals->forHomepage(),
+            // Same two gates for the hypertext archives (/a/{slug}) — see
+            // CertifiedArchivesQuery and docs/web-scrape-import.md.
+            'certifiedArchives' => $certifiedArchives->forHomepage(),
         ]);
     }
 

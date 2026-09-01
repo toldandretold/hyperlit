@@ -138,6 +138,22 @@
             @endforeach
           </ul>
         @endif
+
+        {{-- The hypertext archives we curate, each linking to its /a/{slug} hero
+             page. Same shape and gates as the journal list above (certified AND
+             at least one readable document — CertifiedArchivesQuery), and the
+             same absent-when-empty rule. Own list class deliberately: the
+             journal tests assert copy-journal-list's ABSENCE when nothing is
+             certified, and an archive must not trip that. See
+             docs/web-scrape-import.md. --}}
+        @if (!empty($certifiedArchives))
+          <h2 class="copy-journals-intro">…and building hypertext archives:</h2>
+          <ul class="copy-archive-list">
+            @foreach ($certifiedArchives as $archive)
+              <li><a href="/a/{{ $archive['slug'] }}" tabindex="-1">{{ $archive['display_name'] }} · {{ $archive['readable'] }} document{{ $archive['readable'] === 1 ? '' : 's' }} <span class="open-icon">↗</span></a></li>
+            @endforeach
+          </ul>
+        @endif
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}

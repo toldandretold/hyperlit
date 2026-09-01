@@ -11,7 +11,17 @@
 import { log, verbose } from '../../utilities/logger';
 import { generateBookIdFromMetadata, findAvailableBookId } from '../newbookContainer/citeForm/bookId';
 import { startImportQueuePolling } from './importQueuePoller';
-import type { ImportBundle } from './folderIngest';
+import type { ImportBundle, ManifestEntry } from './folderIngest';
+
+/**
+ * Manifest fields forwarded to POST /import-file — an explicit whitelist
+ * mirroring ManifestEntry (never iterate the object blindly). Each maps to a
+ * request field ImportController writes to `library` authoritatively.
+ */
+const METADATA_KEYS: ReadonlyArray<keyof ManifestEntry> = [
+  'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
+  'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
+];
 
 /** Above this many items, later book ids skip the per-id server availability
  * probe (a timestamp suffix guarantees uniqueness) so a 100-file vault doesn't
@@ -35,7 +45,13 @@ function sanitizeBase(id: string): string {
 }
 
 async function bookIdFor(bundle: ImportBundle, index: number, taken: Set<string>): Promise<string> {
-  const base = sanitizeBase(generateBookIdFromMetadata(null, bundle.title, null, null));
+  const meta = bundle.metadata;
+  const base = sanitizeBase(generateBookIdFromMetadata(
+    meta?.bibtex ?? null,
+    bundle.title,
+    meta?.author ?? null,
+    meta?.year != null ? String(meta.year) : null,
+  ));
   let id: string;
   if (index < VALIDATE_ID_CAP) {
     id = await findAvailableBookId(base);
@@ -58,6 +74,14 @@ export async function uploadBatch(
     label: string;
     source: 'files' | 'folder' | 'vault';
     autoShelf: boolean;
+    /**
+     * Append completed books to this EXISTING shelf instead of an auto-shelf
+     * (the maintainer shelf-import drop target). Server-authorized: admin or
+     * shelf owner only. Mutually exclusive with autoShelf.
+     */
+    shelfId?: string;
+    /** Present when the drop carried a manifest.json (a scrape folder) — recorded in raw_json. */
+    manifest?: { schemaVersion: number; site?: string } | null;
     /** Fires once the batch is registered (before uploads) — e.g. close the form. */
     onCreated?: (batchId: string) => void;
   },
@@ -84,6 +108,7 @@ export async function uploadBatch(
       label: opts.label,
       source: opts.source,
       auto_shelf: opts.autoShelf,
+      ...(opts.shelfId ? { shelf_id: opts.shelfId } : {}),
       items: withIds.map(({ bundle, book }) => ({
         book,
         title: bundle.title,
@@ -111,6 +136,21 @@ export async function uploadBatch(
     formData.append('book', book);
     formData.append('title', bundle.title);
     formData.append('import_batch_id', batchId);
+    if (bundle.metadata) {
+      for (const key of METADATA_KEYS) {
+        if (key === 'title') continue; // already sent via bundle.title
+        const value = bundle.metadata[key];
+        if (value != null && String(value).trim()) {
+          formData.append(key, String(value).trim());
+        }
+      }
+    }
+    if (opts.manifest) {
+      // Provenance breadcrumbs — land in library.raw_json server-side.
+      formData.append('imported_via', 'scrape-folder');
+      formData.append('manifest_schema_version', String(opts.manifest.schemaVersion));
+      if (opts.manifest.site) formData.append('scrape_site', opts.manifest.site);
+    }
     formData.append('markdown_file[]', bundle.rewrittenMain || bundle.mainFile);
     for (const img of bundle.images) {
       formData.append('markdown_file[]', img);

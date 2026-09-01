@@ -632,6 +632,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/shelf-import/{id}/run', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'run'])
         ->where('id', '[0-9a-f-]{36}');
+    // Archive page record (archive_sources): give this shelf a public /a/{slug}
+    // page — slug + display name + hand-written about copy + the certified ★.
+    // Synchronous one-row writes, following the journal certify precedent.
+    Route::get('/maintainer/shelf-import/{id}/archive', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'archive'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/shelf-import/{id}/archive', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'saveArchive'])
+        ->where('id', '[0-9a-f-]{36}');
 
     // Hypercite console. `journals` is the picker (journal registry + public shelves);
     // `candidates` is one scope's detected hypercite candidates (flat — the page groups by

@@ -86,6 +86,7 @@ export function setupFormSubmission() {
           label,
           source: plan.source,
           autoShelf: true,
+          manifest: plan.manifest,
         }).catch((err) => {
           const message = err instanceof Error ? err.message : String(err);
           log.error('Batch import failed to start', '/components/newbookContainer/citeForm/submission.ts', message);

@@ -358,6 +358,7 @@ async function handleBatchDrop(plan: IngestPlan) {
       label,
       source: plan.source,
       autoShelf: plan.bundles.length > 1,
+      manifest: plan.manifest,
     });
     verbose.content(`fileDropTarget: batch ${result.batchId} — ${result.uploaded} uploaded, ${result.failed} failed`, '/components/fileDropTarget/fileDropTarget.ts');
   } catch (err) {

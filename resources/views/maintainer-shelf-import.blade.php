@@ -8,6 +8,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {{-- batchUploader (the shelf drop target) reads its CSRF token from this meta. --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Shelf import — Hyperlit</title>
     <meta name="robots" content="noindex">
     @vite(['resources/css/pages/maintainer-journal-import.css'])
@@ -32,9 +34,34 @@
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>
             <a href="/maintainer/hypercites/shelf/{{ $shelfId }}">hypercites →</a>
             <a href="/maintainer/conversion">conversions →</a>
+            <button type="button" id="ji-archive-toggle" aria-expanded="false" aria-controls="ji-archive-panel" title="This shelf's public archive page (/a/{slug})">archive page</button>
         </nav>
         <button type="button" id="ji-help-toggle" aria-expanded="false" aria-controls="ji-help-panel" title="How this works">?</button>
     </header>
+
+    {{-- Archive page record: slug + display name + hand-written about copy +
+         the certified ★ that lists the archive on the homepage. Writes
+         archive_sources via /api/maintainer/shelf-import/{id}/archive. --}}
+    <div class="ji-help-panel ji-archive-panel" id="ji-archive-panel" hidden>
+        <h2>Archive page <button type="button" id="ji-archive-close" aria-label="Close archive panel">✕</button></h2>
+        <p class="ji-archive-hint">Gives this shelf a public hero page at <code>/a/&lt;slug&gt;</code>. Certify (★)
+            to list it on the homepage — the listing self-heals away if the archive loses its readable books.</p>
+        <label class="ji-archive-field">slug
+            <input type="text" id="ji-archive-slug" placeholder="nam" autocomplete="off" spellcheck="false" pattern="[a-z0-9-]+">
+        </label>
+        <label class="ji-archive-field">display name
+            <input type="text" id="ji-archive-name" placeholder="Non-Aligned Movement Archive" autocomplete="off">
+        </label>
+        <label class="ji-archive-field">about copy
+            <textarea id="ji-archive-about" rows="10" placeholder="Write or paste the page copy — separate paragraphs with a blank line. The first paragraph renders large."></textarea>
+        </label>
+        <div class="ji-archive-actions">
+            <button type="button" id="ji-archive-save">save</button>
+            <button type="button" id="ji-archive-certify" title="List this archive on the homepage">☆ certify</button>
+            <a id="ji-archive-link" href="#" target="_blank" rel="noopener" hidden>open page ↗</a>
+        </div>
+        <span class="ji-actions-status" id="ji-archive-status" role="status" aria-live="polite"></span>
+    </div>
 
     {{-- Three panes, identical ids to the journal detail page — one JS wires both. --}}
     <div class="ji-columns" id="ji-columns">

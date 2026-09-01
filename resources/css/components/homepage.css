@@ -228,7 +228,8 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
 /* one journal per line, no bullets. Matched to .welcome-copy h2 rather than
    inheriting: an <li> is not a heading, and the intro above it IS an h2 — the
    two must read as one block at every viewport width */
-.welcome-copy .copy-journal-list {
+.welcome-copy .copy-journal-list,
+.welcome-copy .copy-archive-list {
   list-style: none;
   padding: 0;
   margin: 0 0 1.1em;
@@ -237,7 +238,8 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
   font-weight: 600;
 }
 
-.welcome-copy .copy-journal-list li {
+.welcome-copy .copy-journal-list li,
+.welcome-copy .copy-archive-list li {
   margin: 0 0 0.5em;
 }
 
