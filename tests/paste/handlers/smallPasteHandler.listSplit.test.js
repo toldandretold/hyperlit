@@ -176,3 +176,27 @@ describe('clipboard normalisation — orphan <li>', () => {
     expect(textAfterReparse(list.outerHTML)).toContain('orphan two');
   });
 });
+
+describe('clipboard normalisation — inline wrapper hiding a block', () => {
+  // An element is "inline" only if nothing block-level hides INSIDE it. A
+  // <span> wrapping a <ul> classified by tag alone was merged into the caret's
+  // <p> — the invalid-nesting shape that collapses to an empty node on the
+  // next parse (integrity report book_1788217034868, 2026-08-31).
+  it('never merges a block-bearing inline wrapper into the caret <p>', () => {
+    const chunk = buildBook('<p id="190" data-node-id="book_test_orig">alpha omega</p>');
+    pasteAt(
+      chunk.querySelector('p').firstChild,
+      5,
+      '<span><ul><li>Search Google Scholar</li><li>Export Citation</li></ul></span><p>real paragraph</p>'
+    );
+
+    // No paragraph anywhere may hold a list.
+    expect(document.querySelectorAll('p ul, p ol, p li')).toHaveLength(0);
+
+    // The chrome list still exists and its text survives the integrity read-back.
+    const withList = Array.from(chunk.children).find((el) => el.querySelector('ul') || el.tagName === 'UL');
+    expect(withList).toBeTruthy();
+    expect(textAfterReparse(withList.outerHTML)).toContain('Search Google Scholar');
+    expect(withList.tagName).not.toBe('P');
+  });
+});

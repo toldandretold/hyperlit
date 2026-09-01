@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1793,
+    "fnCount": 1797,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3679,
+    "edgeCount": 3687,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12059,6 +12059,14 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup",
+      "label": "BristolUPProcessor.cleanup",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/bristol-up-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.constructor",
       "label": "BristolUPProcessor.constructor",
       "kind": "fn",
@@ -12221,6 +12229,14 @@
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
       "label": "GeneralProcessor.looksLikeArtifactHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.normalize",
+      "label": "GeneralProcessor.normalize",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/general-processor",
@@ -13251,6 +13267,14 @@
       "leaf": false
     },
     {
+      "id": "paste/utils/transform-helpers:isLayoutTable",
+      "label": "isLayoutTable",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
       "id": "paste/utils/transform-helpers:isValidReference",
       "label": "isValidReference",
       "kind": "fn",
@@ -13285,6 +13309,14 @@
     {
       "id": "paste/utils/transform-helpers:unwrapContainers",
       "label": "unwrapContainers",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapLayoutTables",
+      "label": "unwrapLayoutTables",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/utils/transform-helpers",
@@ -19800,6 +19832,7 @@
       "band": "capture",
       "fnIds": [
         "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
+        "paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup",
         "paste/format-processors/bristol-up-processor:BristolUPProcessor.constructor",
         "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
         "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractReferences",
@@ -19837,6 +19870,7 @@
         "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
         "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
         "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
+        "paste/format-processors/general-processor:GeneralProcessor.normalize",
         "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
         "paste/format-processors/general-processor:GeneralProcessor.transformStructure"
       ]
@@ -20261,11 +20295,13 @@
         "paste/utils/transform-helpers:addUniqueReference",
         "paste/utils/transform-helpers:cleanTFFootnoteContent",
         "paste/utils/transform-helpers:cloneAndClean",
+        "paste/utils/transform-helpers:isLayoutTable",
         "paste/utils/transform-helpers:isValidReference",
         "paste/utils/transform-helpers:reformatCitationLink",
         "paste/utils/transform-helpers:removeSectionsByHeading",
         "paste/utils/transform-helpers:removeStaticContentElements",
-        "paste/utils/transform-helpers:unwrapContainers"
+        "paste/utils/transform-helpers:unwrapContainers",
+        "paste/utils/transform-helpers:unwrapLayoutTables"
       ]
     },
     {
@@ -29477,6 +29513,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup",
+      "source": "dom",
+      "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
       "source": "dom",
       "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
@@ -29951,6 +29993,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/utils/transform-helpers:isLayoutTable",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:isLayoutTable",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/utils/transform-helpers:removeSectionsByHeading",
       "source": "dom",
       "target": "paste/utils/transform-helpers:removeSectionsByHeading",
@@ -29966,6 +30014,12 @@
       "id": "dom__domread__paste/utils/transform-helpers:unwrapContainers",
       "source": "dom",
       "target": "paste/utils/transform-helpers:unwrapContainers",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:unwrapLayoutTables",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:unwrapLayoutTables",
       "rel": "domread"
     },
     {
@@ -38417,6 +38471,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup__domwrite__dom",
+      "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.cleanup",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes__domwrite__dom",
       "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.extractFootnotes",
       "target": "dom",
@@ -38588,6 +38648,12 @@
       "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading__call__paste/utils/reference-detection:isReferenceShaped",
       "source": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
       "target": "paste/utils/reference-detection:isReferenceShaped",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.normalize__call__paste/utils/transform-helpers:unwrapLayoutTables",
+      "source": "paste/format-processors/general-processor:GeneralProcessor.normalize",
+      "target": "paste/utils/transform-helpers:unwrapLayoutTables",
       "rel": "call"
     },
     {
@@ -39841,6 +39907,24 @@
       "source": "paste/utils/transform-helpers:unwrapContainers",
       "target": "paste/utils/dom-utils:wrapLooseNodes",
       "rel": "call"
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapLayoutTables__call__paste/utils/dom-utils:wrapLooseNodes",
+      "source": "paste/utils/transform-helpers:unwrapLayoutTables",
+      "target": "paste/utils/dom-utils:wrapLooseNodes",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapLayoutTables__call__paste/utils/transform-helpers:isLayoutTable",
+      "source": "paste/utils/transform-helpers:unwrapLayoutTables",
+      "target": "paste/utils/transform-helpers:isLayoutTable",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/transform-helpers:unwrapLayoutTables__domwrite__dom",
+      "source": "paste/utils/transform-helpers:unwrapLayoutTables",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "paste/utils/url-detector:detectAndConvertUrls__call__paste/utils/url-detector:escapeHtml",
@@ -48944,6 +49028,11 @@
     {
       "source": "paste/format-processors/general-processor",
       "target": "paste/utils/reference-headings",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/general-processor",
+      "target": "paste/utils/transform-helpers",
       "kind": "static"
     },
     {

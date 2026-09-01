@@ -1071,6 +1071,164 @@ var BaseFormatProcessor = class {
   }
 };
 
+// resources/js/paste/utils/transform-helpers.ts
+function unwrapContainers(dom, additionalSelectors = "") {
+  const baseSelectors = "div, article, section, main, header, footer, aside, nav, button";
+  const selectors = additionalSelectors ? `${baseSelectors}, ${additionalSelectors}` : baseSelectors;
+  const containers = Array.from(dom.querySelectorAll(selectors));
+  containers.reverse().forEach((container) => {
+    wrapLooseNodes(container);
+    unwrap(container);
+  });
+  dom.querySelectorAll("font").forEach(unwrap);
+}
+var DATA_TABLE_MARKER_SELECTOR = "th, thead, tfoot, caption, col, colgroup, td[headers]";
+var CELL_BLOCK_CONTENT_SELECTOR = "p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table, figure, center, address, hr";
+function ownTableRows(table) {
+  return Array.from(table.querySelectorAll("tr")).filter(
+    (row) => row.closest("table") === table
+  );
+}
+function ownRowCells(row) {
+  return Array.from(row.children).filter(
+    (el) => el.tagName === "TD" || el.tagName === "TH"
+  );
+}
+function isLayoutTable(table) {
+  const role = (table.getAttribute("role") || "").toLowerCase();
+  if (role === "presentation" || role === "none") return true;
+  if (role === "grid" || role === "table") return false;
+  if (table.hasAttribute("summary")) return false;
+  const hasOwnDataMarker = Array.from(
+    table.querySelectorAll(DATA_TABLE_MARKER_SELECTOR)
+  ).some((el) => el.closest("table") === table);
+  if (hasOwnDataMarker) return false;
+  const rows = ownTableRows(table);
+  if (rows.length === 0) return true;
+  const cells = rows.flatMap(ownRowCells);
+  if (cells.some((cell) => cell.querySelector(CELL_BLOCK_CONTENT_SELECTOR))) return true;
+  if (rows.every((row) => ownRowCells(row).length <= 1)) return true;
+  if (rows.length === 1) {
+    if (cells.length === 1) return true;
+    const isSpacerCell = (cell) => !(cell.textContent || "").trim() && !cell.querySelector("img");
+    if (cells.some(isSpacerCell)) return true;
+  }
+  return false;
+}
+function unwrapLayoutTables(dom) {
+  const tables = Array.from(dom.querySelectorAll("table")).reverse();
+  let unwrapped = 0;
+  tables.forEach((table) => {
+    const t = table;
+    if (!isLayoutTable(t)) return;
+    const parent = t.parentNode;
+    if (!parent) return;
+    for (const row of ownTableRows(t)) {
+      for (const cell of ownRowCells(row)) {
+        wrapLooseNodes(cell, t.ownerDocument);
+        while (cell.firstChild) {
+          parent.insertBefore(cell.firstChild, t);
+        }
+      }
+    }
+    t.remove();
+    unwrapped++;
+  });
+  return unwrapped;
+}
+function removeSectionsByHeading(dom, headingMatcher = isReferenceSectionHeading) {
+  const headings = dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
+  let removedCount = 0;
+  headings.forEach((heading) => {
+    if (headingMatcher(heading.textContent.trim())) {
+      let nextElement = heading.nextElementSibling;
+      heading.remove();
+      removedCount++;
+      while (nextElement) {
+        const next = nextElement.nextElementSibling;
+        if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
+          break;
+        }
+        nextElement.remove();
+        nextElement = next;
+      }
+    }
+  });
+  return removedCount;
+}
+function removeStaticContentElements(dom) {
+  const staticElements = dom.querySelectorAll("[data-static-content]");
+  const count = staticElements.length;
+  staticElements.forEach((el) => el.remove());
+  return count;
+}
+function cloneAndClean(element, selectorsToRemove = []) {
+  const clone = element.cloneNode(true);
+  clone.querySelectorAll("[style]").forEach((el) => el.removeAttribute("style"));
+  if (selectorsToRemove.length > 0) {
+    clone.querySelectorAll(selectorsToRemove.join(", ")).forEach((el) => el.remove());
+  }
+  return clone;
+}
+function isValidReference(text, options = {}) {
+  const { minLength = 20, maxYearPosition = 150 } = options;
+  if (!text || text.length < minLength) {
+    return false;
+  }
+  const yearMatch = text.match(/\d{4}[a-z]?/);
+  return yearMatch && yearMatch.index < maxYearPosition;
+}
+function addUniqueReference(references, newRef, keyField = "originalText") {
+  if (!references.find((r) => r[keyField] === newRef[keyField])) {
+    references.push(newRef);
+    return true;
+  }
+  return false;
+}
+function reformatCitationLink(link, { author = "", year = "", isNarrative = false, trailing = "" }) {
+  if (!year) return;
+  if (isNarrative) {
+    if (author) {
+      const authorText = document.createTextNode(author + " ");
+      link.parentNode.insertBefore(authorText, link);
+    }
+    const openBracket = document.createTextNode("(");
+    link.parentNode.insertBefore(openBracket, link);
+    link.textContent = year;
+    const closeBracket = document.createTextNode(")");
+    link.parentNode.insertBefore(closeBracket, link.nextSibling);
+  } else {
+    if (author) {
+      const authorText = document.createTextNode(author);
+      link.parentNode.insertBefore(authorText, link);
+    }
+    link.textContent = year;
+    if (trailing) {
+      const trailingText = document.createTextNode(trailing);
+      link.parentNode.insertBefore(trailingText, link.nextSibling);
+    }
+  }
+}
+function cleanTFFootnoteContent(htmlContent) {
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = htmlContent;
+  tempDiv.querySelectorAll("span.ref-lnk").forEach((span) => {
+    while (span.firstChild) {
+      span.parentNode.insertBefore(span.firstChild, span);
+    }
+    span.remove();
+  });
+  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach((link) => {
+    link.querySelectorAll("span.off-screen").forEach((s) => s.remove());
+    link.removeAttribute("data-behaviour");
+    link.removeAttribute("data-ref-type");
+    link.removeAttribute("data-label");
+    link.removeAttribute("data-registered");
+    link.removeAttribute("href");
+  });
+  return tempDiv.innerHTML;
+}
+
 // resources/js/paste/utils/reference-headings.ts
 var REFERENCE_HEADINGS = [
   // English — reference lists
@@ -1591,6 +1749,18 @@ var GeneralProcessor = class extends BaseFormatProcessor {
     super("general");
   }
   /**
+   * Normalize, then dissolve LAYOUT tables (1990s-style page wrappers) so the
+   * document flow inside them is visible to footnote/reference extraction and
+   * splits into real nodes instead of one unsplittable table blob. Data tables
+   * are untouched — see isLayoutTable() in utils/transform-helpers.
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  normalize(dom) {
+    super.normalize(dom);
+    unwrapLayoutTables(dom);
+  }
+  /**
    * Extract footnotes using heuristic pattern matching
    * Looks for:
    * - <sup> tags with numeric content
@@ -2003,110 +2173,6 @@ var GeneralProcessor = class extends BaseFormatProcessor {
     console.log(`  - Wrapped loose inline elements at top level`);
   }
 };
-
-// resources/js/paste/utils/transform-helpers.ts
-function unwrapContainers(dom, additionalSelectors = "") {
-  const baseSelectors = "div, article, section, main, header, footer, aside, nav, button";
-  const selectors = additionalSelectors ? `${baseSelectors}, ${additionalSelectors}` : baseSelectors;
-  const containers = Array.from(dom.querySelectorAll(selectors));
-  containers.reverse().forEach((container) => {
-    wrapLooseNodes(container);
-    unwrap(container);
-  });
-  dom.querySelectorAll("font").forEach(unwrap);
-}
-function removeSectionsByHeading(dom, headingMatcher = isReferenceSectionHeading) {
-  const headings = dom.querySelectorAll("h1, h2, h3, h4, h5, h6");
-  let removedCount = 0;
-  headings.forEach((heading) => {
-    if (headingMatcher(heading.textContent.trim())) {
-      let nextElement = heading.nextElementSibling;
-      heading.remove();
-      removedCount++;
-      while (nextElement) {
-        const next = nextElement.nextElementSibling;
-        if (nextElement.tagName && /^H[1-6]$/.test(nextElement.tagName)) {
-          break;
-        }
-        nextElement.remove();
-        nextElement = next;
-      }
-    }
-  });
-  return removedCount;
-}
-function removeStaticContentElements(dom) {
-  const staticElements = dom.querySelectorAll("[data-static-content]");
-  const count = staticElements.length;
-  staticElements.forEach((el) => el.remove());
-  return count;
-}
-function cloneAndClean(element, selectorsToRemove = []) {
-  const clone = element.cloneNode(true);
-  clone.querySelectorAll("[style]").forEach((el) => el.removeAttribute("style"));
-  if (selectorsToRemove.length > 0) {
-    clone.querySelectorAll(selectorsToRemove.join(", ")).forEach((el) => el.remove());
-  }
-  return clone;
-}
-function isValidReference(text, options = {}) {
-  const { minLength = 20, maxYearPosition = 150 } = options;
-  if (!text || text.length < minLength) {
-    return false;
-  }
-  const yearMatch = text.match(/\d{4}[a-z]?/);
-  return yearMatch && yearMatch.index < maxYearPosition;
-}
-function addUniqueReference(references, newRef, keyField = "originalText") {
-  if (!references.find((r) => r[keyField] === newRef[keyField])) {
-    references.push(newRef);
-    return true;
-  }
-  return false;
-}
-function reformatCitationLink(link, { author = "", year = "", isNarrative = false, trailing = "" }) {
-  if (!year) return;
-  if (isNarrative) {
-    if (author) {
-      const authorText = document.createTextNode(author + " ");
-      link.parentNode.insertBefore(authorText, link);
-    }
-    const openBracket = document.createTextNode("(");
-    link.parentNode.insertBefore(openBracket, link);
-    link.textContent = year;
-    const closeBracket = document.createTextNode(")");
-    link.parentNode.insertBefore(closeBracket, link.nextSibling);
-  } else {
-    if (author) {
-      const authorText = document.createTextNode(author);
-      link.parentNode.insertBefore(authorText, link);
-    }
-    link.textContent = year;
-    if (trailing) {
-      const trailingText = document.createTextNode(trailing);
-      link.parentNode.insertBefore(trailingText, link.nextSibling);
-    }
-  }
-}
-function cleanTFFootnoteContent(htmlContent) {
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = htmlContent;
-  tempDiv.querySelectorAll("span.ref-lnk").forEach((span) => {
-    while (span.firstChild) {
-      span.parentNode.insertBefore(span.firstChild, span);
-    }
-    span.remove();
-  });
-  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach((link) => {
-    link.querySelectorAll("span.off-screen").forEach((s) => s.remove());
-    link.removeAttribute("data-behaviour");
-    link.removeAttribute("data-ref-type");
-    link.removeAttribute("data-label");
-    link.removeAttribute("data-registered");
-    link.removeAttribute("href");
-  });
-  return tempDiv.innerHTML;
-}
 
 // resources/js/paste/format-processors/cambridge-processor.ts
 var CambridgeProcessor = class extends BaseFormatProcessor {
@@ -4561,6 +4627,21 @@ var BristolUPProcessor = class extends BaseFormatProcessor {
       ["id", "onclick", "target", "title", "data-popover-anchor"].forEach((attr) => link.removeAttribute(attr));
       link.removeAttribute("style");
     });
+  }
+  /**
+   * The hidden structured-citation duplicate and the export chrome must go in BOTH
+   * lanes. The full pipeline strips them in transformStructure, but small pastes run
+   * processLite (normalize + cleanup only) — so cleanup is the only stage that reaches
+   * them there. Without this, every small paste of a reference carried its
+   * `ul.citationActions` ("Search Google Scholar / Export Citation") into the book
+   * (integrity report book_1788217034868, 2026-08-31). Runs BEFORE super.cleanup():
+   * stripAttributes removes class attributes, after which these selectors match nothing.
+   */
+  cleanup(dom) {
+    dom.querySelectorAll(
+      ".citationActions, .debug, a.googleScholar, a.exportCitation, .c-IconButton, button"
+    ).forEach((el) => el.remove());
+    super.cleanup(dom);
   }
   /**
    * The article's front matter — title, authors, affiliation, abstract, keywords — sits OUTSIDE

@@ -18,7 +18,15 @@ import {
   batchUpdateIndexedDBRecords,
 } from "../../indexedDB/index";
 import { asLineId } from "../../utilities/idHelpers";
+import { BLOCK_ELEMENT_SELECTOR } from "../../utilities/blockElements";
 import type { BlockCommandContext } from "./types";
+
+// A blockquote may legally hold block children (a <ul>, a nested <p>); a <p>
+// may NOT — `<p><ul>…</ul></p>` survives in the live DOM but collapses to an
+// EMPTY node on its next parse (the invalid-nesting data-loss class; integrity
+// report book_1788217034868). Unwrapping such a blockquote must land in a
+// <div> instead. `li` added: not in the block set but just as illegal in a <p>.
+const P_ILLEGAL_CHILD_SELECTOR = `${BLOCK_ELEMENT_SELECTOR}, li`;
 
 // Both helpers MOVE the live child nodes into the new element \u2014 never rebuild
 // via innerHTML re-parse. Re-parsing cloned every child (hypercite <u>/<a>,
@@ -52,9 +60,12 @@ export function _contentPreservingWrap(self: BlockCommandContext, element: Eleme
   }
 
 export function _contentPreservingUnwrap(self: BlockCommandContext, element: Element, type: 'blockquote' | 'code'): HTMLElement {
-    const p = document.createElement("p");
-
     const source: Element = type === "code" ? (element.querySelector("code") ?? element) : element;
+
+    // Block children can't move into a <p> (see P_ILLEGAL_CHILD_SELECTOR above).
+    const p = document.createElement(
+      source.querySelector(P_ILLEGAL_CHILD_SELECTOR) ? "div" : "p"
+    );
     if (type === "blockquote" && source.lastChild && source.lastChild.nodeName === "BR") {
       source.lastChild.remove(); // strip the wrap-convention trailing <br>
     }

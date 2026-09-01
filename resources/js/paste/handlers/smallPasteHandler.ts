@@ -389,10 +389,14 @@ function _blockPaste(currentBlock: any, html: any, book: any, undoManager: any, 
   const leadingInlines: any[] = [];
   const blockNodes: any[] = [];
   for (const child of Array.from<any>(tempContainer.childNodes)) {
+    // "Inline" must be a DEEP check: an inline wrapper CONTAINING a block
+    // (e.g. <span><ul>…</ul></span>) merged into a <p> is the invalid-nesting
+    // data-loss shape described at the top of this file.
     if (blockNodes.length === 0 &&
         (child.nodeType === Node.TEXT_NODE ||
          (child.nodeType === Node.ELEMENT_NODE &&
-          !child.matches(BLOCK_ELEMENT_SELECTOR)))) {
+          !child.matches(BLOCK_ELEMENT_SELECTOR) &&
+          !child.querySelector(BLOCK_ELEMENT_SELECTOR)))) {
       leadingInlines.push(child);
     } else {
       blockNodes.push(child);
@@ -449,8 +453,12 @@ function _blockPaste(currentBlock: any, html: any, book: any, undoManager: any, 
     } else {
       // Skip whitespace-only text nodes
       if (blockNode.nodeType === Node.TEXT_NODE && !blockNode.textContent.trim()) continue;
-      // Wrap inline/text content in a <p>
-      const p = document.createElement('p');
+      // Wrap inline/text content in a <p> — unless it carries a block
+      // descendant (inline wrapper around a <ul>/<table>): a <p> holding block
+      // content is the silent-data-loss shape, so those get a <div>.
+      const hasBlockDescendant = blockNode.nodeType === Node.ELEMENT_NODE &&
+        blockNode.querySelector(BLOCK_ELEMENT_SELECTOR) !== null;
+      const p = document.createElement(hasBlockDescendant ? 'div' : 'p');
       p.appendChild(blockNode);
       elementToInsert = p;
     }

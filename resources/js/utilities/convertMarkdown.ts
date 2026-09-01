@@ -243,8 +243,17 @@ export function parseInlineMarkdown(text: any) {
 
 // A stored node whose ROOT is a text container opening straight onto an <li>.
 // Anchored deliberately: only the "wrapper holds nothing but list items" shape
-// is repairable, mixed content (`<p>text<li>…`) is left alone.
+// is rewritten to a <ul>; anything else falls through to the <p>-root repair below.
 const ORPHAN_LI_ROOT = /^(\s*)<(p|h[1-6]|blockquote|div)((?:\s[^>]*)?)>(\s*<li[\s>][\s\S]*)$/i;
+
+// A stored node whose ROOT is a <p> holding block-level content. The parser's
+// "a block start tag closes an open <p>" rule means NONE of these survive a
+// re-parse: `<p id="1400"><ul>…</ul></p>` comes back as an EMPTY <p> with the
+// list ejected as an id-less sibling (integrity report book_1788217034868,
+// 2026-08-31 — "DOM 36 chars, IDB 0 chars"). Only <p> is affected: headings
+// and blockquotes don't auto-close on these tags, so their content survives.
+const P_ROOT = /^(\s*)<p((?:\s[^>]*)?)>([\s\S]*)<\/p>(\s*)$/i;
+const P_CLOSING_BLOCK_CHILD = /<(?:p|h[1-6]|ul|ol|li|dl|table|blockquote|pre|div|hr|figure)[\s/>]/i;
 
 /**
  * Repair stored content whose root element wraps <li> children.
@@ -262,15 +271,29 @@ const ORPHAN_LI_ROOT = /^(\s*)<(p|h[1-6]|blockquote|div)((?:\s[^>]*)?)>(\s*<li[\
  * only becomes data loss at the moment the stored string is parsed.
  */
 export function repairListNodeContent(content: string): string {
-  const match = content ? ORPHAN_LI_ROOT.exec(content) : null;
-  if (!match) return content;
+  if (!content) return content;
 
-  const [, lead, tag, attrs, body] = match;
-  const closingTag = new RegExp(`</${tag}>\\s*$`, 'i');
-  // No matching close = not a single well-formed root; don't guess.
-  if (!closingTag.test(body!)) return content;
+  const match = ORPHAN_LI_ROOT.exec(content);
+  if (match) {
+    const [, lead, tag, attrs, body] = match;
+    const closingTag = new RegExp(`</${tag}>\\s*$`, 'i');
+    // A matching close = a single well-formed root we can safely re-tag.
+    if (closingTag.test(body!)) {
+      return `${lead}<ul${attrs}>${body!.replace(closingTag, '')}</ul>`;
+    }
+  }
 
-  return `${lead}<ul${attrs}>${body!.replace(closingTag, '')}</ul>`;
+  // <p> root wrapping block content: re-tag the wrapper to a <div> (a legal
+  // container for anything), keeping id/data-node-id and EVERY child — text
+  // before/after the block included — exactly where they were. The inner
+  // `</p>` guard skips multi-root strings (a legal <p> cannot nest another
+  // <p>, so an inner close tag means this isn't one node); don't guess there.
+  const pRoot = P_ROOT.exec(content);
+  if (pRoot && !/<\/p>/i.test(pRoot[3]!) && P_CLOSING_BLOCK_CHILD.test(pRoot[3]!)) {
+    return `${pRoot[1]}<div${pRoot[2]}>${pRoot[3]}</div>${pRoot[4]}`;
+  }
+
+  return content;
 }
 
 /**

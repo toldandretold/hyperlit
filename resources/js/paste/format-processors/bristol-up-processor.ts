@@ -181,6 +181,22 @@ export class BristolUPProcessor extends BaseFormatProcessor {
   }
 
   /**
+   * The hidden structured-citation duplicate and the export chrome must go in BOTH
+   * lanes. The full pipeline strips them in transformStructure, but small pastes run
+   * processLite (normalize + cleanup only) — so cleanup is the only stage that reaches
+   * them there. Without this, every small paste of a reference carried its
+   * `ul.citationActions` ("Search Google Scholar / Export Citation") into the book
+   * (integrity report book_1788217034868, 2026-08-31). Runs BEFORE super.cleanup():
+   * stripAttributes removes class attributes, after which these selectors match nothing.
+   */
+  cleanup(dom: HTMLElement): void {
+    dom.querySelectorAll(
+      '.citationActions, .debug, a.googleScholar, a.exportCitation, .c-IconButton, button',
+    ).forEach((el) => el.remove());
+    super.cleanup(dom);
+  }
+
+  /**
    * The article's front matter — title, authors, affiliation, abstract, keywords — sits OUTSIDE
    * `#articleBody`, in the page's metadata card ABOVE it. Scoping to the body therefore threw all
    * of it away and the book opened cold on "Key messages" (the PDF lane, which sees the printed

@@ -295,6 +295,20 @@ const BASELINES = [
     footnoteMarkers: 54,
   },
   {
+    // Real capture, prod case book_1788218867015 (cs.brown.edu memex, 1999 ACM
+    // article). The page layout is ONE <table width="500"> — a spacer cell plus
+    // a cell holding the entire document — so the whole ~100KB article used to
+    // land as a single unsplittable table node. Locks the layout-table escape:
+    // GeneralProcessor.normalize() dissolves layout tables (data tables are
+    // kept — see generalProcessor.layoutTable.test.js for the discrimination).
+    file: 'web-xanadu-layout-table.html',
+    format: 'general',
+    footnotes: 0,
+    references: 2, // the ACM copyright/permission block parses as 2 entries
+    inTextCitations: 0,
+    footnoteMarkers: 0,
+  },
+  {
     file: 'substack.html',
     format: 'substack',
     footnotes: 35, // .footnote-content divs (bare footnote-anchor-N id format)

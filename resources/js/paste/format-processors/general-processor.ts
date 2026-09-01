@@ -6,6 +6,7 @@
 
 import { BaseFormatProcessor } from './base-processor';
 import { wrapLooseNodes, unwrap } from '../utils/dom-utils';
+import { unwrapLayoutTables } from '../utils/transform-helpers';
 import { isReferenceHeading } from '../utils/reference-headings';
 import { collectReferenceRun, hasEarlyYear, isReferenceShaped } from '../utils/reference-detection';
 import {
@@ -19,6 +20,19 @@ export class GeneralProcessor extends BaseFormatProcessor {
   [key: string]: any;
   constructor() {
     super('general');
+  }
+
+  /**
+   * Normalize, then dissolve LAYOUT tables (1990s-style page wrappers) so the
+   * document flow inside them is visible to footnote/reference extraction and
+   * splits into real nodes instead of one unsplittable table blob. Data tables
+   * are untouched — see isLayoutTable() in utils/transform-helpers.
+   *
+   * @param {HTMLElement} dom - DOM element
+   */
+  normalize(dom: HTMLElement) {
+    super.normalize(dom);
+    unwrapLayoutTables(dom);
   }
 
   /**

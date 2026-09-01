@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1793 functions in 377 modules · 10 object stores · 10 PG tables · 3679 edges
+**MarkdownDB** schema v28 · 1797 functions in 377 modules · 10 object stores · 10 PG tables · 3687 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1327,6 +1327,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BaseFormatProcessor.processLite` | `paste/format-processors/base-processor` | — | — | — | — |
 | `BaseFormatProcessor.transformStructure` | `paste/format-processors/base-processor` | — | — | — | — |
 | `BristolUPProcessor.buildArticleHeader` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
+| `BristolUPProcessor.cleanup` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
 | `BristolUPProcessor.constructor` | `paste/format-processors/bristol-up-processor` | — | — | — | — |
 | `BristolUPProcessor.extractFootnotes` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
 | `BristolUPProcessor.extractReferences` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
@@ -1348,6 +1349,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `GeneralProcessor.findReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.hasReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.looksLikeArtifactHeading` | `paste/format-processors/general-processor` | — | — | — | — |
+| `GeneralProcessor.normalize` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.stripLeadingBracketNumber` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.transformStructure` | `paste/format-processors/general-processor` | — | — | read | — |
 | `MitPressProcessor.constructor` | `paste/format-processors/mit-press-processor` | — | — | — | — |
@@ -1476,11 +1478,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `addUniqueReference` | `paste/utils/transform-helpers` | — | — | — | — |
 | `cleanTFFootnoteContent` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `cloneAndClean` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `isLayoutTable` | `paste/utils/transform-helpers` | — | — | read | — |
 | `isValidReference` | `paste/utils/transform-helpers` | — | — | — | — |
 | `reformatCitationLink` | `paste/utils/transform-helpers` | — | — | write | — |
 | `removeSectionsByHeading` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `removeStaticContentElements` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `unwrapContainers` | `paste/utils/transform-helpers` | — | — | read | — |
+| `unwrapLayoutTables` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `detectAndConvertUrls` | `paste/utils/url-detector` | — | — | — | — |
 | `escapeHtml` | `paste/utils/url-detector` | — | — | write | — |
 | `detectYouTubeTranscript` | `paste/utils/youtube-helpers` | — | — | — | — |

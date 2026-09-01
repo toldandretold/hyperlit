@@ -7,6 +7,14 @@ import { book } from '../../app';
 import { ensureNodeHasValidId, setElementIds } from '../../utilities/idHelpers';
 import { queueNodeForSave } from '../editorState';
 import { verbose } from '../../utilities/logger';
+import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
+
+// A <p> may not contain block-level content: `<p><ul>…</ul></p>` survives in the
+// live DOM (moves never re-parse) but collapses to an EMPTY node on the next
+// parse — reload, DOMPurify, the integrity read-back (the invalid-nesting
+// data-loss class; report book_1788217034868). `li` is added because a bare
+// extracted <li> is just as illegal in a <p> and isn't in the block set.
+const P_ILLEGAL_CHILD_SELECTOR = `${BLOCK_ELEMENT_SELECTOR}, li`;
 
 /**
  * Helper: Check if element is in viewport
@@ -145,6 +153,16 @@ export function createAndInsertParagraph(blockElement: HTMLElement, chunkContain
     newParagraph.appendChild(br);
   }
 
+  // 3.5. The extracted fragment can carry block-level nodes (splitting a <div>,
+  // or a source block that already held a list). Those may not live inside a
+  // <p> — re-home everything in a <div> so the node survives its next parse.
+  let newBlock: HTMLElement = newParagraph;
+  if (newParagraph.querySelector(P_ILLEGAL_CHILD_SELECTOR)) {
+    const div = document.createElement('div');
+    while (newParagraph.firstChild) div.appendChild(newParagraph.firstChild);
+    newBlock = div;
+  }
+
   // 4. SIMPLIFIED AND UNIFIED ID GENERATION
   const container = blockElement.closest('.chunk') || blockElement.parentNode!;
 
@@ -156,18 +174,18 @@ export function createAndInsertParagraph(blockElement: HTMLElement, chunkContain
 
   // ALWAYS use setElementIds to set both id and data-node-id
   const nextElementId = nextElement ? nextElement.id : null;
-  setElementIds(newParagraph, blockElement.id, nextElementId, book);
+  setElementIds(newBlock, blockElement.id, nextElementId, book);
 
   // 5. Insert the paragraph at the correct position in the DOM
   if (blockElement.nextSibling) {
-    container.insertBefore(newParagraph, blockElement.nextSibling);
+    container.insertBefore(newBlock, blockElement.nextSibling);
   } else {
-    container.appendChild(newParagraph);
+    container.appendChild(newBlock);
   }
 
   // Always queue new paragraph for save — don't rely solely on MutationObserver,
   // which gets blocked during chunk overflow
-  queueNodeForSave(newParagraph.id, 'add');
+  queueNodeForSave(newBlock.id, 'add');
 
   // Check if renumbering was flagged during ID generation
   if ((window as any).__pendingRenumbering) {
@@ -184,13 +202,13 @@ export function createAndInsertParagraph(blockElement: HTMLElement, chunkContain
     (window as any).__pendingRenumbering = false;
   }
 
-  verbose.content(`Created new paragraph with ID ${newParagraph.id} after ${blockElement.id}`, 'divEditor/enterKeyHandler.js');
+  verbose.content(`Created new paragraph with ID ${newBlock.id} after ${blockElement.id}`, 'divEditor/enterKeyHandler.js');
 
   // 6. Move cursor and scroll
-  const target = newParagraph.firstChild?.nodeType === Node.TEXT_NODE
-    ? newParagraph.firstChild
-    : newParagraph;
+  const target = newBlock.firstChild?.nodeType === Node.TEXT_NODE
+    ? newBlock.firstChild
+    : newBlock;
   moveCaretTo(target, 0);
 
-  return newParagraph;
+  return newBlock;
 }

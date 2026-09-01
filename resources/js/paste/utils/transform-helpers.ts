@@ -30,6 +30,116 @@ export function unwrapContainers(dom: any, additionalSelectors = '') {
   dom.querySelectorAll('font').forEach(unwrap);
 }
 
+// Markers that identify a table as a genuine DATA table — never unwrapped.
+const DATA_TABLE_MARKER_SELECTOR = 'th, thead, tfoot, caption, col, colgroup, td[headers]';
+
+// Block-level content inside a <td> means the cell holds document flow, not
+// tabular data — a data cell's content is inline by definition.
+const CELL_BLOCK_CONTENT_SELECTOR =
+  'p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table, figure, center, address, hr';
+
+/**
+ * Rows/cells belonging to THIS table/row only. Not table.rows / row.cells:
+ * jsdom leaks NESTED tables' rows and cells into those collections, which made
+ * the outer unwrap gut an inner data table's cells.
+ */
+function ownTableRows(table: HTMLTableElement): HTMLTableRowElement[] {
+  return Array.from(table.querySelectorAll('tr')).filter(
+    (row) => row.closest('table') === table,
+  ) as HTMLTableRowElement[];
+}
+
+function ownRowCells(row: HTMLTableRowElement): HTMLTableCellElement[] {
+  return Array.from(row.children).filter(
+    (el) => el.tagName === 'TD' || el.tagName === 'TH',
+  ) as HTMLTableCellElement[];
+}
+
+/**
+ * Decide whether a <table> is a LAYOUT table (a 1990s-style page-structure
+ * wrapper) rather than a data table. Layout tables get dissolved so their
+ * content splits into real nodes instead of one giant unsplittable table blob.
+ *
+ * Heuristics (Readability-style):
+ * - role="presentation"/"none" → layout, always.
+ * - Any data-table marker (th/thead/tfoot/caption/col/colgroup/summary/
+ *   td[headers]/role="grid|table") belonging to THIS table → data, keep.
+ * - A cell containing block elements (p, h1–h6, blockquote, …) → layout.
+ * - Single-column tables (every row ≤ 1 cell) → layout.
+ * - Single-row tables with one cell, or with a whitespace-only spacer cell → layout.
+ *
+ * Judges each table on its OWN rows/cells only, so nested tables are
+ * classified independently — a data table nested inside a layout wrapper
+ * survives.
+ *
+ * @param {HTMLTableElement} table - Table element to classify
+ * @returns {boolean} - True if the table is layout scaffolding
+ */
+export function isLayoutTable(table: HTMLTableElement): boolean {
+  const role = (table.getAttribute('role') || '').toLowerCase();
+  if (role === 'presentation' || role === 'none') return true;
+  if (role === 'grid' || role === 'table') return false;
+  if (table.hasAttribute('summary')) return false;
+
+  const hasOwnDataMarker = Array.from(
+    table.querySelectorAll(DATA_TABLE_MARKER_SELECTOR),
+  ).some((el) => el.closest('table') === table);
+  if (hasOwnDataMarker) return false;
+
+  const rows = ownTableRows(table);
+  if (rows.length === 0) return true;
+  const cells = rows.flatMap(ownRowCells);
+
+  if (cells.some((cell) => cell.querySelector(CELL_BLOCK_CONTENT_SELECTOR))) return true;
+  if (rows.every((row) => ownRowCells(row).length <= 1)) return true;
+  if (rows.length === 1) {
+    if (cells.length === 1) return true;
+    const isSpacerCell = (cell: HTMLTableCellElement) =>
+      !(cell.textContent || '').trim() && !cell.querySelector('img');
+    if (cells.some(isSpacerCell)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Dissolve layout tables in place: each cell's loose inline content is wrapped
+ * in <p>, then all cell children are promoted to where the table stood, in
+ * document order, and the table/tr/td scaffolding is removed. Data tables
+ * (per isLayoutTable) are left untouched.
+ *
+ * Processes innermost-first so nested layout tables dissolve before their
+ * parents are classified.
+ *
+ * @param {HTMLElement} dom - DOM element to process
+ * @returns {number} - Number of layout tables unwrapped
+ */
+export function unwrapLayoutTables(dom: Element): number {
+  const tables = Array.from(dom.querySelectorAll('table')).reverse();
+  let unwrapped = 0;
+
+  tables.forEach((table) => {
+    const t = table as HTMLTableElement;
+    if (!isLayoutTable(t)) return;
+
+    const parent = t.parentNode;
+    if (!parent) return;
+
+    for (const row of ownTableRows(t)) {
+      for (const cell of ownRowCells(row)) {
+        wrapLooseNodes(cell, t.ownerDocument);
+        while (cell.firstChild) {
+          parent.insertBefore(cell.firstChild, t);
+        }
+      }
+    }
+    t.remove();
+    unwrapped++;
+  });
+
+  return unwrapped;
+}
+
 /**
  * Remove sections from DOM based on heading text matching
  * Removes the heading and all following content until the next heading
