@@ -7,7 +7,7 @@
  * This pathway does NOT hide the overlay - NavigationManager handles that
  */
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
-import { getPageStructure, getBookIdFromUrl } from '../utils/structureDetection.js';
+import { getPageStructure, getBookIdFromUrl, nonBookPrefixStructure } from '../utils/structureDetection.js';
 import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
@@ -134,9 +134,11 @@ export class DifferentTemplateTransition {
 
     const pathSegments = path.split('/').filter(Boolean);
 
-    // /j/{slug} is a journal home page
-    if (pathSegments[0] === 'j' && pathSegments.length >= 2) {
-      return 'journal';
+    // Prefix pages: /j/{slug} and /a/{slug} are journal-structure hero
+    // pages, /u/{username} is a user page (shared classifier).
+    const prefixStructure = nonBookPrefixStructure(path);
+    if (prefixStructure) {
+      return prefixStructure;
     }
 
     // Check if it's a user page by path

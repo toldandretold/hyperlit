@@ -18,7 +18,7 @@ import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
 import { ProgressOverlayConductor } from './ProgressOverlayConductor.js';
 import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
 import { DifferentTemplateTransition} from './pathways/DifferentTemplateTransition.js';
-import { getPageStructure, areStructuresCompatible } from './utils/structureDetection.js';
+import { getPageStructure, areStructuresCompatible, nonBookPrefixStructure } from './utils/structureDetection.js';
 import { RevealGate } from './RevealGate';
 
 export class NavigationManager {
@@ -267,17 +267,13 @@ export class NavigationManager {
         return 'home';
       }
 
-      const pathSegments = path.split('/').filter(Boolean);
-
-      // /u/{username} is user page
-      if (pathSegments[0] === 'u' && pathSegments.length >= 2) {
-        return 'user';
-      }
-
-      // /j/{slug} is a journal home page (back-button into it must
-      // rebuild the journal hero, not try to load a book named 'j').
-      if (pathSegments[0] === 'j' && pathSegments.length >= 2) {
-        return 'journal';
+      // Prefix pages: /u/{username} is a user page; /j/{slug} and /a/{slug}
+      // are journal-structure hero pages (back-button into one must rebuild
+      // the hero, not try to load a book named 'j' or 'a'). Shared
+      // classifier — see structureDetection.nonBookPrefixStructure.
+      const prefixStructure = nonBookPrefixStructure(path);
+      if (prefixStructure) {
+        return prefixStructure;
       }
 
       // Everything else is reader (/{book}, /{book}/HL_xxx, etc.)

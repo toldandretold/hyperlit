@@ -17,6 +17,11 @@
  *
  * Precondition: the GSCJ pilot in the local registry with ≥1 readable
  * article; skips when the page 404s. Treat skips as gaps (CLAUDE.md).
+ *
+ * The tour runs TWICE: once for /j/{slug} and once for /a/{slug} — archive
+ * pages share the journal structure, and their URL classification regressed
+ * once (back rewrote /a/{slug} to /a). The archive variant resolves a live
+ * archive from the /a index and skips when none is certified.
  */
 import { test, expect } from '../../fixtures/navigation.fixture.js';
 import { verifyHomePage } from '../../helpers/pageVerifiers.js';
@@ -88,14 +93,14 @@ test('full-text search result opens the reader highlighted at the match', async 
   await expect(page.locator('#journal-search-results .search-result-match-link').first()).toBeVisible({ timeout: 10_000 });
 });
 
-test('journal ↔ reader ↔ home: SPA transitions + popstate back into /j/{slug}', async ({ page, spa }) => {
-  test.setTimeout(120_000);
-
-  // ── fresh load: journal structure, registry initialized for 'journal' ──
-  const response = await page.goto(JOURNAL_PATH);
-  test.skip(response.status() === 404, 'GSCJ not in this environment\'s registry — run: php artisan journal:sync-registry --issn=2752-3349');
-  await page.waitForLoadState('networkidle');
-
+/**
+ * The hero ↔ reader ↔ home tour, shared by the journal AND archive variants:
+ * /a/{slug} pages deliberately run the SAME 'journal' structure and component
+ * set, and their URLs must be classified identically (the archive launch bug:
+ * /a/{slug} was read as "a book named 'a'", and popstate replaceState'd the
+ * history entry down to /a — see structureDetection.nonBookPrefixStructure).
+ */
+async function heroSpaTour(page, spa, heroPath) {
   expect(await spa.getStructure(page)).toBe('journal');
   await spa.assertRegistryHealthy(page, 'journal');
 
@@ -113,14 +118,15 @@ test('journal ↔ reader ↔ home: SPA transitions + popstate back into /j/{slug
   // URL push is DifferentTemplateTransition's LAST step (after init) — poll.
   await expect
     .poll(() => page.evaluate(() => location.pathname), { timeout: 10_000 })
-    .not.toBe(JOURNAL_PATH);
+    .not.toBe(heroPath);
 
-  // ── browser BACK into /j/{slug}: the popstate → 'journal' rebuild ──
+  // ── browser BACK into the hero: the popstate → 'journal' rebuild. The
+  //    EXACT path must survive — the archive launch bug rewrote it to /a. ──
   await plantSentinel(page);
   await page.goBack();
   await expect
     .poll(() => page.evaluate(() => location.pathname), { timeout: 30_000 })
-    .toBe(JOURNAL_PATH);
+    .toBe(heroPath);
   await expect(page.locator('.journal-content-wrapper')).toBeAttached({ timeout: 30_000 });
   await awaitStructureSettled(page, spa, 'journal');
   expect(await sentinelSurvived(page)).toBe(true);
@@ -176,4 +182,30 @@ test('journal ↔ reader ↔ home: SPA transitions + popstate back into /j/{slug
   await awaitStructureSettled(page, spa, 'home');
   // the full home landing contract (lava alive, registry, drop target, …)
   await verifyHomePage(page, spa);
+}
+
+test('journal ↔ reader ↔ home: SPA transitions + popstate back into /j/{slug}', async ({ page, spa }) => {
+  test.setTimeout(120_000);
+
+  const response = await page.goto(JOURNAL_PATH);
+  test.skip(response.status() === 404, 'GSCJ not in this environment\'s registry — run: php artisan journal:sync-registry --issn=2752-3349');
+  await page.waitForLoadState('networkidle');
+
+  await heroSpaTour(page, spa, JOURNAL_PATH);
+});
+
+test('archive ↔ reader ↔ home: SPA transitions + popstate back into /a/{slug}', async ({ page, spa }) => {
+  test.setTimeout(120_000);
+
+  // Resolve a live archive from the /a index (certified + ≥1 readable doc)
+  // instead of hardcoding a slug. Skip when none — treat skips as gaps.
+  await page.goto('/a');
+  const firstArchive = page.locator('.jp-works a.jp-title').first();
+  const archivePath = (await firstArchive.count()) ? await firstArchive.getAttribute('href') : null;
+  test.skip(!archivePath, 'no certified archive with readable documents in this environment');
+
+  await page.goto(archivePath);
+  await page.waitForLoadState('networkidle');
+
+  await heroSpaTour(page, spa, archivePath);
 });

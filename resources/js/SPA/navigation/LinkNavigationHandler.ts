@@ -5,7 +5,7 @@
 import { NavigationManager } from './NavigationManager.js';
 import { registerNavActions } from './navigationRegistry';
 import { BookToBookTransition } from './pathways/BookToBookTransition.js';
-import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl } from './utils/structureDetection.js';
+import { getPageStructure, areStructuresCompatible, getSubdomain, getBookIdFromUrl, nonBookPrefixStructure } from './utils/structureDetection.js';
 import { log, verbose } from '../../utilities/logger';
 import { hideNavigationLoading, navigateToInternalId } from '../../scrolling/index';
 import { recordNavDecision } from '../../scrolling/scrollTrace';
@@ -187,11 +187,12 @@ export class LinkNavigationHandler {
     // Skip standalone non-SPA pages by path — /3d/* is the reserved namespace
     // for them (docuverse, harvest networks); they have no reader shell to
     // transition into, so even a same-tab click must be a full page load.
-    // The bare /j journal index is the same class (a standalone no-layout
-    // blade); /j/{slug} journal pages are NOT skipped — they SPA-route via
-    // the 'journal' structure.
+    // The bare /j journal index and /a archive index are the same class
+    // (standalone no-layout blades); /j/{slug} and /a/{slug} pages are NOT
+    // skipped — they SPA-route via the 'journal' structure.
     const isStandalonePage = linkUrl.pathname.startsWith('/3d/')
-      || linkUrl.pathname === '/j' || linkUrl.pathname === '/j/';
+      || linkUrl.pathname === '/j' || linkUrl.pathname === '/j/'
+      || linkUrl.pathname === '/a' || linkUrl.pathname === '/a/';
 
     // Skip the accessibility skip-to-content link (layout.blade.php): native
     // fragment navigation must handle it — routing it through SPA nav builds
@@ -583,8 +584,12 @@ export class LinkNavigationHandler {
     const structure = getPageStructure();
 
     if (path === '/') return structure === 'home';
+    // Prefix pages (/j/{slug}, /a/{slug}, /u/{username}) — shared classifier.
+    const prefixStructure = nonBookPrefixStructure(path);
+    if (prefixStructure) return structure === prefixStructure;
     const segs = path.split('/').filter(Boolean);
-    if (segs[0] === 'j') return structure === 'journal';
+    // Bare /j and /a indexes are standalone blades — never reconcile them.
+    if (segs[0] === 'j' || segs[0] === 'a') return true;
     if (segs[0] === 'u') return structure === 'user';
 
     // A single-segment (or deeper HL_/Fn_ cascade) content URL wants a reader
@@ -671,7 +676,18 @@ export class LinkNavigationHandler {
     // structure doesn't match the URL's target, force the cross-structure nav.
     const renderedStructure = getPageStructure();
     const urlWantsReader = !!urlBookId;
-    const structureMismatch = urlWantsReader && renderedStructure !== 'reader';
+    // The URL's implied structure, for non-book URLs: '/' wants home,
+    // /j|/a/{slug} want journal, /u/{username} wants user. Comparing it to the
+    // rendered structure (not just the reader case) is what makes back OUT of
+    // a journal/archive hero work: on those pages urlBookId AND the `book`
+    // global can both be null, so the book-comparison clause below never fires
+    // — previously /j only worked because extractBookSlugFromPath returned the
+    // garbage book id 'j', which this handler no longer produces.
+    const urlPrefixStructure = window.location.pathname === '/'
+      ? 'home'
+      : nonBookPrefixStructure(window.location.pathname);
+    const structureMismatch = (urlWantsReader && renderedStructure !== 'reader')
+      || (!!urlPrefixStructure && renderedStructure !== urlPrefixStructure);
     if (structureMismatch
         || (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug))) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
@@ -915,6 +931,14 @@ export class LinkNavigationHandler {
     // /u/{username} → extract username as book ID
     if (segments[0] === 'u' && segments.length >= 2) {
       return segments[1];
+    }
+
+    // Prefix pages (/j/{slug}, /a/{slug}) live outside book-URL space — the
+    // prefix letter is never a book id. Returning 'a' here once sent the
+    // popstate convergence loop through the reader pathway, which
+    // replaceState'd /a/{slug} down to /a.
+    if (nonBookPrefixStructure(path) === 'journal') {
+      return null;
     }
 
     // Standalone sub-book routes (e.g., /Accumulation/AIreview)

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1797,
+    "fnCount": 1799,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3687,
+    "edgeCount": 3694,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -15629,6 +15629,14 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleJournalToJournal",
+      "label": "SameTemplateTransition.handleJournalToJournal",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/pathways/SameTemplateTransition",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleReaderToReader",
       "label": "SameTemplateTransition.handleReaderToReader",
       "kind": "fn",
@@ -16103,6 +16111,14 @@
     {
       "id": "SPA/navigation/utils/structureDetection:getSubdomain",
       "label": "getSubdomain",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/utils/structureDetection",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "label": "nonBookPrefixStructure",
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/utils/structureDetection",
@@ -20874,6 +20890,7 @@
       "fnIds": [
         "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.execute",
         "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleHomeToHome",
+        "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleJournalToJournal",
         "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleReaderToReader",
         "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleUserToUser"
       ]
@@ -21005,7 +21022,8 @@
         "SPA/navigation/utils/structureDetection:areStructuresCompatible",
         "SPA/navigation/utils/structureDetection:getBookIdFromUrl",
         "SPA/navigation/utils/structureDetection:getPageStructure",
-        "SPA/navigation/utils/structureDetection:getSubdomain"
+        "SPA/navigation/utils/structureDetection:getSubdomain",
+        "SPA/navigation/utils/structureDetection:nonBookPrefixStructure"
       ]
     },
     {
@@ -33659,6 +33677,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/core:closeHyperlitContainer__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "hyperlitContainer/core:closeHyperlitContainer",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/core:closeHyperlitContainer__domwrite__dom",
       "source": "hyperlitContainer/core:closeHyperlitContainer",
       "target": "dom",
@@ -41602,6 +41626,12 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible__call__SPA/navigation/utils/structureDetection:areStructuresCompatible",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.areStructuresCompatible",
       "target": "SPA/navigation/utils/structureDetection:areStructuresCompatible",
@@ -41617,6 +41647,18 @@
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl__call__SPA/navigation/utils/structureDetection:getPageStructure",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
       "target": "SPA/navigation/utils/structureDetection:getPageStructure",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.domMatchesUrl",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.extractBookSlugFromPath__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.extractBookSlugFromPath",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
       "rel": "call"
     },
     {
@@ -41716,6 +41758,12 @@
       "target": "SPA/navigation/resolveTargetChunk:resolveTargetChunkId",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/NavigationManager:NavigationManager.navigateByStructure__call__SPA/navigation/utils/structureDetection:areStructuresCompatible",
@@ -41863,6 +41911,12 @@
       "source": "SPA/navigation/pathways/BookToBookTransition:BookToBookTransition.reuseShellForClientOnly",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.detectTargetStructure__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.detectTargetStructure",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.execute__call__SPA/domReadiness:waitForLayoutStabilization",
@@ -42740,6 +42794,12 @@
       "id": "SPA/navigation/utils/structureDetection:getBookIdFromUrl__call__SPA/navigation/utils/structureDetection:getSubdomain",
       "source": "SPA/navigation/utils/structureDetection:getBookIdFromUrl",
       "target": "SPA/navigation/utils/structureDetection:getSubdomain",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/utils/structureDetection:getBookIdFromUrl__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "source": "SPA/navigation/utils/structureDetection:getBookIdFromUrl",
+      "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
       "rel": "call"
     },
     {
@@ -47352,6 +47412,11 @@
     },
     {
       "source": "hyperlitContainer/core",
+      "target": "SPA/navigation/utils/structureDetection",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/core",
       "target": "footnotes/footnoteAnnotations",
       "kind": "lazy"
     },
@@ -49791,6 +49856,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 266
+    "lazyCount": 267
   }
 }

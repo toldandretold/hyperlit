@@ -38,6 +38,27 @@ export function getPageStructure() {
 }
 
 /**
+ * Structure implied by a reserved NON-BOOK path prefix, or null when the path
+ * is book-URL space. THE single source for prefix-page URL classification:
+ * every classifier (detectStructureFromUrl, domMatchesUrl, book-id
+ * extraction, container-close URL rewrites) consults this, so a new public
+ * prefix page is a one-line addition HERE — /a/nam-archive once classified as
+ * "a book named 'a'", and the popstate convergence loop replaceState'd the
+ * history entry down to /a.
+ *
+ * '/j' and '/a' pages run the journal component set, so their structure IS
+ * 'journal' (archive pages deliberately reuse it — see ArchivePageController).
+ */
+export function nonBookPrefixStructure(pathname: string): 'journal' | 'user' | null {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  const first = segments[0];
+  if (first === 'j' || first === 'a') return 'journal';
+  if (first === 'u') return 'user';
+  return null;
+}
+
+/**
  * Check if two structures are compatible for content-only transitions
  * Only exact same structures are compatible (home and user have different buttons)
  */
@@ -91,6 +112,12 @@ export function getBookIdFromUrl(url = window.location.href) {
   // /u/{username} → username is the book
   if (pathSegments[0] === 'u' && pathSegments.length >= 2) {
     return pathSegments[1];
+  }
+
+  // Prefix pages (/j/{slug}, /a/{slug}) live outside book-URL space —
+  // the prefix letter is never a book id.
+  if (nonBookPrefixStructure(path) === 'journal') {
+    return null;
   }
 
   // Standalone sub-book routes (e.g., /Accumulation/AIreview)

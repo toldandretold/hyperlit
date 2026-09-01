@@ -30,6 +30,9 @@ export class SameTemplateTransition {
         case 'user':
           return await this.handleUserToUser(options);
 
+        case 'journal':
+          return await this.handleJournalToJournal(options);
+
         default:
           throw new Error(`Unknown structure type: ${currentStructure}`);
       }
@@ -113,6 +116,26 @@ export class SameTemplateTransition {
     return await DifferentTemplateTransition.execute({
       fromStructure: 'user',
       toStructure: 'user',
+      targetUrl,
+      hash,
+      isPopstate,
+      progressCallback,
+    });
+  }
+
+  /**
+   * Handle journal→journal (incl. archive→archive — /a pages share the
+   * journal structure): full body replacement, like user→user — the hero,
+   * about copy and shelf tabs all change between scopes. Previously this fell
+   * through to "Unknown structure type: journal".
+   */
+  static async handleJournalToJournal(options: any = {}) {
+    const { targetUrl, hash = '', isPopstate = false, progressCallback } = options;
+
+    const { DifferentTemplateTransition } = await import('./DifferentTemplateTransition.js');
+    return await DifferentTemplateTransition.execute({
+      fromStructure: 'journal',
+      toStructure: 'journal',
       targetUrl,
       hash,
       isPopstate,

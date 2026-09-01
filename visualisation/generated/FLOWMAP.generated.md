@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1797 functions in 377 modules · 10 object stores · 10 PG tables · 3687 edges
+**MarkdownDB** schema v28 · 1799 functions in 377 modules · 10 object stores · 10 PG tables · 3694 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1745,6 +1745,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `NewBookTransition.waitForDOMStable` | `SPA/navigation/pathways/NewBookTransition` | — | — | — | — |
 | `SameTemplateTransition.execute` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
 | `SameTemplateTransition.handleHomeToHome` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
+| `SameTemplateTransition.handleJournalToJournal` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
 | `SameTemplateTransition.handleReaderToReader` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
 | `SameTemplateTransition.handleUserToUser` | `SPA/navigation/pathways/SameTemplateTransition` | — | — | — | — |
 | `ProgressOverlayConductor.createProgressCallback` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
@@ -1805,12 +1806,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getBookIdFromUrl` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
 | `getPageStructure` | `SPA/navigation/utils/structureDetection` | — | — | read | — |
 | `getSubdomain` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
+| `nonBookPrefixStructure` | `SPA/navigation/utils/structureDetection` | — | — | — | — |
 | `cleanupReaderView` | `SPA/viewManager` | — | — | — | — |
 | `universalPageInitializer` | `SPA/viewManager` | `sessionStorage` | `sessionStorage` | read | — |
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 266
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 267
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1967,6 +1969,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlitContainer/core`
 - `hyperlitContainer/contentTypes/hyperlightHandler` → `hyperlitContainer/subBookLoader`
 - `hyperlitContainer/contentTypes/hyperlightHandler` → `paste/index`
+- `hyperlitContainer/core` → `SPA/navigation/utils/structureDetection`
 - `hyperlitContainer/core` → `footnotes/footnoteAnnotations`
 - `hyperlitContainer/core` → `hyperlitContainer/brainQuery`
 - `hyperlitContainer/core` → `hyperlitContainer/containerListeners`

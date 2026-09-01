@@ -584,8 +584,16 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
           const pathSegments = currentUrl.pathname.split('/').filter(Boolean);
           const bookSlug = pathSegments[0] || '';
 
+          // Prefix pages (/j/{slug}, /a/{slug}) are not book URLs: bookSlug
+          // would be the prefix letter, and any slug starting with that letter
+          // (e.g. /a/algiers-docs) matches the startsWith(bookSlug) cascade
+          // heuristic below — the replaceState then rewrites the entry to
+          // /{renderedBook}, tearing the URL off the archive/journal page.
+          const { nonBookPrefixStructure } = await import('../SPA/navigation/utils/structureDetection');
+          const onPrefixPage = nonBookPrefixStructure(currentUrl.pathname) !== null;
+
           // Check if any path segments after the book slug are cascade segments (HL_, Fn, Fnref, etc.)
-          const hasCascadeSegments = pathSegments.slice(1).some((seg: any) =>
+          const hasCascadeSegments = !onPrefixPage && pathSegments.slice(1).some((seg: any) =>
             seg.startsWith('HL_') ||
             seg.includes('_Fn') ||
             /^Fn\d/.test(seg) ||
