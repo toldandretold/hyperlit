@@ -1,6 +1,17 @@
 {
   "linked_nodes": [],
   "node_count": 9,
+  "text_hashes": [
+    "ba22fea864",
+    "92e8ff410d",
+    "d795fbc280",
+    "0686dcfed2",
+    "18f2771721",
+    "88c7d29275",
+    "c0b2083b9d",
+    "98a5349cc5",
+    "6f1308c630"
+  ],
   "type_histogram": {
     "h1": 2,
     "h2": 2,

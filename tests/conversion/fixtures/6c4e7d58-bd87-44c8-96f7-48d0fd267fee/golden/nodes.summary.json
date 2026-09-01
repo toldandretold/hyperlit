@@ -1,0 +1,347 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        },
+        {
+          "id": "FN0003",
+          "marker": "3"
+        },
+        {
+          "id": "FN0004",
+          "marker": "4"
+        },
+        {
+          "id": "FN0005",
+          "marker": "5"
+        },
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0004",
+          "marker": "4"
+        }
+      ],
+      "i": 3,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 13,
+      "references": [
+        "adger2013",
+        "controversy2009",
+        "mehta2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 14,
+      "references": [
+        "ja2011",
+        "barros2012",
+        "ag2016",
+        "rl2010",
+        "srivastava2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 15,
+      "references": [
+        "change2016",
+        "barros2012",
+        "uncertainty1992",
+        "mehta1999",
+        "jg2008",
+        "refinement2001"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 16,
+      "references": [
+        "damodaran2020",
+        "rc2003",
+        "communities2016",
+        "leach2010",
+        "westley2011",
+        "ii2012"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 19,
+      "references": [
+        "societal2014",
+        "ii2012",
+        "adaptation2014",
+        "transformation2011",
+        "ii2012",
+        "planet2009",
+        "pelling2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 20,
+      "references": [
+        "transformation2011",
+        "pelling2014",
+        "scoones2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 23,
+      "references": [
+        "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 25,
+      "references": [
+        "anthropocene2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 27,
+      "references": [
+        "organizations1977",
+        "myeonggu2002",
+        "praxis1979",
+        "reexamined1992",
+        "sen1993",
+        "freedom2001"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 28,
+      "references": [
+        "praxis1979",
+        "giddens1989",
+        "turner1986"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 30,
+      "references": [
+        "brown2011",
+        "obrien2013",
+        "bj2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 31,
+      "references": [
+        "obrien2013",
+        "obrien2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 33,
+      "references": [
+        "mehta2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 34,
+      "references": [
+        "damodaran2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 36,
+      "references": [
+        "anthropocene2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 43,
+      "references": [
+        "societal2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 44,
+      "references": [
+        "adaptation2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 46,
+      "references": [
+        "atwood2020"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 113,
+  "text_hashes": [
+    "776e3d91eb",
+    "8bd4a4c990",
+    "e4b4b5e7f8",
+    "a56bcebfb2",
+    "4ca7b9663a",
+    "b83d5c9791",
+    "aa4c0c5ec7",
+    "30e914dabc",
+    "61255a94cd",
+    "921ae62a12",
+    "86d02573aa",
+    "2473e96bc6",
+    "1447a9e61e",
+    "8c543f9040",
+    "d059a51006",
+    "3642e4dcb2",
+    "d32547479c",
+    "0858981c2e",
+    "214d9247bb",
+    "8327796e8c",
+    "c09072de86",
+    "72eaa1d884",
+    "5a3aef786e",
+    "1fb2f64c96",
+    "e326ff6549",
+    "04e9e740ac",
+    "500945e6f3",
+    "e614fe03f8",
+    "d6096d5c5c",
+    "7fb337dbd9",
+    "3832b4d90a",
+    "3f4a1bb3fb",
+    "a73216db39",
+    "477ef4e186",
+    "2a62a6383e",
+    "e7c08e769f",
+    "62b5360ae5",
+    "f5788c5b8e",
+    "c8c2d7b763",
+    "88c7b757b3",
+    "ff98ea4182",
+    "2dbe353aca",
+    "e748779710",
+    "06455b30ad",
+    "854c0b3d57",
+    "6021bfde09",
+    "6ff171c667",
+    "93bccfec87",
+    "9449518a54",
+    "8ab0e2de0a",
+    "16e5425af7",
+    "ef9a30ccee",
+    "e6a500763b",
+    "79c5e8a4af",
+    "a04e8ed04d",
+    "0b0691f6fc",
+    "d41772299a",
+    "1df8432636",
+    "d4fb3d1f9e",
+    "6bd336c376",
+    "4b68c8343d",
+    "2746ef5e1a",
+    "f9f23e0e06",
+    "f8bb3a578a",
+    "e82df6670b",
+    "1fb0494d28",
+    "bd0a5c2a58",
+    "a5620583a4",
+    "4b9fc34129",
+    "5969d8ac71",
+    "391677e4b2",
+    "c22ba6ac19",
+    "8b4d41efa1",
+    "a18a34baa6",
+    "f02b7dea12",
+    "873aacdc8a",
+    "43138a1e71",
+    "c21a30f916",
+    "a0b38931ea",
+    "f602ee7c6a",
+    "a65b194bfe",
+    "bae3c3ed2c",
+    "11f91cf6c7",
+    "d60aceecf7",
+    "da1a4c2ff2",
+    "b4751269bc",
+    "6aa39b6db9",
+    "1046c84532",
+    "91c72de9a3",
+    "71d9e8816c",
+    "4f8b08e7a9",
+    "361c6040c5",
+    "0a3124c81a",
+    "8aa81a50f0",
+    "4812ec35de",
+    "f7ed31a32f",
+    "e1d2f9d938",
+    "a0f44048e7",
+    "cb45006b20",
+    "8e24b25504",
+    "7484e13a23",
+    "5ab0977a4b",
+    "372f3f5c95",
+    "a6d5a17a84",
+    "da7d08e2c1",
+    "09fb8dadc2",
+    "ec0c3b7663",
+    "fb686588a1",
+    "cd1f27349a",
+    "a13b3f54d0",
+    "468717735e",
+    "569e306a01",
+    "98464b81a7"
+  ],
+  "type_histogram": {
+    "a": 2,
+    "h1": 3,
+    "h2": 9,
+    "p": 99
+  }
+}

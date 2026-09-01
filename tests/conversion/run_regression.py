@@ -32,6 +32,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -339,6 +340,7 @@ def normalize_outputs(tmp_dir):
 
     type_hist = {}
     linked_nodes = []
+    text_hashes = []
     for i, node in enumerate(nodes):
         ntype = node.get('type', '?')
         type_hist[ntype] = type_hist.get(ntype, 0) + 1
@@ -352,11 +354,20 @@ def normalize_outputs(tmp_dir):
                               for f in node_fns if isinstance(f, dict)],
                 'references': node_refs,
             })
+        # Per-node TEXT fingerprint. The structural fields above cannot see a
+        # same-shape text mutation (a whitespace-normalising bug once mutated
+        # body text corpus-wide with every golden staying green). plainText is
+        # the product text; content (HTML) is the fallback for text-less nodes
+        # (images, latex blocks). Random Fn ids are remapped first so the hash
+        # is deterministic across runs.
+        text = node.get('plainText') or node.get('content') or ''
+        text_hashes.append(hashlib.sha1(remap(text).encode('utf-8')).hexdigest()[:10])
 
     summary = {
         'node_count': len(nodes),
         'type_histogram': dict(sorted(type_hist.items())),
         'linked_nodes': linked_nodes,
+        'text_hashes': text_hashes,
     }
 
     with open(os.path.join(tmp_dir, 'footnotes.normalized.jsonl'), 'w', encoding='utf-8') as f:

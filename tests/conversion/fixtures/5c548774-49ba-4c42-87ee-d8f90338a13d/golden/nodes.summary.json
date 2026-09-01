@@ -1,0 +1,906 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 52,
+      "references": [
+        "undp2007",
+        "magnan2016",
+        "work2018b",
+        "pearse2017",
+        "vincent2014",
+        "taylor2015",
+        "thomas2019b",
+        "ireland2013",
+        "shackleton2015",
+        "schipper2020b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 53,
+      "references": [
+        "kuhlmaanenscyphers2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 54,
+      "references": [
+        "pelling2011",
+        "pelling2015",
+        "park2012",
+        "bassett2013",
+        "obrien2018",
+        "tschakert2013",
+        "arorajonsson2011",
+        "eriksen2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 56,
+      "references": [
+        "pelling2011",
+        "wang2013",
+        "eriksen2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 60,
+      "references": [
+        "antwiagyei2017",
+        "juhola2015",
+        "magnan2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 62,
+      "references": [
+        "arturhilhorst2012",
+        "dasgupta2007",
+        "kita2019",
+        "ahlershadzovicruscaschwartz2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 63,
+      "references": [
+        "yates2012",
+        "nightingale2017",
+        "taylor2020",
+        "omukuti2020a",
+        "nelson2009",
+        "arturhilhorst2012",
+        "thomas2019b",
+        "camargo2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 64,
+      "references": [
+        "camargo2017",
+        "nagoda2017",
+        "mikulewicz2020a",
+        "chapman2016",
+        "mikulewicz2020a"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 65,
+      "references": [
+        "barrett2014",
+        "pakuthai2018",
+        "barrett2014",
+        "funds2009",
+        "arturhilhorst2012",
+        "dalywestyanda2016",
+        "taylor2020",
+        "murtinho2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 66,
+      "references": [
+        "mikulewicz2020a",
+        "pelling2015",
+        "nagoda2017",
+        "buggy2016",
+        "karlssonnaessnightingalethompson2017",
+        "karlssonnaessnightingalethompson2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 67,
+      "references": [
+        "peters2019",
+        "levine2014",
+        "matthew2014",
+        "schilling2017",
+        "ide2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 68,
+      "references": [
+        "corbera2017",
+        "nightingale2017",
+        "work2018b",
+        "arsanomilman2013",
+        "arsanomilman2013",
+        "valle2013",
+        "decobert2020",
+        "dodmanmitlin2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 69,
+      "references": [
+        "taylor2015",
+        "tschakert2016",
+        "wilson2012",
+        "eriksen2015",
+        "ahlborg2018",
+        "nightingale2017",
+        "mosse2010",
+        "taylor2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 70,
+      "references": [
+        "nightingale2017",
+        "atteridge2018",
+        "levine2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 72,
+      "references": [
+        "atteridge2018",
+        "thomas2019b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 73,
+      "references": [
+        "beckman2011",
+        "donner2014",
+        "ferdous2020",
+        "thomas2019b",
+        "atteridge2018",
+        "warner2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 75,
+      "references": [
+        "ipcc2018"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 76,
+      "references": [
+        "burby2006",
+        "magnan2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 77,
+      "references": [
+        "ojwang2017",
+        "antwiagyei2017",
+        "dilling2015",
+        "mikulewicztaylor2020",
+        "juhola2015",
+        "levin2012",
+        "ipcc2018",
+        "unep2017",
+        "mehta2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 78,
+      "references": [
+        "murtinho2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 79,
+      "references": [
+        "abbink2014",
+        "haji2016",
+        "arnall2014",
+        "arturhilhorst2012",
+        "kothari2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 80,
+      "references": [
+        "wilson2012",
+        "bergius2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 84,
+      "references": [
+        "taylor2015",
+        "bassett2013",
+        "tschakert2013",
+        "morchain2015",
+        "remling2014b",
+        "fund2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 85,
+      "references": [
+        "ojwang2017",
+        "mikulewicz2020",
+        "mikulewicztaylor2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 86,
+      "references": [
+        "horstmann2011",
+        "remling2014b",
+        "dalywestyanda2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 87,
+      "references": [
+        "kaika2017",
+        "argyris1978"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 88,
+      "references": [
+        "dilling2019",
+        "andersonbarrettbrooksnebsuquadrianto2019",
+        "brooks2019",
+        "moser2014",
+        "eriksen2007",
+        "brooks2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 89,
+      "references": [
+        "atteridge2018",
+        "bours2013",
+        "brooks2019"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 91,
+      "references": [
+        "forsyth2018b",
+        "tschakert2013",
+        "taylor2015",
+        "nightingale2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 92,
+      "references": [
+        "omukuti2020b",
+        "khatri2018",
+        "mikulewicz2020",
+        "nightingale2017",
+        "mosbergnyukurinæss1968",
+        "khatri2018",
+        "mcnamara2020",
+        "omukuti2020b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 93,
+      "references": [
+        "tschakert2016",
+        "nagoda2017",
+        "regmi2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 97,
+      "references": [
+        "huftyjamaliscovillesimonds2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 98,
+      "references": [
+        "adam2014",
+        "adam2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 99,
+      "references": [
+        "burton2004",
+        "dilling2015",
+        "ojwang2017",
+        "eriksen2015",
+        "brooks2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 100,
+      "references": [
+        "stadelmann2011",
+        "brooks2019",
+        "davisjohnsonschipperthomallavulturius2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 103,
+      "references": [
+        "westengen2018",
+        "bruun2018",
+        "mikulewicz2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 104,
+      "references": [
+        "arsanomilman2013",
+        "sanderson1990",
+        "olroyd1983",
+        "cooper1997",
+        "balakrishan2003",
+        "cooper1997",
+        "balakrishan2003",
+        "brooks2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 105,
+      "references": [
+        "mikulewicz2020a",
+        "webber2017",
+        "kuper2006",
+        "jones2009",
+        "brooks2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 107,
+      "references": [
+        "ahlborg2018",
+        "arorajonsson2016",
+        "schilling2017",
+        "huftyjamaliscovillesimonds2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 109,
+      "references": [
+        "ludi2014",
+        "ojha2019",
+        "jasanoff2003"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 110,
+      "references": [
+        "klenk2017",
+        "goldman2018",
+        "boydbrowneriksenforsythharveyjoneskerrmehtanaessnewshamnightingaleockwellpellingsconnestannertaylorwhitfield2019",
+        "mikulewicz2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 111,
+      "references": [
+        "tschakert2016",
+        "ziervogel2016",
+        "tran2020",
+        "klenk2017",
+        "ziervogel2017",
+        "taylor2015",
+        "eriksen2015",
+        "nightingale2017",
+        "kaika2017",
+        "mees2014",
+        "goldman2018",
+        "ojha2019",
+        "forsyth2018b",
+        "klenk2017",
+        "mikulewicztaylor2020",
+        "ziervogel2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 112,
+      "references": [
+        "lade2017",
+        "arifeen2020",
+        "titz2018",
+        "nightingale2017",
+        "carr2016",
+        "raybennett2009"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 113,
+      "references": [
+        "figueiredo2012",
+        "tschakert2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 115,
+      "references": [
+        "huftyjamaliscovillesimonds2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 116,
+      "references": [
+        "symons2014",
+        "vermeulen2018"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 117,
+      "references": [
+        "denton2014",
+        "lade2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 118,
+      "references": [
+        "tschakert2016",
+        "matin2018",
+        "ojha2019",
+        "eyben2005",
+        "mackinnon2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 119,
+      "references": [
+        "mikulewicz2020a",
+        "mikulewicz2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 120,
+      "references": [
+        "pelling2011",
+        "ipcc2018",
+        "brooks2019",
+        "obrien2018",
+        "brooks2020"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 123,
+      "references": [
+        "thomas2019b",
+        "antwiagyei2017",
+        "juhola2015",
+        "magnan2016",
+        "work2018b"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 124,
+      "references": [
+        "ferguson1990",
+        "escobar1995",
+        "ireland2013",
+        "sultana2019",
+        "pelling2011",
+        "denton2014",
+        "obrien2018",
+        "blythe2018",
+        "blythe2018",
+        "ireland2013",
+        "mikulewicztaylor2020",
+        "webber2016"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 285,
+  "text_hashes": [
+    "2bce87342c",
+    "4814742a95",
+    "2d3ddb7a35",
+    "8bef67cc7e",
+    "f21a0d26be",
+    "9036677ad0",
+    "d86b27c88d",
+    "4a7e327b2e",
+    "baf5dfa03b",
+    "e7bb71f83a",
+    "e7e8fa6d0a",
+    "5f4e408eda",
+    "b53490f462",
+    "03d1865a02",
+    "3ca97145c3",
+    "df37688120",
+    "1c38366f4c",
+    "367c012382",
+    "be32d4d20e",
+    "ec0c3b7663",
+    "10d89b7bda",
+    "0e91579af0",
+    "cd30574d45",
+    "94c76cadc3",
+    "8a2a5e3b64",
+    "90e30861b1",
+    "5a4b5a6b03",
+    "3b65cd4037",
+    "0138f4f691",
+    "fd5b5c821a",
+    "4ce713dcf3",
+    "f6f3c7c4f1",
+    "1b5b05e056",
+    "5c30df372a",
+    "60557b9cd3",
+    "b747f3ac3a",
+    "2d84ed07ad",
+    "2a9601f5c9",
+    "14163d47ec",
+    "37ff35719c",
+    "5b2a8de570",
+    "a4986fae8b",
+    "bd97c9259d",
+    "af65857da2",
+    "e4b42bc05a",
+    "f246cbb272",
+    "5acb6a3054",
+    "e29c6cbd18",
+    "b452430d10",
+    "da61f7cc1b",
+    "1a862ef6b6",
+    "26aadca968",
+    "b14e2f2cbb",
+    "b130caf4df",
+    "e6bd7515ca",
+    "6c5ac7e4d0",
+    "2adf96d024",
+    "dfb64b2ec5",
+    "200a2d9898",
+    "dfb0ddedcb",
+    "2695a2bb31",
+    "0eb3d4d1fb",
+    "babde076e5",
+    "ed5a1f46a6",
+    "039785592e",
+    "f52b5ed816",
+    "986053502f",
+    "09493e2163",
+    "38a179fe8a",
+    "a690438acd",
+    "4223188526",
+    "eaf179eb3c",
+    "735b024b08",
+    "e583d85d57",
+    "623fca92ea",
+    "0179ad67a2",
+    "62594fc3b4",
+    "08d59fe125",
+    "7cf0e60e60",
+    "d71d2b3395",
+    "949cc7014c",
+    "a4039484e9",
+    "32dbb97e31",
+    "b2c3d9d516",
+    "ea3c0da9da",
+    "3863e9e88f",
+    "457dca04c0",
+    "4bd4607269",
+    "9fe681cf3d",
+    "68ae625257",
+    "d369b0719d",
+    "22a5288cfd",
+    "0bc9fff500",
+    "d7db20e4c7",
+    "3baa66f73d",
+    "6f2a72d0a2",
+    "ebc1c90524",
+    "cce357429c",
+    "563e002ba5",
+    "a6c1d35c82",
+    "24093f34fd",
+    "c9d2e1b8fd",
+    "fd4bf5579f",
+    "76f1419600",
+    "bcb975b2cc",
+    "04a7c96563",
+    "5823c23879",
+    "d4c6290e90",
+    "e85e0fd8fc",
+    "5744024d91",
+    "e109dc3feb",
+    "0eae0d0e9e",
+    "6c8755f75e",
+    "4fa59fb67d",
+    "60071ff60d",
+    "1857ffd793",
+    "88d00956d9",
+    "e93e85af6b",
+    "9a75cf9388",
+    "b6ff11f7b5",
+    "3aee127cf1",
+    "8cb31d7846",
+    "c48b8c7465",
+    "d9fc172eae",
+    "794f0cb123",
+    "d48fda24df",
+    "534ee3181e",
+    "23d89d4076",
+    "262c956280",
+    "ef4db7f77e",
+    "b0a16d60b3",
+    "b0ebcfe59f",
+    "c2dbbb6fcb",
+    "5d20d0fee3",
+    "9d0f996325",
+    "8fe0e9f2e9",
+    "23c2fa42b8",
+    "1e91535728",
+    "3cedbb6234",
+    "09c19c5d58",
+    "82b5282857",
+    "065a0cbb5c",
+    "79d0244283",
+    "45a8385887",
+    "bb8b19410e",
+    "545d8f62b9",
+    "60c9bea567",
+    "cc610cfef9",
+    "ffbb967190",
+    "0be210763f",
+    "177f61fb34",
+    "7a1dd1e27d",
+    "890d9c0aa3",
+    "830d4928fa",
+    "3ebf605a22",
+    "c8321f3ced",
+    "d2fa813e54",
+    "6dd11a8f0f",
+    "00f27771ab",
+    "e800418e2e",
+    "4e8bb4e6a4",
+    "9d8a35660a",
+    "a5b146bbef",
+    "3c994c9ea5",
+    "c6cdf506e5",
+    "5ba6da858a",
+    "e40eb6974c",
+    "e05ec0ad9a",
+    "08d60b291c",
+    "1a25bb8397",
+    "b0ebc237d1",
+    "d008e89875",
+    "8f5d38d940",
+    "ae5b9cca1c",
+    "2857cb7b94",
+    "8c1d6cd8b9",
+    "55d1ba6d01",
+    "14d344b264",
+    "8f3d478bf5",
+    "f44179c344",
+    "410bb8cba1",
+    "ff9d3c9f7d",
+    "6298f1a7d3",
+    "5bf9d23a20",
+    "72628c2a0d",
+    "dbf19473ac",
+    "febe772a49",
+    "69546d5aef",
+    "df2b473979",
+    "4bbcb847e8",
+    "feb4af7c98",
+    "353d716737",
+    "e484cdf2fa",
+    "831171477f",
+    "199b40045c",
+    "bb60c5a4fb",
+    "943638d97c",
+    "1c1b57510f",
+    "e0451dc0ee",
+    "7bbfe5f33d",
+    "d970d19c35",
+    "f3c5a21f32",
+    "687bac93e4",
+    "ea62d6af3f",
+    "baec4aa029",
+    "2458e02d40",
+    "e7774cba1b",
+    "634e9d3e1f",
+    "f573c9117b",
+    "3a389eba2e",
+    "0eada1afcd",
+    "9183f1c1d9",
+    "3b21a3ce86",
+    "e32e6ba13f",
+    "22dc0edf6e",
+    "2c21288453",
+    "b8321ea8b3",
+    "2fe625a4ec",
+    "9b8bbb3d02",
+    "5522c8abc0",
+    "b2e79ff43b",
+    "effaaf33c5",
+    "350b801c05",
+    "194b6bfdda",
+    "6a045b48b1",
+    "99d8ae9813",
+    "8d3e7f7076",
+    "fc3d4b7b99",
+    "33c191c3b5",
+    "84cb76a4a5",
+    "1f284c2512",
+    "e716137d0b",
+    "c9c3f62290",
+    "f9d2ab55bf",
+    "a1208a0a1d",
+    "0bf9fdc3ea",
+    "2154bde537",
+    "06fcfefac7",
+    "38feecb05b",
+    "06335529cc",
+    "12351800cb",
+    "f92005d3d8",
+    "6ffef598a2",
+    "fce3b3ec7e",
+    "445f00a1d8",
+    "3afe03c653",
+    "1229d464e5",
+    "dafb5dd07a",
+    "63b56e6ec3",
+    "cd31140734",
+    "45e58c789b",
+    "2825da6ce0",
+    "96c58c6c75",
+    "e6f4fdc360",
+    "6e70b9d05a",
+    "9f54120669",
+    "14d0258b70",
+    "3961510af3",
+    "bdae5dec26",
+    "abe294a741",
+    "2553d7d84d",
+    "897ee58af9",
+    "d2dcab77c1",
+    "ec89e66b93",
+    "372b1b27d5",
+    "c5552e81c4",
+    "091f0bfa7f",
+    "9ceed2dfcb",
+    "abc9286044",
+    "9ed6eff070",
+    "156a7f5a19",
+    "7464193ad0",
+    "6b92d28bce",
+    "2af85addfb",
+    "205b3dc047",
+    "eabb5bcc7c",
+    "a81d9096e9",
+    "9fabfd09df",
+    "00dfd2b684",
+    "2cf8c2c0d0",
+    "a0d1c1bcf9",
+    "6da27dc62e",
+    "b082917bff",
+    "b1a99204e3",
+    "d82fdaf747"
+  ],
+  "type_histogram": {
+    "a": 1,
+    "h1": 10,
+    "h2": 6,
+    "h3": 9,
+    "img": 3,
+    "p": 256
+  }
+}

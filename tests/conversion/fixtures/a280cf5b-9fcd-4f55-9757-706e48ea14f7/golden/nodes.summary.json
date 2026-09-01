@@ -1,0 +1,570 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 10,
+      "references": [
+        "ipcc2014b",
+        "feola2015",
+        "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 11,
+      "references": [
+        "ipcc2014b",
+        "feola2015",
+        "colloff2017",
+        "fazey2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 12,
+      "references": [
+        "few2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 13,
+      "references": [
+        "tanner2013",
+        "denton2014",
+        "feola2015",
+        "fazey2017"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 16,
+      "references": [
+        "st2013",
+        "feola2015",
+        "rw2012",
+        "denton2014",
+        "klein2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 17,
+      "references": [
+        "obrien2012",
+        "patterson2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 18,
+      "references": [
+        "klein2014",
+        "klein2014",
+        "se2012",
+        "dilling2015",
+        "folke2010"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 19,
+      "references": [
+        "rw2012",
+        "se2012",
+        "dowd2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 20,
+      "references": [
+        "pelling2011",
+        "obrien2012",
+        "st2013",
+        "sh2015",
+        "gillard2016",
+        "patterson2015",
+        "rickards2012",
+        "rippke2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 21,
+      "references": [
+        "wisner2004",
+        "ribot2011",
+        "godfreywood2016",
+        "obrien2014",
+        "sc2010",
+        "sharpe2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 22,
+      "references": [
+        "obrien2014",
+        "pelling2015",
+        "gillard2016",
+        "pelling2015",
+        "obrien2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 25,
+      "references": [
+        "obrien2014",
+        "chambers1983",
+        "greig2007",
+        "morchain2016",
+        "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 26,
+      "references": [
+        "brown2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 33,
+      "references": [
+        "obrien2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 34,
+      "references": [
+        "anguelovski2011",
+        "godden2013",
+        "colloff2017",
+        "se2012",
+        "fook2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 36,
+      "references": [
+        "bankoff2004",
+        "wisner2004",
+        "wn2006",
+        "schipper2006",
+        "sharpe2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 38,
+      "references": [
+        "folke2010",
+        "rw2012",
+        "klein2014",
+        "obrien2014",
+        "rw2012",
+        "klein2014",
+        "obrien2014",
+        "walker2004",
+        "se2012",
+        "denton2014",
+        "klein2014",
+        "pelling2015",
+        "obrien2014",
+        "denton2014",
+        "colloff2017",
+        "pelling2015",
+        "fook2015",
+        "obrien2014"
+      ],
+      "type": "table"
+    },
+    {
+      "footnotes": [],
+      "i": 39,
+      "references": [
+        "rw2012"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 41,
+      "references": [
+        "obrien2014",
+        "rw2012",
+        "klein2014",
+        "hp2012",
+        "mt2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 42,
+      "references": [
+        "wn2006",
+        "smit2006",
+        "eriksen2007",
+        "ribot2014",
+        "fook2015",
+        "oxfam2012",
+        "xu2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 43,
+      "references": [
+        "pelling2011",
+        "ribot2014",
+        "gillard2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 44,
+      "references": [
+        "budds2013",
+        "catley2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 45,
+      "references": [
+        "rochette2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 49,
+      "references": [
+        "tanner2013",
+        "walkerden2013"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 50,
+      "references": [
+        "international2010"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 52,
+      "references": [
+        "obrien2014",
+        "pelling2015",
+        "gillard2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 56,
+      "references": [
+        "feola2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 57,
+      "references": [
+        "rickards2012",
+        "pelling2015",
+        "mapfumo2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 58,
+      "references": [
+        "olsson2006",
+        "rw2012",
+        "dow2013",
+        "colloff2017",
+        "walker2004",
+        "rw2012",
+        "klein2014"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 60,
+      "references": [
+        "rippke2016",
+        "jones2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 61,
+      "references": [
+        "cjam2016",
+        "sikor2013",
+        "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 62,
+      "references": [
+        "ribot2014",
+        "arnall2015",
+        "gillard2016",
+        "obrien2012",
+        "st2013",
+        "pelling2015",
+        "fook2015",
+        "nagoda2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 63,
+      "references": [
+        "tribbia2008",
+        "patterson2015",
+        "nalau2015",
+        "sh2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 64,
+      "references": [
+        "sc2010",
+        "sh2015"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 65,
+      "references": [
+        "brown2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 68,
+      "references": [
+        "feola2015",
+        "obrien2014",
+        "fook2015",
+        "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 70,
+      "references": [
+        "rickards2012",
+        "pelling2015",
+        "mapfumo2015",
+        "godfreywood2016"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 151,
+  "text_hashes": [
+    "b30317a08c",
+    "92bc98c084",
+    "dbb225856a",
+    "33906a7dfd",
+    "e73509183c",
+    "720efc09ae",
+    "4c9e5db095",
+    "22457152f5",
+    "2473e96bc6",
+    "1963847cef",
+    "282fcfd527",
+    "17f2a7958e",
+    "a2a1541fcb",
+    "06a55439f1",
+    "3e9edcbaa5",
+    "41363ece66",
+    "6415d5a3c3",
+    "f1575e0285",
+    "04ead97024",
+    "ef7b095186",
+    "f89b595ff0",
+    "d01e675530",
+    "774ddf26a8",
+    "c018cdc299",
+    "8ecb6e7677",
+    "8c3c08c8e3",
+    "4efcadb4a4",
+    "2512c181bc",
+    "49806f1368",
+    "5a47a35e67",
+    "63eaaefc5e",
+    "8aed47602c",
+    "62bf5d07a2",
+    "4a38bd7781",
+    "72c6a9f3b5",
+    "9fe1758431",
+    "ab671d76fe",
+    "c9b924aaab",
+    "2415957ff4",
+    "a989a5a37c",
+    "a109a11c0a",
+    "e114e96cd4",
+    "df40e8d8b1",
+    "3c9bca5d41",
+    "92eb5581e4",
+    "d9533e0650",
+    "dd0b384aa5",
+    "3025e447f2",
+    "fa57694a3d",
+    "86d276560a",
+    "922f7a392f",
+    "d1f1b78054",
+    "027959c859",
+    "fde937f69a",
+    "098ac183f0",
+    "805cbfe956",
+    "75609689c5",
+    "b8e4998b84",
+    "3381130e85",
+    "73bbb22d0a",
+    "9fcdec9c48",
+    "a06b3b0dea",
+    "da57f0fa3b",
+    "eeaf846696",
+    "afb5eeb5d4",
+    "a260868c76",
+    "8d70295e11",
+    "5a79e56342",
+    "2cf400f936",
+    "313a808ba0",
+    "c7d17b2bb9",
+    "cb41cd8445",
+    "46a09cd4ec",
+    "077be3cb25",
+    "5d20d0fee3",
+    "c15f54ed04",
+    "958945fa69",
+    "04237f0f0b",
+    "70e810e05e",
+    "e9379227b2",
+    "6ac847a828",
+    "bc62e07c8a",
+    "8ac8172082",
+    "0fb873ffe9",
+    "9da9378874",
+    "95d0bc9f11",
+    "4ac84efc27",
+    "e6ca4d4ade",
+    "a1c7cd5f39",
+    "838b8d4bb5",
+    "e1bd196a07",
+    "fbb84a6932",
+    "61c364ace8",
+    "58d1eeb158",
+    "8c534250fa",
+    "9b8785c36e",
+    "5702850f70",
+    "838eaa5df3",
+    "306faad80a",
+    "92d269921d",
+    "92cd123a0f",
+    "60130cd1c2",
+    "1972982079",
+    "6a0b83eb25",
+    "3dd39505f0",
+    "a29862995b",
+    "f2f65f3004",
+    "47574fc98e",
+    "8500d15428",
+    "73707787dc",
+    "ed461d4240",
+    "6d00783d62",
+    "9336198574",
+    "8e397fd774",
+    "19d4b0fece",
+    "31b3f8f410",
+    "50dbc4b73e",
+    "de94e5793d",
+    "f8b7818b83",
+    "f49bf65bba",
+    "d1903de79e",
+    "21540e151c",
+    "b6901c33c9",
+    "66db4cf5ae",
+    "e762ee233f",
+    "2f5c0faeb5",
+    "31f6c53613",
+    "a27fbe11e4",
+    "8c75970567",
+    "954f3525bf",
+    "e403294501",
+    "efbf2f873b",
+    "fd765eefee",
+    "ae39486d3f",
+    "e73e5560e3",
+    "7c015dfdb8",
+    "49bf5628e0",
+    "b76a4f9c6c",
+    "ee54f06e5e",
+    "21b6882323",
+    "2e95e8624e",
+    "09ca1c761f",
+    "b0ebcfe59f",
+    "8ad27d1b9b",
+    "911a0b354b",
+    "74353a0e77",
+    "1721e78d0d",
+    "6524e4a03e",
+    "dac50a7290",
+    "4dd9106327",
+    "20e7cf21aa"
+  ],
+  "type_histogram": {
+    "h1": 3,
+    "h2": 8,
+    "h3": 1,
+    "p": 136,
+    "table": 2,
+    "ul": 1
+  }
+}

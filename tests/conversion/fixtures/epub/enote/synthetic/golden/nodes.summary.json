@@ -24,6 +24,12 @@
     }
   ],
   "node_count": 4,
+  "text_hashes": [
+    "46b005909e",
+    "566fcd72bf",
+    "1efe0010bf",
+    "70440046a3"
+  ],
   "type_histogram": {
     "h1": 1,
     "h2": 1,

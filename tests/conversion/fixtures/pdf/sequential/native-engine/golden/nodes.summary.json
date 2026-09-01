@@ -35,6 +35,21 @@
     }
   ],
   "node_count": 13,
+  "text_hashes": [
+    "627eb54645",
+    "8bd4a4c990",
+    "73aae862e7",
+    "7f6220211d",
+    "55bed2db0f",
+    "9fce635ddc",
+    "c8ff7b350a",
+    "423ad74747",
+    "ec0c3b7663",
+    "3b3d340dd1",
+    "b24f841830",
+    "fa0001bb76",
+    "cc6b6dbb5a"
+  ],
   "type_histogram": {
     "a": 2,
     "h1": 1,
