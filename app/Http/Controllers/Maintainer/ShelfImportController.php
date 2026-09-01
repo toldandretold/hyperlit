@@ -71,8 +71,11 @@ class ShelfImportController extends Controller
 
     /**
      * GET /maintainer/shelf-import/{id} — work one shelf. `{id}` is a shelf
-     * uuid; a journal SLUG redirects to that journal's "Cited by:" shelf when
-     * the hypercite console has created one (the readable-URL convenience).
+     * uuid; slugs redirect as a readable-URL convenience, tried in order:
+     * an ARCHIVE slug (archive_sources → its shelf), a public SHELF slug
+     * (only when exactly one public shelf carries it — shelf slugs are
+     * unique per creator, not globally), then a journal SLUG (that
+     * journal's "Cited by:" shelf, when the hypercite console made one).
      */
     public function show(Request $request, string $id)
     {
@@ -83,14 +86,40 @@ class ShelfImportController extends Controller
 
         $shelf = $this->publicShelf($id);
         if (! $shelf) {
-            $shelf = $this->citedShelfForJournalSlug($id);
-            if ($shelf) {
-                return redirect("/maintainer/shelf-import/{$shelf->id}");
+            $shelfId = $this->shelfIdForSlug($id);
+            if ($shelfId) {
+                return redirect("/maintainer/shelf-import/{$shelfId}");
             }
             abort(404);
         }
 
         return view('maintainer-shelf-import', ['shelfId' => $shelf->id, 'shelfName' => $shelf->name]);
+    }
+
+    /** Resolve a slug to a public shelf's uuid: archive slug, unique public shelf slug, journal slug. */
+    private function shelfIdForSlug(string $slug): ?string
+    {
+        $archive = ArchiveSource::where('slug', $slug)->first();
+        if ($archive) {
+            $shelfId = DB::connection('pgsql_admin')->table('shelves')
+                ->where('id', $archive->shelf_id)
+                ->where('visibility', 'public')
+                ->value('id');
+            if ($shelfId) {
+                return $shelfId;
+            }
+        }
+
+        $bySlug = DB::connection('pgsql_admin')->table('shelves')
+            ->where('slug', $slug)
+            ->where('visibility', 'public')
+            ->limit(2)
+            ->pluck('id');
+        if ($bySlug->count() === 1) {
+            return $bySlug->first();
+        }
+
+        return $this->citedShelfForJournalSlug($slug)?->id;
     }
 
     /** The "Cited by:" shelf minted for a journal's hypercite-console imports, if any. */

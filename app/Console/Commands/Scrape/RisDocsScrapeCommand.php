@@ -25,6 +25,7 @@ class RisDocsScrapeCommand extends Command
     protected $signature = 'scrape:ris-docs
         {outDir : Folder to write the PDFs + manifest.json into (created if absent)}
         {--section=NAM : Which h5 section of the page to scrape (NAM, G-77, IBSA, BRICS, BIMSTEC, ...)}
+        {--author= : Author for every document (default: the section\'s organisation, see SECTION_AUTHORS)}
         {--delay=2 : Seconds to sleep between downloads}
         {--limit=0 : Stop after N documents (0 = all)}';
 
@@ -32,12 +33,28 @@ class RisDocsScrapeCommand extends Command
 
     private const PAGE_URL = 'https://www.ris.org.in/en/documents-non-aligned-movement';
     private const BASE_URL = 'https://www.ris.org.in';
+
+    /**
+     * These are institutional documents — summit declarations, final documents
+     * — so the AUTHOR is the organisation, keyed by page section. Without an
+     * author, the library card falls back to the importing user's name, which
+     * reads as if the maintainer wrote the Durban Declaration.
+     */
+    private const SECTION_AUTHORS = [
+        'NAM'    => 'Non-Aligned Movement (NAM)',
+        'G-77'   => 'Group of 77 (G-77)',
+        'IBSA'   => 'IBSA Dialogue Forum',
+        'BRICS'  => 'BRICS',
+        'BIMSTEC' => 'BIMSTEC',
+        'Commonwealth Heads of Government Meetings (CHOGM)' => 'Commonwealth Heads of Government',
+    ];
     private const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 hyperlit-archive-scraper';
 
     public function handle(): int
     {
         $outDir = rtrim((string) $this->argument('outDir'), '/');
         $section = (string) $this->option('section');
+        $author = (string) ($this->option('author') ?: (self::SECTION_AUTHORS[$section] ?? ''));
         $delay = max(0, (int) $this->option('delay'));
         $limit = max(0, (int) $this->option('limit'));
 
@@ -87,6 +104,9 @@ class RisDocsScrapeCommand extends Command
                 'url'      => $link['url'],
                 'language' => 'en',
             ];
+            if ($author !== '') {
+                $entry['author'] = $author;
+            }
             if (preg_match('/\b(19[4-9]\d|20[0-4]\d)\b/', $link['title'], $m)) {
                 $entry['year'] = (int) $m[1];
             }

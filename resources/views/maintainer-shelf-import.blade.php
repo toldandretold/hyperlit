@@ -47,10 +47,10 @@
         <p class="ji-archive-hint">Gives this shelf a public hero page at <code>/a/&lt;slug&gt;</code>. Certify (★)
             to list it on the homepage — the listing self-heals away if the archive loses its readable books.</p>
         <label class="ji-archive-field">slug
-            <input type="text" id="ji-archive-slug" placeholder="nam" autocomplete="off" spellcheck="false" pattern="[a-z0-9-]+">
+            <input type="text" id="ji-archive-slug" placeholder="e.g. nam" autocomplete="off" spellcheck="false" pattern="[a-z0-9-]+">
         </label>
         <label class="ji-archive-field">display name
-            <input type="text" id="ji-archive-name" placeholder="Non-Aligned Movement Archive" autocomplete="off">
+            <input type="text" id="ji-archive-name" placeholder="the page's title" autocomplete="off">
         </label>
         <label class="ji-archive-field">about copy
             <textarea id="ji-archive-about" rows="10" placeholder="Write or paste the page copy — separate paragraphs with a blank line. The first paragraph renders large."></textarea>

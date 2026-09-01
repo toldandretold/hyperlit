@@ -788,3 +788,10 @@ body.ji-detail {
 .ji-archive-actions button.ji-certified {
   border-color: var(--hyperlit-aqua, #4eacae);
 }
+
+/* Placeholders must not read as filled values (a user once saved against one). */
+.ji-archive-field input::placeholder,
+.ji-archive-field textarea::placeholder {
+  opacity: 0.4;
+  font-style: italic;
+}

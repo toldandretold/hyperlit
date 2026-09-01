@@ -1446,6 +1446,15 @@ function wireArchivePanel(): void {
       const data = await resp.json();
       paint(data.archive ?? null);
       loaded = true;
+      // No record yet: seed from the shelf so a plain "save" works — an
+      // example-value placeholder here once fooled a user into thinking the
+      // fields were already filled.
+      if (!data.archive && boot.shelfName) {
+        if (!nameInput.value.trim()) nameInput.value = boot.shelfName;
+        if (!slugInput.value.trim()) {
+          slugInput.value = boot.shelfName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+        }
+      }
     } catch (e) {
       log.error('Archive record load failed', 'maintainer-journal-import', e);
     }
@@ -1454,8 +1463,10 @@ function wireArchivePanel(): void {
   const save = async (): Promise<void> => {
     const slug = slugInput.value.trim();
     const displayName = nameInput.value.trim();
-    if (!slug || !displayName) {
-      status('slug and display name are required');
+    const missing = [!slug ? 'slug' : null, !displayName ? 'display name' : null].filter(Boolean);
+    if (missing.length) {
+      status(`${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} empty — grey text is just the hint`);
+      (!slug ? slugInput : nameInput).focus();
       return;
     }
     const headers = await csrfHeaders();

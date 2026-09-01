@@ -133,6 +133,28 @@ test('/a and the homepage list only certified archives holding readable document
         ->assertDontSee('ArchTest Uncertified');
 });
 
+/* ----------------  console slug convenience  ---------------- */
+
+test('the console resolves archive and shelf slugs to the shelf uuid, public shelves only', function () {
+    $shelfId = archSeedShelf(1);
+    $archive = archSeedArchive($shelfId);
+    $shelfSlug = archDb()->table('shelves')->where('id', $shelfId)->value('slug');
+    $this->loginUser(['is_admin' => true]);
+
+    // Archive slug → redirect to the uuid page.
+    $this->get('/maintainer/shelf-import/' . $archive->slug)
+        ->assertRedirect("/maintainer/shelf-import/{$shelfId}");
+
+    // The shelf's own slug works too (unique among public shelves here).
+    $this->get('/maintainer/shelf-import/' . $shelfSlug)
+        ->assertRedirect("/maintainer/shelf-import/{$shelfId}");
+
+    // A private shelf's slug resolves nothing — the console is public-only.
+    $privateId = archSeedShelf(0, 'private');
+    $privateSlug = archDb()->table('shelves')->where('id', $privateId)->value('slug');
+    $this->get('/maintainer/shelf-import/' . $privateSlug)->assertStatus(404);
+});
+
 /* ----------------  console endpoints  ---------------- */
 
 test('archive record endpoints are admin-only', function () {
