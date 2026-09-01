@@ -509,12 +509,12 @@
       "type": "p"
     }
   ],
-  "node_count": 577,
+  "node_count": 575,
   "type_histogram": {
     "h1": 32,
     "h3": 2,
     "img": 21,
-    "p": 519,
+    "p": 517,
     "table": 1,
     "ul": 2
   }

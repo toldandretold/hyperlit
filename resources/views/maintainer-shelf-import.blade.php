@@ -156,9 +156,10 @@
             <li><strong>★ marks the promoted lane</strong> — the one readers resolve to. Promoting from here also swaps the winner onto this shelf in place of demoted siblings.</li>
             <li><strong>Click a lane</strong> to load what we produced (left) beside what we produced it from (right).</li>
             <li><strong>The badges are the evidence</strong>: completeness, the body-presence verdict, which host the copy won from, and any open conversion flags.</li>
+            <li><strong>Conversion code needs FIXING?</strong> <strong>⤓ conversion</strong> downloads <code>&lt;book&gt;.tar.gz</code> (DB rows + original + OCR cache + decision traces); <strong>⤓ harvest</strong> is the same bundle blaming acquisition. On your dev machine, ONE command ingests everything in Downloads:<br><code>php artisan book:import-cases --downloads</code><br>It imports each book locally and captures regression fixtures automatically.</li>
             <li><strong>Then back to hypercites →</strong> and re-run detect — the imported works are matchable as soon as their conversion lands.</li>
         </ol>
-        <p class="ji-help-doc">Design: <code>docs/journal-harvest.md</code></p>
+        <p class="ji-help-doc">Design: <code>docs/journal-harvest.md</code> · <code>docs/web-scrape-import.md</code></p>
     </div>
 @else
     <header class="ji-header">

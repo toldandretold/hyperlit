@@ -314,8 +314,160 @@ def convert_table_block(lines, start_index):
 
     return '\n'.join(html_parts), i
 
+# A line that must never be glued to prose: structural markdown, footnote
+# machinery, raw HTML, or table/math syntax. Kept deliberately broad — a
+# false "special" just leaves a line unmerged (today's behavior).
+_SPECIAL_LINE_RE = re.compile(
+    r'^(#{1,6}\s|\s*[-*+]\s+\S|>|&gt;|\||!\[|<|\$\$|```|---$|\*\*\*$|___$|\s*\[\^)'
+)
+# A line that OPENS a new unit even without a preceding blank line: a numbered
+# paragraph / footnote-def candidate ("7. Non-Alignment…" — page_bottom defs
+# and numbered clauses are per-line signals downstream).
+_OPENS_UNIT_RE = re.compile(r'^\d+[.)]\s')
+_REFS_HEADING_RE = re.compile(r'^#{1,6}\s+(references|bibliography|works cited)\b', re.I)
+_ANY_HEADING_RE = re.compile(r'^#{1,6}\s')
+
+
+def _is_caps_line(text):
+    """ALL-CAPS lines (agenda items, typewriter title blocks) are deliberate
+    line-per-line layout — never merged."""
+    letters = [c for c in text if c.isalpha()]
+    return bool(letters) and not any(c.islower() for c in letters)
+
+
+# A hard-wrapped (typewriter) block runs its lines out to a consistent right
+# margin. OCR'd modern documents emit ONE long line per paragraph, and
+# bibliography blocks emit one line per ENTRY with wildly varying lengths —
+# neither shape passes this test, which is what keeps the merge away from
+# reference extraction (a heading-based References guard alone was not enough:
+# gluing contiguous bib entries collapsed extraction, e.g. 89 refs → 5).
+# The 50-char floor also excludes poetry (verse lines run short).
+_WRAP_COL_MIN, _WRAP_COL_MAX = 50, 95
+
+
+def _looks_hard_wrapped(block_lines, raw_lines):
+    """Do these lines read as one paragraph wrapped at a typewriter margin?"""
+    if len(block_lines) < 3:
+        return False
+    # Markdown hard-breaks (trailing double space) are explicit line-per-line
+    # layout — colophons/addresses emit them; honour them.
+    if any(raw.rstrip('\n').endswith('  ') for raw in raw_lines):
+        return False
+    # Lines ending in digits are TOC entries (dot-leader page numbers) or
+    # data rows, not wrapped prose — prose almost never wraps onto a digit.
+    digit_ends = sum(1 for l in block_lines if l and l[-1].isdigit())
+    if digit_ends >= max(2, int(0.3 * len(block_lines))):
+        return False
+    # A lettered enumeration ("A Identifying… / B How… / C 'Gaming'…") is a
+    # list, not wrapped prose: three-plus lines opening with consecutive
+    # ascending capitals is unmistakable (prose lines starting "A " exist,
+    # but never three in alphabetical sequence).
+    enum_letters = [l[0] for l in block_lines if re.match(r'^[A-Z][.)]?\s', l)]
+    if len(enum_letters) >= 3 and all(
+        ord(b) == ord(a) + 1 for a, b in zip(enum_letters, enum_letters[1:])
+    ):
+        return False
+    lengths = [len(l) for l in block_lines]
+    margin = max(lengths)
+    if not (_WRAP_COL_MIN <= margin <= _WRAP_COL_MAX):
+        return False
+    # Every line except the last should run close to the margin — ragged-right
+    # uniformity. Bib entries / address blocks / poetry fail this.
+    body = lengths[:-1]
+    near = sum(1 for n in body if n >= margin - 15)
+    return near >= max(2, int(0.7 * len(body)))
+
+
+def _merge_wrapped_block(block_lines):
+    """Merge one hard-wrapped block into logical paragraphs."""
+    margin = max(len(l) for l in block_lines)
+    out = []
+    for line in block_lines:
+        prev = out[-1] if out else None
+        # "N. …" / "N …" / "N.N …" opens a new unit (numbered clause,
+        # BARE-NUMBER footnote def — the orphan-def recovery reads runs of
+        # per-line "N Text" — or a sub-numbered heading): never absorbed
+        # into the previous paragraph.
+        opens_unit = bool(_OPENS_UNIT_RE.match(line) or re.match(r'^\d+(\.\d+)*\s', line))
+        # A SHORT line ending in terminal punctuation is a paragraph end
+        # (it stopped before the margin because the paragraph was done).
+        prev_ends_para = (
+            prev is not None
+            and re.search(r'[.!?][\"\')\]]?$', prev)
+            and len(prev) < margin - 15
+        )
+        if prev is None or opens_unit or prev_ends_para:
+            out.append(line)
+        elif re.search(r'[a-z]-$', prev) and re.match(r'[a-z]', line):
+            # Typewriter hyphen wrap: "imperi-" + "alism" → "imperialism".
+            out[-1] = prev[:-1] + line
+        else:
+            out[-1] = prev + ' ' + line
+    return out
+
+
+def merge_hard_wrapped_lines(markdown_content):
+    """
+    Rejoin hard-wrapped paragraphs — the typewriter-scan fix. Old scans (the
+    NAM archive corpus) OCR with one SOURCE LINE per markdown line, and the
+    per-line <p> emitter below turned every typed line into its own paragraph.
+
+    Deliberately conservative, per BLOCK: a blank-line-delimited run of plain
+    prose lines is merged ONLY when it demonstrably looks wrapped at a
+    typewriter margin (_looks_hard_wrapped). Everything else — modern one-
+    line-per-paragraph OCR, contiguous bibliography entries, headings, lists,
+    tables, [^N] footnote refs/defs (the def-section detector reads per-line),
+    ALL-CAPS title/agenda layout, code fences, $$ math — passes through
+    byte-identical, so documents that convert well today are untouched.
+    """
+    lines = markdown_content.split('\n')
+    out = []
+    block = []          # pending run of plain prose lines, ORIGINALS —
+                        # an unmerged block must pass through byte-identical
+    in_fence = False
+    in_math = False
+
+    def flush():
+        if not block:
+            return
+        stripped_block = [l.strip() for l in block]
+        if _looks_hard_wrapped(stripped_block, block):
+            out.extend(_merge_wrapped_block(stripped_block))
+        else:
+            out.extend(block)
+        block.clear()
+
+    for line in lines:
+        stripped = line.strip()
+
+        if stripped.startswith('```') or stripped == '$$':
+            flush()
+            if stripped == '$$':
+                in_math = not in_math
+            else:
+                in_fence = not in_fence
+            out.append(line)
+            continue
+
+        if (in_fence or in_math or not stripped
+                or _SPECIAL_LINE_RE.match(stripped)
+                or _is_caps_line(stripped)):
+            flush()
+            out.append(line)
+            continue
+
+        block.append(line)
+
+    flush()
+    return '\n'.join(out)
+
+
 def convert_markdown_to_html(markdown_content):
     """Convert basic markdown to HTML, treating footnotes as plain text"""
+
+    # Rejoin hard-wrapped paragraphs BEFORE the per-line loop — see the
+    # function docstring for what this fixes and what it deliberately skips.
+    markdown_content = merge_hard_wrapped_lines(markdown_content)
 
     lines = markdown_content.split('\n')
     html_lines = []
