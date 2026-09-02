@@ -116,6 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // AI Brain
     Route::post('/ai-brain/query', [AiBrainController::class, 'query']);
+    // Selection-free archivist (hero pages: home / journal / archive) — see AiBrainController::ask
+    Route::post('/ai-brain/ask', [AiBrainController::class, 'ask']);
     Route::get('/ai-brain/status/{highlightId}', [AiBrainController::class, 'status']);
 
     // Vibe CSS

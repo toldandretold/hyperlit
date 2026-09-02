@@ -13,13 +13,22 @@
  * Modes: 'library' (titles & authors), 'fulltext' (node content), 'semantic'
  * (embedding search; opt-in, never default). The two toggles are mutually
  * exclusive — checking one unchecks the other.
+ *
+ * Optional fourth mode: 'archivist' (the AI Archivist takeover, hero pages
+ * only). Entered/exited via the brain button, NOT a toggle: applyMode stamps
+ * `archivist-mode` on the surrounding .arranger-buttons-container and CSS does
+ * the header takeover (toggles + feed buttons hide, the Ask button appears).
+ * The mode is SUBMIT-driven — typing/focus/restore never fire anything; only
+ * Enter or the Ask button call config.archivist.onSubmit. Instances without
+ * archivist config behave exactly as before (a persisted 'archivist' mode
+ * falls back to 'library').
  */
 
 import DOMPurify from 'dompurify';
 import { log, verbose } from '../utilities/logger';
 import { searchCacheGet, searchCacheSet } from './searchResultCache';
 
-export type SearchMode = 'library' | 'fulltext' | 'semantic';
+export type SearchMode = 'library' | 'fulltext' | 'semantic' | 'archivist';
 
 export interface SearchBoxConfig {
     ids: {
@@ -28,6 +37,10 @@ export interface SearchBoxConfig {
         results: string;
         fulltextToggle: string;
         semanticToggle: string;
+        /** the brain button that toggles archivist mode (requires `archivist`) */
+        brainButton?: string;
+        /** the submit button shown in archivist mode (requires `archivist`) */
+        askButton?: string;
     };
     storage: {
         modeKey: string;
@@ -36,16 +49,19 @@ export interface SearchBoxConfig {
         /** query persistence key; ctx is the page context id ('' on home, shelfId on journals) */
         queryKey: (ctx: string) => string;
     };
-    placeholders: Record<SearchMode, string>;
+    placeholders: Record<'library' | 'fulltext' | 'semantic', string> & { archivist?: string };
     /** empty-state copy for library/fulltext ('semantic' has shared copy) */
     noResultsMessage: (mode: SearchMode) => string;
-    /** full request URL for a mode + query (include any limit/scope params) */
-    endpointFor: (mode: SearchMode, query: string, ctx: string) => string;
+    /** full request URL for a mode + query (include any limit/scope params) —
+     *  never called in archivist mode (that mode has no search endpoint) */
+    endpointFor: (mode: Exclude<SearchMode, 'archivist'>, query: string, ctx: string) => string;
     /**
      * Context requirement (journal pages): read this dataset key off the
      * container; when absent the box is disabled with the given placeholder.
      */
     context?: { datasetKey: string; missingPlaceholder: string };
+    /** AI Archivist wiring — submit-driven, no search endpoint involved */
+    archivist?: { onSubmit: (query: string, contextId: string) => void };
     /** source tag for logger lines */
     logSource: string;
 }
@@ -59,8 +75,12 @@ const MIN_QUERY_LENGTH_SEMANTIC = 3;
 
 const SEMANTIC_UNAVAILABLE = 'Semantic search is temporarily unavailable';
 
+// Archivist asks are real prompts, not incremental queries — same floor as the
+// server's `question` min:3.
+const MIN_QUERY_LENGTH_ARCHIVIST = 3;
+
 function isSearchMode(value: string | null): value is SearchMode {
-    return value === 'library' || value === 'fulltext' || value === 'semantic';
+    return value === 'library' || value === 'fulltext' || value === 'semantic' || value === 'archivist';
 }
 
 function escapeHtml(text: any): string {
@@ -75,21 +95,32 @@ export function createSearchBox(config: SearchBoxConfig) {
     let searchInput: HTMLTextAreaElement | null = null;
     let fulltextToggle: HTMLInputElement | null = null;
     let semanticToggle: HTMLInputElement | null = null;
+    let brainButton: HTMLButtonElement | null = null;
+    let askButton: HTMLButtonElement | null = null;
     let resultsContainer: HTMLElement | null = null;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     let abortController: AbortController | null = null;
     let searchMode: SearchMode = 'library';
+    /** where the brain button returns to when archivist mode is switched off */
+    let lastNonArchivistMode: SearchMode = 'library';
     let currentSearchQuery = '';
     let contextId = '';
     let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
     let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
+    const hasArchivist = () => !!(config.archivist && config.ids.brainButton);
     const minLen = () => (searchMode === 'semantic' ? MIN_QUERY_LENGTH_SEMANTIC : MIN_QUERY_LENGTH);
     const debounceMs = () => (searchMode === 'semantic' ? DEBOUNCE_SEMANTIC_MS : DEBOUNCE_MS);
+    const placeholderFor = (mode: SearchMode): string =>
+        (mode === 'archivist' ? config.placeholders.archivist : config.placeholders[mode])
+        ?? config.placeholders.library;
 
     /** Read the persisted mode, migrating the legacy fulltext boolean key. */
     function readStoredMode(): SearchMode {
         const stored = localStorage.getItem(config.storage.modeKey);
+        // A persisted 'archivist' only counts on an instance that has the
+        // wiring — anywhere else it degrades to the default mode.
+        if (stored === 'archivist') return hasArchivist() ? 'archivist' : 'library';
         if (isSearchMode(stored)) return stored;
         if (config.storage.legacyFulltextKey) {
             const legacy = localStorage.getItem(config.storage.legacyFulltextKey);
@@ -119,23 +150,35 @@ export function createSearchBox(config: SearchBoxConfig) {
      * exclusive (three effective modes), so both checkboxes are always set.
      */
     function applyMode(mode: SearchMode) {
+        if (mode !== 'archivist') lastNonArchivistMode = mode;
         searchMode = mode;
         if (fulltextToggle) fulltextToggle.checked = mode === 'fulltext';
         if (semanticToggle) semanticToggle.checked = mode === 'semantic';
-        if (searchInput) searchInput.placeholder = config.placeholders[mode];
+        if (searchInput) searchInput.placeholder = placeholderFor(mode);
+
+        // The archivist takeover is pure CSS keyed off this class: the
+        // .arranger-buttons-container hides the toggle stack + feed buttons,
+        // widens the input anchor and reveals the Ask button.
+        const row = document.getElementById(config.ids.container)?.closest('.arranger-buttons-container');
+        if (row) row.classList.toggle('archivist-mode', mode === 'archivist');
+        if (askButton) askButton.hidden = mode !== 'archivist';
+        if (brainButton) brainButton.classList.toggle('active', mode === 'archivist');
+        if (mode === 'archivist') hideResults(); // a stale dropdown under a submit-driven mode lies
     }
 
     /** Persist + apply a mode change, re-running the search if long enough. */
     function changeMode(mode: SearchMode) {
         applyMode(mode);
         localStorage.setItem(config.storage.modeKey, mode);
+        verbose.content(`Search mode changed to: ${mode}`, config.logSource);
+        // Archivist is submit-driven: entering it must never auto-fire.
+        if (mode === 'archivist') return;
         const query = searchInput?.value.trim() ?? '';
         if (query.length >= minLen()) {
             performSearch(query);
         } else {
             hideResults();
         }
-        verbose.content(`Search mode changed to: ${mode}`, config.logSource);
     }
 
     function handleFulltextToggleChange(event: Event) {
@@ -146,12 +189,41 @@ export function createSearchBox(config: SearchBoxConfig) {
         changeMode((event.target as HTMLInputElement).checked ? 'semantic' : 'library');
     }
 
+    /** Brain button: toggle between archivist mode and the previous mode. */
+    function handleBrainClick() {
+        changeMode(searchMode === 'archivist' ? lastNonArchivistMode : 'archivist');
+    }
+
+    function submitArchivist() {
+        if (!config.archivist) return;
+        const query = searchInput?.value.trim() ?? '';
+        if (query.length < MIN_QUERY_LENGTH_ARCHIVIST) {
+            searchInput?.focus();
+            return;
+        }
+        config.archivist.onSubmit(query, contextId);
+    }
+
+    function handleAskClick() {
+        submitArchivist();
+    }
+
     function handleSearchInput(event: Event) {
         autosize();
         const query = (event.target as HTMLTextAreaElement).value.trim();
 
         if (debounceTimer) clearTimeout(debounceTimer);
         if (abortController) abortController.abort();
+
+        // Archivist: persist the draft prompt, but NEVER fire on keystrokes.
+        if (searchMode === 'archivist') {
+            if (query.length === 0) {
+                localStorage.removeItem(config.storage.queryKey(contextId));
+            } else {
+                localStorage.setItem(config.storage.queryKey(contextId), query);
+            }
+            return;
+        }
 
         if (query.length < minLen()) {
             hideResults();
@@ -167,6 +239,13 @@ export function createSearchBox(config: SearchBoxConfig) {
     }
 
     function handleKeyDown(event: KeyboardEvent) {
+        // Archivist: Enter submits the prompt; Shift+Enter keeps its newline
+        // (the textarea is multiline by design).
+        if (searchMode === 'archivist' && event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            submitArchivist();
+            return;
+        }
         if (event.key === 'Escape') {
             hideResults();
             searchInput?.blur();
@@ -174,6 +253,7 @@ export function createSearchBox(config: SearchBoxConfig) {
     }
 
     function handleFocus() {
+        if (searchMode === 'archivist') return; // submit-driven — focus never searches
         const query = searchInput?.value.trim() ?? '';
         if (query.length < minLen() || !resultsContainer) return;
         if (!resultsContainer.innerHTML || resultsContainer.classList.contains('hidden')) {
@@ -185,6 +265,7 @@ export function createSearchBox(config: SearchBoxConfig) {
     }
 
     async function performSearch(query: string) {
+        if (searchMode === 'archivist') return; // submit-driven — no search endpoint
         currentSearchQuery = query;
         const url = config.endpointFor(searchMode, query, contextId);
 
@@ -401,6 +482,12 @@ export function createSearchBox(config: SearchBoxConfig) {
         searchInput = document.getElementById(config.ids.input) as HTMLTextAreaElement | null;
         fulltextToggle = document.getElementById(config.ids.fulltextToggle) as HTMLInputElement | null;
         semanticToggle = document.getElementById(config.ids.semanticToggle) as HTMLInputElement | null;
+        brainButton = hasArchivist()
+            ? document.getElementById(config.ids.brainButton as string) as HTMLButtonElement | null
+            : null;
+        askButton = hasArchivist() && config.ids.askButton
+            ? document.getElementById(config.ids.askButton) as HTMLButtonElement | null
+            : null;
         resultsContainer = document.getElementById(config.ids.results);
 
         if (!container || !searchInput || !resultsContainer) {
@@ -417,6 +504,7 @@ export function createSearchBox(config: SearchBoxConfig) {
                 searchInput.placeholder = config.context.missingPlaceholder;
                 if (fulltextToggle) fulltextToggle.disabled = true;
                 if (semanticToggle) semanticToggle.disabled = true;
+                if (brainButton) brainButton.disabled = true;
                 return;
             }
         }
@@ -428,6 +516,8 @@ export function createSearchBox(config: SearchBoxConfig) {
         searchInput.addEventListener('focus', handleFocus);
         if (fulltextToggle) fulltextToggle.addEventListener('change', handleFulltextToggleChange);
         if (semanticToggle) semanticToggle.addEventListener('change', handleSemanticToggleChange);
+        if (brainButton) brainButton.addEventListener('click', handleBrainClick);
+        if (askButton) askButton.addEventListener('click', handleAskClick);
 
         outsideClickHandler = (e: MouseEvent) => {
             const area = document.getElementById(config.ids.container);
@@ -460,6 +550,8 @@ export function createSearchBox(config: SearchBoxConfig) {
         }
         if (fulltextToggle) fulltextToggle.removeEventListener('change', handleFulltextToggleChange);
         if (semanticToggle) semanticToggle.removeEventListener('change', handleSemanticToggleChange);
+        if (brainButton) brainButton.removeEventListener('click', handleBrainClick);
+        if (askButton) askButton.removeEventListener('click', handleAskClick);
         if (outsideClickHandler) {
             document.removeEventListener('click', outsideClickHandler);
             outsideClickHandler = null;
@@ -474,8 +566,11 @@ export function createSearchBox(config: SearchBoxConfig) {
         searchInput = null;
         fulltextToggle = null;
         semanticToggle = null;
+        brainButton = null;
+        askButton = null;
         resultsContainer = null;
         searchMode = 'library';
+        lastNonArchivistMode = 'library';
         currentSearchQuery = '';
         contextId = '';
 

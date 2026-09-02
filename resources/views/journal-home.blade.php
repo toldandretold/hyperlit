@@ -90,6 +90,7 @@
           'placeholder'      => 'Search titles & authors...',
           'fulltextTitle'    => 'Search within article content',
           'shelfId'          => $shelfId,
+          'archivist'        => true,
         ])
         {{-- NO `active` class here: that is what defers the initial content load.
              data-content stays EMPTY (parity with user.blade visitor shelf tabs):
@@ -99,6 +100,7 @@
         <button class="arranger-button" data-content="" data-filter="shelf" data-shelf-id="{{ $shelfId }}" data-sort="connected">Most Connected</button>
         <button class="arranger-button" data-content="" data-filter="shelf" data-shelf-id="{{ $shelfId }}" data-sort="lit">Most Lit</button>
         @endif
+        @include('partials.archivist-brain-button')
         {{-- visible only while a feed is open; homepageHero closes back to the hero --}}
         <button type="button" id="copy-feed-close" aria-label="Close feed" title="Close feed">&times;</button>
       </div>

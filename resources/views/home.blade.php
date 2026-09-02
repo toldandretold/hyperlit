@@ -93,11 +93,13 @@
           'semanticToggleId' => 'semantic-search-toggle',
           'placeholder'      => 'Search titles & authors...',
           'fulltextTitle'    => 'Search within book content',
+          'archivist'        => true,
         ])
         {{-- NO `active` class here: that is what defers the initial content load --}}
         <button class="arranger-button" data-content="most-recent">Most Recent</button>
         <button class="arranger-button" data-content="most-connected">Most Connected</button>
         <button class="arranger-button" data-content="most-lit">Most Lit</button>
+        @include('partials.archivist-brain-button')
         {{-- visible only while a feed is open; homepageHero closes back to the hero --}}
         <button type="button" id="copy-feed-close" aria-label="Close feed" title="Close feed">&times;</button>
       </div>

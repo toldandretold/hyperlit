@@ -7,9 +7,13 @@
 
   Params:
     $containerId, $inputId, $resultsId, $fulltextToggleId, $semanticToggleId
-    $placeholder        — initial placeholder (JS swaps it per mode)
-    $fulltextTitle      — tooltip for the Full text toggle
-    $shelfId (optional) — journal pages: the shelf backing this journal ('' = not harvested)
+    $placeholder         — initial placeholder (JS swaps it per mode)
+    $fulltextTitle       — tooltip for the Full text toggle
+    $shelfId (optional)  — journal pages: the shelf backing this journal ('' = not harvested)
+    $archivist (optional) — true on hero pages: emits the hidden Ask button for
+                            the AI Archivist takeover mode (fixed id, one box
+                            per page — pairs with the #archivist-brain-button
+                            in the arranger row; see search/searchBox.ts)
 --}}
 <div id="{{ $containerId }}" class="search-container search-container--multiline"
      @isset($shelfId) data-shelf-id="{{ $shelfId }}" @endisset>
@@ -26,6 +30,10 @@
       maxlength="2000"
     ></textarea>
     <div id="{{ $resultsId }}" class="search-results hidden"></div>
+    @if($archivist ?? false)
+      {{-- Shown only in archivist takeover mode (searchBox toggles [hidden]) --}}
+      <button type="button" id="archivist-ask-button" class="archivist-ask-btn" hidden>Ask</button>
+    @endif
   </div>
   <div class="search-toggle-stack">
     <label class="fulltext-toggle-label" title="{{ $fulltextTitle }}">

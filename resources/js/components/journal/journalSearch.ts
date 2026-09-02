@@ -22,6 +22,8 @@ const journalSearchBox = createSearchBox({
         results: 'journal-search-results',
         fulltextToggle: 'journal-fulltext-toggle',
         semanticToggle: 'journal-semantic-toggle',
+        brainButton: 'archivist-brain-button',
+        askButton: 'archivist-ask-button',
     },
     storage: {
         modeKey: 'journal_search_mode',
@@ -32,6 +34,15 @@ const journalSearchBox = createSearchBox({
         library: 'Search titles & authors...',
         fulltext: 'Search article text...',
         semantic: 'Search by meaning...',
+        archivist: 'Ask the AI Archivist about this collection...',
+    },
+    // Journal/archive scope = this page's public shelf (the searchBox contextId
+    // IS the shelf id, read from the container's data-shelf-id).
+    archivist: {
+        onSubmit: (query, shelfId) => {
+            void import('../aiArchivist/archivistPanel').then((m) =>
+                m.openArchivistPanel({ question: query, shelfId: shelfId || null }));
+        },
     },
     noResultsMessage: () => 'No matches in this journal.',
     endpointFor: (mode, query, shelfId) => {

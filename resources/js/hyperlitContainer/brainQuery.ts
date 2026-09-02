@@ -6,47 +6,10 @@
 import { buildSubBookId } from '../utilities/subBookIdHelper';
 import { isLoggedIn } from '../utilities/auth/index';
 import { isByoLlmActive } from '../aiProviders/profiles';
-import { executeTicketRequest } from '../aiProviders/execute';
-import { log } from '../utilities/logger';
+import { createStepManager } from '../components/aiArchivist/stepManager';
+import { executeInferenceTicket, readSseStream } from '../components/aiArchivist/sseClient';
 import { createTopUpLink } from '../utilities/billing/topUp';
 import { resizeOpenPanels } from '../utilities/viewportMetrics';
-
-/**
- * BYO-key leg: the server parked an LLM prompt as an inference ticket and pushed
- * it over the SSE stream. Execute it with the user's own provider (via the
- * native bridge) and post the completion back so the blocked pipeline resumes.
- * Failures are posted as {error} so the stream fails fast instead of waiting
- * out the ticket TTL.
- */
-async function executeInferenceTicket(parsed: any, csrfToken: string): Promise<void> {
-  const ticketId = parsed?.ticket_id;
-  if (!ticketId) return;
-
-  let body: any;
-  try {
-    const result = await executeTicketRequest(parsed.request || {});
-    body = result && result.content !== null
-      ? { content: result.content, usage: result.usage ?? null, model: result.model }
-      : { error: 'Client provider returned no content' };
-  } catch (e) {
-    body = { error: String(e) };
-  }
-
-  try {
-    await fetch(`/api/inference/${ticketId}/complete`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': csrfToken,
-        'Accept': 'application/json',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    log.error('BrainQuery: failed to post inference completion', '/hyperlitContainer/brainQuery.ts', e);
-  }
-}
 
 // Track whether a brain highlight is pending (created but not yet backed by a successful query).
 // Set when injectBrainInput() fires; cleared on successful API response + sub-book load.
@@ -63,122 +26,6 @@ const STORAGE_KEYS = {
 // When in-flight, the highlight must persist — the server is processing and a
 // result will appear on next page load even if the user closes now.
 let brainRequestInFlight = false;
-
-/**
- * The "goo" loader SVG: three brand-colour discs at one centre, fused by an inline
- * goo filter into a single mutating blob with colour plumes (styled in brainMode.css).
- * @param hidden start hidden (main form, until the request actually fires)
- */
-const brainLoaderSvg = (hidden: boolean): string =>
-  `<svg class="brain-blobs"${hidden ? ' style="display:none;"' : ''} viewBox="0 0 100 100" aria-hidden="true">`
-  + `<defs><filter id="brainGoo"><feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>`
-  + `<feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7"/></filter></defs>`
-  + `<g filter="url(#brainGoo)" class="brain-goo-g">`
-  + `<circle class="bg-pink" cx="50" cy="44" r="19"/>`
-  + `<circle class="bg-orange" cx="56" cy="53" r="19"/>`
-  + `<circle class="bg-aqua" cx="44" cy="53" r="19"/></g></svg>`;
-
-/**
- * Manages the status CHECKLIST: status messages stack as `.brain-step` rows, the
- * previous one ticking off (done) as the next appears, with the goo blob riding the
- * current row. Incoming steps are revealed at a gentle minimum cadence so they read
- * as a checklist filling up rather than all flashing at once (the underlying work
- * still runs full speed — only the reveal is paced).
- */
-function createStepManager(statusEl: HTMLElement, stepsEl: HTMLElement) {
-  const MIN_STEP_MS = 400;
-  const host = document.createElement('template');
-  host.innerHTML = brainLoaderSvg(false).trim();
-  const blobEl = host.content.firstElementChild as SVGElement | null; // moved onto the current row
-
-  const queue: string[] = [];
-  let draining = false;
-  let lastMsg = '';
-
-  const clean = (m: string): string => String(m).replace(/[.…]+\s*$/, '').trim();
-  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-  // The checklist grows while the request is in flight and the panel is height-capped,
-  // so without this the live row — the one carrying the goo blob — stacks below the fold
-  // and the user watches a frozen list instead of the progress animation. Follow the
-  // bottom on every append; rAF so the new row is laid out before we measure.
-  const scrollerEl = statusEl.closest('.scroller') as HTMLElement | null;
-  const keepStepVisible = (): void => {
-    if (!scrollerEl) return;
-    requestAnimationFrame(() => {
-      scrollerEl.scrollTo({ top: scrollerEl.scrollHeight, behavior: 'smooth' });
-    });
-  };
-
-  const finalizeCurrent = (): void => {
-    const cur = stepsEl.querySelector('.brain-step.current');
-    if (cur) { cur.classList.remove('current'); cur.classList.add('done'); }
-  };
-
-  const renderStep = (msg: string): void => {
-    finalizeCurrent();
-    const step = document.createElement('div');
-    step.className = 'brain-step current';
-    const mark = document.createElement('span'); mark.className = 'brain-step-mark';
-    const text = document.createElement('span'); text.className = 'brain-step-text'; text.textContent = clean(msg);
-    step.append(mark, text);
-    if (blobEl) step.appendChild(blobEl);
-    stepsEl.appendChild(step);
-    statusEl.style.display = 'flex';
-    keepStepVisible();
-  };
-
-  const drain = async (): Promise<void> => {
-    if (draining) return;
-    draining = true;
-    while (queue.length) {
-      renderStep(queue.shift() as string);
-      if (queue.length) await sleep(MIN_STEP_MS);
-    }
-    draining = false;
-  };
-
-  const flushNow = (): void => { while (queue.length) renderStep(queue.shift() as string); };
-
-  return {
-    /** Queue a step; consecutive duplicates are ignored. */
-    enqueueStep(msg: string): void {
-      const c = clean(msg);
-      if (!c || c === lastMsg) return;
-      lastMsg = c;
-      queue.push(msg);
-      void drain();
-    },
-    /** Reveal any queued steps immediately (call before rendering a result). */
-    flushStepsNow(): void { flushNow(); },
-    /** Update the current row's text in place (used by the polling view — no stacking). */
-    updateCurrent(msg: string): void {
-      const cur = stepsEl.querySelector('.brain-step.current');
-      if (!cur) { renderStep(msg); return; }
-      const t = cur.querySelector('.brain-step-text');
-      if (t) t.textContent = clean(msg);
-      statusEl.style.display = 'flex';
-      keepStepVisible();
-    },
-    /** Finalize the checklist and append a red error row (returns it, for extra UI). */
-    setError(msg: string): HTMLElement {
-      flushNow();
-      finalizeCurrent();
-      if (blobEl && blobEl.parentNode) blobEl.parentNode.removeChild(blobEl);
-      const step = document.createElement('div');
-      step.className = 'brain-step error';
-      const mark = document.createElement('span'); mark.className = 'brain-step-mark';
-      const text = document.createElement('span'); text.className = 'brain-step-text'; text.textContent = msg;
-      step.append(mark, text);
-      stepsEl.appendChild(step);
-      statusEl.style.display = 'flex';
-      keepStepVisible();
-      return step;
-    },
-    /** Reset to empty (queue + rendered rows). */
-    clear(): void { queue.length = 0; lastMsg = ''; stepsEl.innerHTML = ''; },
-  };
-}
 
 /**
  * Clean up a pending brain highlight that was never completed.
@@ -563,45 +410,17 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
         return;
       }
 
-      // Read SSE stream
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+      // Read SSE stream (shared parser — components/aiArchivist/sseClient)
       let data: any = null;
       let streamError: any = null;
-      let eventType = 'message';
-
-      while (true) {
-        const { done, value }: any = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // keep incomplete line
-        for (const line of lines) {
-          if (line.startsWith('event: ')) {
-            eventType = line.slice(7).trim();
-          } else if (line.startsWith('data: ')) {
-            try {
-              const parsed = JSON.parse(line.slice(6));
-              if (eventType === 'status') {
-                steps.enqueueStep(parsed.message);
-              } else if (eventType === 'inference_request') {
-                // BYO leg — run the parked prompt with the user's own provider
-                // (async; the server keeps streaming heartbeats while it waits).
-                void executeInferenceTicket(parsed, csrfToken);
-              } else if (eventType === 'error') {
-                streamError = parsed.message || 'AI query failed';
-              } else if (eventType === 'result') {
-                data = parsed;
-              }
-            } catch (e) {
-              console.warn('BrainQuery: failed to parse SSE data:', line);
-            }
-            eventType = 'message';
-          }
-        }
-      }
+      await readSseStream(response.body, {
+        onStatus: (msg) => steps.enqueueStep(msg),
+        // BYO leg — run the parked prompt with the user's own provider
+        // (async; the server keeps streaming heartbeats while it waits).
+        onInferenceRequest: (parsed) => { void executeInferenceTicket(parsed, csrfToken); },
+        onError: (msg) => { streamError = msg; },
+        onResult: (d) => { data = d; },
+      });
 
       brainRequestInFlight = false;
 

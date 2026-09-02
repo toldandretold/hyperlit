@@ -83,6 +83,10 @@ import {
   initializeJournalSearch,
   destroyJournalSearch
 } from '../journal/journalSearch';
+import {
+  initAiArchivist,
+  destroyAiArchivist,
+} from '../aiArchivist/archivistPanel';
 
 import {
   initJournalHyperciteMap,
@@ -506,6 +510,20 @@ export function registerAllComponents() {
     initFn: initHomepageHero,
     destroyFn: destroyHomepageHero,
     pages: ['home', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // The selection-free AI Archivist: on hero pages the brain button + answer
+  // panel (the search boxes enter/exit archivist mode themselves; this owns
+  // the guest dim state and aborts an in-flight ask on SPA nav); on 'reader'
+  // it only arms the grouped-citation ↗ chooser for AI answer books. /a/
+  // pages run pageType 'journal', so they're covered.
+  buttonRegistry.register({
+    name: 'aiArchivist',
+    initFn: initAiArchivist,
+    destroyFn: destroyAiArchivist,
+    pages: ['home', 'journal', 'reader'],
     dependencies: [],
     required: false
   });

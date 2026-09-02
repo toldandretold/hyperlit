@@ -196,37 +196,7 @@ class AiBrainController extends Controller
             }
         }
 
-        // Fireworks AI fallback chain. Verified live 2026-05-27.
-        //
-        // TODO: when Fireworks credits run out, migrate to DeepInfra:
-        //   LLM_BASE_URL=https://api.deepinfra.com/v1/openai
-        //   primary: deepseek-ai/DeepSeek-V3.2                  ($0.26 in / $0.38 out per 1M)
-        //   fallback: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B  ($0.10/$0.50)
-        //   fallback: Qwen/Qwen3.6-35B-A3B                      ($0.15/$0.95)
-        // Reasons to switch: ~50% cheaper input + ~75% cheaper output, SOC 2 +
-        // ISO 27001, zero-retention (in-memory only), no training-on-prompts.
-        $fallbackChain = [
-            'accounts/fireworks/models/deepseek-v4-pro-0813',  // primary — DeepSeek V4 Pro (GA; preview id serverless-decommissioned 2026-08-27)
-            'accounts/fireworks/models/kimi-k2p6',             // fallback 1 — different family
-            'accounts/fireworks/models/gpt-oss-120b',          // fallback 2 — cheap safety net
-        ];
-
-        $modelLabels = [
-            'accounts/fireworks/models/deepseek-v4-pro-0813' => 'DeepSeek V4 Pro',
-            'accounts/fireworks/models/kimi-k2p6'            => 'Kimi K2.6',
-            'accounts/fireworks/models/gpt-oss-120b'         => 'GPT-OSS 120B',
-        ];
-
-        // Place user-selected model first in the chain (if valid)
-        $allowedModels = array_keys($modelLabels);
-        $brainModel = in_array($validated['model'] ?? null, $allowedModels)
-            ? $validated['model']
-            : 'accounts/fireworks/models/deepseek-v4-pro-0813';
-
-        // Reorder fallback chain: user's chosen model first, then the rest
-        $fallbackChain = array_values(array_unique(array_merge([$brainModel], $fallbackChain)));
-
-        $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
+        [$fallbackChain, $brainModel, $modelLabel, $modelLabels] = $this->resolveModelChain($validated['model'] ?? null);
 
         // Stream the pipeline as SSE events
         return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService, $clientInference) {
@@ -684,6 +654,345 @@ class AiBrainController extends Controller
     }
 
     /**
+     * Selection-free AI Archivist — the hero-page entry point (home, /j/, /a/).
+     *
+     * Same pipeline as query()'s archivist path minus everything selection-bound:
+     * no local context, no hyperlight, no sub-book. The answer is written as a
+     * PRIVATE standalone book owned by the asker and appended to their
+     * "AI Archivist" shelf (find-or-create). Scope is derived, not chosen:
+     * shelfId present ⇒ that PUBLIC shelf's corpus (any public shelf — the
+     * deliberate inverse of query()'s owner-only shelf gate, because the hero
+     * pages scope to journal/archive shelves the visitor does not own),
+     * absent ⇒ the whole public library.
+     *
+     * 🔒 Contract locked by tests/Feature/AiBrain/AskScopeValidationTest.php,
+     * AskStandaloneBookTest.php and AskBillingFailureTest.php.
+     */
+    public function ask(Request $request, EmbeddingService $embeddingService, LlmService $llmService, BillingService $billingService): JsonResponse|StreamedResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Authentication required'], 401);
+        }
+
+        $user->refresh();
+
+        $clientInference = $request->boolean('client_inference');
+
+        if (!$clientInference && !$billingService->canProceed($user)) {
+            return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
+        }
+
+        try {
+            $validated = $request->validate([
+                'question'         => 'required|string|min:3|max:2000',
+                'shelfId'          => 'nullable|string|uuid',
+                'model'            => 'nullable|string|max:100',
+                'client_inference' => 'nullable|boolean',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        $shelfId = $validated['shelfId'] ?? null;
+        $shelfName = null;
+
+        // PUBLIC-shelf gate. Mirrors ShelfController::publicSearch: read via
+        // pgsql_admin because the shelves RLS select policy is owner-only, which
+        // would make "public shelf" and "no shelf" indistinguishable here.
+        // Private shelves 404 even for their owner — personal-shelf asks belong
+        // to the in-reader flow (query()'s scope picker).
+        if ($shelfId) {
+            $shelf = DB::connection('pgsql_admin')->table('shelves')
+                ->where('id', $shelfId)
+                ->where('visibility', 'public')
+                ->first(['name']);
+            if (!$shelf) {
+                return response()->json(['success' => false, 'message' => 'Shelf not found'], 404);
+            }
+            $shelfName = $shelf->name;
+        }
+
+        [$fallbackChain, $brainModel, $modelLabel, $modelLabels] = $this->resolveModelChain($validated['model'] ?? null);
+
+        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService, $clientInference, $shelfId, $shelfName) {
+            $sendEvent = function (string $event, array $data) {
+                echo "event: {$event}\ndata: " . json_encode($data) . "\n\n";
+                if (ob_get_level()) ob_flush();
+                flush();
+            };
+
+            if ($clientInference) {
+                $llmService->setTransport(new ClientTicketTransport(
+                    $user->name,
+                    'ai_brain',
+                    null, // no highlight anchor for a standalone ask
+                    onTicketCreated: function ($ticket) use ($sendEvent) {
+                        $sendEvent('inference_request', [
+                            'ticket_id' => $ticket->id,
+                            'request' => $ticket->request,
+                        ]);
+                    },
+                    onWait: function () {
+                        echo ": heartbeat\n\n";
+                        if (ob_get_level()) ob_flush();
+                        flush();
+                    },
+                ));
+            }
+
+            try {
+                $question = $validated['question'];
+                $sourceScope = $shelfId ? 'shelf' : 'public';
+
+                Log::info('AiBrain: ask started', [
+                    'user' => $user->name,
+                    'sourceScope' => $sourceScope,
+                    'shelfId' => $shelfId,
+                    'question' => Str::limit($question, 100),
+                ]);
+
+                $onRetry = function (int $attempt, int $maxAttempts, int $status) use ($sendEvent) {
+                    $sendEvent('status', ['message' => "Server busy — retrying ({$attempt}/{$maxAttempts})..."]);
+                };
+                $onFallback = function (string $modelName) use ($sendEvent, $modelLabels) {
+                    $label = $modelLabels["accounts/fireworks/models/{$modelName}"] ?? $modelName;
+                    $sendEvent('status', ['message' => "Primary model unavailable — trying {$label}..."]);
+                };
+
+                $sendEvent('status', ['message' => 'Considering your question...']);
+                $routerResult = $this->planStandaloneRetrieval($llmService, $question, $shelfName, $fallbackChain, $onRetry, $onFallback);
+
+                if ($routerResult['type'] === 'error') {
+                    $sendEvent('error', ['message' => 'The AI model is currently unavailable. Please try again shortly.']);
+                    return;
+                }
+
+                $sendEvent('status', ['message' => 'Planning library search...']);
+
+                $pipelineLog = [
+                    'router_model' => $routerResult['router_model'] ?? 'unknown',
+                    'router_reasoning' => $routerResult['reasoning'] ?? '',
+                    'source_scope' => $sourceScope,
+                    'context_nodes' => 0,
+                ];
+
+                $plan = $routerResult['plan'];
+                $pipelineLog['keywords'] = $plan['keywords'] ?? '';
+                $pipelineLog['library_keywords'] = $plan['library_keywords'] ?? '';
+
+                $context = [
+                    'bookId' => null,
+                    'nodeIds' => [],
+                    'selectedText' => '',
+                    'question' => $question,
+                    'authorName' => null,
+                    'bookTitle' => null,
+                    'sourceScope' => $sourceScope,
+                    'shelfId' => $shelfId,
+                    'creatorName' => $user->name,
+                ];
+
+                $sendEvent('status', ['message' => $shelfName
+                    ? 'Searching "' . $shelfName . '" for relevant sources...'
+                    : 'Searching library for relevant sources...']);
+
+                $result = $this->retrievalService->execute($plan, $context);
+                $matches = $result['matches'];
+                $queryText = $result['queryText'];
+                $toolsUsed = $result['toolsUsed'];
+
+                $pipelineLog['retrieval_log'] = $result['log'];
+                $pipelineLog['tools_used'] = $toolsUsed;
+
+                // No billing happens past this point — early return skips
+                // BillingService::charge below (mirrors query()'s no-match rule,
+                // locked by tests/Feature/AiBrain/AskBillingFailureTest.php).
+                if (empty($matches)) {
+                    Log::info('AiBrain: ask — no matches found', ['tools' => $toolsUsed, 'scope' => $sourceScope]);
+                    $noMatchMessage = $shelfId
+                        ? 'No matches in this collection. Try rephrasing your question.'
+                        : 'No relevant passages found in the library.';
+                    $sendEvent('error', ['message' => $noMatchMessage]);
+                    return;
+                }
+
+                $pipelineLog['matches_found'] = count($matches);
+                $pipelineLog['sources_consulted'] = array_map(fn($m) => [
+                    'title' => $m->book_title ?? 'Untitled',
+                    'year' => $m->book_year ?? '',
+                    'similarity' => round($m->similarity * 100, 1),
+                    'excerpt' => Str::limit($m->plainText ?? '', 80),
+                ], array_slice($matches, 0, 10));
+
+                $sendEvent('status', ['message' => 'Found ' . count($matches) . ' relevant sources — sending to ' . $modelLabel . '...']);
+
+                $systemPrompt = $this->buildStandaloneSystemPrompt();
+                $userMessage = $this->buildStandaloneUserMessage($question, $matches, $shelfName);
+                $pipelineLog['prompt_summary'] = 'Question + ' . count($matches) . ' source passages';
+
+                $llmResult = $llmService->chatWithFallback(
+                    $systemPrompt,
+                    $userMessage,
+                    0.3,
+                    8192,
+                    $fallbackChain,
+                    180,
+                    'low',
+                    $onRetry,
+                    $onFallback
+                );
+
+                if (!$llmResult) {
+                    Log::warning('AiBrain: ask — LLM all models failed');
+                    $sendEvent('error', ['message' => 'The AI model failed to respond. Please try again.']);
+                    return;
+                }
+
+                $llmResponse = $llmResult['content'];
+                $brainModel = $llmResult['model'];
+                $modelLabel = $modelLabels[$brainModel] ?? basename($brainModel);
+
+                $llmResponse = preg_replace('/<think>[\s\S]*?<\/think>/i', '', $llmResponse);
+                if (str_contains($llmResponse, '<think>')) {
+                    $llmResponse = preg_replace('/<think>[\s\S]*/i', '', $llmResponse);
+                }
+                $llmResponse = trim($llmResponse);
+
+                // Same rule as query(): an LLM completion is untrusted markup —
+                // doubly so under BYO where the "model" is whatever the client
+                // posted back.
+                $llmResponse = NodeHtmlSanitizer::clean($llmResponse) ?? '';
+
+                $answerBookId = $this->generateAnswerBookId();
+
+                $sendEvent('status', ['message' => 'Linking sources into your answer']);
+                // 3rd arg is unused inside the minter; 4th lands in citedIN — the
+                // standalone answer book plays the sub-book's role there.
+                [$processedHtml, $hypercites] = $this->processCitationsInResponse(
+                    $llmResponse,
+                    $matches,
+                    $answerBookId,
+                    $answerBookId,
+                    $user
+                );
+
+                $sendEvent('status', ['message' => 'Saving to your library']);
+                $nowMs = (int) round(microtime(true) * 1000);
+                $title = 'AI Archivist: ' . Str::limit($question, 80);
+
+                // PRIVATE standalone book (type 'book', not 'sub_book') — a normal
+                // editable/deletable library row owned by the asker. Private ⇒
+                // sanitizeCitedInForViewer hides its citedIN entries from everyone
+                // else, and no docuverse connection edge is created.
+                DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+                    ['book' => $answerBookId],
+                    [
+                        'creator'       => $user->name,
+                        'creator_token' => null,
+                        'visibility'    => 'private',
+                        'listed'        => false,
+                        'title'         => $title,
+                        'author'        => 'AI Archivist',
+                        'type'          => 'book',
+                        'has_nodes'     => true,
+                        'raw_json'      => json_encode([]),
+                        'timestamp'     => $nowMs,
+                    ]
+                );
+
+                $questionNode = '<p><b>Prompt</b>: "' . e(Str::limit($question, 1000)) . '"</p>';
+                $aiLabel = '<p><b>AI Archivist</b>:</p>';
+                $conversationHtml = $questionNode . $aiLabel . $processedHtml;
+
+                $nodes = $this->createResponseNodes($conversationHtml, $answerBookId);
+
+                $usageStats = $llmService->getUsageStats();
+                $totalCost = $this->calculateCost($usageStats, $embeddingService, $queryText);
+                $pipelineLog['cost'] = $totalCost;
+                $pipelineLog['llm_model'] = basename($brainModel);
+
+                $appendixHtml = $this->buildAppendixHtml($pipelineLog);
+                $appendixNodes = $this->createResponseNodes($appendixHtml, $answerBookId, count($nodes));
+                $nodes = array_merge($nodes, $appendixNodes);
+
+                $shelf = $this->ensureArchivistShelf($user, $answerBookId);
+
+                // Bump each cited source book so other clients sync the new hypercites.
+                if (!empty($hypercites)) {
+                    $sourceBookIds = array_unique(array_map(fn($h) => $h['book'], $hypercites));
+                    foreach ($sourceBookIds as $sourceBook) {
+                        DB::select('SELECT update_annotations_timestamp(?, ?)', [$sourceBook, $nowMs]);
+                    }
+                }
+
+                if ($clientInference) {
+                    Log::info('AiBrain: ask — BYO client inference, charge waived', ['residual_cost' => $totalCost]);
+                } else {
+                    $billingService->charge(
+                        $user,
+                        $totalCost,
+                        'AI Archivist: ' . Str::limit($question, 60),
+                        'ai_brain',
+                        [],
+                        ['book_id' => $answerBookId]
+                    );
+                }
+
+                Log::info('AiBrain: ask complete', [
+                    'bookId' => $answerBookId,
+                    'nodes_count' => count($nodes),
+                    'hypercites_count' => count($hypercites),
+                    'cost' => $totalCost,
+                    'tools_used' => $toolsUsed,
+                    'shelf_id' => $shelf['id'],
+                ]);
+
+                $sendEvent('result', [
+                    'success'    => true,
+                    'bookId'     => $answerBookId,
+                    'nodes'      => $nodes,
+                    'library'    => [
+                        'book'       => $answerBookId,
+                        'title'      => $title,
+                        'type'       => 'book',
+                        'visibility' => 'private',
+                        'has_nodes'  => true,
+                        'creator'    => $user->name,
+                    ],
+                    'hypercites' => $hypercites,
+                    'tools_used' => $toolsUsed,
+                    'shelf'      => $shelf,
+                ]);
+
+            } catch (ClientInferenceUnavailableException $e) {
+                Log::warning('AiBrainController::ask - client inference unavailable', [
+                    'error' => $e->getMessage(),
+                ]);
+                $sendEvent('error', ['message' => 'Your AI provider did not answer in time. Check your provider settings (⌘,) and try again.']);
+            } catch (\Exception $e) {
+                Log::error('AiBrainController::ask - exception', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                $sendEvent('error', ['message' => 'AI query failed']);
+            } finally {
+                $llmService->clearTransport();
+            }
+        }, 200, [
+            'Content-Type'      => 'text/event-stream',
+            'Cache-Control'     => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+            'Connection'        => 'keep-alive',
+        ]);
+    }
+
+    /**
      * Quick Chat path — one LLM call, no router, no retrieval, no hypercites.
      * Emits the same SSE result shape as the archivist path so the frontend doesn't
      * need to branch on the response side.
@@ -982,6 +1291,84 @@ PROMPT;
 
         $userMessage .= "QUESTION:\n{$question}";
 
+        return $this->runRouterLlm(
+            $llmService,
+            $systemPrompt,
+            $userMessage,
+            $fallbackChain,
+            $selectedText . "\n\n" . $question,
+            ['author_name' => $authorName, 'book_title' => $bookTitle],
+            $onRetry,
+            $onFallback
+        );
+    }
+
+    /**
+     * Standalone (selection-free) router variant for ask(): rewrite a bare
+     * research question into a search plan. Same wire contract as planRetrieval
+     * minus the passage framing; the parse-failure fallback embeds the question
+     * itself.
+     */
+    private function planStandaloneRetrieval(
+        LlmService $llmService,
+        string $question,
+        ?string $corpusLabel,
+        array $fallbackChain,
+        ?\Closure $onRetry = null,
+        ?\Closure $onFallback = null
+    ): array {
+        $systemPrompt = <<<'PROMPT'
+You are an AI Archivist — a scholarly research assistant for the Hyperlit archive.
+The user has asked the archive a research question (no passage is selected).
+Your job is to rewrite their question into a search plan for finding relevant
+sources in the library.
+
+Respond with a JSON search plan wrapped in <search>...</search> tags:
+{
+  "keywords": "3-5 distinctive terms for full-text search (terms are OR'd — each should be specific enough to find relevant passages on its own, e.g. 'counterfactual NIEO dependency' not a long list)",
+  "library_keywords": "author names or book titles mentioned/implied for library metadata search",
+  "embedding_query": "the best sentence to use as a vector embedding for semantic similarity search",
+  "reasoning": "brief explanation of what you're looking for"
+}
+
+Always produce a search plan. Do NOT try to answer the question yourself —
+that happens downstream once we have the source passages.
+PROMPT;
+
+        $userMessage = '';
+        if ($corpusLabel) {
+            $userMessage .= "The question is scoped to the collection \"{$corpusLabel}\".\n\n";
+        }
+        $userMessage .= "QUESTION:\n{$question}";
+
+        return $this->runRouterLlm(
+            $llmService,
+            $systemPrompt,
+            $userMessage,
+            $fallbackChain,
+            $question,
+            [],
+            $onRetry,
+            $onFallback
+        );
+    }
+
+    /**
+     * Shared router-LLM call + <search> JSON parse. Extracted verbatim from
+     * planRetrieval (behaviour unchanged) so planStandaloneRetrieval can reuse
+     * it; only the prompts and the parse-failure embedding_query differ per
+     * caller.
+     */
+    private function runRouterLlm(
+        LlmService $llmService,
+        string $systemPrompt,
+        string $userMessage,
+        array $fallbackChain,
+        string $fallbackEmbeddingQuery,
+        array $base,
+        ?\Closure $onRetry = null,
+        ?\Closure $onFallback = null
+    ): array {
         $llmResult = $llmService->chatWithFallback(
             $systemPrompt,
             $userMessage,
@@ -999,11 +1386,7 @@ PROMPT;
             }
         );
 
-        $base = [
-            'author_name' => $authorName,
-            'book_title' => $bookTitle,
-            'router_model' => $llmResult ? basename($llmResult['model']) : 'unavailable',
-        ];
+        $base['router_model'] = $llmResult ? basename($llmResult['model']) : 'unavailable';
 
         if (!$llmResult) {
             Log::warning('AiBrain: router — all models unavailable, aborting pipeline');
@@ -1048,7 +1431,7 @@ PROMPT;
             'plan' => [
                 'keywords' => '',
                 'library_keywords' => '',
-                'embedding_query' => $selectedText . "\n\n" . $question,
+                'embedding_query' => $fallbackEmbeddingQuery,
             ],
             'reasoning' => 'fallback — router parse failure',
         ]);
@@ -1215,28 +1598,96 @@ PROMPT;
         // Deduplicate consecutive identical citations: [1][1][1] → [1]
         $html = preg_replace('/(\[\d+\])(?:\s*\1)+/', '$1', $html);
 
+        // Merge adjacent bracket runs into ONE group: [1][2] / [1] [3, 4] → [1, 2] /
+        // [1, 3, 4]. NEVER two arrows in a row — a run becomes a single grouped
+        // arrow whose click opens the member chooser.
+        $html = preg_replace('/(?<=\d)\]\s*\[(?=\d)/', ', ', $html);
+
         // Extract quoted text near each citation for smart charData
         $quotedTextMap = $this->extractQuotesNearCitations($html, $matches);
 
-        // Track seen citations globally so non-consecutive dupes are also removed
+        // Track seen citations globally so non-consecutive dupes are also removed;
+        // num => member info so a later GROUP can still list an already-minted target.
         $seenCitations = [];
 
+        // Matches single [N] AND comma groups like [1, 3, 4] — despite the prompt's
+        // one-citation rule the model emits survey-style groups, and an unmatched
+        // group would land in the answer as dead literal text instead of arrows.
+        // A group renders as ONE ↗ carrying a data-cite-group payload (target +
+        // source label + quote per member) for the client-side chooser; every
+        // fresh member's citedIN points at the shared anchor id so source-side
+        // deep-links land on the arrow (anchorId ≠ hyperciteId — the
+        // HyperciteMinter precedent).
         $processedHtml = preg_replace_callback(
-            '/\[(\d+)\]/',
+            '/\[(\d+(?:\s*,\s*\d+)*)\]/',
             function ($m) use (&$hypercites, &$seenCitations, $matches, $subBookId, $user, $quotedTextMap) {
-                $citationNum = (int) $m[1];
-                $index = $citationNum - 1; // LLM uses 1-indexed, array is 0-indexed
+                $nums = array_values(array_unique(array_map('intval', preg_split('/\s*,\s*/', $m[1]))));
+                $valid = array_values(array_filter($nums, fn($n) => $n >= 1 && $n <= count($matches)));
 
-                if ($index < 0 || $index >= count($matches)) {
+                // Every number out of range → keep the literal token (old behaviour)
+                if (empty($valid)) {
                     return $m[0];
                 }
 
-                // Global dedup: first occurrence wins, subsequent ones are burned
-                if (isset($seenCitations[$citationNum])) {
+                // Single citation — unchanged semantics: dupes are burned, fresh
+                // ones mint with anchor id = hypercite id.
+                if (count($valid) === 1) {
+                    $num = $valid[0];
+                    if (isset($seenCitations[$num])) {
+                        return '';
+                    }
+                    $info = $this->mintCitationMember($num, $matches, $subBookId, $user, $quotedTextMap, $hypercites, null);
+                    $seenCitations[$num] = $info;
+                    return '<a id="' . e($info['hyperciteId']) . '" href="' . e($info['targetHref']) . '" class="open-icon">↗</a>';
+                }
+
+                // Group: burn when nothing NEW is cited (all members are dupes),
+                // mirroring the single-dupe rule.
+                $freshNums = array_values(array_filter($valid, fn($n) => !isset($seenCitations[$n])));
+                if (empty($freshNums)) {
                     return '';
                 }
-                $seenCitations[$citationNum] = true;
 
+                $anchorId = 'hypercite_' . Str::random(8);
+                $members = [];
+                foreach ($valid as $num) {
+                    if (!isset($seenCitations[$num])) {
+                        $seenCitations[$num] = $this->mintCitationMember($num, $matches, $subBookId, $user, $quotedTextMap, $hypercites, $anchorId);
+                    }
+                    $members[] = $seenCitations[$num];
+                }
+
+                $payload = array_map(fn($i) => [
+                    't' => $i['targetHref'],
+                    's' => $i['label'],
+                    'q' => $i['quote'],
+                ], $members);
+
+                return '<a id="' . e($anchorId) . '" href="' . e($members[0]['targetHref']) . '" class="open-icon"'
+                    . ' data-cite-group="' . e(json_encode($payload, JSON_UNESCAPED_UNICODE)) . '">↗</a>';
+            },
+            $html
+        );
+
+        return [$processedHtml, $hypercites];
+    }
+
+    /**
+     * Mint ONE citation number into a hypercite row. Returns the member info the
+     * anchor builders need: hyperciteId, targetHref, source label, quote snippet.
+     * $citedInAnchorId overrides the citedIN anchor for group members (they all
+     * share the group arrow's id); null = the row's own hypercite id.
+     */
+    private function mintCitationMember(
+        int $citationNum,
+        array $matches,
+        string $subBookId,
+        $user,
+        array $quotedTextMap,
+        array &$hypercites,
+        ?string $citedInAnchorId
+    ): array {
+                $index = $citationNum - 1; // LLM uses 1-indexed, array is 0-indexed (caller validated the range)
                 $match = $matches[$index];
                 $hyperciteId = 'hypercite_' . Str::random(8);
 
@@ -1295,7 +1746,7 @@ PROMPT;
                             'charEnd'   => $charEnd,
                         ],
                     ]),
-                    'citedIN'            => json_encode(["/{$subBookId}#{$hyperciteId}"]),
+                    'citedIN'            => json_encode(["/{$subBookId}#" . ($citedInAnchorId ?? $hyperciteId)]),
                     'hypercitedText'     => $hypercitedText,
                     'relationshipStatus' => 'couple',
                     'creator'            => 'AIarchivist',
@@ -1309,13 +1760,19 @@ PROMPT;
 
                 $hypercites[] = $hyperciteData;
 
-                $linkHref = "/{$match->book}#{$hyperciteId}";
-                return '<a id="' . e($hyperciteId) . '" href="' . e($linkHref) . '"><sup class="open-icon">&nearr;</sup></a>';
-            },
-            $html
-        );
+                // NOTE the flat anchor shape the callers build (<a class="open-icon">↗</a>
+                // with a literal arrow): NOT the legacy <a><sup>&nearr;</sup></a> —
+                // HtmlBlockSplitter's libxml round-trip escapes the unknown &nearr;
+                // entity to &amp;nearr;, which only the reader repairs at render.
+                $label = trim(($match->book_title ?? 'Untitled')
+                    . (($match->book_author ?? '') !== '' ? ' — ' . $match->book_author : ''));
 
-        return [$processedHtml, $hypercites];
+                return [
+                    'hyperciteId' => $hyperciteId,
+                    'targetHref'  => "/{$match->book}#{$hyperciteId}",
+                    'label'       => $label,
+                    'quote'       => Str::limit($hypercitedText, 140),
+                ];
     }
 
     /**
@@ -1326,9 +1783,11 @@ PROMPT;
     {
         $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // Find all [N] positions in the plain text
+        // Find all [N] positions in the plain text (a comma group like [1, 3]
+        // counts as its FIRST number — that member gets the nearby quote; the
+        // rest fall back to whole-node charData)
         $citationPositions = [];
-        if (preg_match_all('/\[(\d+)\]/', $text, $cMatches, PREG_OFFSET_CAPTURE)) {
+        if (preg_match_all('/\[(\d+)(?:\s*,\s*\d+)*\]/', $text, $cMatches, PREG_OFFSET_CAPTURE)) {
             foreach ($cMatches[0] as $i => $fullMatch) {
                 $num = (int) $cMatches[1][$i][0];
                 // Use mb-safe offset: convert byte offset to character offset
@@ -1570,5 +2029,146 @@ PROMPT;
         $html .= '<p data-appendix="true"><strong>Cost:</strong> $' . $cost . '</p>';
 
         return $html;
+    }
+
+    /**
+     * Fireworks AI fallback chain. Verified live 2026-05-27. Shared by query()
+     * and ask(). Returns [$fallbackChain, $brainModel, $modelLabel, $modelLabels].
+     *
+     * TODO: when Fireworks credits run out, migrate to DeepInfra:
+     *   LLM_BASE_URL=https://api.deepinfra.com/v1/openai
+     *   primary: deepseek-ai/DeepSeek-V3.2                  ($0.26 in / $0.38 out per 1M)
+     *   fallback: nvidia/NVIDIA-Nemotron-3-Super-120B-A12B  ($0.10/$0.50)
+     *   fallback: Qwen/Qwen3.6-35B-A3B                      ($0.15/$0.95)
+     * Reasons to switch: ~50% cheaper input + ~75% cheaper output, SOC 2 +
+     * ISO 27001, zero-retention (in-memory only), no training-on-prompts.
+     */
+    private function resolveModelChain(?string $requestedModel): array
+    {
+        $fallbackChain = [
+            'accounts/fireworks/models/deepseek-v4-pro-0813',  // primary — DeepSeek V4 Pro (GA; preview id serverless-decommissioned 2026-08-27)
+            'accounts/fireworks/models/kimi-k2p6',             // fallback 1 — different family
+            'accounts/fireworks/models/gpt-oss-120b',          // fallback 2 — cheap safety net
+        ];
+
+        $modelLabels = [
+            'accounts/fireworks/models/deepseek-v4-pro-0813' => 'DeepSeek V4 Pro',
+            'accounts/fireworks/models/kimi-k2p6'            => 'Kimi K2.6',
+            'accounts/fireworks/models/gpt-oss-120b'         => 'GPT-OSS 120B',
+        ];
+
+        // Place user-selected model first in the chain (if valid)
+        $allowedModels = array_keys($modelLabels);
+        $brainModel = in_array($requestedModel, $allowedModels)
+            ? $requestedModel
+            : 'accounts/fireworks/models/deepseek-v4-pro-0813';
+
+        // Reorder fallback chain: user's chosen model first, then the rest
+        $fallbackChain = array_values(array_unique(array_merge([$brainModel], $fallbackChain)));
+
+        return [$fallbackChain, $brainModel, $modelLabels[$brainModel] ?? basename($brainModel), $modelLabels];
+    }
+
+    /**
+     * System prompt for the standalone (selection-free) answer call: a short
+     * lit-review over the retrieved passages, same citation discipline as the
+     * in-reader archivist prompt.
+     */
+    private function buildStandaloneSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You are an AI Archivist — a scholarly research assistant helping users track down and analyse meaning across the Hyperlit archive of open access research. The user has asked the archive a research question.
+
+Your task:
+1. Answer the question as a short literature review, drawing on the provided source passages
+2. When referencing a source, use the author's name naturally (e.g. "As Smith argues [1]", "Hayek's intervention [3]") — never write "Source [N]"
+3. Include actual brief quotes from the source passages where relevant, followed by the citation number
+4. When multiple source passages support one claim, cite only the single most relevant one — never stack citations like [1][2][3] and never group them like [1, 2, 3]. Each [N] should appear at most once in your entire response.
+5. Format your response as HTML paragraphs using <p> tags
+
+Rules:
+- Only cite sources using the exact [N] reference numbers from the provided passages
+- Do not invent citations or reference works not in the provided sources
+- If the provided passages do not really answer the question, say so plainly and describe what they DO cover
+- Keep your response focused and substantive (3-8 paragraphs)
+- Use <em> for emphasis and <blockquote> for longer quotes
+- Do NOT include headings (h1-h6)
+- Do NOT wrap the entire response in a container div
+- Always refer to source authors by name, not by "Source" — if you must use the word, use lowercase "source"
+PROMPT;
+    }
+
+    private function buildStandaloneUserMessage(string $question, array $matches, ?string $corpusLabel = null): string
+    {
+        $msg = '';
+        if ($corpusLabel) {
+            $msg .= "The question is asked against the collection \"{$corpusLabel}\".\n\n";
+        }
+        $msg .= "QUESTION:\n{$question}";
+        $msg .= "\n\nSOURCE PASSAGES FROM LIBRARY:\n" . $this->buildPassageContext($matches);
+        return $msg;
+    }
+
+    /**
+     * Standalone answer-book id, following the client convention for new books
+     * (`book_<ms>`, see resources/js/SPA/createNewBook.ts). The bump loop
+     * handles a same-millisecond collision.
+     */
+    private function generateAnswerBookId(): string
+    {
+        $ms = (int) round(microtime(true) * 1000);
+        do {
+            $id = 'book_' . $ms;
+            $exists = DB::connection('pgsql_admin')->table('library')->where('book', $id)->exists();
+            $ms++;
+        } while ($exists);
+        return $id;
+    }
+
+    /**
+     * Find-or-create the asker's "AI Archivist" shelf and append the answer
+     * book. All writes on pgsql_admin, mirroring ShelfController's write paths;
+     * the unique (creator, name) index guarantees at most one shelf to find.
+     * Returns ['id' => uuid, 'name' => 'AI Archivist'] for the result event.
+     */
+    private function ensureArchivistShelf($user, string $answerBookId): array
+    {
+        $admin = DB::connection('pgsql_admin');
+        $name = 'AI Archivist';
+
+        $shelf = $admin->table('shelves')
+            ->where('creator', $user->name)
+            ->where('name', $name)
+            ->first(['id']);
+
+        if ($shelf) {
+            $shelfId = $shelf->id;
+        } else {
+            $slug = 'ai-archivist';
+            while ($admin->table('shelves')->where('creator', $user->name)->where('slug', $slug)->exists()) {
+                $slug = 'ai-archivist-' . strtolower(Str::random(4));
+            }
+            $shelfId = $admin->table('shelves')->insertGetId([
+                'creator'       => $user->name,
+                'creator_token' => null,
+                'name'          => $name,
+                'slug'          => $slug,
+                'description'   => 'Answers written by the AI Archivist.',
+                'visibility'    => 'private',
+                'default_sort'  => 'recent',
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ], 'id');
+            Log::info('AiBrain: created AI Archivist shelf', ['user' => $user->name, 'shelf_id' => $shelfId]);
+        }
+
+        $admin->table('shelf_items')->updateOrInsert(
+            ['shelf_id' => $shelfId, 'book' => $answerBookId],
+            ['added_at' => now()]
+        );
+        $admin->table('shelves')->where('id', $shelfId)->update(['updated_at' => now()]);
+        (new \App\Services\ShelfCacheInvalidator())->flush($shelfId);
+
+        return ['id' => $shelfId, 'name' => $name];
     }
 }

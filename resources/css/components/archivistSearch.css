@@ -1,0 +1,144 @@
+/* AI Archivist on the hero pages (home / journal / archive) — the brain button
+   in the arranger row, the search box's archivist takeover mode, and the
+   answer panel that lands in the .main-content feed slot.
+
+   The takeover is driven by ONE class: search/searchBox.ts stamps
+   `archivist-mode` on .arranger-buttons-container when the mode is entered;
+   everything below keys off it. The step-checklist inside the panel reuses
+   brainMode.css (.brain-status / .brain-steps), already imported by both
+   pages/home.css and pages/journal.css. */
+
+/* ---- the brain button (always in the row, after the feed buttons) ---- */
+
+#archivist-brain-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.3em;
+  height: 2.3em;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(75, 75, 75, 0.6);
+  color: var(--hyperlit-white, #CBCCCC);
+  cursor: pointer;
+  transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+}
+
+#archivist-brain-button svg {
+  width: 1.3em;
+  height: 1.3em;
+}
+
+#archivist-brain-button .brain-icon-path {
+  stroke: currentColor;
+  fill: none;
+}
+
+#archivist-brain-button:hover {
+  background: rgba(95, 95, 95, 0.75);
+}
+
+/* lit while archivist mode is on — the way back out */
+.arranger-buttons-container.archivist-mode #archivist-brain-button,
+#archivist-brain-button.active {
+  background: #00afaf;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(0, 175, 175, 0.45);
+}
+
+/* logged-out: dimmed but still clickable (submitting shows the login prompt) */
+#archivist-brain-button.archivist-guest {
+  opacity: 0.45;
+}
+
+/* ---- the takeover: toggles + feed buttons yield to a wide prompt box ---- */
+
+.arranger-buttons-container.archivist-mode .search-toggle-stack,
+.arranger-buttons-container.archivist-mode .arranger-button {
+  display: none;
+}
+
+.arranger-buttons-container.archivist-mode .search-input-anchor {
+  flex: 1 1 auto;
+  max-width: 640px;
+}
+
+/* Clear the Ask button's corner — prompt text must never run under it */
+.arranger-buttons-container.archivist-mode .search-input {
+  padding-right: 78px;
+}
+
+/* ---- the Ask button (inside .search-input-anchor, archivist mode only) ---- */
+
+.archivist-ask-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #00afaf;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.archivist-ask-btn:hover {
+  background: #00c4c4;
+}
+
+.archivist-ask-btn[hidden] {
+  display: none;
+}
+
+/* in-flight: the goo loader replaces the Ask label */
+.archivist-ask-btn.asking {
+  padding: 2px 10px;
+  background: transparent;
+  cursor: default;
+}
+
+.archivist-ask-btn.asking .brain-blobs {
+  display: block;
+  width: 30px;
+  height: 26px;
+}
+
+
+/* ---- the answer panel (a .main-content div in the feed slot) ---- */
+
+.archivist-panel {
+  padding: 1.5em 1em 3em;
+}
+
+.archivist-answer {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.archivist-answer-body blockquote {
+  border-left: 3px solid rgba(238, 75, 150, 0.6);
+  margin-left: 0;
+  padding-left: 1em;
+}
+
+/* the AI answer's data-appendix trail reads as fine print */
+.archivist-answer-body [data-appendix="true"] {
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+.archivist-open-link {
+  margin-top: 1.5em;
+  font-size: 0.9em;
+}
+
+.archivist-auth-message a {
+  cursor: pointer;
+  text-decoration: underline;
+}
