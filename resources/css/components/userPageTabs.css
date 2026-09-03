@@ -12,6 +12,11 @@
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-start;
+  /* Center the row: the fixed-height brain/× discs (34px) and the padded
+     pills share one vertical axis. Default (stretch) pinned the discs to the
+     line's top edge. The search box is unaffected — its container wraps onto
+     its own 100%-width flex line (homepage.css hero override). */
+  align-items: center;
   margin-left: 20px;
 }
 

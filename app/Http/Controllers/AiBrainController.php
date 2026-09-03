@@ -1473,7 +1473,7 @@ Your task:
 1. Answer the question in relation to the selected passage
 2. Draw on the provided source passages from the user's library to support your answer
 3. When referencing a source, use the author's name naturally (e.g. "As Smith argues [1]", "Hayek's intervention [3]") — never write "Source [N]"
-4. Include actual brief quotes from the source passages where relevant, followed by the citation number
+4. Include actual brief quotes from the source passages where relevant, followed by the citation number. Place the [N] AFTER the closing quote mark and any punctuation (write `"…example",[1] and` — not `"…example"[1], and`); for a <blockquote>, place the [N] inside the blockquote at the very end of the quoted text, never after the closing </blockquote> tag
 5. When multiple source passages support one claim, cite only the single most relevant one — never stack citations like [1][2][3]. Each [N] should appear at most once in your entire response.
 6. Format your response as HTML paragraphs using <p> tags
 
@@ -1603,6 +1603,13 @@ PROMPT;
         // arrow whose click opens the member chooser.
         $html = preg_replace('/(?<=\d)\]\s*\[(?=\d)/', ', ', $html);
 
+        // Move each token to its structurally/grammatically correct spot BEFORE
+        // substitution — the anchor lands wherever the model typed [N], and the
+        // model routinely types it just OUTSIDE a blockquote (HtmlBlockSplitter
+        // then flushes the anchor as the START of the next paragraph) or just
+        // BEFORE the sentence's punctuation.
+        $html = $this->normalizeCitationTokenPlacement($html);
+
         // Extract quoted text near each citation for smart charData
         $quotedTextMap = $this->extractQuotesNearCitations($html, $matches);
 
@@ -1670,6 +1677,47 @@ PROMPT;
         );
 
         return [$processedHtml, $hypercites];
+    }
+
+    /**
+     * Move [N] citation tokens to where their ↗ anchors belong, mirroring the
+     * HyperciteMinter placement convention ("the ↗ belongs to the SENTENCE,
+     * never inside the citation's punctuation" — HyperciteMinter.php):
+     *
+     * 1. BLOCK PULL-IN (first): a token sitting immediately after a closing
+     *    block tag moves inside it, iterating so `</p></blockquote>[1]` tucks
+     *    all the way into the paragraph. Without this, HtmlBlockSplitter
+     *    buffers the anchor as inline residue and flushes it as a NEW <p>
+     *    STARTING with the ↗ (the reported `<p><a class="open-icon">↗</a>,
+     *    capturing…</p>` bug).
+     * 2. PUNCTUATION STEP-OVER (second — order matters: run first, it would
+     *    drag a post-blockquote comma in front of the anchor): a token
+     *    directly before closing quote marks and/or trailing punctuation
+     *    steps over them, so `"…development"[1], capturing` renders as
+     *    `"…development",↗ capturing` and `…structure[1].` as `…structure.↗`.
+     *    The run is capped at 3 chars — enough for `."`, `”,` and `...`,
+     *    never a crawl across real text.
+     */
+    private function normalizeCitationTokenPlacement(string $html): string
+    {
+        $token = '\[\d+(?:\s*,\s*\d+)*\]';
+
+        // 1) Block pull-in — loop until stable so nested closers are crossed
+        // one at a time (`</p></blockquote>[1]` → `</p>[1]</blockquote>` →
+        // `[1]</p></blockquote>`). Only whitespace may separate the closer
+        // from the token, so a token legitimately starting the NEXT block
+        // (`</p><p>[1] …`) never matches.
+        $closer = '</(?:p|blockquote|li|h[1-6])>';
+        do {
+            $html = preg_replace('#(' . $closer . ')\s*(' . $token . ')#u', '$2$1', $html, -1, $moved);
+        } while ($moved > 0);
+
+        // 2) Punctuation step-over — closing quotes (straight + curly), a
+        // closing parenthesis, and sentence punctuation, in any order (handles
+        // both `."` and `".`), strictly adjacent to the token.
+        $html = preg_replace('#(' . $token . ')((?:[\'"’”\)]|[,.;:!?]){1,3})#u', '$2$1', $html);
+
+        return $html;
     }
 
     /**
@@ -2082,7 +2130,7 @@ You are an AI Archivist — a scholarly research assistant helping users track d
 Your task:
 1. Answer the question as a short literature review, drawing on the provided source passages
 2. When referencing a source, use the author's name naturally (e.g. "As Smith argues [1]", "Hayek's intervention [3]") — never write "Source [N]"
-3. Include actual brief quotes from the source passages where relevant, followed by the citation number
+3. Include actual brief quotes from the source passages where relevant, followed by the citation number. Place the [N] AFTER the closing quote mark and any punctuation (write `"…example",[1] and` — not `"…example"[1], and`); for a <blockquote>, place the [N] inside the blockquote at the very end of the quoted text, never after the closing </blockquote> tag
 4. When multiple source passages support one claim, cite only the single most relevant one — never stack citations like [1][2][3] and never group them like [1, 2, 3]. Each [N] should appear at most once in your entire response.
 5. Format your response as HTML paragraphs using <p> tags
 

@@ -293,6 +293,64 @@ test('citation groups mint one hypercite per member behind a SINGLE ↗ chooser 
     cleanupAskArtifacts($user->name, [$answerBookId], $sourceBookId);
 });
 
+test('citation anchors land inside blockquotes and after sentence punctuation', function () {
+    $user = makeAskBookUser('ask_book_place');
+    [$sourceBookId, $sourceNodeId] = seedAskSourceBook();
+
+    // Second source node so [2] resolves too
+    $secondNodeId = $sourceBookId . '_node_2';
+    askBookAdminConn()->table('nodes')->insert([
+        'book' => $sourceBookId, 'chunk_id' => 0, 'startLine' => 2, 'node_id' => $secondNodeId,
+        'content' => '<p>A second passage on the same theme.</p>',
+        'plainText' => 'A second passage on the same theme.',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $second = askSourceMatch($sourceBookId, $secondNodeId);
+    $second->plainText = 'A second passage on the same theme.';
+
+    // The two reported placement bugs, verbatim shapes: [1] typed OUTSIDE the
+    // blockquote (must move inside it, and the residue paragraph must NOT start
+    // with the arrow), and [2] typed BEFORE the sentence's comma (the arrow
+    // must step over the closing quote + punctuation).
+    mockAskLlm(1, '<blockquote>Delinking is not autarky.</blockquote>[1], capturing the aftermath. '
+        . '<p>The periphery must submit external relations "to internal development"[2], a rule he never softened.</p>');
+    $this->mock(RetrievalService::class, function ($mock) use ($sourceBookId, $sourceNodeId, $second) {
+        $mock->shouldReceive('execute')->andReturn([
+            'matches'   => [askSourceMatch($sourceBookId, $sourceNodeId), $second],
+            'queryText' => null,
+            'toolsUsed' => ['embedding_search'],
+            'log'       => [],
+        ]);
+    });
+    $this->mock(BillingService::class, function ($mock) {
+        $mock->shouldReceive('canProceed')->andReturnTrue();
+        $mock->shouldReceive('charge')->once();
+    });
+
+    $result = extractAskResult($this->actingAs($user)
+        ->postJson('/api/ai-brain/ask', ['question' => 'What is delinking?'])
+        ->streamedContent());
+    $answerBookId = $result['bookId'];
+
+    $admin = askBookAdminConn();
+    $nodes = $admin->table('nodes')->where('book', $answerBookId)->orderBy('startLine')->get();
+    $answerHtml = $nodes->pluck('content')->implode('');
+
+    // [1]: anchor sits INSIDE the blockquote, right before its closing tag
+    expect($answerHtml)->toMatch('#<a [^>]*class="open-icon"[^>]*>↗</a></blockquote>#');
+
+    // …and no node begins with the arrow (the old bug: the residue paragraph
+    // after the blockquote opened with <a class="open-icon">↗</a>)
+    foreach ($nodes as $node) {
+        expect(preg_match('#^<p[^>]*>\s*<a [^>]*class="open-icon"#', $node->content))->toBe(0);
+    }
+
+    // [2]: anchor steps over the closing quote AND the comma
+    expect($answerHtml)->toMatch('#development",<a [^>]*class="open-icon"#');
+
+    cleanupAskArtifacts($user->name, [$answerBookId], $sourceBookId);
+});
+
 test('a second ask reuses the same AI Archivist shelf', function () {
     $user = makeAskBookUser('ask_book_reuse');
     [$sourceBookId, $sourceNodeId] = seedAskSourceBook();

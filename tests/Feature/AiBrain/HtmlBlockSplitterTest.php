@@ -55,6 +55,20 @@ test('preserves an inline hypercite anchor inside a paragraph', function () {
     expect($blocks[0])->toContain('open-icon');
 });
 
+test('keeps a flat ↗ anchor at the end of a blockquote inside that block', function () {
+    // The shape normalizeCitationTokenPlacement produces for a blockquote
+    // citation: the anchor tucked inside, before the closing tag. It must stay
+    // in the blockquote block — never flushed into the following paragraph.
+    $html = '<blockquote>the quote<a id="hypercite_abc" href="/book_x#hypercite_abc" class="open-icon">↗</a></blockquote>, capturing the aftermath.';
+
+    $blocks = HtmlBlockSplitter::split($html);
+
+    expect($blocks)->toHaveCount(2);
+    expect($blocks[0])->toContain('open-icon');
+    expect($blocks[0])->toContain('</a></blockquote>');
+    expect($blocks[1])->not->toContain('open-icon');
+});
+
 test('returns an empty array for empty input', function () {
     expect(HtmlBlockSplitter::split(''))->toBe([]);
     expect(HtmlBlockSplitter::split('   '))->toBe([]);

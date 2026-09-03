@@ -138,7 +138,9 @@ class SeedE2eArchivistAnswer extends Command
         $this->resetNodes($admin, $book, [
             [1, '<p id="1" data-node-id="' . $book . '_e2efix_1"><b>Prompt</b>: "What does the e2e fixture archive say about delinking?"</p>', 'p'],
             [2, '<p id="2" data-node-id="' . $book . '_e2efix_2"><b>AI Archivist</b>:</p>', 'p'],
-            [3, '<p id="3" data-node-id="' . $book . '_e2efix_3">The fixture source treats delinking as the submission of external relations to internal development <a id="' . $hc . '" href="/' . $source . '#' . $hc . '" class="open-icon">↗</a>. This paragraph exists so the answer has a live hypercite anchor.</p>', 'p'],
+            // Anchor placement mirrors normalizeCitationTokenPlacement (the ↗
+            // follows the sentence's punctuation, never precedes it).
+            [3, '<p id="3" data-node-id="' . $book . '_e2efix_3">The fixture source treats delinking as the submission of external relations to internal development.<a id="' . $hc . '" href="/' . $source . '#' . $hc . '" class="open-icon">↗</a> This paragraph exists so the answer has a live hypercite anchor.</p>', 'p'],
             [4, '<p id="4" data-node-id="' . $book . '_e2efix_4">A closing paragraph so the answer render has some depth.</p>', 'p'],
         ]);
 

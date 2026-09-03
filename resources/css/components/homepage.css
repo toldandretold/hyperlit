@@ -291,18 +291,22 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
 
 /* ---------- close-feed × ---------- */
 
+/* Same 34px disc as #archivist-brain-button (archivistSearch.css) and the
+   pill row height — brain and × sit side by side in archivist mode and must
+   match. font-size here sizes only the × glyph (the old `1.6em` of the body's
+   28px made this a 44.8px disc towering over its 33px pill neighbours). */
 #copy-feed-close {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 1.6em;
-  height: 1.6em;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: rgba(75, 75, 75, 0.6);
   color: var(--hyperlit-white, #CBCCCC);
-  font-size: 1em;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
 }
@@ -313,6 +317,17 @@ body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer
 
 #copy-feed-close:hover {
   background: rgba(110, 110, 110, 0.7);
+}
+
+/* Mobile: match the 28px brain disc (archivistSearch.css) and the shrunken
+   pills. Kept here rather than buttonsMobile.css — that file imports earlier,
+   so its equal-specificity override would lose to the desktop rule above. */
+@media only screen and (max-width: 768px) {
+  #copy-feed-close {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+  }
 }
 
 /* ---------- scroll hint ---------- */

@@ -10,13 +10,20 @@
 
 /* ---- the brain button (always in the row, after the feed buttons) ---- */
 
+/* Explicit px sizing, matched to the .arranger-button pills (8px padding +
+   14px text ≈ 32px tall) AND to #copy-feed-close (homepage.css) — the
+   brain, the × and the pills are flex siblings and must read as one row.
+   The previous `2.3em` with NO font-size resolved against the UA default
+   (~13.3px → 30.7px): an accident, since there is no global button font
+   reset. font-size is pinned so the em-sized svg scales predictably. */
 #archivist-brain-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.3em;
-  height: 2.3em;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -27,13 +34,25 @@
 }
 
 #archivist-brain-button svg {
-  width: 1.3em;
-  height: 1.3em;
+  width: 1.45em;
+  height: 1.45em;
 }
 
 #archivist-brain-button .brain-icon-path {
   stroke: currentColor;
   fill: none;
+}
+
+/* Mobile: level with the shrunken pills (buttonsMobile.css: 6px padding +
+   12px text ≈ 26-28px). Lives HERE, not in buttonsMobile.css — that file is
+   imported before this one, so at equal id-specificity its override would
+   lose to the desktop rule above. */
+@media only screen and (max-width: 768px) {
+  #archivist-brain-button {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
 }
 
 #archivist-brain-button:hover {
