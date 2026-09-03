@@ -199,7 +199,12 @@ async function openHyperciteInPlace(hyperciteId: string): Promise<void> {
 
     const swapped = await swapTopLayerContent([ct], [], {
       pushHistoryEntry: false,
-      urlOverride: `/${resolveRenderedBookSegment()}#${hyperciteId}`,
+      // Hero pages keep their own URL (see the hero-page exception in
+      // index.ts — `.main-content` there can be a mounted book while the
+      // address bar is the hero URL; rewriting it breaks Back).
+      urlOverride: document.body.getAttribute('data-page') === 'reader'
+        ? `/${resolveRenderedBookSegment()}#${hyperciteId}`
+        : null,
       anchorId: hyperciteId,
     });
     if (!swapped) return;

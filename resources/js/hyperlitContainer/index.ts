@@ -340,8 +340,15 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
       // belongs to the new history entry that the upcoming push will create,
       // not to the previous (book-empty) entry. The previous entry's URL
       // must stay clean so back-button lands on it cleanly.
+      // HERO-PAGE EXCEPTION: on home/journal/user pages the `.main-content`
+      // can be a mounted book render (the AI-answer or a feed) while the
+      // address bar is the HERO URL (/, /j/x, /a/x). Rewriting the container
+      // entry to `/${renderedBook}` there sends the Back button to the book
+      // as a reader page instead of back to the hero — so hero container
+      // opens keep the current URL (syncStackToHistoryState adds ?cs=N).
+      const isReaderPage = document.body.getAttribute('data-page') === 'reader';
       const urlUpdate = determineSingleContentHash(contentTypes);
-      if (urlUpdate) {
+      if (urlUpdate && isReaderPage) {
         const currentHash = window.location.hash.substring(1);
         const hasHyperciteTarget = currentHash && currentHash.startsWith('hypercite_');
 
@@ -368,7 +375,7 @@ export async function handleUnifiedContentClick(element: any, highlightIds: any 
           pendingUrlOverride = `/${renderedBook}#${urlUpdate.value}`;
           verbose.nav(`📊 Computed hash URL for new entry: ${pendingUrlOverride}`, 'hyperlitContainer/index.ts');
         }
-      } else if (anchorId) {
+      } else if (anchorId && isReaderPage) {
         // Multi/overlapping content: no single canonical hash, but anchor the new history entry
         // on the exact clicked element so Back doesn't inherit a stale hash from the address bar.
         const renderedBook = resolveRenderedBookSegment();

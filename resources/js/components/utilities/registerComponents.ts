@@ -524,7 +524,11 @@ export function registerAllComponents() {
     initFn: initAiArchivist,
     destroyFn: destroyAiArchivist,
     pages: ['home', 'journal', 'reader'],
-    dependencies: [],
+    // After homepageDisplayUnit: its feed-tab restore stamps
+    // .arranger-button.active synchronously, and a restored feed must WIN the
+    // feed slot over the archivist's stored-answer restore. (Absent on
+    // 'reader' pages — the registry just logs a verbose warning there.)
+    dependencies: ['homepageDisplayUnit'],
     required: false
   });
 

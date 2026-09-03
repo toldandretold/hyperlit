@@ -182,6 +182,8 @@
   <path class="st0" d="M30.34,2.51h-13.47c-2.97,0-5.39,2.42-5.39,5.39-2.97,0-5.39,2.42-5.39,5.39v13.47c0,2.97,2.42,5.39,5.39,5.39h13.47c2.97,0,5.39-2.42,5.39-5.39,2.97,0,5.39-2.42,5.39-5.39V7.9c0-2.97-2.42-5.39-5.39-5.39ZM27.65,26.76c0,1.49-1.21,2.69-2.69,2.69h-13.47c-1.49,0-2.69-1.21-2.69-2.69v-13.47c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47ZM33.04,21.37c0,1.49-1.21,2.69-2.69,2.69v-10.78c0-2.97-2.42-5.39-5.39-5.39h-10.78c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47Z"/>
     </svg>
   </button>
+
+  @include('partials.brain-hyperlight-button')
 </div>
 
 <div id="toc-container" class="hidden">
@@ -190,6 +192,18 @@
 </div>
 <div id="highlight-container" class="hidden" contenteditable="true"></div>
 <div id="hypercite-container" class="hidden"></div>
+
+{{-- The hyperlit container: annotation panel for highlights/hypercites. On
+     hero pages it serves the AI-answer book renders (and feed marks) — the
+     container code REQUIRES this static element (hyperlitContainer/core.ts
+     bails without it; it is never created by JS). Same structure as
+     reader.blade.php's copy. --}}
+<div id="hyperlit-container" class="container-panel hidden">
+  <div class="scroller"></div>
+  <div class="mask-top"></div>
+  <div class="mask-bottom"></div>
+  <div class="resize-edge resize-left" title="Resize width"></div>
+</div>
 <div id="source-container" class="hidden"></div>
 <div id="source-overlay"></div>
 <div id="ref-container" class="hidden"></div>

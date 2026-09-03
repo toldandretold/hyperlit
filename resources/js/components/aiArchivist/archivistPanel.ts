@@ -8,10 +8,14 @@
  * `.main-content` div in the feed slot with the step checklist streaming
  * inside it — which buys the feed lifecycle for free (homepageHero's
  * MutationObserver adds `.content-active`; `#copy-feed-close` and feed buttons
- * evict it). createPanel dispatches the same resize event feeds do so
- * fixHeaderSpacing re-pins the wrapper padding to the DOCKED header height —
- * without it the checklist starts a hero-header's-worth of empty space down
- * the page. (The in-reader brainQuery flow is untouched.)
+ * evict it). On success the checklist panel is REPLACED by the real answer
+ * book rendered through the feed pathway (mountAnswerBook →
+ * transitionToBookContent → loadHyperText) with the annotation stack armed —
+ * the answer is highlightable/hypercitable in place; the hero blades carry
+ * #hyperlit-container + #brain-hyperlight for exactly this. createPanel and
+ * mountAnswerBook dispatch the same resize event feeds do so fixHeaderSpacing
+ * re-pins the wrapper padding to the DOCKED header height. (The in-reader
+ * brainQuery flow is untouched.)
  *
  * The answer keeps its live ↗ hypercite anchors and links to the created book
  * (a PRIVATE standalone book on the asker's "AI Archivist" shelf — see
@@ -22,10 +26,11 @@
  * is armed.
  */
 
-import DOMPurify from 'dompurify';
 import { isLoggedIn } from '../../utilities/auth/index';
 import { isByoLlmActive } from '../../aiProviders/profiles';
 import { createTopUpLink } from '../../utilities/billing/topUp';
+import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
+import { confirmDialog, alertDialog } from '../dialog/dialog';
 import { log, verbose } from '../../utilities/logger';
 import { createStepManager, brainLoaderSvg, type StepManager } from './stepManager';
 import { executeInferenceTicket, readSseStream } from './sseClient';
@@ -33,23 +38,281 @@ import { initCiteGroupPopover, destroyCiteGroupPopover } from './citeGroupPopove
 
 const BRAIN_BUTTON_ID = 'archivist-brain-button';
 const ASK_BUTTON_ID = 'archivist-ask-button';
-const PANEL_ID = 'ai-archivist-panel';
+
 let abortController: AbortController | null = null;
+let closeClickHandler: ((e: MouseEvent) => void) | null = null;
 
 /**
  * Create-once/reset init: stamp the brain button's guest state (hero pages —
- * no-op on reader pages where the button doesn't exist) and arm the grouped-
- * citation chooser (needed wherever AI answers render, including the reader).
+ * no-op on reader pages where the button doesn't exist), arm the grouped-
+ * citation chooser (needed wherever AI answers render, including the reader),
+ * and restore the last answer for this page context so following a ↗ and
+ * pressing back never loses it. Registered AFTER homepageDisplayUnit
+ * (registry dependency) so a restored feed tab wins the feed slot.
  */
 export function initAiArchivist(): void {
     void applyGuestState();
     initCiteGroupPopover();
+    armClearOnCloseListener();
+    restoreStoredAnswer();
 }
 
 export function destroyAiArchivist(): void {
     if (abortController) abortController.abort();
     abortController = null;
+    if (closeClickHandler) {
+        document.removeEventListener('click', closeClickHandler, true);
+        closeClickHandler = null;
+    }
+    void teardownAnnotationStack();
     destroyCiteGroupPopover();
+}
+
+/**
+ * Hero-page answer context: the shelf id on /j/ and /a/ pages, 'home' on the
+ * homepage, null anywhere the archivist search box doesn't exist (reader).
+ * Same source of truth the searchBox factory reads (data-shelf-id on the
+ * search container).
+ */
+function pageContextId(): string | null {
+    if (!document.querySelector('.home-content-wrapper')) return null;
+    const container = document.getElementById('journal-search-container')
+        || document.getElementById('homepage-search-container');
+    if (!container) return null;
+    return (container as HTMLElement).dataset.shelfId || 'home';
+}
+
+interface StoredAnswer {
+    bookId: string;
+    shelf?: { id?: string; name?: string } | null;
+    question?: string;
+    ctx?: string;
+    ts?: number;
+}
+
+/** The archivist's occupant of the feed slot, whatever its element id. */
+function findPanel(): HTMLElement | null {
+    return document.querySelector('.main-content.archivist-panel');
+}
+
+// ---- per-ENTRY answer memory (history.state, NOT sessionStorage) ----
+// The hero pages remember what was showing per HISTORY ENTRY, the same way
+// feeds do (history.state.userPageActiveTab): back onto the entry where the
+// answer was up restores the answer; back onto an entry where a feed was open
+// restores the feed — a tab-global store showed the "last answer" on entries
+// where the user was never viewing it. history.state survives reloads,
+// bfcache and back/forward, and other writers (feeds, the container stack)
+// spread-preserve unknown keys.
+
+function storeAnswer(ctx: string, data: StoredAnswer): void {
+    clearTombstone(ctx); // a fresh ask supersedes any earlier dismissal
+    try {
+        history.replaceState(
+            { ...(history.state || {}), archivistAnswer: { ...data, ctx } },
+            '',
+            window.location.href,
+        );
+    } catch {
+        // replaceState can throw in rare sandboxed contexts — persistence is
+        // a convenience, not a contract
+    }
+}
+
+function readStoredAnswer(ctx: string): StoredAnswer | null {
+    const stored = history.state?.archivistAnswer;
+    if (!stored || typeof stored.bookId !== 'string' || !stored.bookId) return null;
+    if (stored.ctx !== ctx) return null; // a NAM-archive answer never shows on the homepage
+    return stored;
+}
+
+function clearStoredAnswer(_ctx?: string): void {
+    try {
+        if (!history.state?.archivistAnswer) return;
+        const { archivistAnswer, ...rest } = history.state;
+        history.replaceState(rest, '', window.location.href);
+    } catch { /* ignore */ }
+}
+
+// ---- dismissal tombstone (tab-scoped) ----
+// clearStoredAnswer only cleans the CURRENT entry, but older entries in the
+// same tab legitimately still carry the answer in their state — and "I closed
+// it" means closed EVERYWHERE: without this, backing onto a pre-dismissal
+// entry resurrected the answer. Dismissal records the answer's bookId;
+// restore refuses a tombstoned answer on ANY entry; a fresh ask lifts it.
+
+const DISMISSED_KEY_PREFIX = 'hyperlit:archivist:dismissed:';
+
+function tombstoneAnswer(ctx: string, bookId: string | null | undefined): void {
+    if (!bookId) return;
+    try { sessionStorage.setItem(DISMISSED_KEY_PREFIX + ctx, bookId); } catch { /* ignore */ }
+}
+
+function isTombstoned(ctx: string, bookId: string): boolean {
+    try { return sessionStorage.getItem(DISMISSED_KEY_PREFIX + ctx) === bookId; } catch { return false; }
+}
+
+function clearTombstone(ctx: string): void {
+    try { sessionStorage.removeItem(DISMISSED_KEY_PREFIX + ctx); } catch { /* ignore */ }
+}
+
+/**
+ * Dismissing the answer (× close, or opening a feed tab over it) also forgets
+ * it — otherwise the next visit would resurrect a panel the user closed.
+ * Create-once capture delegate, armed per init, removed on destroy.
+ */
+function armClearOnCloseListener(): void {
+    if (closeClickHandler) return;
+    closeClickHandler = (e: MouseEvent) => {
+        const target = e.target as Element | null;
+        if (!target?.closest?.('#copy-feed-close, .arranger-button')) return;
+        const ctx = pageContextId();
+        if (!ctx) return;
+        // ⚠️ Signal is the ENTRY STATE, not DOM presence: homepageHero's own
+        // capture delegate registers first and its closeFeed() removes the
+        // panel synchronously — by the time this handler runs, findPanel()
+        // can already be null (the e2e-caught "tombstone never written" bug).
+        const stored = readStoredAnswer(ctx);
+        const panel = findPanel();
+        if (!stored && !panel) return; // no answer in play — nothing to dismiss
+        // Dismissed is dismissed on EVERY entry, not just this one.
+        tombstoneAnswer(ctx, panel?.id || stored?.bookId);
+        clearStoredAnswer(ctx);
+        // The answer render is going away — disarm its selection toolbar so
+        // feed text never grows one.
+        void teardownAnnotationStack();
+    };
+    document.addEventListener('click', closeClickHandler, true);
+}
+
+/**
+ * Re-mount the stored answer on landing (SPA-back or full-load back after
+ * following a hypercite ↗). A restored FEED wins: homepageDisplayUnit inits
+ * first (registry dependency) and stamps `.arranger-button.active`
+ * synchronously before its content loads, so both signals are race-safe.
+ *
+ * The restore renders the REAL answer book through the feed pathway
+ * (transitionToBookContent → loadHyperText): the `.main-content` id must be a
+ * LOADABLE book id — the `book` global, the bfcache guard and
+ * DifferentTemplateTransition all read it as one, and a fake id there sent
+ * `loadHyperText('ai-archivist-panel')` into a 404 + blank page on back-nav.
+ */
+function restoreStoredAnswer(): void {
+    const ctx = pageContextId();
+    if (!ctx) return;
+    const stored = readStoredAnswer(ctx);
+    if (!stored) return;
+    if (isTombstoned(ctx, stored.bookId)) {
+        // The user closed this answer somewhere — never resurrect it, and
+        // clean this entry's stale state while we're here.
+        clearStoredAnswer(ctx);
+        return;
+    }
+    if (document.querySelector('.main-content') || document.querySelector('.arranger-button.active')) return;
+
+    void (async () => {
+        try {
+            await mountAnswerBook(stored.bookId, stored.shelf?.name);
+            // This entry was showing an AI answer — put the search header back
+            // into archivist mode too (the mode key is a global preference;
+            // the ENTRY knows better). searchBox re-applies on the event.
+            const modeKey = ctx === 'home' ? 'homepage_search_mode' : 'journal_search_mode';
+            try { localStorage.setItem(modeKey, 'archivist'); } catch { /* ignore */ }
+            window.dispatchEvent(new Event('hyperlit:refresh-search-mode'));
+            verbose.init('aiArchivist: restored stored answer as book render', '/components/aiArchivist/archivistPanel.ts');
+        } catch (e) {
+            // Book gone (deleted elsewhere) or load failed — forget it and
+            // leave the hero clean rather than a broken half-panel.
+            log.warn('aiArchivist: stored answer restore failed — clearing', '/components/aiArchivist/archivistPanel.ts', e);
+            clearStoredAnswer(ctx);
+            closeAnswerPanel();
+        }
+    })();
+}
+
+/**
+ * The one way an AI answer displays on a hero page: the REAL book rendered
+ * through the feed pathway (transitionToBookContent → loadHyperText — chunks,
+ * IndexedDB, mark/underline listeners), adopted with the archivist class +
+ * action row, and with the annotation stack armed so the answer is
+ * highlightable/hypercitable in place. Used by both the fresh-ask success
+ * path and the stored-answer restore.
+ */
+async function mountAnswerBook(bookId: string, shelfName?: string | null): Promise<void> {
+    const { transitionToBookContent } = await import('../homepage/homepageDisplayUnit');
+    await transitionToBookContent(bookId, false);
+    const container = document.getElementById(bookId);
+    if (!container || !container.classList.contains('main-content')) {
+        throw new Error('answer book render produced no container');
+    }
+    container.classList.add('archivist-panel');
+    // Selection→book routing: the toolbar resolves the target book via
+    // closest('[data-book-id]') — the `book` global is stale on hero pages
+    // (transitionToBookContent deliberately skips setCurrentBook).
+    container.setAttribute('data-book-id', bookId);
+    container.appendChild(buildActionRow(bookId, shelfName));
+
+    // Re-pin the header spacing after the 0.6s dock transition settles —
+    // transitionToBookContent's own resize dispatch measures mid-transition,
+    // which left a hero-header-sized gap above the answer until first scroll.
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 700);
+
+    await armAnnotationStack(bookId);
+}
+
+// ---- the annotation stack, scoped to a mounted answer book ----
+// Hero pages deliberately never load the hyperlights/hypercites chunks
+// (viewManager's reader-only gate). When an ANSWER render is up we arm them
+// for that book only, and tear down when it's dismissed — so feed selections
+// never grow a toolbar and the lazy chunks stay off ordinary hero visits.
+
+let annotationStackArmed = false;
+
+async function armAnnotationStack(bookId: string): Promise<void> {
+    // The container panel is a hard blade dependency (hyperlitContainer/core.ts
+    // never creates it) — without it highlight creation could not open.
+    if (!document.getElementById('hyperlit-container')) return;
+    try {
+        const [
+            { initializeHighlightManager },
+            { initializeHighlightingControls },
+            { initializeHypercitingControls },
+            { initializeSelectionHandler },
+        ] = await Promise.all([
+            import('../../hyperlights/index'),
+            import('../../hyperlights/selectionToolbar'),
+            import('../../hypercites/index'),
+            import('../selectionHandler/selectionHandler'),
+        ]);
+        initializeHighlightManager();
+        initializeHighlightingControls(bookId);
+        initializeHypercitingControls(bookId);
+        initializeSelectionHandler();
+        annotationStackArmed = true;
+        verbose.init(`aiArchivist: annotation stack armed for ${bookId}`, '/components/aiArchivist/archivistPanel.ts');
+    } catch (e) {
+        log.error('aiArchivist: failed to arm the annotation stack', '/components/aiArchivist/archivistPanel.ts', e);
+    }
+}
+
+async function teardownAnnotationStack(): Promise<void> {
+    if (!annotationStackArmed) return;
+    annotationStackArmed = false;
+    try {
+        const [
+            { cleanupHighlightingControls },
+            { cleanupHypercitingControls },
+            { destroySelectionHandler },
+        ] = await Promise.all([
+            import('../../hyperlights/selectionToolbar'),
+            import('../../hypercites/index'),
+            import('../selectionHandler/selectionHandler'),
+        ]);
+        cleanupHighlightingControls();
+        cleanupHypercitingControls();
+        destroySelectionHandler();
+    } catch (e) {
+        verbose.init('aiArchivist: annotation stack teardown failed (non-fatal)', '/components/aiArchivist/archivistPanel.ts');
+    }
 }
 
 /**
@@ -66,12 +329,6 @@ async function applyGuestState(): Promise<void> {
     } catch (e) {
         verbose.init('aiArchivist: guest-state check failed (non-fatal)', '/components/aiArchivist/archivistPanel.ts');
     }
-}
-
-function escapeHtml(text: string): string {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 /** Swap the Ask button's label for the goo loader while the ask is in flight. */
@@ -103,7 +360,11 @@ function createPanel(): HTMLElement | null {
     document.querySelectorAll('.arranger-button.active').forEach((el) => el.classList.remove('active'));
 
     const panel = document.createElement('div');
-    panel.id = PANEL_ID;
+    // ⚠️ NO fake element id: `.main-content`'s id is read as a BOOK id by the
+    // SPA machinery (app.ts `book` global, DifferentTemplateTransition, the
+    // bfcache guard). The streaming panel stays id-less; on success it is
+    // REPLACED by the real book render (mountAnswerBook), which carries the
+    // real book id.
     panel.className = 'main-content active-content archivist-panel';
     wrapper.appendChild(panel);
 
@@ -179,7 +440,6 @@ export async function openArchivistPanel({ question, shelfId }: ArchivistAsk): P
         panel.innerHTML = `
           <div class="archivist-answer">
             <div class="brain-status" style="display:none;"><div class="brain-steps"></div></div>
-            <div class="archivist-result"></div>
           </div>`;
         const steps: StepManager = createStepManager(
             panel.querySelector('.brain-status') as HTMLElement,
@@ -269,11 +529,38 @@ export async function openArchivistPanel({ question, shelfId }: ArchivistAsk): P
         }
 
         steps.flushStepsNow();
-        renderAnswer(panel.querySelector('.archivist-result') as HTMLElement, data);
+        // Persist for this page context so back-navigation (or a reload) after
+        // following a ↗ restores the answer (as a real book render) instead of
+        // losing it.
+        const ctx = pageContextId();
+        if (ctx && data.bookId) {
+            storeAnswer(ctx, {
+                bookId: data.bookId,
+                shelf: data.shelf ?? null,
+                question,
+                ts: Date.now(),
+            });
+        }
+        // Swap the checklist panel for the REAL book render (the transition
+        // evicts it) — highlightable in place, and the container carries the
+        // real book id, which the SPA machinery reads off `.main-content`.
+        if (data.bookId) {
+            try {
+                await mountAnswerBook(data.bookId, data.shelf?.name);
+            } catch (e) {
+                log.error('aiArchivist: answer book mount failed', '/components/aiArchivist/archivistPanel.ts', e);
+                const p = findPanel();
+                if (p && p.isConnected) {
+                    steps.setError('Answer saved — open it from your AI Archivist shelf.');
+                }
+            }
+        } else {
+            steps.setError('AI query failed');
+        }
     } catch (error) {
         if ((error as any)?.name === 'AbortError') return;
         log.error('aiArchivist: ask request failed', '/components/aiArchivist/archivistPanel.ts', error);
-        const errPanel = document.getElementById(PANEL_ID);
+        const errPanel = findPanel();
         const statusEl = errPanel?.querySelector('.brain-status') as HTMLElement | null;
         const stepsEl = errPanel?.querySelector('.brain-steps') as HTMLElement | null;
         if (statusEl && stepsEl) {
@@ -287,38 +574,86 @@ export async function openArchivistPanel({ question, shelfId }: ArchivistAsk): P
 }
 
 /**
- * Render the finished answer into the feed-slot panel: the nodes' HTML (the ↗
- * hypercite anchors are plain `/{sourceBook}#hypercite_x` links — native
- * navigation triggers the reader's pinned deep-link mechanism; grouped anchors
- * carry data-cite-group for the chooser) + a link to the created book.
+ * The answer's footer actions — shared by the fresh-ask render and the
+ * stored-answer restore (which appends it under a real book render).
  */
-function renderAnswer(resultEl: HTMLElement, data: any): void {
-    const nodes: any[] = Array.isArray(data.nodes) ? data.nodes : [];
-    const html = nodes.map((n) => n?.content || '').join('');
+function buildActionRow(bookId: string, shelfName?: string | null): HTMLElement {
+    const footer = document.createElement('div');
+    footer.className = 'archivist-action-row';
 
-    const answer = document.createElement('div');
-    answer.className = 'archivist-answer-body';
-    answer.innerHTML = DOMPurify.sanitize(html);
+    const note = document.createElement('span');
+    note.className = 'archivist-saved-note';
+    note.textContent = `Saved to your “${String(shelfName || 'AI Archivist')}” shelf`;
 
-    // Repair legacy-shaped arrows: content minted before the flat-anchor fix
-    // stores <a><sup class="open-icon">&amp;nearr;</sup></a> (HtmlBlockSplitter's
-    // libxml round-trip escaped the entity), which renders as literal
-    // "&nearr;" text. Same repair the reader applies at render — keep in sync
-    // with normalizeHyperciteElements in lazyLoader/chunkRender.ts (not
-    // imported: that would pull the whole reader render chunk into hero pages).
-    answer.querySelectorAll('a[href*="#hypercite_"] > sup.open-icon').forEach((sup) => {
-        const anchor = sup.parentElement as HTMLAnchorElement;
-        anchor.classList.add('open-icon');
-        anchor.textContent = '↗';
+    // Open the answer book in the FULL reader (highlight, hypercite,
+    // brain-on-selection, edit — the complete annotation stack lives there).
+    const viewBtn = document.createElement('button');
+    viewBtn.type = 'button';
+    viewBtn.className = 'archivist-view-btn';
+    viewBtn.innerHTML = 'View full hypertext <span class="open-icon">↗</span>';
+    viewBtn.addEventListener('click', async () => {
+        try {
+            await navigateByStructure({
+                toBook: bookId,
+                targetUrl: `/${bookId}`,
+                targetStructure: 'reader',
+                hash: '',
+            });
+        } catch (e) {
+            log.error('aiArchivist: SPA nav to answer book failed — falling back to reload', '/components/aiArchivist/archivistPanel.ts', e);
+            window.location.href = `/${encodeURIComponent(bookId)}`;
+        }
     });
 
-    const footer = document.createElement('p');
-    footer.className = 'archivist-open-link';
-    const bookId = String(data.bookId || '');
-    const shelfName = escapeHtml(String(data.shelf?.name || 'AI Archivist'));
-    footer.innerHTML = bookId
-        ? `Saved to your &ldquo;${shelfName}&rdquo; shelf · <a href="/${encodeURIComponent(bookId)}">Open in your library <span class="open-icon">↗</span></a>`
-        : '';
+    // Discard: deletes the book server-side (BookDeletionService delinks
+    // the minted hypercites in the source books), clears the stored
+    // answer, and returns to the hero — a clean slate.
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'archivist-delete-btn';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', async () => {
+        const ok = await confirmDialog({
+            message: 'Delete this answer? The book and its hypercite links to the sources will be removed.',
+            confirmLabel: 'Delete',
+            danger: true,
+        });
+        if (!ok) return;
+        const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
+        try {
+            const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+                credentials: 'same-origin',
+            });
+            if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
+            const ctx = pageContextId();
+            if (ctx) {
+                tombstoneAnswer(ctx, bookId); // no entry may resurrect a deleted book
+                clearStoredAnswer(ctx);
+            }
+            closeAnswerPanel();
+        } catch (e) {
+            log.error('aiArchivist: delete answer failed', '/components/aiArchivist/archivistPanel.ts', e);
+            await alertDialog({ message: 'Could not delete the answer. Please try again.' });
+        }
+    });
 
-    resultEl.replaceChildren(answer, footer);
+    footer.append(note, viewBtn, deleteBtn);
+    return footer;
+}
+
+/** Return to the hero state through the real close path when available. */
+function closeAnswerPanel(): void {
+    void teardownAnnotationStack();
+    // `!= null` (loose): offsetParent is null when the × is display:none AND
+    // undefined in environments without layout (jsdom) — both mean "don't
+    // trust the × path".
+    const close = document.getElementById('copy-feed-close') as HTMLElement | null;
+    if (close && close.offsetParent != null) {
+        close.click(); // homepageHero's closeFeed — removes .main-content + content-active
+        return;
+    }
+    findPanel()?.remove();
+    document.getElementById('app-container')?.classList.remove('content-active', 'scrolled');
 }

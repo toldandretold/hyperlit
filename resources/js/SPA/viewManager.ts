@@ -143,16 +143,21 @@ window.addEventListener("pageshow", async (event) => {
 
           await checkEditPermissionsAndUpdateUI();
 
-          // Reinitialize highlighting/selection controls (not in ButtonRegistry). hyperlights/
-          // hypercites are reader-only lazy chunks (this bfcache path only runs on reader pages).
-          const [{ initializeHighlightingControls, cleanupHighlightingControls }, { initializeHypercitingControls, cleanupHypercitingControls }] =
-            await Promise.all([import('../hyperlights/selectionToolbar'), import('../hypercites/index')]);
-          cleanupHighlightingControls();
-          initializeHighlightingControls(book);
-          cleanupHypercitingControls();
-          initializeHypercitingControls(book);
-          destroySelectionHandler();
-          initializeSelectionHandler();
+          // Reinitialize highlighting/selection controls (not in ButtonRegistry).
+          // GATED on pageType: hyperlights/hypercites are reader-only lazy chunks,
+          // but `hasReaderContent` above is ALSO true for a hero page restored
+          // with a feed or AI-answer `.main-content` — running the reader-only
+          // controls there just errors on missing reader DOM (#brain-hyperlight).
+          if (pageType === 'reader') {
+            const [{ initializeHighlightingControls, cleanupHighlightingControls }, { initializeHypercitingControls, cleanupHypercitingControls }] =
+              await Promise.all([import('../hyperlights/selectionToolbar'), import('../hypercites/index')]);
+            cleanupHighlightingControls();
+            initializeHighlightingControls(book);
+            cleanupHypercitingControls();
+            initializeHypercitingControls(book);
+            destroySelectionHandler();
+            initializeSelectionHandler();
+          }
 
         } catch (error) {
           log.error('Error reinitializing after bfcache restore', 'viewManager.js', error as any);

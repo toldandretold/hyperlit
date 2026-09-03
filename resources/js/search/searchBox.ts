@@ -107,6 +107,7 @@ export function createSearchBox(config: SearchBoxConfig) {
     let contextId = '';
     let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
     let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
+    let modeRefreshHandler: (() => void) | null = null;
 
     const hasArchivist = () => !!(config.archivist && config.ids.brainButton);
     const minLen = () => (searchMode === 'semantic' ? MIN_QUERY_LENGTH_SEMANTIC : MIN_QUERY_LENGTH);
@@ -539,6 +540,12 @@ export function createSearchBox(config: SearchBoxConfig) {
         };
         window.addEventListener('pageshow', pageshowHandler);
 
+        // The archivist panel re-syncs the persisted mode after restoring an
+        // answer (per-entry truth beats the global preference) — re-apply
+        // without firing anything.
+        modeRefreshHandler = () => applyMode(readStoredMode());
+        window.addEventListener('hyperlit:refresh-search-mode', modeRefreshHandler);
+
         verbose.init('Search box initialized', config.logSource);
     }
 
@@ -559,6 +566,10 @@ export function createSearchBox(config: SearchBoxConfig) {
         if (pageshowHandler) {
             window.removeEventListener('pageshow', pageshowHandler);
             pageshowHandler = null;
+        }
+        if (modeRefreshHandler) {
+            window.removeEventListener('hyperlit:refresh-search-mode', modeRefreshHandler);
+            modeRefreshHandler = null;
         }
         if (debounceTimer) clearTimeout(debounceTimer);
         if (abortController) abortController.abort();
