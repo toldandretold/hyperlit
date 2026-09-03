@@ -41,6 +41,10 @@ const ASK_BUTTON_ID = 'archivist-ask-button';
 
 let abortController: AbortController | null = null;
 let closeClickHandler: ((e: MouseEvent) => void) | null = null;
+let modeChangeHandler: ((e: Event) => void) | null = null;
+// True while WE are programmatically closing the panel (a HIDE, not a user
+// dismissal) — the capture-phase dismissal handler must not tombstone then.
+let suppressDismissal = false;
 
 /**
  * Create-once/reset init: stamp the brain button's guest state (hero pages —
@@ -54,6 +58,7 @@ export function initAiArchivist(): void {
     void applyGuestState();
     initCiteGroupPopover();
     armClearOnCloseListener();
+    armModeChangeListener();
     restoreStoredAnswer();
 }
 
@@ -64,8 +69,51 @@ export function destroyAiArchivist(): void {
         document.removeEventListener('click', closeClickHandler, true);
         closeClickHandler = null;
     }
+    if (modeChangeHandler) {
+        window.removeEventListener('hyperlit:archivist-mode-changed', modeChangeHandler);
+        modeChangeHandler = null;
+    }
     void teardownAnnotationStack();
     destroyCiteGroupPopover();
+}
+
+/**
+ * Brain toggle semantics (searchBox dispatches on user-driven boundary
+ * crossings): flipping OFF hides the answer — the header and the feed slot
+ * must never disagree — but does NOT clear it; flipping back ON reshows it
+ * (unless it was cleared via × — the tombstone check inside restore).
+ */
+function armModeChangeListener(): void {
+    if (modeChangeHandler) return;
+    modeChangeHandler = (e: Event) => {
+        const active = (e as CustomEvent).detail?.active;
+        if (active) {
+            restoreStoredAnswer();
+        } else {
+            hideAnswerPanel();
+        }
+    };
+    window.addEventListener('hyperlit:archivist-mode-changed', modeChangeHandler);
+}
+
+/** Hide (NOT dismiss): close through the real path with dismissal suppressed. */
+function hideAnswerPanel(): void {
+    if (!findPanel()) return;
+    suppressDismissal = true;
+    try {
+        closeAnswerPanel();
+    } finally {
+        suppressDismissal = false;
+    }
+}
+
+/** The × doubles as the answer's "Clear" while an answer is up. */
+function setCloseButtonLabel(clearing: boolean): void {
+    const btn = document.getElementById('copy-feed-close');
+    if (!btn) return;
+    const label = clearing ? 'Clear answer' : 'Close feed';
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('title', label);
 }
 
 /**
@@ -163,6 +211,7 @@ function clearTombstone(ctx: string): void {
 function armClearOnCloseListener(): void {
     if (closeClickHandler) return;
     closeClickHandler = (e: MouseEvent) => {
+        if (suppressDismissal) return; // a programmatic HIDE, not a dismissal
         const target = e.target as Element | null;
         if (!target?.closest?.('#copy-feed-close, .arranger-button')) return;
         const ctx = pageContextId();
@@ -177,6 +226,7 @@ function armClearOnCloseListener(): void {
         // Dismissed is dismissed on EVERY entry, not just this one.
         tombstoneAnswer(ctx, panel?.id || stored?.bookId);
         clearStoredAnswer(ctx);
+        setCloseButtonLabel(false);
         // The answer render is going away — disarm its selection toolbar so
         // feed text never grows one.
         void teardownAnnotationStack();
@@ -250,6 +300,7 @@ async function mountAnswerBook(bookId: string, shelfName?: string | null): Promi
     // (transitionToBookContent deliberately skips setCurrentBook).
     container.setAttribute('data-book-id', bookId);
     container.appendChild(buildActionRow(bookId, shelfName));
+    setCloseButtonLabel(true); // the × reads "Clear answer" while an answer is up
 
     // Re-pin the header spacing after the 0.6s dock transition settles —
     // transitionToBookContent's own resize dispatch measures mid-transition,
@@ -646,6 +697,7 @@ function buildActionRow(bookId: string, shelfName?: string | null): HTMLElement 
 /** Return to the hero state through the real close path when available. */
 function closeAnswerPanel(): void {
     void teardownAnnotationStack();
+    setCloseButtonLabel(false);
     // `!= null` (loose): offsetParent is null when the × is display:none AND
     // undefined in environments without layout (jsdom) — both mean "don't
     // trust the × path".

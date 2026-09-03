@@ -242,6 +242,43 @@ test.describe('AI Archivist homepage SPA nav', () => {
     await context.close();
   });
 
+  test('brain toggle hides/reshows the answer; × clears it for good', async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    await mockAsk(page);
+
+    await page.goto('/');
+    await askQuestion(page);
+    // × reads "Clear answer" while the answer is up
+    await expect(page.locator('#copy-feed-close')).toHaveAttribute('aria-label', 'Clear answer');
+    await dumpNavState(page, testInfo, 'toggle-1-answer-up');
+
+    // brain OFF → answer HIDDEN (header and feed slot agree), NOT cleared
+    await exitAiMode(page);
+    await expect(page.locator('.main-content.archivist-panel')).toHaveCount(0);
+    const sOff = await dumpNavState(page, testInfo, 'toggle-2-brain-off');
+    expect(sOff.tombstone).toBeNull();
+    expect(sOff.historyState?.archivistAnswer?.bookId).toBe(ANSWER_BOOK);
+
+    // brain ON → answer RESHOWS
+    await enterAiMode(page);
+    await expect(page.locator(`.main-content.archivist-panel[id="${ANSWER_BOOK}"]`)).toBeVisible({ timeout: 20_000 });
+    await dumpNavState(page, testInfo, 'toggle-3-brain-on-reshown');
+
+    // × → cleared for good: still in AI mode, but brain-off/on won't revive it
+    await page.click('#copy-feed-close');
+    await page.waitForTimeout(300);
+    const sClear = await dumpNavState(page, testInfo, 'toggle-4-cleared');
+    expect(sClear.tombstone).toBe(ANSWER_BOOK);
+    expect(sClear.archivistModeClass).toBe(true); // × does not exit AI mode
+    await expect(page.locator('#copy-feed-close')).toHaveAttribute('aria-label', 'Close feed');
+
+    await exitAiMode(page);
+    await enterAiMode(page);
+    await page.waitForTimeout(800);
+    expect(await page.locator('.main-content.archivist-panel').count()).toBe(0);
+    await dumpNavState(page, testInfo, 'toggle-5-stays-cleared');
+  });
+
   test('back after "View full hypertext" restores the answer', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await mockAsk(page);

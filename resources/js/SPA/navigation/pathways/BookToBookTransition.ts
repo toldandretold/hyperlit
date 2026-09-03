@@ -199,7 +199,7 @@ export class BookToBookTransition {
         this.updateUrlWithStatePreservation(resolvedBookId, hash, isPopstate);
 
         // Handle any hash-based navigation (hyperlights, hypercites, footnotes, etc.)
-        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, resolvedBookId, progress, targetUrl);
+        const hashNavHandled = await this.handleHashNavigation(hash, hyperlightId, hyperciteId, footnoteId, resolvedBookId, progress, targetUrl, isPopstate);
         if (supersededBail()) return;
 
         // Wait for any container restoration triggered by initializeLazyLoader
@@ -508,7 +508,7 @@ export class BookToBookTransition {
    * Handle hash-based navigation (hyperlights, hypercites, footnotes, internal links)
    * @returns {boolean} - True if progress bar was hidden during navigation
    */
-  static async handleHashNavigation(hash: any, hyperlightId: any, hyperciteId: any, footnoteId: any, bookId: any, progress: any, targetUrl: any = null) {
+  static async handleHashNavigation(hash: any, hyperlightId: any, hyperciteId: any, footnoteId: any, bookId: any, progress: any, targetUrl: any = null, isPopstate = false) {
     if (!hash && !hyperlightId && !hyperciteId && !footnoteId) {
       verbose.nav('BookToBookTransition: No hash navigation needed', '/SPA/navigation/pathways/BookToBookTransition.ts');
       return false;
@@ -555,6 +555,32 @@ export class BookToBookTransition {
     }
 
     try {
+      // POPSTATE RESTORE GUARD: history restoration must never push history
+      // entries. When this transition is a back/forward landing on an entry
+      // whose saved containerStack is restorable for the rendered book, the
+      // lazyLoaderRegistry restore path (replaceState-only restoreContainerStack,
+      // awaited via pendingContainerRestorePromise after this returns) owns the
+      // container rebuild AND the reading position. Driving the URL-derived
+      // cascade below instead goes through the REAL open path, which pushStates
+      // one entry per layer — truncating forward history and splicing cs=1..N
+      // entries behind the current one, so a later goForward silently no-ops
+      // and goBack lands one layer short (the nested-hypercite
+      // forward-then-back regression, second edition: the 2026-08-29 fix
+      // covered the registry's autoOpenChain, but this cascade branch was a
+      // second chain-open entry point).
+      if (isPopstate) {
+        const savedStack = (history.state as any)?.containerStack;
+        const savedStackBookId = (history.state as any)?.containerStackBookId;
+        const renderedBookId = document.querySelector('main.main-content[data-slug]')?.id;
+        const stackRestorable = (savedStack?.length ?? 0) > 0
+          && !!renderedBookId
+          && (!savedStackBookId || savedStackBookId === renderedBookId);
+        if (stackRestorable) {
+          verbose.nav(`BookToBookTransition: popstate entry has a restorable containerStack (${savedStack.length} layers) — skipping hash/cascade navigation, restoreContainerStack owns the rebuild`, '/SPA/navigation/pathways/BookToBookTransition.ts');
+          return false;
+        }
+      }
+
       // Wait for content to be fully loaded — but only if a chunk was pre-loaded
       // by ensureInitialContentLoaded. When hash navigation is pending we skipped
       // that step (no point loading chunk 0 just to discard it), so the promise

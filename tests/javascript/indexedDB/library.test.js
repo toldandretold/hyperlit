@@ -26,6 +26,7 @@ import {
   syncFirstNodeToTitle,
   updateLocalAnnotationsTimestamp,
   advanceBaseTimestamp,
+  raiseLocalLibraryTimestamp,
   getAllOfflineAvailableBooks,
   initLibraryDependencies,
 } from '../../../resources/js/indexedDB/core/library';
@@ -171,6 +172,31 @@ describe('core/library.js (characterization)', () => {
 
   it('advanceBaseTimestamp no-ops (no throw) when the book has no record', async () => {
     await expect(advanceBaseTimestamp('missing', 9999)).resolves.toBeUndefined();
+  });
+
+  it('raiseLocalLibraryTimestamp restores the client-sent value after a delete + stale re-pull', async () => {
+    // The sub-book skew: the record was torn down with its container and re-pulled
+    // from the server BEFORE the queued push landed — local now holds the older
+    // value. The sync ACK must restore the value it sent, or every later open
+    // reads "server is newer but local has unsynced content" forever.
+    await seedStore('library', [{ book: 'bookA', title: 'A', timestamp: 681017 }]);
+
+    await raiseLocalLibraryTimestamp('bookA', 687207);
+
+    expect((await readOne('library', 'bookA')).timestamp).toBe(687207);
+  });
+
+  it('raiseLocalLibraryTimestamp is monotonic and no-ops on invalid input or a missing record', async () => {
+    await seedStore('library', [{ book: 'bookA', title: 'A', timestamp: 5000 }]);
+
+    await raiseLocalLibraryTimestamp('bookA', 3000);      // a newer local edit exists — keep it
+    expect((await readOne('library', 'bookA')).timestamp).toBe(5000);
+
+    await raiseLocalLibraryTimestamp('bookA', undefined); // non-finite → no-op
+    await raiseLocalLibraryTimestamp('bookA', 0);         // <= 0 → no-op
+    expect((await readOne('library', 'bookA')).timestamp).toBe(5000);
+
+    await expect(raiseLocalLibraryTimestamp('missing', 9999)).resolves.toBeUndefined();
   });
 
   it('getAllOfflineAvailableBooks requires nodes, drops synthetic books, sorts newest first', async () => {

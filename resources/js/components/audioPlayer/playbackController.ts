@@ -464,11 +464,19 @@ export class PlaybackController {
   }
 
   pause(): void {
+    // Traced because this is reachable WITHOUT any user gesture on the page:
+    // the mediaSession 'pause' action handler routes here, and Chrome fires it
+    // for hardware media keys, AirPods ear-detection, and screen lock. Without
+    // an entry, that path was the one state change the ring could not see —
+    // playback stopped mid-book with a trace that just went silent (e2e stall
+    // post-mortem, 2026-09-03).
+    this.trace('pause-requested');
     this.silentPause();
     this.setState('paused');
   }
 
   async resume(): Promise<void> {
+    this.trace('resume-requested');
     this.quiescent = false;
     try {
       await this.audio.play();
@@ -767,7 +775,14 @@ export class PlaybackController {
    */
   private watchdogTick(): void {
     if (this.state !== 'playing' || this.quiescent) return;
-    if (this.audio.paused) return; // the `pause` listener owns that case
+    // A paused element is the `pause` listener's business — EXCEPT when it is
+    // paused because playback finished (`ended` true). The pause listener
+    // deliberately ignores that shape on the promise that `ended` follows; if
+    // Chrome loses the `ended` event, nobody owns the advance and playback dies
+    // silently with the pill still claiming to play. Fall through so the
+    // "finished but `ended` never fired" branch below advances after the
+    // normal stall window.
+    if (this.audio.paused && !this.audio.ended) return;
     if (isVerboseEnabled()) this.trace('tick');
 
     const since = Date.now() - this.lastProgressAt;
@@ -779,7 +794,8 @@ export class PlaybackController {
 
     // "Finished but `ended` never fired" is an ADVANCE, not a failure.
     const duration = this.audio.duration;
-    if (Number.isFinite(duration) && duration > 0 && this.audio.currentTime >= duration - NEAR_END_S) {
+    if (this.audio.ended
+      || (Number.isFinite(duration) && duration > 0 && this.audio.currentTime >= duration - NEAR_END_S)) {
       this.trace('watchdog-ended');
       log.content(
         'audioPlayer: watchdog advancing — playback reached the end without an `ended` event',

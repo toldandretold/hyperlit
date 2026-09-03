@@ -380,6 +380,44 @@ export async function advanceBaseTimestamp(bookId: BookId, confirmedTs: unknown)
 }
 
 /**
+ * Monotonically raise a book's local content `timestamp` to the value a SUCCESSFUL
+ * sync just sent (the server adopted it). Exists because the local record can be
+ * deleted and re-pulled STALE while that sync is still queued/in-flight: a sub-book's
+ * library row is torn down with its container on cross-book nav, and an in-flight
+ * enrich re-ingests the server row from BEFORE the push lands — leaving local
+ * permanently behind the server ("server is newer but local has unsynced content"
+ * on every subsequent open, self-perpetuating because that guard skips the healing
+ * pull). Raising to the CLIENT-SENT value (never the server's own) can't mask
+ * another device's newer server state; it only restores what this client authored.
+ * Monotonic — never lowers a newer local edit made during the round-trip.
+ */
+export async function raiseLocalLibraryTimestamp(bookId: BookId, sentTs: unknown): Promise<void> {
+  const ts = Number(sentTs);
+  if (!Number.isFinite(ts) || ts <= 0) return;
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction("library", "readwrite");
+    const store = tx.objectStore("library");
+    const record = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+      const req = store.get(bookId);
+      req.onsuccess = () => resolve(req.result as LibraryRecord | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    if (!record) return;
+    if (ts > (Number(record.timestamp) || 0)) {
+      record.timestamp = ts;
+      await new Promise<void>((resolve, reject) => {
+        const put = store.put(record);
+        put.onsuccess = () => resolve();
+        put.onerror = () => reject(put.error);
+      });
+    }
+  } catch (e) {
+    log.error('Could not raise local library timestamp after sync', '/indexedDB/core/library.ts', e);
+  }
+}
+
+/**
  * Build the GET .../library API URL, splitting a sub-book id ("parentBook/subId", e.g.
  * "book_123/Fn456" or a deeper "book_123/2/HL_1/Fn_2") into the multi-segment route the
  * server exposes. A sub-book id in the single `{bookId}` slot NEVER matched a route:

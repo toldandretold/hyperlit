@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1799,
+    "fnCount": 1800,
     "moduleCount": 377,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3694,
+    "edgeCount": 3698,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -10324,6 +10324,17 @@
       ]
     },
     {
+      "id": "indexedDB/core/library:raiseLocalLibraryTimestamp",
+      "label": "raiseLocalLibraryTimestamp",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/core/library",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
       "id": "indexedDB/core/library:syncFirstNodeToTitle",
       "label": "syncFirstNodeToTitle",
       "kind": "fn",
@@ -19109,6 +19120,7 @@
         "indexedDB/core/library:getLibraryRecordFromServer",
         "indexedDB/core/library:initLibraryDependencies",
         "indexedDB/core/library:prepareLibraryForIndexedDB",
+        "indexedDB/core/library:raiseLocalLibraryTimestamp",
         "indexedDB/core/library:syncFirstNodeToTitle",
         "indexedDB/core/library:updateAnnotationsTimestamp",
         "indexedDB/core/library:updateBookTimestamp",
@@ -35577,6 +35589,19 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/core/library:raiseLocalLibraryTimestamp__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/core/library:raiseLocalLibraryTimestamp",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/core/library:raiseLocalLibraryTimestamp__write__store:library",
+      "source": "indexedDB/core/library:raiseLocalLibraryTimestamp",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
       "id": "indexedDB/core/library:syncFirstNodeToTitle__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:syncFirstNodeToTitle",
       "target": "indexedDB/core/connection:openDatabase",
@@ -43363,6 +43388,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__indexedDB/core/library:raiseLocalLibraryTimestamp",
+      "source": "store:library",
+      "target": "indexedDB/core/library:raiseLocalLibraryTimestamp",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__indexedDB/core/library:syncFirstNodeToTitle",
       "source": "store:library",
       "target": "indexedDB/core/library:syncFirstNodeToTitle",
@@ -43390,6 +43421,12 @@
       "id": "store:library__read__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
       "source": "store:library",
       "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
+      "rel": "read"
+    },
+    {
+      "id": "store:library__read__indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
+      "source": "store:library",
+      "target": "indexedDB/serverSync/loaders:loadLibraryToIndexedDB",
       "rel": "read"
     },
     {

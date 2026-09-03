@@ -158,7 +158,19 @@ export async function cleanupLogoNav() {
  */
 export async function closeOpenContainers() {
   try {
-    await closeHyperlitContainer();
+    // SILENT close (silent=true): this runs only as SPA-transition cleanup
+    // (cleanupReader/cleanupHome via cleanupFromStructure), never as a user
+    // dismissing the container. A non-silent close wipes containerStack /
+    // containerStackBookId and strips ?cs= from the CURRENT history entry —
+    // which, during a popstate-driven transition, is the DESTINATION entry
+    // whose saved stack the registry is about to restore. That wipe made the
+    // home→reader back-walk fall through to the server's autoOpenChain, whose
+    // real-open path pushState'd one entry per layer and truncated forward
+    // history (the nested-hypercite forward-then-back regression). This was
+    // latent while hero pages had no #hyperlit-container (closeHyperlitContainer
+    // bailed before the state write); adding the static container to
+    // home/journal for the AI archivist un-gated it.
+    await closeHyperlitContainer(true);
 
     // Close source container if open
     const sourceButton = document.getElementById('cloudRef');

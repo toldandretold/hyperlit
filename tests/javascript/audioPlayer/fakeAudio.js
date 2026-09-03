@@ -116,6 +116,19 @@ export class FakeAudio extends EventTarget {
   }
 
   /**
+   * Playback reached the end but the browser LOST the `ended` event. Per spec
+   * ordering the element sets ended/paused first and then fires `pause`
+   * followed by `ended` — so the controller's pause listener sees `ended`
+   * already true and defers to an `ended` handler that will never run.
+   */
+  _endWithoutEndedEvent() {
+    this.currentTime = this.duration;
+    this.paused = true;
+    this.ended = true;
+    this.dispatchEvent(new Event('pause'));
+  }
+
+  /**
    * A source the browser can't load (404, wrong content type, dead file).
    * A REAL element signals this TWICE — it fires `error` AND rejects the play()
    * promise — and the controller has to treat that as one failure, not two.

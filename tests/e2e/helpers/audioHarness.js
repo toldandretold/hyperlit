@@ -27,6 +27,38 @@ export const SCROLLER = '.reader-content-wrapper';
 export const READING_CLASS = 'audio-reading';
 export const PILL = '#audio-player-bar';
 
+/**
+ * Launch args for the real-media audio specs (use in `test.use({ launchOptions:
+ * { args: AUDIO_LAUNCH_ARGS } })`).
+ *
+ * autoplay-policy / mute-audio: playback must advance across awaits without a
+ * fresh gesture, silently.
+ *
+ * HardwareMediaKeyHandling + MediaSessionService are disabled because the HOST
+ * machine's media events — a media-key press, AirPods ear-detection/hand-off,
+ * screen lock — reach Chrome's media session while the audiobook plays and fire
+ * the engine's mediaSession 'pause' action handler. That paused a run mid-book
+ * with zero page-side cause (2026-09-03: continuity spec stalled at 5/10, trace
+ * silent after 'playing' — the pause path now traces 'pause-requested', but the
+ * spec must be immune, not merely diagnosable).
+ *
+ * GOTCHA: Chromium takes the LAST --disable-features switch verbatim (repeated
+ * switches are not merged), and Playwright appends user args AFTER its own
+ * defaults — so this switch CLOBBERS Playwright's default disabled-features
+ * list. The tail of the list below re-states the Playwright defaults that
+ * plausibly matter here; if a future Playwright adds one these specs depend on,
+ * add it here too.
+ */
+export const AUDIO_LAUNCH_ARGS = [
+  '--autoplay-policy=no-user-gesture-required',
+  '--mute-audio',
+  '--disable-features=HardwareMediaKeyHandling,MediaSessionService,'
+    + 'GlobalMediaControls,MediaRouter,DialMediaRouteProvider,Translate,'
+    + 'HttpsUpgrades,PaintHolding,AvoidUnnecessaryBeforeUnloadCheckSync,'
+    + 'DestroyProfileOnBrowserClose,ThirdPartyStoragePartitioning,'
+    + 'LensOverlay,OptimizationHints',
+];
+
 /** Author an N-paragraph book and leave edit mode. */
 export async function authorAudioBook(page, spa, { paragraphs = 6, title = 'Audio Harness' } = {}) {
   await spa.createNewBook(page, spa);

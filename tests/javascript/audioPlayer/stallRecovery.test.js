@@ -302,6 +302,29 @@ describe('the watchdog', () => {
     expect(audio.srcHistory.at(-1)).toContain('n1.mp3');
   });
 
+  it('advances when the `ended` event is lost entirely and the element sits paused at the end', async () => {
+    // Spec ordering: at end-of-media the element sets ended/paused FIRST, then
+    // fires `pause` and `ended`. The pause listener sees ended=true and defers
+    // to the `ended` handler — so if the browser loses that event, the element
+    // is paused (the watchdog's old early-return) with state still 'playing':
+    // playback died with no event, no trace, and no recovery. The watchdog must
+    // own this shape.
+    await controller.start(manifest);
+    const audio = currentAudio();
+    audio.duration = 10;
+    audio._endWithoutEndedEvent();
+    await adv(0);
+
+    expect(controller.getState(), 'the swallowed pause must not surface as paused').toBe('playing');
+
+    await adv(7000);
+
+    expect(traceEvents(getAudioTrace(), 'watchdog-ended')).toHaveLength(1);
+    expect(audio.srcHistory.at(-1)).toContain('n1.mp3');
+    expect(controller.getState()).toBe('playing');
+    expect(callbacks.onFinished).not.toHaveBeenCalled();
+  });
+
   it('gives genuine buffering much longer before intervening', async () => {
     await controller.start(manifest);
     const audio = currentAudio();
@@ -358,6 +381,21 @@ describe('teardown and external pauses', () => {
 
     expect(controller.getState()).toBe('paused');
     expect(traceEvents(getAudioTrace(), 'pause')).toHaveLength(0);
+  });
+
+  it('fingerprints every public pause/resume in the trace ring', async () => {
+    // pause() is reachable with NO gesture on the page — the mediaSession
+    // 'pause' action fires for hardware media keys, AirPods ear-detection, and
+    // screen lock. It used to be the one state change the ring could not see:
+    // an e2e run stalled mid-book with a trace that just went silent
+    // (2026-09-03 post-mortem). The ring must record the request itself.
+    await controller.start(manifest);
+
+    controller.pause();
+    await controller.resume();
+
+    expect(traceEvents(getAudioTrace(), 'pause-requested')).toHaveLength(1);
+    expect(traceEvents(getAudioTrace(), 'resume-requested')).toHaveLength(1);
   });
 
   it('does not leave expectPause armed to swallow the next real one', async () => {

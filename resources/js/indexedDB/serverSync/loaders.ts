@@ -372,9 +372,31 @@ export async function loadLibraryToIndexedDB(db: IDBDatabase, library: ServerLib
   const store = tx.objectStore('library');
 
   await new Promise<void>((resolve, reject) => {
-    const request = store.put(cleanedLibrary);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    // NEVER DOWNGRADE the local content timestamp (mirror of the server
+    // upsert's "Preserving existing newer timestamp" rule). This pull's fetch
+    // can be served moments BEFORE the client's own push is adopted (observed
+    // 30ms apart in the e2e log), so blindly putting the fetched row rolls the
+    // local `timestamp` back behind the value the server is about to hold.
+    // From then on every open reads "server is newer" while the destructive-
+    // sync guard (subBookLoader) refuses the pull that would heal it — a
+    // self-perpetuating skew that spams log.error on every sub-book restore.
+    // base_timestamp deliberately still takes the fetched server value: it
+    // records which server version we last SAW, not what we authored.
+    const getReq = store.get(cleanedLibrary.book);
+    getReq.onerror = () => reject(getReq.error);
+    getReq.onsuccess = () => {
+      const existing = getReq.result as { timestamp?: number } | undefined;
+      if (
+        typeof existing?.timestamp === 'number'
+        && typeof cleanedLibrary.timestamp === 'number'
+        && existing.timestamp > cleanedLibrary.timestamp
+      ) {
+        cleanedLibrary.timestamp = existing.timestamp;
+      }
+      const request = store.put(cleanedLibrary);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    };
   });
 
   // Keep the gate filter's book-level defaults cache in sync

@@ -169,9 +169,17 @@ export function createSearchBox(config: SearchBoxConfig) {
 
     /** Persist + apply a mode change, re-running the search if long enough. */
     function changeMode(mode: SearchMode) {
+        const wasArchivist = searchMode === 'archivist';
         applyMode(mode);
         localStorage.setItem(config.storage.modeKey, mode);
         verbose.content(`Search mode changed to: ${mode}`, config.logSource);
+        // Announce archivist boundary crossings (USER-driven only — restores
+        // go through applyMode and stay silent): the archivist panel hides its
+        // answer when the mode flips off and reshows it when flipped back on.
+        const isArchivist = mode === 'archivist';
+        if (wasArchivist !== isArchivist) {
+            window.dispatchEvent(new CustomEvent('hyperlit:archivist-mode-changed', { detail: { active: isArchivist } }));
+        }
         // Archivist is submit-driven: entering it must never auto-fire.
         if (mode === 'archivist') return;
         const query = searchInput?.value.trim() ?? '';

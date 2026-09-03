@@ -384,6 +384,54 @@ describe('stored-answer restore', () => {
     });
 });
 
+describe('brain toggle semantics (hide vs clear)', () => {
+    const modeChanged = (active) =>
+        window.dispatchEvent(new CustomEvent('hyperlit:archivist-mode-changed', { detail: { active } }));
+
+    it('mode OFF hides the answer WITHOUT tombstoning; mode ON reshows it', async () => {
+        buildDom({ withFeed: false, activeTab: false });
+        seedAnswerState();
+        initAiArchivist();
+        await new Promise((r) => setTimeout(r, 25));
+        expect(document.querySelector('.main-content.archivist-panel')).not.toBeNull();
+
+        modeChanged(false); // brain off — header and feed slot must agree
+        expect(document.querySelector('.main-content.archivist-panel')).toBeNull();
+        expect(sessionStorage.getItem('hyperlit:archivist:dismissed:home')).toBeNull(); // NOT a dismissal
+        expect(answerState()).toBeTruthy(); // entry still remembers the answer
+
+        modeChanged(true); // brain back on — answer reshows
+        await new Promise((r) => setTimeout(r, 25));
+        expect(document.querySelector('.main-content.archivist-panel')).not.toBeNull();
+    });
+
+    it('a ×-cleared answer does NOT reshow on mode re-entry', async () => {
+        buildDom({ withFeed: false, activeTab: false });
+        seedAnswerState();
+        initAiArchivist();
+        await new Promise((r) => setTimeout(r, 25));
+
+        document.getElementById('copy-feed-close').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(sessionStorage.getItem('hyperlit:archivist:dismissed:home')).toBe('book_42');
+
+        modeChanged(false);
+        modeChanged(true);
+        await new Promise((r) => setTimeout(r, 25));
+        expect(document.querySelector('.main-content.archivist-panel')).toBeNull();
+    });
+
+    it('the × reads "Clear answer" while an answer is up, "Close feed" after', async () => {
+        buildDom({ withFeed: false, activeTab: false });
+        seedAnswerState();
+        initAiArchivist();
+        await new Promise((r) => setTimeout(r, 25));
+        expect(document.getElementById('copy-feed-close').getAttribute('aria-label')).toBe('Clear answer');
+
+        document.getElementById('copy-feed-close').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(document.getElementById('copy-feed-close').getAttribute('aria-label')).toBe('Close feed');
+    });
+});
+
 describe('footer actions', () => {
     async function mountStoredAnswer() {
         buildDom({ withFeed: false, activeTab: false });

@@ -3,7 +3,7 @@ import {
   authorAudioBook, routeAudioManifest, routeAudioFiles, unrouteAudio,
   startListening, getTrace, waitForNodesStarted, waitForTraceEvent,
   waitForPlaybackToReachEnd, playlistTotal, startedIndices, traceEvents,
-  attachTraceOnFailure, PILL,
+  attachTraceOnFailure, PILL, AUDIO_LAUNCH_ARGS,
 } from '../../helpers/audioHarness.js';
 
 /**
@@ -27,7 +27,9 @@ import {
 // server. Blocking it also keeps these specs off the SW's stale-JS cache.
 test.use({
   serviceWorkers: 'block',
-  launchOptions: { args: ['--autoplay-policy=no-user-gesture-required', '--mute-audio'] },
+  // AUDIO_LAUNCH_ARGS also blocks host media events (media keys, AirPods,
+  // screen lock) from pausing the engine mid-run — see audioHarness.js.
+  launchOptions: { args: AUDIO_LAUNCH_ARGS },
 });
 
 test.afterEach(async ({ page }, testInfo) => {

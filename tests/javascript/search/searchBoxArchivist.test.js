@@ -125,6 +125,25 @@ describe('entering and leaving archivist mode', () => {
         expect(localStorage.getItem('test_search_mode')).toBe('semantic');
     });
 
+    it('dispatches hyperlit:archivist-mode-changed on USER boundary crossings only', async () => {
+        buildDom();
+        const { box } = makeBox();
+        activeBox = box;
+        const events = [];
+        const listener = (e) => events.push(e.detail?.active);
+        window.addEventListener('hyperlit:archivist-mode-changed', listener);
+
+        box.init(); // restore path — no event even if mode were persisted
+        expect(events).toHaveLength(0);
+
+        brain().click(); // enter
+        expect(events).toEqual([true]);
+        brain().click(); // exit
+        expect(events).toEqual([true, false]);
+
+        window.removeEventListener('hyperlit:archivist-mode-changed', listener);
+    });
+
     it('a persisted archivist mode restores the takeover on init without firing anything', async () => {
         localStorage.setItem('test_search_mode', 'archivist');
         localStorage.setItem('test_search_query', 'a saved draft prompt');

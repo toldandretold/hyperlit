@@ -330,7 +330,7 @@ async function enrichSubBookFromDB(subBookId: any, subBookState: any) {
         return text && text.length > 0;
       });
       if (localHasContent) {
-        log.error(`Sub-book "${subBookId}": server is newer but local has unsynced content — skipping destructive sync`, '/hyperlitContainer/subBookLoader.ts');
+        log.error(`Sub-book "${subBookId}": server is newer but local has unsynced content — skipping destructive sync (server=${serverTimestamp}, local=${localTimestamp}, localRecord=${localRecord ? 'present' : 'MISSING'})`, '/hyperlitContainer/subBookLoader.ts');
         enrichedSubBooks.add(subBookId);
         return;
       }

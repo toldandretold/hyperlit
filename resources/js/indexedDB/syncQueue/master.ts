@@ -21,7 +21,7 @@ import type { ConflictNodeInput } from './selfConflictContentCheck';
 // even when local content kept changing after it (where the content check can't).
 // Tests: tests/javascript/indexedDB/sentSyncTokens.test.js
 import { generateSyncToken, recordSentSyncToken, hasSentSyncToken } from './sentSyncTokens';
-import { advanceBaseTimestamp } from '../core/library';
+import { advanceBaseTimestamp, raiseLocalLibraryTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
 import { asBookId } from '../types';
 // E2EE seam (docs/e2ee.md): registry is a zero-import leaf (cheap sync check);
@@ -699,6 +699,14 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
     // or echoed newBase can never drag the base backwards and re-introduce a false conflict
     // (the previous inline `= newBase` write was non-monotonic). Best-effort — only warns.
     await advanceBaseTimestamp(bookId, newBase);
+
+    // Also restore the local content `timestamp` to the value this sync SENT (the server
+    // adopted it). The local record can be deleted + re-pulled STALE while this sync was
+    // in flight — a sub-book's library row goes down with its container on cross-book nav
+    // and the re-pull lands before this push — leaving local forever behind the server
+    // (the "server is newer but local has unsynced content" spam on every sub-book open).
+    // Client-sent value only, monotonic — see raiseLocalLibraryTimestamp.
+    await raiseLocalLibraryTimestamp(bookId, syncPayload.updates.library?.timestamp);
 
     if (logEntry) {
       logEntry.status = "synced";

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1799 functions in 377 modules · 10 object stores · 10 PG tables · 3694 edges
+**MarkdownDB** schema v28 · 1800 functions in 377 modules · 10 object stores · 10 PG tables · 3698 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1132,6 +1132,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getLibraryRecordFromServer` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `initLibraryDependencies` | `indexedDB/core/library` | — | — | — | — |
 | `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
+| `raiseLocalLibraryTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | write | — |
 | `updateAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `updateBookTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
@@ -1206,7 +1207,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `loadFootnotesToIndexedDB` | `indexedDB/serverSync/loaders` | — | `footnotes` | — | — |
 | `loadHypercitesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `loadHyperlightsToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
-| `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | — | `library` | — | — |
+| `loadLibraryToIndexedDB` | `indexedDB/serverSync/loaders` | `library` | `library` | — | — |
 | `loadNodesToIndexedDB` | `indexedDB/serverSync/loaders` | — | — | — | — |
 | `fetchServerNodesRaw` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `syncAnnotationsOnly` | `indexedDB/serverSync/pull` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/annotations` |
