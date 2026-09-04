@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\ShortFormReference;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\CitationReview\Support\SourceUrlResolver;
 use App\Services\CitationReview\Support\TitleSimilarity;
@@ -69,6 +70,11 @@ final class ClaimMarkdownFormatter
         if ($bibCitation) {
             $bibPlain = html_entity_decode(strip_tags($bibCitation), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $md .= "> {$bibPlain}\n\n";
+        }
+        // A bare "> Ibid." is unactionable — say which work it refers to (the
+        // scan substituted the antecedent's metadata onto short-form footnotes).
+        if ($refersTo = ShortFormReference::describe($claim)) {
+            $md .= "↳ *{$refersTo}*\n\n";
         }
         if (!empty($claim['has_highlight'])) {
             $highlightId = $claim['highlightId'] ?? 'HL_' . abs(crc32($claim['node_id'] . $refId));
@@ -373,7 +379,7 @@ final class ClaimMarkdownFormatter
             }
             if ($descriptions) {
                 $url = $llmMeta['url'] ?? 'unknown';
-                $lines[] = "\u{1F6A9} **Suspicious URL** (`{$url}`): " . implode(', ', $descriptions) . ' — possible LLM-fabricated citation';
+                $lines[] = "\u{1F6A9} **Suspicious URL** (`{$url}`): " . implode(', ', $descriptions) . ' — possible fabricated citation, or a URL garbled by OCR — verify the address before trusting either way';
             }
         }
 

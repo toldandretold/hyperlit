@@ -5,7 +5,7 @@ Text: [The Reviewed Work](/goldensnapshotbook) — Author, Test — (2020)
 Date: 2026-07-01 12:00:00
 Citations in text: 12 (across 6 paragraphs)
 Unique sources cited: 5 (3 verified, 1 canonical-verified, 2 with full text)
-## Known Unknown Citations 
+## Source Coverage
 
 <table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody><tr><td>Canonical-verified</td><td>1</td></tr><tr><td>Found (local match)</td><td>2</td></tr><tr><td>Source Not Found</td><td>4</td></tr></tbody></table>
 
@@ -34,7 +34,7 @@ Unique sources cited: 5 (3 verified, 1 canonical-verified, 2 with full text)
 **Provenance:** ⚠️ Web source — the live page at the cited URL [http://dubious.example/paper](http://dubious.example/paper) appears to be a DIFFERENT article (its declared title contradicts the citation). Treat content from this URL as untrusted.
 **Match:** 55% — Brave Search — *this was the closest match found*
 ⚠ Title differs: bibliography has "The Original Cited Study Title That Is Quite Different" but matched source is "Unrelated Landing Page"
-🚩 **Suspicious URL** (`http://dubious.example/paper`): suspicious TLD ".zzz", domain does not exist (DNS lookup failed) — possible LLM-fabricated citation
+🚩 **Suspicious URL** (`http://dubious.example/paper`): suspicious TLD ".zzz", domain does not exist (DNS lookup failed) — possible fabricated citation, or a URL garbled by OCR — verify the address before trusting either way
 **Claim:** "A study proved the opposite conclusion."
 **Evidence:** Web page content (partial)
 **Verdict:** Rejected

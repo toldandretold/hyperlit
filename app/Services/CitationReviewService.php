@@ -78,8 +78,17 @@ class CitationReviewService
         $highlightCount = $this->verificationHighlighter->createVerificationHighlights($claims, $bookId);
         $progress('highlights', "Created {$highlightCount} verification highlights");
 
+        // Footnote-only books have an EMPTY bibliography table — their citation
+        // universe is the citation-classified footnotes. Without this fallback the
+        // coverage donut's denominator is 0 and "Source Not Found" clamps to 0
+        // (the max() hides the negative), flatly contradicting the report body.
         $totalBib = DB::connection('pgsql_admin')
             ->table('bibliography')->where('book', $bookId)->count();
+        if ($totalBib === 0) {
+            $totalBib = DB::connection('pgsql_admin')
+                ->table('footnotes')->where('book', $bookId)
+                ->where('is_citation', true)->count();
+        }
 
         $stats = [
             'citation_occurrences' => $totalCitations,

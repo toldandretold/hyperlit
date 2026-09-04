@@ -152,6 +152,30 @@ test('a multi-work footnote 🚩s an unfound journal article cited second', func
     expect($bibNode['plainText'])->toStartWith('Footnote citation:');
 });
 
+test('an unfound ibid highlight names the work it refers to', function () {
+    $captured = [];
+    $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
+
+    $claims = [[
+        'node_id' => 'n1', 'referenceId' => 'r1', 'truth_claim' => 'Ibid claim.',
+        'charStart' => 0, 'charEnd' => 5, 'verified_source' => false,
+        'bib_citation' => '<p>Ibid.</p>',
+        'citation_row' => 'footnote',
+        'llm_metadata' => [
+            'type' => 'journal-article', 'title' => 'Automating Compliance',
+            'authors' => ['Carney, Terry'], 'year' => 2024,
+            'short_form_of' => 'fn_full_1',
+        ],
+    ]];
+    $svc->createVerificationHighlights($claims, 'book1');
+
+    $refersTo = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_starts_with($n['plainText'], 'Refers to:'));
+    expect($refersTo)->not->toBeNull();
+    expect($refersTo['plainText'])->toContain('Carney, Terry');
+    expect($refersTo['plainText'])->toContain('Automating Compliance');
+});
+
 test('insufficient-evidence claims are skipped', function () {
     $captured = [];
     $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));

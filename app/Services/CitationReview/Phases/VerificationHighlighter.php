@@ -3,6 +3,7 @@
 namespace App\Services\CitationReview\Phases;
 
 use App\Services\BackendHighlightService;
+use App\Services\CitationReview\Support\ShortFormReference;
 use App\Services\CitationReview\Support\SourceHtmlBuilder;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,14 @@ final class VerificationHighlighter
                     'content'   => '<p><strong>' . $bibLabel . ':</strong> ' . e($bibText) . '</p>',
                     'plainText' => "{$bibLabel}: {$bibText}",
                 ];
+                // A bare "Ibid." needs its referent spelled out (see ShortFormReference)
+                if ($refersTo = ShortFormReference::describe($claim)) {
+                    $snfContent[] = [
+                        'type'      => 'p',
+                        'content'   => '<p><em>' . e($refersTo) . '</em></p>',
+                        'plainText' => $refersTo,
+                    ];
+                }
                 $sourceNode = $this->sourceHtml->build($claim);
                 if ($sourceNode) {
                     $snfContent[] = [

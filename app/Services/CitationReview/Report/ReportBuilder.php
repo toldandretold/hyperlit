@@ -61,6 +61,11 @@ final class ReportBuilder
             $stats['canonical_sources']    = count(array_filter($refs, fn($r) => $r['canonical']));
             $stats['sources_with_content'] = count(array_filter($refs, fn($r) => $r['content']));
             $stats['total_bibliography']   = $db->table('bibliography')->where('book', $bookId)->count();
+            // Footnote-only books: the citation universe is the footnotes table
+            if ($stats['total_bibliography'] === 0) {
+                $stats['total_bibliography'] = $db->table('footnotes')->where('book', $bookId)
+                    ->where('is_citation', true)->count();
+            }
         }
 
         if (isset($stats['citation_occurrences'])) {
@@ -70,12 +75,19 @@ final class ReportBuilder
             $canonicalNote = isset($stats['canonical_sources']) ? ", {$stats['canonical_sources']} canonical-verified" : '';
             $md .= "Unique sources cited: {$stats['unique_sources']} ({$stats['verified_sources']} verified{$canonicalNote}, {$stats['sources_with_content']} with full text)\n";
         }
-        $md .= "## Known Unknown Citations \n\n";
+        $md .= "## Source Coverage\n\n";
 
         // Source coverage donut — canonical-verified broken out from plain
         // local matches so the chart backs up the provenance note below it.
         $sourcesFound = $stats['verified_sources'] ?? 0;
-        $sourcesNotFound = max(0, ($stats['total_bibliography'] ?? $stats['unique_sources'] ?? 0) - $sourcesFound);
+        // total_bibliography can be 0 for old stats payloads from footnote-only
+        // books (the ?? doesn't help — the key is SET, to zero). A zero
+        // denominator with found > 0 is self-contradictory; fall back to the
+        // unique-sources count the header line above already displays.
+        $sourceUniverse = ($stats['total_bibliography'] ?? 0) > 0
+            ? $stats['total_bibliography']
+            : ($stats['unique_sources'] ?? 0);
+        $sourcesNotFound = max(0, $sourceUniverse - $sourcesFound);
         $canonicalFound = min($stats['canonical_sources'] ?? 0, $sourcesFound);
         $localFound = max(0, $sourcesFound - $canonicalFound);
 
@@ -162,6 +174,8 @@ final class ReportBuilder
                 'archival-source' => 'Archival Sources',
                 'youtube-video' => 'YouTube Videos',
                 'website' => 'Websites',
+                'legislation' => 'Legislation',
+                'case-law' => 'Case Law',
                 'other' => 'Other',
             ];
             // 'report' deliberately NOT here: institutional reports (ANAO, ONS…) are
@@ -199,6 +213,10 @@ final class ReportBuilder
                          . "signal the reference may be miscited or fabricated (unlike books, which are sometimes legitimately unindexed).\n\n";
                 } elseif (in_array($type, $academicTypes, true)) {
                     $md .= "> Not found in any academic database — higher priority for manual review.\n\n";
+                } elseif (in_array($type, ['legislation', 'case-law'], true)) {
+                    $md .= "> Legislation and court decisions live in legal databases (AustLII, legislation registers), "
+                         . "not the academic databases we search — absence here is expected and says nothing about validity. "
+                         . "Verify against the relevant legal register.\n\n";
                 } else {
                     $md .= "> Not found — sources of this type are typically not indexed in academic databases, "
                          . "so absence here is expected. Verify against the publisher or issuing body if needed.\n\n";
