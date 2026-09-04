@@ -105,6 +105,30 @@ final class SourceTypeClassifier
         return $titles;
     }
 
+    /**
+     * Compact one-line listing of a MULTI-work entry's works, for the report's
+     * claim blocks (the highlight's notFoundExplanation carries the full prose;
+     * the report otherwise shows nothing multi-work unless a journal 🚩 fires).
+     * Null for single-work entries.
+     */
+    public static function worksSummary(array $claim): ?string
+    {
+        $works = self::works($claim);
+        if (count($works) < 2) {
+            return null;
+        }
+
+        $parts = [];
+        foreach ($works as $i => $work) {
+            $n = $i + 1;
+            $title = $work['title'] ?? '(untitled)';
+            $label = self::label($work['type'] ?? 'unknown');
+            $parts[] = "({$n}) \u{201C}{$title}\u{201D} — {$label}";
+        }
+
+        return 'This entry cites ' . count($works) . ' works: ' . implode('; ', $parts) . '.';
+    }
+
     public static function label(string $type): string
     {
         return match ($type) {

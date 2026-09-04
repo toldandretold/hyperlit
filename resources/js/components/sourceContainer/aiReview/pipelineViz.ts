@@ -174,7 +174,7 @@ export function renderPipelineViz(self: any, pipeline: any) {
   } else if (done) {
     doneBanner = `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
            <span style="font-size: 16px; color: #27ae60; font-weight: bold;">✓ Review complete</span>
-           <a href="/${encodeURIComponent(pipeline.book)}/AIreview" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">View the report →</a>
+           <a href="/${encodeURIComponent(pipeline.book)}/AIreview" id="ai-review-view-report" style="font-size: 14px; color: #8fd0c6; text-decoration: underline;">View the report →</a>
            <span style="font-size: 13px; color: #888;">A summary has been emailed to you.</span>
          </div>`;
   }
@@ -290,6 +290,14 @@ export function renderPipelineViz(self: any, pipeline: any) {
       self._aiVizStage = self._aiVizStage === id ? null : id; // click again to unpin (auto-follow)
       self.renderPipelineViz(pipeline);
     });
+  });
+
+  // "View the report" must also CLOSE the overlay — it's a fixed full-screen
+  // layer (z-index 10000), so after the in-SPA navigation it would still be
+  // covering the report. Deferred a tick so the document-level SPA link
+  // interceptor processes the click before the anchor leaves the DOM.
+  viz.querySelector('#ai-review-view-report')?.addEventListener('click', () => {
+    setTimeout(() => self.closeAiReviewVizOverlay(), 0);
   });
 
   // "Nothing to review" empty-state: let the user flag it if the book really

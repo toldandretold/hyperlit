@@ -77,6 +77,94 @@ test('legislation and case-law get their own groups with a legal-register banner
     });
 });
 
+test('a match to the work AFTER the semicolon reports which work matched, not phantom mismatches', function () {
+    // The Deloitte Panko/Csernoch case: "Panko 2008; Csernoch 2024" in one
+    // footnote — the DOI regex matched Csernoch, but the diagnostics compared
+    // the source against the PRIMARY (Panko) and warned year/author/title
+    // mismatch on a perfectly correct match.
+    withCoverageBook(function (CitationReviewService $svc, string $book) {
+        $claims = [
+            ['referenceId' => 'r1', 'node_id' => 'n1', 'truth_claim' => 'Error rates claim.',
+             'source_book_id' => 'src1', 'match_method' => 'doi', 'match_score' => 1.0,
+             'source_title' => 'Modification of Erroneous and Correct Digital Texts',
+             'source_author' => 'Mária Csernoch; Carolin Hannusch; Piroska Biró',
+             'source_year' => 2024,
+             'llm_metadata' => [
+                 'type' => 'journal-article', 'year' => 2008,
+                 'title' => 'Thinking is Bad: Implications of Human Error Research for Spreadsheet Research and Practice',
+                 'authors' => ['Panko, Raymond'],
+                 'sub_citations' => [[
+                     'type' => 'journal-article', 'year' => 2024,
+                     'title' => 'Modification of Erroneous and Correct Digital Texts',
+                     'authors' => ['Csernoch, Maria', 'Hannusch, Carolin', 'Piroska, Biro'],
+                 ]],
+             ],
+             'llm_verdict' => ['support' => 'unlikely', 'summary' => 'Not in this source.']],
+        ];
+        $md = $svc->buildMarkdownReport($claims, $book, 'Coverage Test Book', []);
+
+        expect($md)->not->toContain('Year mismatch');
+        expect($md)->not->toContain('Author mismatch');
+        expect($md)->not->toContain('Title differs');
+        expect($md)->toContain('cites 2 works');
+        expect($md)->toContain('2nd');
+        expect($md)->toContain('Thinking is Bad'); // the unchecked Panko work, named
+        expect($md)->toContain('(2008)');
+        expect($md)->toContain('checked against the matched work only');
+    });
+});
+
+test('mismatch warnings still fire when the source matches NO cited work', function () {
+    withCoverageBook(function (CitationReviewService $svc, string $book) {
+        $claims = [
+            ['referenceId' => 'r1', 'node_id' => 'n1', 'truth_claim' => 'Wrong match claim.',
+             'source_book_id' => 'src1', 'match_method' => 'openalex', 'match_score' => 0.5,
+             'source_title' => 'A Completely Different Work',
+             'source_author' => 'Nobody, Else',
+             'source_year' => 1999,
+             'llm_metadata' => [
+                 'type' => 'journal-article', 'year' => 2008,
+                 'title' => 'Thinking is Bad', 'authors' => ['Panko, Raymond'],
+                 'sub_citations' => [[
+                     'type' => 'journal-article', 'year' => 2024,
+                     'title' => 'Modification of Erroneous Texts', 'authors' => ['Csernoch, Maria'],
+                 ]],
+             ],
+             'llm_verdict' => ['support' => 'unlikely', 'summary' => 'x']],
+        ];
+        $md = $svc->buildMarkdownReport($claims, $book, 'Coverage Test Book', []);
+
+        expect($md)->toContain('Year mismatch');
+        expect($md)->toContain('Author mismatch');
+        expect($md)->toContain('Title differs');
+        expect($md)->not->toContain('cites 2 works');
+    });
+});
+
+test('an unfound multi-work entry lists every cited work even without a journal flag', function () {
+    // Vanstone media release + Perkins report in one footnote: no journal
+    // article, so no 🚩 — but the report must still say it's 2 works, not one.
+    withCoverageBook(function (CitationReviewService $svc, string $book) {
+        $claims = [
+            ['referenceId' => 'r1', 'node_id' => 'n1', 'truth_claim' => 'PSP claim.',
+             'bib_citation' => '<p>Vanstone, Launch of the PSP (2002); Perkins, Making it Work (2007).</p>',
+             'llm_metadata' => [
+                 'type' => 'other', 'title' => 'Launch of the Personal Support Programme',
+                 'sub_citations' => [[
+                     'type' => 'report', 'title' => 'Making it Work',
+                 ]],
+             ]],
+        ];
+        $md = $svc->buildMarkdownReport($claims, $book, 'Coverage Test Book', []);
+
+        expect($md)->toContain('This entry cites 2 works:');
+        expect($md)->toContain('Launch of the Personal Support Programme');
+        expect($md)->toContain('Making it Work');
+        expect($md)->toContain('— report');
+        expect($md)->not->toContain('🚩');
+    });
+});
+
 test('a linked ibid claim renders a Refers to line in the report', function () {
     withCoverageBook(function (CitationReviewService $svc, string $book) {
         $claims = [

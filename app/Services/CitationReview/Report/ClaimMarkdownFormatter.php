@@ -95,6 +95,13 @@ final class ClaimMarkdownFormatter
             $md .= "**Reasoning:** {$verdict['reasoning']}\n";
         }
 
+        // A not-found multi-work entry otherwise reads as ONE work of the
+        // primary's type — list every cited work so the reader knows what to
+        // chase (the group banner only describes the primary's type).
+        if (empty($claim['source_book_id']) && ($worksSummary = SourceTypeClassifier::worksSummary($claim))) {
+            $md .= "\u{2139}\u{FE0F} {$worksSummary}\n";
+        }
+
         // An unfound journal article warrants stronger scrutiny than a missing
         // book — it should be indexed in OpenAlex / Semantic Scholar. Gate on the
         // report's own "not found" definition (no source_book_id, matching the
@@ -294,63 +301,40 @@ final class ClaimMarkdownFormatter
             return empty($lines) ? '' : implode("\n", $lines) . "\n";
         }
 
-        // Year mismatch
-        $llmYear    = $llmMeta['year'] ?? null;
-        $sourceYear = $claim['source_year'] ?? null;
-        if ($llmYear && $sourceYear && (string) $llmYear !== (string) $sourceYear) {
-            $lines[] = "\u{26A0} Year mismatch: bibliography says {$llmYear}, matched source says {$sourceYear}";
+        // Which cited work does the matched source correspond to? A footnote can
+        // chain works ("Panko 2008; Csernoch 2024") and the DOI/search may have
+        // matched one AFTER the semicolon — comparing the source against the
+        // primary then emits phantom year/author/title mismatches against a work
+        // that was never the match. If a SUB-citation is the agreeing work, say
+        // so honestly instead of warning; the primary path stays byte-identical.
+        $works = [$llmMeta];
+        foreach ($llmMeta['sub_citations'] ?? [] as $sub) {
+            if (is_array($sub)) {
+                $works[] = $sub;
+            }
         }
-
-        // Author mismatch — lightweight first-surname check
-        $llmAuthors   = $llmMeta['authors'] ?? null;
-        $sourceAuthor = $claim['source_author'] ?? null;
-        if ($llmAuthors && $sourceAuthor) {
-            $llmAuthorStr = is_array($llmAuthors) ? implode('; ', $llmAuthors) : (string) $llmAuthors;
-            $extractSurname = function (string $name): string {
-                $name = trim($name);
-                // "Surname, First" → Surname
-                if (str_contains($name, ',')) {
-                    return mb_strtolower(trim(explode(',', $name)[0]));
-                }
-                // "First Surname" → Surname (last word)
-                $words = preg_split('/\s+/', $name);
-                return mb_strtolower(end($words));
-            };
-
-            $llmSurnames = [];
-            $authors = is_array($llmAuthors) ? $llmAuthors : preg_split('/[;,]\s*/', (string) $llmAuthors);
-            foreach ($authors as $a) {
-                $s = $extractSurname($a);
-                if ($s !== '') $llmSurnames[] = $s;
-            }
-
-            $sourceLower = mb_strtolower($sourceAuthor);
-            $hasOverlap = false;
-            foreach ($llmSurnames as $surname) {
-                if (mb_strpos($sourceLower, $surname) !== false) {
-                    $hasOverlap = true;
-                    break;
-                }
-            }
-
-            if (!$hasOverlap && !empty($llmSurnames)) {
-                $lines[] = "\u{26A0} Author mismatch: bibliography has \"{$llmAuthorStr}\" but source has \"{$sourceAuthor}\"";
+        $agreeIdx = null;
+        foreach ($works as $i => $work) {
+            if ($this->workAgreesWithSource($work, $claim)) {
+                $agreeIdx = $i;
+                break;
             }
         }
 
-        // Publisher mismatch
-        $llmPublisher = $llmMeta['publisher'] ?? null;
-        // Source publisher would be in library record — not currently passed through,
-        // so skip this check unless both sides have data.
-
-        // Title difference — use simple_title_similarity since we can't call OpenAlexService here
-        $llmTitle    = $llmMeta['title'] ?? null;
-        $sourceTitle = $claim['source_title'] ?? null;
-        if ($llmTitle && $sourceTitle) {
-            $sim = $this->titles->similarity($llmTitle, $sourceTitle);
-            if ($sim < 0.7) {
-                $lines[] = "\u{26A0} Title differs: bibliography has \"{$llmTitle}\" but matched source is \"{$sourceTitle}\"";
+        if ($agreeIdx !== null && $agreeIdx > 0) {
+            $matched = $this->describeWork($works[$agreeIdx]);
+            $unchecked = [];
+            foreach ($works as $i => $work) {
+                if ($i !== $agreeIdx) {
+                    $unchecked[] = $this->describeWork($work);
+                }
             }
+            $nth = ($agreeIdx + 1) . (['th', 'st', 'nd', 'rd'][($agreeIdx + 1) % 10] ?? 'th');
+            $lines[] = "\u{2139}\u{FE0F} This entry cites " . count($works) . " works; the matched source is the "
+                . "{$nth} — {$matched}. The claim was checked against the matched work only; not independently "
+                . 'verified: ' . implode('; ', $unchecked) . '.';
+        } else {
+            array_push($lines, ...$this->workMismatchLines($llmMeta, $claim));
         }
 
         // URL flags — potential fabrication indicator
@@ -384,5 +368,117 @@ final class ClaimMarkdownFormatter
         }
 
         return empty($lines) ? '' : implode("\n", $lines) . "\n";
+    }
+
+    /**
+     * The year / author / title mismatch warnings for ONE cited work against the
+     * matched source. Verbatim the pre-multi-work checks — the single-work path
+     * must stay byte-identical (golden snapshots).
+     */
+    private function workMismatchLines(array $work, array $claim): array
+    {
+        $lines = [];
+
+        $llmYear    = $work['year'] ?? null;
+        $sourceYear = $claim['source_year'] ?? null;
+        if ($llmYear && $sourceYear && (string) $llmYear !== (string) $sourceYear) {
+            $lines[] = "\u{26A0} Year mismatch: bibliography says {$llmYear}, matched source says {$sourceYear}";
+        }
+
+        $llmAuthors   = $work['authors'] ?? null;
+        $sourceAuthor = $claim['source_author'] ?? null;
+        if ($llmAuthors && $sourceAuthor) {
+            $llmAuthorStr = is_array($llmAuthors) ? implode('; ', $llmAuthors) : (string) $llmAuthors;
+            if ($this->authorsOverlap($llmAuthors, $sourceAuthor) === false) {
+                $lines[] = "\u{26A0} Author mismatch: bibliography has \"{$llmAuthorStr}\" but source has \"{$sourceAuthor}\"";
+            }
+        }
+
+        $llmTitle    = $work['title'] ?? null;
+        $sourceTitle = $claim['source_title'] ?? null;
+        if ($llmTitle && $sourceTitle) {
+            $sim = $this->titles->similarity($llmTitle, $sourceTitle);
+            if ($sim < 0.7) {
+                $lines[] = "\u{26A0} Title differs: bibliography has \"{$llmTitle}\" but matched source is \"{$sourceTitle}\"";
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Does this cited work look like the one the matched source actually is?
+     * Positive evidence required: a strong title match, or year + author both
+     * agreeing — a work with empty metadata must never "agree" by default.
+     */
+    private function workAgreesWithSource(array $work, array $claim): bool
+    {
+        $titleOk = false;
+        if (!empty($work['title']) && !empty($claim['source_title'])) {
+            $titleOk = $this->titles->similarity($work['title'], $claim['source_title']) >= 0.7;
+        }
+        if ($titleOk) {
+            return true;
+        }
+
+        $yearOk = !empty($work['year']) && !empty($claim['source_year'])
+            && (string) $work['year'] === (string) $claim['source_year'];
+        $authorOk = !empty($claim['source_author'])
+            && $this->authorsOverlap($work['authors'] ?? null, $claim['source_author']) === true;
+
+        return $yearOk && $authorOk;
+    }
+
+    /** Lightweight first-surname overlap; null when either side is missing. */
+    private function authorsOverlap($workAuthors, ?string $sourceAuthor): ?bool
+    {
+        if (!$workAuthors || !$sourceAuthor) {
+            return null;
+        }
+
+        $extractSurname = function (string $name): string {
+            $name = trim($name);
+            // "Surname, First" → Surname
+            if (str_contains($name, ',')) {
+                return mb_strtolower(trim(explode(',', $name)[0]));
+            }
+            // "First Surname" → Surname (last word)
+            $words = preg_split('/\s+/', $name);
+            return mb_strtolower(end($words));
+        };
+
+        $surnames = [];
+        $authors = is_array($workAuthors) ? $workAuthors : preg_split('/[;,]\s*/', (string) $workAuthors);
+        foreach ($authors as $a) {
+            $s = $extractSurname($a);
+            if ($s !== '') $surnames[] = $s;
+        }
+        if (empty($surnames)) {
+            return null;
+        }
+
+        $sourceLower = mb_strtolower($sourceAuthor);
+        foreach ($surnames as $surname) {
+            if (mb_strpos($sourceLower, $surname) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Short human label for a cited work: “Title” / first author, with year. */
+    private function describeWork(array $work): string
+    {
+        $label = !empty($work['title'])
+            ? "\u{201C}{$work['title']}\u{201D}"
+            : (is_array($work['authors'] ?? null) && !empty($work['authors'])
+                ? $work['authors'][0]
+                : '(unidentified work)');
+        if (!empty($work['year'])) {
+            $label .= " ({$work['year']})";
+        }
+
+        return $label;
     }
 }
