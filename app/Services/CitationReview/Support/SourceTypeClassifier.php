@@ -129,6 +129,39 @@ final class SourceTypeClassifier
         return 'This entry cites ' . count($works) . ' works: ' . implode('; ', $parts) . '.';
     }
 
+    /**
+     * Detects a citation whose RAW TEXT looks like several semicolon-separated
+     * works but whose parsed metadata is single-work — an LLM extraction
+     * split-miss (seen on OCR-mangled footnotes: "Dept of Finance …; Institute
+     * of Internal Auditors …" parsed as one 'website'). The un-split works were
+     * never searched, so the report must not present the entry as one work.
+     * Fires only on positive evidence: a post-semicolon segment ≥25 chars
+     * carrying a plausible year.
+     */
+    public static function possiblyUnsplitMultiWork(array $claim): bool
+    {
+        if (count(self::works($claim)) !== 1) {
+            return false; // no metadata at all, or already split
+        }
+        if (in_array(self::type($claim), ['ibid', 'short-form', 'pointer'], true)) {
+            return false;
+        }
+
+        $text = html_entity_decode(strip_tags($claim['bib_citation'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($text === '') {
+            return false;
+        }
+
+        $segments = preg_split('/;\s+/', $text);
+        foreach (array_slice($segments, 1) as $segment) {
+            if (mb_strlen(trim($segment)) >= 25 && preg_match('/\b(19|20)\d{2}\b/', $segment)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function label(string $type): string
     {
         return match ($type) {
@@ -168,7 +201,14 @@ final class SourceTypeClassifier
         }
 
         if (count($works) === 1) {
-            return self::singleWorkExplanation($works[0]['type'] ?? 'unknown');
+            $text = self::singleWorkExplanation($works[0]['type'] ?? 'unknown');
+            if (self::possiblyUnsplitMultiWork($claim)) {
+                $text .= ' ⚠ The citation text appears to contain more than one work separated by '
+                    . 'semicolons, but it was parsed as a single work — the other work(s) were '
+                    . 'never searched. Check each cited work manually.';
+            }
+
+            return $text;
         }
 
         $count = count($works);

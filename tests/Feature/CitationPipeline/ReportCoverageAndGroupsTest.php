@@ -165,6 +165,22 @@ test('an unfound multi-work entry lists every cited work even without a journal 
     });
 });
 
+test('an unsplit multi-work citation is flagged in the report', function () {
+    withCoverageBook(function (CitationReviewService $svc, string $book) {
+        $claims = [
+            ['referenceId' => 'r1', 'node_id' => 'n1', 'truth_claim' => 'Three lines claim.',
+             'bib_citation' => '<p>Department of Finance (Cth), Risk Management Toolkit (Web Page, 2023) '
+                 . 'https://www.finance.gov.au/toolkit ; Institute of Internal Auditors, '
+                 . 'The IIA Three Lines Model (Position Paper, July 2020).</p>',
+             'llm_metadata' => ['type' => 'website', 'title' => 'Risk Management Toolkit']],
+        ];
+        $md = $svc->buildMarkdownReport($claims, $book, 'Coverage Test Book', []);
+
+        expect($md)->toContain('more than one work');
+        expect($md)->toContain('never searched');
+    });
+});
+
 test('a linked ibid claim renders a Refers to line in the report', function () {
     withCoverageBook(function (CitationReviewService $svc, string $book) {
         $claims = [

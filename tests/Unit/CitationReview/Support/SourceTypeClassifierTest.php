@@ -109,6 +109,44 @@ test('notFoundExplanation: unknown type keeps the honest generic hedge', functio
     }
 });
 
+test('possiblyUnsplitMultiWork detects a semicolon-joined citation parsed as one work', function () {
+    // The IIA case: two works in the raw text, but extraction returned a single 'website'.
+    $claim = [
+        'bib_citation' => '<p>Department of Finance (Cth), Risk Management Toolkit (Web Page, 2023) '
+            . 'https://www.finance.gov.au/toolkit ; Institute of Internal Auditors, '
+            . 'The IIA\'s Three Lines Model (Position Paper, July 2020).</p>',
+        'llm_metadata' => ['type' => 'website', 'title' => 'Risk Management Toolkit'],
+    ];
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork($claim))->toBeTrue();
+
+    $text = SourceTypeClassifier::notFoundExplanation($claim);
+    expect($text)->toContain('more than one work');
+    expect($text)->toContain('never searched');
+});
+
+test('possiblyUnsplitMultiWork stays quiet for split, single-work and short-form entries', function () {
+    // Already split — sub_citations present
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
+        'bib_citation' => '<p>A (2020); B, Long Enough Title Here (2021).</p>',
+        'llm_metadata' => ['type' => 'report', 'title' => 'A', 'sub_citations' => [['type' => 'report', 'title' => 'B']]],
+    ]))->toBeFalse();
+    // Genuinely single work, no semicolon
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
+        'bib_citation' => '<p>Author, A Single Work (Publisher, 2020).</p>',
+        'llm_metadata' => ['type' => 'book', 'title' => 'A Single Work'],
+    ]))->toBeFalse();
+    // Semicolon but trailing segment too short / no year (e.g. "; 2nd ed")
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
+        'bib_citation' => '<p>Author, A Work (2020); rev ed.</p>',
+        'llm_metadata' => ['type' => 'book', 'title' => 'A Work'],
+    ]))->toBeFalse();
+    // Short-form types excluded
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
+        'bib_citation' => '<p>Ibid; see also Another Thing From 2020 With Length.</p>',
+        'llm_metadata' => ['type' => 'ibid'],
+    ]))->toBeFalse();
+});
+
 test('notFoundExplanation: multi-work entry assesses each work and 🚩s the journal sub', function () {
     // The prod case: ANAO report (primary) + Carney journal article (sub), both unfound.
     $claim = ['llm_metadata' => [

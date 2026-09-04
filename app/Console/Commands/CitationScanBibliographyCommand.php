@@ -38,13 +38,20 @@ class CitationScanBibliographyCommand extends Command
         $this->info("Book: {$book->title}");
 
         if ($referenceId) {
-            // Verify the referenceId exists
+            // Verify the referenceId exists — as a bibliography row, or (footnote-only
+            // books, or citation footnotes alongside a bibliography) as a footnoteId.
             $entry = $db->table('bibliography')
                 ->where('book', $bookId)
                 ->where('referenceId', $referenceId)
                 ->first();
             if (!$entry) {
-                $this->error("Reference not found: {$referenceId}");
+                $entry = $db->table('footnotes')
+                    ->where('book', $bookId)
+                    ->where('footnoteId', $referenceId)
+                    ->first();
+            }
+            if (!$entry) {
+                $this->error("Reference not found (bibliography or footnotes): {$referenceId}");
                 return 1;
             }
             $this->info("Scanning single citation: {$referenceId}");

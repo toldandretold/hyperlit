@@ -18,6 +18,7 @@ use App\Services\LlmService;
 use App\Services\WebFetchService;
 use App\Services\SemanticScholarService;
 use App\Services\BraveSearchService;
+use App\Services\CitationReview\Support\SourceTypeClassifier;
 
 class CitationScanBibliographyJob implements ShouldQueue
 {
@@ -90,37 +91,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ->where('id', $this->scanId)
                 ->update(['status' => 'running', 'updated_at' => now()]);
 
-            // Footnote pass requested explicitly (books with BOTH a bibliography
-            // and citation-bearing footnotes — e.g. footnotes that are author-date
-            // POINTERS into the bibliography). Without the override, footnotes are
-            // only scanned as a fallback when the bibliography is empty.
-            if ($this->sourceTableOverride === 'footnotes' && !$this->referenceId) {
-                $entries = collect();
-            } else {
-                // Fetch bibliography entries (optionally filtered to a single referenceId)
-                $query = $db->table('bibliography')->where('book', $this->bookId);
-                if ($this->referenceId) {
-                    $query->where('referenceId', $this->referenceId);
-                }
-                $entries = $query->get();
-            }
-
-            // Footnote-only: when bibliography is empty, use footnotes as citation sources
-            if ($entries->isEmpty() && !$this->referenceId) {
-                $entries = $db->table('footnotes')
-                    ->where('book', $this->bookId)
-                    ->get()
-                    ->map(function ($fn) {
-                        $fn->referenceId = $fn->footnoteId;
-                        $fn->source_id = $fn->source_id ?? null;
-                        return $fn;
-                    });
-                $this->sourceTable = 'footnotes';
-                Log::info('No bibliography — using footnotes as citation sources', [
-                    'scan_id' => $this->scanId,
-                    'count'   => $entries->count(),
-                ]);
-            }
+            $entries = $this->fetchEntries($db);
 
             $totalEntries    = $entries->count();
             $alreadyLinked   = 0;
@@ -255,6 +226,15 @@ class CitationScanBibliographyJob implements ShouldQueue
                             'llm_metadata' => json_encode($metadata),
                         ]);
                     }
+                }
+
+                // Split-miss recovery: the raw text says several works, the parsed
+                // metadata says one — re-extract with an explicit MUST-split
+                // instruction so the missed works get SEARCHED (before this, the
+                // second work of "Finance toolkit; IIA Three Lines Model" simply
+                // never existed downstream). Runs on cached metadata too.
+                if ($this->sourceTable === 'footnotes') {
+                    $this->recoverUnsplitFootnotes($db, $llm, $needsResolution, $llmMetadataMap);
                 }
 
                 // Footnote-only: classify each footnote as citation or not
@@ -2064,6 +2044,111 @@ class CitationScanBibliographyJob implements ShouldQueue
             'foundation_book_id' => $stubBookId,
             'llm_metadata'       => $poolItem['llmMetadata'],
         ];
+    }
+
+    /**
+     * Fetch the citation-source rows to scan and set $this->sourceTable.
+     *
+     * Footnote pass requested explicitly (books with BOTH a bibliography and
+     * citation-bearing footnotes — e.g. footnotes that are author-date POINTERS
+     * into the bibliography). Without the override, footnotes are a fallback
+     * when the bibliography yields nothing — a footnote-only book, OR a
+     * referenceId that is a footnoteId (footnote-only books have no bibliography
+     * row to target, which used to make single-footnote re-scans impossible).
+     */
+    private function fetchEntries($db)
+    {
+        if ($this->sourceTableOverride === 'footnotes' && !$this->referenceId) {
+            $entries = collect();
+        } else {
+            $query = $db->table('bibliography')->where('book', $this->bookId);
+            if ($this->referenceId) {
+                $query->where('referenceId', $this->referenceId);
+            }
+            $entries = $query->get();
+        }
+
+        if ($entries->isEmpty()) {
+            $fnQuery = $db->table('footnotes')->where('book', $this->bookId);
+            if ($this->referenceId) {
+                $fnQuery->where('footnoteId', $this->referenceId);
+            }
+            $fnEntries = $fnQuery->get()->map(function ($fn) {
+                $fn->referenceId = $fn->footnoteId;
+                $fn->source_id = $fn->source_id ?? null;
+                return $fn;
+            });
+            if ($fnEntries->isNotEmpty()) {
+                $entries = $fnEntries;
+                $this->sourceTable = 'footnotes';
+                Log::info('Using footnotes as citation sources', [
+                    'scan_id'      => $this->scanId,
+                    'count'        => $entries->count(),
+                    'reference_id' => $this->referenceId,
+                ]);
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Split-miss recovery: for footnotes whose RAW TEXT carries a semicolon-
+     * separated multi-work signature but whose metadata is single-work (the
+     * detector is SourceTypeClassifier::possiblyUnsplitMultiWork — same
+     * definition the report renders warnings with), re-run the extraction once
+     * with an explicit must-split instruction. A successful re-split replaces
+     * the cached metadata (primary + sub_citations), so the ordinary
+     * sub-citation pool expansion searches the recovered works. A retry that
+     * still returns one work is left alone — the render-side warning is the
+     * backstop.
+     */
+    private function recoverUnsplitFootnotes($db, LlmService $llm, array $needsResolution, array &$llmMetadataMap): void
+    {
+        $suspects = [];
+        foreach ($needsResolution as $entry) {
+            $refId = $entry->referenceId ?? null;
+            $meta = $refId !== null ? ($llmMetadataMap[$refId] ?? null) : null;
+            if (!$meta) {
+                continue;
+            }
+            if (SourceTypeClassifier::possiblyUnsplitMultiWork([
+                'bib_citation' => $entry->content ?? '',
+                'llm_metadata' => $meta,
+            ])) {
+                $suspects[$refId] = $entry->content ?? '';
+            }
+        }
+        if (empty($suspects)) {
+            return;
+        }
+
+        Log::info('Split-miss recovery: re-extracting suspected multi-work footnotes', [
+            'scan_id' => $this->scanId,
+            'count'   => count($suspects),
+        ]);
+
+        $reExtracted = $llm->extractFootnoteCitationsBatch($suspects, true);
+        $recovered = 0;
+        foreach ($reExtracted as $refId => $citationArray) {
+            $works = array_values(array_filter(is_array($citationArray) ? $citationArray : []));
+            if (count($works) < 2) {
+                continue; // still merged — leave the first-pass metadata untouched
+            }
+            $primary = $works[0];
+            $primary['sub_citations'] = array_slice($works, 1);
+            $llmMetadataMap[$refId] = $primary;
+            $this->updateSourceEntry($db, $refId, [
+                'llm_metadata' => json_encode($primary),
+            ]);
+            $recovered++;
+        }
+
+        Log::info('Split-miss recovery finished', [
+            'scan_id'   => $this->scanId,
+            'recovered' => $recovered,
+            'still_merged' => count($suspects) - $recovered,
+        ]);
     }
 
     /**

@@ -101,6 +101,13 @@ final class ClaimMarkdownFormatter
         if (empty($claim['source_book_id']) && ($worksSummary = SourceTypeClassifier::worksSummary($claim))) {
             $md .= "\u{2139}\u{FE0F} {$worksSummary}\n";
         }
+        // Extraction split-miss: the raw text looks multi-work but the parsed
+        // metadata is single-work — the other work(s) were never even searched.
+        if (SourceTypeClassifier::possiblyUnsplitMultiWork($claim)) {
+            $md .= "\u{26A0} This citation text appears to contain more than one work (separated by semicolons) "
+                 . "but was parsed as a single work — the other work(s) were never searched. "
+                 . "Check each cited work manually.\n";
+        }
 
         // An unfound journal article warrants stronger scrutiny than a missing
         // book — it should be indexed in OpenAlex / Semantic Scholar. Gate on the

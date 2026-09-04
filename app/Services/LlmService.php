@@ -476,9 +476,12 @@ class LlmService
      * the LLM to return a JSON array of citation objects — one per distinct cited work.
      *
      * @param array $citations Array of footnote HTML strings keyed by footnote ID
+     * @param bool $emphasiseSplit Split-miss recovery mode: the caller's deterministic
+     *   detector found semicolon-separated works the first pass merged into one —
+     *   the prompt gains an explicit MUST-split instruction for the retry.
      * @return array<string, array<int, array>> Keyed by footnote ID, each value is an array of normalised citation metadata objects
      */
-    public function extractFootnoteCitationsBatch(array $citations): array
+    public function extractFootnoteCitationsBatch(array $citations, bool $emphasiseSplit = false): array
     {
         $systemPrompt = <<<'PROMPT'
 Extract structured metadata from this footnote. This is a footnote from an academic text. It may contain one or more citations separated by semicolons.
@@ -503,6 +506,13 @@ IMPORTANT RULES:
 - If the footnote is not a citation (commentary, cross-reference, explanatory note), return [{"type": "commentary", "title": null, "authors": [], "year": null, "original_year": null, "journal": null, "publisher": null, "doi": null, "url": null}].
 - Always return a JSON array, even for single citations: [{"title": "...", ...}]
 PROMPT;
+
+        if ($emphasiseSplit) {
+            $systemPrompt .= "\n\nIMPORTANT: This footnote has been machine-detected to contain MULTIPLE "
+                . "semicolon-separated citations (the text may be OCR-mangled with stray spaces inside "
+                . "words and URLs). You MUST return one object per distinct cited work — never merge "
+                . "them into one.";
+        }
 
         $requests = [];
         foreach ($citations as $key => $html) {
