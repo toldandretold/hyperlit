@@ -71,6 +71,22 @@ class CitationScanBibliographyJob implements ShouldQueue
      */
     private array $subResolutions = [];
 
+    /**
+     * How long a no-match verdict is trusted before the external search waves
+     * re-run for that entry. External indexes rarely change day to day, and
+     * re-running every historical failure made incremental rescans slow
+     * (14m40s on a 125-citation book — 64 failures × all waves). Bypassed by
+     * --force, by targeting a single referenceId, and for entries whose
+     * metadata this run just re-split (their works were never searched).
+     */
+    private const NO_MATCH_RETRY_COOLDOWN_HOURS = 24;
+
+    /** When this scan run began — rows touched after this were modified BY this run. */
+    private ?\Illuminate\Support\Carbon $scanStartedAt = null;
+
+    /** refIds whose metadata recoverUnsplitFootnotes re-split THIS run (never skip these). */
+    private array $recoveredRefIds = [];
+
     public function __construct(
         private string $scanId,
         private string $bookId,
@@ -84,6 +100,7 @@ class CitationScanBibliographyJob implements ShouldQueue
     public function handle(OpenAlexService $openAlex): void
     {
         $db = DB::connection('pgsql_admin');
+        $this->scanStartedAt = now();
 
         try {
             // Mark scan as running
@@ -235,6 +252,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                 // never existed downstream). Runs on cached metadata too.
                 if ($this->sourceTable === 'footnotes') {
                     $this->recoverUnsplitFootnotes($db, $llm, $needsResolution, $llmMetadataMap);
+                    // Heal parents stranded 'unknown' while a sub already MATCHED
+                    // (rows written before removeRelatedPoolEntries could overwrite
+                    // the sentinel) — link directly from the recorded match.
+                    $needsResolution = $this->healSubMatchedParents($db, $needsResolution, $llmMetadataMap);
                 }
 
                 // Footnote-only: classify each footnote as citation or not
@@ -388,10 +409,25 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // Build pool of unresolved entries
             $pool = [];
+            $skippedRecent = 0;
             foreach ($needsResolution as $entry) {
                 $refId   = $entry->referenceId;
                 $content = $entry->content ?? '';
                 $llmMetadata = $llmMetadataMap[$refId] ?? null;
+
+                // Recently-attempted no-match: trust the verdict for the cooldown
+                // window instead of re-running every external wave on each rescan.
+                if ($this->shouldSkipRecentNoMatch($entry)) {
+                    $results[] = [
+                        'referenceId'    => $refId,
+                        'status'         => 'no_match',
+                        'skipped_recent' => true,
+                        'llm_metadata'   => $llmMetadata,
+                    ];
+                    $failedToResolve++;
+                    $skippedRecent++;
+                    continue;
+                }
 
                 // Extract best title: LLM preferred, then linked library, then deterministic
                 $searchedTitle = null;
@@ -464,6 +500,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'scan_id'             => $this->scanId,
                 'pool_size'           => count($pool),
                 'non_academic_count'  => $nonAcademicCount,
+                'skipped_recent_no_match' => $skippedRecent,
             ]);
 
             // ── Wave 1: DOI extraction (regex — instant, then merge LLM-extracted DOIs) ──
@@ -2047,6 +2084,74 @@ class CitationScanBibliographyJob implements ShouldQueue
     }
 
     /**
+     * A parent row can be left foundation_source='unknown' while one of its
+     * sub_citations carries resolution {status: matched, book} — the state the
+     * pre-fix removeRelatedPoolEntries produced on rescans (it refused to
+     * overwrite the 'unknown' sentinel). The match is already recorded, so link
+     * the parent directly instead of re-running any search. Healed entries
+     * leave $needsResolution (returned filtered).
+     */
+    private function healSubMatchedParents($db, array $needsResolution, array $llmMetadataMap): array
+    {
+        $healed = [];
+        foreach ($needsResolution as $i => $entry) {
+            if (($entry->foundation_source ?? null) !== 'unknown') {
+                continue;
+            }
+            $meta = $llmMetadataMap[$entry->referenceId] ?? null;
+            foreach ($meta['sub_citations'] ?? [] as $sub) {
+                $resolution = $sub['resolution'] ?? null;
+                if (($resolution['status'] ?? null) === 'matched' && !empty($resolution['book'])) {
+                    $this->updateSourceEntry($db, $entry->referenceId, [
+                        'foundation_source' => $resolution['book'],
+                    ]);
+                    $healed[] = $entry->referenceId;
+                    unset($needsResolution[$i]);
+                    break;
+                }
+            }
+        }
+        if ($healed) {
+            Log::info('Healed sub-matched parents left as unknown', [
+                'scan_id' => $this->scanId,
+                'refIds'  => $healed,
+            ]);
+        }
+
+        return array_values($needsResolution);
+    }
+
+    /**
+     * A no-match entry attempted within the cooldown window (BEFORE this run
+     * started) keeps its verdict instead of re-running the external waves.
+     * Never skips: --force runs, single-referenceId runs (an explicit retry),
+     * entries this run re-split (their works were never searched), or rows
+     * touched during this run (updated_at >= scan start means WE modified them
+     * — e.g. url_flags — not that they were recently attempted).
+     */
+    private function shouldSkipRecentNoMatch(object $entry): bool
+    {
+        if ($this->force || $this->referenceId) {
+            return false;
+        }
+        if (($entry->foundation_source ?? null) !== 'unknown') {
+            return false; // never attempted, or resolved — not a cached failure
+        }
+        $refId = $entry->referenceId ?? null;
+        if ($refId !== null && isset($this->recoveredRefIds[$refId])) {
+            return false;
+        }
+        $updatedAt = $entry->updated_at ?? null;
+        if (!$updatedAt || !$this->scanStartedAt) {
+            return false;
+        }
+        $updated = \Illuminate\Support\Carbon::parse($updatedAt);
+
+        return $updated->lt($this->scanStartedAt)
+            && $updated->gt($this->scanStartedAt->copy()->subHours(self::NO_MATCH_RETRY_COOLDOWN_HOURS));
+    }
+
+    /**
      * Fetch the citation-source rows to scan and set $this->sourceTable.
      *
      * Footnote pass requested explicitly (books with BOTH a bibliography and
@@ -2138,6 +2243,7 @@ class CitationScanBibliographyJob implements ShouldQueue
             $primary = $works[0];
             $primary['sub_citations'] = array_slice($works, 1);
             $llmMetadataMap[$refId] = $primary;
+            $this->recoveredRefIds[$refId] = true;
             $this->updateSourceEntry($db, $refId, [
                 'llm_metadata' => json_encode($primary),
             ]);
@@ -2370,13 +2476,17 @@ class CitationScanBibliographyJob implements ShouldQueue
             ]);
         }
 
-        // If a sub-citation resolved, write foundation_source to the parent footnote (only if not already set)
+        // If a sub-citation resolved, write foundation_source to the parent
+        // footnote — including over the 'unknown' NO-MATCH sentinel: a rescan's
+        // parent carries 'unknown' from the previous run, and treating that as
+        // "already set" stranded recovered-and-matched subs with an unresolved
+        // parent (the IIA Three Lines case).
         if ($parentRefId && $stubBookId && $this->sourceTable === 'footnotes') {
             $parent = $db->table('footnotes')
                 ->where('book', $this->bookId)
                 ->where('footnoteId', $parentRefId)
                 ->first(['foundation_source']);
-            if ($parent && empty($parent->foundation_source)) {
+            if ($parent && (empty($parent->foundation_source) || $parent->foundation_source === 'unknown')) {
                 $this->updateSourceEntry($db, $parentRefId, [
                     'foundation_source' => $stubBookId,
                 ]);

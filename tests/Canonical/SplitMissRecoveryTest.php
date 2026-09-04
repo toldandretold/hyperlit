@@ -143,6 +143,97 @@ test('recoverUnsplitFootnotes ignores already-split and clean single-work footno
     }
 });
 
+test('shouldSkipRecentNoMatch trusts a fresh failure but not stale, forced, targeted or re-split ones', function () {
+    $mk = function (array $ctorArgs = ['scan_x', 'bookX']) {
+        $job = new CitationScanBibliographyJob(...$ctorArgs);
+        $ref = new ReflectionClass($job);
+        $ref->getProperty('scanStartedAt')->setValue($job, now());
+        return [$job, $ref];
+    };
+    $call = fn ($ref, $job, $entry) => $ref->getMethod('shouldSkipRecentNoMatch')->invoke($job, (object) $entry);
+
+    $recent = ['referenceId' => 'r1', 'foundation_source' => 'unknown', 'updated_at' => now()->subHours(2)->toDateTimeString()];
+
+    // Attempted 2h ago, still unknown → skip
+    [$job, $ref] = $mk();
+    expect($call($ref, $job, $recent))->toBeTrue();
+
+    // Attempted 3 days ago → cooldown expired, retry
+    [$job, $ref] = $mk();
+    expect($call($ref, $job, array_merge($recent, ['updated_at' => now()->subDays(3)->toDateTimeString()])))->toBeFalse();
+
+    // Touched DURING this run (e.g. url_flags write) → not a prior attempt, retry
+    [$job, $ref] = $mk();
+    expect($call($ref, $job, array_merge($recent, ['updated_at' => now()->addSecond()->toDateTimeString()])))->toBeFalse();
+
+    // Never attempted (no foundation_source) → retry
+    [$job, $ref] = $mk();
+    expect($call($ref, $job, array_merge($recent, ['foundation_source' => null])))->toBeFalse();
+
+    // Force mode → retry
+    [$job, $ref] = $mk(['scan_x', 'bookX', null, true]);
+    expect($call($ref, $job, $recent))->toBeFalse();
+
+    // Single-reference run (explicit retry) → retry
+    [$job, $ref] = $mk(['scan_x', 'bookX', 'r1']);
+    expect($call($ref, $job, $recent))->toBeFalse();
+
+    // Metadata re-split THIS run → its works were never searched, retry
+    [$job, $ref] = $mk();
+    $ref->getProperty('recoveredRefIds')->setValue($job, ['r1' => true]);
+    expect($call($ref, $job, $recent))->toBeFalse();
+});
+
+test('a resolving sub-citation overwrites a parent stranded on the unknown sentinel', function () {
+    // Rescan state: the parent failed a previous run (foundation_source='unknown'),
+    // then recovery split it and a sub matched — the pre-fix empty() check
+    // refused to overwrite 'unknown', stranding the parent unresolved forever.
+    $book = 'smr_' . Str::random(8);
+    smrSeed($book, [['id' => 'fn1', 'content' => SMR_UNSPLIT_CONTENT,
+        'meta' => ['type' => 'website', 'title' => 'Risk Management Toolkit']]]);
+    smrDb()->table('footnotes')->where('book', $book)->where('footnoteId', 'fn1')
+        ->update(['foundation_source' => 'unknown']);
+
+    try {
+        $job = new CitationScanBibliographyJob('scan_smr5', $book);
+        $ref = new ReflectionClass($job);
+        $ref->getProperty('sourceTable')->setValue($job, 'footnotes');
+
+        $pool = ['fn1::sub1' => ['parentRefId' => 'fn1']];
+        $ref->getMethod('removeRelatedPoolEntries')->invokeArgs($job, [&$pool, 'fn1::sub1', smrDb(), 'stub_book_y']);
+
+        expect(smrDb()->table('footnotes')->where('book', $book)->where('footnoteId', 'fn1')->value('foundation_source'))
+            ->toBe('stub_book_y');
+    } finally {
+        smrCleanup($book);
+    }
+});
+
+test('healSubMatchedParents links a stranded parent from the recorded sub match', function () {
+    $book = 'smr_' . Str::random(8);
+    $meta = ['type' => 'website', 'title' => 'Risk Management Toolkit', 'sub_citations' => [
+        ['type' => 'report', 'title' => 'Three Lines Model', 'resolution' => ['status' => 'matched', 'book' => 'stub_book_z']],
+    ]];
+    smrSeed($book, [['id' => 'fn1', 'content' => SMR_UNSPLIT_CONTENT, 'meta' => $meta]]);
+    smrDb()->table('footnotes')->where('book', $book)->where('footnoteId', 'fn1')
+        ->update(['foundation_source' => 'unknown']);
+
+    try {
+        $job = new CitationScanBibliographyJob('scan_smr6', $book);
+        $ref = new ReflectionClass($job);
+        $ref->getProperty('sourceTable')->setValue($job, 'footnotes');
+
+        $entry = (object) ['referenceId' => 'fn1', 'content' => SMR_UNSPLIT_CONTENT, 'foundation_source' => 'unknown'];
+        $remaining = $ref->getMethod('healSubMatchedParents')->invoke($job, smrDb(), [$entry], ['fn1' => $meta]);
+
+        expect($remaining)->toBeEmpty();
+        expect(smrDb()->table('footnotes')->where('book', $book)->where('footnoteId', 'fn1')->value('foundation_source'))
+            ->toBe('stub_book_z');
+    } finally {
+        smrCleanup($book);
+    }
+});
+
 test('fetchEntries targets a single FOOTNOTE by referenceId on a footnote-only book', function () {
     $book = 'smr_' . Str::random(8);
     smrSeed($book, [

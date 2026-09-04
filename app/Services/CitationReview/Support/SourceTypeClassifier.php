@@ -140,8 +140,16 @@ final class SourceTypeClassifier
      */
     public static function possiblyUnsplitMultiWork(array $claim): bool
     {
-        if (count(self::works($claim)) !== 1) {
-            return false; // no metadata at all, or already split
+        $meta = $claim['llm_metadata'] ?? null;
+        if (!is_array($meta) || $meta === []) {
+            return false; // no metadata at all
+        }
+        // Check the RAW sub_citations, not works(): works() excludes subs the
+        // scan already MATCHED, so a properly split entry whose sub resolved
+        // would masquerade as single-work and draw a bogus "never searched"
+        // warning about works that were searched and found.
+        if (!empty($meta['sub_citations'])) {
+            return false; // already split
         }
         if (in_array(self::type($claim), ['ibid', 'short-form', 'pointer'], true)) {
             return false;

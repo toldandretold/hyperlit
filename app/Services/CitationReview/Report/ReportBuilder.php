@@ -80,13 +80,14 @@ final class ReportBuilder
         // Source coverage donut — canonical-verified broken out from plain
         // local matches so the chart backs up the provenance note below it.
         $sourcesFound = $stats['verified_sources'] ?? 0;
-        // total_bibliography can be 0 for old stats payloads from footnote-only
-        // books (the ?? doesn't help — the key is SET, to zero). A zero
-        // denominator with found > 0 is self-contradictory; fall back to the
-        // unique-sources count the header line above already displays.
-        $sourceUniverse = ($stats['total_bibliography'] ?? 0) > 0
-            ? $stats['total_bibliography']
-            : ($stats['unique_sources'] ?? 0);
+        // Universe = unique sources CITED IN TEXT (same basis as the header line
+        // and the claim sections below), NOT the raw bibliography/footnote row
+        // count — the two differ (unanchored entries), and a donut that sums to
+        // a different total than the header reads as a bug. total_bibliography
+        // is only the fallback for old stats payloads lacking unique_sources.
+        $sourceUniverse = ($stats['unique_sources'] ?? 0) > 0
+            ? $stats['unique_sources']
+            : ($stats['total_bibliography'] ?? 0);
         $sourcesNotFound = max(0, $sourceUniverse - $sourcesFound);
         $canonicalFound = min($stats['canonical_sources'] ?? 0, $sourcesFound);
         $localFound = max(0, $sourcesFound - $canonicalFound);

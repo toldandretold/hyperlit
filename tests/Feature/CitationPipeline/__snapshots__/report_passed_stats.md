@@ -7,7 +7,7 @@ Citations in text: 12 (across 6 paragraphs)
 Unique sources cited: 5 (3 verified, 1 canonical-verified, 2 with full text)
 ## Source Coverage
 
-<table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody><tr><td>Canonical-verified</td><td>1</td></tr><tr><td>Found (local match)</td><td>2</td></tr><tr><td>Source Not Found</td><td>4</td></tr></tbody></table>
+<table data-chart="source-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody><tr><td>Canonical-verified</td><td>1</td></tr><tr><td>Found (local match)</td><td>2</td></tr><tr><td>Source Not Found</td><td>2</td></tr></tbody></table>
 
 > Citations are matched against: [OpenAlex](https://openalex.org), [Open Library](https://openlibrary.org), [Semantic Scholar](https://www.semanticscholar.org), and [Brave Search](https://search.brave.com). Unmatched citations may be legit sources, but are worth reviewing.
 

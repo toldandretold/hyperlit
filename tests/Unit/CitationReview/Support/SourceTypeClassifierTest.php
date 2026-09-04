@@ -124,6 +124,18 @@ test('possiblyUnsplitMultiWork detects a semicolon-joined citation parsed as one
     expect($text)->toContain('never searched');
 });
 
+test('possiblyUnsplitMultiWork stays quiet when a split entry\'s sub already MATCHED', function () {
+    // The IIA regression: recovery split the entry, the sub matched — works()
+    // excludes matched subs, which made the entry masquerade as single-work
+    // and drew a bogus "never searched" warning about a found work.
+    expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
+        'bib_citation' => '<p>Finance Toolkit (Web Page, 2023); IIA, Three Lines Model (Position Paper, July 2020).</p>',
+        'llm_metadata' => ['type' => 'website', 'title' => 'Risk Management Toolkit', 'sub_citations' => [
+            ['type' => 'report', 'title' => 'Three Lines Model', 'resolution' => ['status' => 'matched', 'book' => 'stub1']],
+        ]],
+    ]))->toBeFalse();
+});
+
 test('possiblyUnsplitMultiWork stays quiet for split, single-work and short-form entries', function () {
     // Already split — sub_citations present
     expect(SourceTypeClassifier::possiblyUnsplitMultiWork([
