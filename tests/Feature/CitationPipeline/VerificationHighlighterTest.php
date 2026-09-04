@@ -86,7 +86,7 @@ test('an unfound journal article gets the stronger "should be indexed" explanati
     expect($explanation['content'])->toContain('🚩');
 });
 
-test('an unfound non-journal source keeps the generic explanation', function () {
+test('an unfound book gets the weak-signal note, not the journal 🚩', function () {
     $captured = [];
     $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
 
@@ -100,9 +100,56 @@ test('an unfound non-journal source keeps the generic explanation', function () 
 
     $explanation = collect($captured[0]['subBookContent'])
         ->first(fn ($n) => str_starts_with($n['plainText'], 'Explanation:'));
-    expect($explanation['plainText'])->toContain('may be because it is not an academic work');
+    expect($explanation['plainText'])->toContain('sometimes legitimately unindexed');
     expect($explanation['plainText'])->not->toContain('journal article');
     expect($explanation['content'])->not->toContain('🚩');
+});
+
+test('an unfound report says absence is expected — no academic-work hedge', function () {
+    $captured = [];
+    $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
+
+    $claims = [[
+        'node_id' => 'n1', 'referenceId' => 'r1', 'truth_claim' => 'Unfound report claim.',
+        'charStart' => 0, 'charEnd' => 5, 'verified_source' => false,
+        'bib_citation' => '<p>ANAO, Administering Regulation (2014).</p>',
+        'llm_metadata' => ['type' => 'report'],
+    ]];
+    $svc->createVerificationHighlights($claims, 'book1');
+
+    $explanation = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_starts_with($n['plainText'], 'Explanation:'));
+    expect($explanation['plainText'])->toContain('absence there is expected');
+    expect($explanation['plainText'])->not->toContain('may be because it is not an academic work');
+    expect($explanation['content'])->not->toContain('🚩');
+});
+
+test('a multi-work footnote 🚩s an unfound journal article cited second', function () {
+    $captured = [];
+    $svc = new VerificationHighlighter(fakeHighlights($captured), app(\App\Services\CitationReview\Support\SourceHtmlBuilder::class));
+
+    $claims = [[
+        'node_id' => 'n1', 'referenceId' => 'r1', 'truth_claim' => 'Multi-work claim.',
+        'charStart' => 0, 'charEnd' => 5, 'verified_source' => false,
+        'bib_citation' => '<p>ANAO, Report (2014); Carney, Article (2018).</p>',
+        'citation_row' => 'footnote',
+        'llm_metadata' => [
+            'type' => 'report', 'title' => 'ANAO Report',
+            'sub_citations' => [['type' => 'journal-article', 'title' => 'Carney Article']],
+        ],
+    ]];
+    $svc->createVerificationHighlights($claims, 'book1');
+
+    $explanation = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_starts_with($n['plainText'], 'Explanation:'));
+    expect($explanation['plainText'])->toContain('cites 2 works');
+    expect($explanation['plainText'])->toContain('Carney Article');
+    expect($explanation['content'])->toContain('🚩');
+
+    // Footnote rows are labelled honestly, not as "Bibliography entry"
+    $bibNode = collect($captured[0]['subBookContent'])
+        ->first(fn ($n) => str_contains($n['plainText'], 'ANAO, Report'));
+    expect($bibNode['plainText'])->toStartWith('Footnote citation:');
 });
 
 test('insufficient-evidence claims are skipped', function () {

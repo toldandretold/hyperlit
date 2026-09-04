@@ -143,7 +143,7 @@ These citations reference sources that were never found in any database.
 
 ## Websites (1)
 
-> Not found — non-academic sources are not expected in academic databases.
+> Not found — sources of this type are typically not indexed in academic databases, so absence here is expected. Verify against the publisher or issuing body if needed.
 
 **Provenance:** Web source — content was retrieved at [https://example.net/page](https://example.net/page), but the page could not be confirmed as the cited article (no machine-readable identity to match). URL-content match is the only verification available for web sources.
 **Claim:** "A web citation could not be confirmed."

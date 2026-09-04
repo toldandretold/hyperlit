@@ -44,6 +44,7 @@ final class MetadataEnricher
 
         // Check footnotes for any IDs not found in bibliography. (footnotes has
         // no canonical column — the canonical is reached via the foundation row.)
+        $footnoteRefIds = [];
         $missingIds = array_diff($allRefIds, $bibEntries->keys()->toArray());
         if (!empty($missingIds)) {
             $fnEntries = $db->table('footnotes')
@@ -52,6 +53,7 @@ final class MetadataEnricher
                 ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', $db->raw('NULL as canonical_source_id')])
                 ->get()
                 ->keyBy('referenceId');
+            $footnoteRefIds = $fnEntries->keys()->flip()->toArray();
             $bibEntries = $bibEntries->merge($fnEntries);
         }
 
@@ -176,6 +178,7 @@ final class MetadataEnricher
                 'source_completeness'        => $sourceCompleteness,
                 'source_completeness_reason' => $sourceCompletenessReason,
                 'bib_citation'        => $bib->content ?? null,
+                'citation_row'        => isset($footnoteRefIds[$refId]) ? 'footnote' : 'bibliography',
                 'source_type'         => $lib->type ?? $canonical?->type,
                 'url'                 => $lib->url ?? null,
                 'doi'                 => $lib->doi ?? $canonical?->doi,

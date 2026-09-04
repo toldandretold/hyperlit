@@ -170,6 +170,7 @@ final class TruthClaimExtractor
                         'source_completeness_reason' => $meta['source_completeness_reason'] ?? null,
                         'abstract'             => $meta['abstract'] ?? null,
                         'bib_citation'         => $meta['bib_citation'] ?? null,
+                        'citation_row'         => $meta['citation_row'] ?? null,
                         'source_type'          => $meta['source_type'] ?? null,
                         'source_url'           => $meta['url'] ?? null,
                         'source_doi'           => $meta['doi'] ?? null,

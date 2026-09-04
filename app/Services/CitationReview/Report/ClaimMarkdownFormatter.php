@@ -93,9 +93,18 @@ final class ClaimMarkdownFormatter
         // book — it should be indexed in OpenAlex / Semantic Scholar. Gate on the
         // report's own "not found" definition (no source_book_id, matching the
         // ReportBuilder partition) so it never fires for a matched-but-thin claim.
+        // Sub-citation-aware: a multi-work footnote whose PRIMARY is (say) a report
+        // still flags when a journal article it also cites is unfound — that work
+        // is named, since the surrounding block describes the primary.
         if (empty($claim['source_book_id']) && SourceTypeClassifier::shouldBeIndexed($claim)) {
-            $md .= "🚩 **Flag:** Formatted as a journal article but absent from every academic database — "
-                 . "treat as a possible fabricated or miscited reference (higher scrutiny than a missing book).\n";
+            if (SourceTypeClassifier::type($claim) === 'journal-article') {
+                $md .= "🚩 **Flag:** Formatted as a journal article but absent from every academic database — "
+                     . "treat as a possible fabricated or miscited reference (higher scrutiny than a missing book).\n";
+            } else {
+                $named = implode('”; “', SourceTypeClassifier::journalArticleTitles($claim));
+                $md .= "🚩 **Flag:** This entry also cites a journal article (“{$named}”) absent from every academic "
+                     . "database — treat as a possible fabricated or miscited reference.\n";
+            }
         }
 
         // Show cited passages with actual text

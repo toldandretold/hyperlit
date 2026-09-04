@@ -58,6 +58,10 @@ final class VerificationHighlighter
                 && $charStart !== null && $charEnd !== null
             ) {
                 $bibText = strip_tags($claim['bib_citation'] ?? '(no bibliography entry)');
+                // A footnote-only book's "bibliography entry" IS the footnote text —
+                // label it honestly (citation_row lands on the claim via MetadataEnricher).
+                $bibLabel = ($claim['citation_row'] ?? null) === 'footnote'
+                    ? 'Footnote citation' : 'Bibliography entry';
 
                 $snfContent = [];
                 $snfContent[] = [
@@ -72,8 +76,8 @@ final class VerificationHighlighter
                 ];
                 $snfContent[] = [
                     'type'      => 'p',
-                    'content'   => '<p><strong>Bibliography entry:</strong> ' . e($bibText) . '</p>',
-                    'plainText' => "Bibliography entry: {$bibText}",
+                    'content'   => '<p><strong>' . $bibLabel . ':</strong> ' . e($bibText) . '</p>',
+                    'plainText' => "{$bibLabel}: {$bibText}",
                 ];
                 $sourceNode = $this->sourceHtml->build($claim);
                 if ($sourceNode) {
@@ -83,14 +87,11 @@ final class VerificationHighlighter
                         'plainText' => $sourceNode['plainText'],
                     ];
                 }
-                if (SourceTypeClassifier::shouldBeIndexed($claim)) {
-                    // A journal article is almost always indexed in OpenAlex /
-                    // Semantic Scholar, so its absence is a stronger red flag than
-                    // a missing book — the reference may be miscited or fabricated.
-                    $explanation = '🚩 This citation is formatted as a journal article, yet it could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). Peer-reviewed journal articles are almost always indexed there, so its absence is a stronger warning sign — the reference may be miscited or fabricated. Human review strongly recommended.';
-                } else {
-                    $explanation = 'This source could not be found in any academic database (OpenAlex, Semantic Scholar, Open Library). This may be because it is not an academic work, is not professionally published, or uses a non-standard citation format. Human review recommended.';
-                }
+                // Type-aware and multi-work-aware: a lone journal article keeps the
+                // 🚩 fabrication warning, a report gets an honest "not expected in
+                // these databases" note, and a multi-work footnote is assessed work
+                // by work (an unfound journal article 🚩s even when cited second).
+                $explanation = SourceTypeClassifier::notFoundExplanation($claim);
                 $snfContent[] = [
                     'type'      => 'p',
                     'content'   => '<p><strong>Explanation:</strong> ' . e($explanation) . '</p>',

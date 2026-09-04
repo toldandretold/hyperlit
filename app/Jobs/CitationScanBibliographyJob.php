@@ -60,6 +60,16 @@ class CitationScanBibliographyJob implements ShouldQueue
 
     private string $sourceTable = 'bibliography';
 
+    /**
+     * Per-sub-citation resolution outcomes for multi-work footnotes, keyed
+     * [parentRefId]["<parentRefId>::subN"] => ['status' => matched|no_match, …].
+     * Flushed into the parent row's llm_metadata.sub_citations[i].resolution at
+     * the end of the run — without this, a sub-citation's search outcome was
+     * recorded NOWHERE (the no-match loop skips ::sub keys), so the review
+     * could not tell "this footnote's second work was searched and not found".
+     */
+    private array $subResolutions = [];
+
     public function __construct(
         private string $scanId,
         private string $bookId,
@@ -1406,8 +1416,16 @@ class CitationScanBibliographyJob implements ShouldQueue
 
             // ── Mark remaining as no_match ──
             foreach ($pool as $refId => $item) {
-                // Skip sub-citation entries — only mark the parent as no_match
+                // Sub-citation entries don't get their own row marked — but their
+                // outcome is recorded for the parent's llm_metadata (see
+                // persistSubResolutions below), so the review can report per work.
                 if (str_contains($refId, '::sub')) {
+                    if (!empty($item['parentRefId'])) {
+                        $this->subResolutions[$item['parentRefId']][$refId] = [
+                            'status'         => 'no_match',
+                            'searched_title' => $item['searchedTitle'],
+                        ];
+                    }
                     continue;
                 }
                 $nearMiss = $nearMisses[$refId] ?? null;
@@ -1450,6 +1468,9 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ];
                 $failedToResolve++;
             }
+
+            // Flush per-sub-citation outcomes onto the parents' cached metadata
+            $this->persistSubResolutions($db, $llmMetadataMap);
 
             // Short-form footnotes inherit their antecedent's resolution +
             // canonical link (the antecedent resolved in the waves above).
@@ -2046,6 +2067,39 @@ class CitationScanBibliographyJob implements ShouldQueue
     }
 
     /**
+     * Flush tracked sub-citation outcomes into each parent row's cached
+     * llm_metadata as sub_citations[i].resolution. The "::subN" key suffix is
+     * 1-based into the sub_citations array (pool expansion preserves gaps for
+     * skipped title-less subs, so the index maps back directly).
+     */
+    private function persistSubResolutions($db, array $llmMetadataMap): void
+    {
+        foreach ($this->subResolutions as $parentRefId => $subOutcomes) {
+            $meta = $llmMetadataMap[$parentRefId] ?? null;
+            if (!is_array($meta) || empty($meta['sub_citations'])) {
+                continue;
+            }
+
+            $changed = false;
+            foreach ($subOutcomes as $subKey => $outcome) {
+                if (preg_match('/::sub(\d+)$/', $subKey, $m)) {
+                    $idx = (int) $m[1] - 1;
+                    if (isset($meta['sub_citations'][$idx])) {
+                        $meta['sub_citations'][$idx]['resolution'] = $outcome;
+                        $changed = true;
+                    }
+                }
+            }
+
+            if ($changed) {
+                $this->updateSourceEntry($db, $parentRefId, [
+                    'llm_metadata' => json_encode($meta),
+                ]);
+            }
+        }
+    }
+
+    /**
      * Write back to the correct source table (bibliography or footnotes).
      */
     private function updateSourceEntry($db, string $refId, array $data): void
@@ -2222,6 +2276,14 @@ class CitationScanBibliographyJob implements ShouldQueue
     {
         $parentRefId = $pool[$resolvedRefId]['parentRefId'] ?? null;
         $baseRefId = $parentRefId ?? $resolvedRefId;
+
+        // Record the sub-citation's own outcome for the parent's llm_metadata
+        if ($parentRefId) {
+            $this->subResolutions[$parentRefId][$resolvedRefId] = array_filter([
+                'status' => 'matched',
+                'book'   => $stubBookId,
+            ]);
+        }
 
         // If a sub-citation resolved, write foundation_source to the parent footnote (only if not already set)
         if ($parentRefId && $stubBookId && $this->sourceTable === 'footnotes') {

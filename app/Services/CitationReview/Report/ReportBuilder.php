@@ -164,7 +164,10 @@ final class ReportBuilder
                 'website' => 'Websites',
                 'other' => 'Other',
             ];
-            $academicTypes = ['book', 'journal-article', 'book-chapter', 'conference-paper', 'thesis', 'report'];
+            // 'report' deliberately NOT here: institutional reports (ANAO, ONS…) are
+            // normally published outside the academic databases, so their absence is
+            // expected — the "higher priority for manual review" banner would be noise.
+            $academicTypes = ['book', 'journal-article', 'book-chapter', 'conference-paper', 'thesis'];
 
             $grouped = [];
             foreach ($unverified as $c) {
@@ -197,7 +200,8 @@ final class ReportBuilder
                 } elseif (in_array($type, $academicTypes, true)) {
                     $md .= "> Not found in any academic database — higher priority for manual review.\n\n";
                 } else {
-                    $md .= "> Not found — non-academic sources are not expected in academic databases.\n\n";
+                    $md .= "> Not found — sources of this type are typically not indexed in academic databases, "
+                         . "so absence here is expected. Verify against the publisher or issuing body if needed.\n\n";
                 }
 
                 foreach ($grouped[$type] as $c) {
