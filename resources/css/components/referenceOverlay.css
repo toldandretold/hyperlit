@@ -77,15 +77,17 @@
 
 #user-container {
   position: fixed;
-  background-color: var(--container-glass-bg);
-  backdrop-filter: blur(10px); /* Glass blur effect */
-  -webkit-backdrop-filter: blur(10px); /* Safari support */
-  z-index: 1001;
+  /* Same glass as the logo-nav menu (perimeterGlass.css): faint theme tint + blur
+     (pure transparent glass got unreadable over busy backdrops). This panel is a
+     start-menu-style flyout beside the nav column, not a dimming modal
+     (the old spotlight box-shadow was removed from userContainer/index.ts). */
+  background-color: color-mix(in srgb, var(--color-background) 45%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1003; /* above the logo nav (1002) — stack order when clamped over it */
   border: none;
-  border-radius: 0.75em;
+  border-radius: 10px;
   box-sizing: border-box;
-  /* Spotlight dim is set inline in userContainer/index.ts (combined with the edge drop-shadow),
-     because this panel's inline box-shadow would override any CSS rule here anyway. */
 }
 
 #user-container.open {
@@ -95,5 +97,13 @@
 
 #user-container.hidden {
   display: none;
+}
+
+/* Profile rows are .menu-row-btn (components/menuRow.css owns look + hover) —
+   this is just the column spacing between them. */
+#user-container .user-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 

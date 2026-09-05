@@ -27,6 +27,9 @@ export function initializeUserContainer() {
       userManager.updateButtonColor();
       verbose.init('User container manager updated', '/components/userButton/userButton.ts');
     }
+    // Global handle (like window.newBookManager) — read by logoNav's close and
+    // the newbook container's open-one-flyout-at-a-time cross-close.
+    (window as any).userManager = userManager;
     return userManager;
   } else {
     verbose.init('User container button not found', '/components/userButton/userButton.ts');
@@ -46,6 +49,7 @@ export function destroyUserContainer() {
     }
     userManager.destroy();
     userManager = null;
+    if ((window as any).userManager) (window as any).userManager = null;
     return true;
   }
   return false;

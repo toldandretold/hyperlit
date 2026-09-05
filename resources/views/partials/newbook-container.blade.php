@@ -6,8 +6,21 @@
      is locked + server copies scrubbed after conversion (encrypt-after-import).
      Styling: resources/css/components/newbookContainer.css §"Buttons view". --}}
 <div id="newbook-container" class="hidden loading">
-  <button id="createNewBook" type="button" class="fucked-buttons newbook-action-btn">New</button>
-  <button id="importBook" type="button" class="fucked-buttons newbook-action-btn">Import</button>
+  <button id="createNewBook" type="button" class="menu-row-btn newbook-action-btn">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+      <path d="M14 2v6h6"/>
+    </svg>
+    Blank
+  </button>
+  <button id="importBook" type="button" class="menu-row-btn newbook-action-btn">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <path d="M7 10l5 5 5-5"/>
+      <path d="M12 15V3"/>
+    </svg>
+    Import
+  </button>
   <div class="newbook-encrypt-row">
     <label id="createEncryptedLabel" class="newbook-encrypt-label">
       <input type="checkbox" id="createEncrypted" />

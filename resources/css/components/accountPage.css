@@ -283,7 +283,11 @@
   position: fixed;
   top: 15px;
   left: 10px;
-  z-index: 999;
+  /* Above the flyout OVERLAYS (998/999) so the level-1 nav rows stay clickable
+     while a level-2 flyout is open (clicking another row swaps the flyout) —
+     but BELOW the flyout panels themselves (1003): when a narrow viewport
+     clamps a panel left over this column, the panel is the top of the stack. */
+  z-index: 1002;
   transition: left 0.3s ease; /* Smooth transition when JS repositions on desktop */
   display: flex;
   flex-direction: column;
@@ -336,19 +340,19 @@
   pointer-events: none !important;
 }
 
-/* Make menu buttons same size as logo button */
+/* Menu items are full-width rows: icon slot + text label, left-aligned.
+   The whole row is the click target (no more 36px squares with invisible
+   ::before extensions). */
 #logoNavMenu #userButtonContainer {
   /* Remove default userButtonContainer styles for this context */
   position: static !important;
   left: auto !important;
-  /* Match sizing of other menu buttons */
-  width: 36px;
+  width: 100%;
   height: 36px;
   margin: 0;
   padding: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
 }
 
 /* Disable the expanded clickable area for userButton in menu */
@@ -356,117 +360,78 @@
   display: none !important;
 }
 
-#logoNavMenu #userButton {
-  /* Match logo button sizing from buttons.css */
-  width: 36px;
+/* Nav-row SIZING only — base look + hover + selected live in the shared
+   .menu-row-btn contract (components/menuRow.css). */
+#logoNavMenu #userButton,
+#homeButtonNav,
+#logoNavMenu #newBookButton {
   height: 36px;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0 14px 0 8px;
   position: relative; /* Enable positioning for pseudo-element */
 }
 
-/* Expanded clickable area for user button (horizontal only to prevent overlap) */
-#logoNavMenu #userButton::before {
+/* The rows themselves are now wide click targets — the ::before pseudo-elements
+   only remain to OVERRIDE the all-sides expansions from buttons.css /
+   userButton.css (which would overlap adjacent stacked rows). */
+#logoNavMenu #userButton::before,
+#homeButtonNav::before,
+#logoNavMenu #newBookButton::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: -15px;
-  right: -15px;
-  bottom: 0;
+  inset: 0;
   z-index: 1;
-  /* Uncomment for debugging: background: rgba(255, 0, 0, 0.2); */
 }
 
+/* Fixed-width icon slot so the text labels left-align across rows */
 #logoNavMenu #userButton svg {
   width: 20px;
   height: 20px;
-}
-
-#homeButtonNav {
-  /* Match logo button sizing */
-  width: 36px;
-  height: 36px;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: #cbcccc;
-  text-decoration: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative; /* Enable positioning for pseudo-element */
-}
-
-/* Expanded clickable area for home button (horizontal only to prevent overlap) */
-#homeButtonNav::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -15px;
-  right: -15px;
-  bottom: 0;
-  z-index: 1;
-  /* Uncomment for debugging: background: rgba(0, 0, 255, 0.2); */
+  flex-shrink: 0;
 }
 
 #homeButtonNav svg {
   width: 19px;
   height: 19px;
   display: block;
-}
-
-/* New Book button in menu */
-#logoNavMenu #newBookButton {
-  width: 36px;
-  height: 36px;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text); /* Match home/user buttons' theme-responsive color */
-  position: relative; /* Enable positioning for pseudo-element */
-}
-
-/* Expanded clickable area for new-book button (horizontal only — vertical
-   expansion would overlap with user/home buttons stacked in the menu).
-   Overrides the all-sides expansion from buttons.css `#newBookButton.open::before`. */
-#logoNavMenu #newBookButton::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -15px;
-  right: -15px;
-  bottom: 0;
-  z-index: 1;
+  flex-shrink: 0;
+  margin: 0 1px; /* 19px glyph in the shared 20-ish slot */
 }
 
 #logoNavMenu #newBookButton .icon {
-  font-size: 28px;
+  /* SVG plus (stroke family, same as the Blank/Import glyphs) — the old text
+     "+" sat visually off-center against the label baseline. */
+  width: 18px;
+  height: 18px;
+  margin: 0 1px; /* 18px glyph in the shared 20-ish slot */
+  flex-shrink: 0;
+}
+
+.logo-nav-label {
+  font-size: 13px;
   line-height: 1;
+  white-space: nowrap;
+  color: inherit;
 }
 
 /* Mobile sizing to match logo */
 @media only screen and (max-width: 768px) {
-  #logoNavMenu #userButtonContainer {
-    width: 24px;
-    height: 18px;
+  /* buttonsMobile.css shrinks #logoContainer to 24px, which centers the logo
+     img at x=12 while the menu-row icon slots center at ~17 (8px row padding
+     + half the ~18px slot) — the logo sat visibly left of the icon column.
+     34px centers the 18px logo img at x=17, back in line. */
+  #logoNavWrapper #logoContainer {
+    width: 34px;
   }
 
-  #logoNavMenu #userButton {
-    width: 24px;
-    height: 18px;
+  #logoNavMenu #userButtonContainer {
+    width: 100%;
+    height: 28px;
+  }
+
+  #logoNavMenu #userButton,
+  #homeButtonNav,
+  #logoNavMenu #newBookButton {
+    height: 28px;
   }
 
   #logoNavMenu #userButton svg {
@@ -474,22 +439,17 @@
     height: 18px;
   }
 
-  #logoNavMenu #newBookButton {
-    width: 24px;
-    height: 18px;
-  }
-
   #logoNavMenu #newBookButton .icon {
-    font-size: 20px;
-  }
-
-  #homeButtonNav {
-    width: 24px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   #homeButtonNav svg {
     width: 17px;
     height: 17px;
+  }
+
+  .logo-nav-label {
+    font-size: 12px;
   }
 }

@@ -72,11 +72,22 @@ function openLogoNav(logoBtn: any, navMenu: any) {
   // Add click-outside handler
   setTimeout(() => {
     clickOutsideHandler = (e: any) => {
-      // Check if click is outside both logo button and menu
-      const clickedLogo = logoBtn.contains(e.target);
-      const clickedMenu = navMenu.contains(e.target);
+      // Use composedPath (snapshotted at dispatch) rather than contains/closest
+      // on e.target: in-panel links like "Switch to register" replace the
+      // panel's innerHTML in an earlier handler, so by the time this bubbles
+      // the target is DETACHED and closest() reports "outside" — which closed
+      // the whole nav mid-flow.
+      const path: any[] = typeof e.composedPath === 'function' ? e.composedPath() : [];
+      const clickedLogo = path.includes(logoBtn) || logoBtn.contains(e.target);
+      const clickedMenu = path.includes(navMenu) || navMenu.contains(e.target);
+      // The user/new-book flyout panels are level-2 children of this menu —
+      // clicking inside them (login fields, view-switch links) must NOT close
+      // it. Same for the custom-alert dialogs those flows spawn on top.
+      const clickedFlyout =
+        path.some((n: any) => n && (n.id === 'user-container' || n.id === 'newbook-container')) ||
+        !!e.target?.closest?.('#user-container, #newbook-container, .custom-alert, .custom-alert-overlay');
 
-      if (!clickedLogo && !clickedMenu) {
+      if (!clickedLogo && !clickedMenu && !clickedFlyout) {
         closeLogoNav(logoBtn, navMenu);
       }
     };
@@ -104,6 +115,15 @@ function closeLogoNav(logoBtn: any, navMenu: any) {
 
   // Hide menu
   navMenu.classList.add('hidden');
+
+  // Closing the menu also closes any level-2 flyout it spawned — the flyouts
+  // anchor to this column and would float orphaned without it.
+  const userMgr = (window as any).userManager;
+  if (userMgr?.isOpen) userMgr.closeContainer();
+  const newBookMgr = (window as any).newBookManager;
+  if (newBookMgr?.isOpen && newBookMgr.button?.closest?.('#logoNavMenu')) {
+    newBookMgr.closeContainer();
+  }
 
   // Remove click-outside handler
   if (clickOutsideHandler) {

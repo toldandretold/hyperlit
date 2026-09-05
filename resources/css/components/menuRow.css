@@ -1,0 +1,58 @@
+/* ===========================================================================
+   .menu-row-btn — THE row. One definition for every icon+label row in the
+   logo-nav column and its flyout panels: the nav rows (Account / Home / New),
+   the new-book panel (Blank / Import), and the profile rows (My Library /
+   Verify Email / Passkeys / Logout).
+
+   Add the class to a new row and you get the full contract for free:
+   - layout: full-width flex row, icon slot + 13px label, left-aligned
+   - idle: fully transparent (no permanent fill/outline)
+   - hover AND selected (.logo-nav-active, set by the container managers while
+     a row's flyout is open): the same rgba(128,128,128,.15) tint
+
+   Do NOT restyle hover/active/colors per row — that's the drift this file
+   exists to prevent. Per-context SIZING overrides (e.g. the nav rows' fixed
+   height + slimmer padding in accountPage.css) are fine; nothing else is.
+   =========================================================================== */
+/* Doubled class = (0,2,0) specificity: several rows also carry the legacy
+   `.open` class (width 36px / 50% radius / theme background at (0,1,0)), and
+   the winner must not depend on import order. */
+.menu-row-btn.menu-row-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.menu-row-btn svg {
+  flex-shrink: 0;
+}
+
+.menu-row-btn.menu-row-btn:hover,
+.menu-row-btn.menu-row-btn.logo-nav-active {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+/* userButton.css declares `#userButton { background-color: transparent
+   !important }` for the glass-circle contexts — with plain specificity it
+   would eat the Account row's hover/active tint, so the nav-scoped variant
+   out-guns it (id + class + !important). */
+#logoNavMenu .menu-row-btn:hover,
+#logoNavMenu .menu-row-btn.logo-nav-active {
+  background: rgba(128, 128, 128, 0.15) !important;
+}

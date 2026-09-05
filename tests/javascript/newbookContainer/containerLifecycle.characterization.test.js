@@ -70,6 +70,22 @@ function buildDom({ leftAnchored = false } = {}) {
   return { overlay, button, container };
 }
 
+// Real reader DOM: #logoNavMenu lives inside #logoNavWrapper, whose right edge anchors
+// the start-menu-style flyout. Call after buildDom({ leftAnchored: true }); the bare
+// leftAnchored setup (no wrapper) pins the wrapper-missing fallback path instead.
+function wrapInLogoNavWrapper(navRight) {
+  const nav = document.getElementById('logoNavMenu');
+  const wrapper = document.createElement('div');
+  wrapper.id = 'logoNavWrapper';
+  nav.parentNode.insertBefore(wrapper, nav);
+  wrapper.appendChild(nav);
+  wrapper.getBoundingClientRect = () => ({
+    top: 15, bottom: 200, left: 10, right: navRight, x: 10, y: 15,
+    width: navRight - 10, height: 185, toJSON() {},
+  });
+  return wrapper;
+}
+
 function makeManager() {
   return new NewBookContainerManager('newbook-container', 'source-overlay', 'newBookButton', ['main-content']);
 }
@@ -105,7 +121,7 @@ describe('open (buttons mode)', () => {
     expect(button.querySelector('.icon').classList.contains('tilted')).toBe(true);
   });
 
-  it('desktop, left-anchored (inside #logoNavMenu): anchors to the button left edge', () => {
+  it('desktop, left-anchored (inside #logoNavMenu, no wrapper): anchors to the button left edge', () => {
     setViewport(1200);
     const { button, container } = buildDom({ leftAnchored: true });
     stubRect(button, { left: 30, right: 80 });
@@ -113,9 +129,23 @@ describe('open (buttons mode)', () => {
 
     mgr.openContainer();
 
-    expect(container.style.left).toBe('30px');       // rect.left
+    expect(container.style.left).toBe('30px');       // rect.left (wrapper-missing fallback)
     expect(container.style.right).toBe('');
     expect(container.style.top).toBe('48px');
+  });
+
+  it('desktop, left-anchored with nav wrapper: flies out right of the nav, row-aligned', () => {
+    setViewport(1200);
+    const { button, container } = buildDom({ leftAnchored: true });
+    wrapInLogoNavWrapper(130);
+    stubRect(button, { left: 30, right: 80 });
+    const mgr = makeManager();
+
+    mgr.openContainer();
+
+    expect(container.style.left).toBe('134px');      // navRight (130) + 4 — flush with the glass pill
+    expect(container.style.right).toBe('');
+    expect(container.style.top).toBe('10px');        // rect.top — aligned with the trigger row
   });
 });
 
@@ -192,7 +222,7 @@ describe('open directly in form mode (geometry the refactor must preserve)', () 
     expect(container.style.opacity).toBe('1');
   });
 
-  it('desktop, left-anchored: 400px, docked to viewport top-left', () => {
+  it('desktop, left-anchored (no nav wrapper): 400px, falls back to the 50px dock', () => {
     setViewport(1200);
     const { button, container } = buildDom({ leftAnchored: true });
     stubRect(button, { left: 30, right: 80 });
@@ -201,8 +231,23 @@ describe('open directly in form mode (geometry the refactor must preserve)', () 
     mgr.openContainer('form');
 
     expect(container.style.width).toBe('400px');
-    expect(container.style.top).toBe('50px');
+    expect(container.style.top).toBe('15px');
     expect(container.style.left).toBe('50px');
+    expect(container.style.right).toBe('');
+  });
+
+  it('desktop, left-anchored with nav wrapper: 400px flyout right of the nav column', () => {
+    setViewport(1200);
+    const { button, container } = buildDom({ leftAnchored: true });
+    wrapInLogoNavWrapper(130);
+    stubRect(button, { left: 30, right: 80 });
+    const mgr = makeManager();
+
+    mgr.openContainer('form');
+
+    expect(container.style.width).toBe('400px');
+    expect(container.style.top).toBe('15px');
+    expect(container.style.left).toBe('134px');   // navRight (130) + 4 — flush with the glass pill
     expect(container.style.right).toBe('');
   });
 

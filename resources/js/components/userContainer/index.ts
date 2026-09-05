@@ -77,15 +77,15 @@ export class UserContainerManager extends (ContainerManager as any) {
     container.style.position = "fixed";
     container.style.transition =
       "width 0.3s ease-out, height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out";
-    container.style.zIndex = "1000";
-    // Subtle edge drop-shadow + the page-dimming "spotlight" (250vmax). This is set inline
-    // (not in CSS) because this panel sets ALL its visual state inline, and an inline box-shadow
-    // overrides the stylesheet — so the CSS spotlight on #user-container never won. Combining both
-    // here is the fix. Safe when closed: the panel is opacity:0 / display:none (.hidden), so it
-    // renders no shadow; openContainer animates opacity 0→1, fading the dim in/out with the panel.
-    container.style.boxShadow =
-      "0 0 15px rgba(0, 0, 0, 0.2), 0 0 0 250vmax rgba(0, 0, 0, 0.5)";
-    container.style.borderRadius = "0.75em";
+    // Above the logo nav (1002): when a narrow viewport clamps this flyout
+    // left over the nav column, the panel is the TOP of the stack.
+    container.style.zIndex = "1003";
+    // Subtle edge drop-shadow only. The old page-dimming "spotlight" (0 0 0 250vmax) is gone:
+    // this panel is now a start-menu-style glass flyout beside the logo nav, and the page
+    // behind it stays live and undimmed. Inline (not CSS) because this panel sets all its
+    // visual state inline, and an inline box-shadow overrides the stylesheet.
+    container.style.boxShadow = "0 0 15px rgba(0, 0, 0, 0.2)";
+    container.style.borderRadius = "10px"; /* match the logo-nav glass pill */
     container.style.opacity = "0";
     container.style.padding = "12px";
     container.style.width = "0";
@@ -219,13 +219,49 @@ export class UserContainerManager extends (ContainerManager as any) {
 
   openContainer(mode = "login") {
     if (this.isAnimating) return;
+
+    // One flyout at a time: opening this panel swaps out an open new-book
+    // panel (level-1 nav rows stay clickable while a flyout is open).
+    const newBookMgr = (window as any).newBookManager;
+    if (newBookMgr?.isOpen) newBookMgr.closeContainer();
+
     this.isAnimating = true;
     this.animationType = "open";
 
+    const dimensions: any = {
+      login: { width: "280px", height: "auto" },
+      register: { width: "280px", height: "auto" },
+      "forgot-password": { width: "280px", height: "auto" },
+      "verify-email": { width: "280px", height: "auto" },
+      "change-email": { width: "280px", height: "auto" },
+      profile: { width: "180px", height: "auto" }, /* fits "Verify Email" + icon on one line */
+      "transfer-prompt": { width: "320px", height: "auto" },
+    };
+
+    const { width, height } = dimensions[mode] || dimensions.login;
+
     if (this.button) {
       const rect = this.button.getBoundingClientRect();
-      this.container.style.top = `${rect.bottom + 8}px`;
-      this.container.style.left = `${rect.left}px`;
+      const navWrapper = this.button.closest("#logoNavMenu")
+        ? document.getElementById("logoNavWrapper")
+        : null;
+      if (navWrapper) {
+        // Start-menu-style flyout: out to the RIGHT of the logo-nav glass
+        // column, top-aligned with the trigger row (matches newbookContainer).
+        // Clamped to the viewport: on narrow screens the panel slides left just
+        // enough to fit, overlapping the nav slightly — the same "stacked and
+        // shifted right" idiom as stacked hyperlit-containers.
+        const panelW = parseInt(width, 10) || 280;
+        // +4 = flush against the nav's glass pill (it extends 4px past the
+        // wrapper) so the two surfaces read as one connected thing.
+        const desired = navWrapper.getBoundingClientRect().right + 4;
+        const maxLeft = window.innerWidth - panelW - 10;
+        this.container.style.top = `${rect.top}px`;
+        this.container.style.left = `${Math.max(16, Math.min(desired, maxLeft))}px`;
+      } else {
+        this.container.style.top = `${rect.bottom + 8}px`;
+        this.container.style.left = `${rect.left}px`;
+      }
       this.container.style.transform = "";
     } else {
       this.container.style.top = "50%";
@@ -237,17 +273,9 @@ export class UserContainerManager extends (ContainerManager as any) {
     this.container.style.visibility = "visible";
     this.container.style.display = "";
 
-    const dimensions: any = {
-      login: { width: "280px", height: "auto" },
-      register: { width: "280px", height: "auto" },
-      "forgot-password": { width: "280px", height: "auto" },
-      "verify-email": { width: "280px", height: "auto" },
-      "change-email": { width: "280px", height: "auto" },
-      profile: { width: "160px", height: "auto" },
-      "transfer-prompt": { width: "320px", height: "auto" },
-    };
+    // Keep the triggering nav row highlighted while this flyout is open.
+    this.button?.classList.add("logo-nav-active");
 
-    const { width, height } = dimensions[mode] || dimensions.login;
     this.container.style.padding = "20px";
 
     requestAnimationFrame(() => {
@@ -285,6 +313,8 @@ export class UserContainerManager extends (ContainerManager as any) {
     this.container.style.width = "0";
     this.container.style.height = "0";
     this.container.style.opacity = "0";
+
+    this.button?.classList.remove("logo-nav-active");
 
     this.isOpen = false;
     (window as any).activeContainer = "main-content";

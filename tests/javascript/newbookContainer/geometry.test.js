@@ -21,12 +21,31 @@ describe('computeFormGeometry', () => {
     });
   });
 
-  it('desktop, left-anchored: 400px docked to viewport top-left', () => {
+  it('desktop, left-anchored: 400px flyout to the right of the logo-nav column', () => {
+    const g = computeFormGeometry({
+      isMobile: false, isLeftAnchored: true,
+      buttonRect: { right: 80, bottom: 40 }, innerWidth: 1200,
+      navRight: 130,
+    });
+    expect(g).toMatchObject({ width: '400px', top: '15px', left: '134px', right: '' });
+  });
+
+  it('desktop, left-anchored on a narrow window: clamps left to stack over the nav', () => {
+    const g = computeFormGeometry({
+      isMobile: false, isLeftAnchored: true,
+      buttonRect: { right: 80, bottom: 40 }, innerWidth: 500,
+      navRight: 130,
+    });
+    // 500 - 400 - 10 = 90 < navRight + 4 (134): the form slides left over the nav.
+    expect(g).toMatchObject({ left: '90px', right: '' });
+  });
+
+  it('desktop, left-anchored without a nav wrapper: falls back to the 50px dock', () => {
     const g = computeFormGeometry({
       isMobile: false, isLeftAnchored: true,
       buttonRect: { right: 80, bottom: 40 }, innerWidth: 1200,
     });
-    expect(g).toMatchObject({ width: '400px', top: '50px', left: '50px', right: '' });
+    expect(g).toMatchObject({ width: '400px', top: '15px', left: '50px', right: '' });
   });
 
   it('mobile, left-anchored: full-width sheet (innerWidth - 30)', () => {

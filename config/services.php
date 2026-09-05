@@ -35,6 +35,13 @@ return [
         ],
     ],
 
+    'openalex' => [
+        // Free-account key = $1/day budget vs $0.10/day keyless (usage-based
+        // pricing since 2026; searches cost 10x list calls). Sent as a Bearer
+        // header, never a query param — request URLs get logged on 429s.
+        'api_key' => env('OPENALEX_API_KEY'),
+    ],
+
     'llm' => [
         'base_url'           => env('LLM_BASE_URL', 'https://api.fireworks.ai/inference/v1'),
         'api_key'            => env('LLM_API_KEY'),

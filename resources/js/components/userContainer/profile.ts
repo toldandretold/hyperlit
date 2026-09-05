@@ -10,7 +10,7 @@ export function showUserProfile(self: any) {
   if (!self.isOpen) {
     self.openContainer("profile");
   } else {
-    self.container.style.width = "160px";
+    self.container.style.width = "180px"; /* keep in sync with dimensions.profile */
   }
 
   // Attach button listeners
@@ -26,16 +26,8 @@ export function attachProfileButtonListeners(self: any) {
       self.handleLogout();
     });
 
-    logoutBtn.addEventListener('mouseenter', () => {
-      logoutBtn.style.backgroundColor = 'var(--color-accent)';
-      logoutBtn.style.color = 'var(--color-background)';
-      logoutBtn.style.borderColor = 'var(--color-accent)';
-    });
-    logoutBtn.addEventListener('mouseleave', () => {
-      logoutBtn.style.backgroundColor = 'transparent';
-      logoutBtn.style.color = 'var(--color-text)';
-      logoutBtn.style.borderColor = 'var(--color-text)';
-    });
+    // Hover styling comes from the shared .menu-row-btn class (menuRow.css) —
+    // no JS hover handlers, same as the other rows.
   }
 
   const passkeysBtn = self.container.querySelector('#passkeysBtn');
@@ -59,12 +51,7 @@ export function attachProfileButtonListeners(self: any) {
       e.stopPropagation();
       self.handleMyBooksClick();
     });
-
-    myBooksBtn.addEventListener('mouseenter', () => {
-      myBooksBtn.style.backgroundColor = '#5FBCC0';
-    });
-    myBooksBtn.addEventListener('mouseleave', () => {
-      myBooksBtn.style.backgroundColor = 'var(--color-accent)';
-    });
+    // Hover styling comes from the shared .menu-row-btn class (menuRow.css) — same
+    // transparent-until-hover row as the rest of the profile menu.
   }
 }

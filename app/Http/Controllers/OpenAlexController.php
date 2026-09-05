@@ -102,22 +102,16 @@ class OpenAlexController extends Controller
         }
 
         try {
-            $response = \Illuminate\Support\Facades\Http::withHeaders([
-                'User-Agent' => OpenAlexService::USER_AGENT,
-            ])->get(OpenAlexService::BASE_URL.'/works/'.$openalexId, [
-                'select' => OpenAlexService::SELECT_FIELDS,
-            ]);
+            $normalised = $this->openAlex->fetchByOpenAlexId($openalexId);
 
-            if (! $response->successful()) {
-                Log::warning('OpenAlex /works/'.$openalexId.' returned '.$response->status());
+            if ($normalised === null) {
+                Log::warning('OpenAlex /works/'.$openalexId.' fetch failed');
 
                 return response()->json([
                     'success' => false,
                     'message' => 'Could not fetch work from OpenAlex',
                 ], 502);
             }
-
-            $work = $response->json();
         } catch (\Exception $e) {
             Log::error('OpenAlex saveToLibrary fetch failed: '.$e->getMessage());
 
@@ -126,8 +120,6 @@ class OpenAlexController extends Controller
                 'message' => 'Failed to reach OpenAlex',
             ], 502);
         }
-
-        $normalised = $this->openAlex->normaliseWork($work);
         $bookId = $this->openAlex->createOrFindStub($normalised);
 
         if (! $bookId) {

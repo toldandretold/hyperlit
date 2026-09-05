@@ -74,24 +74,41 @@ export function getRegisterFormHTML(): string {
 }
 
 /** Generates user profile HTML with My Library and Logout buttons */
+// Profile rows are .menu-row-btn — the ONE shared row contract
+// (resources/css/components/menuRow.css) also used by the logo-nav rows and
+// the new-book panel. Look, hover, and selected state come from the class;
+// only per-row exceptions (Verify Email's secondary color) are inline.
+// Row spacing: .user-profile is a flex column with gap (referenceOverlay.css).
+
+// Stroke icon family (matches the nav "+" and the Blank/Import glyphs).
+// currentColor, so each row's text color (accent-inverse, secondary…) carries
+// through to its icon.
+const profileIcon = (paths: string): string =>
+  `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0;">${paths}</svg>`;
+
+const ICON_LIBRARY = profileIcon('<path d="M4 4v16"/><path d="M8 8v12"/><path d="M12 6v14"/><path d="m16 6 4 14"/>');
+const ICON_MAIL = profileIcon('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>');
+const ICON_KEY = profileIcon('<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>');
+const ICON_LOGOUT = profileIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>');
+
 export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
-      <button id="verifyEmailBtn" class="fucked-buttons"
-              style="width: 100%; padding: 8px; background: transparent; color: var(--color-secondary); border: 1px solid var(--color-secondary); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 12px;">
+      <button id="verifyEmailBtn" class="menu-row-btn" style="color: var(--color-secondary);">
+        ${ICON_MAIL}
         Verify Email
       </button>`;
   return `
     <div class="user-profile">
-      <button id="myBooksBtn" class="fucked-buttons"
-              style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: 1px solid var(--color-accent); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; transition: background-color 0.3s, color 0.3s; font-family: inherit;">
+      <button id="myBooksBtn" class="menu-row-btn">
+        ${ICON_LIBRARY}
         My Library
       </button>${verifyBanner}
-      <button id="passkeysBtn" class="fucked-buttons"
-              style="width: 100%; padding: 8px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; margin-bottom: 10px; box-sizing: border-box; font-family: inherit; font-size: 12px;">
+      <button id="passkeysBtn" class="menu-row-btn">
+        ${ICON_KEY}
         Passkeys
       </button>
-      <button id="logout" class="fucked-buttons"
-              style="width: 100%; padding: 10px; background: transparent; color: var(--color-text); border: 1px solid var(--color-text); border-radius: 4px; cursor: pointer; box-sizing: border-box; transition: background-color 0.3s, color 0.3s, border-color 0.3s; font-family: inherit;">
+      <button id="logout" class="menu-row-btn">
+        ${ICON_LOGOUT}
         Logout
       </button>
     </div>

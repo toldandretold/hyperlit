@@ -19,10 +19,13 @@ export interface FormGeometryInput {
   isLeftAnchored: boolean;
   buttonRect: ButtonRect;
   innerWidth: number;
+  /** Right edge of #logoNavWrapper (left-anchored desktop only): the form flies
+      out to the right of the logo-nav glass column instead of covering it. */
+  navRight?: number | null;
 }
 
 export function computeFormGeometry(
-  { isMobile, isLeftAnchored, buttonRect, innerWidth }: FormGeometryInput,
+  { isMobile, isLeftAnchored, buttonRect, innerWidth, navRight }: FormGeometryInput,
 ): FormGeometry {
   if (isMobile) {
     // Full-width sheet on left-anchored (reader); right-edge-sized on right-anchored (home/user).
@@ -38,15 +41,21 @@ export function computeFormGeometry(
     };
   }
 
-  // Desktop: 400px. Left-anchored (reader) docks to the viewport top-left so the form doesn't
-  // run off-screen below the logo nav; right-anchored (home/user) sits just below the + button.
+  // Desktop: 400px. Left-anchored (reader) flies out to the right of the logo-nav column
+  // (start-menu style; falls back to the old 50/50 dock if the wrapper is missing),
+  // clamped to the viewport — on narrow windows it slides left over the nav, stacking
+  // on top of it (the panel z-index sits above the nav for exactly this case);
+  // right-anchored (home/user) sits just below the + button.
+  const leftFlyout = navRight != null
+    ? Math.max(10, Math.min(navRight + 4, innerWidth - 400 - 10))
+    : 50;
   return {
     width: '400px',
     maxWidth: '400px',
     height: '80vh',
-    top: isLeftAnchored ? '50px' : `${buttonRect.bottom + 8}px`,
+    top: isLeftAnchored ? '15px' : `${buttonRect.bottom + 8}px`,
     padding: '0',
-    left: isLeftAnchored ? '50px' : '',
+    left: isLeftAnchored ? `${leftFlyout}px` : '',
     right: isLeftAnchored ? '' : `${innerWidth - buttonRect.right}px`,
   };
 }

@@ -90,13 +90,16 @@
   }
 }
 #newbook-container {
-  background-color: var(--container-glass-bg);
-  -webkit-backdrop-filter: var(--container-glass-blur);
-  backdrop-filter: var(--container-glass-blur);
+  /* Same glass as the logo-nav menu (perimeterGlass.css): faint theme tint + blur
+     (pure transparent glass got unreadable over busy backdrops, e.g. the homepage
+     hero). Start-menu-style flyout — no page-dimming spotlight (also removed from
+     the inline styles in newbookContainer/containerStyles.ts). */
+  background-color: color-mix(in srgb, var(--color-background) 45%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border: none;
-  border-radius: 0.75em; /* Same as other containers */
+  border-radius: 10px;
   box-sizing: border-box;
-  box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
 }
 
 #newbook-container .scroller {

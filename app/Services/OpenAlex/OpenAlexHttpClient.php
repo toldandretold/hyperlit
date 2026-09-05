@@ -19,6 +19,24 @@ class OpenAlexHttpClient
 {
     public const BASE_URL = 'https://api.openalex.org';
     public const USER_AGENT = 'Hyperlit/1.0 (mailto:sam@hyperlit.io)';
+
+    /**
+     * Request headers: UA always; API key as a Bearer token when configured.
+     * The key moves us from the $0.10/day keyless budget to the $1/day
+     * account budget. Bearer header (not the api_key query param) so the key
+     * never appears in logged request URLs.
+     */
+    private function requestHeaders(): array
+    {
+        $headers = ['User-Agent' => self::USER_AGENT];
+
+        $apiKey = config('services.openalex.api_key');
+        if (!empty($apiKey)) {
+            $headers['Authorization'] = 'Bearer ' . $apiKey;
+        }
+
+        return $headers;
+    }
     public const SELECT_FIELDS = 'id,title,authorships,publication_year,primary_location,best_oa_location,locations,doi,biblio,open_access,type,language,cited_by_count,abstract_inverted_index';
 
     /**
@@ -42,9 +60,8 @@ class OpenAlexHttpClient
             // 10s connect / 15s total. OpenAlex is usually <1s; without a cap we'd
             // block the synchronous import-inspect path for the full 30s PHP default
             // if OpenAlex is slow.
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-            ])->connectTimeout(10)->timeout(15)->get($url, $query);
+            $response = Http::withHeaders($this->requestHeaders())
+                ->connectTimeout(10)->timeout(15)->get($url, $query);
 
             if ($response->status() !== 429 || $attempt === $maxRetries) {
                 // Proactive throttle: sleep when remaining requests are low
@@ -56,11 +73,16 @@ class OpenAlexHttpClient
             $maxBackoff = 10;
             $backoff = $retryAfter > 0 ? min($retryAfter, $maxBackoff) : pow(2, $attempt);
 
-            if ($retryAfter > $maxBackoff) {
-                Log::warning('OpenAlex Retry-After exceeds cap', [
-                    'retry_after' => $retryAfter,
-                    'capped_to'   => $maxBackoff,
+            // A Retry-After in the minutes-to-hours range is the DAILY budget
+            // exhausted (it counts down to the midnight-UTC reset), not a
+            // burst 429. Sleep-retrying is pointless and impolite — return
+            // the 429 now and let the caller fail/reschedule.
+            if ($retryAfter > 60) {
+                Log::warning('OpenAlex daily budget exhausted, not retrying', [
+                    'retry_after_sec' => $retryAfter,
+                    'resets_in_min'   => (int) round($retryAfter / 60),
                 ]);
+                return $response;
             }
 
             Log::info('OpenAlex 429 rate limited, retrying', [
@@ -141,7 +163,7 @@ class OpenAlexHttpClient
             $responses = Http::pool(function (Pool $pool) use ($requests, $chunkKeys) {
                 foreach ($chunkKeys as $key) {
                     $pool->as((string) $key)
-                        ->withHeaders(['User-Agent' => self::USER_AGENT])
+                        ->withHeaders($this->requestHeaders())
                         ->timeout(15)
                         ->get($requests[$key]['url'], $requests[$key]['query'] ?? []);
                 }

@@ -5,6 +5,7 @@
  * order — see pages/reader.css for the full explanation.
  * Verify changes with: node scripts/css-cascade-snapshot.mjs compare
  */
+@import url('../components/menuRow.css');
 @import url('../components/accountPage.css');
 @import url('../components/highlight-div.css');
 /* — ex containers.css, in original section order — */

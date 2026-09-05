@@ -35,7 +35,9 @@
 
 
 
-#newbook-container button {
+/* Generic buttons (import form etc.) — NOT the Blank/Import rows, which are
+   .menu-row-btn and fully styled by components/menuRow.css. */
+#newbook-container button:not(.menu-row-btn) {
   width: 100%;
   padding: 10px;
   border: none;
@@ -197,26 +199,10 @@ body[data-page="user"] #userLibraryContainer {
    Buttons view (partials/newbook-container.blade.php)
    New / Import + the shared E2EE opt-in row
    --------------------------------------------------- */
-#newbook-container .newbook-action-btn {
-  width: 100%;
-  padding: 10px;
-  background: #4a4a4a;
-  color: #CBCCCC;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  box-sizing: border-box;
-  transition: background-color 0.3s, color 0.3s;
-  font-family: inherit;
-}
-
+/* Blank/Import rows are .menu-row-btn (components/menuRow.css owns their look,
+   hover included) — only the stacking gap lives here. */
 #newbook-container .newbook-action-btn + .newbook-action-btn {
   margin-top: 10px;
-}
-
-#newbook-container .newbook-action-btn:hover {
-  background: var(--color-accent);
-  color: var(--color-background);
 }
 
 /* The option row applies to BOTH buttons above it, so it sits below them
@@ -226,7 +212,7 @@ body[data-page="user"] #userLibraryContainer {
   align-items: center;
   gap: 6px;
   margin-top: 14px;
-  font-size: 12px;
+  font-size: 13px; /* match .logo-nav-label */
   --color-background: var(--hyperlit-black);
 }
 

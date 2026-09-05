@@ -32,36 +32,41 @@
 }
 
 /* Glass on logo nav — ::after pseudo-element avoids layout issues
-   (menu uses visibility:hidden so wrapper is always tall) */
+   (menu uses visibility:hidden so wrapper is always tall).
+   Closed: fixed width — the hidden menu still occupies layout, and its
+   labeled rows make the wrapper wider than the logo, so `right: -4px`
+   would leave a wide empty pill hanging off the logo. */
 #logoNavWrapper::after {
   content: '';
   position: absolute;
   top: -8px;
   left: -4px;
-  right: -4px;
+  width: 44px;
   height: 34px;
   border-radius: 10px;
-  background-color: transparent;
+  /* Faint theme tint over the blur — pure transparent glass got unreadable over
+     busy backdrops (homepage hero). Same tint as the user/newbook flyouts so
+     the nav column and its flyout read as one connected surface. */
+  background-color: color-mix(in srgb, var(--color-background) 45%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: -1;
   pointer-events: none;
 }
 
-/* Open: glass pill stretches to cover all nav items */
+@media only screen and (max-width: 768px) {
+  #logoNavWrapper::after {
+    width: 42px; /* mobile logo button is 34px wide (accountPage.css) + 8px glass margin */
+  }
+}
+
+/* Open: glass pill stretches to cover all nav items (offsets, not fixed
+   height/width, so it fits however many rows the page's menu has) */
 #logoNavWrapper:has(.logo-nav-menu:not(.hidden))::after {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: -4px;
+  width: auto;
   right: -4px;
-  height: 126px;
-  border-radius: 10px;
-  background-color: transparent;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: -1;
-  pointer-events: none;
+  height: auto;
+  bottom: -8px;
 }
 
 /* Glass circle on top-right container (cloudRef / newBook) */

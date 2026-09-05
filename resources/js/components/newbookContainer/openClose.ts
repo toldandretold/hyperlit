@@ -10,6 +10,13 @@ import type { ContainerHost, ButtonRect } from './host';
 
 const MOBILE_MAX_WIDTH = 480;
 
+// Right edge of the logo-nav glass column, for the left-anchored flyout geometry.
+function navRightEdge(isLeftAnchored: boolean): number | null {
+  if (!isLeftAnchored) return null;
+  const wrapper = document.getElementById('logoNavWrapper');
+  return wrapper ? wrapper.getBoundingClientRect().right : null;
+}
+
 function snapshotRect(rect: DOMRect): ButtonRect {
   // Spread can miss DOMRect getters in some browsers, so copy right/bottom explicitly (the
   // only fields the geometry reads).
@@ -62,11 +69,15 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
     const geom = computeFormGeometry({
       isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
+      navRight: navRightEdge(isLeftAnchored),
     });
 
     requestAnimationFrame(() => {
-      // Leave the already-set left/right alone (anchor:false) so the box doesn't jump.
-      applyFormGeometry(host.container, geom, { anchor: false });
+      // anchor:true — on desktop the computed left/right equals where the buttons
+      // view already sits (flyout beside the nav), so nothing jumps; on MOBILE the
+      // full-width sheet has its own left (15px) and MUST re-anchor, or it keeps
+      // the flyout's left and runs off the right edge of the screen.
+      applyFormGeometry(host.container, geom, { anchor: true });
       armTransition(host, () => resetAnimationState(host));
     });
     return;
@@ -74,6 +85,11 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
   // FIRST open (from closed).
   if (!host.isOpen) {
+    // One flyout at a time: opening this panel swaps out an open user panel
+    // (level-1 nav rows stay clickable while a flyout is open).
+    const userMgr = (window as any).userManager;
+    if (userMgr?.isOpen) userMgr.closeContainer();
+
     // Activate overlay FIRST to mask the button background during the icon rotation.
     if (host.overlay) {
       host.overlay.style.transition = 'none';
@@ -87,6 +103,8 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
     }
 
     host.button.querySelector('.icon')?.classList.add('tilted');
+    // Keep the triggering nav row highlighted while this flyout is open.
+    host.button.classList.add('logo-nav-active');
 
     if (!host.originalButtonRect) host.originalButtonRect = snapshotRect(rect);
 
@@ -98,17 +116,32 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
       const geom = computeFormGeometry({
         isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
+        navRight: navRightEdge(isLeftAnchored),
       });
       applyFormGeometry(host.container, geom, { anchor: true });
 
       requestAnimationFrame(() => { host.container.style.opacity = '1'; });
     } else {
-      // Buttons view: dock just below the +button, anchored to its left or right edge.
-      host.container.style.top = `${rect.bottom + 8}px`;
-      if (isLeftAnchored) {
+      // Buttons view. Reader (left-anchored): start-menu-style flyout to the RIGHT of the
+      // logo-nav glass column, top-aligned with the trigger row — mobile included, clamped
+      // to the viewport (on very narrow screens it slides left just enough to fit,
+      // overlapping the nav slightly, like stacked hyperlit-containers). Otherwise dock
+      // just below the +button, anchored to its left or right edge.
+      const navWrapper = isLeftAnchored ? document.getElementById('logoNavWrapper') : null;
+      if (navWrapper) {
+        // +4 = flush against the nav's glass pill (it extends 4px past the
+        // wrapper) so the two surfaces read as one connected thing.
+        const desired = navWrapper.getBoundingClientRect().right + 4;
+        const maxLeft = window.innerWidth - 160 - 10; // buttons view is 160px wide
+        host.container.style.top = `${rect.top}px`;
+        host.container.style.left = `${Math.max(16, Math.min(desired, maxLeft))}px`;
+        host.container.style.right = '';
+      } else if (isLeftAnchored) {
+        host.container.style.top = `${rect.bottom + 8}px`;
         host.container.style.left = `${rect.left}px`;
         host.container.style.right = '';
       } else {
+        host.container.style.top = `${rect.bottom + 8}px`;
         host.container.style.right = `${window.innerWidth - rect.right}px`;
         host.container.style.left = '';
       }
@@ -156,6 +189,7 @@ export function closeContainer(host: ContainerHost): void {
 
   const icon = host.button.querySelector('.icon');
   if (icon) icon.classList.remove('tilted');
+  host.button.classList.remove('logo-nav-active');
 
   // Animate width/height/opacity/padding → 0; leave left/right/top alone (clearing them
   // mid-animation makes the box glide toward the layout origin). Positioning is cleared in
@@ -192,6 +226,7 @@ export function setResponsiveFormSize(host: ContainerHost): void {
   const isLeftAnchored = !!host.button.closest('#logoNavMenu');
   const geom = computeFormGeometry({
     isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
+    navRight: navRightEdge(isLeftAnchored),
   });
 
   if (isMobile) {
