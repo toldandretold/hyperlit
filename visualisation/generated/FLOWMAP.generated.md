@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1800 functions in 377 modules · 10 object stores · 10 PG tables · 3698 edges
+**MarkdownDB** schema v28 · 1815 functions in 381 modules · 10 object stores · 10 PG tables · 3714 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -161,6 +161,21 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `closeContainer` | `components/newbookContainer/openClose` | — | — | read/write | — |
 | `openContainer` | `components/newbookContainer/openClose` | — | — | read/write | — |
 | `setResponsiveFormSize` | `components/newbookContainer/openClose` | — | — | read | — |
+| `destroyOpenBookContainer` | `components/openbookButton/openbookButton` | — | — | — | — |
+| `initializeOpenBookContainer` | `components/openbookButton/openbookButton` | — | — | read | — |
+| `OpenBookContainerManager.closeContainer` | `components/openbookContainer/index` | — | — | write | — |
+| `OpenBookContainerManager.constructor` | `components/openbookContainer/index` | — | — | — | — |
+| `OpenBookContainerManager.destroy` | `components/openbookContainer/index` | — | — | read | — |
+| `OpenBookContainerManager.openBook` | `components/openbookContainer/index` | — | — | — | — |
+| `OpenBookContainerManager.openContainer` | `components/openbookContainer/index` | — | `localStorage` | read/write | — |
+| `OpenBookContainerManager.refreshRecents` | `components/openbookContainer/index` | — | — | read | — |
+| `OpenBookContainerManager.setupPanelListeners` | `components/openbookContainer/index` | — | — | read | — |
+| `OpenBookContainerManager.setupStyles` | `components/openbookContainer/index` | — | — | — | — |
+| `OpenBookContainerManager.toggleContainer` | `components/openbookContainer/index` | — | — | — | — |
+| `destroyOpenbookSearch` | `components/openbookContainer/openbookSearch` | — | — | — | — |
+| `initializeOpenbookSearch` | `components/openbookContainer/openbookSearch` | — | — | — | — |
+| `loadRecentBooks` | `components/openbookContainer/recentBooks` | — | — | — | — |
+| `renderRecentList` | `components/openbookContainer/recentBooks` | — | — | write | — |
 | `classifySyncError` | `components/saveErrorToast/saveErrorToast` | — | — | — | — |
 | `hideSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |
 | `showSaveErrorToast` | `components/saveErrorToast/saveErrorToast` | — | — | read/write | — |

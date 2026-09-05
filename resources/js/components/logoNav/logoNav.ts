@@ -84,8 +84,8 @@ function openLogoNav(logoBtn: any, navMenu: any) {
       // clicking inside them (login fields, view-switch links) must NOT close
       // it. Same for the custom-alert dialogs those flows spawn on top.
       const clickedFlyout =
-        path.some((n: any) => n && (n.id === 'user-container' || n.id === 'newbook-container')) ||
-        !!e.target?.closest?.('#user-container, #newbook-container, .custom-alert, .custom-alert-overlay');
+        path.some((n: any) => n && (n.id === 'user-container' || n.id === 'newbook-container' || n.id === 'openbook-container')) ||
+        !!e.target?.closest?.('#user-container, #newbook-container, #openbook-container, .custom-alert, .custom-alert-overlay');
 
       if (!clickedLogo && !clickedMenu && !clickedFlyout) {
         closeLogoNav(logoBtn, navMenu);
@@ -124,6 +124,8 @@ function closeLogoNav(logoBtn: any, navMenu: any) {
   if (newBookMgr?.isOpen && newBookMgr.button?.closest?.('#logoNavMenu')) {
     newBookMgr.closeContainer();
   }
+  const openBookMgr = (window as any).openBookManager;
+  if (openBookMgr?.isOpen) openBookMgr.closeContainer();
 
   // Remove click-outside handler
   if (clickOutsideHandler) {

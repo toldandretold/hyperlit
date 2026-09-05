@@ -220,10 +220,12 @@ export class UserContainerManager extends (ContainerManager as any) {
   openContainer(mode = "login") {
     if (this.isAnimating) return;
 
-    // One flyout at a time: opening this panel swaps out an open new-book
-    // panel (level-1 nav rows stay clickable while a flyout is open).
+    // One flyout at a time: opening this panel swaps out an open new-book /
+    // open-book panel (level-1 nav rows stay clickable while a flyout is open).
     const newBookMgr = (window as any).newBookManager;
     if (newBookMgr?.isOpen) newBookMgr.closeContainer();
+    const openBookMgr = (window as any).openBookManager;
+    if (openBookMgr?.isOpen) openBookMgr.closeContainer();
 
     this.isAnimating = true;
     this.animationType = "open";

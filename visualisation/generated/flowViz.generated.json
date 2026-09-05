@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1800,
-    "moduleCount": 377,
+    "fnCount": 1815,
+    "moduleCount": 381,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3698,
+    "edgeCount": 3714,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1358,6 +1358,132 @@
       "stage": "components",
       "module": "components/newbookContainer/openClose",
       "leaf": false
+    },
+    {
+      "id": "components/openbookButton/openbookButton:destroyOpenBookContainer",
+      "label": "destroyOpenBookContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookButton/openbookButton",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookButton/openbookButton:initializeOpenBookContainer",
+      "label": "initializeOpenBookContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookButton/openbookButton",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
+      "label": "OpenBookContainerManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.constructor",
+      "label": "OpenBookContainerManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.destroy",
+      "label": "OpenBookContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openBook",
+      "label": "OpenBookContainerManager.openBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openContainer",
+      "label": "OpenBookContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+      "label": "OpenBookContainerManager.refreshRecents",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.setupPanelListeners",
+      "label": "OpenBookContainerManager.setupPanelListeners",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.setupStyles",
+      "label": "OpenBookContainerManager.setupStyles",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.toggleContainer",
+      "label": "OpenBookContainerManager.toggleContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/openbookSearch:destroyOpenbookSearch",
+      "label": "destroyOpenbookSearch",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/openbookSearch",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/openbookSearch:initializeOpenbookSearch",
+      "label": "initializeOpenbookSearch",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/openbookSearch",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/recentBooks:loadRecentBooks",
+      "label": "loadRecentBooks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/recentBooks",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/openbookContainer/recentBooks:renderRecentList",
+      "label": "renderRecentList",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/recentBooks",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
     },
     {
       "id": "components/saveErrorToast/saveErrorToast:classifySyncError",
@@ -16704,6 +16830,53 @@
       ]
     },
     {
+      "id": "components/openbookButton/openbookButton",
+      "label": "components/openbookButton/openbookButton",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/openbookButton/openbookButton:destroyOpenBookContainer",
+        "components/openbookButton/openbookButton:initializeOpenBookContainer"
+      ]
+    },
+    {
+      "id": "components/openbookContainer/index",
+      "label": "components/openbookContainer/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
+        "components/openbookContainer/index:OpenBookContainerManager.constructor",
+        "components/openbookContainer/index:OpenBookContainerManager.destroy",
+        "components/openbookContainer/index:OpenBookContainerManager.openBook",
+        "components/openbookContainer/index:OpenBookContainerManager.openContainer",
+        "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+        "components/openbookContainer/index:OpenBookContainerManager.setupPanelListeners",
+        "components/openbookContainer/index:OpenBookContainerManager.setupStyles",
+        "components/openbookContainer/index:OpenBookContainerManager.toggleContainer"
+      ]
+    },
+    {
+      "id": "components/openbookContainer/openbookSearch",
+      "label": "components/openbookContainer/openbookSearch",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/openbookContainer/openbookSearch:destroyOpenbookSearch",
+        "components/openbookContainer/openbookSearch:initializeOpenbookSearch"
+      ]
+    },
+    {
+      "id": "components/openbookContainer/recentBooks",
+      "label": "components/openbookContainer/recentBooks",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/openbookContainer/recentBooks:loadRecentBooks",
+        "components/openbookContainer/recentBooks:renderRecentList"
+      ]
+    },
+    {
       "id": "components/saveErrorToast/saveErrorToast",
       "label": "components/saveErrorToast/saveErrorToast",
       "stage": "components",
@@ -22646,6 +22819,74 @@
       "rel": "call"
     },
     {
+      "id": "components/openbookButton/openbookButton:destroyOpenBookContainer__call__components/openbookContainer/openbookSearch:destroyOpenbookSearch",
+      "source": "components/openbookButton/openbookButton:destroyOpenBookContainer",
+      "target": "components/openbookContainer/openbookSearch:destroyOpenbookSearch",
+      "rel": "call"
+    },
+    {
+      "id": "components/openbookButton/openbookButton:initializeOpenBookContainer__call__components/openbookContainer/openbookSearch:initializeOpenbookSearch",
+      "source": "components/openbookButton/openbookButton:initializeOpenBookContainer",
+      "target": "components/openbookContainer/openbookSearch:initializeOpenbookSearch",
+      "rel": "call"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.closeContainer__domwrite__dom",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openBook__call__SPA/navigation/navigationRegistry:navigateByStructure",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.openBook",
+      "target": "SPA/navigation/navigationRegistry:navigateByStructure",
+      "rel": "call"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openContainer__domwrite__dom",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.openContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openContainer__write__store:localStorage",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.openContainer",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents__call__components/openbookContainer/recentBooks:loadRecentBooks",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+      "target": "components/openbookContainer/recentBooks:loadRecentBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents__call__components/openbookContainer/recentBooks:renderRecentList",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+      "target": "components/openbookContainer/recentBooks:renderRecentList",
+      "rel": "call"
+    },
+    {
+      "id": "components/openbookContainer/recentBooks:loadRecentBooks__call__indexedDB/core/library:getAllOfflineAvailableBooks",
+      "source": "components/openbookContainer/recentBooks:loadRecentBooks",
+      "target": "indexedDB/core/library:getAllOfflineAvailableBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/openbookContainer/recentBooks:loadRecentBooks__call__scrolling/readingAnchor:getSavedAnchor",
+      "source": "components/openbookContainer/recentBooks:loadRecentBooks",
+      "target": "scrolling/readingAnchor:getSavedAnchor",
+      "rel": "call"
+    },
+    {
+      "id": "components/openbookContainer/recentBooks:renderRecentList__domwrite__dom",
+      "source": "components/openbookContainer/recentBooks:renderRecentList",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast__domwrite__dom",
       "source": "components/saveErrorToast/saveErrorToast:hideSaveErrorToast",
       "target": "dom",
@@ -27002,6 +27243,36 @@
       "id": "dom__domread__components/newbookContainer/openClose:setResponsiveFormSize",
       "source": "dom",
       "target": "components/newbookContainer/openClose:setResponsiveFormSize",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/openbookButton/openbookButton:initializeOpenBookContainer",
+      "source": "dom",
+      "target": "components/openbookButton/openbookButton:initializeOpenBookContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/openbookContainer/index:OpenBookContainerManager.destroy",
+      "source": "dom",
+      "target": "components/openbookContainer/index:OpenBookContainerManager.destroy",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/openbookContainer/index:OpenBookContainerManager.openContainer",
+      "source": "dom",
+      "target": "components/openbookContainer/index:OpenBookContainerManager.openContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+      "source": "dom",
+      "target": "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/openbookContainer/index:OpenBookContainerManager.setupPanelListeners",
+      "source": "dom",
+      "target": "components/openbookContainer/index:OpenBookContainerManager.setupPanelListeners",
       "rel": "domread"
     },
     {
@@ -45338,6 +45609,46 @@
       "kind": "static"
     },
     {
+      "source": "components/openbookButton/openbookButton",
+      "target": "components/openbookContainer/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookButton/openbookButton",
+      "target": "components/openbookContainer/openbookSearch",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/index",
+      "target": "SPA/navigation/navigationRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/index",
+      "target": "components/openbookContainer/recentBooks",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/openbookSearch",
+      "target": "search/searchBox",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/recentBooks",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/openbookContainer/recentBooks",
+      "target": "scrolling/readingAnchor",
+      "kind": "static"
+    },
+    {
       "source": "components/settingsButton/settingsButton",
       "target": "components/settingsContainer/index",
       "kind": "static"
@@ -46045,6 +46356,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "components/newBookButton/newBookButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/openbookButton/openbookButton",
       "kind": "static"
     },
     {

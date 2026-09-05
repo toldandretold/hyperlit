@@ -33,6 +33,11 @@ import {
 } from '../userButton/userButton';
 
 import {
+  initializeOpenBookContainer,
+  destroyOpenBookContainer
+} from '../openbookButton/openbookButton';
+
+import {
   initializeTocManager,
   destroyTocManager
 } from '../tocToggleButton/tocToggleButton';
@@ -220,6 +225,15 @@ export function registerAllComponents() {
     initFn: initializeUserContainer,
     destroyFn: destroyUserContainer,
     pages: ['reader', 'home', 'user', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  buttonRegistry.register({
+    name: 'openBookContainer',
+    initFn: initializeOpenBookContainer,
+    destroyFn: destroyOpenBookContainer,
+    pages: ['reader', 'user'], // only pages whose logo-nav menu has the Open row
     dependencies: [],
     required: false
   });

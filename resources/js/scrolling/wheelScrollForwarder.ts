@@ -43,7 +43,7 @@ const CONTENT_SEL =
 // via overflow-y:auto), and the shelf-preview overlay (appended to document.body). Without
 // these the capture-phase handler steals the wheel from the panel and scrolls the page behind it.
 const SCROLLABLE_OVERLAY_SEL =
-  '.search-results, #newbook-container, #toc-container, #user-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
+  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

@@ -85,10 +85,12 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
   // FIRST open (from closed).
   if (!host.isOpen) {
-    // One flyout at a time: opening this panel swaps out an open user panel
-    // (level-1 nav rows stay clickable while a flyout is open).
+    // One flyout at a time: opening this panel swaps out an open user /
+    // open-book panel (level-1 nav rows stay clickable while a flyout is open).
     const userMgr = (window as any).userManager;
     if (userMgr?.isOpen) userMgr.closeContainer();
+    const openBookMgr = (window as any).openBookManager;
+    if (openBookMgr?.isOpen) openBookMgr.closeContainer();
 
     // Activate overlay FIRST to mask the button background during the icon rotation.
     if (host.overlay) {

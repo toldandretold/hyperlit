@@ -1,0 +1,195 @@
+/* #openbook-container — the "Open" start-menu flyout (IndexedDB recents over
+   a bottom-docked library search), opened by the logo-nav "Open" row. Same
+   glass as #user-container (referenceOverlay.css); recent rows use the
+   .menu-row-btn contract (menuRow.css) — sizing-only overrides here.
+   The manager (resources/js/components/openbookContainer/index.ts) sets the
+   inline shell styles + a viewport-capped max-height; this flex column makes
+   the recent list absorb the cap and scroll internally. */
+#openbook-container {
+  position: fixed;
+  background-color: color-mix(in srgb, var(--color-background) 45%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1003; /* above the logo nav (1002) — stack order when clamped over it */
+  border: none;
+  border-radius: 10px;
+  box-sizing: border-box;
+  overflow: hidden; /* the animated width/height must clip the content */
+  display: flex;
+  flex-direction: column;
+}
+
+#openbook-container.hidden {
+  display: none;
+}
+
+/* ── Recent (top; shrinks and scrolls inside the FIXED-height panel) ───── */
+#openbook-recent {
+  flex: 0 1 auto;
+  min-height: 0; /* let the inner list shrink and scroll */
+  display: flex;
+  flex-direction: column;
+}
+
+.openbook-recent-heading {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 0 0 4px;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.openbook-recent-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to the reader behind */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Pull the scrollbar out of the content column, toward the panel's edge
+     (the panel has 16px padding; this leaves the bar 4px from the glass). */
+  margin-right: -12px;
+  padding-right: 12px;
+}
+
+/* Two-line rows (title over author) — stacked, so override the .menu-row-btn
+   horizontal-row defaults. */
+#openbook-container .openbook-recent-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  white-space: normal;
+  flex-shrink: 0; /* rows keep their height; the LIST scrolls */
+}
+
+.openbook-recent-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.openbook-recent-author {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.openbook-empty {
+  padding: 10px;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+/* Visible slim scrollbar on the scrollable areas — styling the webkit
+   scrollbar opts out of macOS's auto-hiding overlay bars, so an overflowing
+   list SHOWS its bar and the user knows there's more below. */
+.openbook-recent-list,
+#openbook-container .search-results {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: color-mix(in srgb, var(--color-text) 30%, transparent) transparent;
+}
+
+.openbook-recent-list::-webkit-scrollbar,
+#openbook-container .search-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.openbook-recent-list::-webkit-scrollbar-track,
+#openbook-container .search-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.openbook-recent-list::-webkit-scrollbar-thumb,
+#openbook-container .search-results::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: 3px;
+}
+
+/* ── Search (pinned to the panel bottom; margin-top:auto keeps it there even
+      when the content above is short or hidden) ──────────────────────────── */
+#openbook-container .openbook-search {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Neutralize the homepage hero layout from search.css: the anchor there is a
+   `flex: 0 1 280px` ROW item with an absolutely-positioned centered dropdown.
+   Here it's a full-width column, and results render IN FLOW. */
+#openbook-container .search-input-anchor {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Icon + input side by side; the results div stays a sibling above (order). */
+#openbook-container .openbook-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#openbook-container .openbook-search-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+#openbook-container .search-input {
+  /* Width is flex-driven (fill the row after the icon) — a width:100% here
+     over-sizes the flex basis past the panel. */
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  box-sizing: border-box;
+  resize: none;
+  flex-shrink: 0; /* the RESULTS scroll; the input never gets squeezed */
+  /* The searchBox factory's autosize() stamps an inline height = scrollHeight
+     at init — which is 0 here because this panel is display:none at init (the
+     homepage's box is always visible, so it never hits this). min-height
+     out-ranks the inline height and guarantees a full one-row input; typing
+     re-runs autosize with real geometry and grows it normally. */
+  min-height: 38px;
+  max-height: 120px;
+}
+
+/* Results open UPWARD (order: -1 puts them above the input) into the space
+   the Recent section vacates while a query is typed; when tall they scroll
+   inside the fixed-height panel instead of growing it. */
+#openbook-container .search-results {
+  position: static;
+  left: auto;
+  transform: none;
+  order: -1;
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain; /* Prevent scroll chaining to the reader behind */
+  /* Same scrollbar pull-right as .openbook-recent-list */
+  margin: 0 -12px 8px 0;
+  padding-right: 12px;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* A static-position element must not hold space when empty (search.css hides
+   it with opacity/visibility only, which worked for the absolute dropdown). */
+#openbook-container .search-results.hidden {
+  display: none;
+}

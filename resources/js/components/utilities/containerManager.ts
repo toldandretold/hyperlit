@@ -16,6 +16,7 @@ import { pushModal, popModal, isTopModal } from '../../utilities/modalState'
 const FOCUS_TRAP_CONTAINER_IDS = new Set([
   'user-container',
   'newbook-container',
+  'openbook-container',
   'settings-container',
   'source-container',
   'toc-container',
