@@ -18,6 +18,7 @@
     "integrity-overlay": { "module": "resources/js/integrity/reporter.ts (backdrop class)", "wiring": "trapModalFocus:no-escape" },
     "visibility-overlay": { "module": "resources/js/components/sourceContainer/visibilityControl.ts", "wiring": "trapModalFocus" },
     "logo-nav-menu": { "module": "resources/js/components/logoNav/logoNav.ts", "wiring": "non-modal:escape-closes+focus-restore (nav dropdown of plain tabbables)" },
+    "openbook-sheet": { "module": "resources/js/components/openbookContainer/index.ts (mobile presentation class of #openbook-container)", "wiring": "containerManager" },
     "ref-overlay": { "module": "resources/js/hyperlitContainer/ (base container overlay)", "wiring": "deferred:history-driven-close + edit-mode keyboard semantics need own design" },
     "hyperlit-overlay": { "module": "resources/js/hyperlitContainer/stack.ts (.hyperlit-overlay-stacked)", "wiring": "deferred:history-driven-close + edit-mode keyboard semantics need own design" },
     "stale-tab-overlay": { "module": "resources/js/utilities/BroadcastListener.ts", "wiring": "deferred:cross-tab warning overlay — wire trapModalFocus when next touched" },

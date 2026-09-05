@@ -10,6 +10,7 @@ import { ContainerManager } from '../utilities/containerManager';
 import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
 import { book } from '../../app';
 import { log } from '../../utilities/logger';
+import { getVisibleBottom } from '../../utilities/viewportMetrics';
 import { loadRecentBooks, renderRecentList } from './recentBooks';
 
 const PANEL_WIDTH = 280;
@@ -18,6 +19,9 @@ const PANEL_WIDTH = 280;
 // room and the frame never resizes — content areas flex and scroll inside it
 // (with a visible scrollbar when there's more, see openbookContainer.css).
 const PANEL_HEIGHT = 420;
+// ≤ this width the panel opens as a full-width bottom sheet instead of a
+// flyout (same phone threshold as the newbook flyout's MOBILE_MAX_WIDTH).
+const MOBILE_MAX_WIDTH = 480;
 
 export class OpenBookContainerManager extends (ContainerManager as any) {
   constructor(containerId: any, overlayId: any, buttonId: any, frozenContainerIds: any = []) {
@@ -130,6 +134,13 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
     if (recent) recent.style.display = '';
     void this.refreshRecents();
 
+    // Phones get a keyboard-aware bottom sheet instead of the flyout.
+    this._isSheet = window.innerWidth <= MOBILE_MAX_WIDTH;
+    if (this._isSheet) {
+      this.openAsSheet();
+      return;
+    }
+
     if (this.button) {
       const rect = this.button.getBoundingClientRect();
       const navWrapper = this.button.closest('#logoNavMenu')
@@ -159,10 +170,11 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
 
     this.container.style.padding = '16px';
 
-    // Constant height, capped only by the viewport space below the panel's
-    // top edge (measured from window.innerHeight, not 100vh).
+    // Constant height, capped only by the visible-viewport space below the
+    // panel's top edge (getVisibleBottom = the sanctioned visualViewport
+    // accessor — innerHeight lies on mobile; see utilities/viewportMetrics).
     const topPx = parseFloat(this.container.style.top) || 15;
-    const targetH = Math.min(PANEL_HEIGHT, Math.max(200, window.innerHeight - topPx - 16));
+    const targetH = Math.min(PANEL_HEIGHT, Math.max(200, getVisibleBottom() - topPx - 16));
 
     requestAnimationFrame(() => {
       this.container.style.width = `${PANEL_WIDTH}px`;
@@ -185,6 +197,106 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
     });
   }
 
+  /**
+   * Mobile: full-width bottom sheet (the settings-container visual idiom),
+   * with keyboard-aware positioning owned HERE — keyboardManager exists only
+   * on reader pages and only moves the three `.visible` toolbars, so the
+   * sheet stamps its own `top` from the visual viewport. `bottom: 0` would
+   * NOT work: iOS pans the layout viewport when the keyboard opens
+   * (vv.offsetTop > 0), sinking bottom-anchored elements under the keyboard;
+   * `top = getVisibleBottom() - height` tracks it correctly.
+   */
+  openAsSheet() {
+    const style = this.container.style;
+    // The .openbook-sheet class transition (transform/opacity) owns enter/exit
+    // on mobile — the inline width/height transition must not fight it.
+    style.transition = 'none';
+    this.container.classList.add('openbook-sheet');
+
+    const visibleBottom = getVisibleBottom();
+    this._sheetHeight = Math.min(PANEL_HEIGHT, visibleBottom - 80);
+    style.left = '0';
+    style.right = '0';
+    style.width = '100%';
+    style.maxWidth = '100%';
+    style.height = `${this._sheetHeight}px`;
+    style.top = `${visibleBottom - this._sheetHeight}px`;
+    style.padding = '16px';
+    style.opacity = ''; // the sheet class owns opacity (0 → .sheet-open 1)
+    style.transform = '';
+
+    this.container.classList.remove('hidden');
+    style.visibility = 'visible';
+    style.display = '';
+    this.button?.classList.add('logo-nav-active');
+
+    // Commit the geometry untransitioned, then hand transition control to the
+    // .openbook-sheet class (an inline `transition` would override it and kill
+    // the slide-up). top/height stay OUTSIDE the class transition list, so the
+    // keyboard handler's re-top below is always instant.
+    void this.container.offsetHeight;
+    style.transition = '';
+
+    // Track the visual viewport while open: when the phone keyboard opens,
+    // re-top the sheet so the search row sits directly above it (shrinking if
+    // the remaining space is tight); restores itself when the keyboard closes.
+    // Reapplied on both `resize` and `scroll` — iOS moves offsetTop via both.
+    this._sheetViewportHandler = () => {
+      if (!this.isOpen || !this._isSheet) return;
+      const bottom = getVisibleBottom();
+      const h = Math.min(this._sheetHeight, Math.max(160, bottom - 24));
+      this.container.style.height = `${h}px`;
+      this.container.style.top = `${bottom - h}px`;
+    };
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', this._sheetViewportHandler);
+      vv.addEventListener('scroll', this._sheetViewportHandler);
+    }
+
+    requestAnimationFrame(() => {
+      this.container.classList.add('sheet-open');
+
+      this.isOpen = true;
+      (window as any).activeContainer = this.container.id;
+      this.updateState();
+      this._engageFocusTrap(); // focuses the CONTAINER, so the keyboard only opens when the user taps the field
+
+      this.container.addEventListener('transitionend', () => {
+        this.isAnimating = false;
+      }, { once: true });
+      setTimeout(() => {
+        if (this.isAnimating) this.isAnimating = false;
+      }, 1000);
+    });
+  }
+
+  _detachSheetViewportHandler() {
+    if (!this._sheetViewportHandler) return;
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.removeEventListener('resize', this._sheetViewportHandler);
+      vv.removeEventListener('scroll', this._sheetViewportHandler);
+    }
+    this._sheetViewportHandler = null;
+  }
+
+  /** Post-slide-out cleanup: back to the closed FLYOUT baseline so a later
+   *  open (possibly at desktop width after rotation) starts clean. */
+  _finishSheetClose() {
+    this.container.classList.add('hidden');
+    this.container.style.visibility = 'hidden';
+    this.container.classList.remove('openbook-sheet', 'sheet-open');
+    const style = this.container.style;
+    style.top = '';
+    style.left = '';
+    style.right = '';
+    style.maxWidth = '';
+    this.setupStyles(); // restores the closed baseline incl. the inline transition
+    this._isSheet = false;
+    this.isAnimating = false;
+  }
+
   closeContainer() {
     // A running CLOSE is left to finish; an in-flight OPEN is interrupted so
     // the close takes over (same semantics as the sibling flyouts).
@@ -192,17 +304,31 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
     this.isAnimating = true;
     this.animationType = 'close';
 
-    this.container.style.padding = '0';
-    this.container.style.width = '0';
-    this.container.style.height = '0';
-    this.container.style.opacity = '0';
-
+    this._detachSheetViewportHandler();
     this.button?.classList.remove('logo-nav-active');
 
     this.isOpen = false;
     (window as any).activeContainer = 'main-content';
     this.updateState();
     this._releaseFocusTrap();
+
+    if (this._isSheet) {
+      // Slide the sheet out via the class transition, then reset to the
+      // flyout's closed baseline.
+      this.container.classList.remove('sheet-open');
+      this.container.addEventListener('transitionend', () => {
+        if (this.animationType === 'close' && this.isAnimating) this._finishSheetClose();
+      }, { once: true });
+      setTimeout(() => {
+        if (this.animationType === 'close' && this.isAnimating) this._finishSheetClose();
+      }, 500);
+      return;
+    }
+
+    this.container.style.padding = '0';
+    this.container.style.width = '0';
+    this.container.style.height = '0';
+    this.container.style.opacity = '0';
 
     this.container.addEventListener('transitionend', () => {
       this.container.classList.add('hidden');
@@ -212,6 +338,7 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
   }
 
   destroy() {
+    this._detachSheetViewportHandler();
     document.getElementById('openbook-search-results')
       ?.removeEventListener('click', this._resultsClickHandler);
     document.getElementById('openbook-search-input')

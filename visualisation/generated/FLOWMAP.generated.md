@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1815 functions in 381 modules · 10 object stores · 10 PG tables · 3714 edges
+**MarkdownDB** schema v28 · 1818 functions in 381 modules · 10 object stores · 10 PG tables · 3716 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -163,9 +163,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setResponsiveFormSize` | `components/newbookContainer/openClose` | — | — | read | — |
 | `destroyOpenBookContainer` | `components/openbookButton/openbookButton` | — | — | — | — |
 | `initializeOpenBookContainer` | `components/openbookButton/openbookButton` | — | — | read | — |
+| `OpenBookContainerManager._detachSheetViewportHandler` | `components/openbookContainer/index` | — | — | — | — |
+| `OpenBookContainerManager._finishSheetClose` | `components/openbookContainer/index` | — | — | write | — |
 | `OpenBookContainerManager.closeContainer` | `components/openbookContainer/index` | — | — | write | — |
 | `OpenBookContainerManager.constructor` | `components/openbookContainer/index` | — | — | — | — |
 | `OpenBookContainerManager.destroy` | `components/openbookContainer/index` | — | — | read | — |
+| `OpenBookContainerManager.openAsSheet` | `components/openbookContainer/index` | — | — | write | — |
 | `OpenBookContainerManager.openBook` | `components/openbookContainer/index` | — | — | — | — |
 | `OpenBookContainerManager.openContainer` | `components/openbookContainer/index` | — | `localStorage` | read/write | — |
 | `OpenBookContainerManager.refreshRecents` | `components/openbookContainer/index` | — | — | read | — |

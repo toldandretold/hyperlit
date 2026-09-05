@@ -193,3 +193,28 @@
 #openbook-container .search-results.hidden {
   display: none;
 }
+
+/* ── Mobile bottom sheet (class added by the manager on ≤480px opens) ──────
+   settings-container visual idiom: full-width, rounded top corners, slides
+   up. Keyboard-awareness is JS (visualViewport → inline `top` stamps in
+   openbookContainer/index.ts), NOT `bottom: 0` — iOS pans the layout
+   viewport when the keyboard opens, sinking bottom-anchored elements under
+   it. Transition covers transform/opacity ONLY: the keyboard re-top writes
+   inline top/height and must land instantly. */
+#openbook-container.openbook-sheet {
+  border-radius: 1em 1em 0 0;
+  transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+  transform: translateY(24px);
+  opacity: 0;
+}
+
+#openbook-container.openbook-sheet.sheet-open {
+  transform: none;
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  #openbook-container .search-input {
+    font-size: 16px; /* prevent iOS focus-zoom (same as #search-input / newbook inputs) */
+  }
+}

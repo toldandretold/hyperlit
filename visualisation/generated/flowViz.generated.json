@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1815,
+    "fnCount": 1818,
     "moduleCount": 381,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3714,
+    "edgeCount": 3716,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1376,6 +1376,22 @@
       "leaf": false
     },
     {
+      "id": "components/openbookContainer/index:OpenBookContainerManager._detachSheetViewportHandler",
+      "label": "OpenBookContainerManager._detachSheetViewportHandler",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager._finishSheetClose",
+      "label": "OpenBookContainerManager._finishSheetClose",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
       "id": "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
       "label": "OpenBookContainerManager.closeContainer",
       "kind": "fn",
@@ -1394,6 +1410,14 @@
     {
       "id": "components/openbookContainer/index:OpenBookContainerManager.destroy",
       "label": "OpenBookContainerManager.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/openbookContainer/index",
+      "leaf": false
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openAsSheet",
+      "label": "OpenBookContainerManager.openAsSheet",
       "kind": "fn",
       "stage": "components",
       "module": "components/openbookContainer/index",
@@ -16845,9 +16869,12 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/openbookContainer/index:OpenBookContainerManager._detachSheetViewportHandler",
+        "components/openbookContainer/index:OpenBookContainerManager._finishSheetClose",
         "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
         "components/openbookContainer/index:OpenBookContainerManager.constructor",
         "components/openbookContainer/index:OpenBookContainerManager.destroy",
+        "components/openbookContainer/index:OpenBookContainerManager.openAsSheet",
         "components/openbookContainer/index:OpenBookContainerManager.openBook",
         "components/openbookContainer/index:OpenBookContainerManager.openContainer",
         "components/openbookContainer/index:OpenBookContainerManager.refreshRecents",
@@ -22831,8 +22858,20 @@
       "rel": "call"
     },
     {
+      "id": "components/openbookContainer/index:OpenBookContainerManager._finishSheetClose__domwrite__dom",
+      "source": "components/openbookContainer/index:OpenBookContainerManager._finishSheetClose",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/openbookContainer/index:OpenBookContainerManager.closeContainer__domwrite__dom",
       "source": "components/openbookContainer/index:OpenBookContainerManager.closeContainer",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/openbookContainer/index:OpenBookContainerManager.openAsSheet__domwrite__dom",
+      "source": "components/openbookContainer/index:OpenBookContainerManager.openAsSheet",
       "target": "dom",
       "rel": "domwrite"
     },
