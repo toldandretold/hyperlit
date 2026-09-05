@@ -9,9 +9,11 @@ import { getSavedAnchor } from '../../scrolling/readingAnchor';
 
 const RECENT_LIMIT = 15;
 
-export async function loadRecentBooks(): Promise<LibraryRecord[]> {
+export async function loadRecentBooks(excludeBookId?: string): Promise<LibraryRecord[]> {
   const records = await getAllOfflineAvailableBooks();
   return records
+    // The book currently on screen has no business in an "open a book" list.
+    .filter((r) => !excludeBookId || String(r.book) !== excludeBookId)
     .map((r) => ({ r, at: getSavedAnchor(String(r.book))?.savedAt ?? r.timestamp ?? 0 }))
     .sort((a, b) => b.at - a.at)
     .slice(0, RECENT_LIMIT)
@@ -42,6 +44,7 @@ export function renderRecentList(
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'menu-row-btn openbook-recent-item';
+    btn.dataset.bookId = String(r.book);
     const title = document.createElement('span');
     title.className = 'openbook-recent-title';
     title.textContent = displayTitle(r);

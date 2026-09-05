@@ -57,8 +57,13 @@ test.describe('lost-ACK sync-token recovery (real server)', () => {
 
     // Edit #1 — the write whose ACK gets lost.
     await spa.typeAtEndOfActiveEditor(page, ' lost-write');
-    await expect.poll(() => calls.length, { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
-    expect(calls[0].serverStatus, 'the dropped sync must have COMMITTED server-side').toBe(200);
+    // Poll the STATUS, not calls.length: the harness pushes each entry at
+    // interception time with serverStatus=null and fills it when the real
+    // server answers — length>=1 races a slow response into reading null.
+    await expect.poll(
+      () => calls[0]?.serverStatus ?? null,
+      { timeout: 20_000, message: 'the dropped sync must have COMMITTED server-side (200)' },
+    ).toBe(200);
     expect(typeof calls[0].sentBody.sync_token, 'every sync POST carries a write id').toBe('string');
 
     // Edit #2 — content drifts past the committed snapshot, exactly like the paste

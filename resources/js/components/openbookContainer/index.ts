@@ -78,7 +78,8 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
   async refreshRecents() {
     const listEl = document.getElementById('openbook-recent-list');
     if (!listEl) return;
-    const records = await loadRecentBooks();
+    // Exclude the book currently on screen (live SPA binding from app.ts).
+    const records = await loadRecentBooks(String(book));
     renderRecentList(listEl, records, (bookId: string) => { void this.openBook(bookId); });
   }
 
@@ -186,13 +187,17 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
       this.updateState();
       this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
+      // animationType-guarded: if a close interrupts this open, the close owns
+      // isAnimating — an unguarded stale {once} listener firing on the CLOSE
+      // transition's end would clear it mid-close and skip the close's own
+      // guarded finish (the stuck-visible-sheet Escape race).
       this.container.addEventListener('transitionend', () => {
-        this.isAnimating = false;
+        if (this.animationType === 'open') this.isAnimating = false;
       }, { once: true });
 
       // Fallback timeout
       setTimeout(() => {
-        if (this.isAnimating) this.isAnimating = false;
+        if (this.isAnimating && this.animationType === 'open') this.isAnimating = false;
       }, 1000);
     });
   }
@@ -262,11 +267,15 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
       this.updateState();
       this._engageFocusTrap(); // focuses the CONTAINER, so the keyboard only opens when the user taps the field
 
+      // animationType-guarded — see openContainer: an unguarded stale open
+      // listener consumed by an interrupting close's transitionend cleared
+      // isAnimating before the close's guarded _finishSheetClose could run,
+      // leaving the sheet visually gone but never .hidden / reset.
       this.container.addEventListener('transitionend', () => {
-        this.isAnimating = false;
+        if (this.animationType === 'open') this.isAnimating = false;
       }, { once: true });
       setTimeout(() => {
-        if (this.isAnimating) this.isAnimating = false;
+        if (this.isAnimating && this.animationType === 'open') this.isAnimating = false;
       }, 1000);
     });
   }
@@ -330,11 +339,24 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
     this.container.style.height = '0';
     this.container.style.opacity = '0';
 
+    // Mirror-image guard: if an OPEN interrupts this close, this stale {once}
+    // listener fires on the open transition's end and must not slam .hidden
+    // onto the now-open panel.
     this.container.addEventListener('transitionend', () => {
+      if (this.animationType !== 'close') return;
       this.container.classList.add('hidden');
       this.container.style.visibility = 'hidden';
       this.isAnimating = false;
     }, { once: true });
+    // Backstop (same as the sheet branch): a missed transitionend must not
+    // leave isAnimating stuck true, which would block every future toggle.
+    setTimeout(() => {
+      if (this.animationType === 'close' && this.isAnimating) {
+        this.container.classList.add('hidden');
+        this.container.style.visibility = 'hidden';
+        this.isAnimating = false;
+      }
+    }, 500);
   }
 
   destroy() {

@@ -580,7 +580,16 @@ test.describe('Nested hypercite chain', () => {
     // L3 footnote ref to drill in. So we should only expect depth >= 1
     // here, not depth 3.
     await spa.navigateViaHypercite(page);
-    await page.waitForTimeout(1000); // allow restoration to settle
+    // Wait for the SPA transition (loading curtain) to finish — a fixed sleep
+    // here raced the book-A load and snapped mid-curtain (80% loading, no
+    // containers yet). Then wait for the deferred container restoration itself.
+    await spa.waitForTransition(page);
+    await page.waitForFunction(() => {
+      const main = document.getElementById('hyperlit-container');
+      return (main && main.classList.contains('open'))
+        || document.querySelectorAll('.hyperlit-container-stacked').length > 0;
+    }, null, { timeout: 15000 }).catch(() => {}); // snap() below reports the real state
+    await page.waitForTimeout(500); // let post-open layout settle
 
     const restoredSnap = await snap('A restored via hypercite click from B');
     expect(restoredSnap.bookId, 'cross-book click should land in book A').toBe(bookAId);

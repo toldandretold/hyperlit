@@ -292,6 +292,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* The CLOSED menu keeps its layout box (visibility:hidden, not display:none —
+     the glass pill needs the wrapper's height), and the labeled rows make that
+     box wide. Without this, the wrapper is an invisible fixed z-1002 hit-target
+     that swallows clicks on whatever sits under it (TOC tabs, book text).
+     Interactive children re-enable pointer events themselves. */
+  pointer-events: none;
 }
 
 #logoNavWrapper #logoContainer {
@@ -327,6 +333,7 @@
   opacity: 1;
   visibility: visible;
   transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: auto; /* wrapper is pointer-events:none; re-enable for the open menu */
 }
 
 .logo-nav-menu.hidden {

@@ -110,10 +110,11 @@ test.describe('File import via drag-and-drop (SPA flow)', () => {
     expect(importedBookId).toBeTruthy();
     expect(page.url()).toContain(`/${importedBookId}`);
 
-    // Imported content rendered
-    await page.waitForSelector('.main-content', { timeout: 10000 });
-    const renderedText = await page.locator('.main-content').textContent();
-    expect(renderedText).toContain('drag-and-drop import test');
+    // Imported content rendered. NOT waitForSelector + one-shot textContent():
+    // .main-content exists as an empty container before the chunk render lands,
+    // and under full-suite load that gap is long enough to read "" (same
+    // loaded-server tail as the overlay wait above). toContainText auto-retries.
+    await expect(page.locator('.main-content')).toContainText('drag-and-drop import test', { timeout: 30_000 });
 
     // ──────────────────────────────────────────────────────────
     // Phase 4: Post-import edit — same shape as authoring-workflow does

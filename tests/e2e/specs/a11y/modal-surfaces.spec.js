@@ -133,6 +133,19 @@ test.describe('modal surfaces keep the keyboard contract', () => {
     await assertKeyboardContract(page, { containerSel: '.add-to-shelf-menu', tabs: 6 });
   });
 
+  test('open-book flyout via logo nav (reader)', async ({ page }) => {
+    await gotoReader(page);
+    await page.click('#logoContainer');
+    await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 5000 });
+    await page.click('#openBookButton');
+    await assertKeyboardContract(page, {
+      containerSel: '#openbook-container',
+      returnFocusSel: '#openBookButton',
+    });
+    // Closing the flyout must leave the level-1 nav menu open.
+    await expect(page.locator('#logoNavMenu:not(.hidden)')).toHaveCount(1);
+  });
+
   test('logo nav menu: Escape closes and refocuses logo (reader)', async ({ page }) => {
     await gotoReader(page);
     await page.click('#logoContainer');
