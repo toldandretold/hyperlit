@@ -236,7 +236,7 @@ export class UserContainerManager extends (ContainerManager as any) {
       "forgot-password": { width: "280px", height: "auto" },
       "verify-email": { width: "280px", height: "auto" },
       "change-email": { width: "280px", height: "auto" },
-      profile: { width: "180px", height: "auto" }, /* fits "Verify Email" + icon on one line */
+      profile: { width: "160px", height: "auto" }, /* fits "Verify Email" + icon on one line (12px panel padding) */
       "transfer-prompt": { width: "320px", height: "auto" },
     };
 
@@ -278,17 +278,26 @@ export class UserContainerManager extends (ContainerManager as any) {
     // Keep the triggering nav row highlighted while this flyout is open.
     this.button?.classList.add("logo-nav-active");
 
-    this.container.style.padding = "20px";
+    // Profile is a menu of .menu-row-btn rows (like the nav column beside it)
+    // and looks bloated with form-sized padding; the form modes keep 20px.
+    this.container.style.padding = mode === "profile" ? "12px" : "20px";
+
+    // State flips SYNCHRONOUSLY (not in the rAF): the sibling flyouts'
+    // one-flyout-at-a-time cross-close checks `isOpen` the moment they open —
+    // a state flip deferred to the rAF left a ~1-frame window where this
+    // panel was "not open yet", dodged the cross-close, and then its rAF
+    // re-activated the shared overlay OVER the new panel (the stale
+    // #user-overlay that swallowed every click on the page).
+    this.isOpen = true;
+    (window as any).activeContainer = this.container.id;
+    this.updateState();
+    this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
     requestAnimationFrame(() => {
+      if (this.animationType !== "open") return; // a close interrupted before this frame
       this.container.style.width = width;
       this.container.style.height = height;
       this.container.style.opacity = "1";
-
-      this.isOpen = true;
-      (window as any).activeContainer = this.container.id;
-      this.updateState();
-      this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
       this.container.addEventListener("transitionend", () => {
         this.isAnimating = false;

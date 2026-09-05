@@ -91,7 +91,12 @@ function openLogoNav(logoBtn: any, navMenu: any) {
         closeLogoNav(logoBtn, navMenu);
       }
     };
-    document.addEventListener('click', clickOutsideHandler);
+    // CAPTURE phase: many widgets (the TOC toggle among them) stopPropagation
+    // in their own click handlers, which starved a bubble-phase outside-close
+    // — the nav (and its z-1003 flyout panels) then stayed open UNDER/OVER
+    // whatever panel the click opened. Capture runs before any of that and
+    // cannot be suppressed, so one listener covers every widget generically.
+    document.addEventListener('click', clickOutsideHandler, true);
   }, 0);
 
   // Keyboard: Escape closes the menu and returns focus to the logo (this is a
@@ -129,7 +134,7 @@ function closeLogoNav(logoBtn: any, navMenu: any) {
 
   // Remove click-outside handler
   if (clickOutsideHandler) {
-    document.removeEventListener('click', clickOutsideHandler);
+    document.removeEventListener('click', clickOutsideHandler, true);
     clickOutsideHandler = null;
   }
   if (escapeHandler) {
@@ -156,7 +161,7 @@ export function destroyLogoNav() {
 
   // Remove click-outside handler
   if (clickOutsideHandler) {
-    document.removeEventListener('click', clickOutsideHandler);
+    document.removeEventListener('click', clickOutsideHandler, true);
     clickOutsideHandler = null;
   }
   if (escapeHandler) {

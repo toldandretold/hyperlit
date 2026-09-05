@@ -177,15 +177,21 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
     const topPx = parseFloat(this.container.style.top) || 15;
     const targetH = Math.min(PANEL_HEIGHT, Math.max(200, getVisibleBottom() - topPx - 16));
 
+    // State flips SYNCHRONOUSLY (not in the rAF): the sibling flyouts'
+    // one-flyout-at-a-time cross-close checks `isOpen` the moment they open —
+    // an rAF-deferred flip left a 1-frame race where this panel dodged the
+    // cross-close and then re-activated the shared #user-overlay OVER the
+    // page (a stale overlay that swallowed every click).
+    this.isOpen = true;
+    (window as any).activeContainer = this.container.id;
+    this.updateState();
+    this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
+
     requestAnimationFrame(() => {
+      if (this.animationType !== 'open') return; // a close interrupted before this frame
       this.container.style.width = `${PANEL_WIDTH}px`;
       this.container.style.height = `${targetH}px`;
       this.container.style.opacity = '1';
-
-      this.isOpen = true;
-      (window as any).activeContainer = this.container.id;
-      this.updateState();
-      this._engageFocusTrap(); // base ContainerManager: Tab trap + Escape + focus restore
 
       // animationType-guarded: if a close interrupts this open, the close owns
       // isAnimating — an unguarded stale {once} listener firing on the CLOSE
@@ -259,13 +265,17 @@ export class OpenBookContainerManager extends (ContainerManager as any) {
       vv.addEventListener('scroll', this._sheetViewportHandler);
     }
 
-    requestAnimationFrame(() => {
-      this.container.classList.add('sheet-open');
+    // Synchronous state flip — same cross-close race rationale as the
+    // desktop path (a deferred flip could re-activate the shared overlay
+    // after an interrupting close).
+    this.isOpen = true;
+    (window as any).activeContainer = this.container.id;
+    this.updateState();
+    this._engageFocusTrap(); // focuses the CONTAINER, so the keyboard only opens when the user taps the field
 
-      this.isOpen = true;
-      (window as any).activeContainer = this.container.id;
-      this.updateState();
-      this._engageFocusTrap(); // focuses the CONTAINER, so the keyboard only opens when the user taps the field
+    requestAnimationFrame(() => {
+      if (this.animationType !== 'open') return; // a close interrupted before this frame
+      this.container.classList.add('sheet-open');
 
       // animationType-guarded — see openContainer: an unguarded stale open
       // listener consumed by an interrupting close's transitionend cleared

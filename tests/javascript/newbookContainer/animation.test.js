@@ -68,7 +68,12 @@ describe('finishClose', () => {
     expect(host.container.style.right).toBe('');
     expect(host.container.style.top).toBe('');
     expect(host.container.style.transform).toBe('');
-    expect(host.overlay.style.display).toBe('none');
+    // Overlay inline styles are CLEARED, not stamped display:none —
+    // #source-overlay is shared with the source container, and a leftover
+    // inline display:none/opacity:0 overrode its `.active` open state
+    // (the "source container won't close on outside tap" bug).
+    expect(host.overlay.style.display).toBe('');
+    expect(host.overlay.style.opacity).toBe('');
     expect(host.isAnimating).toBe(false);
   });
 

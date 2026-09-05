@@ -157,7 +157,11 @@ describe('close — both completion paths converge to the same end state', () =>
     expect(container.style.right).toBe('');
     expect(container.style.top).toBe('');
     expect(container.style.transform).toBe('');
-    expect(overlay.style.display).toBe('none');
+    // Overlay inline styles cleared (NOT display:none) — the overlay is
+    // shared with the source container; leftover inline styles overrode its
+    // `.active` class and made source unclosable by outside tap.
+    expect(overlay.style.display).toBe('');
+    expect(overlay.style.opacity).toBe('');
   }
 
   it('via dispatched transitionend', () => {

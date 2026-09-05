@@ -100,10 +100,17 @@
 }
 
 /* Profile rows are .menu-row-btn (components/menuRow.css owns look + hover) —
-   this is just the column spacing between them. */
+   this is just the column spacing between them. Tight, so the panel reads at
+   the same density as the logo-nav column beside it (rows already carry 10px
+   internal padding). */
 #user-container .user-profile {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
+  /* The open panel carries the legacy `.open` class whose global rule
+     (hyperlitEditButton.css — meant for the 36px circular buttons) makes the
+     CONTAINER a centering flex row, shrink-wrapping this menu to its text
+     width and floating it mid-panel. Full width restores edge-to-edge rows. */
+  width: 100%;
 }
 

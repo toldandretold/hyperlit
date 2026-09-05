@@ -68,6 +68,54 @@ async function seedASecondCachedBook(page, spa) {
   return href;
 }
 
+test.describe('Reader page: flyout switching leaves no stale overlay', () => {
+  test('rapid flyout switching, then source-container still closes on overlay tap', async ({ page, spa }) => {
+    // Regression: the flyout managers used to flip isOpen inside a rAF while
+    // the one-flyout-at-a-time cross-close checked it synchronously — fast
+    // switching could leave a shared overlay (#user-overlay) stuck `active`,
+    // stacked over #source-overlay, swallowing every close tap on the page.
+    test.skip(!READER_BOOK, 'E2E_READER_BOOK not set in .env.e2e');
+    test.setTimeout(60_000);
+
+    await page.goto(`/${READER_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    expect(await spa.getStructure(page)).toBe('reader');
+
+    await openLogoNav(page);
+    // Rapid switching across all three flyouts (no settling waits — the race
+    // window is sub-frame, so hammer it).
+    for (const sel of ['#userButton', '#openBookButton', '#newBookButton', '#userButton', '#openBookButton', '#newBookButton']) {
+      await page.click(sel);
+    }
+    await page.waitForTimeout(600);
+    // Close the nav (closes any open flyout with it).
+    await page.click('#logoContainer');
+    await page.waitForSelector('#logoNavMenu.hidden', { timeout: 3000 });
+    await page.waitForTimeout(600);
+
+    // Invariant: no overlay left active with everything closed.
+    const staleOverlays = await page.evaluate(() =>
+      ['user-overlay', 'source-overlay'].filter((id) =>
+        document.getElementById(id)?.classList.contains('active')));
+    expect(staleOverlays, 'no overlay may stay active after all flyouts close').toEqual([]);
+
+    // And the source container (which shares #source-overlay with newbook)
+    // must still close on an overlay tap.
+    const cloud = page.locator('#cloudRef');
+    test.skip(!(await cloud.isVisible().catch(() => false)), 'no visible #cloudRef');
+    await cloud.click();
+    await page.waitForFunction(() =>
+      document.getElementById('source-container')?.classList.contains('open'), null, { timeout: 5000 });
+    await page.waitForTimeout(400);
+    // Raw coordinate click: the overlay is a transparent click-catcher, which
+    // Playwright's locator click refuses as "not visible" — the mouse click
+    // hits whatever is topmost at the point, which must be the overlay.
+    await page.mouse.click(8, 600);
+    await page.waitForFunction(() =>
+      !document.getElementById('source-container')?.classList.contains('open'), null, { timeout: 5000 });
+  });
+});
+
 test.describe('Reader page: Open (recents + search) flyout in logo nav menu', () => {
   for (const viewport of VIEWPORTS) {
     test(`[${viewport.label}] Open panel: recents, search, exclusion, navigation`, async ({ page, spa }, testInfo) => {

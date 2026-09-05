@@ -17,6 +17,11 @@
   overflow: hidden; /* the animated width/height must clip the content */
   display: flex;
   flex-direction: column;
+  /* Explicit: the legacy `.open` class (added while open) globally sets
+     justify-content/align-items center for the circular buttons — pin the
+     column layout so it can't leak in. */
+  justify-content: flex-start;
+  align-items: stretch;
 }
 
 #openbook-container.hidden {
@@ -25,7 +30,10 @@
 
 /* ── Recent (top; shrinks and scrolls inside the FIXED-height panel) ───── */
 #openbook-recent {
-  flex: 0 1 auto;
+  /* Shrink factor 999: when content overflows the fixed panel, RECENT absorbs
+     effectively all of it (its list scrolls). With equal factors the search
+     block lost its proportional share too and the input got clipped. */
+  flex: 0 999 auto;
   min-height: 0; /* let the inner list shrink and scroll */
   display: flex;
   flex-direction: column;
@@ -47,10 +55,6 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Pull the scrollbar out of the content column, toward the panel's edge
-     (the panel has 16px padding; this leaves the bar 4px from the glass). */
-  margin-right: -12px;
-  padding-right: 12px;
 }
 
 /* Two-line rows (title over author) — stacked, so override the .menu-row-btn
@@ -83,30 +87,8 @@
   opacity: 0.7;
 }
 
-/* Visible slim scrollbar on the scrollable areas — styling the webkit
-   scrollbar opts out of macOS's auto-hiding overlay bars, so an overflowing
-   list SHOWS its bar and the user knows there's more below. */
-.openbook-recent-list,
-#openbook-container .search-results {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: color-mix(in srgb, var(--color-text) 30%, transparent) transparent;
-}
-
-.openbook-recent-list::-webkit-scrollbar,
-#openbook-container .search-results::-webkit-scrollbar {
-  width: 6px;
-}
-
-.openbook-recent-list::-webkit-scrollbar-track,
-#openbook-container .search-results::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.openbook-recent-list::-webkit-scrollbar-thumb,
-#openbook-container .search-results::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-text) 30%, transparent);
-  border-radius: 3px;
-}
+/* Scrollbars: platform default (auto-hiding overlay) — a permanently visible
+   bar was tried and looked worse. */
 
 /* ── Search (pinned to the panel bottom; margin-top:auto keeps it there even
       when the content above is short or hidden) ──────────────────────────── */
@@ -138,6 +120,7 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  flex-shrink: 0; /* in the anchor COLUMN: the input row never squeezes vertically (the results do) */
 }
 
 #openbook-container .openbook-search-icon {
@@ -148,14 +131,15 @@
 }
 
 #openbook-container .search-input {
-  /* Width is flex-driven (fill the row after the icon) — a width:100% here
-     over-sizes the flex basis past the panel. */
-  flex: 1 1 auto;
+  /* Width is flex-driven (fill the row after the icon): grow AND shrink with
+     basis 0 — a textarea's intrinsic width (~20 cols, browser-dependent) must
+     never act as a floor, or the input overflows the row and gets clipped
+     flush against the panel edge (the killed right-hand padding bug). */
+  flex: 1 1 0px;
   min-width: 0;
   width: auto;
   box-sizing: border-box;
   resize: none;
-  flex-shrink: 0; /* the RESULTS scroll; the input never gets squeezed */
   /* The searchBox factory's autosize() stamps an inline height = scrollHeight
      at init — which is 0 here because this panel is display:none at init (the
      homepage's box is always visible, so it never hits this). min-height
@@ -180,9 +164,7 @@
   max-height: none;
   overflow-y: auto;
   overscroll-behavior: contain; /* Prevent scroll chaining to the reader behind */
-  /* Same scrollbar pull-right as .openbook-recent-list */
-  margin: 0 -12px 8px 0;
-  padding-right: 12px;
+  margin: 0 0 8px 0;
   border: none;
   box-shadow: none;
   background: transparent;

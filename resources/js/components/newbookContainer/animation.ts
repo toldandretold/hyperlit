@@ -53,7 +53,17 @@ export function finishClose(host: ContainerHost): void {
 
   resetAnimationState(host);
 
-  if (host.overlay) host.overlay.style.display = 'none';
+  // CLEAR the overlay's inline styles rather than stamping display:none —
+  // #source-overlay is SHARED with the source container, whose open relies on
+  // the `.active` class alone. A leftover inline `display: none` (or the
+  // close-path's `opacity: 0`) overrode `.active`, leaving the overlay 0×0:
+  // source-container then opened fine but could never be closed by an
+  // outside tap (the click fell through to the page). Without `.active` the
+  // stylesheet already renders the overlay invisible and unclickable.
+  if (host.overlay) {
+    host.overlay.style.display = '';
+    host.overlay.style.opacity = '';
+  }
 
   if (host.originalContent && host.container.innerHTML !== host.originalContent) {
     host.container.innerHTML = host.originalContent;

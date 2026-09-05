@@ -283,11 +283,15 @@
   position: fixed;
   top: 15px;
   left: 10px;
-  /* Above the flyout OVERLAYS (998/999) so the level-1 nav rows stay clickable
-     while a level-2 flyout is open (clicking another row swaps the flyout) —
-     but BELOW the flyout panels themselves (1003): when a narrow viewport
-     clamps a panel left over this column, the panel is the top of the stack. */
-  z-index: 1002;
+  /* Closed: below full panels like the TOC (1001) — the logo must never paint
+     over them. Open (menu showing, :has below): lifted to 1000 — above the
+     flyout OVERLAYS (998/999) so the level-1 nav rows stay clickable while a
+     level-2 flyout is open (clicking another row swaps the flyout), but still
+     BELOW the TOC (1001) and the flyout panels (1003): when a narrow viewport
+     clamps a panel over this column, the panel is the top of the stack, and
+     an open TOC always covers the nav. Flyouts only exist while the menu is
+     open (closeLogoNav closes them), so the lift is never needed closed. */
+  z-index: 999;
   transition: left 0.3s ease; /* Smooth transition when JS repositions on desktop */
   display: flex;
   flex-direction: column;
@@ -298,6 +302,10 @@
      that swallows clicks on whatever sits under it (TOC tabs, book text).
      Interactive children re-enable pointer events themselves. */
   pointer-events: none;
+}
+
+#logoNavWrapper:has(.logo-nav-menu:not(.hidden)) {
+  z-index: 1000; /* see the z-index note on #logoNavWrapper above */
 }
 
 #logoNavWrapper #logoContainer {

@@ -10,7 +10,7 @@ export function showUserProfile(self: any) {
   if (!self.isOpen) {
     self.openContainer("profile");
   } else {
-    self.container.style.width = "180px"; /* keep in sync with dimensions.profile */
+    self.container.style.width = "160px"; /* keep in sync with dimensions.profile */
   }
 
   // Attach button listeners
