@@ -32,6 +32,7 @@
     "initial-navigation-overlay": { "module": "resources/views/layout.blade.php (same progress overlay, boot instance)", "wiring": "non-modal:resume-curtain mode adds one focusable go-to-top button (focus seats on it; Enter=top, Escape=reveal in place; RevealGate 4s cap); plain progress mode stays inert pointer-events none" },
     "reconvert-blocking-overlay": { "module": "resources/js/utilities/reconvertHandoff.ts", "wiring": "inert:blocking wait overlay during reconvert handoff, no focusables" },
     "page-drop-overlay": { "module": "resources/js/components/fileDropTarget/fileDropTarget.ts", "wiring": "inert:drag-drop hint, display none until OS drag" },
+    "image-drop-overlay": { "module": "resources/js/divEditor/imageDrop/index.ts", "wiring": "inert:drag-drop insertion hint, pointer-events none, display none until an OS file drag in edit mode" },
     "progress-modal": { "module": "resources/css/components/progressModal.css only", "wiring": "css-only:no live JS creator found; prune the CSS or register the module when revived" }
   }
 }

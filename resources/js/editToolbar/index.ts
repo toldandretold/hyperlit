@@ -55,6 +55,8 @@ class EditToolbar {
   footnoteButton!: HTMLElement | null;
   undoButton!: HTMLButtonElement | null;
   redoButton!: HTMLButtonElement | null;
+  imageButton!: HTMLElement | null;
+  imageFileInput!: HTMLInputElement | null;
   allFormattingButtons!: (HTMLElement | null)[];
   headingSubmenu!: HTMLElement | null;
   blockquoteSubmenu!: HTMLElement | null;
@@ -98,6 +100,11 @@ class EditToolbar {
     this.citationButton = document.getElementById("citationButton");
     this.undoButton = document.getElementById("undoButton") as HTMLButtonElement | null;
     this.redoButton = document.getElementById("redoButton") as HTMLButtonElement | null;
+    this.imageButton = document.getElementById("imageButton");
+    this.imageFileInput = document.getElementById("imageFileInput") as HTMLInputElement | null;
+    this.imageFileInput?.addEventListener("change", () => {
+      void this._handleImageFilesChosen();
+    });
 
     this.isMobile = window.innerWidth <= 768;
 
@@ -154,6 +161,7 @@ class EditToolbar {
       this.blockquoteButton,
       this.codeButton,
       this.footnoteButton,
+      this.imageButton,
       this.undoButton,
       this.redoButton
     ].filter(btn => btn); // Filter out any null buttons
@@ -504,6 +512,11 @@ class EditToolbar {
         action: () => this.openCitationSearch(),
       },
       {
+        element: this.imageButton,
+        name: "image",
+        action: () => this.openImagePicker(),
+      },
+      {
         element: this.undoButton,
         name: "undo",
         action: () => this._handleUndoButton(),
@@ -584,6 +597,68 @@ class EditToolbar {
 
     // Single consolidated log after initialization
     verbose.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
+  }
+
+  /**
+   * Image button: preserve the caret's node as the insertion anchor (the
+   * generic mousedown/touchstart handlers already stored the selection), then
+   * open the native picker. Insertion happens in _handleImageFilesChosen.
+   */
+  openImagePicker() {
+    if (!this.imageFileInput) return;
+    this.imageFileInput.click();
+  }
+
+  /**
+   * Picker result → upload each file and insert it as a NEW image node after
+   * the caret's block (fallback: the end of the last chunk). The whole
+   * upload+insert flow lives in divEditor/imageDrop/insertImageFiles, shared
+   * with drag-and-drop.
+   */
+  async _handleImageFilesChosen() {
+    const input = this.imageFileInput;
+    if (!input || !input.files || input.files.length === 0) return;
+    const files = Array.from(input.files);
+    // Reset immediately so re-picking the same file fires `change` again.
+    input.value = "";
+
+    const editable = document.querySelector(this.editableSelector);
+
+    // Anchor = the block node holding the stored selection (sub-book aware).
+    const { resolveTopLevelNode } = await import("../utilities/nodeResolve");
+    let anchor: HTMLElement | null = null;
+    const { range } = this.selectionManager.getWorkingSelection();
+    const rangeContainer = range?.commonAncestorContainer ?? null;
+    const rangeEl = rangeContainer
+      ? (rangeContainer.nodeType === Node.TEXT_NODE ? rangeContainer.parentElement : (rangeContainer as Element))
+      : null;
+    if (rangeEl) {
+      const resolveRoot = rangeEl.closest('[data-book-id][contenteditable="true"]') ?? editable;
+      anchor = resolveTopLevelNode(rangeEl, resolveRoot);
+    }
+    // Fallback: the last numeric-id node of the last chunk in the main editable.
+    if (!anchor && editable) {
+      const chunks = editable.querySelectorAll(".chunk");
+      const lastChunk = chunks.length ? chunks[chunks.length - 1] : editable;
+      const candidates = Array.from(lastChunk?.children ?? []).filter((el) => /^\d+(\.\d+)?$/.test(el.id));
+      anchor = (candidates[candidates.length - 1] as HTMLElement | undefined) ?? null;
+    }
+    if (!anchor) {
+      log.error("Image insert: no anchor node found for the caret", "editToolbar/index");
+      return;
+    }
+
+    // Sub-book rule: the book identity comes from the surrounding
+    // [data-book-id], never from the main container's id.
+    const bookAttr = anchor.closest("[data-book-id]")?.getAttribute("data-book-id");
+    const bookId = bookAttr ? asBookId(bookAttr) : this.currentBookId;
+    if (!bookId) return;
+
+    const { insertImageFiles } = await import("../divEditor/imageDrop/insertImageFiles");
+    const result = await insertImageFiles(files, anchor, "after", bookId);
+    if (result.inserted.length) {
+      verbose.content(`Toolbar image insert: ${result.inserted.length} node(s) added`, "editToolbar/index");
+    }
   }
 
   /**

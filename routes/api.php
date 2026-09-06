@@ -438,6 +438,10 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     // shared per-user bucket they starved against the tree pull/push and 429'd.
     Route::get('/books/{book}/images', [\App\Http\Controllers\BookImageController::class, 'index'])
         ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
+    // Editor image upload (drop / toolbar insert): raw body, server mints the
+    // filename. Same owner + HLENC1 magic guard as the PUT swap.
+    Route::post('/books/{book}/images', [\App\Http\Controllers\BookImageController::class, 'store'])
+        ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');
     Route::put('/books/{book}/images/{filename}', [\App\Http\Controllers\BookImageController::class, 'update'])
         ->where('filename', '[a-zA-Z0-9\-_.]+\.(jpg|jpeg|png|gif|webp|svg)')
         ->withoutMiddleware('throttle:120,1')->middleware('throttle:blob-swap');

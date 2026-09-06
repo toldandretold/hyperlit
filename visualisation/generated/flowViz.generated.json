@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1818,
-    "moduleCount": 381,
+    "fnCount": 1827,
+    "moduleCount": 385,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3716,
+    "edgeCount": 3738,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6317,6 +6317,38 @@
       "leaf": false
     },
     {
+      "id": "divEditor/imageDrop/buildImageNode:buildImageNode",
+      "label": "buildImageNode",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/imageDrop/buildImageNode",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/imageDrop/index:addImageDropListener",
+      "label": "addImageDropListener",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/imageDrop/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/imageDrop/index:removeImageDropListener",
+      "label": "removeImageDropListener",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/imageDrop/index",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "label": "insertImageFiles",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/imageDrop/insertImageFiles",
+      "leaf": false
+    },
+    {
       "id": "divEditor/index:ensureMinimumDocumentStructure",
       "label": "ensureMinimumDocumentStructure",
       "kind": "fn",
@@ -6378,6 +6410,22 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/inputHandler",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeAfter",
+      "label": "insertBlockNodeAfter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/insertBlockNode",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "label": "insertBlockNodeBefore",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/insertBlockNode",
       "leaf": false
     },
     {
@@ -7498,6 +7546,14 @@
       "leaf": true
     },
     {
+      "id": "editToolbar/index:EditToolbar._handleImageFilesChosen",
+      "label": "EditToolbar._handleImageFilesChosen",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
       "id": "editToolbar/index:EditToolbar._handleRedoButton",
       "label": "EditToolbar._handleRedoButton",
       "kind": "fn",
@@ -7624,6 +7680,14 @@
       "stage": "editToolbar",
       "module": "editToolbar/index",
       "leaf": false
+    },
+    {
+      "id": "editToolbar/index:EditToolbar.openImagePicker",
+      "label": "EditToolbar.openImagePicker",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
     },
     {
       "id": "editToolbar/index:EditToolbar.saveToIndexedDB",
@@ -11653,6 +11717,14 @@
     {
       "id": "lazyLoader/imageDims:clearImageDimsCache",
       "label": "clearImageDimsCache",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/imageDims",
+      "leaf": true
+    },
+    {
+      "id": "lazyLoader/imageDims:patchImageDims",
+      "label": "patchImageDims",
       "kind": "fn",
       "stage": "lazyLoader",
       "module": "lazyLoader/imageDims",
@@ -18006,6 +18078,34 @@
       ]
     },
     {
+      "id": "divEditor/imageDrop/buildImageNode",
+      "label": "divEditor/imageDrop/buildImageNode",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/imageDrop/buildImageNode:buildImageNode"
+      ]
+    },
+    {
+      "id": "divEditor/imageDrop/index",
+      "label": "divEditor/imageDrop/index",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/imageDrop/index:addImageDropListener",
+        "divEditor/imageDrop/index:removeImageDropListener"
+      ]
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles",
+      "label": "divEditor/imageDrop/insertImageFiles",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/imageDrop/insertImageFiles:insertImageFiles"
+      ]
+    },
+    {
       "id": "divEditor/index",
       "label": "divEditor/index",
       "stage": "divEditor",
@@ -18027,6 +18127,16 @@
       "band": "capture",
       "fnIds": [
         "divEditor/inputHandler:createInputHandler"
+      ]
+    },
+    {
+      "id": "divEditor/insertBlockNode",
+      "label": "divEditor/insertBlockNode",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/insertBlockNode:insertBlockNodeAfter",
+        "divEditor/insertBlockNode:insertBlockNodeBefore"
       ]
     },
     {
@@ -18349,6 +18459,7 @@
       "stage": "editToolbar",
       "band": "capture",
       "fnIds": [
+        "editToolbar/index:EditToolbar._handleImageFilesChosen",
         "editToolbar/index:EditToolbar._handleRedoButton",
         "editToolbar/index:EditToolbar._handleUndoButton",
         "editToolbar/index:EditToolbar._updateUndoRedoButtons",
@@ -18365,6 +18476,7 @@
         "editToolbar/index:EditToolbar.init",
         "editToolbar/index:EditToolbar.insertFootnote",
         "editToolbar/index:EditToolbar.openCitationSearch",
+        "editToolbar/index:EditToolbar.openImagePicker",
         "editToolbar/index:EditToolbar.saveToIndexedDB",
         "editToolbar/index:EditToolbar.setBookId",
         "editToolbar/index:EditToolbar.setEditMode",
@@ -19799,6 +19911,7 @@
       "fnIds": [
         "lazyLoader/imageDims:applyImageDims",
         "lazyLoader/imageDims:clearImageDimsCache",
+        "lazyLoader/imageDims:patchImageDims",
         "lazyLoader/imageDims:primeImageDims"
       ]
     },
@@ -21402,6 +21515,12 @@
       "rel": "call"
     },
     {
+      "id": "components/editButton/index:disableEditMode__call__divEditor/imageDrop/index:removeImageDropListener",
+      "source": "components/editButton/index:disableEditMode",
+      "target": "divEditor/imageDrop/index:removeImageDropListener",
+      "rel": "call"
+    },
+    {
       "id": "components/editButton/index:disableEditMode__call__editToolbar/index:getEditToolbar",
       "source": "components/editButton/index:disableEditMode",
       "target": "editToolbar/index:getEditToolbar",
@@ -21486,6 +21605,12 @@
       "id": "components/editButton/index:enableEditMode__call__components/editButton/lock:replaceEditButtonWithLock",
       "source": "components/editButton/index:enableEditMode",
       "target": "components/editButton/lock:replaceEditButtonWithLock",
+      "rel": "call"
+    },
+    {
+      "id": "components/editButton/index:enableEditMode__call__divEditor/imageDrop/index:addImageDropListener",
+      "source": "components/editButton/index:enableEditMode",
+      "target": "divEditor/imageDrop/index:addImageDropListener",
       "rel": "call"
     },
     {
@@ -26553,6 +26678,60 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/imageDrop/buildImageNode:buildImageNode__domwrite__dom",
+      "source": "divEditor/imageDrop/buildImageNode:buildImageNode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/imageDrop/index:addImageDropListener__call__divEditor/imageDrop/index:removeImageDropListener",
+      "source": "divEditor/imageDrop/index:addImageDropListener",
+      "target": "divEditor/imageDrop/index:removeImageDropListener",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/index:addImageDropListener__call__divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "source": "divEditor/imageDrop/index:addImageDropListener",
+      "target": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/index:addImageDropListener__domwrite__dom",
+      "source": "divEditor/imageDrop/index:addImageDropListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/imageDrop/index:removeImageDropListener__domwrite__dom",
+      "source": "divEditor/imageDrop/index:removeImageDropListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/imageDrop/buildImageNode:buildImageNode",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "divEditor/imageDrop/buildImageNode:buildImageNode",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/insertBlockNode:insertBlockNodeAfter",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "divEditor/insertBlockNode:insertBlockNodeAfter",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/insertBlockNode:insertBlockNodeBefore",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__domwrite__dom",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "divEditor/index:ensureMinimumDocumentStructure__call__divEditor/domUtilities:ensureMinimumDocumentStructure",
       "source": "divEditor/index:ensureMinimumDocumentStructure",
       "target": "divEditor/domUtilities:ensureMinimumDocumentStructure",
@@ -26643,6 +26822,30 @@
       "source": "divEditor/inputHandler:createInputHandler",
       "target": "divEditor/editorState:queueNodeForSave",
       "rel": "call"
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeAfter__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/insertBlockNode:insertBlockNodeAfter",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeAfter__domwrite__dom",
+      "source": "divEditor/insertBlockNode:insertBlockNodeAfter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeBefore__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/insertBlockNode:insertBlockNodeBefore__domwrite__dom",
+      "source": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "divEditor/keydownGuards/lastNodeGuard:handleLastNodeGuard__domwrite__dom",
@@ -28299,6 +28502,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/imageDrop/index:addImageDropListener",
+      "source": "dom",
+      "target": "divEditor/imageDrop/index:addImageDropListener",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "source": "dom",
+      "target": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/index:startObserving",
       "source": "dom",
       "target": "divEditor/index:startObserving",
@@ -28314,6 +28529,18 @@
       "id": "dom__domread__divEditor/inputHandler:createInputHandler",
       "source": "dom",
       "target": "divEditor/inputHandler:createInputHandler",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/insertBlockNode:insertBlockNodeAfter",
+      "source": "dom",
+      "target": "divEditor/insertBlockNode:insertBlockNodeAfter",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/insertBlockNode:insertBlockNodeBefore",
+      "source": "dom",
+      "target": "divEditor/insertBlockNode:insertBlockNodeBefore",
       "rel": "domread"
     },
     {
@@ -28614,6 +28841,12 @@
       "id": "dom__domread__editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
       "source": "dom",
       "target": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/index:EditToolbar._handleImageFilesChosen",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar._handleImageFilesChosen",
       "rel": "domread"
     },
     {
@@ -31306,6 +31539,18 @@
       "source": "editToolbar/headingSubmenu:HeadingSubmenu.openHeadingSubmenu",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._handleImageFilesChosen__call__divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "source": "editToolbar/index:EditToolbar._handleImageFilesChosen",
+      "target": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/index:EditToolbar._handleImageFilesChosen__call__indexedDB/types:asBookId",
+      "source": "editToolbar/index:EditToolbar._handleImageFilesChosen",
+      "target": "indexedDB/types:asBookId",
+      "rel": "call"
     },
     {
       "id": "editToolbar/index:EditToolbar._updateUndoRedoButtons__domwrite__dom",
@@ -45199,6 +45444,11 @@
     },
     {
       "source": "components/editButton/index",
+      "target": "divEditor/imageDrop/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/editButton/index",
       "target": "divEditor/index",
       "kind": "lazy"
     },
@@ -46583,6 +46833,21 @@
       "kind": "static"
     },
     {
+      "source": "divEditor/imageDrop/index",
+      "target": "divEditor/imageDrop/insertImageFiles",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/imageDrop/insertImageFiles",
+      "target": "divEditor/imageDrop/buildImageNode",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/imageDrop/insertImageFiles",
+      "target": "divEditor/insertBlockNode",
+      "kind": "static"
+    },
+    {
       "source": "divEditor/index",
       "target": "components/cloudRef/editIndicator",
       "kind": "static"
@@ -46669,6 +46934,11 @@
     },
     {
       "source": "divEditor/inputHandler",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/insertBlockNode",
       "target": "divEditor/editorState",
       "kind": "static"
     },
@@ -46971,6 +47241,11 @@
       "source": "editToolbar/index",
       "target": "indexedDB/types",
       "kind": "static"
+    },
+    {
+      "source": "editToolbar/index",
+      "target": "divEditor/imageDrop/insertImageFiles",
+      "kind": "lazy"
     },
     {
       "source": "editToolbar/index",
@@ -50248,6 +50523,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 267
+    "lazyCount": 269
   }
 }

@@ -28,7 +28,7 @@ interface ImageRow {
  * rate-limit window and fail the whole pass (see audioBlobs.ts; images share
  * the `blob-swap` limiter and the same failure mode on image-heavy books).
  */
-async function fetchOutlastingThrottle(input: string, init: RequestInit, attempts = 4): Promise<Response> {
+export async function fetchOutlastingThrottle(input: string, init: RequestInit, attempts = 4): Promise<Response> {
   let response = await fetch(input, init);
   for (let i = 0; i < attempts && response.status === 429; i++) {
     const retryAfter = Number(response.headers.get('Retry-After'));

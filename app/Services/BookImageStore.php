@@ -148,6 +148,87 @@ class BookImageStore
             ]);
     }
 
+    /**
+     * Store a single client-uploaded image (the "Phase III upload"): mint a
+     * collision-free filename from the user's original name, move the bytes
+     * into the store, and insert the row. For an encrypted upload the bytes
+     * are an HLENC1 blob the server can't measure, so the client supplies
+     * width/height (plaintext dims are an accepted leak — docs/e2ee.md) and
+     * the mime is derived from the extension.
+     *
+     * @return array{filename: string, mime: string, bytes: int, width: ?int, height: ?int}
+     */
+    public function storeUploaded(string $book, string $originalName, string $bytesPath, bool $encrypted, ?int $width, ?int $height): array
+    {
+        $ext = $this->extension($originalName);
+        if (! in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
+            throw new \InvalidArgumentException("Disallowed image extension: {$ext}");
+        }
+
+        $base = \Illuminate\Support\Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
+        if ($base === '') {
+            $base = 'image';
+        }
+        $base = substr($base, 0, 80);
+
+        $destDir = $this->dir($book);
+        File::ensureDirectoryExists($destDir, 0755);
+
+        // Random prefix keeps repeat uploads of the same name distinct
+        // (harvest precedent: ArticleImageHarvester::filenameFor).
+        $filename = null;
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $candidate = bin2hex(random_bytes(4))."-{$base}.{$ext}";
+            $this->assertSafeFilename($candidate);
+            $rowExists = DB::connection('pgsql_admin')->table('book_images')
+                ->where('book', $book)->where('filename', $candidate)->exists();
+            if (! $rowExists && ! File::exists("{$destDir}/{$candidate}")) {
+                $filename = $candidate;
+                break;
+            }
+        }
+        if ($filename === null) {
+            throw new \RuntimeException('Could not mint a unique image filename');
+        }
+
+        if (! $encrypted) {
+            [$width, $height] = $this->dimensions($bytesPath);
+            $mime = $this->mimeFor($bytesPath, $filename);
+        } else {
+            $mime = $this->mimeForExtension($ext);
+        }
+
+        // Atomic tmp+rename within the store's filesystem (replaceBytes pattern).
+        $dest = "{$destDir}/{$filename}";
+        $tmp = $dest.'.tmp'.bin2hex(random_bytes(4));
+        File::copy($bytesPath, $tmp);
+        @chmod($tmp, 0644);
+        File::move($tmp, $dest);
+
+        $bytes = filesize($dest) ?: 0;
+
+        DB::connection('pgsql_admin')->table('book_images')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'book' => $book,
+            'filename' => $filename,
+            'mime' => $mime,
+            'bytes' => $bytes,
+            'width' => $width,
+            'height' => $height,
+            'encrypted' => $encrypted,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return [
+            'filename' => $filename,
+            'mime' => $mime,
+            'bytes' => $bytes,
+            'width' => $width,
+            'height' => $height,
+        ];
+    }
+
     /** Delete a book's image directory + all its rows (best-effort callers). */
     public function purgeBook(string $book): void
     {
@@ -188,6 +269,19 @@ class BookImageStore
         $info = @getimagesize($path);
 
         return $info ? [$info[0], $info[1]] : [null, null];
+    }
+
+    /** Mime by extension alone — for encrypted uploads, whose bytes are ciphertext. */
+    private function mimeForExtension(string $ext): string
+    {
+        return match ($ext) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            default => 'application/octet-stream',
+        };
     }
 
     private function mimeFor(string $path, string $filename): string

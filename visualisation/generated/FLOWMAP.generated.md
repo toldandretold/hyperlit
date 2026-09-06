@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1818 functions in 381 modules · 10 object stores · 10 PG tables · 3716 edges
+**MarkdownDB** schema v28 · 1827 functions in 385 modules · 10 object stores · 10 PG tables · 3738 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -641,6 +641,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EnterKeyHandler.constructor` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.destroy` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.handleKeyDown` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
+| `buildImageNode` | `divEditor/imageDrop/buildImageNode` | — | — | write | — |
+| `addImageDropListener` | `divEditor/imageDrop/index` | — | — | read/write | — |
+| `removeImageDropListener` | `divEditor/imageDrop/index` | — | — | write | — |
+| `insertImageFiles` | `divEditor/imageDrop/insertImageFiles` | — | — | read/write | — |
 | `ensureMinimumDocumentStructure` | `divEditor/index` | — | — | — | — |
 | `flushAllPendingSaves` | `divEditor/index` | — | — | — | — |
 | `flushInputDebounce` | `divEditor/index` | — | — | — | — |
@@ -649,6 +653,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `startObserving` | `divEditor/index` | — | — | read | — |
 | `stopObserving` | `divEditor/index` | — | — | read/write | — |
 | `createInputHandler` | `divEditor/inputHandler` | — | — | read | — |
+| `insertBlockNodeAfter` | `divEditor/insertBlockNode` | — | — | read/write | — |
+| `insertBlockNodeBefore` | `divEditor/insertBlockNode` | — | — | read/write | — |
 | `handleLastNodeGuard` | `divEditor/keydownGuards/lastNodeGuard` | — | — | read/write | — |
 | `handleListItemBackspace` | `divEditor/keydownGuards/listItemBackspace` | — | — | read/write | — |
 | `MutationProcessor.cancel` | `divEditor/mutationProcessor` | — | — | — | — |
@@ -788,6 +794,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `HeadingSubmenu.toggleHeadingSubmenu` | `editToolbar/headingSubmenu` | — | — | — | — |
 | `HeadingSubmenu.wasSubmenuButtonJustClicked` | `editToolbar/headingSubmenu` | — | — | — | — |
 | `destroyEditToolbar` | `editToolbar/index` | — | — | — | — |
+| `EditToolbar._handleImageFilesChosen` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar._handleRedoButton` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar._handleUndoButton` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar._updateUndoRedoButtons` | `editToolbar/index` | — | — | write | — |
@@ -804,6 +811,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EditToolbar.init` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.insertFootnote` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.openCitationSearch` | `editToolbar/index` | — | — | read | — |
+| `EditToolbar.openImagePicker` | `editToolbar/index` | — | — | — | — |
 | `EditToolbar.saveToIndexedDB` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.setBookId` | `editToolbar/index` | — | — | — | — |
 | `EditToolbar.setEditMode` | `editToolbar/index` | — | — | — | — |
@@ -1277,6 +1285,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `renderHarvestNetworks` | `lazyLoader/graphRenderer` | — | — | read/write | — |
 | `applyImageDims` | `lazyLoader/imageDims` | — | — | read/write | — |
 | `clearImageDimsCache` | `lazyLoader/imageDims` | — | — | — | — |
+| `patchImageDims` | `lazyLoader/imageDims` | — | — | — | — |
 | `primeImageDims` | `lazyLoader/imageDims` | — | — | — | — |
 | `handleBrokenImages` | `lazyLoader/imageState` | — | — | read/write | — |
 | `isBeltQuiet` | `lazyLoader/imageState` | — | — | — | — |
@@ -1831,7 +1840,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 267
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 269
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1892,6 +1901,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
 - `components/cloudRef/editIndicator` → `components/saveErrorToast/saveErrorToast`
+- `components/editButton/index` → `divEditor/imageDrop/index`
 - `components/editButton/index` → `divEditor/index`
 - `components/editButton/index` → `editToolbar/index`
 - `components/editButton/index` → `hyperlights/index`
@@ -1952,6 +1962,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/supTagHandler/deleteHandler` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `indexedDB/index`
 - `editToolbar/citationMode/index` → `citations/citationInserter`
+- `editToolbar/index` → `divEditor/imageDrop/insertImageFiles`
 - `editToolbar/index` → `footnotes/footnoteInserter`
 - `footnotes/FootnoteNumberingService` → `indexedDB/core/connection`
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`

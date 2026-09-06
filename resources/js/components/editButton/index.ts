@@ -251,9 +251,11 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
         // ✅ Dynamically import divEditor and paste modules
         const { startObserving } = await import('../../divEditor/index');
         const { addPasteListener } = await import('../../paste/index');
+        const { addImageDropListener } = await import('../../divEditor/imageDrop/index');
 
         startObserving(editableDiv, book);
         addPasteListener(editableDiv);
+        addImageDropListener(editableDiv, book);
       } catch (error) {
         console.error("Error during UI update inside setTimeout:", error);
       } finally {
@@ -307,6 +309,10 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
     if (toolbar) {
       toolbar.setEditMode(false);
     }
+
+    // Drop-to-insert only exists while editing.
+    const { removeImageDropListener } = await import('../../divEditor/imageDrop/index');
+    removeImageDropListener();
 
     await stopObserving();
 

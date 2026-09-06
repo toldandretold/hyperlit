@@ -52,6 +52,11 @@ import {
   destroyFileDropTarget
 } from '../fileDropTarget/fileDropTarget';
 
+import {
+  initializeImageExpand,
+  destroyImageExpand
+} from '../imageExpand/imageExpand';
+
 import TogglePerimeterButtons from '../togglePerimeterButtons/togglePerimeterButtons';
 
 import {
@@ -461,6 +466,16 @@ export function registerAllComponents() {
     destroyFn: destroyFileDropTarget,
     pages: ['home', 'user', 'journal'],
     dependencies: ['newBookButton'], // Drop opens the import form via #importBook
+    required: false
+  });
+
+  // ⤢ expand affordance on reader content images (opens the figureViewer).
+  // One shared body-mounted button — document-delegated singleton, create-once + reset.
+  buttonRegistry.register({
+    name: 'imageExpand',
+    initFn: initializeImageExpand,
+    destroyFn: destroyImageExpand,
+    pages: ['reader'],
     required: false
   });
 

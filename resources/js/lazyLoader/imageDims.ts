@@ -117,6 +117,17 @@ export function applyImageDims(container: Element): void {
   }
 }
 
+/**
+ * Insert one image's dims into a book's already-resolved cache (a fresh
+ * editor upload — the map was fetched before this image existed). No-op while
+ * the map is absent or still in flight: the eventual fetch includes the row.
+ */
+export function patchImageDims(bookId: string, filename: string, dims: { width: number | null; height: number | null }): void {
+  const cached = dimsByBook.get(bookId);
+  if (!(cached instanceof Map)) return;
+  if (dims.width && dims.height) cached.set(filename, { width: dims.width, height: dims.height });
+}
+
 /** Drop all cached maps (book teardown / tests). */
 export function clearImageDimsCache(): void {
   dimsByBook.clear();

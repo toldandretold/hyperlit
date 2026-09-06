@@ -355,6 +355,16 @@
       </svg>
     </button>
 
+    <button type="button" id="imageButton" aria-label="Insert image">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="8.5" cy="10" r="1.5" />
+        <path d="M21 16l-5-5-6 6" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+    <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,.jpg,.jpeg,.png,.gif,.webp,.svg" multiple hidden />
+
     <button type="button" id="undoButton" aria-label="Undo">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />

@@ -269,7 +269,18 @@ export function processNodeContentHighlightsAndCites(
   // the canonical /{book}/media/ src from data-hl-src and drop the transient
   // hydration markers, so IndexedDB (and thus the sync) always stores the
   // stable src. Harmless no-op for plaintext books (no img has data-hl-src).
-  contentClone.querySelectorAll('img[data-hl-src]').forEach((img) => {
+  // 🧹 BELT: the ⤢ expand button (components/imageExpand) is body-mounted and
+  // should never appear inside content — but if one ever does, never persist it.
+  contentClone.querySelectorAll('.image-expand-btn').forEach((el) => el.remove());
+
+  // querySelectorAll matches DESCENDANTS only — an image node whose ROOT is the
+  // <img> itself (editor image insert) must be included too, or its blob: src
+  // would persist.
+  const hydratedImgs = Array.from(contentClone.querySelectorAll('img[data-hl-src]'));
+  if (contentClone.matches('img[data-hl-src]')) {
+    hydratedImgs.push(contentClone);
+  }
+  hydratedImgs.forEach((img) => {
     const canonical = img.getAttribute('data-hl-src');
     if (canonical) img.setAttribute('src', canonical);
     img.removeAttribute('data-hl-src');
