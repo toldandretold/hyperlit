@@ -146,45 +146,21 @@
 }
 
 /* ===== EDIT TOOLBAR BUTTONS ===== */
-/* Background rects for all toolbar buttons */
-#edit-toolbar button svg rect {
-  fill: var(--icon-background);
+/* Shape COLORS (per state) live in editToolbar.css's BUTTON STATE MODEL —
+   the per-shape/per-button color rules that used to be here are what
+   produced the white-square desync bug class. Only the block-picker's
+   indicator switching remains here (structural, not color). */
+
+/* Block-picker indicator: exactly ONE of the stacked type icons shows,
+   selected by data-block-type (set by ButtonStateManager; P is the default). */
+#blockquoteButton .block-icon {
+  display: none;
 }
-
-/* Stroked icons (bold, italic, heading, blockquote, code) */
-/* Exclude undo/redo which use fill instead of stroke */
-#edit-toolbar button:not(#undoButton):not(#redoButton) svg path,
-#edit-toolbar button svg line,
-#edit-toolbar button svg polyline {
-  stroke: var(--icon-stroke-primary);
-  fill: none;
+#blockquoteButton[data-block-type="p"] .block-icon-p,
+#blockquoteButton:not([data-block-type]) .block-icon-p,
+#blockquoteButton[data-block-type="ul"] .block-icon-ul,
+#blockquoteButton[data-block-type="ol"] .block-icon-ol,
+#blockquoteButton[data-block-type="blockquote"] .block-icon-blockquote,
+#blockquoteButton[data-block-type="code"] .block-icon-code {
+  display: block;
 }
-
-/* Footnote/Citation button text - filled like Bold/Italic */
-#footnoteButton svg text,
-#citationButton svg text {
-  fill: var(--icon-fill-primary);
-  font-family: system-ui, -apple-system, sans-serif;
-}
-
-/* Footnote/Citation hover state */
-#footnoteButton:hover svg text,
-#footnoteButton.active svg text,
-#citationButton:hover svg text,
-#citationButton.active svg text {
-  fill: var(--icon-hover-fill);
-}
-
-/* Filled icons (undo, redo) - add stroke to fill in the outline shape */
-#undoButton svg path,
-#redoButton svg path {
-  fill: var(--icon-fill-primary);
-  stroke: var(--icon-fill-primary);
-  stroke-width: 2;
-}
-
-/* Hover states for toolbar buttons */
-
-/* Exclude undo/redo from stroke-only rule (they use fill+stroke) */
-
-/* Override for filled icons (undo/redo) on hover */

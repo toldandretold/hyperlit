@@ -172,3 +172,18 @@ img.e2ee-img-locked {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* User-inserted hyperlinks (editToolbar link mode + pasted URLs). The
+   .external-link class previously had no content-level styling at all —
+   pasted links rendered as plain text. */
+.main-content a.external-link,
+[contenteditable] a.external-link {
+  color: var(--color-accent, #4EACAE);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.main-content a.external-link:visited,
+[contenteditable] a.external-link:visited {
+  color: var(--color-accent, #4EACAE);
+}

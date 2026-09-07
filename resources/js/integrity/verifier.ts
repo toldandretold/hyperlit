@@ -10,7 +10,7 @@
  */
 
 import { openDatabase } from '../indexedDB/core/connection';
-import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS } from '../utilities/blockElements';
+import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS, isImageNodeElement } from '../utilities/blockElements';
 import { asLineId, isDuplicateId, getNextDecimalForBase, generateDataNodeId, generateUniqueId, type LineId, type BookId } from '../utilities/idHelpers';
 
 /** First-difference descriptor between DOM text and stored IDB text. */
@@ -240,7 +240,8 @@ async function _verifySync(bookId: BookId, nodeIds: LineId[]): Promise<Integrity
       }
 
       // Skip inline formatting elements (browser artifacts from copy-paste)
-      if (INLINE_SKIP_TAGS.has(domEl.tagName)) {
+      // — but not a top-level image node (the img IS the node for editor inserts)
+      if (INLINE_SKIP_TAGS.has(domEl.tagName) && !isImageNodeElement(domEl)) {
         return res(); // Not a real node — skip silently
       }
 

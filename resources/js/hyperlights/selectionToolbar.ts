@@ -30,6 +30,14 @@ export function handleSelection(): void {
   // Suppress during stack pop — DOM is being torn down, layout reflows freeze the UI
   if (isStackPopping()) return;
 
+  // Suppress while the toolbar's link mode owns the selection (it REQUIRES a
+  // text selection, so without this guard the hyperlight popup re-summons on
+  // any mouseup while the URL is being typed/pasted). LinkMode.open() hides
+  // the popup; this keeps it hidden for the mode's duration.
+  if (document.getElementById('edit-toolbar')?.classList.contains('link-mode-active')) {
+    return;
+  }
+
   // If the source container is open, don't do anything here.
   if ((window as any).activeContainer === "source-container") {
     // If this function is triggered by an event, make sure to prevent further actions:

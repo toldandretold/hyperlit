@@ -434,6 +434,17 @@
      img at x=12 while the menu-row icon slots center at ~17 (8px row padding
      + half the ~18px slot) — the logo sat visibly left of the icon column.
      34px centers the 18px logo img at x=17, back in line. */
+  /* The 24px→34px widening below happens rightward from the wrapper's left
+     edge, which pushed the logo img's centre from x=22 to x=27 and the glass
+     pill's right edge past the 40px .main-content text margin — the closed
+     nav visibly overlapped body text. Pull the whole wrapper left so the img
+     centre lands back at x≈21, centred in the margin; the open menu shifts
+     with it, so the logo↔icon-column alignment the widening was for still
+     holds. */
+  #logoNavWrapper {
+    left: 4px;
+  }
+
   #logoNavWrapper #logoContainer {
     width: 34px;
   }

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1827 functions in 385 modules · 10 object stores · 10 PG tables · 3738 edges
+**MarkdownDB** schema v28 · 1843 functions in 387 modules · 10 object stores · 10 PG tables · 3756 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -736,13 +736,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BlockFormatter.unwrapBlock` | `editToolbar/blockFormatter` | — | — | — | — |
 | `BlockFormatter.unwrapSelectedTextFromHeading` | `editToolbar/blockFormatter` | — | — | — | — |
 | `BlockFormatter.wrapBlock` | `editToolbar/blockFormatter` | — | — | — | — |
+| `BlockSubmenu._convertToParagraph` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu._executeBlockType` | `editToolbar/blockSubmenu` | — | — | — | — |
-| `BlockSubmenu._executeRemove` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu.closeBlockSubmenu` | `editToolbar/blockSubmenu` | — | — | write | — |
 | `BlockSubmenu.constructor` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu.handleBlockTypeSelection` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu.handleClickOutsideSubmenu` | `editToolbar/blockSubmenu` | — | — | — | — |
-| `BlockSubmenu.handleRemoveBlock` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu.openBlockSubmenu` | `editToolbar/blockSubmenu` | — | — | read/write | — |
 | `BlockSubmenu.toggleBlockSubmenu` | `editToolbar/blockSubmenu` | — | — | — | — |
 | `BlockSubmenu.wasSubmenuButtonJustClicked` | `editToolbar/blockSubmenu` | — | — | — | — |
@@ -794,6 +793,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `HeadingSubmenu.toggleHeadingSubmenu` | `editToolbar/headingSubmenu` | — | — | — | — |
 | `HeadingSubmenu.wasSubmenuButtonJustClicked` | `editToolbar/headingSubmenu` | — | — | — | — |
 | `destroyEditToolbar` | `editToolbar/index` | — | — | — | — |
+| `EditToolbar._closeOtherSubmenus` | `editToolbar/index` | — | — | — | — |
 | `EditToolbar._handleImageFilesChosen` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar._handleRedoButton` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar._handleUndoButton` | `editToolbar/index` | — | — | read | — |
@@ -812,6 +812,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EditToolbar.insertFootnote` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.openCitationSearch` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.openImagePicker` | `editToolbar/index` | — | — | — | — |
+| `EditToolbar.openLinkMode` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.saveToIndexedDB` | `editToolbar/index` | — | — | read | — |
 | `EditToolbar.setBookId` | `editToolbar/index` | — | — | — | — |
 | `EditToolbar.setEditMode` | `editToolbar/index` | — | — | — | — |
@@ -820,6 +821,21 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EditToolbar.updateButtonStates` | `editToolbar/index` | — | — | — | — |
 | `getEditToolbar` | `editToolbar/index` | — | — | — | — |
 | `initEditToolbar` | `editToolbar/index` | — | — | — | — |
+| `InsertSubmenu.closeInsertSubmenu` | `editToolbar/insertSubmenu` | — | — | write | — |
+| `InsertSubmenu.constructor` | `editToolbar/insertSubmenu` | — | — | — | — |
+| `InsertSubmenu.handleClickOutsideSubmenu` | `editToolbar/insertSubmenu` | — | — | — | — |
+| `InsertSubmenu.notifyOptionActivated` | `editToolbar/insertSubmenu` | — | — | — | — |
+| `InsertSubmenu.openInsertSubmenu` | `editToolbar/insertSubmenu` | — | — | write | — |
+| `InsertSubmenu.toggleInsertSubmenu` | `editToolbar/insertSubmenu` | — | — | — | — |
+| `InsertSubmenu.wasSubmenuButtonJustClicked` | `editToolbar/insertSubmenu` | — | — | — | — |
+| `LinkMode._mutateBlock` | `editToolbar/linkMode` | — | — | read | — |
+| `LinkMode._refreshKeyboardLayout` | `editToolbar/linkMode` | — | — | read | — |
+| `LinkMode.close` | `editToolbar/linkMode` | — | — | write | — |
+| `LinkMode.confirm` | `editToolbar/linkMode` | — | — | read/write | — |
+| `LinkMode.constructor` | `editToolbar/linkMode` | — | — | — | — |
+| `LinkMode.open` | `editToolbar/linkMode` | — | — | read/write | — |
+| `LinkMode.removeLink` | `editToolbar/linkMode` | — | — | write | — |
+| `validateLinkUrl` | `editToolbar/linkMode` | — | — | — | — |
 | `ListConverter.cleanupAfterSplit` | `editToolbar/listConverter` | — | — | read/write | — |
 | `ListConverter.constructor` | `editToolbar/listConverter` | — | — | — | — |
 | `ListConverter.convertListItemToBlock` | `editToolbar/listConverter` | — | — | write | — |
@@ -1840,7 +1856,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 269
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 270
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1957,6 +1973,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/domUtilities` → `hypercites/database`
 - `divEditor/domUtilities` → `hypercites/deletion`
 - `divEditor/domUtilities` → `indexedDB/index`
+- `divEditor/imageDrop/insertImageFiles` → `editToolbar/index`
 - `divEditor/saveQueue/index` → `hyperlights/index`
 - `divEditor/selectionDelete` → `hypercites/database`
 - `divEditor/supTagHandler/deleteHandler` → `hypercites/database`

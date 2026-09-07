@@ -102,7 +102,7 @@ class BookMediaController extends Controller
         if ($user && $library->creator && $library->creator === $user->name) {
             return true;
         }
-        $anon = $request->cookie('anon_token');
+        $anon = \App\Support\AnonToken::fromRequest($request);
         return $library->creator_token && $anon && hash_equals((string) $library->creator_token, (string) $anon);
     }
 

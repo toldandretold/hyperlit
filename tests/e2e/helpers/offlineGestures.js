@@ -7,6 +7,8 @@
  * self-contained and independently runnable while sharing the gesture vocabulary.
  */
 
+import { openInsertSubmenu } from './nestedAuthoring.js';
+
 /** A clipboard payload of `n` distinct paragraphs (HTML + plain-text twin). */
 export function makeParagraphPayload(n, tag) {
   const html = Array.from({ length: n }, (_, i) => `<p>${tag} paragraph ${i} — lorem ipsum dolor sit amet consectetur</p>`).join('');
@@ -269,6 +271,7 @@ export async function performOfflineAuthoring(page, spa) {
   await ensureMainEditMode(page);
   await clickIntoFirstBody(page);
   const supsBefore = await page.evaluate(() => document.querySelectorAll('.main-content sup').length);
+  await openInsertSubmenu(page);
   await page.click('#footnoteButton');
   const gotSup = await page
     .waitForFunction((b) => document.querySelectorAll('.main-content sup').length > b, supsBefore, { timeout: 10000 })

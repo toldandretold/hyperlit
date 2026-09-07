@@ -1,13 +1,11 @@
 /* ===== END OF STANDARDIZED ICON STYLING ===== */
 
-/* edit toolbar */
+/* edit toolbar — top-row buttons (submenu options size their own svgs) */
 #boldButton,
 #italicButton,
 #headingButton,
 #blockquoteButton,
-#codeButton,
-#footnoteButton,
-#citationButton {
+#insertButton {
   width: 28px;
   height: 28px;
 }
@@ -198,28 +196,16 @@
 
 
 
-/* Specific styling for the SVG path (the arrow shape) when undo/redo buttons are disabled/processing */
-#undoButton.disabled svg path,
-#redoButton.disabled svg path {
-  fill: #888888 !important; /* Fade the arrow color to gray */
-  stroke: #888888 !important;
-  stroke-width: 2;
+/* Disabled/processing undo-redo arrows fade to gray (state model variables —
+   the background plate is handled universally now). */
+#undoButton.disabled,
+#redoButton.disabled {
+  --btn-fill: #888888;
 }
 
-#undoButton.processing svg path,
-#redoButton.processing svg path {
-  fill: #aaaaaa !important; /* Slightly lighter gray for processing */
-  stroke: #aaaaaa !important;
-  stroke-width: 2;
-}
-
-/* Ensure the SVG's background rect is NOT affected by these specific arrow fill changes,
-   and stays its original background color if it has one. */
-#undoButton.disabled svg rect,
-#redoButton.disabled svg rect,
-#undoButton.processing svg rect,
-#redoButton.processing svg rect {
-  fill: var(--icon-background) !important; /* Ensure the rect retains its background fill */
+#undoButton.processing,
+#redoButton.processing {
+  --btn-fill: #aaaaaa;
 }
 
 /* Hide undo/redo buttons when hyperlight selection buttons are visible */
@@ -228,8 +214,21 @@
   display: none !important;
 }
 
+/* ── BUTTON STATE MODEL ──────────────────────────────────────────────────
+   Every toolbar button paints from TWO custom properties: --btn-ink (icon
+   strokes, dots, text) and --btn-bg (button background). A STATE (default /
+   .active / real hover) sets ONLY those variables, and the shape rules below
+   read them ONCE — ink and background can therefore never desync. The old
+   per-state per-shape enumeration is what produced the "fully white square"
+   class of bug: a state that inverted the background but missed one shape
+   list (or one button id) left same-on-same ink, most visibly the sticky
+   iOS tap-hover, whose mobile "kill" reset the shapes but not the button
+   background. */
 #edit-toolbar button {
-  background: transparent;
+  --btn-ink: var(--icon-stroke-primary);
+  --btn-fill: var(--icon-fill-primary);
+  --btn-bg: transparent;
+  background-color: var(--btn-bg);
   border: none;
   border-radius: 4px;
   padding: 4px;
@@ -241,6 +240,32 @@
   user-select: none;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* State: pressed-in-content (.active) — all devices.
+   .menu-open: a trigger whose submenu is currently open (set by the submenu
+   handlers) — same inverted look, so the open menu's owner reads as engaged. */
+#edit-toolbar button.active,
+#edit-toolbar button.menu-open {
+  --btn-ink: var(--icon-hover-stroke);
+  --btn-fill: var(--icon-hover-fill);
+  --btn-bg: var(--icon-hover-background);
+}
+
+/* State: REAL hover only — gating on (hover:hover) is what retires the whole
+   sticky-tap-hover problem: touch devices never enter this state at all. */
+@media (hover: hover) and (pointer: fine) {
+  #edit-toolbar button:hover {
+    --btn-ink: var(--icon-hover-stroke);
+    --btn-fill: var(--icon-hover-fill);
+    --btn-bg: var(--icon-hover-background);
+    transform: scale(1.1);
+  }
+}
+
+/* Momentary press feedback everywhere (touch + mouse) */
+#edit-toolbar button:active {
+  transform: scale(0.95);
 }
 
 /* Keyboard focus ring (WCAG 2.4.7) — the `outline: none` above kills the
@@ -257,50 +282,51 @@
   display: block;
 }
 
-/* --- UNIFIED HOVER & ACTIVE STYLES (CORRECTED) --- */
+/* ── SHAPE RULES (read the state variables; enumerated ONCE) ──────────── */
 
-/* --- UNIFIED HOVER & ACTIVE STYLES (FINAL V2) --- */
-
-/* 1. Style the button's background on hover and active states. */
-#edit-toolbar button:hover,
-#edit-toolbar button.active {
-  background-color: var(--icon-hover-background); /* Apply background to the button itself */
-}
-/* Apply transform only on hover for better UX */
-#edit-toolbar button:hover {
-  transform: scale(1.1);
+/* The first rect in every toolbar svg is a background plate — the BUTTON's
+   own background now paints the state, so the plate stays out of the way. */
+#edit-toolbar button svg rect:first-child {
+  fill: transparent;
 }
 
-/* 2. Make the SVG's own background rectangle transparent. */
-/* This lets the button's new white background show through. */
-#edit-toolbar button:hover svg rect,
-#edit-toolbar button.active svg rect {
-  fill: transparent !important;
+/* Outlined shapes (incl. the Feather image icon's frame rect) */
+#edit-toolbar button svg path,
+#edit-toolbar button svg line,
+#edit-toolbar button svg polyline,
+#edit-toolbar button svg rect:not(:first-child) {
+  stroke: var(--btn-ink);
+  fill: none;
 }
 
-/* 3. Style OUTLINED icons (Bold, Italic, Heading, etc.). */
-/* This rule targets the visual parts of these specific icons. */
-/* Exclude undo/redo buttons which use fill instead of stroke */
-#edit-toolbar button:not(#undoButton):not(#redoButton):hover svg path,
-#edit-toolbar button:hover svg line,
-#edit-toolbar button:hover svg polyline,
-#edit-toolbar button:not(#undoButton):not(#redoButton).active svg path,
-#edit-toolbar button.active svg line,
-#edit-toolbar button.active svg polyline {
-  stroke: var(--icon-hover-stroke); /* Make the outline inverted. */
-  fill: transparent; /* Make the inside of shapes transparent. */
+/* Dots (ul indicator bullets, image icon dot) are FILLED from the ink */
+#edit-toolbar button svg circle {
+  fill: var(--btn-ink);
+  stroke: none;
 }
 
-/* 4. Create a specific OVERRIDE for FILLED icons (Undo/Redo). */
-/* This rule is more specific and will apply ONLY to the undo/redo paths. */
-#undoButton:hover svg path,
-#redoButton:hover svg path,
-#undoButton.active svg path,
-#redoButton.active svg path {
-  /* CRITICAL FIX: Use !important to override the inline fill attribute in the SVG */
-  fill: var(--icon-hover-fill) !important;
-  stroke: var(--icon-hover-fill) !important;
+/* Text glyphs (footnote a¹, citation (a), block-picker P, ol 1-2-3) */
+#edit-toolbar button svg text {
+  fill: var(--btn-fill);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Filled icons (undo/redo) — the extra #edit-toolbar out-specifies the
+   universal outlined-shape rule above. */
+#edit-toolbar #undoButton svg path,
+#edit-toolbar #redoButton svg path {
+  fill: var(--btn-fill);
+  stroke: var(--btn-fill);
   stroke-width: 2;
+}
+
+/* Text-CONTENT buttons (H1–H4 + ✕ in the heading submenu, submenu P) follow
+   the ink. Scoped to those classes — NOT the base button — so the citation/
+   link input × ✓ ⌫ buttons keep their own citationMode.css styling. */
+#edit-toolbar .heading-level-btn,
+#edit-toolbar .heading-remove-btn,
+#edit-toolbar .block-type-btn {
+  color: var(--btn-ink);
 }
 
 /* Heading Submenu */
@@ -322,47 +348,45 @@
 
 /* Submenu positioned above the horizontal toolbar */
 .heading-submenu {
-  bottom: calc(100% + 1px);
+  bottom: calc(100% + 20px); /* 20px air gap — at 1px the popover options hugged the toolbar row and thumbs aiming at OTHER triggers grazed them (tap heading → citation fired); the strip below is inert toolbar padding */
   left: 50%;
   transform: translateX(-50%);
   flex-direction: row;
 }
 
+/* Sized to MATCH the block-picker options (.block-type-btn): same padding,
+   and min-height equal to their 24px svg + 12px padding so the two submenus
+   read as one system. */
 .heading-level-btn,
 .heading-remove-btn {
   background: transparent;
   border: none;
   color: var(--color-text);
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
-  padding: 6px 12px;
+  padding: 6px 10px;
+  min-height: 36px;
+  min-width: 36px;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s ease;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .heading-remove-btn {
   font-size: 18px;
-  padding: 6px 10px;
   display: none; /* Hidden by default */
 }
 
 .heading-remove-btn.visible {
-  display: block;
+  display: flex;
 }
 
-.heading-level-btn:hover,
-.heading-remove-btn:hover {
-  background-color: var(--icon-hover-background);
-  color: var(--icon-hover-stroke);
-  transform: scale(1.05);
-}
-
-.heading-level-btn.active {
-  background-color: var(--icon-hover-background);
-  color: var(--icon-hover-stroke);
-}
+/* hover/.active colors come from the BUTTON STATE MODEL above (the
+   #edit-toolbar button variables) — no per-submenu state rules. */
 
 /* Block Format Submenu (blockquote/list) */
 .blockquote-submenu {
@@ -375,7 +399,7 @@
   z-index: 1001;
   display: flex;
   gap: 4px;
-  bottom: calc(100% + 1px);
+  bottom: calc(100% + 20px); /* 20px air gap — at 1px the popover options hugged the toolbar row and thumbs aiming at OTHER triggers grazed them (tap heading → citation fired); the strip below is inert toolbar padding */
   left: 50%;
   transform: translateX(-50%);
   flex-direction: row;
@@ -385,8 +409,7 @@
   display: none;
 }
 
-.block-type-btn,
-.block-remove-btn {
+.block-type-btn {
   background: transparent;
   border: none;
   color: var(--color-text);
@@ -402,49 +425,129 @@
   justify-content: center;
 }
 
+/* Sizing only — shape colors and hover/.active states come from the BUTTON
+   STATE MODEL above (block submenu icons have NO background plate rect, so
+   the outlined/dot/text shape rules cover them 1:1). */
 .block-type-btn svg {
   width: 24px;
   height: 24px;
-  stroke: var(--icon-stroke-primary);
-  fill: none;
 }
 
-.block-type-btn svg circle {
-  fill: var(--icon-stroke-primary);
-  stroke: none;
+/* Insert Submenu (footnote/citation/image/link) — same popover shell as the
+   block submenu. Its option buttons keep their toolbar ids (index.ts wires
+   them); only the sizing/hover chrome comes from here. */
+.insert-submenu {
+  position: absolute;
+  background: color-mix(in srgb, var(--icon-background) 85%, transparent);
+  backdrop-filter: blur(10px);
+  border: .25px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 1001;
+  display: flex;
+  gap: 4px;
+  bottom: calc(100% + 20px); /* 20px air gap — at 1px the popover options hugged the toolbar row and thumbs aiming at OTHER triggers grazed them (tap heading → citation fired); the strip below is inert toolbar padding */
+  left: 50%;
+  transform: translateX(-50%);
+  flex-direction: row;
 }
 
-.block-type-btn svg text {
-  fill: var(--icon-stroke-primary);
-  stroke: none;
+.insert-submenu.hidden {
+  display: none;
 }
 
-.block-type-btn:hover svg {
-  stroke: var(--icon-hover-stroke);
+#insert-submenu button {
+  width: auto;
+  height: auto;
+  padding: 6px 8px;
 }
 
-.block-type-btn:hover svg circle {
-  fill: var(--icon-hover-stroke);
+#insert-submenu button svg {
+  width: 24px;
+  height: 24px;
 }
 
-.block-type-btn:hover svg text {
-  fill: var(--icon-hover-stroke);
+/* Link mode: container + input mirror the citation-mode shapes; while active
+   the toolbar's own buttons hide (same mechanism as citation-mode-active). */
+#link-mode-container {
+  display: none; /* Only shown in link mode */
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 500px;
+  margin: 0 auto;
+  position: relative;
+  pointer-events: auto;
 }
 
-.block-remove-btn {
-  font-size: 18px;
-  padding: 6px 10px;
-  display: none; /* Hidden by default */
+#link-mode-container.hidden {
+  display: none !important;
 }
 
-.block-remove-btn.visible {
+#edit-toolbar.link-mode-active #link-mode-container:not(.hidden) {
   display: flex;
 }
 
-.block-type-btn:hover,
-.block-remove-btn:hover {
-  background-color: var(--icon-hover-background);
-  color: var(--icon-hover-stroke);
+.link-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+  z-index: 1;
+}
+
+#link-url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 12px;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+#link-url-input.link-input-invalid {
+  border-color: var(--color-error, #e05d5d);
+  color: var(--color-error, #e05d5d);
+}
+
+#edit-toolbar.link-mode-active > button {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  #edit-toolbar.link-mode-active > button {
+    display: none !important;
+  }
+}
+
+/* Belt: the hyperlight selection popup is a BODY-level element (not a toolbar
+   child), shown via inline display:flex whenever text is selected — and link
+   mode requires a selection. LinkMode.open() hides it and handleSelection
+   guards re-shows; this wins over the inline style if either is bypassed. */
+body:has(#edit-toolbar.link-mode-active) #hyperlight-buttons {
+  display: none !important;
+}
+
+/* Submenus must never survive into citation/link mode (the > button hiding
+   rules above/in citationMode.css don't reach these divs). */
+#edit-toolbar.citation-mode-active .insert-submenu,
+#edit-toolbar.citation-mode-active .heading-submenu,
+#edit-toolbar.citation-mode-active .blockquote-submenu,
+#edit-toolbar.link-mode-active .insert-submenu,
+#edit-toolbar.link-mode-active .heading-submenu,
+#edit-toolbar.link-mode-active .blockquote-submenu {
+  display: none !important;
 }
 
 /* end  */

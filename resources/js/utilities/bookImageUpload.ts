@@ -46,7 +46,10 @@ export function isInsertableImageFile(file: File): boolean {
  */
 export async function readImageDims(file: File): Promise<ImageFileDims> {
   try {
-    const bitmap = await createImageBitmap(file);
+    // from-image: measure the RENDERED orientation (iPhone portrait JPEGs are
+    // stored landscape + EXIF-rotated — raw grid dims would describe the
+    // wrong box and stretch the photo).
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
     const dims = { width: bitmap.width, height: bitmap.height };
     bitmap.close();
     return dims;

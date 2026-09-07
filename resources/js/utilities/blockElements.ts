@@ -52,6 +52,25 @@ export const ID_SKIP_TAGS = new Set([
 // Helper functions
 // ---------------------------------------------------------------------------
 
+/**
+ * A TOP-LEVEL <img> that IS a node — the editor image-insert shape (drop /
+ * toolbar, 2026-09): a direct child of a `.chunk` (or of the editable root)
+ * carrying the node's numeric id. IMG sits in INLINE_SKIP_TAGS because a
+ * numeric-id img INSIDE a paragraph is a copy-paste artifact, but that guard
+ * silently dropped real image nodes from the save pipeline (the "image gone
+ * on refresh" bug) — position, not tag, is what distinguishes the two. Every
+ * INLINE_SKIP_TAGS consumer in the save/integrity path must pair the set with
+ * this exemption.
+ */
+export function isImageNodeElement(el: Element | null): boolean {
+  if (!el || el.tagName !== 'IMG') return false;
+  const parent = el.parentElement;
+  if (!parent) return false;
+  return parent.classList.contains('chunk')
+    || parent.classList.contains('main-content')
+    || parent.hasAttribute('data-book-id');
+}
+
 /** Check if a tag name belongs to the core block element set */
 export function isBlockElementTag(tagName: any) {
   return BLOCK_ELEMENT_TAGS.has(tagName.toUpperCase());

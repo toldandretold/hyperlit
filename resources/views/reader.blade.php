@@ -290,18 +290,51 @@
       <button type="button" class="heading-level-btn" data-heading="h4">H4</button>
     </div>
 
-    <button type="button" id="blockquoteButton" aria-label="Block format">
-    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <rect width="24" height="24" />
-      <line x1="4" y1="4" x2="4" y2="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      <line x1="8" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      <line x1="8" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      <line x1="8" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-    </svg>
-  </button>
+    <!-- Block-type picker: the icon reflects the caret's CURRENT block type
+         (data-block-type set by ButtonStateManager; P is the default). -->
+    <button type="button" id="blockquoteButton" aria-label="Block format" data-block-type="p">
+      <svg class="block-icon block-icon-p" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <text x="5.5" y="20" font-size="21" font-weight="500" font-family="system-ui, -apple-system, sans-serif">P</text>
+      </svg>
+      <svg class="block-icon block-icon-ul" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <line x1="9" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
+        <line x1="9" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round"/>
+        <line x1="9" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="4.5" cy="6" r="1.5"/>
+        <circle cx="4.5" cy="12" r="1.5"/>
+        <circle cx="4.5" cy="18" r="1.5"/>
+      </svg>
+      <svg class="block-icon block-icon-ol" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <text x="2" y="8" font-size="7" font-weight="600" font-family="system-ui, sans-serif">1</text>
+        <line x1="9" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
+        <text x="2" y="14" font-size="7" font-weight="600" font-family="system-ui, sans-serif">2</text>
+        <line x1="9" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round"/>
+        <text x="2" y="20" font-size="7" font-weight="600" font-family="system-ui, sans-serif">3</text>
+        <line x1="9" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <svg class="block-icon block-icon-blockquote" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <line x1="4" y1="4" x2="4" y2="20" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="8" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="8" y1="12" x2="20" y2="12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="8" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <svg class="block-icon block-icon-code" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <rect width="24" height="24" />
+        <polyline points="16 18 22 12 16 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <polyline points="8 6 2 12 8 18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
 
     <div id="blockquote-submenu" class="blockquote-submenu hidden">
-      <button type="button" class="block-remove-btn" data-action="remove-block" title="Remove formatting">✕</button>
+      <button type="button" class="block-type-btn" data-block-type="p" title="Paragraph">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <text x="5.5" y="20" font-size="21" font-weight="500" font-family="system-ui, -apple-system, sans-serif">P</text>
+        </svg>
+      </button>
       <button type="button" class="block-type-btn" data-block-type="ul" title="Bullet list">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <line x1="9" y1="6" x2="20" y2="6" stroke-width="2" stroke-linecap="round"/>
@@ -330,39 +363,53 @@
           <line x1="8" y1="18" x2="20" y2="18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </button>
+      <button type="button" class="block-type-btn" data-block-type="code" title="Code block">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <polyline points="16 18 22 12 16 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <polyline points="8 6 2 12 8 18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+      </button>
     </div>
 
-    <button type="button" id="codeButton" aria-label="Code block">
+    <button type="button" id="insertButton" aria-label="Insert">
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <rect width="24" height="24" />
-        <polyline points="16 18 22 12 16 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        <polyline points="8 6 2 12 8 18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="12" y1="5" x2="12" y2="19" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <line x1="5" y1="12" x2="19" y2="12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </button>
 
-    <button type="button" id="footnoteButton" title="Insert footnote">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <rect width="24" height="24" />
-        <text x="5" y="19" font-size="18" font-weight="500" font-family="system-ui, -apple-system, sans-serif">a</text>
-        <text x="16" y="11" font-size="11" font-weight="500" font-family="system-ui, -apple-system, sans-serif">1</text>
-      </svg>
-    </button>
-
-    <button type="button" id="citationButton" title="Insert citation">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <rect width="24" height="24" />
-        <text x="2" y="19" font-size="16" font-weight="500" font-family="system-ui, -apple-system, sans-serif">(a)</text>
-      </svg>
-    </button>
-
-    <button type="button" id="imageButton" aria-label="Insert image">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <rect width="24" height="24" />
-        <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        <circle cx="8.5" cy="10" r="1.5" />
-        <path d="M21 16l-5-5-6 6" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-    </button>
+    <!-- Insert submenu: footnote / citation / image / link -->
+    <div id="insert-submenu" class="insert-submenu hidden">
+      <button type="button" id="footnoteButton" title="Insert footnote">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" />
+          <text x="5" y="19" font-size="18" font-weight="500" font-family="system-ui, -apple-system, sans-serif">a</text>
+          <text x="16" y="11" font-size="11" font-weight="500" font-family="system-ui, -apple-system, sans-serif">1</text>
+        </svg>
+      </button>
+      <button type="button" id="citationButton" title="Insert citation">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" />
+          <text x="2" y="19" font-size="16" font-weight="500" font-family="system-ui, -apple-system, sans-serif">(a)</text>
+        </svg>
+      </button>
+      <button type="button" id="imageButton" aria-label="Insert image">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" />
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="8.5" cy="8.5" r="1.5" fill="none" stroke-width="2" />
+          <polyline points="21 15 16 10 5 21" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <button type="button" id="linkButton" title="Insert link">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" />
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
     <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml,.jpg,.jpeg,.png,.gif,.webp,.svg" multiple hidden />
 
     <button type="button" id="undoButton" aria-label="Undo">
@@ -383,6 +430,16 @@
     <div class="citation-input-wrapper">
       <input type="text" id="citation-search-input" placeholder="Search library for citation..." autocomplete="off" />
       <button type="button" id="citation-close-btn" class="citation-close-btn" title="Close (ESC)">×</button>
+    </div>
+  </div>
+
+  <!-- Link mode container - shown when the insert-link option is chosen -->
+  <div id="link-mode-container" class="hidden">
+    <div class="link-input-wrapper">
+      <input type="url" id="link-url-input" inputmode="url" placeholder="Paste URL (https://...)" autocomplete="off" />
+      <button type="button" id="link-remove-btn" class="citation-close-btn" title="Remove link">⌫</button>
+      <button type="button" id="link-confirm-btn" class="citation-close-btn" title="Insert link">✓</button>
+      <button type="button" id="link-close-btn" class="citation-close-btn" title="Close (ESC)">×</button>
     </div>
   </div>
 

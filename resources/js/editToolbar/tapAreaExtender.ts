@@ -37,7 +37,18 @@ export function initTapAreaExtender(toolbar: HTMLElement | null): TapAreaExtende
 
     // Find button whose extended zone contains the touch
     matchedButton = buttons.find(btn => {
+      // Skip invisible buttons: options inside a closed submenu (or any
+      // display:none control) report a zero-size rect at the viewport origin,
+      // which would otherwise create a phantom tap zone at the top-left.
+      if (btn.closest('.hidden')) return false;
+      // Skip submenu OPTION buttons entirely — the popovers sit directly above
+      // the toolbar, so their +120px bottom zones blanket the toolbar row and
+      // hijack taps aimed at OTHER toolbar buttons (tap "+" while the heading
+      // menu is open → H1 fires and the text becomes a heading). Options are
+      // 36px targets tapped directly; they don't need extension.
+      if (btn.closest('.heading-submenu, .blockquote-submenu, .insert-submenu')) return false;
       const rect = btn.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return false;
       const extendedRect = {
         left: rect.left - 10,
         right: rect.right + 10,

@@ -260,15 +260,35 @@ class BookImageStore
             ->delete();
     }
 
-    /** @return array{0: ?int, 1: ?int} width/height, null for SVG or unreadable. */
+    /**
+     * @return array{0: ?int, 1: ?int} width/height, null for SVG or unreadable.
+     *
+     * EXIF-aware: getimagesize reads the RAW pixel grid, but browsers render
+     * JPEGs rotated per EXIF orientation (image-orientation: from-image is the
+     * default). iPhone portrait photos are stored landscape with orientation
+     * 5-8 — without the swap, the stored width/height (and the aspect-ratio
+     * the renderer derives from them) describe the wrong box, and the photo
+     * displays stretched.
+     */
     private function dimensions(string $path): array
     {
         if ($this->extension($path) === 'svg') {
             return [null, null];
         }
         $info = @getimagesize($path);
+        if (! $info) {
+            return [null, null];
+        }
+        [$width, $height] = [$info[0], $info[1]];
 
-        return $info ? [$info[0], $info[1]] : [null, null];
+        if (($info['mime'] ?? null) === 'image/jpeg' && function_exists('exif_read_data')) {
+            $orientation = (int) (@exif_read_data($path)['Orientation'] ?? 0);
+            if (in_array($orientation, [5, 6, 7, 8], true)) {
+                [$width, $height] = [$height, $width];
+            }
+        }
+
+        return [$width, $height];
     }
 
     /** Mime by extension alone — for encrypted uploads, whose bytes are ciphertext. */

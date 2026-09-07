@@ -14,7 +14,7 @@ import { debounce } from '../../utilities/debounce';
 import { withPending } from '../../utilities/operationState';
 import { queueForSync } from '../syncQueue/queue';
 import { reportIntegrityFailure } from '../../integrity/reporter';
-import { INLINE_SKIP_TAGS } from '../../utilities/blockElements';
+import { INLINE_SKIP_TAGS, isImageNodeElement } from '../../utilities/blockElements';
 // Pure helper extracted so the DOM-walk + fallback chain can be unit-tested
 // in isolation. Tests: tests/javascript/indexedDB/batch.test.js
 import { resolveBookIdForBatch } from './bookIdResolver';
@@ -222,7 +222,9 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       }
 
       // Skip inline formatting artifacts (e.g. <font id="1"> from copy-paste)
-      if (node && INLINE_SKIP_TAGS.has(node.tagName)) {
+      // — but NOT a top-level image node (the img IS the node for editor
+      // image inserts; see isImageNodeElement).
+      if (node && INLINE_SKIP_TAGS.has(node.tagName) && !isImageNodeElement(node)) {
         return;
       }
 

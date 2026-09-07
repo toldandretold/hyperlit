@@ -11,8 +11,56 @@
 import { uploadBookImage, isInsertableImageFile } from '../../utilities/bookImageUpload';
 import { buildImageNode } from './buildImageNode';
 import { insertBlockNodeAfter, insertBlockNodeBefore } from '../insertBlockNode';
+import { queueNodeForSave, queueNodeForDeletion } from '../editorState';
 import { log, verbose } from '../../utilities/logger';
 import type { BookId } from '../../utilities/idHelpers';
+
+/**
+ * Make an inserted image node undoable. The undo system's 'format' entries
+ * carry arbitrary undoFn/redoFn closures but require entry.elementId to
+ * resolve in BOTH states — so the entry anchors on the NEIGHBOUR node (which
+ * survives undo and redo), while the closures remove/re-insert the img and
+ * persist through the editor's own queues. Dynamic import: the toolbar module
+ * is already live in edit mode, and a static import here would drag the whole
+ * toolbar into the drop path.
+ */
+async function recordImageInsertUndo(imgEl: HTMLElement, bookId: BookId): Promise<void> {
+  try {
+    const { getEditToolbar } = await import('../../editToolbar/index');
+    const toolbar = getEditToolbar();
+    if (!toolbar || !toolbar.undoManager) return;
+
+    const prevSibling = imgEl.previousElementSibling as HTMLElement | null;
+    const anchorEl = (prevSibling ?? imgEl.nextElementSibling) as HTMLElement | null;
+    if (!anchorEl || !anchorEl.id) return; // no stable neighbour — skip undo wiring
+    const anchorIsPrevious = anchorEl === prevSibling;
+
+    const imgId = imgEl.id;
+    const undoFn = (current: HTMLElement) => {
+      const img = document.getElementById(imgId);
+      if (img) {
+        img.remove();
+        queueNodeForDeletion(imgId, img as HTMLElement, bookId);
+      }
+      return current; // caret seats on the neighbour; its re-save is a no-op
+    };
+    const redoFn = (current: HTMLElement) => {
+      if (!document.getElementById(imgId) && current.parentNode) {
+        // Restore the original side of the anchor (after a previous-sibling
+        // anchor, before a next-sibling anchor).
+        current.parentNode.insertBefore(imgEl, anchorIsPrevious ? current.nextSibling : current);
+        queueNodeForSave(imgId, 'add', bookId);
+      }
+      return current;
+    };
+
+    toolbar.undoManager.sealGroup(); // typed-text group ends before the insert entry
+    toolbar.undoManager.recordFormat(anchorEl.id, undoFn, redoFn, bookId, 0);
+    toolbar._updateUndoRedoButtons(bookId);
+  } catch {
+    // Toolbar not available (e.g. tests) — insert still works, just without undo.
+  }
+}
 
 /** Multi-file cap — a drop of a whole folder shouldn't fan out unbounded uploads. */
 export const MAX_FILES_PER_INSERT = 10;
@@ -91,6 +139,7 @@ export async function insertImageFiles(
         continue;
       }
       result.inserted.push(inserted);
+      await recordImageInsertUndo(inserted, bookId);
       // Chain: the next file goes after the one just inserted.
       anchor = inserted;
       insertPosition = 'after';

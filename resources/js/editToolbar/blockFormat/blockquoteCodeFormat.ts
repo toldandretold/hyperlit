@@ -81,6 +81,50 @@ export function _contentPreservingUnwrap(self: BlockCommandContext, element: Ele
     return p;
   }
 
+const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/**
+ * PRE → blockquote content TRANSFORM: the code's text lines become
+ * <br>-separated blockquote lines (+ the trailing-<br> convention). Never
+ * move the <code> element itself — nesting it produced an inline code pill
+ * inside the blockquote (the code→blockquote corruption bug).
+ */
+function preToBlockquote(pre: Element): HTMLElement {
+  const source = pre.querySelector("code") ?? pre;
+  const lines = (source.textContent ?? "").replace(/\n$/, "").split("\n");
+  const bq = document.createElement("blockquote");
+  bq.innerHTML = lines.map(escapeHtml).join("<br>") + "<br>";
+  bq.id = pre.id;
+  if (pre.hasAttribute("data-node-id")) {
+    bq.setAttribute("data-node-id", pre.getAttribute("data-node-id")!);
+  }
+  return bq;
+}
+
+/** Blockquote → PRE content TRANSFORM: <br>-separated lines become newline-joined code text. */
+function blockquoteToPre(bq: Element): HTMLElement {
+  let content = bq.innerHTML;
+  if (content.endsWith("<br>")) content = content.slice(0, -4);
+  const text = content
+    .split(/<br\s*\/?>/i)
+    .map((part) => {
+      const temp = document.createElement("div");
+      temp.innerHTML = part;
+      return temp.textContent ?? "";
+    })
+    .join("\n");
+  const pre = document.createElement("pre");
+  const code = document.createElement("code");
+  code.textContent = text;
+  pre.appendChild(code);
+  pre.id = bq.id;
+  if (bq.hasAttribute("data-node-id")) {
+    pre.setAttribute("data-node-id", bq.getAttribute("data-node-id")!);
+  }
+  return pre;
+}
+
 export async function handleBlockquoteCodeFormat(self: BlockCommandContext, type: 'blockquote' | 'code', isTextSelected: boolean, parentElement: Element) {
     let modifiedElementId = null;
     let newElement = null;
@@ -166,6 +210,52 @@ export async function handleBlockquoteCodeFormat(self: BlockCommandContext, type
       if ((type === "blockquote" && isBlockquote) || (type === "code" && isCode)) {
         // UNWRAPPING
         ({ modifiedElementId, newElement } = await self.unwrapBlock(blockParentToToggle, type));
+      } else if ((type === "blockquote" && isCode) || (type === "code" && isBlockquote)) {
+        // CROSS-CONVERSION (code ↔ blockquote): transform the CONTENT, never
+        // wrap — wrapBlock would move the <code> element INTO the blockquote
+        // (or the blockquote's <br>-laden children into <code>), producing the
+        // nested inline-code corruption.
+        const original = blockParentToToggle!;
+        let currentOffset = 0;
+        try {
+          currentOffset = getTextOffsetInElement(
+            original,
+            self.selectionManager.currentSelection!.focusNode,
+            self.selectionManager.currentSelection!.focusOffset,
+          );
+        } catch (e) { /* ignore */ }
+
+        const originalHTML = original.outerHTML;
+        const converted = type === "blockquote" ? preToBlockquote(original) : blockquoteToPre(original);
+
+        if (self.undoManager) {
+          self.undoManager.recordFormat(
+            original.id,
+            // Undo: restore the original block verbatim
+            (el: Element) => {
+              const temp = document.createElement("div");
+              temp.innerHTML = originalHTML;
+              const restored = temp.firstElementChild!;
+              el.parentNode!.replaceChild(restored, el);
+              return restored;
+            },
+            // Redo: re-run the content transform
+            (el: Element) => {
+              const redone = type === "blockquote" ? preToBlockquote(el) : blockquoteToPre(el);
+              el.parentNode!.replaceChild(redone, el);
+              return redone;
+            },
+            self.currentBookId,
+            currentOffset,
+          );
+        }
+
+        original.parentNode!.replaceChild(converted, original);
+        setCursorAtTextOffset(converted, currentOffset);
+        self.selectionManager.currentSelection = window.getSelection();
+
+        modifiedElementId = converted.id;
+        newElement = converted;
       } else if (blockParentToToggle) {
         // WRAPPING
         ({ modifiedElementId, newElement } = await self.wrapBlock(blockParentToToggle, type));

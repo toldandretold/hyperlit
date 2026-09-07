@@ -25,7 +25,9 @@ class SetDatabaseSessionContext
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
-        $anonymousToken = $request->cookie('anon_token');
+        // Tolerant read: encrypted (stateful hosts) OR raw (non-stateful hosts,
+        // e.g. LAN-IP phone dev) — see App\Support\AnonToken.
+        $anonymousToken = \App\Support\AnonToken::fromRequest($request);
 
         // Safely get session ID - may not be available for all routes
         $sessionId = '';

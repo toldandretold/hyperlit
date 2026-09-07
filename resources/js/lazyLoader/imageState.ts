@@ -45,6 +45,21 @@ export function handleBrokenImages(container: any, instance?: any) {
     const h = img.getAttribute('height');
     if (w && h) {
       img.style.aspectRatio = `${w} / ${h}`;
+      // EXIF-mismatch belt: attrs measured from the RAW pixel grid (old rows,
+      // pre-EXIF-fix uploads) can describe the wrong box for a rotated JPEG —
+      // the photo renders stretched into the forced aspect-ratio. On load,
+      // when the DISPLAYED intrinsic ratio disagrees materially, trust the
+      // browser and correct the attrs (persists on next save).
+      img.addEventListener('load', () => {
+        if (!img.naturalWidth || !img.naturalHeight) return;
+        const attrRatio = Number(w) / Number(h);
+        const realRatio = img.naturalWidth / img.naturalHeight;
+        if (Math.abs(attrRatio - realRatio) / realRatio > 0.02) {
+          img.setAttribute('width', img.naturalWidth);
+          img.setAttribute('height', img.naturalHeight);
+          img.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+        }
+      }, { once: true });
     } else {
       // Self-healing: capture dimensions on load so they persist on next save
       img.addEventListener('load', () => {

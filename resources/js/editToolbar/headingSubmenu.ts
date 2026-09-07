@@ -115,6 +115,7 @@ export class HeadingSubmenu {
     }
 
     this.headingSubmenu.classList.remove("hidden");
+    this.headingButton?.classList.add("menu-open");
 
     // Attach click-outside listener after a small delay to prevent immediate closure
     setTimeout(() => {
@@ -207,6 +208,7 @@ export class HeadingSubmenu {
     if (!this.headingSubmenu) return;
 
     this.headingSubmenu.classList.add("hidden");
+    this.headingButton?.classList.remove("menu-open");
     document.removeEventListener("click", this.handleClickOutsideSubmenu);
     this.buttonStateManager.setStoredHeadingElement(null); // Clear stored element
   }

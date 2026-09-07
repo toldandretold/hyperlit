@@ -143,11 +143,24 @@ export async function selectInActiveEditor(page, phrase) {
 }
 
 /**
+ * Open the insert (+) submenu so its options (#footnoteButton, #citationButton,
+ * #imageButton, #linkButton) become visible/clickable. No-op when already open.
+ */
+export async function openInsertSubmenu(page) {
+  const alreadyOpen = await page.evaluate(() =>
+    !document.getElementById('insert-submenu')?.classList.contains('hidden'));
+  if (alreadyOpen) return;
+  await page.click('#insertButton');
+  await page.waitForSelector('#insert-submenu:not(.hidden)', { timeout: 5000 });
+}
+
+/**
  * Insert a footnote at the current caret. Opens a new stacked sub-book.
  * Waits for the stack depth to grow by 1.
  */
 export async function insertFootnoteAtCaret(page) {
   const before = await getStackDepth(page);
+  await openInsertSubmenu(page);
   await page.click('#footnoteButton');
   await page.waitForFunction((b) => {
     const d = (document.querySelector('#hyperlit-container.open') ? 1 : 0)

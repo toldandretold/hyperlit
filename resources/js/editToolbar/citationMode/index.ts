@@ -537,6 +537,9 @@ export class CitationMode {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
       this.boundInputTouchHandler = (e: any) => {
+        // ONLY while unfocused — once focused, native touch behavior must run
+        // or iOS's long-press Paste callout / caret repositioning never appears.
+        if (document.activeElement === this.citationInput) return;
         e.preventDefault(); // Prevent iOS scroll-to-focus behavior
         e.stopPropagation();
 

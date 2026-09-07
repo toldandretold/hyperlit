@@ -106,9 +106,7 @@
   #italicButton,
   #headingButton,
   #blockquoteButton,
-  #codeButton,
-  #footnoteButton,
-  #citationButton {
+  #insertButton {
     width: 26px;
     height: 26px;
   }
@@ -147,7 +145,11 @@
     justify-content: center;
     align-items: center;
     gap: clamp(4px, 2.5vw, 10px);
-    padding: 16px 12px 20px 12px; /* top right bottom left */
+    /* Glyphs raised ~4px (12 top vs the old 16, 24 bottom vs the old 20) so
+       users aim higher, and the safe-area inset is folded into INTERNAL
+       bottom padding: the band below the icons is toolbar surface that we
+       own and can swallow, instead of a dead gap under a lifted bar. */
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom, 0px)) 12px; /* top right bottom left */
 
     /* Appearance */
     background: color-mix(in srgb, var(--icon-background) 98%, transparent) !important;
@@ -158,10 +160,12 @@
     transform: none !important;
     transition: none !important;
 
-    /* Ensure consistent sizing */
-    min-height: 40px;
-    max-height: 40px;
+    /* No height clamp: the old max-height:40px made the 28px icons + padding
+       overflow the box, pushing the visible glyphs to the very bottom edge. */
     box-sizing: border-box;
+
+    /* Toolbar-area touches are never scroll/gesture starts */
+    touch-action: none;
 
     /* Prevent any browser interference */
     -webkit-transform: none !important;
@@ -174,26 +178,18 @@
 
   @supports (-webkit-touch-callout: none) {
     #edit-toolbar {
-      /* Safari-specific positioning */
-      bottom: env(safe-area-inset-bottom, 0px);
+      /* Safari: keep the bar flush with the screen edge — the safe-area
+         inset is covered by the toolbar's own bottom padding above.
+         Offsetting `bottom` by the inset (the old approach) re-created a
+         dead band UNDER the bar that swallowed taps and closed the keyboard. */
+      bottom: 0;
       position: fixed !important;
-    }
-  }
-
-  /* Desktop: Center toolbar to match 40ch content width */
-  @media (min-width: 769px) {
-    #edit-toolbar {
-      left: 50% !important;
-      right: auto !important;
-      transform: translateX(-50%) !important;
-      max-width: var(--content-width, 40ch);
-      width: 100%;
     }
   }
 
   /* Content padding when toolbar is visible */
   .main-content.toolbar-visible {
-    padding-bottom: 40px !important;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
     margin-bottom: 0;
   }
 
@@ -215,7 +211,22 @@
     /* Uncomment for debugging: background: rgba(255, 0, 0, 0.2); */
   }
 
-  /* Keyboard gap blocker - covers Safari's bottom gap */
+  /* …but NEVER for submenu option buttons: the popovers float directly above
+     the toolbar, so an option's invisible 80px-deep ::after zone blankets the
+     TRIGGER ROW beneath it — hit-testing then hands taps aimed at other
+     toolbar buttons to the popover option ("tap heading → citation inserter
+     opens", proven via elementFromPoint 30px below the option's rect). */
+  #edit-toolbar .heading-submenu button::after,
+  #edit-toolbar .blockquote-submenu button::after,
+  #edit-toolbar .insert-submenu button::after {
+    content: none;
+  }
+
+  /* Keyboard gap blocker - covers Safari's bottom gap.
+     LIMITATION: taps that land on iOS Safari's own collapsed URL bar /
+     home-indicator strip are browser chrome, not page pixels — no page CSS
+     or JS can intercept them. The blocker (and the toolbar's internal
+     padding) only cover the PAGE-owned band. */
   #keyboard-gap-blocker {
     /* Initial positioning - dynamically updated by keyboardManager.js */
     position: fixed;
@@ -307,53 +318,14 @@
   }
 
   /*
-    FIX: Prevent "sticky hover" on touch devices.
-    This media query targets devices that don't have a real hover capability.
-    It disables the color-inversion hover effect that gets stuck on tap,
-    while preserving the :active transform for tap feedback.
+    Sticky-hover on touch is handled AT THE SOURCE now: the edit-toolbar
+    button hover state (editToolbar.css BUTTON STATE MODEL) is gated behind
+    @media (hover:hover) and (pointer:fine), so touch devices never enter it
+    and no per-shape "kill" rules are needed here — those kill rules reset
+    the icon ink but not the button background, which was the fully-white-
+    square tap bug.
   */
   @media (hover: none) and (pointer: coarse) {
-    #edit-toolbar button:hover {
-      transform: none; /* Disable zoom on hover */
-    }
-
-    #edit-toolbar button:hover svg rect {
-      fill: var(--icon-background); /* Keep background */
-    }
-
-    #edit-toolbar button:hover svg path,
-    #edit-toolbar button:hover svg line,
-    #edit-toolbar button:hover svg polyline {
-      stroke: var(--icon-stroke-primary); /* Keep icon default */
-    }
-
-    #undoButton:hover svg path,
-    #redoButton:hover svg path {
-      fill: var(--icon-fill-primary); /* Keep undo/redo arrow default */
-      stroke: var(--icon-fill-primary);
-      stroke-width: 2;
-    }
-
-    /* BUT: Allow .active state to properly invert colors on touch devices
-       Safari applies both :hover and .active when tapping, so these rules
-       override the hover rules above when .active is present */
-    #edit-toolbar button.active svg rect {
-      fill: transparent !important; /* Invert: make background transparent */
-    }
-
-    #edit-toolbar button.active svg path,
-    #edit-toolbar button.active svg line,
-    #edit-toolbar button.active svg polyline {
-      stroke: var(--icon-hover-stroke) !important; /* Invert: use hover stroke */
-    }
-
-    #undoButton.active svg path,
-    #redoButton.active svg path {
-      fill: var(--icon-hover-fill) !important; /* Invert: use hover fill */
-      stroke: var(--icon-hover-fill) !important;
-      stroke-width: 2;
-    }
-
     /* Fix sticky hover for standalone #editButton - disable on touch devices, but preserve .inverted */
     #editButton:hover:not(.inverted) {
       background-color: transparent !important;

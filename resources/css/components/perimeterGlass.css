@@ -55,8 +55,16 @@
 }
 
 @media only screen and (max-width: 768px) {
+  /* Mobile closed pill: 34px logo + 2px glass each side. With the wrapper at
+     left:4px (accountPage.css mobile override) this spans x=2–40 — flush with
+     the .main-content 40px text edge, fully inside the margin, like the
+     pre-widening 24px-logo era. The glass (tint = background colour) is
+     invisible over the blank margin and only appears when wide/full-width
+     text scrolls behind it — that's the intended aesthetic; do NOT let this
+     pill cross x=40 or it paints over normal body text. */
   #logoNavWrapper::after {
-    width: 42px; /* mobile logo button is 34px wide (accountPage.css) + 8px glass margin */
+    left: -2px;
+    width: 38px;
   }
 }
 

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1827,
-    "moduleCount": 385,
+    "fnCount": 1843,
+    "moduleCount": 387,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3738,
+    "edgeCount": 3756,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -7082,16 +7082,16 @@
       "leaf": true
     },
     {
-      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeBlockType",
-      "label": "BlockSubmenu._executeBlockType",
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._convertToParagraph",
+      "label": "BlockSubmenu._convertToParagraph",
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/blockSubmenu",
       "leaf": true
     },
     {
-      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
-      "label": "BlockSubmenu._executeRemove",
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeBlockType",
+      "label": "BlockSubmenu._executeBlockType",
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/blockSubmenu",
@@ -7124,14 +7124,6 @@
     {
       "id": "editToolbar/blockSubmenu:BlockSubmenu.handleClickOutsideSubmenu",
       "label": "BlockSubmenu.handleClickOutsideSubmenu",
-      "kind": "fn",
-      "stage": "editToolbar",
-      "module": "editToolbar/blockSubmenu",
-      "leaf": true
-    },
-    {
-      "id": "editToolbar/blockSubmenu:BlockSubmenu.handleRemoveBlock",
-      "label": "BlockSubmenu.handleRemoveBlock",
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/blockSubmenu",
@@ -7546,6 +7538,14 @@
       "leaf": true
     },
     {
+      "id": "editToolbar/index:EditToolbar._closeOtherSubmenus",
+      "label": "EditToolbar._closeOtherSubmenus",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
       "id": "editToolbar/index:EditToolbar._handleImageFilesChosen",
       "label": "EditToolbar._handleImageFilesChosen",
       "kind": "fn",
@@ -7690,6 +7690,14 @@
       "leaf": true
     },
     {
+      "id": "editToolbar/index:EditToolbar.openLinkMode",
+      "label": "EditToolbar.openLinkMode",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/index",
+      "leaf": false
+    },
+    {
       "id": "editToolbar/index:EditToolbar.saveToIndexedDB",
       "label": "EditToolbar.saveToIndexedDB",
       "kind": "fn",
@@ -7751,6 +7759,126 @@
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/index",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.closeInsertSubmenu",
+      "label": "InsertSubmenu.closeInsertSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.constructor",
+      "label": "InsertSubmenu.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.handleClickOutsideSubmenu",
+      "label": "InsertSubmenu.handleClickOutsideSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.notifyOptionActivated",
+      "label": "InsertSubmenu.notifyOptionActivated",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.openInsertSubmenu",
+      "label": "InsertSubmenu.openInsertSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.toggleInsertSubmenu",
+      "label": "InsertSubmenu.toggleInsertSubmenu",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.wasSubmenuButtonJustClicked",
+      "label": "InsertSubmenu.wasSubmenuButtonJustClicked",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/insertSubmenu",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode._mutateBlock",
+      "label": "LinkMode._mutateBlock",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode._refreshKeyboardLayout",
+      "label": "LinkMode._refreshKeyboardLayout",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.close",
+      "label": "LinkMode.close",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.confirm",
+      "label": "LinkMode.confirm",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.constructor",
+      "label": "LinkMode.constructor",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": true
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.open",
+      "label": "LinkMode.open",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.removeLink",
+      "label": "LinkMode.removeLink",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/linkMode:validateLinkUrl",
+      "label": "validateLinkUrl",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/linkMode",
       "leaf": true
     },
     {
@@ -18354,13 +18482,12 @@
       "stage": "editToolbar",
       "band": "capture",
       "fnIds": [
+        "editToolbar/blockSubmenu:BlockSubmenu._convertToParagraph",
         "editToolbar/blockSubmenu:BlockSubmenu._executeBlockType",
-        "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
         "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu",
         "editToolbar/blockSubmenu:BlockSubmenu.constructor",
         "editToolbar/blockSubmenu:BlockSubmenu.handleBlockTypeSelection",
         "editToolbar/blockSubmenu:BlockSubmenu.handleClickOutsideSubmenu",
-        "editToolbar/blockSubmenu:BlockSubmenu.handleRemoveBlock",
         "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
         "editToolbar/blockSubmenu:BlockSubmenu.toggleBlockSubmenu",
         "editToolbar/blockSubmenu:BlockSubmenu.wasSubmenuButtonJustClicked"
@@ -18459,6 +18586,7 @@
       "stage": "editToolbar",
       "band": "capture",
       "fnIds": [
+        "editToolbar/index:EditToolbar._closeOtherSubmenus",
         "editToolbar/index:EditToolbar._handleImageFilesChosen",
         "editToolbar/index:EditToolbar._handleRedoButton",
         "editToolbar/index:EditToolbar._handleUndoButton",
@@ -18477,6 +18605,7 @@
         "editToolbar/index:EditToolbar.insertFootnote",
         "editToolbar/index:EditToolbar.openCitationSearch",
         "editToolbar/index:EditToolbar.openImagePicker",
+        "editToolbar/index:EditToolbar.openLinkMode",
         "editToolbar/index:EditToolbar.saveToIndexedDB",
         "editToolbar/index:EditToolbar.setBookId",
         "editToolbar/index:EditToolbar.setEditMode",
@@ -18486,6 +18615,37 @@
         "editToolbar/index:destroyEditToolbar",
         "editToolbar/index:getEditToolbar",
         "editToolbar/index:initEditToolbar"
+      ]
+    },
+    {
+      "id": "editToolbar/insertSubmenu",
+      "label": "editToolbar/insertSubmenu",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/insertSubmenu:InsertSubmenu.closeInsertSubmenu",
+        "editToolbar/insertSubmenu:InsertSubmenu.constructor",
+        "editToolbar/insertSubmenu:InsertSubmenu.handleClickOutsideSubmenu",
+        "editToolbar/insertSubmenu:InsertSubmenu.notifyOptionActivated",
+        "editToolbar/insertSubmenu:InsertSubmenu.openInsertSubmenu",
+        "editToolbar/insertSubmenu:InsertSubmenu.toggleInsertSubmenu",
+        "editToolbar/insertSubmenu:InsertSubmenu.wasSubmenuButtonJustClicked"
+      ]
+    },
+    {
+      "id": "editToolbar/linkMode",
+      "label": "editToolbar/linkMode",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/linkMode:LinkMode._mutateBlock",
+        "editToolbar/linkMode:LinkMode._refreshKeyboardLayout",
+        "editToolbar/linkMode:LinkMode.close",
+        "editToolbar/linkMode:LinkMode.confirm",
+        "editToolbar/linkMode:LinkMode.constructor",
+        "editToolbar/linkMode:LinkMode.open",
+        "editToolbar/linkMode:LinkMode.removeLink",
+        "editToolbar/linkMode:validateLinkUrl"
       ]
     },
     {
@@ -26708,6 +26868,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/editorState:queueNodeForDeletion",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "divEditor/editorState:queueNodeForDeletion",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/imageDrop/buildImageNode:buildImageNode",
       "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
       "target": "divEditor/imageDrop/buildImageNode:buildImageNode",
@@ -26723,6 +26895,12 @@
       "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__divEditor/insertBlockNode:insertBlockNodeBefore",
       "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
       "target": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/imageDrop/insertImageFiles:insertImageFiles__call__editToolbar/index:getEditToolbar",
+      "source": "divEditor/imageDrop/insertImageFiles:insertImageFiles",
+      "target": "editToolbar/index:getEditToolbar",
       "rel": "call"
     },
     {
@@ -28886,9 +29064,39 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__editToolbar/index:EditToolbar.openLinkMode",
+      "source": "dom",
+      "target": "editToolbar/index:EditToolbar.openLinkMode",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__editToolbar/index:EditToolbar.saveToIndexedDB",
       "source": "dom",
       "target": "editToolbar/index:EditToolbar.saveToIndexedDB",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/linkMode:LinkMode._mutateBlock",
+      "source": "dom",
+      "target": "editToolbar/linkMode:LinkMode._mutateBlock",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/linkMode:LinkMode._refreshKeyboardLayout",
+      "source": "dom",
+      "target": "editToolbar/linkMode:LinkMode._refreshKeyboardLayout",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/linkMode:LinkMode.confirm",
+      "source": "dom",
+      "target": "editToolbar/linkMode:LinkMode.confirm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/linkMode:LinkMode.open",
+      "source": "dom",
+      "target": "editToolbar/linkMode:LinkMode.open",
       "rel": "domread"
     },
     {
@@ -31136,6 +31344,18 @@
       "rel": "call"
     },
     {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__domwrite__dom",
       "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
       "target": "dom",
@@ -31324,8 +31544,8 @@
       "rel": "call"
     },
     {
-      "id": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
-      "source": "editToolbar/blockSubmenu:BlockSubmenu._executeRemove",
+      "id": "editToolbar/blockSubmenu:BlockSubmenu._convertToParagraph__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
+      "source": "editToolbar/blockSubmenu:BlockSubmenu._convertToParagraph",
       "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
       "rel": "call"
     },
@@ -31334,12 +31554,6 @@
       "source": "editToolbar/blockSubmenu:BlockSubmenu.closeBlockSubmenu",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu__call__editToolbar/toolbarDOMUtils:hasParentWithTag",
-      "source": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu",
-      "target": "editToolbar/toolbarDOMUtils:hasParentWithTag",
-      "rel": "call"
     },
     {
       "id": "editToolbar/blockSubmenu:BlockSubmenu.openBlockSubmenu__domwrite__dom",
@@ -31643,6 +31857,60 @@
     {
       "id": "editToolbar/index:EditToolbar.show__domwrite__dom",
       "source": "editToolbar/index:EditToolbar.show",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.closeInsertSubmenu__domwrite__dom",
+      "source": "editToolbar/insertSubmenu:InsertSubmenu.closeInsertSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/insertSubmenu:InsertSubmenu.openInsertSubmenu__domwrite__dom",
+      "source": "editToolbar/insertSubmenu:InsertSubmenu.openInsertSubmenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode._mutateBlock__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "source": "editToolbar/linkMode:LinkMode._mutateBlock",
+      "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode._mutateBlock__call__editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "source": "editToolbar/linkMode:LinkMode._mutateBlock",
+      "target": "editToolbar/toolbarDOMUtils:getTextOffsetInElement",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.close__domwrite__dom",
+      "source": "editToolbar/linkMode:LinkMode.close",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.confirm__call__editToolbar/linkMode:validateLinkUrl",
+      "source": "editToolbar/linkMode:LinkMode.confirm",
+      "target": "editToolbar/linkMode:validateLinkUrl",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.confirm__domwrite__dom",
+      "source": "editToolbar/linkMode:LinkMode.confirm",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.open__domwrite__dom",
+      "source": "editToolbar/linkMode:LinkMode.open",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/linkMode:LinkMode.removeLink__domwrite__dom",
+      "source": "editToolbar/linkMode:LinkMode.removeLink",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -46839,6 +47107,11 @@
     },
     {
       "source": "divEditor/imageDrop/insertImageFiles",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/imageDrop/insertImageFiles",
       "target": "divEditor/imageDrop/buildImageNode",
       "kind": "static"
     },
@@ -46846,6 +47119,11 @@
       "source": "divEditor/imageDrop/insertImageFiles",
       "target": "divEditor/insertBlockNode",
       "kind": "static"
+    },
+    {
+      "source": "divEditor/imageDrop/insertImageFiles",
+      "target": "editToolbar/index",
+      "kind": "lazy"
     },
     {
       "source": "divEditor/index",
@@ -47199,6 +47477,16 @@
     },
     {
       "source": "editToolbar/index",
+      "target": "editToolbar/insertSubmenu",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/index",
+      "target": "editToolbar/linkMode",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/index",
       "target": "editToolbar/listConverter",
       "kind": "static"
     },
@@ -47251,6 +47539,16 @@
       "source": "editToolbar/index",
       "target": "footnotes/footnoteInserter",
       "kind": "lazy"
+    },
+    {
+      "source": "editToolbar/linkMode",
+      "target": "editToolbar/toolbarDOMUtils",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/linkMode",
+      "target": "editToolbar/undoManager",
+      "kind": "static"
     },
     {
       "source": "editToolbar/listConverter",
@@ -50523,6 +50821,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 269
+    "lazyCount": 270
   }
 }

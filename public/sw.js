@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v43'; // scroll-restore: imageDims root fix + resume curtain (was 63 commits stale at v42)
+const CACHE_VERSION = 'v44'; // media/audio SW bypass (iOS cookie drop on proxied <img> → RLS 404)
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
@@ -106,6 +106,20 @@ self.addEventListener('fetch', (event) => {
 
   // Skip API requests - always go to network
   if (url.pathname.startsWith('/api/')) {
+    return;
+  }
+
+  // Skip book media + audio (`/{book}/media/…`, `/{book}/audio/…`) — never
+  // proxy these through the worker:
+  //  1. iOS Safari drops COOKIES on SW-proxied <img> fetches, so the RLS-gated
+  //     serving route saw no anon/user token and 404'd every private-book
+  //     image on iPhone (API calls worked — they're skipped above).
+  //  2. The bytes MUTATE in place across an E2EE lock/publish (plaintext ⇄
+  //     HLENC1 at the same URL) — any SW cache layer here is poison.
+  //  3. A fabricated 503 on a transient network blip leaves a permanently
+  //     broken <img> (no retry).
+  // Direct browser fetch does the right thing on all three counts.
+  if (/^\/[^/]+\/(media|audio)\//.test(url.pathname)) {
     return;
   }
 

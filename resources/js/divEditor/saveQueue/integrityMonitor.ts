@@ -10,7 +10,7 @@
 import { verbose } from '../../utilities/logger';
 import { asLineId, type LineId, type BookId } from '../../utilities/idHelpers';
 import { book as currentBook } from '../../app';
-import { INLINE_SKIP_TAGS } from '../../utilities/blockElements';
+import { INLINE_SKIP_TAGS, isImageNodeElement } from '../../utilities/blockElements';
 import { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } from '../../integrity/verifier';
 import { reportIntegrityFailure, type OrphanNode } from '../../integrity/reporter';
 import type { IntegritySurface, PendingNode } from './types';
@@ -185,7 +185,8 @@ export class IntegrityMonitor {
     if (!container) return [];
     const ids: LineId[] = [];
     container.querySelectorAll('[id]').forEach(el => {
-      if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) ids.push(asLineId(el.id));
+      if (/^\d+(\.\d+)?$/.test(el.id)
+        && (!INLINE_SKIP_TAGS.has(el.tagName) || isImageNodeElement(el))) ids.push(asLineId(el.id));
     });
     return ids;
   }
@@ -218,7 +219,8 @@ export class IntegrityMonitor {
         const nodeEls = container.querySelectorAll('[id]');
         const nodeIds: LineId[] = [];
         nodeEls.forEach(el => {
-          if (/^\d+(\.\d+)?$/.test(el.id) && !INLINE_SKIP_TAGS.has(el.tagName)) nodeIds.push(asLineId(el.id));
+          if (/^\d+(\.\d+)?$/.test(el.id)
+            && (!INLINE_SKIP_TAGS.has(el.tagName) || isImageNodeElement(el))) nodeIds.push(asLineId(el.id));
         });
         if (nodeIds.length === 0) return;
 

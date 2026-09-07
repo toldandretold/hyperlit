@@ -80,3 +80,13 @@
   transition: right 0.3s ease;
   z-index: 999;
 }
+
+/* Edit mode: the full-width edit toolbar is ~70px tall (icons + its own
+   safe-area-swallowing padding), so at bottom:40px the LOWER button of each
+   stack (TOC on the right, settings on the left) sits behind the opaque bar
+   and its taps are swallowed by the toolbar. Lift both stacks to sit on top
+   of the bar, matching .main-content.toolbar-visible's 72px reserve. */
+body:has(#edit-toolbar.visible) #bottom-left-buttons,
+body:has(#edit-toolbar.visible) #bottom-right-buttons {
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}

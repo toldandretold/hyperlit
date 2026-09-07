@@ -94,6 +94,11 @@ export function initializeImageExpand(): void {
 
   onPointerOut = (e: Event) => {
     if (!currentImg) return;
+    // iOS taps synthesize pointerover → pointerout → click IN SEQUENCE: hiding
+    // on a touch pointerout clears the state before the click lands, so the
+    // button either blinked or opened nothing. Touch dismissal is handled by
+    // the click handler's tap-elsewhere branch + scroll instead.
+    if ((e as PointerEvent).pointerType === 'touch') return;
     const to = (e as PointerEvent).relatedTarget;
     // Leaving the image toward the button (or vice versa) keeps it shown.
     if (to instanceof Element && (to === buttonEl || buttonEl?.contains(to) || to === currentImg)) return;

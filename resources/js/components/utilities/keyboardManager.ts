@@ -220,6 +220,14 @@ class KeyboardManager {
       return;
     }
 
+    // Allow interaction with the link-mode URL input + its ✓ ⌫ × buttons —
+    // same reason as the citation container above: this handler otherwise
+    // preventDefaults the touchstart, killing the iOS long-press Paste
+    // callout on the input and the synthesized click on the buttons.
+    if (e.target.closest('#link-mode-container')) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     return false;
@@ -463,6 +471,7 @@ scrollCaretIntoView(element: any) {
     const searchToolbar = document.querySelector("#search-toolbar");
     const citationToolbar = document.querySelector("#citation-toolbar");
     const bottomRightButtons = document.querySelector("#bottom-right-buttons");
+    const bottomLeftButtons = document.querySelector("#bottom-left-buttons");
 
     // CITATION/BRAIN MODE LOCK: If citation or brain mode is active and keyboard WAS already open,
     // REFUSE to adjust anything - toolbar position is locked
@@ -502,6 +511,13 @@ scrollCaretIntoView(element: any) {
       this.state.keyboardTop = newKeyboardTop;
       this.moveToolbarAboveKeyboard(editToolbar, searchToolbar, citationToolbar, bottomRightButtons, mainContent);
 
+      // Hide the left stack (settings) entirely: the settings container can't
+      // be used with the keyboard open, so floating the button above the
+      // keyboard is noise — restore on keyboard close below.
+      if (bottomLeftButtons) {
+        (bottomLeftButtons as HTMLElement).style.setProperty("visibility", "hidden", "important");
+      }
+
       // Shrink the open panels onto the keyboard-reduced viewport.
       resizeOpenPanels(vv);
     } else {
@@ -516,6 +532,9 @@ scrollCaretIntoView(element: any) {
       }
       if (bottomRightButtons) {
         bottomRightButtons.removeEventListener("touchstart", this.preventToolbarScroll);
+      }
+      if (bottomLeftButtons) {
+        (bottomLeftButtons as HTMLElement).style.removeProperty("visibility");
       }
 
       // Reset gap blocker when keyboard closes
@@ -576,6 +595,12 @@ scrollCaretIntoView(element: any) {
 
     visibleToolbar.style.setProperty("position", "fixed", "important");
     visibleToolbar.style.setProperty("top", `${top}px`, "important");
+    // Neutralize the stylesheet's `bottom: 0 !important`: with BOTH top and
+    // bottom set (and no height clamp since the max-height:40px removal), the
+    // fixed box stretches from above the keyboard down to the screen bottom,
+    // vertically centering the buttons BEHIND the keyboard — "toolbar no
+    // longer rises". resetInlineStyles removes this on keyboard close.
+    visibleToolbar.style.setProperty("bottom", "auto", "important");
 
     // Desktop (≥769px): Center toolbar to match 40ch content width
     // Mobile (≤768px): Full-width toolbar
@@ -598,11 +623,15 @@ scrollCaretIntoView(element: any) {
     // Reposition keyboard-gap-blocker to cover the area below toolbar buttons
     const gapBlocker = document.getElementById('keyboard-gap-blocker');
     if (gapBlocker) {
-      // Position gap blocker to cover the bottom portion of toolbar + area below
-      // This catches taps "slightly below buttons" in the iOS gesture zone
-      // Must be BELOW toolbar z-index so buttons remain clickable
-      const gapHeight = 150; // Cover bottom portion of toolbar + area below
-      const gapTop = top + (toolbarHeight / 2); // Start at middle of toolbar
+      // Position gap blocker to cover the WHOLE toolbar band + area below.
+      // This catches taps "slightly below buttons" in the iOS gesture zone.
+      // Must be BELOW toolbar z-index so buttons remain clickable — which is
+      // also why starting at the toolbar TOP is safe: the toolbar paints over
+      // the blocker, so only its non-button padding is covered. (The old
+      // `top + toolbarHeight/2` start left the toolbar's upper padding band
+      // unprotected — taps there blurred the editor and closed the keyboard.)
+      const gapHeight = toolbarHeight + 120;
+      const gapTop = top;
 
       gapBlocker.style.setProperty('position', 'fixed', 'important');
       gapBlocker.style.setProperty('top', `${gapTop}px`, 'important');
@@ -770,6 +799,9 @@ removeSpacer() {
       document.querySelector("#bottom-right-buttons"),
       document.querySelector("#citation-toolbar-results")
     );
+    // Visibility is managed outside resetInlineStyles' shared prop list —
+    // clear it in case we're destroyed while the keyboard is open.
+    (document.querySelector("#bottom-left-buttons") as HTMLElement | null)?.style.removeProperty("visibility");
 
     window.removeEventListener("focusin", this.handleFocusIn, true);
     window.removeEventListener("focusout", this.handleFocusOut, true);

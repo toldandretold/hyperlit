@@ -13,7 +13,9 @@ import { SelectionManager } from "./selectionManager";
 import { ButtonStateManager } from "./buttonStateManager";
 import { HeadingSubmenu } from "./headingSubmenu";
 import { BlockSubmenu } from "./blockSubmenu";
+import { InsertSubmenu } from "./insertSubmenu";
 import { CitationMode } from "./citationMode";
+import { LinkMode } from "./linkMode";
 import { TextFormatter } from "./textFormatter";
 import { ListConverter } from "./listConverter";
 import { BlockFormatter } from "./blockFormatter";
@@ -50,9 +52,10 @@ class EditToolbar {
   italicButton!: HTMLElement | null;
   headingButton!: HTMLElement | null;
   blockquoteButton!: HTMLElement | null;
-  codeButton!: HTMLElement | null;
+  insertButton!: HTMLElement | null;
   citationButton!: HTMLElement | null;
   footnoteButton!: HTMLElement | null;
+  linkButton!: HTMLElement | null;
   undoButton!: HTMLButtonElement | null;
   redoButton!: HTMLButtonElement | null;
   imageButton!: HTMLElement | null;
@@ -60,15 +63,18 @@ class EditToolbar {
   allFormattingButtons!: (HTMLElement | null)[];
   headingSubmenu!: HTMLElement | null;
   blockquoteSubmenu!: HTMLElement | null;
+  insertSubmenu!: HTMLElement | null;
   selectionManager!: SelectionManager;
   buttonStateManager!: ButtonStateManager;
   textFormatter!: TextFormatter;
   listConverter!: ListConverter;
   blockFormatter!: BlockFormatter;
   citationMode!: CitationMode;
+  linkMode!: LinkMode;
   undoManager!: UndoManager;
   headingSubmenu_handler!: HeadingSubmenu;
   blockSubmenu_handler!: BlockSubmenu;
+  insertSubmenu_handler!: InsertSubmenu;
   tapExtender!: ReturnType<typeof initTapAreaExtender>;
   // Vestigial (never assigned; only referenced in destroy's removeEventListener — now guarded).
   handleClickOutsideSubmenu: (() => void) | null = null;
@@ -95,9 +101,11 @@ class EditToolbar {
     this.headingSubmenu = document.getElementById("heading-submenu");
     this.blockquoteSubmenu = document.getElementById("blockquote-submenu");
     this.blockquoteButton = document.getElementById("blockquoteButton");
-    this.codeButton = document.getElementById("codeButton");
+    this.insertButton = document.getElementById("insertButton");
+    this.insertSubmenu = document.getElementById("insert-submenu");
     this.footnoteButton = document.getElementById("footnoteButton");
     this.citationButton = document.getElementById("citationButton");
+    this.linkButton = document.getElementById("linkButton");
     this.undoButton = document.getElementById("undoButton") as HTMLButtonElement | null;
     this.redoButton = document.getElementById("redoButton") as HTMLButtonElement | null;
     this.imageButton = document.getElementById("imageButton");
@@ -121,10 +129,11 @@ class EditToolbar {
       italicButton: this.italicButton,
       headingButton: this.headingButton,
       blockquoteButton: this.blockquoteButton,
-      codeButton: this.codeButton,
       citationButton: this.citationButton,
       footnoteButton: this.footnoteButton,
+      linkButton: this.linkButton,
       headingSubmenu: this.headingSubmenu,
+      blockSubmenu: this.blockquoteSubmenu,
       selectionManager: this.selectionManager
     });
 
@@ -153,15 +162,20 @@ class EditToolbar {
       formatBlockCallback: (type: 'heading' | 'blockquote' | 'code' | 'list' | 'remove-list', listType: string) => this.formatBlock(type, listType),
     });
 
+    // Initialize InsertSubmenu (footnote / citation / image / link options)
+    this.insertSubmenu_handler = new InsertSubmenu({
+      insertSubmenu: this.insertSubmenu,
+      insertButton: this.insertButton,
+      buttonStateManager: this.buttonStateManager,
+    });
+
     // Get all buttons except citation button for hiding during citation mode
     this.allFormattingButtons = [
       this.boldButton,
       this.italicButton,
       this.headingButton,
       this.blockquoteButton,
-      this.codeButton,
-      this.footnoteButton,
-      this.imageButton,
+      this.insertButton,
       this.undoButton,
       this.redoButton
     ].filter(btn => btn); // Filter out any null buttons
@@ -174,6 +188,16 @@ class EditToolbar {
       citationInput: document.getElementById('citation-search-input') as HTMLInputElement | null,
       citationResults: document.getElementById('citation-toolbar-results'),
       closeHeadingSubmenuCallback: () => this.closeHeadingSubmenu()
+    });
+
+    // Initialize LinkMode (in-toolbar URL input for the insert-link option)
+    this.linkMode = new LinkMode({
+      toolbar: this.toolbar,
+      linkContainer: document.getElementById('link-mode-container'),
+      linkInput: document.getElementById('link-url-input') as HTMLInputElement | null,
+      confirmBtn: document.getElementById('link-confirm-btn'),
+      removeBtn: document.getElementById('link-remove-btn'),
+      closeBtn: document.getElementById('link-close-btn'),
     });
 
     // Initialize TextFormatter
@@ -246,10 +270,17 @@ class EditToolbar {
         if (!touch) return;
 
         const touchY = touch.clientY;
-        const viewportHeight = window.visualViewport?.height || window.innerHeight;
 
-        // Calculate toolbar area (bottom 15% of visible viewport)
-        const toolbarZoneStart = viewportHeight * 0.85;
+        // Calculate toolbar area (bottom 15% of the VISIBLE viewport).
+        // touch.clientY is layout-viewport coordinates, so the visual-viewport
+        // threshold must be shifted by visualViewport.offsetTop into the same
+        // space — comparing raw vv.height * 0.85 against clientY mis-places
+        // the zone by up to the full keyboard height (the tap-closes-keyboard
+        // bug class).
+        const vv = window.visualViewport;
+        const toolbarZoneStart = vv
+          ? vv.offsetTop + vv.height * 0.85
+          : window.innerHeight * 0.85;
 
         // If touch is in the toolbar zone
         if (touchY >= toolbarZoneStart) {
@@ -271,6 +302,16 @@ class EditToolbar {
       document.addEventListener('touchstart', globalTouchHandler, { capture: true, passive: false });
       document.addEventListener('touchend', globalTouchHandler, { capture: true, passive: false });
       document.addEventListener('touchmove', globalTouchHandler, { capture: true, passive: false });
+
+      // The toolbar's own (enlarged) padding band is inert regardless of
+      // keyboard state — every toolbar touch that isn't on a control is
+      // swallowed here, so it can never reach the page and blur the editor.
+      this.toolbar?.addEventListener('touchstart', (e: TouchEvent) => {
+        const target = e.target as Element | null;
+        if (target && !target.closest('button, input, textarea')) {
+          e.preventDefault();
+        }
+      }, { capture: true, passive: false });
 
       // Also prevent touches on keyboard gap blocker
       const gapBlocker = document.getElementById('keyboard-gap-blocker');
@@ -497,24 +538,50 @@ class EditToolbar {
         },
       },
       {
-        element: this.codeButton,
-        name: "code",
-        action: () => this.formatBlock("code"),
+        element: this.insertButton,
+        name: "insert",
+        action: () => {
+          // Don't toggle if submenu is already open (prevents double-firing on mobile)
+          if (this.insertSubmenu && !this.insertSubmenu.classList.contains("hidden")) {
+            return;
+          }
+          this.insertSubmenu_handler.toggleInsertSubmenu();
+        },
       },
+      // Insert-submenu options: each closes the menu + arms the trigger's
+      // double-fire guard BEFORE acting (citation ordering matters — the
+      // submenu must be closed before citation-mode-active engages).
       {
         element: this.footnoteButton,
         name: "footnote",
-        action: () => this.insertFootnote(),
+        action: () => {
+          this.insertSubmenu_handler.notifyOptionActivated();
+          this.insertFootnote();
+        },
       },
       {
         element: this.citationButton,
         name: "citation",
-        action: () => this.openCitationSearch(),
+        action: () => {
+          this.insertSubmenu_handler.notifyOptionActivated();
+          this.openCitationSearch();
+        },
       },
       {
         element: this.imageButton,
         name: "image",
-        action: () => this.openImagePicker(),
+        action: () => {
+          this.insertSubmenu_handler.notifyOptionActivated();
+          this.openImagePicker();
+        },
+      },
+      {
+        element: this.linkButton,
+        name: "link",
+        action: () => {
+          this.insertSubmenu_handler.notifyOptionActivated();
+          this.openLinkMode();
+        },
       },
       {
         element: this.undoButton,
@@ -571,8 +638,16 @@ class EditToolbar {
               }
             }
 
+            // Special check for insert button: don't fire if an option was just activated
+            if (name === "insert") {
+              if (this.insertSubmenu_handler.wasSubmenuButtonJustClicked()) {
+                return;
+              }
+            }
+
             // Small delay to ensure selection is stored
             setTimeout(() => {
+              this._closeOtherSubmenus(name);
               action();
             }, 10);
           },
@@ -590,6 +665,7 @@ class EditToolbar {
         element.addEventListener("click", (e: any) => {
           e.preventDefault();
           e.stopPropagation();
+          this._closeOtherSubmenus(name);
           action();
         });
       }
@@ -597,6 +673,19 @@ class EditToolbar {
 
     // Single consolidated log after initialization
     verbose.init(`Edit toolbar buttons initialized (${foundButtons.length}/${buttons.length} found)`, '/editToolbar/index.js');
+  }
+
+  /**
+   * Submenus are mutually exclusive: pressing ANY toolbar button closes every
+   * open submenu except the pressed trigger's own (its action toggles it).
+   * Needed because button click handlers stopPropagation, so the submenus'
+   * document-level click-outside closers never see toolbar clicks — pressing
+   * blockquote with the insert menu open used to stack both menus.
+   */
+  _closeOtherSubmenus(name: string) {
+    if (name !== "heading") this.headingSubmenu_handler?.closeHeadingSubmenu();
+    if (name !== "blockquote") this.blockSubmenu_handler?.closeBlockSubmenu();
+    if (name !== "insert") this.insertSubmenu_handler?.closeInsertSubmenu();
   }
 
   /**
@@ -831,6 +920,58 @@ class EditToolbar {
       saveCallback: (id: any, html: any, options: any) => this.saveToIndexedDB(id, html, options),
       undoSnapshot,
       undoManager: this.undoManager,
+    });
+  }
+
+  /**
+   * Open link mode: wrap the current selection in a hyperlink, or edit the
+   * user link (isContentLink) the caret sits inside. Mirrors openCitationSearch.
+   */
+  async openLinkMode() {
+    if (this.linkMode.isOpen) {
+      this.linkMode.close();
+      return;
+    }
+
+    const { range } = this.selectionManager.getWorkingSelection();
+    if (!range) {
+      log.error("Cannot open link mode: no selection", '/editToolbar/index.ts');
+      return;
+    }
+
+    // Resolve bookId from the selection's DOM position (sub-book aware)
+    const rangeEl = range.commonAncestorContainer;
+    const containerEl = (rangeEl?.nodeType === Node.TEXT_NODE ? rangeEl.parentElement : rangeEl) as Element | null;
+    const subBookEl = containerEl?.closest('[data-book-id]');
+    const bookId = (subBookEl as HTMLElement | null)?.dataset?.bookId
+      || this.currentBookId
+      || document.querySelector('.main-content')?.id;
+    if (!bookId) {
+      log.error("Cannot open link mode: no book ID found", '/editToolbar/index.ts');
+      return;
+    }
+
+    // Editing an existing USER link? (footnote-refs/hypercites are excluded
+    // by isContentLink — those anchors are never editable as plain links)
+    const { isContentLink } = await import('../utilities/contentLink');
+    const anchorCandidate = containerEl?.closest('a') ?? null;
+    const existingAnchor = anchorCandidate && isContentLink(anchorCandidate)
+      ? (anchorCandidate as HTMLAnchorElement)
+      : null;
+
+    // A collapsed selection is only useful when editing an existing link.
+    if (range.collapsed && !existingAnchor) {
+      log.error("Cannot insert link: select some text first", '/editToolbar/index.ts');
+      return;
+    }
+
+    this.linkMode.open({
+      range: range.cloneRange(),
+      existingAnchor,
+      bookId,
+      undoManager: this.undoManager,
+      saveCallback: (id: LineId, html: string, options: Record<string, unknown> = {}) => this.saveToIndexedDB(id, html, options),
+      onUndoStackChanged: () => this._updateUndoRedoButtons(bookId),
     });
   }
 
