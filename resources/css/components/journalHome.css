@@ -3,7 +3,9 @@
    wordmark would be) and the about-copy block that replaces the marketing
    welcome copy. Everything else (glass hero card, lava lamp, arranger
    buttons, feed cards) is homepage.css — its hero rules are scoped
-   body[data-page="home"], body[data-page="journal"]. */
+   body[data-page="home"], body[data-page="journal"], body[data-page="user"]
+   (the user page runs the same hero — its lockup lives in userPageHero.css,
+   a user-scoped mirror of the rules below). */
 
 /* ---------- logo lockup: colon squares + journal name ---------- */
 
@@ -36,6 +38,7 @@ body[data-page="journal"] #app-container.lava-lamp-background .fixed-header #ima
   width: auto;
   height: var(--colon-h, var(--colon-fallback, clamp(2.4rem, 7vw, 3.6rem)));
 }
+
 
 body[data-page="journal"] .journal-title {
   margin: 0;

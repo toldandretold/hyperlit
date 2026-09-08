@@ -292,92 +292,10 @@ export function showShelfHeader(opts: any) {
 
     header.appendChild(titleRow);
 
-    // --- Search bar ---
-    const searchContainer = document.createElement('div');
-    searchContainer.className = 'shelf-header-search';
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.className = 'shelf-header-search-input';
-    searchInput.placeholder = 'Search titles & authors\u2026';
-    searchInput.autocomplete = 'off';
-    searchInput.spellcheck = false;
-
-    // --- Full-text toggle ---
-    const toggleLabel = document.createElement('label');
-    toggleLabel.className = 'shelf-fulltext-toggle';
-
-    const toggleCheckbox = document.createElement('input');
-    toggleCheckbox.type = 'checkbox';
-    toggleCheckbox.className = 'shelf-fulltext-checkbox';
-
-    const toggleSlider = document.createElement('span');
-    toggleSlider.className = 'shelf-fulltext-slider';
-
-    const toggleText = document.createElement('span');
-    toggleText.className = 'shelf-fulltext-text';
-    toggleText.textContent = 'Full text';
-
-    toggleLabel.appendChild(toggleCheckbox);
-    toggleLabel.appendChild(toggleSlider);
-    toggleLabel.appendChild(toggleText);
-
-    // Toggle change handler
-    toggleCheckbox.addEventListener('change', () => {
-        isFullTextMode = toggleCheckbox.checked;
-        searchInput.placeholder = isFullTextMode
-            ? 'Search full text\u2026'
-            : 'Search titles & authors\u2026';
-
-        // Clear current results/state
-        clearInlineResults();
-        filterLibraryCards('');
-
-        // Re-run with current input
-        const query = searchInput.value.trim();
-        if (query) {
-            if (isFullTextMode) {
-                performShelfSearch(query, searchShelfId);
-            } else {
-                filterLibraryCards(query);
-            }
-        }
-    });
-
-    // Search input handler
-    searchInput.addEventListener('input', () => {
-        clearTimeout(searchDebounceTimer as any);
-        const query = searchInput.value.trim();
-
-        if (isFullTextMode) {
-            if (abortController) abortController.abort();
-            if (query.length < 2) {
-                clearInlineResults();
-                return;
-            }
-            showInlineStatus('Searching\u2026');
-            searchDebounceTimer = setTimeout(() => {
-                performShelfSearch(query, searchShelfId);
-            }, 300);
-        } else {
-            searchDebounceTimer = setTimeout(() => {
-                filterLibraryCards(query);
-            }, 150);
-        }
-    });
-
-    searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            searchInput.value = '';
-            clearInlineResults();
-            filterLibraryCards('');
-            searchInput.blur();
-        }
-    });
-
-    searchContainer.appendChild(searchInput);
-    searchContainer.appendChild(toggleLabel);
-    header.appendChild(searchContainer);
+    // (No shelf-header search bar: the hero search box atop the user page \u2014
+    // components/userProfile/userSearch.ts, library-wide with Full text /
+    // Semantic / Archivist \u2014 superseded the forked per-shelf input that
+    // used to render here.)
 
     // --- Controls row (sort dropdown) ---
     const controls = document.createElement('div');

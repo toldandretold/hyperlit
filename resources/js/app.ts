@@ -53,8 +53,16 @@ if (!isStandaloneMode && pathSegments.length === 2 && secondSegment) {
   }
 }
 
-// 5) Export the book ID (preferring your DOM‐rendered .main-content.id)
-const domBook = document.querySelector(".main-content")?.id;
+// 5) Export the book ID: DOM-rendered .main-content.id first, then the
+//    layout's body[data-book] (server truth — the sanitized username on
+//    /u/ pages, which render NO server <main> since the hero redesign; the
+//    raw-URL fallback would yield the literal prefix "u" there and poison
+//    every consumer: checkEditPermissionsAndUpdateUI hid the pencil,
+//    loadHyperText 404'd on book "u"). Empty data-book (home/journal) falls
+//    through to the URL segment exactly as before.
+const domBook = document.querySelector(".main-content")?.id
+  || document.body.dataset.book
+  || undefined;
 
 // ✅ CHANGED: Use 'let' instead of 'const' so we can update it during SPA transitions.
 export let book: BookId = asBookId(domBook || pathSegments[0] || "most-recent"); // Fallback to most-recent

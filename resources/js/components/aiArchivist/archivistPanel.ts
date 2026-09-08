@@ -117,13 +117,17 @@ function setCloseButtonLabel(clearing: boolean): void {
 }
 
 /**
- * Hero-page answer context: the shelf id on /j/ and /a/ pages, 'home' on the
- * homepage, null anywhere the archivist search box doesn't exist (reader).
- * Same source of truth the searchBox factory reads (data-shelf-id on the
- * search container).
+ * Hero-page answer context: the shelf id on /j/ and /a/ pages, the username
+ * on /u/ pages, 'home' on the homepage, null anywhere the archivist search
+ * box doesn't exist (reader). Same sources of truth the searchBox factory
+ * reads (data-shelf-id / data-username on the search container).
  */
 function pageContextId(): string | null {
     if (!document.querySelector('.home-content-wrapper')) return null;
+    const userContainer = document.getElementById('user-search-container');
+    if (userContainer) {
+        return userContainer.dataset.username ? `user:${userContainer.dataset.username}` : null;
+    }
     const container = document.getElementById('journal-search-container')
         || document.getElementById('homepage-search-container');
     if (!container) return null;
@@ -444,9 +448,11 @@ export interface ArchivistAsk {
     question: string;
     /** public shelf scope (journal/archive pages); null = whole public corpus */
     shelfId: string | null;
+    /** user-library scope (/u/{username} pages); mutually exclusive with shelfId */
+    username?: string | null;
 }
 
-export async function openArchivistPanel({ question, shelfId }: ArchivistAsk): Promise<void> {
+export async function openArchivistPanel({ question, shelfId, username = null }: ArchivistAsk): Promise<void> {
     // A new ask replaces any in-flight one.
     if (abortController) abortController.abort();
 
@@ -528,6 +534,7 @@ export async function openArchivistPanel({ question, shelfId }: ArchivistAsk): P
             body: JSON.stringify({
                 question,
                 shelfId,
+                username,
                 model: 'accounts/fireworks/models/deepseek-v4-pro-0813',
                 client_inference: byoActive,
             }),

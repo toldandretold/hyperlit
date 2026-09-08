@@ -129,6 +129,75 @@ test("rejects another user's PRIVATE shelf with 404", function () {
     $response->assertStatus(404);
 });
 
+test('rejects username together with shelfId with 422', function () {
+    $user = makeAskUser('ask_val_bothscopes');
+    $shelfId = makeAskShelf($user->name, 'public');
+
+    $response = $this->actingAs($user)->postJson('/api/ai-brain/ask', [
+        'question' => 'what is delinking?',
+        'shelfId'  => $shelfId,
+        'username' => $user->name,
+    ]);
+
+    $response->assertStatus(422);
+    expect($response->json('message'))->toContain('mutually exclusive');
+});
+
+test('rejects an unknown username with 404', function () {
+    $user = makeAskUser('ask_val_nouser');
+
+    $response = $this->actingAs($user)->postJson('/api/ai-brain/ask', [
+        'question' => 'what is delinking?',
+        'username' => 'no_such_user_' . Str::random(12),
+    ]);
+
+    $response->assertStatus(404);
+    expect($response->json('message'))->toContain('User');
+});
+
+test("accepts another user's page username and opens the stream", function () {
+    // The /u/{username} hero-page scope: any authenticated user may ask about
+    // another user's PUBLIC library. Pipeline mocked to the no-matches path —
+    // 200 with the stream open proves the scope gate passed and the corpus
+    // no-match copy (collection flavour) is used.
+    $pageOwner = makeAskUser('ask_val_pageowner');
+    $asker = makeAskUser('ask_val_pageasker');
+
+    $this->mock(LlmService::class, function ($mock) {
+        $mock->shouldReceive('chatWithFallback')->andReturn([
+            'content' => '<search>{"keywords":"delinking","library_keywords":"","embedding_query":"delinking world economy"}</search>',
+            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+        ]);
+        $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
+        $mock->shouldReceive('clearTransport');
+    });
+    $this->mock(RetrievalService::class, function ($mock) use ($pageOwner) {
+        // The scope contract: creatorName must be the PAGE's user (not the
+        // asker) and sourceScope the services' creator-scoped 'mine'.
+        $mock->shouldReceive('execute')
+            ->withArgs(function ($plan, $context) use ($pageOwner) {
+                return ($context['sourceScope'] ?? null) === 'mine'
+                    && ($context['creatorName'] ?? null) === $pageOwner->name;
+            })
+            ->andReturn([
+                'matches' => [], 'queryText' => null, 'toolsUsed' => ['embedding_search'], 'log' => [],
+            ]);
+        $mock->shouldNotReceive('executeLocalContext');
+    });
+    $this->mock(BillingService::class, function ($mock) {
+        $mock->shouldReceive('canProceed')->andReturnTrue();
+        $mock->shouldNotReceive('charge');
+    });
+
+    $response = $this->actingAs($asker)->postJson('/api/ai-brain/ask', [
+        'question' => 'what is delinking?',
+        'username' => $pageOwner->name,
+    ]);
+
+    $response->assertStatus(200);
+    expect($response->streamedContent())->toContain('No matches in this collection');
+});
+
 test("accepts another user's PUBLIC shelf and opens the stream", function () {
     // The inverted-gate contract: a visitor may ask a public journal/archive
     // shelf they do not own. Pipeline mocked to end at the no-matches path so

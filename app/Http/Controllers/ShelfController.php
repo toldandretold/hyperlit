@@ -826,8 +826,40 @@ class ShelfController extends Controller
     }
 
     /**
-     * Public full-text search within a user's public library (no auth required).
-     * GET /api/public/library/{username}/search?q=query
+     * The searchable corpus of a user's library page: their REAL books only.
+     * Synthetic rows (the four user-home books, sorted variants, shelf
+     * renders, sub-books) share creator = username, so without these
+     * exclusions a search would also hit the library-card lists themselves.
+     */
+    private function userLibraryBooks(string $username, bool $includePrivate): array
+    {
+        $sanitized = str_replace(' ', '', $username);
+
+        return DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->whereIn('visibility', $includePrivate ? ['public', 'private'] : ['public'])
+            ->whereNotIn('book', [
+                $sanitized,
+                $sanitized . 'Private',
+                $sanitized . 'All',
+                $sanitized . 'Account',
+            ])
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted')")
+            ->pluck('book')
+            ->toArray();
+    }
+
+    /**
+     * Search within a user's library — the /u/{username} hero search box.
+     * GET /api/public/library/{username}/search?q=query[&mode=library|semantic]
+     *
+     * No auth required; a signed-in OWNER (resolved via the sanctum guard —
+     * this route sits outside auth middleware) searches their private books
+     * too, everyone else sees public only. Modes mirror publicSearch above:
+     * mode=library (titles/authors), mode=semantic (embeddings), default
+     * full-text over node content.
      */
     public function publicSystemSearch(Request $request, string $username)
     {
@@ -835,6 +867,9 @@ class ShelfController extends Controller
         if (!$user) {
             return response()->json(['error' => 'User not found'], 404);
         }
+
+        $viewer = Auth::guard('sanctum')->user();
+        $isOwner = $viewer && $viewer->name === $user->name;
 
         $query = $request->input('q', '');
         $limit = min((int) $request->input('limit', 50), 50);
@@ -848,6 +883,101 @@ class ShelfController extends Controller
         }
 
         $searchService = app(SearchService::class);
+
+        // mode=library: titles & authors within the user's books (the hero
+        // box's default mode — journal-page parity, user-scoped).
+        if ($request->input('mode') === 'library') {
+            $books = $this->userLibraryBooks($user->name, $isOwner);
+
+            if (empty($books)) {
+                $results = [];
+            } elseif ($isOwner) {
+                // Owner path: their PRIVATE titles must match too, which the
+                // shared searchLibraryByKeyword deliberately never returns
+                // (its "no private book ever" contract guards the AI-retrieval
+                // seams). Query directly under the owner's own RLS session —
+                // the session is the authorization.
+                $tsq = $searchService->buildTsQuery($query);
+                $results = empty($tsq) ? [] : DB::table('library')
+                    ->selectRaw("
+                        library.book,
+                        library.title,
+                        library.author,
+                        library.year,
+                        ts_rank('{0.05, 0.1, 0.3, 1.0}', library.search_vector, to_tsquery('simple', ?)) as relevance
+                    ", [$tsq])
+                    ->whereRaw("library.search_vector @@ to_tsquery('simple', ?)", [$tsq])
+                    ->whereIn('library.book', $books)
+                    ->orderByDesc('relevance')
+                    ->limit(min($limit, 20))
+                    ->get()
+                    ->all();
+            } else {
+                $results = $searchService->searchLibraryByKeyword($query, min($limit, 20), 'books', null, null, $books);
+            }
+
+            return response()->json([
+                'success' => true,
+                'mode'    => 'library',
+                'results' => array_map(fn ($r) => [
+                    'book'     => $r->book,
+                    'title'    => $r->title,
+                    'author'   => $r->author,
+                    'year'     => $r->year,
+                    'headline' => e(trim(($r->title ?? '') . ($r->author ? ' — ' . $r->author : ''))),
+                ], $results),
+                'query'   => $query,
+            ]);
+        }
+
+        // mode=semantic: shared embed cache + runSemanticNodeSearch scoped to
+        // the user's books. Only the anonymous/visitor payload is cached —
+        // the owner's corpus includes private books, so it is per-viewer.
+        if ($request->input('mode') === 'semantic') {
+            if (mb_strlen($query) < 3) {
+                return response()->json([
+                    'success' => true,
+                    'results' => [],
+                    'query' => $query,
+                    'mode' => 'semantic',
+                ]);
+            }
+
+            $norm = mb_strtolower($query);
+            $queryEmbedding = app(EmbeddingService::class)->embedSearchQuery($norm);
+            if ($queryEmbedding === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Semantic search is temporarily unavailable',
+                ], 503);
+            }
+
+            $run = function () use ($searchService, $queryEmbedding, $limit, $user, $isOwner) {
+                $results = $searchService->runSemanticNodeSearch(
+                    $queryEmbedding,
+                    $limit,
+                    $this->userLibraryBooks($user->name, $isOwner),
+                );
+                return ['results' => $results, 'count' => $results->count()];
+            };
+
+            $payload = $isOwner
+                ? $run()
+                : Cache::remember(
+                    'search:semantic:user:' . str_replace(' ', '', $user->name) . ':' . md5($norm) . ':' . $limit,
+                    60,
+                    $run,
+                );
+
+            return response()->json([
+                'success' => true,
+                'results' => $payload['results'],
+                'query' => $query,
+                'mode' => 'semantic',
+                'count' => $payload['count'],
+            ]);
+        }
+
         $tsQuery = $searchService->buildTsQuery($query);
 
         if (empty($tsQuery)) {
@@ -858,13 +988,7 @@ class ShelfController extends Controller
             ]);
         }
 
-        // Only search public books belonging to this user
-        $books = DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $user->name)
-            ->where('visibility', 'public')
-            ->whereRaw("book NOT LIKE '%/%'")
-            ->pluck('book')
-            ->toArray();
+        $books = $this->userLibraryBooks($user->name, $isOwner);
 
         if (empty($books)) {
             return response()->json([

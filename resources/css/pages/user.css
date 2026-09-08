@@ -47,6 +47,8 @@
 @import url('../components/userPageTabs.css');
 @import url('../components/buttonsMobile.css');
 @import url('../components/search.css');
+@import url('../components/archivistSearch.css');
+@import url('../components/highlightNav.css');
 @import url('../components/hyperciteTombstone.css');
 @import url('../components/bookActions.css');
 @import url('../components/floatingActionMenu.css');
@@ -55,6 +57,11 @@
 @import url('../components/form.css');
 @import url('../components/alert.css');
 @import url('../base/layout.css');
+/* Hero chrome (lava glass card, welcome copy, arranger pills) + the user
+   flavour of it (lockup, customization vars, edit palette). Order matters:
+   userPageHero overrides homepage. */
+@import url('../components/homepage.css');
+@import url('../components/userPageHero.css');
 /* Custom scrollbar engages once an arranger collection loads a lazy loader into
    the user feed wrapper (native scrollbar in the bare feed). */
 @import url('../components/customScrollbar.css');

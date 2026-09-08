@@ -63,18 +63,37 @@
 }
 .tier-dropdown.hidden { display: none; }
 
-/* Account page — tier option */
+/* Account page — tier option: radio-style single choice (the filled circle is
+   the selection indicator; no row highlight) */
 .tier-option {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 10px 14px;
   cursor: pointer;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 .tier-option:last-child { border-bottom: none; }
-.tier-option:hover { background: rgba(78, 172, 174, 0.15); }
-.tier-option.active { background: rgba(78, 172, 174, 0.25); }
+.tier-option:hover { background: rgba(78, 172, 174, 0.1); }
 .tier-option em { font-size: 0.85em; opacity: 0.8; }
-.tier-explainer { display: block; padding: 8px 14px 4px; opacity: 0.7; font-size: 0.75em; }
+.tier-option-text { display: block; min-width: 0; }
+.tier-radio {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  position: relative;
+}
+.tier-option.active .tier-radio { border-color: #4EACAE; }
+.tier-option.active .tier-radio::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  background: #4EACAE;
+}
 
 /* Account page — ledger rows */
 .ledgerEntry {
@@ -478,4 +497,103 @@
   .logo-nav-label {
     font-size: 12px;
   }
+}
+
+/* ---------- Money overlay (any-page account panel) ----------
+   Opened from the userButton flyout's "Money" row
+   (components/moneyOverlay/moneyOverlay.ts). The panel body is the SAME
+   account-book HTML the user page's Account tab renders, so the balance/
+   tier/ledger rules above style it as-is. Lives in this file because every
+   page bundle already imports it. */
+
+#money-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#money-overlay .money-panel {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background, #1a1a1a);
+  color: var(--color-text, #eee);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#money-overlay .money-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+#money-overlay .money-panel-title {
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+#money-overlay .money-panel-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#money-overlay .money-panel-close:hover {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+#money-overlay .money-panel-body {
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+}
+
+#money-overlay .money-panel-body .totalCredit {
+  margin-top: 0;
+}
+
+#money-overlay .money-panel-empty {
+  opacity: 0.7;
+  text-align: center;
+  padding: 24px 0;
+}
+
+#money-overlay .money-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#money-overlay .money-panel-export {
+  padding: 4px 10px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font-size: 0.78em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#money-overlay .money-panel-export:hover {
+  background: rgba(128, 128, 128, 0.18);
 }

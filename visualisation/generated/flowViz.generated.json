@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1843,
-    "moduleCount": 387,
+    "fnCount": 1848,
+    "moduleCount": 389,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3756,
+    "edgeCount": 3767,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4231,6 +4231,22 @@
       "leaf": true
     },
     {
+      "id": "components/userProfile/userPageEditor:destroyUserPageEditor",
+      "label": "destroyUserPageEditor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userPageEditor",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userPageEditor:initUserPageEditor",
+      "label": "initUserPageEditor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userPageEditor",
+      "leaf": false
+    },
+    {
       "id": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
       "label": "destroyUserProfileEditor",
       "kind": "fn",
@@ -4241,6 +4257,14 @@
     {
       "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
       "label": "initializeUserProfileEditor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userProfileEditor",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "label": "setUserProfileEditingEnabled",
       "kind": "fn",
       "stage": "components",
       "module": "components/userProfile/userProfileEditor",
@@ -4261,6 +4285,22 @@
       "stage": "components",
       "module": "components/userProfile/userProfilePage",
       "leaf": false
+    },
+    {
+      "id": "components/userProfile/userSearch:destroyUserSearch",
+      "label": "destroyUserSearch",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userSearch",
+      "leaf": true
+    },
+    {
+      "id": "components/userProfile/userSearch:initializeUserSearch",
+      "label": "initializeUserSearch",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userSearch",
+      "leaf": true
     },
     {
       "id": "components/utilities/buttonRegistry:ButtonRegistry._initializeComponent",
@@ -17934,13 +17974,24 @@
       ]
     },
     {
+      "id": "components/userProfile/userPageEditor",
+      "label": "components/userProfile/userPageEditor",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userProfile/userPageEditor:destroyUserPageEditor",
+        "components/userProfile/userPageEditor:initUserPageEditor"
+      ]
+    },
+    {
       "id": "components/userProfile/userProfileEditor",
       "label": "components/userProfile/userProfileEditor",
       "stage": "components",
       "band": "components",
       "fnIds": [
         "components/userProfile/userProfileEditor:destroyUserProfileEditor",
-        "components/userProfile/userProfileEditor:initializeUserProfileEditor"
+        "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+        "components/userProfile/userProfileEditor:setUserProfileEditingEnabled"
       ]
     },
     {
@@ -17951,6 +18002,16 @@
       "fnIds": [
         "components/userProfile/userProfilePage:destroyUserProfilePage",
         "components/userProfile/userProfilePage:initializeUserProfilePage"
+      ]
+    },
+    {
+      "id": "components/userProfile/userSearch",
+      "label": "components/userProfile/userSearch",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userProfile/userSearch:destroyUserSearch",
+        "components/userProfile/userSearch:initializeUserSearch"
       ]
     },
     {
@@ -23822,12 +23883,6 @@
       "rel": "write"
     },
     {
-      "id": "components/shelves/shelfHeader:showShelfHeader__write__store:sessionStorage",
-      "source": "components/shelves/shelfHeader:showShelfHeader",
-      "target": "store:sessionStorage",
-      "rel": "write"
-    },
-    {
       "id": "components/shelves/shelfPreview:hideShelfPreview__domwrite__dom",
       "source": "components/shelves/shelfPreview:hideShelfPreview",
       "target": "dom",
@@ -25875,6 +25930,32 @@
       "rel": "call"
     },
     {
+      "id": "components/userProfile/userPageEditor:destroyUserPageEditor__call__components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "source": "components/userProfile/userPageEditor:destroyUserPageEditor",
+      "target": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userPageEditor:destroyUserPageEditor__domwrite__dom",
+      "source": "components/userProfile/userPageEditor:destroyUserPageEditor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userPageEditor:initUserPageEditor__call__components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "source": "components/userProfile/userPageEditor:initUserPageEditor",
+      "target": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userPageEditor:initUserPageEditor__domwrite__dom",
+      "source": "components/userProfile/userPageEditor:initUserPageEditor",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/userProfile/userProfileEditor:destroyUserProfileEditor__domwrite__dom",
       "source": "components/userProfile/userProfileEditor:destroyUserProfileEditor",
       "target": "dom",
@@ -25914,6 +25995,37 @@
     {
       "id": "components/userProfile/userProfileEditor:initializeUserProfileEditor__write__store:library",
       "source": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled__call__indexedDB/core/connection:openDatabase",
+      "source": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled__call__indexedDB/core/library:cleanLibraryItemForStorage",
+      "source": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "target": "indexedDB/core/library:cleanLibraryItemForStorage",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled__domwrite__dom",
+      "source": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled__write__store:library",
+      "source": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
       "target": "store:library",
       "rel": "write"
     },
@@ -28404,9 +28516,27 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/userProfile/userPageEditor:destroyUserPageEditor",
+      "source": "dom",
+      "target": "components/userProfile/userPageEditor:destroyUserPageEditor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userPageEditor:initUserPageEditor",
+      "source": "dom",
+      "target": "components/userProfile/userPageEditor:initUserPageEditor",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/userProfile/userProfileEditor:initializeUserProfileEditor",
       "source": "dom",
       "target": "components/userProfile/userProfileEditor:initializeUserProfileEditor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
+      "source": "dom",
+      "target": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
       "rel": "domread"
     },
     {
@@ -46801,6 +46931,11 @@
       "kind": "static"
     },
     {
+      "source": "components/userProfile/userPageEditor",
+      "target": "components/userProfile/userProfileEditor",
+      "kind": "static"
+    },
+    {
       "source": "components/userProfile/userProfileEditor",
       "target": "components/homepage/homepageDisplayUnit",
       "kind": "static"
@@ -46829,6 +46964,11 @@
       "source": "components/userProfile/userProfilePage",
       "target": "indexedDB/index",
       "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userSearch",
+      "target": "search/searchBox",
+      "kind": "static"
     },
     {
       "source": "components/utilities/containerManager",
@@ -46947,7 +47087,17 @@
     },
     {
       "source": "components/utilities/registerComponents",
+      "target": "components/userProfile/userPageEditor",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
       "target": "components/userProfile/userProfilePage",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/userProfile/userSearch",
       "kind": "static"
     },
     {

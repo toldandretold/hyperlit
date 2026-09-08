@@ -54,4 +54,16 @@ export function attachProfileButtonListeners(self: any) {
     // Hover styling comes from the shared .menu-row-btn class (menuRow.css) — same
     // transparent-until-hover row as the rest of the profile menu.
   }
+
+  // Money: the any-page account/billing overlay (balance, tier, top-up, ledger).
+  const moneyBtn = self.container.querySelector('#moneyBtn');
+  if (moneyBtn) {
+    moneyBtn.addEventListener('click', async (e: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+      self.closeContainer?.();
+      const { openMoneyOverlay } = await import('../moneyOverlay/moneyOverlay');
+      void openMoneyOverlay();
+    });
+  }
 }

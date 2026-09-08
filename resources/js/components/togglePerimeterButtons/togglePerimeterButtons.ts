@@ -214,7 +214,10 @@ shouldIgnoreEvent(event: any) {
       // the journal network's dots are finger-small, so taps land on the SVG's
       // empty space around them — toggling the perimeter buttons there fought
       // the nearest-dot tap assist (components/journalHyperciteMap).
-      "#logoNavWrapper, #logoContainer, #userButton, #newBookButton, #editButton, #toc-toggle-button, #settingsButton, #settings-container, #citation-toolbar, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container, #shelf-preview-overlay, .shelf-preview-overlay, .add-to-shelf-menu, .add-to-shelf-backdrop, .floating-action-menu, .floating-action-menu-backdrop, .custom-scrollbar, .minimap-preview, .journal-hypercite-map, #journal-map-card, #figure-viewer-overlay",
+      // #user-page-edit-panel: the user-page customization palette — its
+      // padding/labels are not inputs, and a tap there must not hide the
+      // very buttons the owner is using to edit the page.
+      "#logoNavWrapper, #logoContainer, #userButton, #newBookButton, #editButton, #toc-toggle-button, #settingsButton, #settings-container, #citation-toolbar, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container, #shelf-preview-overlay, .shelf-preview-overlay, .add-to-shelf-menu, .add-to-shelf-backdrop, .floating-action-menu, .floating-action-menu-backdrop, .custom-scrollbar, .minimap-preview, .journal-hypercite-map, #journal-map-card, #figure-viewer-overlay, #user-page-edit-panel",
     )
   ) {
     return true;

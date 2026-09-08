@@ -13,6 +13,12 @@ let bioInputListener: any = null;
 let currentTitleElement: any = null;
 let currentBioElement: any = null;
 
+// Editing is OFFERED by init (owner + record present) but only ENGAGED while
+// the page-edit mode is on — userPageEditor calls setUserProfileEditingEnabled
+// when the pencil toggles. Keeps visitors and casual owners off the caret.
+let editableRecord: any = null;
+let editingEnabled = false;
+
 /**
  * Initialize the user profile editor
  * Fetches library record and displays title/bio
@@ -20,11 +26,14 @@ let currentBioElement: any = null;
  */
 export async function initializeUserProfileEditor() {
 
+  // Bio is OPTIONAL: the redesigned user page has no #userBio element (the
+  // about section is the one prose surface; library.note only feeds the SEO
+  // description) — title editing must not die on its absence.
   const titleEl = document.getElementById('userLibraryTitle');
   const bioEl = document.getElementById('userBio');
 
-  if (!titleEl || !bioEl) {
-    console.warn('User profile elements not found');
+  if (!titleEl) {
+    verbose.init('User profile title element not found', '/components/userProfile/userProfileEditor.ts');
     return;
   }
 
@@ -50,7 +59,7 @@ export async function initializeUserProfileEditor() {
       if (!titleEl.textContent.trim()) {
         titleEl.textContent = `${book}'s library`;
       }
-      if (!bioEl.textContent.trim()) {
+      if (bioEl && !bioEl.textContent.trim()) {
         bioEl.textContent = '';
       }
 
@@ -66,7 +75,7 @@ export async function initializeUserProfileEditor() {
     if (!titleEl.textContent.trim()) {
       titleEl.textContent = (record as any).title || `${book}'s library`;
     }
-    if (!bioEl.textContent.trim()) {
+    if (bioEl && !bioEl.textContent.trim()) {
       bioEl.textContent = (record as any).note || '';
     }
 
@@ -79,28 +88,74 @@ export async function initializeUserProfileEditor() {
     const canEdit = await canUserEditBook(book);
 
     if (canEdit) {
-      // Make fields editable
-      titleEl.contentEditable = 'true';
-      bioEl.contentEditable = 'true';
-
-      // Add placeholders via CSS class
-      titleEl.classList.add('editable-field');
-      bioEl.classList.add('editable-field');
-
-      if (!titleEl.textContent.trim()) {
-        titleEl.setAttribute('data-placeholder', 'Your Library Title');
+      // Editing is available but not engaged: the pencil (userPageEditor)
+      // flips it on via setUserProfileEditingEnabled. If edit mode was
+      // already on when a SPA re-init landed here, re-engage immediately.
+      editableRecord = record;
+      if (editingEnabled) {
+        engageEditing();
       }
-      if (!bioEl.textContent.trim()) {
-        bioEl.setAttribute('data-placeholder', 'Introduce your library, if you want...');
-      }
-
-      // Attach save listeners
-      attachSaveListeners(titleEl, bioEl, record);
     }
 
   } catch (error) {
-    console.error('Error initializing user profile editor:', error);
+    log.error('Error initializing user profile editor', '/components/userProfile/userProfileEditor.ts', error);
   }
+}
+
+/**
+ * Engage/release the inline title/bio editing — called by userPageEditor when
+ * page-edit mode toggles. No-op unless init found an editable record (owner).
+ */
+export function setUserProfileEditingEnabled(enabled: boolean) {
+  editingEnabled = enabled;
+  if (enabled) {
+    engageEditing();
+  } else {
+    releaseEditing();
+  }
+}
+
+function engageEditing() {
+  const titleEl = document.getElementById('userLibraryTitle');
+  const bioEl = document.getElementById('userBio'); // absent on the redesigned page
+  if (!titleEl || !editableRecord) return;
+
+  titleEl.contentEditable = 'true';
+  titleEl.classList.add('editable-field');
+  if (!titleEl.textContent.trim()) {
+    titleEl.setAttribute('data-placeholder', 'Your Library Title');
+  }
+
+  if (bioEl) {
+    bioEl.contentEditable = 'true';
+    bioEl.classList.add('editable-field');
+    if (!bioEl.textContent.trim()) {
+      bioEl.setAttribute('data-placeholder', 'Introduce your library, if you want...');
+    }
+  }
+
+  attachSaveListeners(titleEl, bioEl, editableRecord);
+}
+
+function releaseEditing() {
+  // Flush nothing — the debounced savers already fired or will have been
+  // cleared below only after their elements stop being editable.
+  if (currentTitleElement && titleInputListener) {
+    currentTitleElement.removeEventListener('input', titleInputListener);
+  }
+  if (currentBioElement && bioInputListener) {
+    currentBioElement.removeEventListener('input', bioInputListener);
+  }
+  const titleEl = document.getElementById('userLibraryTitle');
+  const bioEl = document.getElementById('userBio');
+  titleEl?.setAttribute('contenteditable', 'false');
+  bioEl?.setAttribute('contenteditable', 'false');
+  titleEl?.classList.remove('editable-field');
+  bioEl?.classList.remove('editable-field');
+  titleInputListener = null;
+  bioInputListener = null;
+  currentTitleElement = null;
+  currentBioElement = null;
 }
 
 /**
@@ -140,23 +195,25 @@ function attachSaveListeners(titleEl: any, bioEl: any, originalRecord: any) {
   };
   titleEl.addEventListener('input', titleInputListener);
 
-  // Bio field listener
-  bioInputListener = () => {
-    clearTimeout(bioDebounceTimer);
-    bioDebounceTimer = setTimeout(async () => {
-      const newBio = bioEl.textContent.trim();
+  // Bio field listener (element absent on the redesigned user page)
+  if (bioEl) {
+    bioInputListener = () => {
+      clearTimeout(bioDebounceTimer);
+      bioDebounceTimer = setTimeout(async () => {
+        const newBio = bioEl.textContent.trim();
 
-      // Character limit enforcement
-      if (newBio.length > 500) {
-        bioEl.textContent = newBio.substring(0, 500);
-        alert('Bio cannot exceed 500 characters');
-        return;
-      }
+        // Character limit enforcement
+        if (newBio.length > 500) {
+          bioEl.textContent = newBio.substring(0, 500);
+          alert('Bio cannot exceed 500 characters');
+          return;
+        }
 
-      await saveLibraryField('note', newBio, originalRecord);
-    }, 1000);
-  };
-  bioEl.addEventListener('input', bioInputListener);
+        await saveLibraryField('note', newBio, originalRecord);
+      }, 1000);
+    };
+    bioEl.addEventListener('input', bioInputListener);
+  }
 
   verbose.init('user.blade.php library title and bio editor listeners attached (old listeners removed first)', '/components/userProfile/userProfileEditor.ts');
 }
@@ -261,6 +318,8 @@ export function destroyUserProfileEditor() {
   bioInputListener = null;
   currentTitleElement = null;
   currentBioElement = null;
+  editableRecord = null;
+  editingEnabled = false;
 
   // Clear any pending timers
   clearTimeout(titleDebounceTimer);

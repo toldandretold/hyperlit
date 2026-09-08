@@ -52,13 +52,17 @@ const heroRoot = (): HTMLElement | null =>
 function updateCopyFade(): void {
   const header = document.querySelector('.fixed-header');
   if (!header) return;
-  const line = header.getBoundingClientRect().bottom + 30;
+  const headerBottom = header.getBoundingClientRect().bottom;
   document
     .querySelectorAll<HTMLElement>('.welcome-copy, .home-content-wrapper .main-content')
     .forEach(el => {
+      // Intro COPY dissolves well below the compact docked card (breathing
+      // room of dark page between card and text, and the text fades out
+      // before it ever touches the card); FEED cards keep the tight line.
+      const offset = el.classList.contains('welcome-copy') ? 90 : 30;
       // may go negative (element below the card) — that just pushes the fade
       // band above the element, i.e. fully visible; do NOT clamp to 0
-      const y = line - el.getBoundingClientRect().top;
+      const y = headerBottom + offset - el.getBoundingClientRect().top;
       el.style.setProperty('--copy-fade-y', `${y.toFixed(0)}px`);
     });
 }
@@ -93,7 +97,15 @@ function syncHeroState(): void {
   if (!page) return;
   const hasContent = !!document.querySelector('.home-content-wrapper .main-content');
   const hasActiveTab = !!page.querySelector('.arranger-button.active');
-  if (hasContent || hasActiveTab) page.classList.add('content-active');
+  if ((hasContent || hasActiveTab) && !page.classList.contains('content-active')) {
+    page.classList.add('content-active');
+    // Restore path (reload / SPA return with a saved tab): the header is
+    // still gliding to its docked pose when the fade line is first stamped —
+    // without following the 0.6s transition the mask stays where the
+    // CENTERED card was and dissolves the top of the feed until a scroll.
+    // (The tab-CLICK path already does this in its own handler.)
+    trackFadeFor(750);
+  }
 }
 
 function closeFeed(): void {
@@ -141,10 +153,17 @@ function watchJournalColon(): void {
 export function initHomepageHero(): void {
   const page = heroRoot();
   if (!page) return;
-  watchJournalColon(); // journal pages only; re-arms on SPA re-init (fresh DOM)
+  watchJournalColon(); // journal/user pages only; re-arms on SPA re-init (fresh DOM)
   if (clickHandler) { syncHeroState(); return; } // create-once + re-sync on SPA re-init
 
-  suppressTabRestore(); // the homepage always boots to the hero
+  // The homepage/journal pages always boot to the hero. The USER page does
+  // not: its shelf tabs/deep links restore the last-open tab (history.state
+  // .userPageActiveTab via shelfTabs/homepageDisplayUnit), and the hero is
+  // the empty state when nothing restores. closeFeed() still suppresses on
+  // every page — an explicit × means "boot to hero next time" everywhere.
+  if (document.body.dataset.page !== 'user') {
+    suppressTabRestore();
+  }
 
   clickHandler = (e: Event) => {
     const target = e.target instanceof Element ? e.target : null;

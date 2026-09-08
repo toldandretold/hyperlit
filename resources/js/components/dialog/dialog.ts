@@ -31,6 +31,10 @@ interface ChoiceOption {
   label: string;
   /** Optional second line under the label. */
   description?: string;
+  /** Optional thumbnail above the label — MUST be a data:image/* URL (it is
+   *  interpolated into an img src; anything else is ignored). Used e.g. by
+   *  the logo crop-vs-fit chooser to demo both outcomes. */
+  previewSrc?: string;
 }
 
 interface ChoiceOptions {
@@ -144,8 +148,13 @@ export function choiceDialog(opts: ChoiceOptions): Promise<string | null> {
       'background: rgba(255,255,255,0.04); color: var(--color-text, #CBCCCC); ' +
       'border: 1px solid var(--border-button, rgba(203,204,204,0.3));';
 
+    // Checkerboard behind previews so transparent regions read as such
+    const previewCss =
+      'display:block; width:96px; height:96px; border-radius:8px; margin:0 0 8px; ' +
+      'background: repeating-conic-gradient(rgba(255,255,255,0.09) 0% 25%, transparent 0% 50%) 0 0 / 16px 16px;';
     const optionsHtml = opts.options.map((o, i) => `
         <button type="button" data-choice="${i}" style="${optionCss}">
+          ${o.previewSrc && o.previewSrc.startsWith('data:image/') ? `<img src="${o.previewSrc}" alt="" style="${previewCss}">` : ''}
           <span style="display:block; font-size: 14px; font-weight: 600; color: var(--hyperlit-aqua, #4EACAE);">${escapeHtml(o.label)}</span>
           ${o.description ? `<span style="display:block; margin-top: 3px; font-size: 12px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(o.description)}</span>` : ''}
         </button>`).join('');

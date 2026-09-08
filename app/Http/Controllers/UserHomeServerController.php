@@ -175,6 +175,41 @@ class UserHomeServerController extends Controller
         $title = $libraryRecord ? ($libraryRecord->title ?? "{$actualUsername}'s library") : "{$actualUsername}'s library";
         $bio = $libraryRecord ? ($libraryRecord->note ?? '') : '';
 
+        // Hero-page customization (library.page_settings, written only by
+        // UserPageSettingsController). Values were validated at write time;
+        // emittable() re-validates at render as defense in depth — css vars
+        // land in a <style> block, about_html is printed raw, so nothing
+        // reaches the blade without passing the validator again here.
+        $storedSettings = $libraryRecord && ($libraryRecord->page_settings ?? null)
+            ? (json_decode($libraryRecord->page_settings, true) ?: [])
+            : [];
+        $aboutHtml = isset($storedSettings['about_html']) && is_string($storedSettings['about_html'])
+            ? \App\Services\Security\NodeHtmlSanitizer::clean($storedSettings['about_html'])
+            : null;
+        $imageNameOk = fn ($v) => is_string($v) && preg_match('/^[A-Za-z0-9._-]{1,255}$/', $v);
+        $logoImage = $imageNameOk($storedSettings['logo_image'] ?? null) ? $storedSettings['logo_image'] : null;
+        $backgroundImage = $imageNameOk($storedSettings['background_image'] ?? null) ? $storedSettings['background_image'] : null;
+        // Pill curation: which public shelves render as visitor pills.
+        // Checked = shown: NO stored curation = all public shelves; a stored
+        // EMPTY list = owner unticked everything = no pills. (css_vars may
+        // exist in old rows but are deliberately NOT rendered — color/font
+        // theming is a READER preference, not a page-owner one.)
+        $hasPillCuration = is_array($storedSettings['pill_shelves'] ?? null);
+        $pillShelves = $hasPillCuration
+            ? array_values(array_filter(
+                $storedSettings['pill_shelves'],
+                fn ($v) => is_string($v) && preg_match('/^[0-9a-f-]{36}$/i', $v),
+            ))
+            : [];
+        // Only the re-validated form ever reaches the page (window global +
+        // blade) — a tampered stored value must not even ride along as data.
+        $pageSettings = array_filter([
+            'logo_image' => $logoImage,
+            'background_image' => $backgroundImage,
+            'pill_shelves' => $hasPillCuration ? $pillShelves : null,
+            'about_html' => $aboutHtml,
+        ], fn ($v) => $v !== null);
+
         // SEO data for user pages
         $pageTitle = "{$title} - Hyperlit";
         $pageDescription = $bio ? \Illuminate\Support\Str::limit(strip_tags($bio), 160) : "{$actualUsername}'s library on Hyperlit";
@@ -197,6 +232,12 @@ class UserHomeServerController extends Controller
             ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
             ->toArray();
 
+        // Pill curation applied: visitors see only the CHECKED shelves as
+        // pills — including none at all; no stored curation = all of them.
+        $visitorShelves = $hasPillCuration
+            ? array_values(array_filter($publicShelves, fn ($s) => in_array($s->id, $pillShelves, true)))
+            : $publicShelves;
+
         // Validate activeShelfId: resolve by slug first, then fall back to UUID.
         // The OWNER resolves against their full shelf list — private shelves
         // (every auto-created import/harvest shelf) are deep-linkable for them;
@@ -211,6 +252,14 @@ class UserHomeServerController extends Controller
             // Full row for the owner deep-link path: private shelves have no
             // server-rendered tab, so the frontend opens this one dynamically.
             $activeShelf = $validShelf;
+
+            // A deep-linked PUBLIC shelf outside the pill curation still needs
+            // its tab rendered for visitors (public is public; pills are only
+            // the default set) — append it.
+            if (!$isOwner && $validShelf && !in_array($validShelf, $visitorShelves, true)
+                && in_array($validShelf, $publicShelves, true)) {
+                $visitorShelves[] = $validShelf;
+            }
         }
 
         // Return user.blade.php with user page data (use sanitized for book ID)
@@ -233,6 +282,11 @@ class UserHomeServerController extends Controller
             'publicShelves' => $publicShelves,
             'activeShelfId' => $activeShelfId,
             'activeShelf' => $activeShelf,
+            'pageSettings' => $pageSettings,
+            'aboutHtml' => $aboutHtml,
+            'logoImage' => $logoImage,
+            'backgroundImage' => $backgroundImage,
+            'visitorShelves' => $visitorShelves,
         ]);
     }
 
@@ -420,6 +474,15 @@ class UserHomeServerController extends Controller
      * somehow missed. Uses pgsql_admin (not the RLS-scoped connection) so it
      * behaves the same with or without a session.
      */
+    /**
+     * Public seam for the any-page Money overlay (BillingController::accountPanel):
+     * same freshness guard the profile visit uses, callable from outside.
+     */
+    public function ensureAccountBookFresh(string $username): void
+    {
+        $this->generateAccountBookIfNeeded($username);
+    }
+
     private function generateAccountBookIfNeeded(string $username): void
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
@@ -427,6 +490,19 @@ class UserHomeServerController extends Controller
 
         $account = DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->first();
         if (!$account) {
+            $this->generateAccountBook($username);
+            return;
+        }
+
+        // Markup-version tripwire: the stored render outlives code changes to
+        // the balance card's HTML (it only regenerates on billing mutations).
+        // 'tier-radio' marks the current markup generation — bump this token
+        // when the card's structure changes again.
+        $card = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $bookName)
+            ->where('node_id', $bookName . '_balance_card')
+            ->value('content');
+        if ($card !== null && !str_contains($card, 'tier-radio')) {
             $this->generateAccountBook($username);
             return;
         }
@@ -476,10 +552,19 @@ class UserHomeServerController extends Controller
         // freshness guard is self-stable even under client-skewed timestamps.
         $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, [$visibility]) ?? 0);
 
+        // The public home book row doubles as the user's PROFILE row: its
+        // title/note back the editable "{user}'s library" heading and bio, and
+        // page_settings the hero customization. Preserve an existing title on
+        // regeneration — the default is only for the first mint. (`note` and
+        // `page_settings` survive because they are absent from this column
+        // list; keep it that way.)
+        $existingTitle = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookName)->value('title');
+
         DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $bookName],
             [
-                'author' => null, 'title' => $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
+                'author' => null, 'title' => $existingTitle ?: $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
                 'creator_token' => null,
                 'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
                 'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
@@ -815,18 +900,20 @@ class UserHomeServerController extends Controller
                 . '<br><strong>Tier:</strong> ' . e($tierLabel) . ' (' . e($multiplier) . '&times;)'
                 . ' <span class="tier-selector" data-current-tier="' . e($status) . '">&#9660;</span>'
                 . '<span class="tier-dropdown hidden">'
-                .   '<span class="tier-explainer"><em>By self-selecting your tier, you choose how much each PDF-conversion or Citation Review will cost. There are NO automatic payment renewals. Simply top up credits, and renew when needed. Why? Coz fuck having to remember all the stupid subscriptions you signed up for.</em></span>'
                 .   '<span class="tier-option' . ($status === 'budget' ? ' active' : '') . '" data-tier="budget">'
-                .     '<strong>Budget</strong> (1.5&times;)'
-                .     '<br><em>Cover the cost of OCR API for PDF conversion, LLM compute for Citation Reviews, plus some web-hosting.</em>'
+                .     '<span class="tier-radio" aria-hidden="true"></span>'
+                .     '<span class="tier-option-text"><strong>Budget</strong> (1.5&times;)'
+                .     '<br><em>Cover the cost of OCR API for PDF conversion, LLM compute for Citation Reviews, plus some web-hosting.</em></span>'
                 .   '</span>'
                 .   '<span class="tier-option' . ($status === 'solidarity' ? ' active' : '') . '" data-tier="solidarity">'
-                .     '<strong>Solidarity</strong> (2&times;)'
-                .     '<br><em>Cover costs and help me eat.</em>'
+                .     '<span class="tier-radio" aria-hidden="true"></span>'
+                .     '<span class="tier-option-text"><strong>Solidarity</strong> (2&times;)'
+                .     '<br><em>Cover costs and help me eat.</em></span>'
                 .   '</span>'
                 .   '<span class="tier-option' . ($status === 'capitalist' ? ' active' : '') . '" data-tier="capitalist">'
-                .     '<strong>Honest Capitalist (rare)</strong> (5&times;)'
-                .     '<br><em>If you are a capitalist firm or large institution, please pay accordingly. Or if you just wanna support more, that&#39;s based AF comrade &#129297;&#129297;&#129297;&#9994;&#9994;&#9994;</em>'
+                .     '<span class="tier-radio" aria-hidden="true"></span>'
+                .     '<span class="tier-option-text"><strong>Honest Capitalist (rare)</strong> (5&times;)'
+                .     '<br><em>If you are a capitalist firm or large institution, please pay accordingly. Or if you just wanna support more, that&#39;s based AF comrade &#129297;&#129297;&#129297;&#9994;&#9994;&#9994;</em></span>'
                 .   '</span>'
                 . '</span>'
                 . '<br><a href="#" class="stripe-topup" data-topup-amount="5">Top Up</a>'

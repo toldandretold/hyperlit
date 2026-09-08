@@ -93,6 +93,21 @@ import {
   initializeJournalSearch,
   destroyJournalSearch
 } from '../journal/journalSearch';
+
+import {
+  initializeUserSearch,
+  destroyUserSearch
+} from '../userProfile/userSearch';
+
+import {
+  initUserPageEditor,
+  destroyUserPageEditor
+} from '../userProfile/userPageEditor';
+
+import {
+  initMoneyOverlay,
+  destroyMoneyOverlay
+} from '../moneyOverlay/moneyOverlay';
 import {
   initAiArchivist,
   destroyAiArchivist,
@@ -460,6 +475,19 @@ export function registerAllComponents() {
     required: false
   });
 
+  // Money overlay (account/billing panel from the userButton flyout). Built
+  // on demand by the menu click — registry lifecycle exists so an overlay
+  // left open across an SPA transition is closed and its focus trap released
+  // before the body swap orphans the DOM.
+  buttonRegistry.register({
+    name: 'moneyOverlay',
+    initFn: initMoneyOverlay,
+    destroyFn: destroyMoneyOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
   buttonRegistry.register({
     name: 'fileDropTarget',
     initFn: initializeFileDropTarget,
@@ -511,6 +539,18 @@ export function registerAllComponents() {
     required: false
   });
 
+  // User pages get user-SCOPED search (the /api/public/library/{username}
+  // endpoint — owner sessions see their private books too), deliberately
+  // not the global homepageSearch.
+  buttonRegistry.register({
+    name: 'userSearch',
+    initFn: initializeUserSearch,
+    destroyFn: destroyUserSearch,
+    pages: ['user'],
+    dependencies: [],
+    required: false
+  });
+
   // Hover card for the hero's hypercite-network SVG (server-rendered by
   // JournalHyperciteMap; the anchors carry data-map-node/-title/-author/-year).
   buttonRegistry.register({
@@ -529,7 +569,7 @@ export function registerAllComponents() {
     name: 'lavaLampBackground',
     initFn: initLavaLampBackground,
     destroyFn: destroyLavaLampBackground,
-    pages: ['home', 'journal'],
+    pages: ['home', 'journal', 'user'],
     dependencies: [],
     required: false
   });
@@ -538,7 +578,7 @@ export function registerAllComponents() {
     name: 'homepageHero',
     initFn: initHomepageHero,
     destroyFn: destroyHomepageHero,
-    pages: ['home', 'journal'],
+    pages: ['home', 'journal', 'user'],
     dependencies: [],
     required: false
   });
@@ -552,7 +592,7 @@ export function registerAllComponents() {
     name: 'aiArchivist',
     initFn: initAiArchivist,
     destroyFn: destroyAiArchivist,
-    pages: ['home', 'journal', 'reader'],
+    pages: ['home', 'journal', 'user', 'reader'],
     // After homepageDisplayUnit: its feed-tab restore stamps
     // .arranger-button.active synchronously, and a restored feed must WIN the
     // feed slot over the archivist's stored-answer restore. (Absent on
@@ -628,6 +668,19 @@ export function registerAllComponents() {
     destroyFn: destroyShelfTabs,
     pages: ['user'],
     dependencies: ['homepageDisplayUnit'],
+    required: false
+  });
+
+  // Owner-only page customization (pencil button → edit mode: swap the
+  // lockup/background images, curated css vars, editable about copy).
+  // No-ops for visitors — the blade only renders #userPageEditButton for
+  // the owner.
+  buttonRegistry.register({
+    name: 'userPageEditor',
+    initFn: initUserPageEditor,
+    destroyFn: destroyUserPageEditor,
+    pages: ['user'],
+    dependencies: [],
     required: false
   });
 

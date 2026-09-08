@@ -204,8 +204,13 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       resolveFirstChunkPromise();
 
       // 4. Dim edit button while background hydration is pending — edit mode
-      //    needs the full hydrated dataset to work correctly
-      const editBtn = document.getElementById('editButton');
+      //    needs the full hydrated dataset to work correctly. READER ONLY:
+      //    on the user page #editButton is the page-customization pencil
+      //    (userPageEditor), which needs no node dataset — and the synthetic
+      //    feed books never emit backgroundDownloadComplete, so dimming there
+      //    would stick forever.
+      const editBtn = document.body.dataset.page === 'reader'
+        ? document.getElementById('editButton') : null;
       const needsBackgroundHydration = targetChunkNodes.length < cached.length;
       if (editBtn && needsBackgroundHydration) {
         editBtn.style.opacity = '0.3';
@@ -310,8 +315,12 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
 
       // Dim the edit button while background download is pending — edit mode
-      // needs the full dataset, so the user shouldn't enter it yet.
-      const editBtn = document.getElementById('editButton');
+      // needs the full dataset, so the user shouldn't enter it yet. READER
+      // ONLY: the user page's #editButton is the customization pencil
+      // (userPageEditor) — no dataset dependency, and its feed books never
+      // fire backgroundDownloadComplete, so it would stay dimmed forever.
+      const editBtn = document.body.dataset.page === 'reader'
+        ? document.getElementById('editButton') : null;
       if (editBtn) {
         editBtn.style.opacity = '0.3';
         editBtn.style.pointerEvents = 'none';

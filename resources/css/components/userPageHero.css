@@ -1,0 +1,326 @@
+/* User home page (/u/{username}) — the hero flavour of the homepage chrome
+   plus the owner customization layer. The glass card / lava / arranger
+   machinery is homepage.css (its hero rules are scoped to home/journal/user);
+   the lockup rules below mirror journalHome.css scoped to the user page (that
+   file is journal-scoped on purpose — copying beats cross-scoping it).
+
+   Customization contract: images ONLY — logo (swapped in the blade / by
+   userPageEditor) and --up-bg-image on #app-container (server
+   <style id="user-page-settings-css"> on load, userPageEditor inline while
+   editing). Color/font theming is deliberately NOT customizable: it belongs
+   to the READER's theme preference, and owner overrides fought the theme
+   switcher. */
+
+/* ---------- logo lockup: colon squares (or custom logo) + library title ---------- */
+
+body[data-page="user"] .user-logo-lockup {
+  --title-fs: clamp(1.4rem, 4.5vw, 2.1rem);
+  --colon-fallback: calc(var(--title-fs) * 1.15);
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--colon-h, var(--colon-fallback)) / 3);
+}
+
+body[data-page="user"] .journal-colon-link {
+  display: block;
+  line-height: 0;
+  flex-shrink: 0;
+}
+
+/* Beats homepage.css's `#imageContainer svg { width: min(64vw, 280px) }`
+   (that sizing is for the full wordmark; the colon is 1:3 narrow). */
+body[data-page="user"] #app-container.lava-lamp-background .fixed-header #imageContainer svg.journal-colon {
+  width: auto;
+  height: var(--colon-h, var(--colon-fallback, clamp(2.4rem, 7vw, 3.6rem)));
+}
+
+/* A custom logo image gets the colon's height slot but may be any ratio. */
+body[data-page="user"] #app-container.lava-lamp-background .fixed-header #imageContainer img.user-page-logo {
+  width: auto;
+  max-width: min(40vw, 160px);
+  height: var(--colon-h, var(--colon-fallback, clamp(2.4rem, 7vw, 3.6rem)));
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+
+body[data-page="user"] .journal-title {
+  margin: 0;
+  font-size: var(--title-fs, clamp(1.4rem, 4.5vw, 2.1rem));
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: left;
+  color: var(--logo-text-color, #f1f2f2);
+}
+
+body[data-page="user"] #userLibraryContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- customization surface: page background / text / fonts ---------- */
+
+body[data-page="user"] #app-container.lava-lamp-background {
+  /* An owner background image covers the lava — that is the point of setting
+     one. The ONLY owner styling hook: color/font theming is a READER
+     preference (theme switcher), never a page-owner one. */
+  background-image: var(--up-bg-image, none);
+  background-size: cover;
+  background-position: center;
+}
+
+/* About copy uses the home welcome-copy's literal near-black (it sits over
+   the lava hills in every theme). */
+body[data-page="user"] .welcome-copy.user-about {
+  color: #221F20;
+}
+
+/* ---------- pill row: one scrollable strip of tabs ---------- */
+
+/* Undo userPageTabs.css's OLD-design `.user-content-wrapper
+   .arranger-buttons-container { flex-wrap: nowrap; overflow: hidden }`:
+   on the hero it crushed the (100%-width) search box onto one clipped line
+   with the pills, and the overflow clip swallowed the absolutely-positioned
+   .search-results dropdown. Hero layout = search on its own line, pills
+   BELOW it; nowrap now lives inside .user-pill-scroller only. */
+body[data-page="user"] #app-container.lava-lamp-background .fixed-header .arranger-buttons-container {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+body[data-page="user"] .user-pill-scroller {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none; /* the strip IS the affordance; no bar chrome */
+  -webkit-overflow-scrolling: touch;
+}
+
+body[data-page="user"] .user-pill-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+body[data-page="user"] .user-pill-scroller .arranger-button,
+body[data-page="user"] .user-pill-scroller .shelf-picker-trigger {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ---------- edit mode chrome ---------- */
+
+/* The pencil itself is the reader's #editButton inside #bottom-right-buttons —
+   styled by the shared button CSS and managed (position / tap-hide / loading)
+   by togglePerimeterButtons. Nothing to style here. */
+
+/* Editable-in-place affordances while the mode is on. */
+body.user-page-editing #userLibraryTitle.editable-field,
+body.user-page-editing #user-about-content.editable-field {
+  outline: 1px dashed #00afaf;
+  outline-offset: 4px;
+  border-radius: 4px;
+  cursor: text;
+}
+
+body.user-page-editing .journal-colon-link {
+  outline: 1px dashed #00afaf;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+body.user-page-editing .journal-colon-link.upe-drop-hover {
+  outline: 2px solid #00afaf;
+}
+
+/* ---------- the palette (#user-page-edit-panel) ----------
+   A NON-modal floating toolbar: the page behind stays interactive (that is
+   the mode's purpose), so no focus trap / backdrop — Escape and Done close
+   it. Deliberately named *-panel, not *-modal/-sheet: it isn't one. */
+
+.user-page-edit-panel {
+  position: fixed;
+  right: 20px;
+  bottom: 72px;
+  z-index: 1500;
+  width: min(320px, calc(100vw - 40px));
+  padding: 16px;
+  border-radius: 14px;
+  background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.55));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  color: var(--color-text, #f1f2f2);
+  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-page-edit-panel.hidden {
+  display: none;
+}
+
+.user-page-edit-panel .upe-heading {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.user-page-edit-panel .upe-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-page-edit-panel .upe-label {
+  min-width: 5.5em;
+  opacity: 0.85;
+}
+
+.user-page-edit-panel .upe-btn {
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.user-page-edit-panel .upe-btn:hover {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.user-page-edit-panel .upe-btn-quiet {
+  border-color: transparent;
+  background: none;
+  opacity: 0.7;
+}
+
+.user-page-edit-panel .upe-color {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.user-page-edit-panel .upe-color input[type="color"] {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.user-page-edit-panel .upe-select {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+}
+
+.user-page-edit-panel .upe-select select {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  background: color-mix(in srgb, var(--color-background, #1a1a1a) 60%, transparent);
+  color: inherit;
+}
+
+.user-page-edit-panel .upe-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  opacity: 0.7;
+}
+
+.user-page-edit-panel .upe-done {
+  align-self: flex-end;
+  background: #00afaf;
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Shelf-pill curation list (scrolls when long — #user-page-edit-panel is on
+   wheelScrollForwarder's SCROLLABLE_OVERLAY_SEL per CLAUDE.md §Overlay check 5) */
+.user-page-edit-panel .upe-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.user-page-edit-panel .upe-shelves-heading {
+  margin-top: 4px;
+}
+
+.user-page-edit-panel .upe-shelf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.user-page-edit-panel .upe-shelf input {
+  accent-color: #00afaf;
+}
+
+/* Camera badge on the lockup while editing — THE mobile customization path
+   (tap it, or the logo itself, to open the picker). */
+body[data-page="user"] .journal-colon-link {
+  position: relative;
+}
+
+.upe-logo-badge {
+  position: absolute;
+  right: -12px;
+  bottom: -12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #00afaf;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+  line-height: 0;
+}
+
+.upe-logo-badge svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Mobile: the floating palette doesn't fit — image swapping happens via the
+   logo badge; shelf curation and background stay desktop-only for now. */
+@media (max-width: 700px) {
+  .user-page-edit-panel {
+    display: none;
+  }
+}
+
+/* Feed content padding: homepage.css pads .main-content 48px so home's first
+   card clears the docked card's dissolve line — on the user page the IN-FLOW
+   shelf header already provides that separation, so 48px reads as a hole. */
+body[data-page="user"] #app-container.lava-lamp-background.content-active .main-content {
+  padding-top: 12px;
+}

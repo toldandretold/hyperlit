@@ -1,7 +1,33 @@
 @extends('layout')
 
+{{-- User page (/u/{username}): the homepage's lava-lamp hero scoped to one
+     user's library, owner-customizable via page_settings. Same design
+     invariants as home.blade.php (guarded by tests/Feature/UserPageSeoTest.php):
+       - On the plain /u/{name} URL NO .arranger-button has the `active` class
+         and there are NO <main> elements — that defers homepageDisplayUnit's
+         initial auto-load; a feed loads on tab press or client-side tab
+         restore (history.state.userPageActiveTab / localStorage). A shelf
+         deep link (/u/{name}/shelf/{slug}) DOES render its tab active.
+       - #app-container carries .lava-lamp-background; #lava-lamp-mount is the
+         sibling AFTER it (dim rule: `#app-container.content-active ~ #lava-lamp-mount`).
+       - The crawlable SEO body is the .welcome-copy user-about section.
+     Customization (logo/background image, css vars, about) is stored in
+     library.page_settings — validated by UserPageSettingsValidator; the
+     <style> block below only ever prints validator-emitted values. --}}
+
 @section('styles')
     @vite(['resources/css/app.css', 'resources/css/pages/user.css'])
+    @if(!empty($backgroundImage))
+    {{-- ABSOLUTE url: a relative url() inside a custom property resolves
+         against the stylesheet CONSUMING the var (userPageHero.css — the
+         vite dev origin in dev), not the document. Background image is the
+         ONLY styling var — color/font theming is a reader preference. --}}
+    <style id="user-page-settings-css">
+      body[data-page="user"] #app-container {
+        --up-bg-image: url('{{ url('/' . $book . '/media/' . $backgroundImage) }}');
+      }
+    </style>
+    @endif
 @endsection
 
 @section('content')
@@ -14,7 +40,7 @@
   This is the main flexbox layout for the entire page.
   ======================================================================
 -->
-<div id="app-container">
+<div id="app-container" class="lava-lamp-background">
 
    <!-- Logo Navigation Wrapper -->
   <div id="logoNavWrapper">
@@ -78,39 +104,137 @@
 
   <!--
     ==================================================================
-    2. THE CENTER COLUMN - User Content Wrapper
+    2. THE CENTER COLUMN - hero card (lockup + search + pill tabs),
+    no preloaded content. Carries BOTH wrapper classes: the hero/lava
+    machinery keys on .home-content-wrapper, the user-page machinery
+    (shelfTabs, profile editor, display unit) on .user-content-wrapper.
     ==================================================================
   -->
-  <div class="user-content-wrapper">
+  <div class="home-content-wrapper user-content-wrapper">
     <div class="fixed-header">
-      <div id="userLibraryContainer" class="top-content"@if($isOwner && $libraryRecord) data-library-record='@json($libraryRecord)'@endif>
-        <h1 id="userLibraryTitle" contenteditable="false">{{ $libraryTitle }}</h1>
-        <div id="userBio" contenteditable="false">{{ $libraryBio }}</div>
+      {{-- User logo lockup: journal-lockup geometry (the colon squares sized
+           by --colon-h, title beside) with the colon swappable for the
+           owner's own image. #userLibraryContainer + #userLibraryTitle are
+           the userProfileEditor's contract — keep the ids. --}}
+      <div id="userLibraryContainer"@if($isOwner && $libraryRecord) data-library-record='@json($libraryRecord)'@endif>
+        <div id="imageContainer" class="top-content journal-logo-lockup user-logo-lockup">
+          <a href="/" aria-label="Hyperlit home" class="journal-colon-link">
+            @if(!empty($logoImage))
+            <img class="journal-colon user-page-logo" src="/{{ $book }}/media/{{ $logoImage }}" alt="">
+            @else
+            <svg class="journal-colon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28.33 85" aria-hidden="true">
+              <defs>
+                <linearGradient id="New_Gradient_Swatch_copy" data-name="New Gradient Swatch copy" x1="14.17" y1="28.33" x2="14.17" y2="0" gradientTransform="translate(28.33 28.33) rotate(-180)" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ff8700"/>
+                  <stop offset="1" stop-color="#00afaf"/>
+                </linearGradient>
+                <linearGradient id="New_Gradient_Swatch_copy_4" data-name="New Gradient Swatch copy 4" x1="-169.77" y1="-.18" x2="-169.77" y2="82.14" gradientTransform="translate(183.94)" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ee4b96"/>
+                  <stop offset=".33" stop-color="#00afaf"/>
+                  <stop offset=".66" stop-color="#ff8700"/>
+                  <stop offset="1" stop-color="#ee4b96"/>
+                </linearGradient>
+              </defs>
+              <rect width="28.33" height="28.33" transform="translate(28.33 28.33) rotate(180)" fill="url(#New_Gradient_Swatch_copy)"/>
+              <rect y="56.67" width="28.33" height="28.33" fill="url(#New_Gradient_Swatch_copy_4)"/>
+            </svg>
+            @endif
+          </a>
+          <h1 id="userLibraryTitle" class="journal-title" contenteditable="false">{{ $libraryTitle }}</h1>
+        </div>
+        {{-- No bio here: the hero card stays lockup-only. #userBio lives in
+             the scroll-up about section below (same editable element). --}}
       </div>
-      @if($isOwner)
       <div class="arranger-buttons-container">
-        <button class="arranger-button active" data-content="{{ $allBook }}" data-filter="library">Library</button>
-        <button class="arranger-button" data-content="{{ $book }}Account" data-filter="account">Account</button>
-        <button type="button" id="shelf-picker-trigger" class="shelf-picker-trigger" title="Shelves">+</button>
+        {{-- User-scoped search (userSearch component keys off these ids;
+             deliberately NOT homepageSearch's ids — that component is global) --}}
+        @include('partials.search-box', [
+          'containerId'      => 'user-search-container',
+          'inputId'          => 'user-search-input',
+          'resultsId'        => 'user-search-results',
+          'fulltextToggleId' => 'user-fulltext-toggle',
+          'semanticToggleId' => 'user-semantic-toggle',
+          'placeholder'      => 'Search titles & authors...',
+          'fulltextTitle'    => 'Search within book content',
+          'contextUsername'  => $username,
+          'archivist'        => true,
+        ])
+        {{-- NO `active` class on the plain URL (defers the initial load — the
+             hero shows instead); the client restores the last-open tab itself.
+             A shelf deep link is the exception: its tab renders active.
+             The scroller keeps ONE horizontally-scrollable pill row however
+             many shelf tabs are open; shelfTabs inserts dynamic tabs before
+             #shelf-picker-trigger, i.e. inside the scroller. The brain button
+             and × live OUTSIDE it so they never scroll away. --}}
+        <div class="user-pill-scroller">
+          @if($isOwner)
+          {{-- No Account pill: financials live in the userButton flyout's
+               Money overlay (components/moneyOverlay) on every page. --}}
+          <button class="arranger-button" data-content="{{ $allBook }}" data-filter="library">Library</button>
+          @else
+          <button class="arranger-button" data-content="{{ $book }}" data-filter="library">Library</button>
+          @endif
+          @foreach($visitorShelves as $pShelf)
+          <button class="arranger-button visitor-shelf-tab{{ ($activeShelfId ?? '') === $pShelf->id ? ' active' : '' }}" data-content="" data-filter="shelf" data-shelf-id="{{ $pShelf->id }}" data-shelf-slug="{{ $pShelf->slug }}" data-sort="{{ $pShelf->default_sort ?? 'recent' }}" data-shelf-name="{{ $pShelf->name }}">{{ $pShelf->name }}</button>
+          @endforeach
+          @if($isOwner)
+          <button type="button" id="shelf-picker-trigger" class="shelf-picker-trigger" title="Shelves">+</button>
+          @endif
+        </div>
+        @include('partials.archivist-brain-button')
+        {{-- visible only while a feed is open; homepageHero closes back to the hero --}}
+        <button type="button" id="copy-feed-close" aria-label="Close feed" title="Close feed">&times;</button>
       </div>
-      @elseif(!empty($publicShelves))
-      <div class="arranger-buttons-container">
-        <button class="arranger-button{{ empty($activeShelfId) ? ' active' : '' }}" data-content="{{ $book }}" data-filter="library">Library</button>
-        @foreach($publicShelves as $pShelf)
-        <button class="arranger-button visitor-shelf-tab{{ ($activeShelfId ?? '') === $pShelf->id ? ' active' : '' }}" data-content="" data-filter="shelf" data-shelf-id="{{ $pShelf->id }}" data-shelf-slug="{{ $pShelf->slug }}" data-sort="{{ $pShelf->default_sort ?? 'recent' }}" data-shelf-name="{{ $pShelf->name }}">{{ $pShelf->name }}</button>
-        @endforeach
-      </div>
-      @endif
     </div>
-    <!-- User page content container - single book, filtered by public/private -->
+
+    {{-- About copy: rides .welcome-copy's scroll-reveal machinery. Crawlable
+         SEO body for the user page; owner-editable in page-edit mode.
+         NO separate bio element — #user-about-content is the ONE editable
+         about surface (library.note still feeds the SEO meta description
+         server-side, it just has no display slot of its own). --}}
     <span id="main-start" tabindex="-1"></span>
-    <main id="{{ $book }}" class="main-content active-content"></main>
+    <section class="welcome-copy user-about" aria-label="About this library">
+      <div id="user-about-content">
+        @if(!empty($aboutHtml))
+          {!! $aboutHtml !!}
+        @elseif($isOwner)
+          <h1 class="mega">This is your library's front page.</h1>
+          <h2>Press the pencil (bottom right) to swap the logo, restyle the page, and write your own about section.</h2>
+        @else
+          <h1 class="mega">{{ $libraryTitle }}</h1>
+        @endif
+      </div>
+    </section>
+    {{-- No <main> containers: homepageDisplayUnit creates a fresh
+         .main-content inside the wrapper when a tab is pressed/restored. --}}
   </div>
   <!-- ================================================================ -->
 
-  <!-- Spacer to keep the content centered -->
+  {{-- scroll affordance for the hero state --}}
+  <div class="copy-scroll-hint" aria-hidden="true">&darr;</div>
 
 </div> <!-- End of #app-container -->
+
+{{-- Lava-lamp background mount (must be AFTER #app-container: the dimming rule
+     uses the sibling selector #app-container.content-active ~ #lava-lamp-mount) --}}
+<div id="lava-lamp-mount" aria-hidden="true"></div>
+
+@if($isOwner)
+{{-- Page-edit toggle (owner only): SAME structure as reader.blade.php's edit
+     button — #bottom-right-buttons is a perimeter button (positioned, shown/
+     hidden and un-`loading`ed by togglePerimeterButtons), #editButton gets the
+     reader's pencil styling. The reader's book-edit component is registered
+     pages:['reader'] so none of its logic attaches here; userPageEditor
+     (pages:['user']) owns this button instead. --}}
+<div id="bottom-right-buttons" class="loading">
+  <button type="button" id="editButton" aria-label="Customize this page" title="Customize this page">
+    <svg viewBox="0 0 24 24" width="100%" height="100%" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  </button>
+</div>
+@endif
 
 <!-- Bottom left settings button -->
 <div id="bottom-left-buttons" class="loading">
@@ -155,6 +279,8 @@
   <path class="st0" d="M30.34,2.51h-13.47c-2.97,0-5.39,2.42-5.39,5.39-2.97,0-5.39,2.42-5.39,5.39v13.47c0,2.97,2.42,5.39,5.39,5.39h13.47c2.97,0,5.39-2.42,5.39-5.39,2.97,0,5.39-2.42,5.39-5.39V7.9c0-2.97-2.42-5.39-5.39-5.39ZM27.65,26.76c0,1.49-1.21,2.69-2.69,2.69h-13.47c-1.49,0-2.69-1.21-2.69-2.69v-13.47c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47ZM33.04,21.37c0,1.49-1.21,2.69-2.69,2.69v-10.78c0-2.97-2.42-5.39-5.39-5.39h-10.78c0-1.49,1.21-2.69,2.69-2.69h13.47c1.49,0,2.69,1.21,2.69,2.69v13.47Z"/>
     </svg>
   </button>
+
+  @include('partials.brain-hyperlight-button')
 </div>
 
 <div id="toc-container" class="hidden">
@@ -163,6 +289,18 @@
 </div>
 <div id="highlight-container" class="hidden" contenteditable="true"></div>
 <div id="hypercite-container" class="hidden"></div>
+
+{{-- The hyperlit container: annotation panel for highlights/hypercites. On
+     hero pages it serves the AI-answer book renders (and feed marks) — the
+     container code REQUIRES this static element (hyperlitContainer/core.ts
+     bails without it; it is never created by JS). Same structure as
+     reader.blade.php's copy. --}}
+<div id="hyperlit-container" class="container-panel hidden">
+  <div class="scroller"></div>
+  <div class="mask-top"></div>
+  <div class="mask-bottom"></div>
+  <div class="resize-edge resize-left" title="Resize width"></div>
+</div>
 <div id="source-container" class="hidden"></div>
 <div id="source-overlay"></div>
 <div id="ref-container" class="hidden"></div>
@@ -230,6 +368,9 @@
     // initializeShelfTabs to open PRIVATE owner shelves that have no
     // server-rendered tab (visitor public shelves use the active tab above).
     window.activeShelfDeepLink = @json($activeShelf ?? null);
+    // Current page customization (owner only gets the editor; visitors just
+    // see the server-rendered result). Seeds userPageEditor's panel state.
+    window.userPageSettings = @json($pageSettings ?? (object) []);
 </script>
 @vite([
     'resources/js/pageLoad/readerEntry.ts'

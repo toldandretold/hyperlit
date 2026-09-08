@@ -90,6 +90,8 @@ const ICON_LIBRARY = profileIcon('<path d="M4 4v16"/><path d="M8 8v12"/><path d=
 const ICON_MAIL = profileIcon('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>');
 const ICON_KEY = profileIcon('<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>');
 const ICON_LOGOUT = profileIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>');
+// Lucide "circle-dollar-sign" — the Money row (any-page account overlay)
+const ICON_MONEY = profileIcon('<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>');
 
 export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
@@ -103,6 +105,10 @@ export function getProfileHTML(emailVerified = true): string {
         ${ICON_LIBRARY}
         My Library
       </button>${verifyBanner}
+      <button id="moneyBtn" class="menu-row-btn">
+        ${ICON_MONEY}
+        Money
+      </button>
       <button id="passkeysBtn" class="menu-row-btn">
         ${ICON_KEY}
         Passkeys

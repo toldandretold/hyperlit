@@ -13,18 +13,19 @@ export function getPageStructure() {
   if (document.querySelector('.reader-content-wrapper')) {
     return 'reader';
   }
-  // BEFORE the home check: the journal page carries BOTH classes
+  // BEFORE the home check: the journal AND user pages carry BOTH classes
   // (home-content-wrapper so homepageHero/homepageDisplayUnit selectors work
-  // unchanged, journal-content-wrapper for structure identity so journal↔home
-  // navigations take the full-body-swap path, never a content swap).
+  // unchanged, journal-/user-content-wrapper for structure identity so
+  // journal↔home / user↔home navigations take the full-body-swap path,
+  // never a content swap).
   if (document.querySelector('.journal-content-wrapper')) {
     return 'journal';
   }
-  if (document.querySelector('.home-content-wrapper')) {
-    return 'home';
-  }
   if (document.querySelector('.user-content-wrapper')) {
     return 'user';
+  }
+  if (document.querySelector('.home-content-wrapper')) {
+    return 'home';
   }
 
   // Fallback to data-page attribute

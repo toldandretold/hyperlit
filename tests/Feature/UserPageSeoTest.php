@@ -1,0 +1,223 @@
+<?php
+
+/**
+ * /u/{username} hero-page invariants (server side) — the user-page analogue of
+ * HomeSeoTest, guarding the deferred-load design user.blade.php adopted from
+ * the homepage:
+ *  - lava scaffolding intact (#app-container.lava-lamp-background +
+ *    #lava-lamp-mount sibling, data-page="user")
+ *  - plain /u/{name}: NO server-side .main-content and NO pre-activated
+ *    arranger tab (either re-enables homepageDisplayUnit's auto-load; the
+ *    hero boots instead, client-side restore handles returning users)
+ *  - a shelf deep link (/u/{name}/shelf/{slug}) is the exception: its tab
+ *    renders active so the feed loads
+ *  - the crawlable body is the .welcome-copy user-about section
+ *  - the hero search box + archivist wiring exist (user-* ids,
+ *    #hyperlit-container for answer renders)
+ *  - visitors never get the owner chrome (pencil, data-library-record)
+ */
+
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+function upseoAdminConn()
+{
+    return DB::connection('pgsql_admin');
+}
+
+function makeUpseoUser(): User
+{
+    $unique = 'upseo_' . Str::random(8);
+    $id = upseoAdminConn()->table('users')->insertGetId([
+        'name'       => $unique,
+        'email'      => $unique . '@upseotest.test',
+        'password'   => bcrypt('x'),
+        'user_token' => (string) Str::uuid(),
+        'status'     => 'budget',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    return User::on('pgsql_admin')->find($id);
+}
+
+beforeEach(function () {
+    upseoAdminConn()->table('shelves')->whereRaw("creator IN (SELECT name FROM users WHERE email LIKE '%@upseotest.test')")->delete();
+    upseoAdminConn()->table('nodes')->whereRaw("book IN (SELECT book FROM library WHERE creator IN (SELECT name FROM users WHERE email LIKE '%@upseotest.test'))")->delete();
+    upseoAdminConn()->table('library')->whereRaw("creator IN (SELECT name FROM users WHERE email LIKE '%@upseotest.test')")->delete();
+    upseoAdminConn()->table('users')->whereRaw("email LIKE '%@upseotest.test'")->delete();
+});
+
+test('user page renders the deferred lava hero with no server-side main-content', function () {
+    $user = makeUpseoUser();
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->toContain('data-page="user"');
+    expect($html)->toContain('id="app-container" class="lava-lamp-background"');
+    expect($html)->toContain('id="lava-lamp-mount"');
+
+    // THE deferred-load guard (mirrors HomeSeoTest)
+    expect($html)->not->toContain('class="main-content');
+    expect($html)->not->toContain('arranger-button active');
+
+    // crawlable about copy with a non-empty h1
+    expect($html)->toContain('welcome-copy user-about');
+    expect($html)->toMatch('/<h1[^>]*>\s*\S.*?<\/h1>/s');
+
+    // hero search + archivist wiring
+    expect($html)->toContain('id="user-search-container"');
+    expect($html)->toContain('id="archivist-brain-button"');
+    expect($html)->toContain('id="hyperlit-container"');
+    expect($html)->toContain('id="copy-feed-close"');
+});
+
+test('visitors never get the owner chrome', function () {
+    $user = makeUpseoUser();
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->not->toContain('id="editButton"');
+    expect($html)->not->toContain('id="bottom-right-buttons"');
+    expect($html)->not->toContain('data-library-record');
+    expect($html)->not->toContain('shelf-picker-trigger');
+});
+
+test('the owner gets the pencil and the shelf picker — no Account pill (Money overlay owns billing), no active tab', function () {
+    $user = makeUpseoUser();
+
+    $html = $this->actingAs($user)->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->toContain('id="editButton"');
+    expect($html)->not->toContain('data-filter="account"');
+    expect($html)->toContain('id="shelf-picker-trigger"');
+    expect($html)->not->toContain('arranger-button active');
+    expect($html)->not->toContain('class="main-content');
+});
+
+test('a public shelf deep link renders its tab active', function () {
+    $user = makeUpseoUser();
+    $shelfId = (string) Str::uuid();
+    upseoAdminConn()->table('shelves')->insert([
+        'id'         => $shelfId,
+        'creator'    => $user->name,
+        'name'       => 'Deep Shelf',
+        'slug'       => 'deep-shelf-' . Str::random(6),
+        'visibility' => 'public',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $slug = upseoAdminConn()->table('shelves')->where('id', $shelfId)->value('slug');
+
+    $html = $this->get('/u/' . rawurlencode($user->name) . '/shelf/' . $slug)->assertStatus(200)->getContent();
+
+    expect($html)->toContain('visitor-shelf-tab active');
+});
+
+test('page_settings render: about + background reach the page; css vars are NEVER emitted', function () {
+    // Color/font theming is a READER preference — even stored css_vars (old
+    // rows) must not render. Only the background image emits a style block.
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('library')->insert([
+        'book'       => $book,
+        'title'      => $user->name . "'s library",
+        'creator'    => $user->name,
+        'visibility' => 'public',
+        'listed'     => false,
+        'raw_json'   => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode([
+            'css_vars'   => ['--up-accent' => '#123abc', '--up-title-font' => 'serif'],
+            'about_html' => '<h1>Curated shelves of wonder</h1>',
+        ]),
+        'timestamp'  => (int) round(microtime(true) * 1000),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->not->toContain('id="user-page-settings-css"'); // no bg image set
+    expect($html)->not->toContain('--up-accent');
+    expect($html)->toContain('Curated shelves of wonder');
+});
+
+test('pill_shelves curates the visitor shelf pills', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    $mkShelf = function (string $name) use ($user): string {
+        $id = (string) Str::uuid();
+        upseoAdminConn()->table('shelves')->insert([
+            'id' => $id, 'creator' => $user->name, 'name' => $name,
+            'slug' => Str::slug($name) . '-' . Str::random(4), 'visibility' => 'public',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        return $id;
+    };
+    $keep = $mkShelf('Curated Keeper');
+    $mkShelf('Hidden From Pills');
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false,
+        'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['pill_shelves' => [$keep]]),
+        'timestamp' => (int) round(microtime(true) * 1000),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    // Assert on the PILL markup: shelf names also ride window.publicShelves
+    // (the owner's curation UI needs the full public list — they're public).
+    expect($html)->toContain('data-shelf-name="Curated Keeper"');
+    expect($html)->not->toContain('data-shelf-name="Hidden From Pills"');
+});
+
+test('an EMPTY pill_shelves list means no visitor pills (checked = shown)', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('shelves')->insert([
+        'id' => (string) Str::uuid(), 'creator' => $user->name, 'name' => 'Unticked Shelf',
+        'slug' => 'unticked-' . Str::random(4), 'visibility' => 'public',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false,
+        'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['pill_shelves' => []]),
+        'timestamp' => (int) round(microtime(true) * 1000),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->not->toContain('data-shelf-name="Unticked Shelf"');
+});
+
+test('tampered page_settings values never reach the rendered page', function () {
+    // Defense in depth: even if a bad value lands in the DB (bug, old write
+    // path), the render-time emittable() re-validation drops it.
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('library')->insert([
+        'book'       => $book,
+        'title'      => $user->name . "'s library",
+        'creator'    => $user->name,
+        'visibility' => 'public',
+        'listed'     => false,
+        'raw_json'   => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode([
+            'css_vars'   => ['--up-accent' => '#fff}body{display:none}'],
+            'about_html' => '<h1>ok</h1><script>alert(1)</script>',
+        ]),
+        'timestamp'  => (int) round(microtime(true) * 1000),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->not->toContain('display:none');
+    expect($html)->not->toContain('<script>alert');
+});

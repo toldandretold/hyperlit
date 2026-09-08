@@ -663,6 +663,10 @@ class AiBrainController extends Controller
      * shelfId present ⇒ that PUBLIC shelf's corpus (any public shelf — the
      * deliberate inverse of query()'s owner-only shelf gate, because the hero
      * pages scope to journal/archive shelves the visitor does not own),
+     * username present (the /u/{username} hero page; mutually exclusive with
+     * shelfId, 422) ⇒ that user's PUBLIC books via the services' 'mine' scope
+     * with creatorName = the page's user — same for owner and visitor, keeping
+     * the locked "private books are never retrieved" contract,
      * absent ⇒ the whole public library.
      *
      * 🔒 Contract locked by tests/Feature/AiBrain/AskScopeValidationTest.php,
@@ -687,6 +691,7 @@ class AiBrainController extends Controller
             $validated = $request->validate([
                 'question'         => 'required|string|min:3|max:2000',
                 'shelfId'          => 'nullable|string|uuid',
+                'username'         => 'nullable|string|max:100',
                 'model'            => 'nullable|string|max:100',
                 'client_inference' => 'nullable|boolean',
             ]);
@@ -700,6 +705,27 @@ class AiBrainController extends Controller
 
         $shelfId = $validated['shelfId'] ?? null;
         $shelfName = null;
+
+        // USER-LIBRARY scope (the /u/{username} hero page). Mutually exclusive
+        // with shelf scope. Resolves to the existing 'mine' scope semantics —
+        // creator = username AND visibility = public — which is exactly the
+        // services' locked privacy contract (private books are NEVER retrieved,
+        // even for the owner; identical to the in-reader archivist).
+        $askUsername = $validated['username'] ?? null;
+        $scopeUserName = null;
+        if ($askUsername !== null) {
+            if ($shelfId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'username and shelfId are mutually exclusive',
+                ], 422);
+            }
+            $scopeUser = \App\Models\User::findByNamePublic($askUsername);
+            if (!$scopeUser) {
+                return response()->json(['success' => false, 'message' => 'User not found'], 404);
+            }
+            $scopeUserName = $scopeUser->name;
+        }
 
         // PUBLIC-shelf gate. Mirrors ShelfController::publicSearch: read via
         // pgsql_admin because the shelves RLS select policy is owner-only, which
@@ -719,7 +745,7 @@ class AiBrainController extends Controller
 
         [$fallbackChain, $brainModel, $modelLabel, $modelLabels] = $this->resolveModelChain($validated['model'] ?? null);
 
-        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService, $clientInference, $shelfId, $shelfName) {
+        return response()->stream(function () use ($validated, $user, $brainModel, $modelLabel, $modelLabels, $fallbackChain, $llmService, $embeddingService, $billingService, $clientInference, $shelfId, $shelfName, $scopeUserName) {
             $sendEvent = function (string $event, array $data) {
                 echo "event: {$event}\ndata: " . json_encode($data) . "\n\n";
                 if (ob_get_level()) ob_flush();
@@ -747,12 +773,18 @@ class AiBrainController extends Controller
 
             try {
                 $question = $validated['question'];
-                $sourceScope = $shelfId ? 'shelf' : 'public';
+                // 'mine' here means "this creator's PUBLIC books" — the scope
+                // clauses in EmbeddingService/SearchService key on creatorName,
+                // which for a user-page ask is the PAGE's user, not the asker.
+                $sourceScope = $shelfId ? 'shelf' : ($scopeUserName !== null ? 'mine' : 'public');
+                // Corpus label for prompts/status copy (shelf name or "X's library").
+                $corpusLabel = $shelfName ?? ($scopeUserName !== null ? $scopeUserName . "'s library" : null);
 
                 Log::info('AiBrain: ask started', [
                     'user' => $user->name,
                     'sourceScope' => $sourceScope,
                     'shelfId' => $shelfId,
+                    'scopeUser' => $scopeUserName,
                     'question' => Str::limit($question, 100),
                 ]);
 
@@ -765,7 +797,7 @@ class AiBrainController extends Controller
                 };
 
                 $sendEvent('status', ['message' => 'Considering your question...']);
-                $routerResult = $this->planStandaloneRetrieval($llmService, $question, $shelfName, $fallbackChain, $onRetry, $onFallback);
+                $routerResult = $this->planStandaloneRetrieval($llmService, $question, $corpusLabel, $fallbackChain, $onRetry, $onFallback);
 
                 if ($routerResult['type'] === 'error') {
                     $sendEvent('error', ['message' => 'The AI model is currently unavailable. Please try again shortly.']);
@@ -794,11 +826,11 @@ class AiBrainController extends Controller
                     'bookTitle' => null,
                     'sourceScope' => $sourceScope,
                     'shelfId' => $shelfId,
-                    'creatorName' => $user->name,
+                    'creatorName' => $scopeUserName ?? $user->name,
                 ];
 
-                $sendEvent('status', ['message' => $shelfName
-                    ? 'Searching "' . $shelfName . '" for relevant sources...'
+                $sendEvent('status', ['message' => $corpusLabel
+                    ? 'Searching ' . ($shelfName ? '"' . $shelfName . '"' : $corpusLabel) . ' for relevant sources...'
                     : 'Searching library for relevant sources...']);
 
                 $result = $this->retrievalService->execute($plan, $context);
@@ -814,7 +846,7 @@ class AiBrainController extends Controller
                 // locked by tests/Feature/AiBrain/AskBillingFailureTest.php).
                 if (empty($matches)) {
                     Log::info('AiBrain: ask — no matches found', ['tools' => $toolsUsed, 'scope' => $sourceScope]);
-                    $noMatchMessage = $shelfId
+                    $noMatchMessage = ($shelfId || $scopeUserName !== null)
                         ? 'No matches in this collection. Try rephrasing your question.'
                         : 'No relevant passages found in the library.';
                     $sendEvent('error', ['message' => $noMatchMessage]);
@@ -832,7 +864,7 @@ class AiBrainController extends Controller
                 $sendEvent('status', ['message' => 'Found ' . count($matches) . ' relevant sources — sending to ' . $modelLabel . '...']);
 
                 $systemPrompt = $this->buildStandaloneSystemPrompt();
-                $userMessage = $this->buildStandaloneUserMessage($question, $matches, $shelfName);
+                $userMessage = $this->buildStandaloneUserMessage($question, $matches, $corpusLabel);
                 $pipelineLog['prompt_summary'] = 'Question + ' . count($matches) . ' source passages';
 
                 $llmResult = $llmService->chatWithFallback(

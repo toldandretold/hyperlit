@@ -27,6 +27,7 @@ use App\Http\Controllers\StripeController;
 use App\Http\Controllers\SubBookController;
 use App\Http\Controllers\UnifiedSyncController;
 use App\Http\Controllers\UserHomeServerController;
+use App\Http\Controllers\UserPageSettingsController;
 use App\Http\Controllers\UserPreferencesController;
 use App\Http\Controllers\VibeConvertController;
 use App\Http\Controllers\VibeCSSController;
@@ -94,8 +95,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
 
     // Billing
+    Route::get('/billing/account-panel', [BillingController::class, 'accountPanel']);
     Route::get('/billing/balance', [BillingController::class, 'balance']);
     Route::get('/billing/ledger', [BillingController::class, 'ledger']);
+    Route::get('/billing/ledger/export', [BillingController::class, 'exportLedger']);
     Route::get('/billing/ledger/{id}', [BillingController::class, 'show'])->whereUuid('id');
     Route::post('/billing/credits', [BillingController::class, 'addCredits']);
     Route::post('/billing/checkout', [StripeController::class, 'createCheckoutSession']);
@@ -103,6 +106,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // User home sorted rendering
     Route::post('/user-home/render', [UserHomeServerController::class, 'renderSorted']);
+
+    // /u/{username} hero-page customization (owner-only; target row derived
+    // from the session, validated by UserPageSettingsValidator)
+    Route::put('/user-home/page-settings', [UserPageSettingsController::class, 'update']);
 
     // Citation scanner
     Route::post('/citation-scanner/scan', [CitationScannerController::class, 'scan']);

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1843 functions in 387 modules · 10 object stores · 10 PG tables · 3756 edges
+**MarkdownDB** schema v28 · 1848 functions in 389 modules · 10 object stores · 10 PG tables · 3767 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -246,7 +246,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
 | `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
 | `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
-| `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` `sessionStorage` | read/write | `↓route:/api/shelves` |
+| `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` | read/write | `↓route:/api/shelves` |
 | `hideShelfPreview` | `components/shelves/shelfPreview` | — | — | write | — |
 | `showShelfPreview` | `components/shelves/shelfPreview` | — | — | read/write | — |
 | `removeSortBar` | `components/shelves/shelfSortAndSearch` | — | — | read/write | — |
@@ -513,10 +513,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `validateForm` | `components/userContainer/validation` | — | — | read | — |
 | `validatePassword` | `components/userContainer/validation` | — | — | — | — |
 | `validateUsername` | `components/userContainer/validation` | — | — | — | — |
+| `destroyUserPageEditor` | `components/userProfile/userPageEditor` | — | — | read/write | — |
+| `initUserPageEditor` | `components/userProfile/userPageEditor` | — | — | read/write | — |
 | `destroyUserProfileEditor` | `components/userProfile/userProfileEditor` | — | — | write | — |
 | `initializeUserProfileEditor` | `components/userProfile/userProfileEditor` | — | `library` | read/write | — |
+| `setUserProfileEditingEnabled` | `components/userProfile/userProfileEditor` | — | `library` | read/write | — |
 | `destroyUserProfilePage` | `components/userProfile/userProfilePage` | — | — | — | — |
 | `initializeUserProfilePage` | `components/userProfile/userProfilePage` | — | — | read/write | — |
+| `destroyUserSearch` | `components/userProfile/userSearch` | — | — | — | — |
+| `initializeUserSearch` | `components/userProfile/userSearch` | — | — | — | — |
 | `ButtonRegistry._initializeComponent` | `components/utilities/buttonRegistry` | — | — | — | — |
 | `ButtonRegistry._resolveDependencyOrder` | `components/utilities/buttonRegistry` | — | — | — | — |
 | `ButtonRegistry.constructor` | `components/utilities/buttonRegistry` | — | — | — | — |

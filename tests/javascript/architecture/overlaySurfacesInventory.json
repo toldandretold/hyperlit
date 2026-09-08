@@ -2,6 +2,7 @@
   "_comment": "Every overlay/backdrop/modal/sheet/menu surface (matched by overlaySurfaces.test.js scanning resources/css class selectors + resources/js string literals) must be registered here with its keyboard-focus wiring. Wiring values: containerManager (ContainerManager FOCUS_TRAP_CONTAINER_IDS trap) | trapModalFocus[:no-escape] (utilities/modalFocusTrap) | dialog (components/dialog/dialog.ts, itself trapped) | non-modal:<note> (interactive but intentionally untrapped — has Escape/focus handling as noted) | inert:<note> (non-interactive, no focusables) | deferred:<reason> (KNOWN DEBT — wire before shipping keyboard-facing changes there) | css-only:<note> (class exists only in CSS, no live JS surface). Adding a new overlay class without an entry FAILS the gate: wire a trap (see docs/a11y-findings.md 'Keyboard model') and register it.",
   "surfaces": {
     "user-overlay": { "module": "resources/js/components/userContainer/index.ts", "wiring": "containerManager" },
+    "money-overlay": { "module": "resources/js/components/moneyOverlay/moneyOverlay.ts", "wiring": "trapModalFocus" },
     "settings-overlay": { "module": "resources/js/components/settingsContainer/index.ts", "wiring": "containerManager" },
     "source-overlay": { "module": "resources/js/components/sourceContainer/index.ts + newbookContainer (shared overlay)", "wiring": "containerManager" },
     "toc-overlay": { "module": "resources/js/components/tocContainer/index.ts", "wiring": "containerManager" },

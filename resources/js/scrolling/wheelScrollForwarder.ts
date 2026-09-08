@@ -40,10 +40,13 @@ const CONTENT_SEL =
 // instance has its own id, inside .fixed-header), the newbook/import form, the glass
 // panels (TOC / user auth / source), each of which scrolls via its own inner .scroller,
 // the citation-mode results panel (sibling of #edit-toolbar, scrolls its own result list
-// via overflow-y:auto), and the shelf-preview overlay (appended to document.body). Without
-// these the capture-phase handler steals the wheel from the panel and scrolls the page behind it.
+// via overflow-y:auto), the shelf-preview overlay (appended to document.body), and the
+// money overlay (any-page account panel, scrolls its .money-panel-body). Without
+// these the capture-phase handler steals the wheel from the panel and scrolls the page
+// behind it. ⚠️ ANY new self-scrolling overlay/panel outside the content wrapper MUST be
+// added here — see CLAUDE.md §"Overlay surfaces" check 5.
 const SCROLLABLE_OVERLAY_SEL =
-  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay';
+  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #user-page-edit-panel';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

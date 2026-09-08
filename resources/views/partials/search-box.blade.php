@@ -10,13 +10,16 @@
     $placeholder         — initial placeholder (JS swaps it per mode)
     $fulltextTitle       — tooltip for the Full text toggle
     $shelfId (optional)  — journal pages: the shelf backing this journal ('' = not harvested)
+    $contextUsername (optional) — user pages: the page's username (userSearch
+                            reads it as the search/archivist scope context)
     $archivist (optional) — true on hero pages: emits the hidden Ask button for
                             the AI Archivist takeover mode (fixed id, one box
                             per page — pairs with the #archivist-brain-button
                             in the arranger row; see search/searchBox.ts)
 --}}
 <div id="{{ $containerId }}" class="search-container search-container--multiline"
-     @isset($shelfId) data-shelf-id="{{ $shelfId }}" @endisset>
+     @isset($shelfId) data-shelf-id="{{ $shelfId }}" @endisset
+     @isset($contextUsername) data-username="{{ $contextUsername }}" @endisset>
   <div class="search-input-anchor">
     {{-- textarea, not input: wraps + grows downward for long/pasted
          queries (semantic search takes whole passages) --}}
