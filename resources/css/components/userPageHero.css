@@ -324,3 +324,30 @@ body[data-page="user"] .journal-colon-link {
 body[data-page="user"] #app-container.lava-lamp-background.content-active .main-content {
   padding-top: 12px;
 }
+
+/* ---------- background art (registry: bg-art-{name}) ----------
+   'none': plain theme background — the lava mount and its scroll hint go. */
+body[data-page="user"] #app-container.bg-art-none ~ #lava-lamp-mount {
+  display: none;
+}
+
+body[data-page="user"] #app-container.bg-art-none .copy-scroll-hint {
+  display: none;
+}
+
+/* Art radios in the edit palette */
+.user-page-edit-panel .upe-art-row {
+  gap: 12px;
+}
+
+.user-page-edit-panel .upe-art {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.user-page-edit-panel .upe-art input {
+  accent-color: #00afaf;
+}

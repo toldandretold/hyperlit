@@ -1861,7 +1861,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 270
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 271
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1934,6 +1934,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepage` → `components/shelves/addToShelfMenu`
 - `components/homepage/homepage` → `components/shelves/shelfPreview`
 - `components/homepage/homepage` → `components/userButton/userButton`
+- `components/homepage/homepageHero` → `components/shelves/shelfHeader`
 - `components/homepage/homepageHero` → `components/userButton/userButton`
 - `components/newbookContainer/buttonView` → `components/newbookContainer/citeForm/index`
 - `components/newbookContainer/citeForm/fileUpload` → `components/utilities/fileMetadataExtractor`

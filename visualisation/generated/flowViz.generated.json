@@ -45932,6 +45932,11 @@
     },
     {
       "source": "components/homepage/homepageHero",
+      "target": "components/shelves/shelfHeader",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepageHero",
       "target": "components/userButton/userButton",
       "kind": "lazy"
     },
@@ -50971,6 +50976,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 270
+    "lazyCount": 271
   }
 }

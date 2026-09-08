@@ -419,8 +419,11 @@ body[data-page="user"] #app-container.lava-lamp-background.content-active .fixed
   border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
-  box-shadow: 0 0px 0px rgba(0, 0, 0, 0);
-  background-color: transparent; /* blur-only glass in feed mode */
+  /* EXPERIMENT (2026-09-08): keep the card's glass tint + shadow in feed
+     mode (inherited from the hero/base rules) instead of the old blur-only
+     transparent pose — the docked header reads as a distinct floating card
+     over the feed, not one merged page. Revert = restore
+     `box-shadow: 0 0 0 rgba(0,0,0,0); background-color: transparent;` */
   transition:
     top 0.6s ease-in-out,
     transform 0.6s ease-in-out,

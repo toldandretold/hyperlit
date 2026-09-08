@@ -38,10 +38,19 @@ import { setUserProfileEditingEnabled } from './userProfileEditor';
 interface PageSettings {
     logo_image?: string | null;
     background_image?: string | null;
+    /** Named background art (server registry); null/absent = default hills */
+    background_art?: string | null;
     /** Curated visitor pills (shelf UUIDs); null/absent = all public shelves */
     pill_shelves?: string[] | null;
     about_html?: string | null;
 }
+
+/** Mirror of UserPageSettingsValidator::BACKGROUND_ARTS (minus the implicit
+ *  default) — each entry renders as a radio in the palette. */
+const BACKGROUND_ARTS: Array<{ value: string; label: string }> = [
+    { value: 'hills', label: 'Lava-lamp hills (default)' },
+    { value: 'none', label: 'No art' },
+];
 
 interface PublicShelf {
     id: string;
@@ -336,6 +345,14 @@ function buildPanel(): HTMLElement {
         <button type="button" class="upe-btn" data-image-pick="background_image">Set image</button>
         <button type="button" class="upe-btn upe-btn-quiet" data-image-reset="background_image">Reset</button>
       </div>
+      <div class="upe-row upe-art-row">
+        <span class="upe-label">Art</span>
+        ${BACKGROUND_ARTS.map(a => `
+          <label class="upe-art">
+            <input type="radio" name="upe-bg-art" data-bg-art="${a.value}"${(settings.background_art ?? 'hills') === a.value ? ' checked' : ''}>
+            <span>${escapeHtml(a.label)}</span>
+          </label>`).join('')}
+      </div>
       ${shelvesHtml}
       <p class="upe-hint">Your title and the about text below are editable in place — click them and type. Tap the logo (or drop an image on it) to swap it.</p>
       <button type="button" class="upe-btn upe-done" data-done>Done</button>
@@ -505,6 +522,22 @@ export function initUserPageEditor(): void {
 function onPanelChange(e: Event): void {
     if (!active || !panelEl) return;
     const target = e.target;
+    // Background art radio: save + live-apply (class on #app-container; CSS
+    // hides/shows the lava mount).
+    if (target instanceof HTMLInputElement && target.dataset.bgArt !== undefined) {
+        const art = target.dataset.bgArt === 'hills' ? null : (target.dataset.bgArt ?? null);
+        void putSettings({ background_art: art }).then((saved) => {
+            if (!saved) return;
+            const container = appContainer();
+            if (!container) return;
+            [...container.classList].filter(c => c.startsWith('bg-art-')).forEach(c => container.classList.remove(c));
+            if (saved.background_art && saved.background_art !== 'hills') {
+                container.classList.add(`bg-art-${saved.background_art}`);
+            }
+        });
+        return;
+    }
+
     // Shelf-pill curation: any checkbox toggle saves the literal checked set —
     // checked = shown, and an empty set really means "no pills".
     if (target instanceof HTMLInputElement && target.dataset.pillShelf !== undefined) {

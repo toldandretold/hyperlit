@@ -36,8 +36,12 @@
 .shelf-picker-trigger:hover {
   opacity: 1;
 }
+/* Same glass surface as the hero's .fixed-header (--container-glass-bg +
+   blur) — popups read as part of one system, and the var adapts per theme. */
 .shelf-picker-dropdown {
-  background: var(--container-solid-bg);
+  background: var(--container-glass-bg, rgba(34, 31, 32, 0.75));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--resize-edge-tint);
   border-radius: var(--border-radius-xl);
   padding: 6px;
@@ -197,13 +201,17 @@
   margin-left: 4px;
   opacity: 0.5;
 }
+/* Glass like .shelf-picker-dropdown / the hero card — one popup language. */
 .library-filter-dropdown {
   position: absolute;
   top: 100%;
   left: 0;
-  background: var(--color-background);
-  border: 1px solid var(--color-border, #444);
-  border-radius: 4px;
+  background: var(--container-glass-bg, rgba(34, 31, 32, 0.75));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--resize-edge-tint);
+  border-radius: var(--border-radius-xl, 10px);
+  padding: 4px;
   z-index: 100;
   min-width: 100px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -219,8 +227,13 @@
   cursor: pointer;
   font-size: 0.9em;
 }
+.library-filter-dropdown button {
+  border-radius: var(--border-radius-md, 6px);
+}
+/* currentColor mix, not a dark fallback: --color-hover-bg's #333 fallback
+   turned the whole dropdown black on the sepia/light themes. */
 .library-filter-dropdown button:hover {
-  background: var(--color-hover-bg, #333);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 .library-filter-dropdown button.active {
   font-weight: 600;

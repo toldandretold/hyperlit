@@ -54,6 +54,15 @@ class UserPageSettingsValidator
     private const SIZE_RE  = '/^(\d{1,2}(\.\d{1,2})?)(px|rem|em)$/';
     private const IMAGE_RE = '/^[A-Za-z0-9._-]{1,255}$/';
 
+    /**
+     * Background-art registry: each name is a renderable background design.
+     * 'hills' = the default lava-lamp art; 'none' = plain theme background
+     * (the blade stamps `bg-art-{name}` on #app-container; CSS/JS key off it).
+     * New designs = add the name here + its render (CSS or a lava-style
+     * component) — the settings/panel plumbing picks it up unchanged.
+     */
+    public const BACKGROUND_ARTS = ['hills', 'none'];
+
     private const ABOUT_MAX_RAW = 20000;
     private const ABOUT_MAX_CLEAN = 10000;
     private const MAX_CSS_VARS = 20;
@@ -127,6 +136,18 @@ class UserPageSettingsValidator
                 if (!isset($errors['css_vars'])) {
                     $settings['css_vars'] = $clean ?: null;
                 }
+            }
+        }
+
+        // background_art: named design from the registry; null = default hills.
+        if (array_key_exists('background_art', $input)) {
+            $raw = $input['background_art'];
+            if ($raw === null || $raw === '' || $raw === 'hills') {
+                $settings['background_art'] = null; // default — store nothing
+            } elseif (is_string($raw) && in_array($raw, self::BACKGROUND_ARTS, true)) {
+                $settings['background_art'] = $raw;
+            } else {
+                $errors['background_art'] = 'Unknown background art.';
             }
         }
 

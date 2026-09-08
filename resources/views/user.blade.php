@@ -40,7 +40,9 @@
   This is the main flexbox layout for the entire page.
   ======================================================================
 -->
-<div id="app-container" class="lava-lamp-background">
+{{-- bg-art-{name}: the owner's background-art pick (validator registry);
+     'none' hides the lava mount via CSS. Absent = default hills. --}}
+<div id="app-container" class="lava-lamp-background{{ !empty($backgroundArt) && $backgroundArt !== 'hills' ? ' bg-art-' . $backgroundArt : '' }}">
 
    <!-- Logo Navigation Wrapper -->
   <div id="logoNavWrapper">

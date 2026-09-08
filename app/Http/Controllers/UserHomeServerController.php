@@ -189,6 +189,10 @@ class UserHomeServerController extends Controller
         $imageNameOk = fn ($v) => is_string($v) && preg_match('/^[A-Za-z0-9._-]{1,255}$/', $v);
         $logoImage = $imageNameOk($storedSettings['logo_image'] ?? null) ? $storedSettings['logo_image'] : null;
         $backgroundImage = $imageNameOk($storedSettings['background_image'] ?? null) ? $storedSettings['background_image'] : null;
+        // Named background art (registry-validated); null/'hills' = default.
+        $backgroundArt = in_array($storedSettings['background_art'] ?? null, \App\Services\UserPageSettingsValidator::BACKGROUND_ARTS, true)
+            ? $storedSettings['background_art']
+            : null;
         // Pill curation: which public shelves render as visitor pills.
         // Checked = shown: NO stored curation = all public shelves; a stored
         // EMPTY list = owner unticked everything = no pills. (css_vars may
@@ -206,6 +210,7 @@ class UserHomeServerController extends Controller
         $pageSettings = array_filter([
             'logo_image' => $logoImage,
             'background_image' => $backgroundImage,
+            'background_art' => $backgroundArt,
             'pill_shelves' => $hasPillCuration ? $pillShelves : null,
             'about_html' => $aboutHtml,
         ], fn ($v) => $v !== null);
@@ -286,6 +291,7 @@ class UserHomeServerController extends Controller
             'aboutHtml' => $aboutHtml,
             'logoImage' => $logoImage,
             'backgroundImage' => $backgroundImage,
+            'backgroundArt' => $backgroundArt,
             'visitorShelves' => $visitorShelves,
         ]);
     }

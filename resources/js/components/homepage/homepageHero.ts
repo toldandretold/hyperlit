@@ -112,6 +112,13 @@ function closeFeed(): void {
   const page = heroRoot();
   if (!page) return;
   document.querySelectorAll('.home-content-wrapper .main-content').forEach(el => el.remove());
+  // User page: the feed's shelf header (title/sort row, built by shelfHeader.ts)
+  // is a SIBLING of .main-content — left behind, it floats over the hero as a
+  // stray bar at the bottom of the card. Its module cleanup (timers/aborts)
+  // rides along via dynamic import; the element goes immediately.
+  if (document.getElementById('shelf-header')) {
+    void import('../shelves/shelfHeader').then(m => m.removeShelfHeader());
+  }
   page.querySelectorAll('.arranger-button.active').forEach(el => el.classList.remove('active'));
   page.classList.remove('content-active', 'scrolled');
   // feed set inline left-margins on the header (alignHeaderContent) to match the
@@ -146,7 +153,10 @@ function watchJournalColon(): void {
   };
   apply();
   colonObserver?.disconnect();
-  colonObserver = new ResizeObserver(apply);
+  // rAF-deferred: writing --colon-h resizes the lockup the observer watches —
+  // a same-frame write triggers the browser's "ResizeObserver loop completed
+  // with undelivered notifications" bail-out warning.
+  colonObserver = new ResizeObserver(() => requestAnimationFrame(apply));
   colonObserver.observe(title);
 }
 

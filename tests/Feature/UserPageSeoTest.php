@@ -173,6 +173,28 @@ test('pill_shelves curates the visitor shelf pills', function () {
     expect($html)->not->toContain('data-shelf-name="Hidden From Pills"');
 });
 
+test('background_art none stamps the bg-art class; junk art never renders', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false,
+        'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['background_art' => 'none']),
+        'timestamp' => (int) round(microtime(true) * 1000),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($html)->toContain('lava-lamp-background bg-art-none');
+
+    // Tampered value → class never rendered (registry re-check at render)
+    upseoAdminConn()->table('library')->where('book', $book)
+        ->update(['page_settings' => json_encode(['background_art' => 'evil"onload'])]);
+    $html2 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($html2)->not->toContain('bg-art-');
+});
+
 test('an EMPTY pill_shelves list means no visitor pills (checked = shown)', function () {
     $user = makeUpseoUser();
     $book = str_replace(' ', '', $user->name);
