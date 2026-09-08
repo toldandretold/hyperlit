@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1848,
-    "moduleCount": 389,
+    "fnCount": 1854,
+    "moduleCount": 390,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3767,
+    "edgeCount": 3796,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -4228,6 +4228,54 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/validation",
+      "leaf": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:aboutBookContainer",
+      "label": "aboutBookContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userAboutBook:aboutBookId",
+      "label": "aboutBookId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
+      "leaf": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit",
+      "label": "enterAboutEdit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit",
+      "label": "exitAboutEdit",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "label": "hydrateAboutBook",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
+      "leaf": false
+    },
+    {
+      "id": "components/userProfile/userAboutBook:isAboutEditing",
+      "label": "isAboutEditing",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userProfile/userAboutBook",
       "leaf": true
     },
     {
@@ -17974,6 +18022,20 @@
       ]
     },
     {
+      "id": "components/userProfile/userAboutBook",
+      "label": "components/userProfile/userAboutBook",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userProfile/userAboutBook:aboutBookContainer",
+        "components/userProfile/userAboutBook:aboutBookId",
+        "components/userProfile/userAboutBook:enterAboutEdit",
+        "components/userProfile/userAboutBook:exitAboutEdit",
+        "components/userProfile/userAboutBook:hydrateAboutBook",
+        "components/userProfile/userAboutBook:isAboutEditing"
+      ]
+    },
+    {
       "id": "components/userProfile/userPageEditor",
       "label": "components/userProfile/userPageEditor",
       "stage": "components",
@@ -25930,6 +25992,167 @@
       "rel": "call"
     },
     {
+      "id": "components/userProfile/userAboutBook:aboutBookId__call__components/userProfile/userAboutBook:aboutBookContainer",
+      "source": "components/userProfile/userAboutBook:aboutBookId",
+      "target": "components/userProfile/userAboutBook:aboutBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__components/userProfile/userAboutBook:aboutBookContainer",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "components/userProfile/userAboutBook:aboutBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__components/userProfile/userAboutBook:aboutBookId",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "components/userProfile/userAboutBook:aboutBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__divEditor/imageDrop/index:addImageDropListener",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "divEditor/imageDrop/index:addImageDropListener",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__divEditor/index:startObserving",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "divEditor/index:startObserving",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__editToolbar/index:getEditToolbar",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__editToolbar/index:initEditToolbar",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "editToolbar/index:initEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__hyperlitContainer/editMode:placeCursorAtEnd",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "hyperlitContainer/editMode:placeCursorAtEnd",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__call__paste/index:addPasteListener",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "paste/index:addPasteListener",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:enterAboutEdit__domwrite__dom",
+      "source": "components/userProfile/userAboutBook:enterAboutEdit",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__components/userProfile/userAboutBook:aboutBookContainer",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "components/userProfile/userAboutBook:aboutBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__components/userProfile/userAboutBook:aboutBookId",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "components/userProfile/userAboutBook:aboutBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__divEditor/index:flushAllPendingSaves",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "divEditor/index:flushAllPendingSaves",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__divEditor/index:flushInputDebounce",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "divEditor/index:flushInputDebounce",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__divEditor/index:stopObserving",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "divEditor/index:stopObserving",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__call__editToolbar/index:getEditToolbar",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:exitAboutEdit__domwrite__dom",
+      "source": "components/userProfile/userAboutBook:exitAboutEdit",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__components/userProfile/userAboutBook:aboutBookContainer",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "components/userProfile/userAboutBook:aboutBookContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__components/userProfile/userAboutBook:aboutBookId",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "components/userProfile/userAboutBook:aboutBookId",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__hyperlights/listeners:attachMarkListeners",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__indexedDB/nodes/read:getNodesFromIndexedDB",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__call__lazyLoader/chunkRender:createChunkElement",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "lazyLoader/chunkRender:createChunkElement",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userAboutBook:hydrateAboutBook__domwrite__dom",
+      "source": "components/userProfile/userAboutBook:hydrateAboutBook",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/userProfile/userPageEditor:destroyUserPageEditor__call__components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
       "source": "components/userProfile/userPageEditor:destroyUserPageEditor",
       "target": "components/userProfile/userProfileEditor:setUserProfileEditingEnabled",
@@ -28513,6 +28736,24 @@
       "id": "dom__domread__components/userContainer/validation:validateForm",
       "source": "dom",
       "target": "components/userContainer/validation:validateForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userAboutBook:aboutBookContainer",
+      "source": "dom",
+      "target": "components/userProfile/userAboutBook:aboutBookContainer",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userAboutBook:enterAboutEdit",
+      "source": "dom",
+      "target": "components/userProfile/userAboutBook:enterAboutEdit",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userProfile/userAboutBook:hydrateAboutBook",
+      "source": "dom",
+      "target": "components/userProfile/userAboutBook:hydrateAboutBook",
       "rel": "domread"
     },
     {
@@ -46936,9 +47177,64 @@
       "kind": "static"
     },
     {
+      "source": "components/userProfile/userAboutBook",
+      "target": "divEditor/imageDrop/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "divEditor/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "editToolbar/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "hyperlights/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "hyperlitContainer/editMode",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "indexedDB/syncQueue/master",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "lazyLoader/chunkRender",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userAboutBook",
+      "target": "paste/index",
+      "kind": "lazy"
+    },
+    {
       "source": "components/userProfile/userPageEditor",
       "target": "components/userProfile/userProfileEditor",
       "kind": "static"
+    },
+    {
+      "source": "components/userProfile/userPageEditor",
+      "target": "components/userProfile/userAboutBook",
+      "kind": "lazy"
     },
     {
       "source": "components/userProfile/userProfileEditor",
@@ -50976,6 +51272,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 271
+    "lazyCount": 284
   }
 }

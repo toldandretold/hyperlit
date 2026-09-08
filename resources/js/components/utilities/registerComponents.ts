@@ -557,7 +557,8 @@ export function registerAllComponents() {
     name: 'journalHyperciteMap',
     initFn: initJournalHyperciteMap,
     destroyFn: destroyJournalHyperciteMap,
-    pages: ['journal'],
+    // user pages render the same map for the user's public library (opt-in)
+    pages: ['journal', 'user'],
     dependencies: [],
     required: false
   });

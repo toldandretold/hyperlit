@@ -71,6 +71,6 @@ export function isSyntheticBook(id: any): boolean {
   // Sorted variants like `username_public_title`, `username_all_connected`
   if (/_(public|private|all)_/.test(id)) return true;
   // User-home synthetics
-  if (id.endsWith('All') || id.endsWith('Private') || id.endsWith('Account')) return true;
+  if (id.endsWith('All') || id.endsWith('Private') || id.endsWith('Account') || id.endsWith('About')) return true;
   return false;
 }

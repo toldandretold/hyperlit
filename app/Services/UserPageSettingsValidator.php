@@ -151,6 +151,19 @@ class UserPageSettingsValidator
             }
         }
 
+        // show_map: render the library's hypercite-network SVG under the about
+        // section (JournalHyperciteMap::svgForBooks, public books only).
+        if (array_key_exists('show_map', $input)) {
+            $raw = $input['show_map'];
+            if ($raw === null || $raw === false) {
+                $settings['show_map'] = null;
+            } elseif ($raw === true) {
+                $settings['show_map'] = true;
+            } else {
+                $errors['show_map'] = 'show_map must be a boolean.';
+            }
+        }
+
         // pill_shelves: which of the owner's PUBLIC shelves render as visitor
         // pills. Checked = shown: null clears the curation (default — all
         // shelves show), an EMPTY ARRAY is a real state (owner unticked

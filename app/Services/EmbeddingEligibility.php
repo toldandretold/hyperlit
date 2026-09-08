@@ -36,7 +36,7 @@ class EmbeddingEligibility
     public const EXCLUDED_LIBRARY_TYPES = ['sub_book', 'report'];
 
     /** library.raw_json->>'type' values marking generated card-list books. */
-    public const SYNTHETIC_RAW_TYPES = ['user_home', 'user_account', 'user_home_sorted', 'shelf', 'generated'];
+    public const SYNTHETIC_RAW_TYPES = ['user_home', 'user_account', 'user_home_sorted', 'shelf', 'generated', 'user_about'];
 
     public const MIN_PLAINTEXT_CHARS = 20;
 

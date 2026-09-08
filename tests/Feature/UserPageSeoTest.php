@@ -173,6 +173,91 @@ test('pill_shelves curates the visitor shelf pills', function () {
     expect($html)->not->toContain('data-shelf-name="Hidden From Pills"');
 });
 
+test('owner visit mints the About BOOK and migrates the legacy about_html blob', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false,
+        'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['about_html' => '<h1 class="mega">Dope library</h1><h2>Only the dopest.</h2>']),
+        'timestamp' => (int) round(microtime(true) * 1000),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->actingAs($user)->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    // The About book exists, one node per top-level block, blob removed
+    $aboutId = $book . 'About';
+    $row = upseoAdminConn()->table('library')->where('book', $aboutId)->first();
+    expect($row)->not->toBeNull();
+    expect(json_decode($row->raw_json, true)['type'])->toBe('user_about');
+    $nodes = upseoAdminConn()->table('nodes')->where('book', $aboutId)->orderBy('startLine')->get();
+    expect($nodes)->toHaveCount(2);
+    expect($nodes[0]->content)->toContain('Dope library');
+    $settings = json_decode(upseoAdminConn()->table('library')->where('book', $book)->value('page_settings') ?? 'null', true);
+    expect($settings['about_html'] ?? null)->toBeNull();
+
+    // ...and the page renders the BOOK (editor DOM contract), not the blob
+    expect($html)->toContain('id="user-about-book"');
+    expect($html)->toContain('data-book-id="' . $aboutId . '"');
+    expect($html)->toContain('data-chunk-id="0"');
+    expect($html)->toContain('Dope library');
+    // toolbar partial present for the inline editor
+    expect($html)->toContain('id="edit-toolbar"');
+
+    // VISITOR sees the same book content (public visibility)
+    auth()->logout();
+    $visitorHtml = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($visitorHtml)->toContain('Dope library');
+});
+
+test('the About book never appears in user-library search', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false, 'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['about_html' => '<p>zanzibar wombat prose</p>']),
+        'timestamp' => (int) round(microtime(true) * 1000), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $this->actingAs($user)->get('/u/' . rawurlencode($user->name))->assertStatus(200); // mints About
+
+    $resp = $this->getJson('/api/public/library/' . rawurlencode($user->name) . '/search?q=wombat');
+    $resp->assertStatus(200);
+    $books = array_column($resp->json('results'), 'book');
+    expect($books)->not->toContain($book . 'About');
+});
+
+test('show_map renders the hypercite network SVG; off renders nothing', function () {
+    $user = makeUpseoUser();
+    $book = str_replace(' ', '', $user->name);
+    // one real public book with nodes so the corpus is non-empty
+    upseoAdminConn()->table('library')->insert([
+        'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false, 'raw_json' => json_encode(['type' => 'user_home']),
+        'page_settings' => json_encode(['show_map' => true]),
+        'timestamp' => (int) round(microtime(true) * 1000), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    upseoAdminConn()->table('library')->insert([
+        'book' => 'upseo_map_real_' . Str::random(6), 'title' => 'Real Mapped Book', 'creator' => $user->name,
+        'visibility' => 'public', 'listed' => false, 'has_nodes' => true, 'type' => 'book',
+        'raw_json' => json_encode([]),
+        'timestamp' => (int) round(microtime(true) * 1000), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($html)->toContain('journal-hypercite-map');
+    expect($html)->toContain('data-map-node');
+    expect($html)->toContain('id="journal-map-expand"');
+
+    // toggle off → no map block
+    upseoAdminConn()->table('library')->where('book', $book)->update(['page_settings' => null]);
+    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v1");
+    $html2 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($html2)->not->toContain('journal-hypercite-map');
+});
+
 test('background_art none stamps the bg-art class; junk art never renders', function () {
     $user = makeUpseoUser();
     $book = str_replace(' ', '', $user->name);
@@ -240,6 +325,8 @@ test('tampered page_settings values never reach the rendered page', function () 
 
     $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
 
-    expect($html)->not->toContain('display:none');
+    // Specific needle: the edit-toolbar partial legitimately contains
+    // `display:none` inline styles — assert the INJECTED rule never lands.
+    expect($html)->not->toContain('body{display:none}');
     expect($html)->not->toContain('<script>alert');
 });

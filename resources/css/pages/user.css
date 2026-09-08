@@ -59,8 +59,11 @@
 @import url('../base/layout.css');
 /* Hero chrome (lava glass card, welcome copy, arranger pills) + the user
    flavour of it (lockup, customization vars, edit palette). Order matters:
-   userPageHero overrides homepage. */
+   userPageHero overrides homepage. journalHome.css carries the hypercite-map
+   legend/actions styling (its map rules are :is()-widened to the user page;
+   everything else in it is journal-scoped and inert here). */
 @import url('../components/homepage.css');
+@import url('../components/journalHome.css');
 @import url('../components/userPageHero.css');
 /* Custom scrollbar engages once an arranger collection loads a lazy loader into
    the user feed wrapper (native scrollbar in the bare feed). */

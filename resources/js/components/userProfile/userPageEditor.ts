@@ -8,9 +8,8 @@
  * page-edit mode: body.user-page-editing. While on:
  *   - the inline title/bio editors engage (userProfileEditor
  *     setUserProfileEditingEnabled — they save via the library upsert seam);
- *   - the about section (#user-about-content) becomes contenteditable and
- *     saves through PUT /api/user-home/page-settings (server sanitizes; the
- *     response's canonical HTML is re-rendered when it differs);
+ *   - the About BOOK (#user-about-book — a real book, see ./userAboutBook)
+ *     gets the FULL inline editor: editToolbar + divEditor save pipeline;
  *   - a floating palette (#user-page-edit-panel) offers logo/background image
  *     swap (uploadBookImage — the user-home book IS a book, so the standard
  *     media store/serving applies), curated color/font/size vars, and resets;
@@ -42,6 +41,8 @@ interface PageSettings {
     background_art?: string | null;
     /** Curated visitor pills (shelf UUIDs); null/absent = all public shelves */
     pill_shelves?: string[] | null;
+    /** Render the library's hypercite-network SVG under the about section */
+    show_map?: boolean | null;
     about_html?: string | null;
 }
 
@@ -65,15 +66,11 @@ let clickHandler: ((e: Event) => void) | null = null;
 let keyHandler: ((e: KeyboardEvent) => void) | null = null;
 let dragHandler: ((e: DragEvent) => void) | null = null;
 let dropHandler: ((e: DragEvent) => void) | null = null;
-let aboutInputHandler: (() => void) | null = null;
-let aboutSaveTimer = 0;
-let aboutDirty = false;
 let originalColonHtml = '';
 let settings: PageSettings = {};
 
 const appContainer = (): HTMLElement | null => document.getElementById('app-container');
 const lockupLink = (): HTMLElement | null => document.querySelector('.user-logo-lockup .journal-colon-link');
-const aboutContent = (): HTMLElement | null => document.getElementById('user-about-content');
 
 /* ── persistence ─────────────────────────────────────────────────────── */
 
@@ -260,49 +257,22 @@ async function resetImage(key: 'logo_image' | 'background_image'): Promise<void>
 }
 
 /* ── about editing ───────────────────────────────────────────────────── */
-
-function flushAboutSave(): void {
-    window.clearTimeout(aboutSaveTimer);
-    aboutSaveTimer = 0;
-    if (!aboutDirty) return;
-    aboutDirty = false;
-    const el = aboutContent();
-    if (!el) return;
-    const html = el.innerHTML;
-    void putSettings({ about_html: html }).then((saved) => {
-        if (!saved) return;
-        const canonical = saved.about_html ?? '';
-        // Re-render the server-sanitized form, but never under the caret.
-        if (canonical !== html && !el.contains(document.activeElement) && document.activeElement !== el) {
-            el.innerHTML = canonical;
-        }
-    });
-}
+/* The about is a real BOOK; its inline edit ceremony (full editToolbar +
+   divEditor save pipeline) lives in ./userAboutBook. The legacy about_html
+   blob path is gone — never-minted pages just fall back server-side. */
 
 function engageAboutEditing(): void {
-    const el = aboutContent();
-    if (!el) return;
-    el.contentEditable = 'true';
-    el.classList.add('editable-field');
-    aboutInputHandler = () => {
-        aboutDirty = true;
-        window.clearTimeout(aboutSaveTimer);
-        aboutSaveTimer = window.setTimeout(flushAboutSave, 2000);
-    };
-    el.addEventListener('input', aboutInputHandler);
-    el.addEventListener('blur', flushAboutSave);
+    // The feed slot and the About book must never be live simultaneously
+    // (global getElementById node lookups can cross books) — close any feed.
+    const app = document.getElementById('app-container');
+    if (app?.classList.contains('content-active')) {
+        (document.getElementById('copy-feed-close') as HTMLElement | null)?.click();
+    }
+    void import('./userAboutBook').then(m => m.enterAboutEdit());
 }
 
 function releaseAboutEditing(): void {
-    const el = aboutContent();
-    flushAboutSave();
-    if (el) {
-        el.setAttribute('contenteditable', 'false');
-        el.classList.remove('editable-field');
-        if (aboutInputHandler) el.removeEventListener('input', aboutInputHandler);
-        el.removeEventListener('blur', flushAboutSave);
-    }
-    aboutInputHandler = null;
+    void import('./userAboutBook').then(m => m.exitAboutEdit());
 }
 
 /* ── the palette ─────────────────────────────────────────────────────── */
@@ -353,8 +323,14 @@ function buildPanel(): HTMLElement {
             <span>${escapeHtml(a.label)}</span>
           </label>`).join('')}
       </div>
+      <div class="upe-row">
+        <label class="upe-shelf">
+          <input type="checkbox" data-show-map${settings.show_map ? ' checked' : ''}>
+          <span>Connection map — your library's hypercite network under the about text</span>
+        </label>
+      </div>
       ${shelvesHtml}
-      <p class="upe-hint">Your title and the about text below are editable in place — click them and type. Tap the logo (or drop an image on it) to swap it.</p>
+      <p class="upe-hint">Your title is editable in place, and the about text below gets the FULL editor — click into it and select text for formatting, links and images. Tap the logo (or drop an image on it) to swap it.</p>
       <button type="button" class="upe-btn upe-done" data-done>Done</button>
     `;
     document.body.appendChild(panel);
@@ -428,6 +404,11 @@ function exitEditMode(): void {
 /* ── lifecycle (ButtonRegistry) ──────────────────────────────────────── */
 
 export function initUserPageEditor(): void {
+    // Hydrate the About BOOK for every viewer (owner AND visitor): fresh
+    // pull + re-render with hyperlights/hypercites applied. Fire-and-forget —
+    // the server-rendered HTML stands until it lands.
+    void import('./userAboutBook').then(m => m.hydrateAboutBook());
+
     const pencil = document.getElementById('editButton');
     if (!pencil) return; // visitor — the blade didn't render the button
 
@@ -538,6 +519,18 @@ function onPanelChange(e: Event): void {
         return;
     }
 
+    // Connection-map toggle: the SVG is server-rendered, so the change shows
+    // on next load; the block is shown/hidden live when already present.
+    if (target instanceof HTMLInputElement && target.dataset.showMap !== undefined) {
+        const on = target.checked;
+        void putSettings({ show_map: on ? true : null }).then((saved) => {
+            if (!saved) return;
+            const block = document.querySelector<HTMLElement>('.journal-hypercite-map');
+            if (block) block.style.display = on ? '' : 'none';
+        });
+        return;
+    }
+
     // Shelf-pill curation: any checkbox toggle saves the literal checked set —
     // checked = shown, and an empty set really means "no pills".
     if (target instanceof HTMLInputElement && target.dataset.pillShelf !== undefined) {
@@ -559,9 +552,6 @@ export function destroyUserPageEditor(): void {
     dragHandler = null;
     if (dropHandler) document.removeEventListener('drop', dropHandler, true);
     dropHandler = null;
-    window.clearTimeout(aboutSaveTimer);
-    aboutSaveTimer = 0;
-    aboutDirty = false;
     panelEl?.remove();
     panelEl = null;
     fileInputEl?.remove();

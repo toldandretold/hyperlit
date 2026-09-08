@@ -63,7 +63,8 @@ export function isUserHomeVariantBook(bookId: string | null | undefined, userBas
   if (!bookId || !userBaseBook) return false;
   return bookId === userBaseBook + 'All'
     || bookId === userBaseBook + 'Private'
-    || bookId === userBaseBook + 'Account';
+    || bookId === userBaseBook + 'Account'
+    || bookId === userBaseBook + 'About';
 }
 
 /**

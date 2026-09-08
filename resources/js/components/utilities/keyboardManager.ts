@@ -37,6 +37,18 @@ class KeyboardManager {
     if (!window.visualViewport) {
       return;
     }
+    // TOUCH DEVICES ONLY. This manager exists for the VIRTUAL keyboard; its
+    // detection is "visualViewport shrank vs the height captured at init".
+    // On desktop that heuristic misfires on any window resize / pinch-zoom
+    // (seen in desktop Safari while inline-editing the user page's About
+    // book): #app-container gets force-pinned with top/height (a dark body
+    // strip appears above it) and the edit toolbar is moved to a phantom
+    // keyboard edge, often off-screen. No touch ⇒ no virtual keyboard ⇒
+    // never attach the viewport listeners.
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouchDevice) {
+      return;
+    }
     this.initialVisualHeight = window.visualViewport.height;
     window.visualViewport.addEventListener(
       "resize",

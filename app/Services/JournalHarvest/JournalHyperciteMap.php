@@ -77,22 +77,41 @@ class JournalHyperciteMap
         return Cache::remember(
             "journal-hypercite-map:{$journal->id}:v6",
             self::CACHE_TTL,
-            fn () => $this->build($journal),
+            fn () => $this->buildFromCorpus(
+                $this->journalArticles($journal),
+                'Hypercite network of ' . $journal->display_name,
+            ),
+        );
+    }
+
+    /**
+     * Corpus-agnostic entry: any `book => {title, author, year}` map (e.g. a
+     * USER's public library on /u/{username}) renders the same network. The
+     * corpus MUST be public-visibility only when the result is cached — the
+     * SVG is served to every viewer of the page.
+     *
+     * @param  array<string, array{title:string, author:?string, year:mixed}>  $articles
+     */
+    public function svgForBooks(array $articles, string $ariaLabel, string $cacheKey): ?string
+    {
+        return Cache::remember(
+            $cacheKey,
+            self::CACHE_TTL,
+            fn () => $this->buildFromCorpus($articles, $ariaLabel),
         );
     }
 
     // ── data ─────────────────────────────────────────────────────────────────
 
-    private function build(JournalSource $journal): ?string
+    private function buildFromCorpus(array $articles, string $ariaLabel): ?string
     {
-        $articles = $this->journalArticles($journal); // book => title
         if ($articles === []) {
             return null;
         }
 
         [$internalEdges, $spokes, $external, $intro] = $this->edges($articles);
 
-        return $this->draw($journal, $articles, $internalEdges, $spokes, $external, $intro);
+        return $this->draw($ariaLabel, $articles, $internalEdges, $spokes, $external, $intro);
     }
 
     /** The journal's readable PUBLIC articles: book => {title, author, year}. */
@@ -221,7 +240,7 @@ class JournalHyperciteMap
      * @param  array<string, array{title:string, author:?string, year:mixed}>  $external
      */
     private function draw(
-        JournalSource $journal,
+        string $ariaLabel,
         array $articles,
         array $internalEdges,
         array $spokes,
@@ -291,11 +310,11 @@ class JournalHyperciteMap
             $pos[$partner] = [$ringR * cos($angle), $ringR * sin($angle), $angle];
         }
 
-        return $this->emit($journal, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR, $intro);
+        return $this->emit($ariaLabel, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR, $intro);
     }
 
     private function emit(
-        JournalSource $journal,
+        string $ariaLabel,
         array $articles,
         array $external,
         array $pos,
@@ -331,7 +350,7 @@ class JournalHyperciteMap
 
         $s = [];
         $s[] = '<svg viewBox="' . $this->n($minX) . ' ' . $this->n($minY) . ' ' . $this->n($width) . ' ' . $this->n($height) . '"'
-            . ' role="img" aria-label="Hypercite network of ' . e($journal->display_name) . '"'
+            . ' role="img" aria-label="' . e($ariaLabel) . '"'
             . ' style="display:block;width:100%;max-width:' . $this->n(self::RENDER_WIDTH_PX) . 'px;height:auto;margin:0 auto">';
 
         // Edges first, under the dots. Internal pairs bow toward the blob

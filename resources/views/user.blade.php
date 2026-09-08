@@ -189,13 +189,26 @@
       </div>
     </div>
 
-    {{-- About copy: rides .welcome-copy's scroll-reveal machinery. Crawlable
-         SEO body for the user page; owner-editable in page-edit mode.
-         NO separate bio element — #user-about-content is the ONE editable
-         about surface (library.note still feeds the SEO meta description
-         server-side, it just has no display slot of its own). --}}
+    {{-- About: a REAL book ({sanitized}About) — nodes server-rendered here
+         for SEO/first paint in the editor's DOM contract (.chunk[data-chunk-id]
+         > block[id=startLine][data-node-id]); the client re-renders via
+         createChunkElement (highlights/hypercites applied) and the pencil's
+         edit mode attaches the full editToolbar/divEditor stack inline.
+         Container id ≠ any feed id (transitionToBookContent mints div#{bookId}
+         elements; global getElementById lookups must not cross books).
+         Legacy fallback: pages whose About book was never minted still show
+         the old about_html blob / default copy. --}}
     <span id="main-start" tabindex="-1"></span>
     <section class="welcome-copy user-about" aria-label="About this library">
+      @if(!empty($aboutNodes))
+      <div id="user-about-book" class="sub-book-content" data-book-id="{{ $aboutBookId }}" contenteditable="false">
+        <div class="chunk" data-chunk-id="0">
+          @foreach($aboutNodes as $n)
+            {!! preg_replace('/^<(\w+)/', '<$1 id="' . e($n->startLine) . '" data-node-id="' . e($n->node_id) . '"', $n->content) !!}
+          @endforeach
+        </div>
+      </div>
+      @else
       <div id="user-about-content">
         @if(!empty($aboutHtml))
           {!! $aboutHtml !!}
@@ -206,6 +219,25 @@
           <h1 class="mega">{{ $libraryTitle }}</h1>
         @endif
       </div>
+      @endif
+      {{-- Hypercite network (opt-in via the pencil panel's "Connection map"):
+           the journal pages' server-rendered SVG, corpus = this user's public
+           books. Same wrapper class/expand id — the journalHyperciteMap
+           component (registered for user pages too) is generic over them. --}}
+      @if($hyperciteMap ?? null)
+        <div class="journal-hypercite-map">
+          {!! $hyperciteMap !!}
+          <ul class="journal-map-legend" aria-label="Hypercite network legend">
+            <li><span class="jml-dot jml-lit"></span>hypercited book <em>(bigger = more connections)</em></li>
+            <li><span class="jml-dot jml-plain"></span>book</li>
+            <li><span class="jml-line"></span>books hypercited together</li>
+            <li><span class="jml-dot jml-ext"></span>hypercited book beyond this library</li>
+          </ul>
+          <div class="journal-map-actions">
+            <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
+          </div>
+        </div>
+      @endif
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh
          .main-content inside the wrapper when a tab is pressed/restored. --}}
@@ -327,6 +359,10 @@
 <div id="user-overlay"></div>
 
 <x-settings-panel />
+
+{{-- The inline About-book editor's toolbar (+ #keyboard-gap-blocker,
+     #citation-toolbar-results) — same partial the reader uses. --}}
+@include('partials.edit-toolbar')
 
 <!-- Search toolbar - iOS Safari style find bar -->
 <div id="search-toolbar">

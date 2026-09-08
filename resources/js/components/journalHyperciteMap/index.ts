@@ -28,7 +28,7 @@ const OFFSET = 14;
 const KIND_LABELS: Record<string, string> = {
   lit: 'Hypercited article',
   article: 'Article',
-  beyond: 'Hypercited book beyond the journal',
+  beyond: 'Hypercited book beyond this collection',
 };
 
 let card: HTMLDivElement | null = null;

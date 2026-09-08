@@ -165,6 +165,7 @@ class UserHomeServerController extends Controller
             $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'private');
             $this->generateAllUserHomeBookIfNeeded($actualUsername);
             $this->generateAccountBookIfNeeded($actualUsername);
+            $this->ensureAboutBook($actualUsername);
         }
 
         // Fetch library record for title and bio (use sanitized for book ID)
@@ -180,6 +181,16 @@ class UserHomeServerController extends Controller
         // emittable() re-validates at render as defense in depth — css vars
         // land in a <style> block, about_html is printed raw, so nothing
         // reaches the blade without passing the validator again here.
+        // The About BOOK (real nodes, inline-editable, hyperlightable) — when
+        // minted, it IS the about section; the about_html blob below is only
+        // the pre-migration legacy fallback for visitors of never-edited pages.
+        $aboutBookId = $sanitizedUsername . 'About';
+        $aboutNodes = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $aboutBookId)
+            ->orderBy('startLine')
+            ->get(['startLine', 'node_id', 'content'])
+            ->all();
+
         $storedSettings = $libraryRecord && ($libraryRecord->page_settings ?? null)
             ? (json_decode($libraryRecord->page_settings, true) ?: [])
             : [];
@@ -207,13 +218,44 @@ class UserHomeServerController extends Controller
             : [];
         // Only the re-validated form ever reaches the page (window global +
         // blade) — a tampered stored value must not even ride along as data.
+        $showMap = ($storedSettings['show_map'] ?? null) === true;
         $pageSettings = array_filter([
             'logo_image' => $logoImage,
             'background_image' => $backgroundImage,
             'background_art' => $backgroundArt,
             'pill_shelves' => $hasPillCuration ? $pillShelves : null,
+            'show_map' => $showMap ?: null,
             'about_html' => $aboutHtml,
         ], fn ($v) => $v !== null);
+
+        // The library's hypercite network (opt-in): PUBLIC books only for
+        // every viewer — the SVG is cached per user and served to all.
+        $hyperciteMap = null;
+        if ($showMap) {
+            $mapCorpus = DB::connection('pgsql_admin')->table('library')
+                ->where('creator', $actualUsername)
+                ->where('visibility', 'public')
+                ->where('has_nodes', true)
+                ->whereNotIn('book', [
+                    $sanitizedUsername,
+                    $sanitizedUsername . 'Private',
+                    $sanitizedUsername . 'All',
+                    $sanitizedUsername . 'Account',
+                    $sanitizedUsername . 'About',
+                ])
+                ->where('book', 'NOT LIKE', '%/%')
+                ->where('book', 'NOT LIKE', 'shelf_%')
+                ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
+                ->get(['book', 'title', 'author', 'year'])
+                ->keyBy('book')
+                ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
+                ->all();
+            $hyperciteMap = app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->svgForBooks(
+                $mapCorpus,
+                'Hypercite network of ' . $title,
+                "user-hypercite-map:{$sanitizedUsername}:v1",
+            );
+        }
 
         // SEO data for user pages
         $pageTitle = "{$title} - Hyperlit";
@@ -289,9 +331,12 @@ class UserHomeServerController extends Controller
             'activeShelf' => $activeShelf,
             'pageSettings' => $pageSettings,
             'aboutHtml' => $aboutHtml,
+            'aboutBookId' => $aboutBookId,
+            'aboutNodes' => $aboutNodes,
             'logoImage' => $logoImage,
             'backgroundImage' => $backgroundImage,
             'backgroundArt' => $backgroundArt,
+            'hyperciteMap' => $hyperciteMap,
             'visitorShelves' => $visitorShelves,
         ]);
     }
@@ -311,6 +356,7 @@ class UserHomeServerController extends Controller
                 $sanitizedUsername . 'Private',
                 $sanitizedUsername . 'All',
                 $sanitizedUsername . 'Account',
+                $sanitizedUsername . 'About',
             ])
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
@@ -423,6 +469,7 @@ class UserHomeServerController extends Controller
             ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', '!=', $sanitizedUsername . 'About')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
             ->whereIn('visibility', ['public', 'private'])
@@ -489,6 +536,103 @@ class UserHomeServerController extends Controller
         $this->generateAccountBookIfNeeded($username);
     }
 
+    /**
+     * The About book (`{sanitized}About`): the user page's about section as a
+     * REAL book — nodes edited inline by the full editor stack, hyperlightable
+     * like any book. Minted once (owner visit); NEVER regenerated (unlike the
+     * other user-home synthetics, its nodes are user-authored content). On
+     * first mint, a legacy page_settings.about_html blob is migrated into
+     * nodes (one node per top-level block) and removed from page_settings.
+     *
+     * visibility='public' so visitors' clients can read/annotate it under RLS;
+     * kept out of feeds/search/embeddings via the `{s}About` name lists and
+     * raw_json type 'user_about' (EmbeddingEligibility::SYNTHETIC_RAW_TYPES,
+     * PurgeSystemNodeHistory::GENERATED_TYPES).
+     */
+    public function ensureAboutBook(string $username): void
+    {
+        $sanitized = $this->sanitizeUsername($username);
+        $bookName = $sanitized . 'About';
+
+        $exists = DB::connection('pgsql_admin')->table('library')->where('book', $bookName)->exists();
+        if ($exists) {
+            return;
+        }
+
+        $now = now();
+        DB::connection('pgsql_admin')->table('library')->insert([
+            'book' => $bookName,
+            'title' => $username . "'s about",
+            'author' => null,
+            'creator' => $username,
+            'creator_token' => null,
+            'visibility' => 'public',
+            'listed' => false,
+            'raw_json' => json_encode(['type' => 'user_about', 'username' => $username, 'sanitized_username' => $sanitized]),
+            'timestamp' => (int) round(microtime(true) * 1000),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        // Seed nodes: migrate the legacy about_html blob if present, else one
+        // empty paragraph (the editor's expected empty-book shape).
+        $homeRow = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $sanitized)->first(['page_settings']);
+        $settings = $homeRow && $homeRow->page_settings ? (json_decode($homeRow->page_settings, true) ?: []) : [];
+        $legacyHtml = isset($settings['about_html']) && is_string($settings['about_html'])
+            ? \App\Services\Security\NodeHtmlSanitizer::clean($settings['about_html'])
+            : null;
+
+        $blocks = [];
+        if ($legacyHtml) {
+            $doc = new \DOMDocument();
+            // Fragment parse; sanitized upstream, suppress structural warnings.
+            @$doc->loadHTML('<?xml encoding="utf-8"?><body>' . $legacyHtml . '</body>');
+            $body = $doc->getElementsByTagName('body')->item(0);
+            if ($body) {
+                foreach ($body->childNodes as $child) {
+                    if ($child instanceof \DOMElement) {
+                        $blocks[] = $doc->saveHTML($child);
+                    } elseif ($child instanceof \DOMText && trim($child->textContent) !== '') {
+                        $blocks[] = '<p>' . e(trim($child->textContent)) . '</p>';
+                    }
+                }
+            }
+        }
+        if (empty($blocks)) {
+            $blocks = ['<p><br></p>'];
+        }
+
+        $chunks = [];
+        $startLine = 1;
+        foreach ($blocks as $html) {
+            $nodeId = $bookName . '_' . ((int) round(microtime(true) * 1000)) . '_' . substr(bin2hex(random_bytes(4)), 0, 6);
+            $type = preg_match('/^<(\w+)/', $html, $m) ? strtolower($m[1]) : 'p';
+            $chunks[] = [
+                'book' => $bookName,
+                'chunk_id' => 0,
+                'startLine' => $startLine,
+                'node_id' => $nodeId,
+                'footnotes' => null,
+                'content' => $html,
+                'plainText' => trim(strip_tags($html)),
+                'type' => in_array($type, ['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'blockquote'], true) ? $type : 'p',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            $startLine++;
+        }
+        DB::connection('pgsql_admin')->table('nodes')->insert($chunks);
+
+        // Legacy blob migrated — remove it so the book is the single source.
+        if ($legacyHtml !== null && $homeRow) {
+            unset($settings['about_html']);
+            DB::connection('pgsql_admin')->table('library')
+                ->where('book', $sanitized)
+                ->update(['page_settings' => $settings ? json_encode($settings) : null]);
+        }
+    }
+
     private function generateAccountBookIfNeeded(string $username): void
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
@@ -542,6 +686,7 @@ class UserHomeServerController extends Controller
             ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', '!=', $sanitizedUsername . 'About')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
             ->where('visibility', $visibility)
@@ -1072,6 +1217,7 @@ class UserHomeServerController extends Controller
             ->where('book', '!=', $sanitizedUsername . 'Private')
             ->where('book', '!=', $sanitizedUsername . 'All')
             ->where('book', '!=', $sanitizedUsername . 'Account')
+            ->where('book', '!=', $sanitizedUsername . 'About')
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%');
 

@@ -763,6 +763,7 @@ class ShelfController extends Controller
                 ->where('book', '!=', $sanitized . 'Private')
                 ->where('book', '!=', $sanitized . 'All')
                 ->where('book', '!=', $sanitized . 'Account')
+                ->where('book', '!=', $sanitized . 'About')
                 ->where('book', 'NOT LIKE', 'shelf_%')
                 ->pluck('book')
                 ->toArray();
@@ -843,10 +844,11 @@ class ShelfController extends Controller
                 $sanitized . 'Private',
                 $sanitized . 'All',
                 $sanitized . 'Account',
+                $sanitized . 'About',
             ])
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
-            ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted')")
+            ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
             ->pluck('book')
             ->toArray();
     }

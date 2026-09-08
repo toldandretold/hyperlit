@@ -40,7 +40,7 @@ class PurgeSystemNodeHistory extends Command
      * biggest were a single user's home books at 224k and 109k rows. Nothing
      * reads that history: these books have no editors and no Time Machine.
      */
-    private const GENERATED_TYPES = ['user_home', 'user_home_sorted', 'user_account', 'shelf'];
+    private const GENERATED_TYPES = ['user_home', 'user_home_sorted', 'user_account', 'shelf', 'user_about'];
 
     /** @return array<int, string> */
     private function generatedBooks(): array

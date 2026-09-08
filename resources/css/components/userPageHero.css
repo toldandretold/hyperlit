@@ -123,7 +123,7 @@ body[data-page="user"] .user-pill-scroller .shelf-picker-trigger {
 
 /* Editable-in-place affordances while the mode is on. */
 body.user-page-editing #userLibraryTitle.editable-field,
-body.user-page-editing #user-about-content.editable-field {
+body.user-page-editing #user-about-book[contenteditable="true"] {
   outline: 1px dashed #00afaf;
   outline-offset: 4px;
   border-radius: 4px;
@@ -350,4 +350,15 @@ body[data-page="user"] #app-container.bg-art-none .copy-scroll-hint {
 
 .user-page-edit-panel .upe-art input {
   accent-color: #00afaf;
+}
+
+/* Hypercite map readability: the SVG's palette is FIXED ink+aqua
+   (JournalHyperciteMap), designed to sit on the light lava hills — with the
+   hills up it renders bare, exactly like journal-home. ONLY when the owner
+   picked "No art" (page can be a dark theme surface) does the map get the
+   light backing card the figureViewer download decoration uses. */
+body[data-page="user"] #app-container.bg-art-none .user-about .journal-hypercite-map {
+  background: #f2ede4;
+  border-radius: 14px;
+  padding: 18px 18px 14px;
 }
