@@ -240,14 +240,15 @@ test('the About book never appears in user-library search', function () {
     expect($books)->not->toContain($book . 'About');
 });
 
-test('show_map renders the hypercite network SVG; off renders nothing', function () {
+test('the hypercite network SVG renders BY DEFAULT; an explicit false renders nothing', function () {
     $user = makeUpseoUser();
     $book = str_replace(' ', '', $user->name);
-    // one real public book with nodes so the corpus is non-empty
+    // one real public book with nodes so the corpus is non-empty.
+    // NO page_settings: show_map defaults ON, so the map must render anyway.
     upseoAdminConn()->table('library')->insert([
         'book' => $book, 'title' => $user->name . "'s library", 'creator' => $user->name,
         'visibility' => 'public', 'listed' => false, 'raw_json' => json_encode(['type' => 'user_home']),
-        'page_settings' => json_encode(['show_map' => true]),
+        'page_settings' => null,
         'timestamp' => (int) round(microtime(true) * 1000), 'created_at' => now(), 'updated_at' => now(),
     ]);
     upseoAdminConn()->table('library')->insert([
@@ -262,11 +263,19 @@ test('show_map renders the hypercite network SVG; off renders nothing', function
     expect($html)->toContain('data-map-node');
     expect($html)->toContain('id="journal-map-expand"');
 
-    // toggle off → no map block
-    upseoAdminConn()->table('library')->where('book', $book)->update(['page_settings' => null]);
+    // toggle off → the stored opt-out (false), the ONLY value that hides it
+    upseoAdminConn()->table('library')->where('book', $book)
+        ->update(['page_settings' => json_encode(['show_map' => false])]);
     \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v1");
     $html2 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
     expect($html2)->not->toContain('journal-hypercite-map');
+
+    // a legacy row from when it was opt-in (stored `true`) still shows it
+    upseoAdminConn()->table('library')->where('book', $book)
+        ->update(['page_settings' => json_encode(['show_map' => true])]);
+    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v1");
+    $html3 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+    expect($html3)->toContain('journal-hypercite-map');
 });
 
 test('background_art none stamps the bg-art class; junk art never renders', function () {

@@ -4,6 +4,14 @@
 
 `public/build` is gitignored, so the server rebuilds assets on deploy. Vite's default `emptyOutDir` deleted every previously-hashed chunk the moment the new build landed — but live clients (open tabs, and pages served from the service worker's HTML cache) still dynamic-import chunks by their OLD hashed names. Result: `TypeError: Importing a module script failed` / `Failed to fetch dynamically imported module`, a wedged app, and "prod is unresponsive" reports even though the server was serving fine. The simultaneous service-worker swap (`skipWaiting` + `clients.claim`) added transient `Service Worker context closed` fetch failures on top.
 
+## The build is published ATOMICALLY (the prevention — everything below it is recovery)
+
+Everything in the next section recovers a client that has *already* hit a broken chunk. This section is why it should never hit one. The deploy runs `npm run build` in place on the live docroot, so without care the directory the site is serving is half-written for the length of the build, and two things go wrong: vite writes `manifest.json` BEFORE its last chunks (measured on the 2026-09-09 deploy: manifest at `09:18:00.507`, `utils`/`viewportMetrics` at `.511`, `scene-*.js` — 570 KB — at `.535`), so for that window the HTML advertises hashed chunks that are not on disk yet; and worse, a chunk still being WRITTEN can be served truncated as a 200, which the service worker then caches (it caches any `ok` response for `/build/`), leaving that client broken across reloads until a `CACHE_VERSION` bump blows the cache away. That second one is why the symptom kept coming back every deploy and why bumping the SW version kept appearing to "fix" it — the bump was clearing the poison, not stopping it.
+
+Nobody can request a chunk whose hash they have not seen, so the fix is to make the manifest the last thing published: `npm run build` builds into `public/build-next` (staging, emptied each run), `scripts/publish-build.mjs` renames the assets into `public/build/assets` one at a time (same filesystem ⇒ atomic per file; a hashed name that already exists is byte-identical, so it is kept, not rewritten), and then renames `manifest.json` into place LAST. Until that final rename the live site is entirely on the old build; after it, every file the manifest names is already complete on disk. Nothing is ever deleted by the publish, so tabs on old HTML keep resolving old chunks exactly as before.
+
+One invariant this moves: the prune (below) deletes assets untouched for 7 days on the assumption that "every build rewrites every live asset". Staging breaks that — an unchanged chunk is kept rather than rewritten — so `publish-build.mjs` refreshes the mtime of every asset it keeps. Do not remove that `utimesSync` call, or chunks whose content has not changed in a week will age out from under live clients.
+
 ## The three defenses (all in-repo — no special deploy steps needed)
 
 - **Old hashed assets are retained across builds.** `vite.config.js` sets `build.emptyOutDir: false`, and `npm run build` first runs `scripts/prune-old-build-assets.mjs`, which deletes only assets untouched for 7 days. Current chunks are rewritten (fresh mtime) every build so they never age out; a client on last week's HTML keeps successfully fetching last week's chunks. Never `rm -rf public/build` in a deploy script — that reintroduces the incident.
@@ -22,7 +30,7 @@
 
 **The deploy is one command: `./deploy/deploy.sh` on the droplet (or `hd` from your laptop). The runbook is `deploy/README.md`.** It pulls, decides from the diff whether composer / `npm run build` / `migrate` are needed, rebuilds the framework caches, restarts the queue workers gracefully, and verifies the result. This document is the *why* behind two of those steps:
 
-- `npm run build` includes the asset prune — do NOT clear `public/build` manually, and never `rm -rf` it in a deploy script (that reintroduces the incident above).
+- `npm run build` stages into `public/build-next`, publishes atomically (manifest last), then prunes — do NOT clear `public/build` manually, never `rm -rf` it in a deploy script (that reintroduces the incident above), and do not "simplify" the build back to writing straight into `public/build` (that reintroduces the half-written-directory window).
 - `php artisan queue:restart` — ALWAYS. A running `queue:work` holds pre-deploy code and silently misbehaves (see the stale-worker audio incident); job workers must be recycled every deploy. **In the `npm run dev:network` dev stack this KILLS the workers for good** — `concurrently` does not restart a cleanly-exited process, so restart the dev stack after running it locally.
 
 ## Host prerequisites (one-off, not per deploy)

@@ -12,7 +12,10 @@
  *     gets the FULL inline editor: editToolbar + divEditor save pipeline;
  *   - a floating palette (#user-page-edit-panel) offers logo/background image
  *     swap (uploadBookImage — the user-home book IS a book, so the standard
- *     media store/serving applies), curated color/font/size vars, and resets;
+ *     media store/serving applies), curated color/font/size vars, and resets.
+ *     It COLLAPSES to a pill sitting above the pencil (its heading is the
+ *     toggle) — that is how it fits on phones, where it opens collapsed;
+ *     desktop opens expanded;
  *   - dropping an image on the logo lockup swaps the logo. The drag handlers
  *     run in DOCUMENT CAPTURE phase and stopPropagation while edit mode is on,
  *     so fileDropTarget's page-level import overlay (window bubble listeners)
@@ -41,7 +44,8 @@ interface PageSettings {
     background_art?: string | null;
     /** Curated visitor pills (shelf UUIDs); null/absent = all public shelves */
     pill_shelves?: string[] | null;
-    /** Render the library's hypercite-network SVG under the about section */
+    /** Hypercite-network SVG under the about section. DEFAULT ON: absent/null
+     *  = shown; only an explicit `false` (the stored opt-out) hides it. */
     show_map?: boolean | null;
     about_html?: string | null;
 }
@@ -304,7 +308,11 @@ function buildPanel(): HTMLElement {
       </div>`
         : '';
     panel.innerHTML = `
-      <div class="upe-heading">Customize your page</div>
+      <button type="button" class="upe-toggle" data-upe-toggle aria-expanded="true" aria-controls="upe-body">
+        <span class="upe-heading">Customize your page</span>
+        <span class="upe-chevron" aria-hidden="true">&#9662;</span>
+      </button>
+      <div class="upe-body" id="upe-body">
       <div class="upe-row upe-image-row">
         <span class="upe-label">Logo</span>
         <button type="button" class="upe-btn" data-image-pick="logo_image">Swap image</button>
@@ -325,16 +333,26 @@ function buildPanel(): HTMLElement {
       </div>
       <div class="upe-row">
         <label class="upe-shelf">
-          <input type="checkbox" data-show-map${settings.show_map ? ' checked' : ''}>
+          <input type="checkbox" data-show-map${settings.show_map === false ? '' : ' checked'}>
           <span>Connection map — your library's hypercite network under the about text</span>
         </label>
       </div>
       ${shelvesHtml}
       <p class="upe-hint">Your title is editable in place, and the about text below gets the FULL editor — click into it and select text for formatting, links and images. Tap the logo (or drop an image on it) to swap it.</p>
       <button type="button" class="upe-btn upe-done" data-done>Done</button>
+      </div>
     `;
     document.body.appendChild(panel);
+    // Phones open collapsed — the palette is a pill above the pencil there, so
+    // it never buries the page it is customizing; desktop opens expanded.
+    if (window.matchMedia('(max-width: 700px)').matches) setPanelCollapsed(panel, true);
     return panel;
+}
+
+/** Collapse the palette to its pill (the toggle button) or expand it back. */
+function setPanelCollapsed(panel: HTMLElement, collapsed: boolean): void {
+    panel.classList.toggle('collapsed', collapsed);
+    panel.querySelector('[data-upe-toggle]')?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
 }
 
 /* ── logo badge (THE mobile path: tap the badge/logo → picker) ───────── */
@@ -437,6 +455,10 @@ export function initUserPageEditor(): void {
             return;
         }
         if (!active || !panelEl) return;
+        if (target.closest('[data-upe-toggle]')) {
+            setPanelCollapsed(panelEl, !panelEl.classList.contains('collapsed'));
+            return;
+        }
         const pick = target.closest<HTMLElement>('[data-image-pick]');
         if (pick) {
             pendingImageKey = pick.dataset.imagePick as 'logo_image' | 'background_image';
@@ -448,8 +470,8 @@ export function initUserPageEditor(): void {
             void resetImage(reset.dataset.imageReset as 'logo_image' | 'background_image');
             return;
         }
-        // Tapping the logo (or its camera badge) opens the picker — the ONLY
-        // customization path needed on mobile, where the palette is hidden.
+        // Tapping the logo (or its camera badge) opens the picker — the
+        // quickest customization path, and the one phones reach for first.
         // preventDefault: the colon link normally navigates home.
         if (target.closest('.journal-colon-link')) {
             e.preventDefault();
@@ -523,7 +545,9 @@ function onPanelChange(e: Event): void {
     // on next load; the block is shown/hidden live when already present.
     if (target instanceof HTMLInputElement && target.dataset.showMap !== undefined) {
         const on = target.checked;
-        void putSettings({ show_map: on ? true : null }).then((saved) => {
+        // ON is the default, so it stores NOTHING (null clears the key); the
+        // opt-out is the value that persists. Mirrors UserPageSettingsValidator.
+        void putSettings({ show_map: on ? null : false }).then((saved) => {
             if (!saved) return;
             const block = document.querySelector<HTMLElement>('.journal-hypercite-map');
             if (block) block.style.display = on ? '' : 'none';

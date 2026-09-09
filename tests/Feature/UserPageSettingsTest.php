@@ -120,6 +120,27 @@ test('accepts valid colors, font tokens and sizes; explicit null clears', functi
     expect(upsSettings($book))->toBeNull();
 });
 
+test('show_map stores the OPT-OUT only — on is the default and stores nothing', function () {
+    $user = makeUpsUser('ups_showmap');
+    $book = makeUpsHomeBook($user);
+
+    // Off is a real stored state (false), because absent means SHOWN.
+    $this->actingAs($user)->putJson('/api/user-home/page-settings', [
+        'show_map' => false,
+    ])->assertStatus(200);
+    expect(upsSettings($book))->toBe(['show_map' => false]);
+
+    // Back on → the key is cleared rather than stored as true.
+    $this->actingAs($user)->putJson('/api/user-home/page-settings', [
+        'show_map' => true,
+    ])->assertStatus(200);
+    expect(upsSettings($book))->toBeNull();
+
+    $this->actingAs($user)->putJson('/api/user-home/page-settings', [
+        'show_map' => 'yes',
+    ])->assertStatus(422);
+});
+
 test('rejects unknown variable names and non-grammar values', function () {
     $user = makeUpsUser('ups_badvars');
     makeUpsHomeBook($user);

@@ -16,11 +16,18 @@ let currentIsOwner = true;
 let currentShelfId: any = null;
 let currentIsSystemShelf = true;
 let currentUsername: any = null;
+// Set while the (body-mounted) library filter menu machinery exists, so header
+// teardown can close it and drop its document-level listeners.
+let closeFilterDropdown: (() => void) | null = null;
 
 const LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>';
 const GLOBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>';
 const COPY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
 const DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
+// The library filter menu lives on <body> (see openDropdown) — id'd so header
+// teardown can reap an orphan it no longer contains.
+const FILTER_DROPDOWN_ID = 'library-filter-dropdown';
 
 function getXsrf() {
     return decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
@@ -79,18 +86,27 @@ export function showShelfHeader(opts: any) {
         title.classList.add('clickable');
         title.innerHTML = `${filterLabels[currentFilter as keyof typeof filterLabels]}<span class="filter-indicator">\u25BE</span>`;
 
-        // Wrap title in a positioned container for the dropdown
         const titleWrapper = document.createElement('span');
-        titleWrapper.style.position = 'relative';
         titleWrapper.style.display = 'inline-block';
 
         let dropdownOpen = false;
         let dropdown: any = null;
+        let outsideHandler: ((e: Event) => void) | null = null;
+        let scrollHandler: (() => void) | null = null;
 
         function closeDropdown() {
             if (dropdown) {
                 dropdown.remove();
                 dropdown = null;
+            }
+            if (outsideHandler) {
+                document.removeEventListener('click', outsideHandler);
+                outsideHandler = null;
+            }
+            if (scrollHandler) {
+                document.removeEventListener('scroll', scrollHandler, true);
+                window.removeEventListener('resize', scrollHandler);
+                scrollHandler = null;
             }
             dropdownOpen = false;
         }
@@ -99,6 +115,7 @@ export function showShelfHeader(opts: any) {
             if (dropdownOpen) { closeDropdown(); return; }
 
             dropdown = document.createElement('div');
+            dropdown.id = FILTER_DROPDOWN_ID;
             dropdown.className = 'library-filter-dropdown';
 
             ['all', 'public', 'private'].forEach(filterValue => {
@@ -139,19 +156,44 @@ export function showShelfHeader(opts: any) {
                 dropdown.appendChild(btn);
             });
 
-            titleWrapper.appendChild(dropdown);
+            // Portal to <body>, NOT into #shelf-header: the header carries a
+            // mask-image (homepage.css scroll fade) which both creates a
+            // stacking context it can't escape — .main-content is masked too,
+            // paints after it, and swallowed the menu — and clips painting to
+            // the header's border box (mask-clip defaults to border-box), so
+            // an in-header popup was invisible under the feed. Fixed-position
+            // off the title's rect, same pattern as .shelf-picker-dropdown.
+            document.body.appendChild(dropdown);
+            positionDropdown();
             dropdownOpen = true;
 
             // Close on outside click
+            outsideHandler = (e: Event) => {
+                const target = e.target as Node | null;
+                if (dropdown && !dropdown.contains(target) && !titleWrapper.contains(target)) {
+                    closeDropdown();
+                }
+            };
             setTimeout(() => {
-                document.addEventListener('click', function handler(e) {
-                    if (!titleWrapper.contains(e.target as Node | null)) {
-                        closeDropdown();
-                        document.removeEventListener('click', handler);
-                    }
-                });
+                if (outsideHandler) document.addEventListener('click', outsideHandler);
             }, 0);
+
+            // The feed scrolls .home-content-wrapper, not the window, so a
+            // body-mounted popup can't track the title — close instead.
+            scrollHandler = () => closeDropdown();
+            document.addEventListener('scroll', scrollHandler, true);
+            window.addEventListener('resize', scrollHandler);
         }
+
+        function positionDropdown() {
+            if (!dropdown) return;
+            const rect = title.getBoundingClientRect();
+            dropdown.style.top = `${rect.bottom + 4}px`;
+            const maxLeft = window.innerWidth - dropdown.offsetWidth - 8;
+            dropdown.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
+        }
+
+        closeFilterDropdown = closeDropdown;
 
         title.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -592,6 +634,13 @@ export function removeShelfHeader() {
     if (existing) {
         existing.remove();
     }
+    // Body-mounted, so removing the header alone would leave it stranded (and
+    // its document listeners live).
+    if (closeFilterDropdown) {
+        closeFilterDropdown();
+        closeFilterDropdown = null;
+    }
+    document.getElementById(FILTER_DROPDOWN_ID)?.remove();
     currentHeader = null;
 }
 

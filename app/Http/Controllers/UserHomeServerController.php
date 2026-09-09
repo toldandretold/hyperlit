@@ -218,13 +218,19 @@ class UserHomeServerController extends Controller
             : [];
         // Only the re-validated form ever reaches the page (window global +
         // blade) — a tampered stored value must not even ride along as data.
-        $showMap = ($storedSettings['show_map'] ?? null) === true;
+        // show_map defaults ON: only an explicit stored `false` hides the
+        // network. (Legacy rows from when it was opt-in stored `true`; those
+        // still read as on, so nothing regresses. The sentinel is inverted —
+        // "off" is the value worth storing now.)
+        $showMap = ($storedSettings['show_map'] ?? null) !== false;
         $pageSettings = array_filter([
             'logo_image' => $logoImage,
             'background_image' => $backgroundImage,
             'background_art' => $backgroundArt,
             'pill_shelves' => $hasPillCuration ? $pillShelves : null,
-            'show_map' => $showMap ?: null,
+            // absent = the default (on); the only value worth shipping is the
+            // opt-out, which array_filter below keeps (it only drops nulls).
+            'show_map' => $showMap ? null : false,
             'about_html' => $aboutHtml,
         ], fn ($v) => $v !== null);
 

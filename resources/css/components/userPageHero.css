@@ -168,6 +168,59 @@ body.user-page-editing .journal-colon-link.upe-drop-hover {
   display: none;
 }
 
+/* Collapsed: the panel IS its toggle — a pill sitting above the pencil. Width
+   shrinks to the label (the fixed `right` edge keeps it pinned to the pencil's
+   column) and the glass rounds off. This is what lets the palette exist on
+   phones at all: it opens collapsed there instead of burying the page. */
+.user-page-edit-panel.collapsed {
+  width: auto;
+  padding: 7px 14px;
+  border-radius: 999px;
+  gap: 0;
+}
+
+.user-page-edit-panel.collapsed .upe-body {
+  display: none;
+}
+
+/* Scrolls rather than growing off the top of the screen — #user-page-edit-panel
+   is exempt in wheelScrollForwarder's SCROLLABLE_OVERLAY_SEL (CLAUDE.md
+   §"Overlay surfaces" check 5), so the wheel reaches it. */
+.user-page-edit-panel .upe-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-height: min(62vh, 460px);
+  overflow-y: auto;
+}
+
+/* The heading row doubles as the collapse control. */
+.user-page-edit-panel .upe-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-page-edit-panel .upe-chevron {
+  font-size: 0.8em;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.user-page-edit-panel.collapsed .upe-chevron {
+  transform: rotate(-90deg);
+}
+
 .user-page-edit-panel .upe-heading {
   font-weight: 600;
   font-size: 0.95rem;
@@ -310,11 +363,21 @@ body[data-page="user"] .journal-colon-link {
   height: 15px;
 }
 
-/* Mobile: the floating palette doesn't fit — image swapping happens via the
-   logo badge; shelf curation and background stay desktop-only for now. */
+/* The About book's editToolbar is up throughout this mode, which lifts
+   #bottom-right-buttons to bottom:76px (userButton.css) — so the palette has to
+   clear the pencil, or it covers the very button that exits the mode. Doubly so
+   collapsed: the pill is small enough to land exactly on it. */
+body:has(#edit-toolbar.visible) .user-page-edit-panel {
+  bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Mobile: the palette DOES exist now — it opens as the collapsed pill (see
+   .collapsed above / buildPanel's matchMedia), so the page stays visible until
+   the owner expands it. */
 @media (max-width: 700px) {
   .user-page-edit-panel {
-    display: none;
+    right: 12px;
+    width: min(320px, calc(100vw - 24px));
   }
 }
 

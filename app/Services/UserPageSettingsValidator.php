@@ -153,12 +153,14 @@ class UserPageSettingsValidator
 
         // show_map: render the library's hypercite-network SVG under the about
         // section (JournalHyperciteMap::svgForBooks, public books only).
+        // Default is ON, so the stored sentinel is the OPT-OUT: false persists,
+        // true/null both mean "default" and store nothing.
         if (array_key_exists('show_map', $input)) {
             $raw = $input['show_map'];
-            if ($raw === null || $raw === false) {
+            if ($raw === false) {
+                $settings['show_map'] = false;
+            } elseif ($raw === null || $raw === true) {
                 $settings['show_map'] = null;
-            } elseif ($raw === true) {
-                $settings['show_map'] = true;
             } else {
                 $errors['show_map'] = 'show_map must be a boolean.';
             }

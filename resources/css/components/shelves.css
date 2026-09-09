@@ -201,18 +201,20 @@
   margin-left: 4px;
   opacity: 0.5;
 }
-/* Glass like .shelf-picker-dropdown / the hero card — one popup language. */
+/* Glass like .shelf-picker-dropdown / the hero card — one popup language.
+   position: FIXED and mounted on <body> (shelfHeader.ts): #shelf-header carries
+   a mask-image, which clips painting to its border box AND makes a stacking
+   context the masked .main-content paints over — an in-header popup was
+   invisible under the feed. Coordinates come from the title's rect. */
 .library-filter-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
+  position: fixed;
   background: var(--container-glass-bg, rgba(34, 31, 32, 0.75));
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid var(--resize-edge-tint);
   border-radius: var(--border-radius-xl, 10px);
   padding: 4px;
-  z-index: 100;
+  z-index: 9999;
   min-width: 100px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
