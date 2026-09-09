@@ -78,6 +78,14 @@ export async function initializeAuth() {
     });
 
     if (!response.ok) {
+      // Drain the body before bailing. Throwing straight out of here leaves the
+      // response stream unread, and an unread stream keeps the fetch in-flight
+      // as far as the network stack is concerned — the request never completes,
+      // so the page never goes network-idle. That is not just a test artifact
+      // (it hung `waitForLoadState('networkidle')` for the full 120s in
+      // specs/divEditor/image-insert-anon.spec.js): a rate-limited anonymous
+      // visitor was leaving a dangling connection open on every page load.
+      await response.text().catch(() => {});
       throw new Error(`Session endpoint failed with status ${response.status}`);
     }
 
@@ -148,6 +156,9 @@ export async function refreshCsrfToken() {
   });
 
   if (!response.ok) {
+    // Same reason as initializeAuth above — an unread response body leaves the
+    // fetch in-flight forever, so drain it before throwing.
+    await response.text().catch(() => {});
     throw new Error(`Failed to refresh CSRF token: ${response.status}`);
   }
 

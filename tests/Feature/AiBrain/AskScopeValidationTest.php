@@ -3,12 +3,15 @@
 /**
  * AI Archivist ask endpoint (/api/ai-brain/ask) — scope + validation contract.
  *
- * The hero-page (home / journal / archive) selection-free entry point. The key
- * contract INVERTS query()'s shelf gate: ask() accepts any PUBLIC shelf —
- * including someone else's (a visitor asking a journal page's corpus) — and
- * 404s private shelves even for their owner (personal-shelf asks belong to the
- * in-reader flow). No LLM key required; pre-stream rejections only, except the
- * public-shelf acceptance test which mocks the pipeline.
+ * The hero-page (home / journal / archive / user) selection-free entry point.
+ * The key contract INVERTS query()'s shelf gate: ask() accepts any PUBLIC
+ * shelf — including someone else's (a visitor asking a journal page's corpus)
+ * — plus any shelf the ASKER owns, public or private (the /u/ page's shelf
+ * tabs include their private shelves). Someone else's private shelf 404s.
+ * Retrieval independently drops private BOOKS in every scope
+ * (RetrievalScopeTest), so an owned private shelf narrows the corpus without
+ * widening what may be read. No LLM key required; pre-stream rejections only,
+ * except the acceptance tests, which mock the pipeline.
  */
 
 use App\Models\User;
@@ -104,16 +107,45 @@ test('rejects a nonexistent shelf with 404', function () {
     expect($response->json('message'))->toContain('Shelf');
 });
 
-test('rejects a PRIVATE shelf with 404 even for its owner', function () {
+test("accepts the asker's OWN private shelf and opens the stream", function () {
+    // The /u/{username} page's shelf tabs include PRIVATE shelves (only the
+    // owner's session renders them), and narrowing search/archivist to the
+    // open tab is the point — so an owned private shelf is a legal scope.
+    // Retrieval still refuses private BOOKS; this gate is about the shelf.
     $user = makeAskUser('ask_val_ownpriv');
     $shelfId = makeAskShelf($user->name, 'private');
+
+    $this->mock(LlmService::class, function ($mock) {
+        $mock->shouldReceive('chatWithFallback')->andReturn([
+            'content' => '<search>{"keywords":"delinking","library_keywords":"","embedding_query":"delinking world economy"}</search>',
+            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+        ]);
+        $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
+        $mock->shouldReceive('clearTransport');
+    });
+    $this->mock(RetrievalService::class, function ($mock) use ($shelfId) {
+        $mock->shouldReceive('execute')
+            ->withArgs(function ($plan, $context) use ($shelfId) {
+                return ($context['sourceScope'] ?? null) === 'shelf'
+                    && ($context['shelfId'] ?? null) === $shelfId;
+            })
+            ->andReturn([
+                'matches' => [], 'queryText' => null, 'toolsUsed' => ['embedding_search'], 'log' => [],
+            ]);
+        $mock->shouldNotReceive('executeLocalContext');
+    });
+    $this->mock(BillingService::class, function ($mock) {
+        $mock->shouldReceive('canProceed')->andReturnTrue();
+        $mock->shouldNotReceive('charge');
+    });
 
     $response = $this->actingAs($user)->postJson('/api/ai-brain/ask', [
         'question' => 'what is delinking?',
         'shelfId'  => $shelfId,
     ]);
 
-    $response->assertStatus(404);
+    $response->assertStatus(200);
+    expect($response->streamedContent())->toContain('No matches in this collection');
 });
 
 test("rejects another user's PRIVATE shelf with 404", function () {

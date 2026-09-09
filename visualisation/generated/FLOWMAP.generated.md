@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1854 functions in 390 modules · 10 object stores · 10 PG tables · 3796 edges
+**MarkdownDB** schema v28 · 1863 functions in 394 modules · 10 object stores · 10 PG tables · 3805 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -13,6 +13,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `generateReferenceId` | `citations/citationInserter` | — | — | — | — |
 | `insertCitationAtCursor` | `citations/citationInserter` | — | `bibliography` | read/write | — |
 | `parseAuthorYear` | `citations/citationInserter` | — | — | — | — |
+| `destroyArchivePanelListener` | `components/archivePanel/archiveRefButton` | — | — | read/write | — |
+| `initializeArchivePanelListener` | `components/archivePanel/archiveRefButton` | — | — | read/write | — |
+| `buildArchiveHtml` | `components/archivePanel/buildArchiveHtml` | — | — | — | — |
+| `initExportDownload` | `components/archivePanel/exportDownload` | — | — | read/write | — |
+| `ArchivePanelManager.closeContainer` | `components/archivePanel/index` | — | — | — | — |
+| `ArchivePanelManager.constructor` | `components/archivePanel/index` | — | — | — | — |
+| `ArchivePanelManager.destroyDownloads` | `components/archivePanel/index` | — | — | — | — |
+| `ArchivePanelManager.openContainer` | `components/archivePanel/index` | — | — | — | — |
+| `ArchivePanelManager.readScope` | `components/archivePanel/index` | — | — | read | — |
 | `destroySourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/cloudRef/editIndicator` | — | — | — | — |

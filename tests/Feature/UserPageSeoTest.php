@@ -70,6 +70,17 @@ test('user page renders the deferred lava hero with no server-side main-content'
     expect($html)->toContain('id="archivist-brain-button"');
     expect($html)->toContain('id="hyperlit-container"');
     expect($html)->toContain('id="copy-feed-close"');
+
+    // Reader-parity chrome: the top-right archive button (visitor AND owner —
+    // the archive panel is the public citation/download surface) with its
+    // scope stamped, its panel divs, and New inside the logo flyout (the +
+    // left the top-right; hero import links / file-drop still click it).
+    expect($html)->toContain('id="archiveRef"');
+    expect($html)->toContain('data-scope-type="user"');
+    expect($html)->toContain('data-scope-id="' . e($user->name) . '"');
+    expect($html)->toContain('id="archive-container"');
+    expect($html)->toContain('id="newBookButton"');
+    expect($html)->toContain('id="logoNavMenu"');
 });
 
 test('visitors never get the owner chrome', function () {

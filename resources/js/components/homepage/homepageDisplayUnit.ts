@@ -31,7 +31,17 @@ export function fixHeaderSpacing() {
 
   if (header && wrapper) {
     const headerHeight = header.offsetHeight;
-    wrapper.style.paddingTop = (headerHeight + 10) + 'px';
+    // The lava hero's docked/feed card doesn't start at y=0 — it floats
+    // --hero-dock-top below the viewport edge so its shadow reads on all four
+    // sides. Reserve that too, or the first feed row creeps up under the card.
+    // Read the custom PROPERTY, not getComputedStyle(header).top: this runs on
+    // resize and from shelfHeader too, i.e. sometimes mid-dock-transition,
+    // where `top` is a moving value and the var is not.
+    const app = document.querySelector('#app-container.lava-lamp-background.content-active');
+    const dockTop = app
+      ? parseFloat(getComputedStyle(app).getPropertyValue('--hero-dock-top')) || 0
+      : 0;
+    wrapper.style.paddingTop = (headerHeight + dockTop + 10) + 'px';
   }
 }
 

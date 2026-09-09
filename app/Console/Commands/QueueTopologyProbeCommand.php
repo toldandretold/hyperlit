@@ -46,7 +46,7 @@ class QueueTopologyProbeCommand extends Command
     /** @var Process[] */
     private array $workers = [];
 
-    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'audio', 'audio-package', 'embeddings', 'search-supplement'];
+    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'audio', 'audio-package', 'embeddings', 'search-supplement', 'archive-export'];
 
     public function handle(): int
     {
@@ -213,6 +213,7 @@ class QueueTopologyProbeCommand extends Command
             'audio-package',
             'embeddings',
             'search-supplement',
+            'archive-export',
         ];
         foreach ($spec as $queue) {
             $p = new Process(

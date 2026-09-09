@@ -102,7 +102,8 @@ body.theme-sepia .arranger-button:hover {
 }
 
 /* Fix source container for sepia theme */
-body.theme-sepia #source-container {
+body.theme-sepia #source-container,
+body.theme-sepia #archive-container {
   background-color: var(--container-glass-bg) !important;
 }
 

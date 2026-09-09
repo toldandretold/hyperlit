@@ -43,23 +43,36 @@ const heroRoot = (): HTMLElement | null =>
   document.querySelector<HTMLElement>('#app-container.lava-lamp-background');
 
 /**
- * Scrolling content (the intro copy AND the feed cards) must DISAPPEAR under
- * the glass card rather than show through it. A CSS mask fades each element
- * out at the card's bottom edge — but masks are element-relative while the
- * card is viewport-fixed, so the fade line is fed in as a CSS var recomputed
- * on scroll (and while the card's dock transition is still moving it).
+ * Scrolling content (the intro copy, the feed cards AND the shelf header) must
+ * DISAPPEAR under the glass card rather than show through it. A CSS mask fades
+ * each element out at the card's bottom edge — but masks are element-relative
+ * while the card is viewport-fixed, so the fade line is fed in as a CSS var
+ * recomputed on scroll (and while the card's dock transition is still moving
+ * it). EVERY scrolling child of the wrapper belongs on this list: the docked
+ * card rests --hero-dock-top below the viewport edge, so anything unmasked
+ * stays crisp in the gap ABOVE it as it slides past.
  */
 function updateCopyFade(): void {
   const header = document.querySelector('.fixed-header');
   if (!header) return;
   const headerBottom = header.getBoundingClientRect().bottom;
   document
-    .querySelectorAll<HTMLElement>('.welcome-copy, .home-content-wrapper .main-content')
+    .querySelectorAll<HTMLElement>(
+      '.welcome-copy, .home-content-wrapper .main-content, .home-content-wrapper #shelf-header',
+    )
     .forEach(el => {
       // Intro COPY dissolves well below the compact docked card (breathing
       // room of dark page between card and text, and the text fades out
       // before it ever touches the card); FEED cards keep the tight line.
-      const offset = el.classList.contains('welcome-copy') ? 90 : 30;
+      // The SHELF HEADER sits only ~4px under the card, so its line is the
+      // card's bottom edge exactly — enough to keep it out of the
+      // --hero-dock-top gap above the card without eating into the title
+      // (its mask ramp is a matching 12px; see homepage.css).
+      const offset = el.classList.contains('welcome-copy')
+        ? 90
+        : el.id === 'shelf-header'
+          ? 0
+          : 30;
       // may go negative (element below the card) — that just pushes the fade
       // band above the element, i.e. fully visible; do NOT clamp to 0
       const y = headerBottom + offset - el.getBoundingClientRect().top;

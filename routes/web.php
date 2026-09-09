@@ -360,6 +360,15 @@ Route::get('/{book}/audio/{filename}', [\App\Http\Controllers\BookAudioControlle
 Route::get('/{book}/audiobook.m4b', [\App\Http\Controllers\BookAudioController::class, 'downloadAudiobook'])
     ->where(['book' => '[a-zA-Z0-9\-_]+']);
 
+// Archive export artifacts (the #archiveRef panel's markdown vault / SQLite
+// downloads). 'exports' is declared in config/reserved-routes.php. Audience
+// (public vs owner-with-private) is recomputed inside the controller from the
+// sanctum session — never from the URL — so a visitor can't fetch an owner
+// artifact.
+Route::get('/exports/{scopeType}/{scopeId}/{kind}', [\App\Http\Controllers\ArchiveExportController::class, 'download'])
+    ->whereIn('scopeType', \App\Services\Export\ArchiveCorpusResolver::SCOPE_TYPES)
+    ->whereIn('kind', \App\Services\Export\ArchiveExportStore::KINDS);
+
 // Password reset page
 Route::get('/reset-password/{token}', function (Request $request, $token) {
     return view('reset-password', [

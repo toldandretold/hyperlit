@@ -206,6 +206,21 @@ Route::prefix('public/library')->middleware('throttle:60,1')->group(function () 
 Route::get('/vibes/public', [VibesController::class, 'publicIndex'])
     ->middleware('throttle:60,1');
 
+// Archive panel (the top-right #archiveRef button on user/journal/archive
+// pages) — no auth: audience is computed server-side (sanctum owner check),
+// never taken from the client. {scopeId} may be a URL-encoded username.
+Route::prefix('archive-export')->middleware('throttle:60,1')
+    ->whereIn('scopeType', \App\Services\Export\ArchiveCorpusResolver::SCOPE_TYPES)
+    ->group(function () {
+        Route::get('/{scopeType}/{scopeId}/panel', [\App\Http\Controllers\ArchiveExportController::class, 'panel']);
+        Route::get('/{scopeType}/{scopeId}/status', [\App\Http\Controllers\ArchiveExportController::class, 'status']);
+        // The per-scope cache lock prevents duplicate builds and the digest
+        // cache makes re-presses free, but the build is real CPU — throttle
+        // harder than the reads.
+        Route::post('/{scopeType}/{scopeId}/build', [\App\Http\Controllers\ArchiveExportController::class, 'build'])
+            ->middleware('throttle:10,1');
+    });
+
 // Book audio reads — no auth (RLS decides what's visible), throttled
 Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(function () {
     Route::get('/book-audio/{book}/status', [\App\Http\Controllers\BookAudioController::class, 'status']);

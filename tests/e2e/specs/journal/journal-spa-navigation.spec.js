@@ -150,6 +150,10 @@ async function heroSpaTour(page, spa, heroPath) {
   await expect(page.locator('.journal-content-wrapper')).toBeAttached({ timeout: 30_000 });
   await awaitStructureSettled(page, spa, 'journal');
 
+  // #userButton now lives inside the journal page's logo flyout (reader-parity
+  // chrome) — open it first.
+  await page.click('#logoContainer');
+  await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 5000 });
   await page.click('#userButton');
   const myBooks = page.locator('#myBooksBtn');
   await expect(myBooks).toBeVisible({ timeout: 10_000 });

@@ -9,7 +9,10 @@
 .libraryCard .book-actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); padding: 2px; }
 .libraryCard .book-actions svg { width: 16px; height: 16px; fill: currentColor; display: inline-block; vertical-align: middle; }
 
-/* Account page — balance header */
+/* Account page — balance header: the aqua-washed box. The wash is the
+   intended accent; anything nested inside (tier dropdown) must stay
+   TRANSPARENT so the wash reads as one continuous tint — a nested element
+   with its own background cuts a differently-colored hole in the box. */
 .totalCredit {
   position: relative;
   padding: 14px 16px;
@@ -51,12 +54,20 @@
 }
 .tier-selector:hover { color: #EF8D34; }
 
-/* Account page — tier dropdown panel */
+/* Account page — tier dropdown panel. TRANSPARENT background (a hardcoded
+   rgba(34,31,32,.95) was unreadable in sepia/light, and even a theme-tinted
+   surface read as a jarring second shade inside the panel): the surrounding
+   surface shows through and the aqua border alone delineates it — identical
+   in every theme by construction. */
 .tier-dropdown {
   display: block;
   margin-top: 8px;
   padding: 4px 0;
-  background: rgba(34, 31, 32, 0.95);
+  /* EXACTLY the theme background — the same color as the main panel, no
+     tint, no transparency. (History: a hardcoded near-black was unreadable
+     in sepia/light; a 6%-text mix was "a different sepia"; transparent let
+     the box's aqua wash bleed through. Plain background is the answer.) */
+  background: var(--color-background);
   border: 1px solid rgba(78, 172, 174, 0.4);
   border-radius: 6px;
   font-size: 0.85em;
@@ -71,7 +82,7 @@
   gap: 10px;
   padding: 10px 14px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--border-subtle, rgba(128, 128, 128, 0.2));
 }
 .tier-option:last-child { border-bottom: none; }
 .tier-option:hover { background: rgba(78, 172, 174, 0.1); }
@@ -82,7 +93,7 @@
   width: 15px;
   height: 15px;
   margin-top: 2px;
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  border: 2px solid color-mix(in srgb, var(--color-text) 45%, transparent);
   border-radius: 50%;
   position: relative;
 }

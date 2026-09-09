@@ -168,12 +168,12 @@ const EXPECTED_COMPONENTS = {
   ],
   user: [
     'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',
-    'newBookButton', 'homepageDisplayUnit', 'homepageBookActions',
+    'newBookButton', 'archivePanel', 'homepageDisplayUnit', 'homepageBookActions',
     'userProfilePage', 'shelfTabs',
   ],
   journal: [
     'logoNav', 'userContainer', 'perimeterButtons', 'settings', 'searchToolbar',
-    'newBookButton', 'journalSearch', 'homepageDisplayUnit', 'homepageBookActions',
+    'newBookButton', 'archivePanel', 'journalSearch', 'homepageDisplayUnit', 'homepageBookActions',
     'lavaLampBackground', 'homepageHero',
   ],
 };
@@ -181,46 +181,79 @@ const EXPECTED_COMPONENTS = {
 /**
  * Assert that the buttonRegistry is healthy for the given page type.
  * Checks currentPage, isInitializing, and that all expected components are active.
+ *
+ * POLLS rather than sampling once, because "the transition finished" does not
+ * mean "the registry is up". Two things make a one-shot read racy:
+ *   - the registry is populated at the END of a page's boot — for the reader
+ *     `viewManager.ts` calls `initializeAll('reader')` only after the content
+ *     load promise resolves, so mid-boot the registry is legitimately empty;
+ *   - `waitForSpaTransitionComplete` keys on #initial-navigation-overlay, and
+ *     a DifferentTemplate hop (user → reader) swaps that overlay element out
+ *     during the body swap (contentSwapHelpers). The instant with no overlay
+ *     reads as "transition done", so we can be handed a still-booting page.
+ * A registry that never comes up still fails — just after the timeout, with
+ * the last observed state in the message.
  */
-export async function assertRegistryHealthy(page, expectedPageType) {
-  const status = await getRegistryStatus(page);
-  if (!status) throw new Error('buttonRegistry not available');
-
-  const errors = [];
-
-  if (status.currentPage !== expectedPageType) {
-    errors.push(`Registry currentPage is "${status.currentPage}", expected "${expectedPageType}"`);
-  }
-
-  if (status.isInitializing) {
-    errors.push('Registry is still initializing');
-  }
-
+export async function assertRegistryHealthy(page, expectedPageType, { timeout = 20000 } = {}) {
   const expected = EXPECTED_COMPONENTS[expectedPageType] || [];
-  const missing = expected.filter(name => !status.activeComponents.includes(name));
-  if (missing.length > 0) {
-    errors.push(`Missing active components: ${missing.join(', ')}`);
+  const deadline = Date.now() + timeout;
+  let errors = [];
+
+  for (;;) {
+    const status = await getRegistryStatus(page);
+    errors = [];
+
+    if (!status) {
+      errors.push('buttonRegistry not available');
+    } else {
+      if (status.currentPage !== expectedPageType) {
+        errors.push(`Registry currentPage is "${status.currentPage}", expected "${expectedPageType}"`);
+      }
+      if (status.isInitializing) {
+        errors.push('Registry is still initializing');
+      }
+      const missing = expected.filter(name => !status.activeComponents.includes(name));
+      if (missing.length > 0) {
+        errors.push(`Missing active components: ${missing.join(', ')}`);
+      }
+    }
+
+    if (errors.length === 0) return;
+    if (Date.now() >= deadline) break;
+    await page.waitForTimeout(250);
   }
 
-  if (errors.length > 0) {
-    throw new Error(`Registry health check failed:\n${errors.join('\n')}`);
-  }
+  throw new Error(`Registry health check failed (still unhealthy after ${timeout}ms):\n${errors.join('\n')}`);
 }
 
 /**
- * Open the homepage feed if it isn't already showing cards.
+ * Open the deferred feed on a hero page if it isn't already showing cards.
  *
- * The lava-lamp homepage defers content: nothing loads until an arranger tab
- * is pressed (no `.arranger-button.active`, no `.main-content` at boot). On the
- * user page (and once a feed is open) cards are already present, so this is a
- * no-op there. Safe to call before any `.libraryCard` interaction on `/`.
+ * BOTH the lava-lamp homepage and the user page (/u/{name}) defer content:
+ * nothing loads until an arranger tab is pressed (no `.arranger-button.active`,
+ * no `.main-content` at boot — the contract comment at the top of home.blade.php
+ * and user.blade.php). The user page used to server-render its cards, so this
+ * was historically a home-only concern; since it gained the hero it needs the
+ * same tab press, just on a different tab:
+ *   - home  → "Most Recent"  (`data-content="most-recent"`, no data-filter)
+ *   - user  → "Library"      (`data-filter="library"`, the only page with it)
+ * Once a feed is open cards are already present, so this stays a no-op there.
+ * Safe to call before any `.libraryCard` interaction on `/` or `/u/{name}`.
  */
 export async function openHomeFeed(page) {
   if (await page.locator('.libraryCard a').count()) return; // cards already present
-  const tab = page.locator('.arranger-button[data-content="most-recent"]');
-  if (await tab.count()) {
-    await tab.first().click();
-    await page.waitForSelector('.libraryCard a', { timeout: 10000 });
+  // Preference order matters — a comma-joined locator resolves in DOM order,
+  // not in the order written, so try each page's default tab in turn.
+  for (const selector of [
+    '.arranger-button[data-content="most-recent"]', // home
+    '.arranger-button[data-filter="library"]',      // user page
+  ]) {
+    const tab = page.locator(selector);
+    if (await tab.count()) {
+      await tab.first().click();
+      await page.waitForSelector('.libraryCard a', { timeout: 10000 });
+      return;
+    }
   }
 }
 

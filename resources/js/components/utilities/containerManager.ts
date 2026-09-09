@@ -19,6 +19,7 @@ const FOCUS_TRAP_CONTAINER_IDS = new Set([
   'openbook-container',
   'settings-container',
   'source-container',
+  'archive-container',
   'toc-container',
 ]);
 

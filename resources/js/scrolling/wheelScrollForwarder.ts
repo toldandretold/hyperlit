@@ -46,7 +46,7 @@ const CONTENT_SEL =
 // behind it. ⚠️ ANY new self-scrolling overlay/panel outside the content wrapper MUST be
 // added here — see CLAUDE.md §"Overlay surfaces" check 5.
 const SCROLLABLE_OVERLAY_SEL =
-  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #user-page-edit-panel';
+  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #archive-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #user-page-edit-panel';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

@@ -1,0 +1,131 @@
+/* Archive panel chrome: the top-right #archiveRef cloud button (reader
+   cloudRef parity, distinct id — see partials/archive-ref.blade.php) and the
+   #archive-container panel's own content. The panel SHELL (glass, slide-in,
+   scroller, type ramp) is shared with #source-container via widened selectors
+   in sourceContainer.css + the theme files. */
+
+/* ---------- the button (mirror of #cloudRef's rules) ---------- */
+
+#archiveRef {
+  border: none;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Expanded clickable area, same as cloudRef */
+#archiveRef::before {
+  content: '';
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  right: -15px;
+  bottom: -15px;
+  z-index: 1;
+}
+
+#archiveRef svg {
+  display: block;
+  width: 28px !important;
+  height: auto !important;
+}
+
+#archiveRef-svg rect {
+  fill: transparent;
+}
+
+#archiveRef-svg .cls-1,
+#archiveRef-svg .cls-2 {
+  fill: var(--status-ready);
+  transition: fill 0.3s ease;
+}
+
+#archiveRef:hover .cls-1 {
+  fill: var(--color-background);
+}
+
+/* perimeterGlass hides the top-right glass circle on journal pages (it was
+   sized for the + on a solid background). With the cloud on the lava hero the
+   circle earns its keep again — matching the user page. */
+body[data-page="journal"] #topRightContainer:has(#archiveRef)::after {
+  display: block;
+}
+
+/* ---------- panel content ---------- */
+
+#archive-container .archive-counts {
+  margin: 0.25em 0 0;
+  font-size: var(--sc-12);
+  color: var(--color-label);
+}
+
+#archive-container .archive-downloads {
+  margin-top: 15px;
+  padding-top: 15px;
+}
+
+/* Wide labeled rows, unlike the source panel's icon-only strip — a corpus
+   download deserves a sentence of explanation. Grid: icon + name on the
+   first row, the description on its own row underneath. */
+#archive-container .archive-export-btn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.8em;
+  row-gap: 0.3em;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.75em;
+}
+
+#archive-container .archive-export-btn .icon-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.2em;
+  height: 2.2em;
+}
+
+#archive-container .archive-export-btn .download-icon {
+  width: 100%;
+  height: 100%;
+}
+
+#archive-container .archive-export-btn .export-name {
+  font-weight: 600;
+  font-size: var(--sc-13);
+  white-space: nowrap;
+}
+
+#archive-container .archive-export-btn .export-desc {
+  grid-column: 1 / -1;
+  font-size: var(--sc-11);
+  color: var(--color-label);
+}
+
+/* Busy = the server is packaging the artifact (audiobook-button parity). */
+#archive-container .archive-export-btn.is-busy {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+#archive-container .archive-export-btn.is-busy .download-icon {
+  opacity: 0.35;
+}
+
+#archive-container .export-progress {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+#archive-container .archive-export-btn.is-busy .export-progress {
+  display: flex;
+}

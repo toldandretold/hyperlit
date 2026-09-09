@@ -1,5 +1,9 @@
-/* Source container - similar to hyperlit-container */
-#source-container {
+/* Source container - similar to hyperlit-container. The shell (glass,
+   slide-in, scroller, type ramp) is shared with #archive-container — the
+   whole-corpus archive panel (components/archivePanel) — so the two read as
+   siblings. Panel-specific rules below stay source-only. */
+#source-container,
+#archive-container {
   transform: translateX(calc(100% + 2em)); /* Off-screen right, including gap */
   transition: transform 0.3s ease-in-out, height 0.3s ease-in-out;
   position: fixed;
@@ -39,7 +43,8 @@
   overflow-wrap: break-word;
 }
 
-#source-container .citation {
+#source-container .citation,
+#archive-container .citation {
   margin: 0.5em 0;
 }
 
@@ -62,7 +67,8 @@
   height: 2.2em;
 }
 
-#source-container.open {
+#source-container.open,
+#archive-container.open {
   transform: translateX(0); /* Slide in */
   /* 250vmax (not 100vmax): the shadow moves with the panel as it slides, and 100vmax is only
      one viewport — mid-slide the panel is ~a viewport off-screen, so 100vmax can't reach the
@@ -70,12 +76,14 @@
   box-shadow: 0 0 0 250vmax rgba(0, 0, 0, 0.5);
 }
 
-#source-container.hidden {
+#source-container.hidden,
+#archive-container.hidden {
   display: block; /* Override display: none */
   transform: translateX(calc(100% + 2em)); /* Keep off-screen */
 }
 
-#source-container #source-content {
+#source-container #source-content,
+#archive-container #archive-content {
   overflow: auto;
   max-height: calc(100vh - 2em);
   max-height: calc(100dvh - 2em);
@@ -383,7 +391,8 @@
   margin-bottom: 0.5em;
 }
 
-#source-container h3 {
+#source-container h3,
+#archive-container h3 {
   font-size: var(--sc-13);
   color: var(--color-label);
   text-transform: uppercase;

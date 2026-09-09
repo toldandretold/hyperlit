@@ -22,6 +22,11 @@
  * Enter or the Ask button call config.archivist.onSubmit. Instances without
  * archivist config behave exactly as before (a persisted 'archivist' mode
  * falls back to 'library').
+ *
+ * Optional NARROWING sub-scope (`config.subScope`, user pages): the page
+ * context (the username) picks the corpus, an open shelf tab narrows it. The
+ * sub-scope is re-read from the DOM at query/submit time — see the config
+ * field's doc block for why it is never cached.
  */
 
 import DOMPurify from 'dompurify';
@@ -29,6 +34,14 @@ import { log, verbose } from '../utilities/logger';
 import { searchCacheGet, searchCacheSet } from './searchResultCache';
 
 export type SearchMode = 'library' | 'fulltext' | 'semantic' | 'archivist';
+
+/** A narrowing scope inside the page context — today always an open shelf tab. */
+export interface SearchSubScope {
+    /** stable id passed to the endpoint / the archivist ask (a shelf uuid) */
+    id: string;
+    /** display name, for the placeholder and the empty-state copy */
+    name: string;
+}
 
 export interface SearchBoxConfig {
     ids: {
@@ -51,17 +64,39 @@ export interface SearchBoxConfig {
     };
     placeholders: Record<'library' | 'fulltext' | 'semantic', string> & { archivist?: string };
     /** empty-state copy for library/fulltext ('semantic' has shared copy) */
-    noResultsMessage: (mode: SearchMode) => string;
+    noResultsMessage: (mode: SearchMode, sub: SearchSubScope | null) => string;
     /** full request URL for a mode + query (include any limit/scope params) —
      *  never called in archivist mode (that mode has no search endpoint) */
-    endpointFor: (mode: Exclude<SearchMode, 'archivist'>, query: string, ctx: string) => string;
+    endpointFor: (mode: Exclude<SearchMode, 'archivist'>, query: string, ctx: string, sub: SearchSubScope | null) => string;
     /**
      * Context requirement (journal pages): read this dataset key off the
      * container; when absent the box is disabled with the given placeholder.
      */
     context?: { datasetKey: string; missingPlaceholder: string };
+    /**
+     * Optional narrowing scope INSIDE the context (user pages: the open shelf
+     * tab). Deliberately re-read from the DOM on every query/submit rather
+     * than cached at init: the tab row's `active` class is flipped by four
+     * unrelated modules (shelfTabs' activate/close, homepageDisplayUnit's
+     * restore + click handler, homepageHero's close-back-to-hero), and a
+     * cached copy would silently search the wrong corpus. `watchSelector` is
+     * observed ONLY to keep the placeholder + a visible result list honest.
+     */
+    subScope?: {
+        /** current sub-scope, or null when the whole context is in play */
+        read: () => SearchSubScope | null;
+        /**
+         * Where the sub-scope is visible in the DOM. One MutationObserver
+         * watches every entry; keep the options as NARROW as each target
+         * allows — a `subtree` watch on a feed container would re-fire the
+         * callback for every chunk render.
+         */
+        watch: Array<{ selector: string; options: MutationObserverInit }>;
+        /** per-mode placeholder while a sub-scope is active */
+        placeholders: Partial<Record<SearchMode, (name: string) => string>>;
+    };
     /** AI Archivist wiring — submit-driven, no search endpoint involved */
-    archivist?: { onSubmit: (query: string, contextId: string) => void };
+    archivist?: { onSubmit: (query: string, contextId: string, sub: SearchSubScope | null) => void };
     /** source tag for logger lines */
     logSource: string;
 }
@@ -108,13 +143,22 @@ export function createSearchBox(config: SearchBoxConfig) {
     let pageshowHandler: ((e: PageTransitionEvent) => void) | null = null;
     let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
     let modeRefreshHandler: (() => void) | null = null;
+    let subScopeObserver: MutationObserver | null = null;
+    /** last sub-scope id the UI was synced to ('' = none); dedupes observer bursts */
+    let lastSubScopeId = '';
 
     const hasArchivist = () => !!(config.archivist && config.ids.brainButton);
     const minLen = () => (searchMode === 'semantic' ? MIN_QUERY_LENGTH_SEMANTIC : MIN_QUERY_LENGTH);
     const debounceMs = () => (searchMode === 'semantic' ? DEBOUNCE_SEMANTIC_MS : DEBOUNCE_MS);
-    const placeholderFor = (mode: SearchMode): string =>
-        (mode === 'archivist' ? config.placeholders.archivist : config.placeholders[mode])
-        ?? config.placeholders.library;
+    /** The live narrowing scope. Read fresh — never cached (see config.subScope). */
+    const readSubScope = (): SearchSubScope | null => config.subScope?.read() ?? null;
+    const placeholderFor = (mode: SearchMode, sub: SearchSubScope | null): string => {
+        const base = (mode === 'archivist' ? config.placeholders.archivist : config.placeholders[mode])
+            ?? config.placeholders.library;
+        if (!sub) return base;
+        const scoped = config.subScope?.placeholders[mode];
+        return scoped ? scoped(sub.name) : base;
+    };
 
     /** Read the persisted mode, migrating the legacy fulltext boolean key. */
     function readStoredMode(): SearchMode {
@@ -155,7 +199,7 @@ export function createSearchBox(config: SearchBoxConfig) {
         searchMode = mode;
         if (fulltextToggle) fulltextToggle.checked = mode === 'fulltext';
         if (semanticToggle) semanticToggle.checked = mode === 'semantic';
-        if (searchInput) searchInput.placeholder = placeholderFor(mode);
+        if (searchInput) searchInput.placeholder = placeholderFor(mode, readSubScope());
 
         // The archivist takeover is pure CSS keyed off this class: the
         // .arranger-buttons-container hides the toggle stack + feed buttons,
@@ -210,7 +254,27 @@ export function createSearchBox(config: SearchBoxConfig) {
             searchInput?.focus();
             return;
         }
-        config.archivist.onSubmit(query, contextId);
+        config.archivist.onSubmit(query, contextId, readSubScope());
+    }
+
+    /**
+     * The sub-scope changed (a shelf tab was pressed or closed, or the feed
+     * was closed back to the hero). Keep the placeholder honest, and re-run a
+     * VISIBLE result list — results computed against the previous corpus are
+     * now a lie about what the box is searching.
+     */
+    function handleSubScopeChange() {
+        const sub = readSubScope();
+        const id = sub?.id ?? '';
+        if (id === lastSubScopeId) return;
+        lastSubScopeId = id;
+        if (searchInput) searchInput.placeholder = placeholderFor(searchMode, sub);
+        if (searchMode === 'archivist') return; // submit-driven — nothing to re-run
+        if (!resultsContainer || resultsContainer.classList.contains('hidden')) return;
+        const query = searchInput?.value.trim() ?? '';
+        if (query.length < minLen()) return;
+        showLoading();
+        performSearch(query);
     }
 
     function handleAskClick() {
@@ -276,7 +340,10 @@ export function createSearchBox(config: SearchBoxConfig) {
     async function performSearch(query: string) {
         if (searchMode === 'archivist') return; // submit-driven — no search endpoint
         currentSearchQuery = query;
-        const url = config.endpointFor(searchMode, query, contextId);
+        // Sub-scope read HERE, not at keystroke time: the tab can change while
+        // a debounce is pending. The URL carries it, so the result cache keys
+        // on it too and a scope switch can't serve the other shelf's hits.
+        const url = config.endpointFor(searchMode, query, contextId, readSubScope());
 
         // Client-side cache (URL key encodes endpoint/mode/scope/query) —
         // backspacing or retyping an identical query renders instantly.
@@ -457,7 +524,7 @@ export function createSearchBox(config: SearchBoxConfig) {
         // cutoff — distinguish that from a keyword miss.
         const message = searchMode === 'semantic'
             ? 'No sufficiently similar passages found'
-            : config.noResultsMessage(searchMode);
+            : config.noResultsMessage(searchMode, readSubScope());
         resultsContainer.innerHTML = `<div class="search-no-results">${escapeHtml(message)}</div>`;
         resultsContainer.classList.remove('hidden');
         resultsContainer.classList.add('visible');
@@ -516,6 +583,24 @@ export function createSearchBox(config: SearchBoxConfig) {
                 if (brainButton) brainButton.disabled = true;
                 return;
             }
+        }
+
+        if (config.subScope) {
+            lastSubScopeId = readSubScope()?.id ?? '';
+            // Observe the DOM instead of subscribing to the several modules
+            // that mutate it (tab activate/close, feed restore, hero close,
+            // the archivist takeover) — one seam no future caller can forget
+            // to notify. The callback exits on a string compare, so churn is
+            // cheap; targets that never appear are simply skipped.
+            const observer = new MutationObserver(handleSubScopeChange);
+            let watching = false;
+            for (const { selector, options } of config.subScope.watch) {
+                const target = document.querySelector(selector);
+                if (!target) continue;
+                observer.observe(target, options);
+                watching = true;
+            }
+            if (watching) subScopeObserver = observer;
         }
 
         restorePersistedState();
@@ -579,6 +664,10 @@ export function createSearchBox(config: SearchBoxConfig) {
             window.removeEventListener('hyperlit:refresh-search-mode', modeRefreshHandler);
             modeRefreshHandler = null;
         }
+        if (subScopeObserver) {
+            subScopeObserver.disconnect();
+            subScopeObserver = null;
+        }
         if (debounceTimer) clearTimeout(debounceTimer);
         if (abortController) abortController.abort();
 
@@ -592,6 +681,7 @@ export function createSearchBox(config: SearchBoxConfig) {
         lastNonArchivistMode = 'library';
         currentSearchQuery = '';
         contextId = '';
+        lastSubScopeId = '';
 
         verbose.init('Search box destroyed', config.logSource);
     }

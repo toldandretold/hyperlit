@@ -136,7 +136,10 @@ function pageContextId(): string | null {
 
 interface StoredAnswer {
     bookId: string;
+    /** DESTINATION shelf the answer book was filed into ("Saved to your …") */
     shelf?: { id?: string; name?: string } | null;
+    /** the corpus the question was asked against — restored onto the panel */
+    askScope?: { id?: string; name?: string } | null;
     question?: string;
     ctx?: string;
     ts?: number;
@@ -145,6 +148,26 @@ interface StoredAnswer {
 /** The archivist's occupant of the feed slot, whatever its element id. */
 function findPanel(): HTMLElement | null {
     return document.querySelector('.main-content.archivist-panel');
+}
+
+/**
+ * Stamp the corpus an answer was ASKED against onto the panel that shows it.
+ *
+ * The takeover clears the feed's active tab (createPanel), so once an answer
+ * is up the tab row can no longer say what the search header is scoped to —
+ * and a follow-up question would silently widen from "this shelf" to the whole
+ * library. The panel is the record instead; userSearch's sub-scope reader
+ * falls back to it. NOT the same thing as the `shelf` in the response, which
+ * is the DESTINATION shelf the answer book was filed into ("Saved to your …").
+ */
+function stampAskScope(el: HTMLElement, shelf?: { id?: string | null; name?: string | null } | null): void {
+    if (shelf?.id) {
+        el.dataset.archivistShelfId = shelf.id;
+        el.dataset.archivistShelfName = shelf.name || 'this shelf';
+    } else {
+        delete el.dataset.archivistShelfId;
+        delete el.dataset.archivistShelfName;
+    }
 }
 
 // ---- per-ENTRY answer memory (history.state, NOT sessionStorage) ----
@@ -266,6 +289,8 @@ function restoreStoredAnswer(): void {
     void (async () => {
         try {
             await mountAnswerBook(stored.bookId, stored.shelf?.name);
+            const mounted = findPanel();
+            if (mounted) stampAskScope(mounted, stored.askScope ?? null);
             // This entry was showing an AI answer — put the search header back
             // into archivist mode too (the mode key is a global preference;
             // the ENTRY knows better). searchBox re-applies on the event.
@@ -446,13 +471,18 @@ function renderAuthPrompt(panel: HTMLElement): void {
 
 export interface ArchivistAsk {
     question: string;
-    /** public shelf scope (journal/archive pages); null = whole public corpus */
+    /**
+     * Shelf scope: the page's shelf on /j/ and /a/, the OPEN SHELF TAB on /u/.
+     * null = the whole context corpus (username, or the public library).
+     */
     shelfId: string | null;
+    /** display name of that shelf — panel scope stamp only, never sent */
+    shelfName?: string | null;
     /** user-library scope (/u/{username} pages); mutually exclusive with shelfId */
     username?: string | null;
 }
 
-export async function openArchivistPanel({ question, shelfId, username = null }: ArchivistAsk): Promise<void> {
+export async function openArchivistPanel({ question, shelfId, shelfName = null, username = null }: ArchivistAsk): Promise<void> {
     // A new ask replaces any in-flight one.
     if (abortController) abortController.abort();
 
@@ -494,6 +524,7 @@ export async function openArchivistPanel({ question, shelfId, username = null }:
         // and the checklist streams inside it (as feeds do).
         const panel = createPanel();
         if (!panel) return;
+        stampAskScope(panel, shelfId ? { id: shelfId, name: shelfName } : null);
         panel.innerHTML = `
           <div class="archivist-answer">
             <div class="brain-status" style="display:none;"><div class="brain-steps"></div></div>
@@ -595,6 +626,7 @@ export async function openArchivistPanel({ question, shelfId, username = null }:
             storeAnswer(ctx, {
                 bookId: data.bookId,
                 shelf: data.shelf ?? null,
+                askScope: shelfId ? { id: shelfId, name: shelfName ?? undefined } : null,
                 question,
                 ts: Date.now(),
             });
@@ -605,6 +637,10 @@ export async function openArchivistPanel({ question, shelfId, username = null }:
         if (data.bookId) {
             try {
                 await mountAnswerBook(data.bookId, data.shelf?.name);
+                // The book render REPLACED the panel element — re-stamp the
+                // ask scope onto the new container.
+                const mounted = findPanel();
+                if (mounted) stampAskScope(mounted, shelfId ? { id: shelfId, name: shelfName } : null);
             } catch (e) {
                 log.error('aiArchivist: answer book mount failed', '/components/aiArchivist/archivistPanel.ts', e);
                 const p = findPanel();

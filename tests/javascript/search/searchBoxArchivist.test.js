@@ -214,7 +214,9 @@ describe('submit-driven behaviour', () => {
 
         pressEnter();
         expect(onSubmit).toHaveBeenCalledTimes(1);
-        expect(onSubmit).toHaveBeenCalledWith('what does delinking mean?', '');
+        // 3rd arg = the narrowing sub-scope; null on an instance without one
+        // (see tests/javascript/search/userSearchShelfScope.test.js).
+        expect(onSubmit).toHaveBeenCalledWith('what does delinking mean?', '', null);
     });
 
     it('the Ask button submits', () => {
@@ -226,6 +228,6 @@ describe('submit-driven behaviour', () => {
 
         input().value = 'ask via the button';
         ask().click();
-        expect(onSubmit).toHaveBeenCalledWith('ask via the button', '');
+        expect(onSubmit).toHaveBeenCalledWith('ask via the button', '', null);
     });
 });

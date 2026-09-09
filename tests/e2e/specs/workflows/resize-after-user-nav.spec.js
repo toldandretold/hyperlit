@@ -24,7 +24,16 @@ test('resize edge works after user → reader SPA nav (real mouse only)', async 
   await spa.waitForTransition(page);
   expect(await spa.getStructure(page)).toBe('user');
 
+  // The user page boots to its hero with the feed deferred — press the Library
+  // tab so there are cards to click.
+  await spa.openHomeFeed(page);
+
   // SPA into the reader by clicking the book's library card (user → reader).
+  // NOTE: E2E_READER_BOOK is an ANONYMOUS book (library.user_id IS NULL), so it
+  // is never in the test user's library feed and this always takes the fallback.
+  // The fallback lands on whatever is newest, which usually has no footnote —
+  // hence the skip below. Pointing E2E_READER_BOOK at a book OWNED by
+  // E2E_TEST_USERNAME that has a footnote is what turns this back into coverage.
   const card = page.locator(`.libraryCard a[href$="/${READER_BOOK}"]`).first();
   if (await card.count()) {
     await card.click();
@@ -36,7 +45,12 @@ test('resize edge works after user → reader SPA nav (real mouse only)', async 
 
   // Open a hyperlit-container (footnote / hypercite) so the resize edge exists.
   const trigger = page.locator('sup.footnote-ref, sup[fn-count-id], u.couple[id^="hypercite_"], a.open-icon[id^="hypercite_"]').first();
-  test.skip(!(await trigger.count()), 'book has no footnote/hypercite to open a container');
+  const landedBook = await spa.getCurrentBookId(page).catch(() => 'unknown');
+  test.skip(
+    !(await trigger.count()),
+    `landed book ${landedBook} has no footnote/hypercite to open a container — ` +
+    `the real-drag assertion below did NOT run`,
+  );
   await trigger.click();
   // Wait until the container has slid fully in — the panel is right-docked and
   // animates via transform: translateX(100%)→translateX(0), so for the first few

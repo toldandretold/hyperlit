@@ -217,7 +217,7 @@ shouldIgnoreEvent(event: any) {
       // #user-page-edit-panel: the user-page customization palette — its
       // padding/labels are not inputs, and a tap there must not hide the
       // very buttons the owner is using to edit the page.
-      "#logoNavWrapper, #logoContainer, #userButton, #newBookButton, #editButton, #toc-toggle-button, #settingsButton, #settings-container, #citation-toolbar, #cloudRef, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container, #shelf-preview-overlay, .shelf-preview-overlay, .add-to-shelf-menu, .add-to-shelf-backdrop, .floating-action-menu, .floating-action-menu-backdrop, .custom-scrollbar, .minimap-preview, .journal-hypercite-map, #journal-map-card, #figure-viewer-overlay, #user-page-edit-panel",
+      "#logoNavWrapper, #logoContainer, #userButton, #newBookButton, #editButton, #toc-toggle-button, #settingsButton, #settings-container, #citation-toolbar, #cloudRef, #archiveRef, #archive-container, .custom-alert, .custom-alert-overlay, #hyperlit-container, .hyperlit-overlay-stacked, #ref-overlay, #homepage-search-container, #shelf-preview-overlay, .shelf-preview-overlay, .add-to-shelf-menu, .add-to-shelf-backdrop, .floating-action-menu, .floating-action-menu-backdrop, .custom-scrollbar, .minimap-preview, .journal-hypercite-map, #journal-map-card, #figure-viewer-overlay, #user-page-edit-panel",
     )
   ) {
     return true;
@@ -438,14 +438,19 @@ shouldIgnoreEvent(event: any) {
         this.loadingElements.forEach((element: any) => {
           if (element.id === "topRightContainer") {
             element.style.right = `${Math.max(lavaTopFloor, newPos)}px`;
-          } else if (element.id === "userButtonContainer") {
+          } else if (
+            element.id === "userButtonContainer" ||
+            // logoNavWrapper is the TOP-left corner on the hero pages (the
+            // logo-nav flyout replaced the bare userButton there), so it needs
+            // the card floor its top-right twin has — on the bare-10px floor it
+            // hung off the docked card's left edge. lavaTopFloor is 10 when
+            // there's no lava container, so the reader is unchanged.
+            element.id === "logoNavWrapper"
+          ) {
             element.style.left = `${Math.max(lavaTopFloor, newPos)}px`;
           } else if (element.id === "bottom-right-buttons") {
             element.style.right = `${Math.max(10, newPos)}px`;
-          } else if (
-            element.id === "logoNavWrapper" ||
-            element.id === "bottom-left-buttons"
-          ) {
+          } else if (element.id === "bottom-left-buttons") {
             element.style.left = `${Math.max(10, newPos)}px`;
           }
 

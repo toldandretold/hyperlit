@@ -201,6 +201,9 @@ test.describe.serial('SPA Grand Tour', () => {
     await page.evaluate(() => document.getElementById('homeButtonNav')?.click());
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('home');
+    // Home defers its feed — without this there is no card to SPA back through
+    // and the post-nav resize assertion is silently skipped.
+    await spa.openHomeFeed(page).catch(() => {});
     const card = page.locator(`.libraryCard a[href$="${READER_BOOK}"]`).first();
     if (await card.count()) {
       await card.click();

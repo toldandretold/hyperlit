@@ -123,6 +123,11 @@ describe('KeyboardManager — panel height survives the keyboard closing', () =>
 
   beforeEach(async () => {
     vi.resetModules();
+    // KeyboardManager.init() is gated to touch devices (a desktop Safari
+    // window-resize once tripped the keyboard heuristic and blacked out the
+    // toolbar). These tests document MOBILE behavior, so make jsdom a touch
+    // environment before construction or init() self-disarms.
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 1, writable: true, configurable: true });
     ({ KeyboardManager } = await import('../../../resources/js/components/utilities/keyboardManager'));
   });
 

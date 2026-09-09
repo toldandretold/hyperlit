@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1854,
-    "moduleCount": 390,
+    "fnCount": 1863,
+    "moduleCount": 394,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3796,
+    "edgeCount": 3805,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -174,6 +174,78 @@
       "stage": "citations",
       "module": "citations/citationInserter",
       "leaf": true
+    },
+    {
+      "id": "components/archivePanel/archiveRefButton:destroyArchivePanelListener",
+      "label": "destroyArchivePanelListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/archiveRefButton",
+      "leaf": false
+    },
+    {
+      "id": "components/archivePanel/archiveRefButton:initializeArchivePanelListener",
+      "label": "initializeArchivePanelListener",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/archiveRefButton",
+      "leaf": false
+    },
+    {
+      "id": "components/archivePanel/buildArchiveHtml:buildArchiveHtml",
+      "label": "buildArchiveHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/buildArchiveHtml",
+      "leaf": true
+    },
+    {
+      "id": "components/archivePanel/exportDownload:initExportDownload",
+      "label": "initExportDownload",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/exportDownload",
+      "leaf": false
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.closeContainer",
+      "label": "ArchivePanelManager.closeContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": true
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.constructor",
+      "label": "ArchivePanelManager.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": true
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.destroyDownloads",
+      "label": "ArchivePanelManager.destroyDownloads",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": true
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.openContainer",
+      "label": "ArchivePanelManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": false
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.readScope",
+      "label": "ArchivePanelManager.readScope",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": false
     },
     {
       "id": "components/cloudRef/cloudRefButton:destroySourceButtonListener",
@@ -16682,6 +16754,47 @@
       ]
     },
     {
+      "id": "components/archivePanel/archiveRefButton",
+      "label": "components/archivePanel/archiveRefButton",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/archivePanel/archiveRefButton:destroyArchivePanelListener",
+        "components/archivePanel/archiveRefButton:initializeArchivePanelListener"
+      ]
+    },
+    {
+      "id": "components/archivePanel/buildArchiveHtml",
+      "label": "components/archivePanel/buildArchiveHtml",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/archivePanel/buildArchiveHtml:buildArchiveHtml"
+      ]
+    },
+    {
+      "id": "components/archivePanel/exportDownload",
+      "label": "components/archivePanel/exportDownload",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/archivePanel/exportDownload:initExportDownload"
+      ]
+    },
+    {
+      "id": "components/archivePanel/index",
+      "label": "components/archivePanel/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/archivePanel/index:ArchivePanelManager.closeContainer",
+        "components/archivePanel/index:ArchivePanelManager.constructor",
+        "components/archivePanel/index:ArchivePanelManager.destroyDownloads",
+        "components/archivePanel/index:ArchivePanelManager.openContainer",
+        "components/archivePanel/index:ArchivePanelManager.readScope"
+      ]
+    },
+    {
       "id": "components/cloudRef/cloudRefButton",
       "label": "components/cloudRef/cloudRefButton",
       "stage": "components",
@@ -21688,6 +21801,37 @@
       "source": "citations/citationInserter:insertCitationAtCursor",
       "target": "store:bibliography",
       "rel": "write"
+    },
+    {
+      "id": "components/archivePanel/archiveRefButton:destroyArchivePanelListener__domwrite__dom",
+      "source": "components/archivePanel/archiveRefButton:destroyArchivePanelListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/archivePanel/archiveRefButton:initializeArchivePanelListener__domwrite__dom",
+      "source": "components/archivePanel/archiveRefButton:initializeArchivePanelListener",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/archivePanel/exportDownload:initExportDownload__domwrite__dom",
+      "source": "components/archivePanel/exportDownload:initExportDownload",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.openContainer__call__components/archivePanel/buildArchiveHtml:buildArchiveHtml",
+      "source": "components/archivePanel/index:ArchivePanelManager.openContainer",
+      "target": "components/archivePanel/buildArchiveHtml:buildArchiveHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.openContainer__call__components/archivePanel/exportDownload:initExportDownload",
+      "source": "components/archivePanel/index:ArchivePanelManager.openContainer",
+      "target": "components/archivePanel/exportDownload:initExportDownload",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
@@ -27626,6 +27770,30 @@
       "id": "dom__domread__citations/citationInserter:insertCitationAtCursor",
       "source": "dom",
       "target": "citations/citationInserter:insertCitationAtCursor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/archivePanel/archiveRefButton:destroyArchivePanelListener",
+      "source": "dom",
+      "target": "components/archivePanel/archiveRefButton:destroyArchivePanelListener",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/archivePanel/archiveRefButton:initializeArchivePanelListener",
+      "source": "dom",
+      "target": "components/archivePanel/archiveRefButton:initializeArchivePanelListener",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/archivePanel/exportDownload:initExportDownload",
+      "source": "dom",
+      "target": "components/archivePanel/exportDownload:initExportDownload",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/archivePanel/index:ArchivePanelManager.readScope",
+      "source": "dom",
+      "target": "components/archivePanel/index:ArchivePanelManager.readScope",
       "rel": "domread"
     },
     {
@@ -46042,6 +46210,26 @@
       "kind": "static"
     },
     {
+      "source": "components/archivePanel/archiveRefButton",
+      "target": "components/archivePanel/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/archivePanel/index",
+      "target": "components/archivePanel/buildArchiveHtml",
+      "kind": "static"
+    },
+    {
+      "source": "components/archivePanel/index",
+      "target": "components/archivePanel/exportDownload",
+      "kind": "static"
+    },
+    {
+      "source": "components/archivePanel/index",
+      "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
       "source": "components/cloudRef/cloudRefButton",
       "target": "components/sourceContainer/index",
       "kind": "static"
@@ -47305,6 +47493,11 @@
       "source": "components/utilities/gateFilter",
       "target": "indexedDB/index",
       "kind": "lazy"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "components/archivePanel/archiveRefButton",
+      "kind": "static"
     },
     {
       "source": "components/utilities/registerComponents",

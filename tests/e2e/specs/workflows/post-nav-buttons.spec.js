@@ -80,6 +80,10 @@ test.describe.serial('Post-SPA-nav button health', () => {
     await spa.waitForTransition(page);
     expect(await spa.getStructure(page)).toBe('home');
 
+    // Home defers its feed — without this the card lookup below finds nothing
+    // and the round-trip check silently annotates itself away.
+    await spa.openHomeFeed(page).catch(() => {});
+
     const card = page.locator(`.libraryCard a[href$="${READER_BOOK}"]`).first();
     if (!(await card.count())) {
       test.info().annotations.push({

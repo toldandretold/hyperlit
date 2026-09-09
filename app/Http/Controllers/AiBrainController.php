@@ -660,9 +660,11 @@ class AiBrainController extends Controller
      * no local context, no hyperlight, no sub-book. The answer is written as a
      * PRIVATE standalone book owned by the asker and appended to their
      * "AI Archivist" shelf (find-or-create). Scope is derived, not chosen:
-     * shelfId present ⇒ that PUBLIC shelf's corpus (any public shelf — the
-     * deliberate inverse of query()'s owner-only shelf gate, because the hero
-     * pages scope to journal/archive shelves the visitor does not own),
+     * shelfId present ⇒ that shelf's corpus — any PUBLIC shelf (the deliberate
+     * inverse of query()'s owner-only gate, because the hero pages scope to
+     * journal/archive shelves the visitor does not own) OR any shelf the asker
+     * owns (the /u/ page's tabs include their private shelves; retrieval still
+     * never returns private BOOKS),
      * username present (the /u/{username} hero page; mutually exclusive with
      * shelfId, 422) ⇒ that user's PUBLIC books via the services' 'mine' scope
      * with creatorName = the page's user — same for owner and visitor, keeping
@@ -727,15 +729,25 @@ class AiBrainController extends Controller
             $scopeUserName = $scopeUser->name;
         }
 
-        // PUBLIC-shelf gate. Mirrors ShelfController::publicSearch: read via
-        // pgsql_admin because the shelves RLS select policy is owner-only, which
-        // would make "public shelf" and "no shelf" indistinguishable here.
-        // Private shelves 404 even for their owner — personal-shelf asks belong
-        // to the in-reader flow (query()'s scope picker).
+        // Shelf gate: any PUBLIC shelf (a visitor asking a journal/archive
+        // page's corpus), or ANY shelf the asker owns — the /u/ page's shelf
+        // tabs include the owner's private shelves, and a shelf they can open
+        // is a shelf they may ask about. Someone else's private shelf 404s.
+        // Read via pgsql_admin because the shelves RLS select policy is
+        // owner-only, which would otherwise make "public shelf" and "no shelf"
+        // indistinguishable here.
+        //
+        // NOTE: a private SHELF is not private CONTENT — retrieval still drops
+        // private books in every scope (SearchService/EmbeddingService, locked
+        // by tests/Feature/AiBrain/RetrievalScopeTest.php), so a shelf of
+        // private books answers "no matches", it does not leak them.
         if ($shelfId) {
             $shelf = DB::connection('pgsql_admin')->table('shelves')
                 ->where('id', $shelfId)
-                ->where('visibility', 'public')
+                ->where(function ($q) use ($user) {
+                    $q->where('visibility', 'public')
+                      ->orWhere('creator', $user->name);
+                })
                 ->first(['name']);
             if (!$shelf) {
                 return response()->json(['success' => false, 'message' => 'Shelf not found'], 404);

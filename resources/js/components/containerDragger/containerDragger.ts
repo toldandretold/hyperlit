@@ -82,7 +82,7 @@ class ContainerDragger {
 
   startResize(event: any, resizeHandle: any) {
     // Find the container (hyperlit, toc, source, and stacked containers)
-    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container, #source-container, .hyperlit-container-stacked');
+    this.currentContainer = resizeHandle.closest('#hyperlit-container, #toc-container, #source-container, #archive-container, .hyperlit-container-stacked');
     if (!this.currentContainer) return;
 
     this.isResizing = true;
@@ -90,9 +90,11 @@ class ContainerDragger {
 
     // Detect which container we're working with
     // Stacked containers behave like hyperlit-container (right edge fixed)
+    // archive-container is the source panel's sibling (same right-anchored
+    // glass shell) — same drag geometry; widths save under its own id below.
     this.containerType = this.currentContainer.classList.contains('hyperlit-container-stacked')
       ? 'hyperlit-container'
-      : this.currentContainer.id; // 'hyperlit-container' | 'toc-container' | 'source-container'
+      : (this.currentContainer.id === 'archive-container' ? 'source-container' : this.currentContainer.id);
 
     // Record starting positions
     this.startPos = {
@@ -324,8 +326,8 @@ class ContainerDragger {
           'left': 'auto',
           'transform': 'translateX(0)'
         };
-        (window as any).containerCustomizer.updateContainer('source-container', customizations);
-        console.log('Saved new width for source-container:', customizations);
+        (window as any).containerCustomizer.updateContainer(this.currentContainer.id, customizations);
+        console.log(`Saved new width for ${this.currentContainer.id}:`, customizations);
       }
     }
 

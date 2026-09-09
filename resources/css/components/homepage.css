@@ -29,6 +29,12 @@
      650px→23px, 837px→34px). Above ~830px the column+148px term is narrower
      anyway, so this stops mattering. Used by both docked poses below. */
   --hero-edge-min: clamp(2vw, 6vw - 16px, 40px);
+  /* how far below the viewport's top edge the card rests once docked. NOT 0:
+     the gap is what lets the card's box-shadow fall on the TOP side too, so
+     the full rounded perimeter reads. Shared by BOTH docked poses (scroll-
+     docked hero and .content-active feed) so they land in the same place —
+     they used to disagree (6px vs 0), and the feed pose looked chopped. */
+  --hero-dock-top: 6px;
 }
 
 #lava-lamp-mount .lava-lamp-bg {
@@ -62,8 +68,9 @@ body[data-page="home"] #app-container.lava-lamp-background .fixed-header,
 body[data-page="journal"] #app-container.lava-lamp-background .fixed-header,
 body[data-page="user"] #app-container.lava-lamp-background .fixed-header {
   --p: var(--hero-p, 0);
-  /* docked pose floats 10px below the top edge — corners stay rounded */
-  top: calc(50% * (1 - var(--p)) + 6px * var(--p));
+  /* docked pose floats --hero-dock-top below the top edge — corners stay
+     rounded and the shadow has somewhere to fall on all four sides */
+  top: calc(50% * (1 - var(--p)) + var(--hero-dock-top) * var(--p));
   left: 50%; /* mobile media queries override home's left — re-pin the centre */
   transform: translate(-50%, calc(-50% * (1 - var(--p))));
   /* lerp: centered card width → full header slot (px, not em: header
@@ -162,6 +169,19 @@ body[data-page="home"] #app-container.lava-lamp-background #topRightContainer,
 body[data-page="journal"] #app-container.lava-lamp-background #topRightContainer,
 body[data-page="user"] #app-container.lava-lamp-background #topRightContainer {
   right: calc(var(--hero-edge-min) + 14px);
+}
+
+/* Same floor for the logo-nav column (the hero pages' top-LEFT corner since
+   partials/logo-nav-flyout replaced the bare #userButtonContainer there). It
+   never got one: accountPage.css pins it at left:4px below 768px, which is
+   OUTSIDE the card's --hero-edge-min margin on a phone — the glass pill hung
+   off the card's left edge while the archive cloud sat tucked in on the right.
+   Non-!important on purpose: ≥768px togglePerimeterButtons' inline
+   column-derived left still wins (and now uses the same floor). The reader has
+   no .lava-lamp-background, so its margin-hugging left:4px is untouched. */
+body[data-page="journal"] #app-container.lava-lamp-background #logoNavWrapper,
+body[data-page="user"] #app-container.lava-lamp-background #logoNavWrapper {
+  left: calc(var(--hero-edge-min) + 14px);
 }
 
 
@@ -292,6 +312,26 @@ body[data-page="user"] #app-container.lava-lamp-background #topRightContainer {
   );
 }
 
+/* The shelf header (shelfHeader.ts inserts it as a plain in-flow SIBLING
+   between .fixed-header and .main-content) is the one scrolling thing the feed
+   mask above doesn't cover — without this it stays crisp as it slides up and a
+   band of it shows in the --hero-dock-top gap ABOVE the card. Its fade line is
+   the card's bottom edge exactly (offset 0 in updateCopyFade), and the ramp is
+   12px not 36px: at rest --copy-fade-y is ≈ -4px, so a 36px ramp would wash out
+   the title, while 12px finishes inside the element's own 10px padding-top. */
+#app-container.lava-lamp-background .home-content-wrapper #shelf-header {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 12px)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent var(--copy-fade-y, -200px),
+    #000 calc(var(--copy-fade-y, -200px) + 12px)
+  );
+}
+
 /* feed open → intro gone */
 #app-container.lava-lamp-background.content-active .welcome-copy {
   display: none;
@@ -410,13 +450,18 @@ body[data-page="user"] #app-container.lava-lamp-background #topRightContainer {
 body[data-page="home"] #app-container.lava-lamp-background.content-active .fixed-header,
 body[data-page="journal"] #app-container.lava-lamp-background.content-active .fixed-header,
 body[data-page="user"] #app-container.lava-lamp-background.content-active .fixed-header {
-  top: 0;
+  /* SAME resting place as the scroll-docked hero pose (was 0, which butted the
+     card against the viewport edge: the top of its box-shadow got clipped
+     off-screen and the card read as a chopped-off slab rather than a floating
+     one). No border-radius override either — the base rule's constant 1.5em
+     keeps all four corners rounded, so the whole perimeter is visible exactly
+     as it is when you simply scroll the hero up. */
+  top: var(--hero-dock-top);
   transform: translate(-50%, 0);
   width: 100%;
   /* same +148px overhang as the scroll-docked pose: wraps the JS-positioned
      corner buttons (60px outside the column) with ~14px to spare */
   max-width: min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px);
-  border-radius: 0 0 1em 1em;
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
   /* EXPERIMENT (2026-09-08): keep the card's glass tint + shadow in feed

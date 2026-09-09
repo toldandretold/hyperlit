@@ -834,34 +834,64 @@ class ShelfController extends Controller
      */
     private function userLibraryBooks(string $username, bool $includePrivate): array
     {
-        $sanitized = str_replace(' ', '', $username);
-
-        return DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $username)
-            ->whereIn('visibility', $includePrivate ? ['public', 'private'] : ['public'])
-            ->whereNotIn('book', [
-                $sanitized,
-                $sanitized . 'Private',
-                $sanitized . 'All',
-                $sanitized . 'Account',
-                $sanitized . 'About',
-            ])
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
+        // One definition of "a user's real books" — shared with the archive
+        // export corpus (ArchiveCorpusResolver), so search and export can't
+        // drift on the synthetic-book exclusions.
+        return app(\App\Services\Export\ArchiveCorpusResolver::class)
+            ->userLibraryQuery($username, $includePrivate)
             ->pluck('book')
             ->toArray();
     }
 
     /**
+     * A shelf's member books as this viewer may see them — the corpus when the
+     * /u/{username} search box is narrowed to an open shelf tab.
+     *
+     * Public members always; the page's OWNER additionally sees their own
+     * private books inside their shelf, which is the same rule the un-narrowed
+     * owner search follows (userLibraryBooks with $includePrivate). Members
+     * created by OTHER users stay in scope while public — the shelf feed lists
+     * them, so a search of that shelf must reach them too.
+     *
+     * Read via pgsql_admin for the same reason shelfPublicBooks is: shelf_items'
+     * RLS select policy is owner-only, so a visitor's session sees every shelf
+     * as empty.
+     */
+    private function shelfBooksForViewer(string $shelfId, bool $includePrivate, string $ownerName): array
+    {
+        return DB::connection('pgsql_admin')->table('shelf_items')
+            ->join('library', 'shelf_items.book', '=', 'library.book')
+            ->where('shelf_items.shelf_id', $shelfId)
+            ->where(function ($q) use ($includePrivate, $ownerName) {
+                $q->where('library.visibility', 'public');
+                if ($includePrivate) {
+                    $q->orWhere(function ($inner) use ($ownerName) {
+                        $inner->where('library.visibility', 'private')
+                              ->where('library.creator', $ownerName);
+                    });
+                }
+            })
+            ->pluck('library.book')
+            ->toArray();
+    }
+
+    /**
      * Search within a user's library — the /u/{username} hero search box.
-     * GET /api/public/library/{username}/search?q=query[&mode=library|semantic]
+     * GET /api/public/library/{username}/search?q=query[&mode=library|semantic][&shelf={uuid}]
      *
      * No auth required; a signed-in OWNER (resolved via the sanctum guard —
      * this route sits outside auth middleware) searches their private books
      * too, everyone else sees public only. Modes mirror publicSearch above:
      * mode=library (titles/authors), mode=semantic (embeddings), default
      * full-text over node content.
+     *
+     * `shelf` narrows the corpus to one of THIS user's shelves — the page's
+     * open shelf tab, so the box searches what the feed is showing. Unlike
+     * publicSearch (a standalone public endpoint), a PRIVATE shelf is allowed
+     * for its owner: the tab only exists in an owner session, and the owner
+     * search already reaches their private books. A shelf belonging to anyone
+     * else 404s, so a user page can't be used to proxy-search someone else's
+     * shelf.
      */
     public function publicSystemSearch(Request $request, string $username)
     {
@@ -872,6 +902,30 @@ class ShelfController extends Controller
 
         $viewer = Auth::guard('sanctum')->user();
         $isOwner = $viewer && $viewer->name === $user->name;
+
+        // Optional shelf narrowing. The uuid shape is checked BEFORE the query:
+        // `shelves.id` is a uuid column, so a junk value would raise a PG cast
+        // error instead of a clean 404.
+        $shelfId = trim((string) $request->input('shelf', ''));
+        $shelf = null;
+        if ($shelfId !== '') {
+            $shelf = Str::isUuid($shelfId)
+                ? DB::connection('pgsql_admin')->table('shelves')
+                    ->where('id', $shelfId)
+                    ->where('creator', $user->name)
+                    ->when(!$isOwner, fn ($q) => $q->where('visibility', 'public'))
+                    ->first(['id', 'name'])
+                : null;
+            if (!$shelf) {
+                return response()->json(['error' => 'Shelf not found'], 404);
+            }
+        }
+
+        // The corpus for every mode below: the shelf's members when narrowed,
+        // the user's whole library otherwise.
+        $corpus = fn (): array => $shelf
+            ? $this->shelfBooksForViewer((string) $shelf->id, $isOwner, $user->name)
+            : $this->userLibraryBooks($user->name, $isOwner);
 
         $query = $request->input('q', '');
         $limit = min((int) $request->input('limit', 50), 50);
@@ -889,7 +943,7 @@ class ShelfController extends Controller
         // mode=library: titles & authors within the user's books (the hero
         // box's default mode — journal-page parity, user-scoped).
         if ($request->input('mode') === 'library') {
-            $books = $this->userLibraryBooks($user->name, $isOwner);
+            $books = $corpus();
 
             if (empty($books)) {
                 $results = [];
@@ -954,19 +1008,23 @@ class ShelfController extends Controller
                 ], 503);
             }
 
-            $run = function () use ($searchService, $queryEmbedding, $limit, $user, $isOwner) {
+            $run = function () use ($searchService, $queryEmbedding, $limit, $corpus) {
                 $results = $searchService->runSemanticNodeSearch(
                     $queryEmbedding,
                     $limit,
-                    $this->userLibraryBooks($user->name, $isOwner),
+                    $corpus(),
                 );
                 return ['results' => $results, 'count' => $results->count()];
             };
 
+            // Cache key carries the shelf: the same query against the library
+            // and against one of its shelves are different result sets.
             $payload = $isOwner
                 ? $run()
                 : Cache::remember(
-                    'search:semantic:user:' . str_replace(' ', '', $user->name) . ':' . md5($norm) . ':' . $limit,
+                    'search:semantic:user:' . str_replace(' ', '', $user->name)
+                        . ($shelf ? ':shelf:' . $shelf->id : '')
+                        . ':' . md5($norm) . ':' . $limit,
                     60,
                     $run,
                 );
@@ -990,7 +1048,7 @@ class ShelfController extends Controller
             ]);
         }
 
-        $books = $this->userLibraryBooks($user->name, $isOwner);
+        $books = $corpus();
 
         if (empty($books)) {
             return response()->json([

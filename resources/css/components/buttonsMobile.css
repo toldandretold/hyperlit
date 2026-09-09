@@ -8,7 +8,8 @@
     font-size: 12px;
   }
 
-  #cloudRef svg {
+  #cloudRef svg,
+  #archiveRef svg {
     width: 24px !important;
   }
 

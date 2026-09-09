@@ -28,6 +28,9 @@ test.describe.serial('Library ↔ user-page home-book sync', () => {
       await spa.navigateToUserPage(page);
       await spa.waitForTransition(page);
       expect(await spa.getStructure(page)).toBe('user');
+      // The user page boots to its hero with the feed deferred — press the
+      // Library tab so the cards this test asserts on actually render.
+      await spa.openHomeFeed(page);
     };
 
     /* ── 1. CREATE via the home + → Create flow ───────────────────────── */

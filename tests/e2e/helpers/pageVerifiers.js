@@ -189,6 +189,15 @@ export async function verifyUserPage(page, spa) {
   // Drop overlay should exist on user pages too (registered for both home + user)
   expect(await page.evaluate(() => !!document.getElementById('page-drop-overlay'))).toBe(true);
 
+  // Top-right archive button (the cloud opening the whole-library panel) is
+  // wired with its scope + listener; #newBookButton lives in the logo flyout.
+  expect(await page.evaluate(() => {
+    const b = document.getElementById('archiveRef');
+    return !!(b && b.dataset.scopeType === 'user' && b.dataset.scopeId && b.dataset.archiveListenerAttached);
+  })).toBe(true);
+  expect(await page.evaluate(() =>
+    !!document.querySelector('#logoNavMenu #newBookButton'))).toBe(true);
+
   // Synthetic drop on the user page — same flow as home
   await dropFileOnWindow(page, {
     name: 'tour-user.md',

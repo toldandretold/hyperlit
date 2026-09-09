@@ -279,12 +279,20 @@ class AuthController extends Controller
     /**
      * Create a new anonymous session token with cache-based rate limiting.
      * Shared by createAnonymousSession() and getSessionInfo() so BOTH paths
-     * enforce the per-IP limit (10/hour). Returns the token string on success,
-     * or null if rate-limited.
+     * enforce the per-IP limit (10/hour in production; relaxed in `local` only —
+     * see below). Returns the token string on success, or null if rate-limited.
      */
     private function createAnonymousToken(Request $request): ?string
     {
-        $maxTokensPerHour = 10;
+        // 10/hour per IP in production. In LOCAL only, relax it for the same
+        // reason routes/api.php relaxes $loginThrottle/$registerThrottle: the
+        // whole e2e suite runs from 127.0.0.1, and every spec that opens a fresh
+        // anonymous context (`storageState: { cookies: [], origins: [] }`) mints
+        // one more token. A full run blows a 10/hour ceiling well before it
+        // finishes, after which every anonymous page load 429s and the anon
+        // specs fail on whatever they were really testing. PHPUnit
+        // (APP_ENV=testing) still exercises the production number.
+        $maxTokensPerHour = app()->environment('local') ? 1000 : 10;
         $ip = $request->ip();
 
         try {

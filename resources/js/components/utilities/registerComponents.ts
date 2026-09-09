@@ -70,6 +70,11 @@ import {
 } from '../cloudRef/cloudRefButton';
 
 import {
+  initializeArchivePanelListener,
+  destroyArchivePanelListener
+} from '../archivePanel/archiveRefButton';
+
+import {
   initializeLogoNav,
   destroyLogoNav
 } from '../logoNav/logoNav';
@@ -253,7 +258,7 @@ export function registerAllComponents() {
     name: 'openBookContainer',
     initFn: initializeOpenBookContainer,
     destroyFn: destroyOpenBookContainer,
-    pages: ['reader', 'user'], // only pages whose logo-nav menu has the Open row
+    pages: ['reader', 'user', 'journal'], // only pages whose logo-nav menu has the Open row
     dependencies: [],
     required: false
   });
@@ -321,6 +326,18 @@ export function registerAllComponents() {
     initFn: initializeSourceButtonListener,
     destroyFn: destroySourceButtonListener,
     pages: ['reader'],
+    dependencies: [],
+    required: false
+  });
+
+  // The top-right #archiveRef cloud on hero pages: opens the archive panel
+  // (whole-corpus citation + vault/SQLite downloads). Archive home runs
+  // pageType 'journal', so 'journal' covers /a/{slug} too.
+  buttonRegistry.register({
+    name: 'archivePanel',
+    initFn: initializeArchivePanelListener,
+    destroyFn: destroyArchivePanelListener,
+    pages: ['user', 'journal'],
     dependencies: [],
     required: false
   });
