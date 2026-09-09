@@ -3,7 +3,7 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v44'; // media/audio SW bypass (iOS cookie drop on proxied <img> → RLS 404)
+const CACHE_VERSION = 'v45'; // media/audio SW bypass (iOS cookie drop on proxied <img> → RLS 404)
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 
