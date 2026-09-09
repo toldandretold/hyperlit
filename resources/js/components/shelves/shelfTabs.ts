@@ -15,6 +15,9 @@ const STORAGE_KEY = 'homepage_open_shelves';
 const ACTIVE_SHELF_KEY = 'homepage_active_shelf_id';
 let shelvesCache: Shelf[] | null = null;
 let pickerVisible = false;
+// Set while the (body-mounted) shelf picker is open: removes it AND drops its
+// document-level dismiss/scroll listeners. Every close path goes through this.
+let closePicker: (() => void) | null = null;
 
 // Mirror the active shelf into history.state so back/forward restores
 // the correct tab per history entry.
@@ -297,10 +300,8 @@ function persistOpenTabs() {
 async function toggleShelfPicker(e: any) {
     e.stopPropagation();
     const trigger = e.currentTarget; // capture before await
-    const existing = document.getElementById('shelf-picker-dropdown');
-    if (existing) {
-        existing.remove();
-        pickerVisible = false;
+    if (document.getElementById('shelf-picker-dropdown')) {
+        closePicker?.();
         return;
     }
 
@@ -356,31 +357,63 @@ function renderShelfPicker(shelves: any, trigger: any) {
         item.dataset.shelfId = shelf.id;
         item.addEventListener('click', (e) => {
             e.stopPropagation();
-            dropdown.remove();
-            pickerVisible = false;
+            closePicker?.();
             openShelf(shelf.id, shelf.name, shelf.default_sort || 'recent');
         });
         dropdown.appendChild(item);
     }
 
-    // Position below trigger, clamped to viewport
-    const rect = trigger.getBoundingClientRect();
-    dropdown.style.position = 'absolute';
-    dropdown.style.top = (rect.bottom + window.scrollY + 4) + 'px';
     document.body.appendChild(dropdown);
-    const dropdownWidth = dropdown.offsetWidth;
-    const maxLeft = window.innerWidth - dropdownWidth - 8;
-    dropdown.style.left = Math.min(rect.left, maxLeft) + 'px';
+    positionPicker(dropdown, trigger);
 
     // Dismiss on outside click
     const dismiss = (e: Event) => {
-        if (!dropdown.contains(e.target as Node | null) && e.target !== trigger) {
-            dropdown.remove();
-            pickerVisible = false;
-            document.removeEventListener('click', dismiss);
-        }
+        if (!dropdown.contains(e.target as Node | null) && e.target !== trigger) closePicker?.();
     };
+    // The page scroller is .home-content-wrapper (not the window) AND the
+    // trigger rides the hero card's scroll-linked docking transform, so a
+    // body-mounted menu can't track it — close instead of drifting away.
+    const onScrollOrResize = () => closePicker?.();
+
+    closePicker = () => {
+        dropdown.remove();
+        pickerVisible = false;
+        document.removeEventListener('click', dismiss);
+        document.removeEventListener('scroll', onScrollOrResize, true);
+        window.removeEventListener('resize', onScrollOrResize);
+        closePicker = null;
+    };
+
     setTimeout(() => document.addEventListener('click', dismiss), 0);
+    document.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+}
+
+/**
+ * Place the picker in VIEWPORT coordinates (position: fixed) and size it to the
+ * space actually available, so it can never run off the bottom of the screen.
+ * Prefers below the trigger; flips above when below is cramped and above is
+ * roomier (the `+` sits mid-page once the hero card has docked).
+ */
+function positionPicker(dropdown: HTMLElement, trigger: HTMLElement): void {
+    const rect = trigger.getBoundingClientRect();
+    const GAP = 6;
+    const EDGE = 12; // breathing room against the viewport edge
+    const below = window.innerHeight - rect.bottom - GAP - EDGE;
+    const above = rect.top - GAP - EDGE;
+    const flip = below < 200 && above > below;
+
+    dropdown.style.position = 'fixed';
+    dropdown.style.maxHeight = `${Math.max(120, Math.floor(flip ? above : below))}px`;
+    if (flip) {
+        dropdown.style.top = '';
+        dropdown.style.bottom = `${Math.round(window.innerHeight - rect.top + GAP)}px`;
+    } else {
+        dropdown.style.bottom = '';
+        dropdown.style.top = `${Math.round(rect.bottom + GAP)}px`;
+    }
+    const maxLeft = window.innerWidth - dropdown.offsetWidth - 8;
+    dropdown.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
 }
 
 /**
@@ -425,8 +458,7 @@ function showNewShelfForm(dropdown: any) {
             const data = await resp.json();
             if (data.success && data.shelf) {
                 shelvesCache = null; // Invalidate cache
-                dropdown.remove();
-                pickerVisible = false;
+                closePicker?.();
                 openShelf(data.shelf.id, data.shelf.name, 'recent');
             } else if (data.error) {
                 alert(data.error);
@@ -452,11 +484,9 @@ export function destroyShelfTabs() {
         picker.removeEventListener('click', toggleShelfPicker);
     }
 
-    // Remove any open dropdown
-    const dropdown = document.getElementById('shelf-picker-dropdown');
-    if (dropdown) {
-        dropdown.remove();
-    }
+    // Remove any open dropdown (+ its document listeners)
+    closePicker?.();
+    document.getElementById('shelf-picker-dropdown')?.remove();
 
     // Remove dynamically created shelf tab buttons
     document.querySelectorAll('.shelf-tab').forEach(btn => btn.remove());

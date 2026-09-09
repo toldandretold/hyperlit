@@ -54,8 +54,10 @@
      to reach it, and the wheel fell through to the page. Being a self-scrolling
      overlay outside the content wrapper, #shelf-picker-dropdown is registered in
      wheelScrollForwarder's SCROLLABLE_OVERLAY_SEL (CLAUDE.md §"Overlay surfaces"
-     check 5) — without that the wheel is STOLEN and the page scrolls instead. */
-  max-height: min(60vh, 420px);
+     check 5) — without that the wheel is STOLEN and the page scrolls instead.
+     The max-height is NOT set here: a viewport-relative cap still overflows when
+     the trigger sits low on the page, so positionPicker() measures the space
+     actually below (or above) the `+` and sets it inline. */
   overflow-y: auto;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 9999;
