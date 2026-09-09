@@ -370,12 +370,26 @@ function renderShelfPicker(shelves: any, trigger: any) {
     const dismiss = (e: Event) => {
         if (!dropdown.contains(e.target as Node | null) && e.target !== trigger) closePicker?.();
     };
-    // The page scroller is .home-content-wrapper (not the window) AND the
-    // trigger rides the hero card's scroll-linked docking transform, so a
-    // body-mounted menu can't track it — close instead of drifting away.
-    const onScrollOrResize = () => closePicker?.();
+    // The `+` lives in the position:fixed .fixed-header, so it never scrolls
+    // away — it DOCKS (the hero's scroll-linked transform) and the available
+    // space below it changes as it moves. So re-place the menu on scroll rather
+    // than closing it. rAF-coalesced: one measure+write per frame, not per event
+    // (CLAUDE.md §"No new raw console.*" logging rules aside, scroll handlers are
+    // the hot path). Ignore the menu's OWN scroll — capture phase sees it too,
+    // and repositioning on it would fight the user's finger.
+    let rafId = 0;
+    const onScrollOrResize = (e?: Event) => {
+        if (e?.target instanceof Node && dropdown.contains(e.target)) return;
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+            rafId = 0;
+            positionPicker(dropdown, trigger);
+        });
+    };
 
     closePicker = () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = 0;
         dropdown.remove();
         pickerVisible = false;
         document.removeEventListener('click', dismiss);

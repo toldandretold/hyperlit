@@ -92,7 +92,8 @@ export function showShelfHeader(opts: any) {
         let dropdownOpen = false;
         let dropdown: any = null;
         let outsideHandler: ((e: Event) => void) | null = null;
-        let scrollHandler: (() => void) | null = null;
+        let scrollHandler: ((e?: Event) => void) | null = null;
+        let rafId = 0;
 
         function closeDropdown() {
             if (dropdown) {
@@ -108,6 +109,7 @@ export function showShelfHeader(opts: any) {
                 window.removeEventListener('resize', scrollHandler);
                 scrollHandler = null;
             }
+            if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
             dropdownOpen = false;
         }
 
@@ -178,9 +180,22 @@ export function showShelfHeader(opts: any) {
                 if (outsideHandler) document.addEventListener('click', outsideHandler);
             }, 0);
 
-            // The feed scrolls .home-content-wrapper, not the window, so a
-            // body-mounted popup can't track the title — close instead.
-            scrollHandler = () => closeDropdown();
+            // The title is IN-FLOW in #shelf-header, so it really does scroll
+            // with the feed: re-place the menu each frame so it stays glued to
+            // it (rAF-coalesced — one measure+write per frame, not per event),
+            // and only close once the title has actually left the viewport.
+            // Ignore the menu's OWN scroll: capture phase sees it too, and
+            // repositioning on it would fight the user's finger.
+            scrollHandler = (e?: Event) => {
+                if (e?.target instanceof Node && dropdown?.contains(e.target)) return;
+                if (rafId) return;
+                rafId = requestAnimationFrame(() => {
+                    rafId = 0;
+                    const rect = title.getBoundingClientRect();
+                    if (rect.bottom < 0 || rect.top > window.innerHeight) closeDropdown();
+                    else positionDropdown();
+                });
+            };
             document.addEventListener('scroll', scrollHandler, true);
             window.addEventListener('resize', scrollHandler);
         }
@@ -188,7 +203,10 @@ export function showShelfHeader(opts: any) {
         function positionDropdown() {
             if (!dropdown) return;
             const rect = title.getBoundingClientRect();
-            dropdown.style.top = `${rect.bottom + 4}px`;
+            dropdown.style.top = `${Math.round(rect.bottom + 4)}px`;
+            // Sized to the space actually below the title, so it can't run off
+            // the bottom of the screen (it scrolls internally if it has to).
+            dropdown.style.maxHeight = `${Math.max(120, Math.floor(window.innerHeight - rect.bottom - 16))}px`;
             const maxLeft = window.innerWidth - dropdown.offsetWidth - 8;
             dropdown.style.left = `${Math.max(8, Math.min(rect.left, maxLeft))}px`;
         }

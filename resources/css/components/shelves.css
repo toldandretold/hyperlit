@@ -233,6 +233,10 @@
   padding: 4px;
   z-index: 9999;
   min-width: 100px;
+  /* max-height is set inline by positionDropdown() from the space below the
+     title; scrolls internally if it ever needs to. Listed in
+     wheelScrollForwarder's SCROLLABLE_OVERLAY_SEL so the wheel isn't stolen. */
+  overflow-y: auto;
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 .library-filter-dropdown button {
