@@ -105,8 +105,11 @@ for (const name of readdirSync(STAGING)) {
 const manifestDst = join(LIVE, 'manifest.json');
 renameSync(manifestSrc, manifestDst);
 // rename() preserves the staged mtime; stamp it with the publish time so
-// "when did this deploy land" reads honestly off the filesystem.
-utimesSync(manifestDst, now, now);
+// "when did this deploy land" reads honestly off the filesystem — and so the
+// invariant stays checkable on the server with:
+//   find assets -type f -newer manifest.json      # must print NOTHING
+// (the `assets` DIRECTORY will be newer — its mtime bumps as files move in.)
+utimesSync(manifestDst, new Date(), new Date());
 
 rmSync(STAGING, { recursive: true, force: true });
 

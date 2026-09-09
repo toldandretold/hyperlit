@@ -46,11 +46,19 @@
   border-radius: var(--border-radius-xl);
   padding: 6px;
   min-width: 160px;
+  /* Capped: shelf names run to a full sentence ("Harvested from: …"), and
+     without this the menu grew to the longest one and spanned the viewport.
+     Names WRAP inside the cap instead (see .shelf-picker-item). */
+  max-width: min(320px, calc(100vw - 32px));
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   z-index: 9999;
 }
 .shelf-picker-item {
-  padding: 8px 12px;
+  /* Hanging indent: first line at 12px, wrapped lines at 24px, so a two-line
+     name reads as one entry rather than two. */
+  padding: 8px 12px 8px 24px;
+  text-indent: -12px;
+  overflow-wrap: anywhere;
   color: var(--color-text);
   cursor: pointer;
   border-radius: var(--border-radius-md);
