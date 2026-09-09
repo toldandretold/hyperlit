@@ -1,4 +1,5 @@
 import { asBookId } from "../indexedDB/types";
+import { book as currentBook } from '../app';
 import { openDatabase } from '../indexedDB/index';
 import {
     loadNodesToIndexedDB,
@@ -16,6 +17,54 @@ import { reconvertSyncActive } from '../utilities/reconvertHandoff';
  * ~50 chunks ≈ ~5000 nodes — keeps each response under ~10MB.
  */
 const CHUNKS_PER_BATCH = 50;
+
+/* ── Book-scoped in-flight registry ───────────────────────────────────────
+ * A background download belongs to ONE book, but the SPA can navigate to a
+ * different book while it is still running — the user page loads its own
+ * aggregate book (`{username}All`) and its download regularly outlives the
+ * nav into a reader. With a single global boolean that produced two bugs:
+ *   1. Every "wait until my book is fully downloaded" consumer (edit mode,
+ *      paste, exports, internal nav) parked on the OTHER book's download —
+ *      the edit button sat dead for seconds after a user→reader nav.
+ *   2. The newly-entered book's own download was skipped by the
+ *      double-download guard, so it never got its remaining chunks.
+ * The registry is keyed by book id so both are impossible; `isCurrentBook`
+ * additionally fences the GLOBAL writes at the end of a download (see below).
+ */
+const inFlight = new Set<string>();
+
+function markInFlight(bookId: string, active: boolean): void {
+    if (active) inFlight.add(bookId);
+    else inFlight.delete(bookId);
+    // Legacy mirror for any reader of the old flag (kept truthful: "some
+    // book is downloading"). New code asks isBackgroundDownloadInProgress().
+    (window as any)._backgroundDownloadInProgress = inFlight.size > 0;
+}
+
+/** Is a background download running — for `bookId` if given, for ANY book otherwise? */
+export function isBackgroundDownloadInProgress(bookId?: string | null): boolean {
+    return bookId ? inFlight.has(String(bookId)) : inFlight.size > 0;
+}
+
+/**
+ * Is `bookId` the book currently rendered? Sub-books count as their parent
+ * (a `book_x/Fn3` download belongs to the `book_x` reader that opened it).
+ *
+ * TWO sources of truth on purpose: `book` from app.ts (kept current by
+ * setCurrentBook on SPA nav) AND the rendered `.main-content` id — home/user
+ * feed pages mint that container lazily when a tab is pressed, long after
+ * app.ts captured `book` from `body[data-book]` (the username on /u/ pages),
+ * so the feed's own download would otherwise read as "not current".
+ */
+function isCurrentBook(bookId: string): boolean {
+    const target = String(bookId).split('/')[0];
+    const candidates = [
+        String(currentBook || ''),
+        document.querySelector<HTMLElement>('.main-content')?.id || '',
+    ].filter(Boolean);
+    if (!candidates.length) return true; // nothing to compare against — behave as before
+    return candidates.some((c) => c === bookId || c.split('/')[0] === target);
+}
 
 /**
  * After the first chunk is rendered, download ALL remaining book data
@@ -40,13 +89,15 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
         return;
     }
 
-    // Guard against double-download
-    if ((window as any)._backgroundDownloadInProgress) {
-        verbose.content('Background download already in progress, skipping', 'backgroundDownloader.js');
+    // Guard against double-download OF THIS BOOK — another book's download
+    // (e.g. the user page's aggregate book, still finishing after the nav)
+    // must not suppress this one.
+    if (inFlight.has(bookId)) {
+        verbose.content(`Background download already in progress for ${bookId}, skipping`, 'backgroundDownloader.js');
         return;
     }
 
-    (window as any)._backgroundDownloadInProgress = true;
+    markInFlight(bookId, true);
 
     try {
         verbose.content(`Starting batched background download for: ${bookId}`, 'backgroundDownloader.js');
@@ -118,7 +169,8 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
 
         // === Atomic swap: same semantics as before ===
 
-        // Upsert all nodes to IndexedDB
+        // Upsert all nodes to IndexedDB — book-keyed, so this is always safe
+        // and always worth doing, even if the reader moved on meanwhile.
         const db = await openDatabase();
         await loadNodesToIndexedDB(db, allNodes);
 
@@ -129,8 +181,13 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             lazyLoader.chunkManifest = null;
         }
 
-        // Update window.nodes for other consumers
-        if (allNodes.length) {
+        // Everything below is GLOBAL / DOM-scoped state owned by whatever book
+        // is on screen NOW. A download that outlived its nav must not touch it:
+        // `window.nodes` would hand the rendered book another book's dataset,
+        // and rebuildAndRenumber walks the LIVE DOM — renumbering the displayed
+        // book's sups from this book's footnote map and then persisting that
+        // DOM back into THIS book's IDB rows (cross-book content corruption).
+        if (allNodes.length && isCurrentBook(bookId)) {
             (window as any).nodes = allNodes;
 
             // Rebuild footnote map with FULL dataset (initial chunk only had ~100 nodes),
@@ -138,6 +195,11 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             // The persist step is critical: without it, DOM and IDB diverge and the
             // periodic integrity check trips a self-heal on every affected node.
             await rebuildAndRenumber(asBookId(bookId), allNodes);
+        } else if (allNodes.length) {
+            verbose.content(
+                `Navigated away from ${bookId} — IDB updated, skipping global/DOM swap`,
+                'backgroundDownloader.js'
+            );
         }
 
         verbose.content(
@@ -158,38 +220,51 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             detail: { bookId, error: error.message }
         }));
     } finally {
-        (window as any)._backgroundDownloadInProgress = false;
+        markInFlight(bookId, false);
     }
 }
 
 /**
- * Promise-based helper for code that needs to wait for background download.
- * Used by edit operations (paste, renumber) that need all nodes.
- * Resolves on either success or failure.
+ * Promise-based helper for code that needs to wait for a background download.
+ * Used by edit operations (edit mode, paste, exports, internal nav) that need
+ * all nodes.  Resolves on either success or failure.
+ *
+ * ALWAYS pass the book you actually care about: without it this waits for the
+ * next completion of ANY book, which is how the edit button ended up parked on
+ * the user page's aggregate-book download after a user→reader navigation.
  */
-export function waitForBackgroundDownload(timeoutMs = 30000): Promise<void> {
-    if (!(window as any)._backgroundDownloadInProgress) {
+export function waitForBackgroundDownload(bookId?: string | null, timeoutMs = 30000): Promise<void> {
+    const target = bookId ? String(bookId) : null;
+    if (!isBackgroundDownloadInProgress(target)) {
         return Promise.resolve();
     }
 
     return new Promise((resolve) => {
-        const handler = () => {
+        const finish = () => {
             clearTimeout(timer);
-            window.removeEventListener('backgroundDownloadComplete', completeHandler);
-            window.removeEventListener('backgroundDownloadFailed', failHandler);
+            window.removeEventListener('backgroundDownloadComplete', handler);
+            window.removeEventListener('backgroundDownloadFailed', handler);
             resolve();
         };
-        const completeHandler = handler;
-        const failHandler = handler;
+        // Ignore completions belonging to another book — but always re-check
+        // the registry, so a download that ended without its event still frees us.
+        const handler = (e: Event) => {
+            const done = (e as CustomEvent)?.detail?.bookId;
+            if (target && done && String(done) !== target) {
+                if (!isBackgroundDownloadInProgress(target)) finish();
+                return;
+            }
+            finish();
+        };
 
         const timer = setTimeout(() => {
-            window.removeEventListener('backgroundDownloadComplete', completeHandler);
-            window.removeEventListener('backgroundDownloadFailed', failHandler);
+            window.removeEventListener('backgroundDownloadComplete', handler);
+            window.removeEventListener('backgroundDownloadFailed', handler);
             resolve(); // Resolve anyway after timeout
         }, timeoutMs);
 
-        window.addEventListener('backgroundDownloadComplete', completeHandler, { once: true });
-        window.addEventListener('backgroundDownloadFailed', failHandler, { once: true });
+        window.addEventListener('backgroundDownloadComplete', handler);
+        window.addEventListener('backgroundDownloadFailed', handler);
     });
 }
 
@@ -274,8 +349,9 @@ async function fullDownloadFallback(bookId: string, lazyLoader: any) {
         lazyLoader.chunkManifest = null;
     }
 
-    // Update window.nodes for other consumers
-    if (data.nodes?.length) {
+    // Update window.nodes for other consumers — only while this book is still
+    // the rendered one (see the fence in the batched path above).
+    if (data.nodes?.length && isCurrentBook(bookId)) {
         (window as any).nodes = data.nodes;
         // Rebuild + update DOM + persist (see comment in main path above).
         await rebuildAndRenumber(asBookId(bookId), data.nodes);

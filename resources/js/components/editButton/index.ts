@@ -87,10 +87,13 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
     }
   }
 
-  // Wait for background download if still in progress (chunked lazy loading).
-  if ((window as any)._backgroundDownloadInProgress) {
+  // Wait for THIS book's background download if still in progress (chunked lazy
+  // loading). Scoped by book on purpose: an unrelated download (the user page's
+  // aggregate book, still finishing after a user→reader nav) used to hold the
+  // old global flag and left the edit button dead for seconds.
+  {
     const { waitForBackgroundDownload } = await import('../../pageLoad/index');
-    await waitForBackgroundDownload();
+    await waitForBackgroundDownload(book);
   }
 
   // THE SINGLE, CORRECT PERMISSION CHECK

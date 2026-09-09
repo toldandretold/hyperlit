@@ -47,4 +47,8 @@ export { updatePageLoadProgress, hidePageLoadProgress } from './progress';
 export { fetchInitialChunk, resolveBootstrapTarget } from './initialChunk';
 
 // backgroundDownload
-export { backgroundDownloadRemainingChunks, waitForBackgroundDownload } from './backgroundDownload';
+export {
+  backgroundDownloadRemainingChunks,
+  waitForBackgroundDownload,
+  isBackgroundDownloadInProgress,
+} from './backgroundDownload';

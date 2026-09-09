@@ -95,10 +95,11 @@ export async function handleLargePaste(
 
   event.preventDefault();
 
-  // Wait for background download if still in progress (chunked lazy loading)
-  if ((window as any)._backgroundDownloadInProgress) {
+  // Wait for THIS book's background download if still in progress (chunked lazy
+  // loading) — scoped by book so an unrelated download can't stall the paste.
+  {
     const { waitForBackgroundDownload } = await import('../../pageLoad/backgroundDownload');
-    await waitForBackgroundDownload();
+    await waitForBackgroundDownload(insertionPoint?.book);
   }
 
   // Show progress overlay for large paste operation

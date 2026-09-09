@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1863 functions in 394 modules · 10 object stores · 10 PG tables · 3805 edges
+**MarkdownDB** schema v28 · 1864 functions in 394 modules · 10 object stores · 10 PG tables · 3808 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1344,7 +1344,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `trimWindow` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
 | `handleDeletedBookAccess` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `handlePrivateBookAccessDenied` | `pageLoad/accessGuards` | — | — | read/write | — |
-| `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | — | `↓route:/api/database-to-indexeddb/books/{}/data` |
+| `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
+| `isBackgroundDownloadInProgress` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `waitForBackgroundDownload` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `buildChainFromUrl` | `pageLoad/containerChain` | `footnotes` `hyperlights` | — | — | — |
 | `openContainerChain` | `pageLoad/containerChain` | — | — | read | — |
@@ -1876,7 +1877,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 284
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 283
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2120,7 +2121,6 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/loadHyperText` → `hyperlights/deletion`
 - `pageLoad/loadHyperText` → `indexedDB/hydration/rebuild`
 - `pageLoad/loadHyperText` → `lazyLoader/utilities/cacheState`
-- `pageLoad/loadHyperText` → `pageLoad/backgroundDownload`
 - `pageLoad/loadHyperText` → `pageLoad/progress`
 - `pageLoad/loadHyperText` → `scrolling/userScrollDetection`
 - `pageLoad/onlineRetry` → `components/cloudRef/editIndicator`

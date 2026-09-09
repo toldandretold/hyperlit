@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1863,
+    "fnCount": 1864,
     "moduleCount": 394,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3805,
+    "edgeCount": 3808,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12206,6 +12206,14 @@
       "leaf": false
     },
     {
+      "id": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "label": "isBackgroundDownloadInProgress",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/backgroundDownload",
+      "leaf": true
+    },
+    {
       "id": "pageLoad/backgroundDownload:waitForBackgroundDownload",
       "label": "waitForBackgroundDownload",
       "kind": "fn",
@@ -20403,6 +20411,7 @@
       "band": "sync",
       "fnIds": [
         "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+        "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
         "pageLoad/backgroundDownload:waitForBackgroundDownload"
       ]
     },
@@ -30791,6 +30800,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "source": "dom",
+      "target": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__pageLoad/containerChain:openContainerChain",
       "source": "dom",
       "target": "pageLoad/containerChain:openContainerChain",
@@ -39179,6 +39194,12 @@
       "rel": "call"
     },
     {
+      "id": "pageLoad/backgroundDownload:waitForBackgroundDownload__call__pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "source": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "target": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/containerChain:buildChainFromUrl__call__indexedDB/core/connection:openDatabase",
       "source": "pageLoad/containerChain:buildChainFromUrl",
       "target": "indexedDB/core/connection:openDatabase",
@@ -39570,6 +39591,12 @@
       "target": "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "rel": "call"
     },
     {
       "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
@@ -50421,6 +50448,11 @@
     },
     {
       "source": "pageLoad/loadHyperText",
+      "target": "pageLoad/backgroundDownload",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
       "target": "pageLoad/firstChunkPromise",
       "kind": "static"
     },
@@ -50477,11 +50509,6 @@
     {
       "source": "pageLoad/loadHyperText",
       "target": "lazyLoader/utilities/cacheState",
-      "kind": "lazy"
-    },
-    {
-      "source": "pageLoad/loadHyperText",
-      "target": "pageLoad/backgroundDownload",
       "kind": "lazy"
     },
     {
@@ -51465,6 +51492,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 284
+    "lazyCount": 283
   }
 }

@@ -486,7 +486,7 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
       }
 
       const { waitForBackgroundDownload } = await import('../pageLoad/backgroundDownload');
-      await waitForBackgroundDownload();
+      await waitForBackgroundDownload(lazyLoader.bookId);
       if (bailIfSuperseded('background-download')) return;
 
       // Refresh nodes from IndexedDB now that all chunks are downloaded

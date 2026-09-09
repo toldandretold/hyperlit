@@ -24,6 +24,7 @@ import { registerBookOpen } from "../utilities/BroadcastListener";
 
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from '../footnotes/FootnoteNumberingService';
 
+import { isBackgroundDownloadInProgress } from './backgroundDownload';
 import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedResolver } from './firstChunkPromise';
 import { setupOnlineSyncListener } from './onlineRetry';
 import { primeImageDims } from '../lazyLoader/imageDims';
@@ -32,6 +33,17 @@ import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 import { isReconvertHandoff } from '../utilities/reconvertHandoff';
 // Zero-import leaf — flag-gated forensics (see scrolling/scrollTrace).
 import { recordNavDecision } from '../scrolling/scrollTrace';
+
+/* Edit-button dimming (reader entry): the button is dimmed until THIS book's
+ * background download reports in. One subscription at a time, and a hard cap so
+ * a download that never reports can't leave the button permanently dead. */
+const EDIT_DIM_MAX_MS = 30_000;
+let editDimRelease: (() => void) | null = null;
+function releaseEditDimListeners(): void {
+  const release = editDimRelease;
+  editDimRelease = null;
+  release?.();
+}
 
 export async function loadFromJSONFiles(bookId: BookId) {
   try {
@@ -321,33 +333,60 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       // fire backgroundDownloadComplete, so it would stay dimmed forever.
       const editBtn = document.body.dataset.page === 'reader'
         ? document.getElementById('editButton') : null;
+      // One dimming subscription at a time \u2014 a previous reader entry whose
+      // download never reported (reconvert hand-off, missing lazyLoader) would
+      // otherwise leave its listeners on `window` for every book we open.
+      releaseEditDimListeners();
+
       if (editBtn) {
         editBtn.style.opacity = '0.3';
         editBtn.style.pointerEvents = 'none';
 
         const enableEdit = () => {
+          releaseEditDimListeners();
           editBtn.style.opacity = '';
           editBtn.style.pointerEvents = '';
           editBtn.title = '';
         };
 
-        window.addEventListener('backgroundDownloadComplete', enableEdit, { once: true });
-
-        window.addEventListener('backgroundDownloadFailed', () => {
+        // Both listeners are scoped to THIS book: a `{ once: true }` listener
+        // was being consumed by whatever book finished first (typically the
+        // page we navigated away from), which un-dimmed the button before this
+        // book's data had arrived \u2014 and then never fired for the real one.
+        const isThisBook = (e: Event) =>
+          String((e as CustomEvent)?.detail?.bookId ?? currentBook) === String(currentBook);
+        const onComplete = (e: Event) => {
+          if (isThisBook(e)) enableEdit();
+        };
+        const onFailed = (e: Event) => {
+          if (!isThisBook(e)) return;
+          releaseEditDimListeners();
           editBtn.title = 'Download incomplete \u2014 tap to retry';
           editBtn.style.opacity = '0.3';
           editBtn.style.pointerEvents = '';  // Make clickable for retry
-          editBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            e.preventDefault();
+          editBtn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
             editBtn.style.pointerEvents = 'none';
             editBtn.title = 'Retrying download\u2026';
             // Re-listen for success on retry
-            window.addEventListener('backgroundDownloadComplete', enableEdit, { once: true });
+            window.addEventListener('backgroundDownloadComplete', onComplete);
+            editDimRelease = () => window.removeEventListener('backgroundDownloadComplete', onComplete);
             const { backgroundDownloadRemainingChunks } = await import('./backgroundDownload');
             backgroundDownloadRemainingChunks(currentBook, currentLazyLoader);
           }, { once: true });
-        }, { once: true });
+        };
+
+        window.addEventListener('backgroundDownloadComplete', onComplete);
+        window.addEventListener('backgroundDownloadFailed', onFailed);
+        // Safety net: a download that never even starts (reconvert hand-off,
+        // no manifest path bailing early) must not leave the button dead.
+        const dimTimer = setTimeout(enableEdit, EDIT_DIM_MAX_MS);
+        editDimRelease = () => {
+          clearTimeout(dimTimer);
+          window.removeEventListener('backgroundDownloadComplete', onComplete);
+          window.removeEventListener('backgroundDownloadFailed', onFailed);
+        };
       }
 
       // Background download remaining chunks (Phase 3)
@@ -469,8 +508,11 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     return;
   }
 
-  // Skip if background download is in progress (it will bring fresh data)
-  if ((window as any)._backgroundDownloadInProgress) {
+  // Skip if THIS book's background download is in progress (it will bring fresh
+  // data). Scoped by book: another book's download says nothing about this
+  // one's freshness, and the old global flag silently skipped the check
+  // whenever a previous page's download outlived the navigation.
+  if (isBackgroundDownloadInProgress(bookId)) {
     verbose.content(`⏳ Background download in progress, skipping timestamp check for ${bookId}`, '/pageLoad/loadHyperText.ts');
     return;
   }

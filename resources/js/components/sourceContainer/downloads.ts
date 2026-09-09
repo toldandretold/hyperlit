@@ -200,9 +200,9 @@ export async function downloadAllForBook(downloadAllBtn: any, bookId: any = book
  */
 async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ markdown: string; images: any[] }> {
   // Ensure all chunks are available before exporting
-  if ((window as any)._backgroundDownloadInProgress) {
+  {
     const { waitForBackgroundDownload } = await import('../../pageLoad/index');
-    await waitForBackgroundDownload();
+    await waitForBackgroundDownload(bookId);
   }
   const chunks: any = await getNodesFromIndexedDB(bookId);
   chunks.sort((a: any, b: any) => a.chunk_id - b.chunk_id);
@@ -890,9 +890,9 @@ function htmlElementToDocx(node: any, docxComponents: any, opts: any = {}): any[
 
 // Build the docx with styled runs/headings/links
 async function buildDocxWithStyles(bookId: any = book || 'latest') {
-  if ((window as any)._backgroundDownloadInProgress) {
+  {
     const { waitForBackgroundDownload } = await import('../../pageLoad/index');
-    await waitForBackgroundDownload();
+    await waitForBackgroundDownload(bookId);
   }
   const docxLib = await loadDocxLib();
   const { Document, Packer, Paragraph, TextRun, HeadingLevel, ExternalHyperlink, FootnoteReferenceRun, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, LevelFormat, AlignmentType } = docxLib;
@@ -1332,9 +1332,9 @@ sup a { text-decoration: none; }
 
 async function buildEpubBlob(bookId: any = book || 'latest') {
   // --- Phase 1: Fetch content ---
-  if ((window as any)._backgroundDownloadInProgress) {
+  {
     const { waitForBackgroundDownload } = await import('../../pageLoad/index');
-    await waitForBackgroundDownload();
+    await waitForBackgroundDownload(bookId);
   }
   const JSZip = await loadJSZip();
   const chunks: any = await getNodesFromIndexedDB(bookId);
