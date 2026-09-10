@@ -1,0 +1,131 @@
+/* Page-level file-drop overlay (resources/js/components/fileDropTarget)
+   ------------------------------------------------------------------
+   The full-screen "Drop your file to import" surface on home / user /
+   journal, plus the login-required and batch-status cards it morphs into.
+
+   Look: the same glass as the user flyout (#user-container in
+   referenceOverlay.css) — a faint theme tint over a blurred backdrop, so it
+   themes with dark / sepia / light instead of hard-coding a black card on a
+   near-black scrim. The drop affordance's hue is the single `--drop-accent`
+   token below (theme orange today, aqua by swapping one line).
+
+   The component only toggles `display` and `pointer-events` inline (its own
+   show/hide logic reads style.pointerEvents as a state flag) — everything
+   visual lives here. */
+
+#page-drop-overlay {
+  /* The one knob for the drop affordance's hue. --color-secondary is the
+     theme's orange, --color-accent its aqua; everything below (dashed border,
+     arrow glyph, primary button) reads this, so switching is a one-line edit.
+     Inherited by the card because it's declared on the overlay root. */
+  --drop-accent: var(--color-secondary);
+
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  /* display / align set inline by the component (none ↔ flex) */
+  align-items: center;
+  justify-content: center;
+  /* Barely-there wash: the blur alone separates the card from the page, so
+     the backdrop doesn't need to go dark. */
+  background-color: color-mix(in srgb, var(--color-background) 25%, transparent);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
+}
+
+.page-drop-card {
+  /* Same recipe as #user-container's glass, a touch more opaque because this
+     card carries body copy and buttons over an arbitrary page. */
+  background-color: color-mix(in srgb, var(--color-background) 55%, transparent);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  border: 2px dashed color-mix(in srgb, var(--drop-accent) 55%, transparent);
+  border-radius: 14px;
+  padding: 28px 36px;
+  text-align: center;
+  color: var(--color-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  max-width: 90vw;
+  min-width: 280px;
+  box-sizing: border-box;
+}
+
+/* Settled states (login prompt, batch info) drop the dashed drag affordance. */
+.page-drop-card.is-settled {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--drop-accent) 35%, transparent);
+}
+
+.page-drop-icon {
+  line-height: 1;
+  margin-bottom: 12px;
+  color: var(--drop-accent);
+}
+
+.page-drop-icon--arrow {
+  font-size: 48px;
+}
+
+.page-drop-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--color-text);
+}
+
+.page-drop-card.is-settled .page-drop-title {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.page-drop-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.page-drop-message {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.page-drop-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.page-drop-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--border-button);
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.page-drop-btn:hover {
+  background-color: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+
+.page-drop-btn--primary {
+  background-color: color-mix(in srgb, var(--drop-accent) 85%, transparent);
+  color: var(--color-background);
+  border-color: transparent;
+}
+
+.page-drop-btn--primary:hover {
+  background-color: var(--drop-accent);
+  color: var(--color-background);
+}
+
+.page-drop-btn--secondary {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--drop-accent) 45%, transparent);
+}

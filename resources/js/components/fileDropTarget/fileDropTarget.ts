@@ -62,30 +62,15 @@ function isImportFormOpen() {
 function buildOverlay() {
   const el = document.createElement('div');
   el.id = OVERLAY_ID;
-  // Start hidden via inline display:none. Overlay is `pointer-events: none`
-  // by default so drag events pass through during a drag; we flip to `auto`
-  // when showing the alert variant so its buttons receive clicks.
-  el.style.cssText = [
-    'position: fixed', 'inset: 0', 'z-index: 2000',
-    'background: rgba(0,0,0,0.55)',
-    'display: none', 'align-items: center', 'justify-content: center',
-    'pointer-events: none',
-    'backdrop-filter: blur(2px)',
-    '-webkit-backdrop-filter: blur(2px)',
-  ].join(';');
+  // Look lives in resources/css/components/fileDropOverlay.css (theme glass).
+  // Only the two BEHAVIOURAL properties stay inline: `display` (hidden until a
+  // drag) and `pointer-events` — the latter doubles as this module's "is the
+  // clickable alert variant showing?" flag, so it must be an inline value.
+  el.style.display = 'none';
+  el.style.pointerEvents = 'none';
 
   const card = document.createElement('div');
-  card.style.cssText = [
-    'background: #1a1a1a',
-    'border: 2px dashed #EF8D34',
-    'border-radius: 12px',
-    'padding: 28px 36px',
-    'text-align: center',
-    'color: #fff',
-    'box-shadow: 0 0 30px rgba(0,0,0,0.4)',
-    'max-width: 90vw',
-    'min-width: 280px',
-  ].join(';');
+  card.className = 'page-drop-card';
 
   el.appendChild(card);
   cardEl = card;
@@ -95,20 +80,19 @@ function buildOverlay() {
 function renderDragMessage() {
   if (!cardEl) return;
   cardEl.innerHTML = '';
-  cardEl.style.borderStyle = 'dashed';
-  cardEl.style.borderColor = '#EF8D34';
+  cardEl.className = 'page-drop-card'; // dashed drag affordance
 
   const icon = document.createElement('div');
   icon.textContent = '⤓';
-  icon.style.cssText = 'font-size: 48px; line-height: 1; margin-bottom: 12px; color: #EF8D34;';
+  icon.className = 'page-drop-icon page-drop-icon--arrow';
 
   const title = document.createElement('div');
   title.textContent = 'Drop your file to import';
-  title.style.cssText = 'font-size: 20px; font-weight: 600; margin-bottom: 8px;';
+  title.className = 'page-drop-title';
 
   const hint = document.createElement('div');
   hint.textContent = 'PDF, EPUB, DOCX, MD, HTML or image';
-  hint.style.cssText = 'font-size: 13px; opacity: 0.7;';
+  hint.className = 'page-drop-hint';
 
   cardEl.appendChild(icon);
   cardEl.appendChild(title);
@@ -118,13 +102,13 @@ function renderDragMessage() {
 function renderAnonAlert() {
   if (!cardEl) return;
   cardEl.innerHTML = '';
-  cardEl.style.borderStyle = 'solid';
-  cardEl.style.borderColor = 'rgba(239,141,52,0.6)';
+  cardEl.className = 'page-drop-card is-settled';
 
   const icon = document.createElement('div');
-  icon.style.cssText = 'line-height: 1; margin-bottom: 10px;';
+  icon.className = 'page-drop-icon';
+  // currentColor so the padlock picks up the card's accent, per theme.
   icon.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d73a49" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
       <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
     </svg>
@@ -132,33 +116,19 @@ function renderAnonAlert() {
 
   const title = document.createElement('div');
   title.textContent = 'Login required';
-  title.style.cssText = 'font-size: 18px; font-weight: 600; margin-bottom: 6px;';
+  title.className = 'page-drop-title';
 
   const msg = document.createElement('div');
   msg.textContent = 'You need to log in or register to import a file.';
-  msg.style.cssText = 'font-size: 13px; opacity: 0.85; margin-bottom: 16px;';
+  msg.className = 'page-drop-message';
 
   const actions = document.createElement('div');
-  actions.style.cssText = 'display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;';
+  actions.className = 'page-drop-actions';
 
   const styleBtn = (btn: any, variant: any) => {
-    const baseCss = [
-      'padding: 8px 16px',
-      'border-radius: 6px',
-      'font-size: 13px',
-      'font-weight: 500',
-      'cursor: pointer',
-      'transition: opacity 0.15s ease',
-      'font-family: inherit',
-    ];
-    if (variant === 'primary') {
-      baseCss.push('background: #EF8D34', 'color: #1a1a1a', 'border: none');
-    } else if (variant === 'secondary') {
-      baseCss.push('background: transparent', 'color: #fff', 'border: 1px solid rgba(255,255,255,0.4)');
-    } else { // close
-      baseCss.push('background: transparent', 'color: #aaa', 'border: 1px solid rgba(255,255,255,0.2)');
-    }
-    btn.style.cssText = baseCss.join(';');
+    btn.className = variant === 'close'
+      ? 'page-drop-btn'
+      : `page-drop-btn page-drop-btn--${variant}`;
   };
 
   const closeBtn = document.createElement('button');
@@ -193,21 +163,20 @@ function renderAnonAlert() {
 function renderBatchMessage(title: string, detail: string, autoHideMs: number | null) {
   if (!cardEl) return;
   cardEl.innerHTML = '';
-  cardEl.style.borderStyle = 'solid';
-  cardEl.style.borderColor = 'rgba(239,141,52,0.6)';
+  cardEl.className = 'page-drop-card is-settled';
 
   const titleEl = document.createElement('div');
   titleEl.textContent = title;
-  titleEl.style.cssText = 'font-size: 18px; font-weight: 600; margin-bottom: 6px;';
+  titleEl.className = 'page-drop-title';
 
   const msg = document.createElement('div');
   msg.textContent = detail;
-  msg.style.cssText = 'font-size: 13px; opacity: 0.85; margin-bottom: 16px;';
+  msg.className = 'page-drop-message';
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
-  closeBtn.style.cssText = 'padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; background: transparent; color: #aaa; border: 1px solid rgba(255,255,255,0.2); font-family: inherit;';
+  closeBtn.className = 'page-drop-btn';
   closeBtn.addEventListener('click', () => hideOverlay());
 
   cardEl.appendChild(titleEl);

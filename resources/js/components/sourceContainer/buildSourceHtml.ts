@@ -9,7 +9,8 @@ import { formatBibtexToCitation, doiToUrl } from '../../utilities/bibtexProcesso
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook } from './helpers';
-import { sourceStatusSectionHtml } from './checkSource';
+import { sourceStatusSectionHtml, isCitationLinked } from './checkSource';
+import { autoMetaIconHtml, proposalMountHtml } from './autoMetadata/card';
 import { buildVisibilityControlHtml } from './visibilityControl';
 import { researchWorkflowsSectionHtml } from './researchWorkflows';
 import { licenseInfoFor } from './licenseInfo';
@@ -156,12 +157,22 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     completenessHtml = `<p class="completeness-line completeness-unverified" style="font-size: var(--sc-11); color: var(--color-label); opacity: 0.7; margin-top: 6px;">Completeness unverified</p>`;
   }
 
+  // The auto-metadata wand rides INLINE on the citation line — it fixes that
+  // exact text, so it points at it rather than sitting in the action row below.
+  // Always shown to an owner (never hidden after use: the heading or any other
+  // detail can change later and they'll want to run it again), but withheld once
+  // the record is citation-linked, where the fields ARE the verified canonical's
+  // and a first-heading heuristic would silently downgrade them.
+  const showWand =
+    !!record && !!canEdit && !accessDenied && !isSyntheticBook(book) && !isCitationLinked(record);
+
   return `
     <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="scroller" id="source-content">
-    <p class="citation" style="padding-bottom: 5px">${citation}</p>
+    <p class="citation" style="padding-bottom: 5px">${citation}${showWand ? autoMetaIconHtml() : ''}</p>
     ${licenseHtml}
     ${completenessHtml}
+    ${showWand ? proposalMountHtml() : ''}
     ${sourceStatusSectionHtml(record, canEdit, accessDenied)}
 
     <div style="margin-top: 15px; padding-top: 15px;">

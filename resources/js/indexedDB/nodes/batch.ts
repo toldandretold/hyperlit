@@ -72,12 +72,26 @@ export function initNodeBatchDependencies(deps: { book: BookId | null | undefine
   book = deps.book;
 }
 
-// Debounced title sync - only runs 500ms after user stops typing
-const debouncedTitleSync = debounce((bookId: BookId, nodeContent: string) => {
-  syncFirstNodeToTitle(bookId, nodeContent).catch(error => {
-    log.error('Error in debounced title sync', '/indexedDB/nodes/batch.ts', error);
-  });
-}, 500);
+// Debounced title sync — runs 500ms after the user stops typing.
+//
+// Keyed BY BOOK: a single module-level debouncer meant an edit to node 100 of
+// book B within the window cancelled book A's pending sync outright, so A's
+// title was silently never derived. Stacked/sub-book editors make that routine.
+const titleSyncByBook = new Map<string, (bookId: BookId, nodeContent: string) => void>();
+
+function debouncedTitleSync(bookId: BookId, nodeContent: string): void {
+  const key = String(bookId);
+  let fn = titleSyncByBook.get(key);
+  if (!fn) {
+    fn = debounce((id: BookId, content: string) => {
+      syncFirstNodeToTitle(id, content).catch(error => {
+        log.error('Error in debounced title sync', '/indexedDB/nodes/batch.ts', error);
+      });
+    }, 500);
+    titleSyncByBook.set(key, fn);
+  }
+  fn(bookId, nodeContent);
+}
 
 /**
  * Update a single IndexedDB record from DOM changes.

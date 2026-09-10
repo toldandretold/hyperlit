@@ -5,7 +5,7 @@
 // SourceContainerManager instance as `self`; the class delegates to these and
 // is the single dispatch hub, so peer calls go through `self.*`.
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
-import { advanceBaseTimestamp } from '../../indexedDB/core/library';
+import { advanceBaseTimestamp, forgetAutoDerivedTitle } from '../../indexedDB/core/library';
 import type { LibraryRecord } from '../../indexedDB/types';
 import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
@@ -529,6 +529,9 @@ export async function saveEditForm(self: any) {
     const tx = db.transaction("library", "readwrite");
     const store = tx.objectStore("library");
     await store.put(cleanedRecord);
+    // A human has chosen this title — stop the first-node sync tracking the
+    // heading, or the next edit to node 100 would overwrite it.
+    forgetAutoDerivedTitle(cleanedRecord.book);
     try {
       await self.syncLibraryRecordToBackend(cleanedRecord);
     } catch (syncError) {
@@ -605,6 +608,10 @@ export async function handleFormSubmit(self: any, originalRecord: any) {
     const tx = db.transaction("library", "readwrite");
     const store = tx.objectStore("library");
     await store.put(cleanedRecord);
+
+    // A human has chosen this title — stop the first-node sync tracking the
+    // heading, or the next edit to node 100 would overwrite it.
+    forgetAutoDerivedTitle(cleanedRecord.book);
 
     console.log("Library record updated successfully:", cleanedRecord);
 

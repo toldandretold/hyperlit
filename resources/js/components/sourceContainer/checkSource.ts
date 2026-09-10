@@ -156,10 +156,20 @@ export function wireSourceStatus(section: HTMLElement): void {
   });
 }
 
+const ACTION_BTN =
+  'padding: 6px 12px; font-size: var(--sc-12); color: var(--hyperlit-aqua); border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent); background: transparent; border-radius: 4px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;';
+
+/**
+ * The unlinked-owner action row. NOTE the auto-metadata wand is deliberately NOT
+ * here — it renders inline on the citation line itself (buildSourceHtml), next
+ * to the text it fixes. It still matters to this button: on a fresh book
+ * `CanonicalSourceMatcher::hasUsableTitle()` rejects the "Untitled" a new book
+ * ships with, so [check source] cannot search at all until the wand has run.
+ */
 function checkButtonHtml(): string {
   return `
-    <div id="source-categories">
-      <button type="button" id="check-source-btn" style="padding: 6px 12px; font-size: var(--sc-12); color: var(--hyperlit-aqua); border: 1px solid color-mix(in srgb, var(--hyperlit-aqua) 40%, transparent); background: transparent; border-radius: 4px; cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px;">
+    <div id="source-categories" style="display: flex; flex-wrap: wrap; gap: 8px;">
+      <button type="button" id="check-source-btn" style="${ACTION_BTN}">
         ${LINK_SVG} Check source
       </button>
     </div>`;

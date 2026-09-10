@@ -29,6 +29,7 @@ import { handleCommonsFeedback } from "./commonsFeedback";
 import { openHarvestVizOverlay, closeHarvestVizOverlay, fetchHarvestMap, renderHarvestViz } from "./creatorTools/harvestViz";
 import { loadAiReviewStatus, setAiReviewState, handleAiReviewGenerate, openAiReviewConfirm, ensureAiReviewLivePanel } from "./aiReview/index";
 import { handleCheckSource, wireSourceStatus } from "./checkSource";
+import { handleAutoMetadata, handleAutoMetadataAi, applyAutoMetadata } from "./autoMetadata/index";
 import { startAiReviewPolling, stopAiReviewPolling, pollAiReviewStatus } from "./aiReview/polling";
 import { openAiReviewVizOverlay, closeAiReviewVizOverlay, fetchPipelineMap, renderPipelineViz, syncPipelineHighlights } from "./aiReview/pipelineViz";
 
@@ -208,6 +209,20 @@ export class SourceContainerManager extends (ContainerManager as any) {
       });
     }
 
+    // The wand: fills title/author/year from the text so the card — and then
+    // [check source], which refuses an "Untitled" title — can actually work.
+    // The proposal card's own buttons are wired when the card renders, not
+    // here: they are destroyed on every re-render and would leak listeners.
+    const autoMetaBtn: any = this.container.querySelector("#auto-meta-btn");
+    if (autoMetaBtn && !autoMetaBtn._listenerAttached) {
+      autoMetaBtn._listenerAttached = true;
+      autoMetaBtn.addEventListener("click", (e: any) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.handleAutoMetadata();
+      });
+    }
+
     // Delegated wiring for the verification-category pills (each expands its explanation).
     // Attached to the section element, which persists across the verify re-render.
     const sourceStatusSection = this.container.querySelector("#check-source-section");
@@ -338,6 +353,14 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
   // checkSource
   handleCheckSource() { return handleCheckSource(this); }
+
+  // autoMetadata (the wand). Cast at the boundary because the class extends
+  // `ContainerManager as any`, so `container` is not on its declared type —
+  // the autoMetadata modules state what they need (PanelHost) rather than
+  // taking `any` and losing the check on their own side.
+  handleAutoMetadata() { return handleAutoMetadata(this as any); }
+  handleAutoMetadataAi(localProposal?: any) { return handleAutoMetadataAi(this as any, localProposal); }
+  applyAutoMetadata(proposal: any) { return applyAutoMetadata(this as any, proposal); }
 
   // creatorTools
   loadCreatorTools() { return loadCreatorTools(this); }

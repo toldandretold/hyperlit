@@ -184,3 +184,17 @@ it('sub-book creation inherits the parent encryption and rejects plaintext previ
     expect($sub)->not->toBeNull()
         ->and($sub->encrypted)->toBeTrue();
 });
+
+it('refuses server-side metadata extraction for an encrypted book (403)', function () {
+    // The source panel's wand ships the book's opening text to an LLM to recover
+    // its title/author/year. For an encrypted book that plaintext must never
+    // leave the client — its FREE local tier does the same job in the browser.
+    $user = $this->seedUser(['status' => 'budget', 'credits' => 10]);
+    $this->actingAs($user);
+    $this->seedLibrary(encryptedBookAttrs($user, 'e2ee_meta'));
+
+    $this->postJson('/api/citation-meta/extract', [
+        'book' => 'e2ee_meta',
+        'text' => "Ways of Seeing\n\nby John Berger",
+    ])->assertStatus(403);
+});

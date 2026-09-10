@@ -24,6 +24,7 @@ import {
   updateBookTimestamp,
   updateAnnotationsTimestamp,
   syncFirstNodeToTitle,
+  forgetAutoDerivedTitle,
   updateLocalAnnotationsTimestamp,
   advanceBaseTimestamp,
   raiseLocalLibraryTimestamp,
@@ -121,7 +122,7 @@ describe('core/library.js (characterization)', () => {
     expect(await updateAnnotationsTimestamp('missing')).toBe(false);
   });
 
-  it('syncFirstNodeToTitle only renames books still called "Untitled"', async () => {
+  it('syncFirstNodeToTitle renames an "Untitled" book from its first node', async () => {
     await seedStore('library', [
       { book: 'bookA', title: 'Untitled', creator: 'sam' },
       { book: 'bookB', title: 'Already Named' },
@@ -133,11 +134,105 @@ describe('core/library.js (characterization)', () => {
     expect(renamed.author).toBe('sam');           // auto-set from creator
     expect(renamed.bibtex).toContain('My Great Book'); // bibtex regenerated
 
-    expect(await syncFirstNodeToTitle('bookB', '<h1>Nope</h1>')).toBe(false);
+    // A title a human chose is never touched.
+    expect(await syncFirstNodeToTitle('bookB', '<h1>A Heading Of Some Kind</h1>')).toBe(false);
     expect((await readOne('library', 'bookB')).title).toBe('Already Named');
 
     // Empty text never overwrites the title
     expect(await syncFirstNodeToTitle('bookA', '<h1>   </h1>')).toBe(false);
+    expect((await readOne('library', 'bookA')).title).toBe('My Great Book');
+  });
+
+  // The old rule was "fire only while the title is exactly Untitled", which made
+  // this a one-shot on a 500ms snapshot: type `# The Disp`, pause, keep typing,
+  // and the book was permanently called "The Disp". Tracking our own last guess
+  // lets the title follow the heading until a human sets one.
+  it('syncFirstNodeToTitle keeps following the heading while the user is still typing it', async () => {
+    await seedStore('library', [{ book: 'typing', title: 'Untitled', creator: 'sam' }]);
+
+    expect(await syncFirstNodeToTitle('typing', '<h1>The Disp</h1>')).toBe(true);
+    expect((await readOne('library', 'typing')).title).toBe('The Disp');
+
+    // …and the rest of the word still lands, instead of being locked out.
+    expect(await syncFirstNodeToTitle('typing', '<h1>The Dispossessed</h1>')).toBe(true);
+    const done = await readOne('library', 'typing');
+    expect(done.title).toBe('The Dispossessed');
+    expect(done.bibtex).toContain('The Dispossessed');
+
+    // Re-running with the same text is a no-op, not a pointless write + sync.
+    expect(await syncFirstNodeToTitle('typing', '<h1>The Dispossessed</h1>')).toBe(false);
+  });
+
+  it('syncFirstNodeToTitle stops for good once a human picks a title', async () => {
+    await seedStore('library', [{ book: 'chosen', title: 'Untitled', creator: 'sam' }]);
+    await syncFirstNodeToTitle('chosen', '<h1>An Auto Derived Title</h1>');
+
+    // What the edit form / auto-metadata Apply do after writing a chosen title.
+    forgetAutoDerivedTitle('chosen');
+    const rec = await readOne('library', 'chosen');
+    await seedStore('library', [{ ...rec, title: 'The Title I Chose' }]);
+
+    expect(await syncFirstNodeToTitle('chosen', '<h1>Some Later Heading Edit</h1>')).toBe(false);
+    expect((await readOne('library', 'chosen')).title).toBe('The Title I Chose');
+  });
+
+  // Only things that are structurally NOT a title are refused — a placeholder,
+  // a section heading, a nav label, a whole paragraph. "Introduction" matters
+  // most: it would get searched against OpenAlex and can match an unrelated real
+  // work, minting a confident wrong canonical link.
+  it.each([
+    ['<h1>Untitled</h1>', 'the placeholder itself'],
+    ['<h1>Draft</h1>', 'a placeholder variant'],
+    ['<h1>Contents</h1>', 'a structural heading'],
+    ['<h1>Introduction</h1>', 'a structural heading'],
+    ['<h1>Chapter 3</h1>', 'a chapter heading'],
+    ['<h1>MAIN MENU</h1>', 'a navigation label'],
+    [`<h1>${'word '.repeat(120)}</h1>`, 'a whole paragraph'],
+  ])('syncFirstNodeToTitle refuses %s (%s)', async (html) => {
+    await seedStore('library', [{ book: 'junk', title: 'Untitled', creator: 'sam' }]);
+
+    expect(await syncFirstNodeToTitle('junk', html)).toBe(false);
+    // Crucially it stays "Untitled", so the NEXT save can still supply a real
+    // title — the junk doesn't burn the one shot.
+    expect((await readOne('library', 'junk')).title).toBe('Untitled');
+  });
+
+  // The server's 5-character floor is about whether a BIBLIOGRAPHIC SEARCH is
+  // worth firing, not about what a person may call their book. Applying it here
+  // refused "Aura", "Sula", "It" and "1984", and told a user their own heading
+  // was "too short".
+  it.each([
+    ['<h1>Aura</h1>', 'Aura', 'a genuinely short title'],
+    ['<h1>It</h1>', 'It', 'a two-letter title'],
+    ['<h1>1984</h1>', '1984', 'a numeric title'],
+    ['<h1>mmmm</h1>', 'mmmm', "the user's own repeated-character heading"],
+  ])('syncFirstNodeToTitle accepts %s (%s)', async (html, expected) => {
+    await seedStore('library', [{ book: 'short', title: 'Untitled', creator: 'sam' }]);
+
+    expect(await syncFirstNodeToTitle('short', html)).toBe(true);
+    expect((await readOne('library', 'short')).title).toBe(expected);
+  });
+
+  it('syncFirstNodeToTitle truncates to 15 words exactly as the server does', async () => {
+    // Otherwise IndexedDB and Postgres end up holding different titles.
+    await seedStore('library', [{ book: 'longtitle', title: 'Untitled', creator: 'sam' }]);
+    const long = Array.from({ length: 20 }, (_, i) => `w${i}`).join(' ');
+
+    expect(await syncFirstNodeToTitle('longtitle', `<h1>${long}</h1>`)).toBe(true);
+    const stored = (await readOne('library', 'longtitle')).title;
+    expect(stored.split(' ')).toHaveLength(15);
+    expect(stored.endsWith('w14...')).toBe(true);
+  });
+
+  it('syncFirstNodeToTitle does not execute markup in the node content', async () => {
+    // Was a detached div's innerHTML — which fires <img onerror>. Now DOMParser.
+    await seedStore('library', [{ book: 'xss', title: 'Untitled', creator: 'sam' }]);
+    globalThis.__xssTitleProbe = false;
+
+    await syncFirstNodeToTitle('xss', '<h1>Safe Enough Title<img src=x onerror="globalThis.__xssTitleProbe = true"></h1>');
+
+    expect(globalThis.__xssTitleProbe).toBe(false);
+    expect((await readOne('library', 'xss')).title).toBe('Safe Enough Title');
   });
 
   it('updateLocalAnnotationsTimestamp writes the given timestamp WITHOUT queueing a sync', async () => {

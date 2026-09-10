@@ -15,6 +15,9 @@ vi.mock('../../../resources/js/components/sourceContainer/helpers', () => ({
   getRecord: vi.fn().mockResolvedValue({
     book: 'test-book', creator: 'alice', canonical_source_id: 'c1', canonical_match_method: 'user_verified', doi: '10.1/x',
   }),
+  // Gates the wand: a synthetic book (feed render / user-home aggregate) has no
+  // real library row to write into.
+  isSyntheticBook: vi.fn(() => false),
 }));
 
 import {
@@ -148,6 +151,14 @@ describe('sourceStatusSectionHtml', () => {
 
   it('returns nothing when access is denied', () => {
     expect(sourceStatusSectionHtml({ book: 'b', canonical_source_id: 'c1' }, true, true)).toBe('');
+  });
+
+  // The auto-metadata wand is NOT in this action row — it renders inline on the
+  // citation line (buildSourceHtml), next to the text it fixes.
+  it('does not put the auto-metadata wand in the action row', () => {
+    const html = sourceStatusSectionHtml({ book: 'b', creator: 'alice', canonical_source_id: null }, true, false);
+    expect(html).toContain('check-source-btn');
+    expect(html).not.toContain('auto-meta-btn');
   });
 });
 

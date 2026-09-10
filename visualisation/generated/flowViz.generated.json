@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1864,
-    "moduleCount": 394,
+    "fnCount": 1889,
+    "moduleCount": 398,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3808,
+    "edgeCount": 3867,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2361,6 +2361,202 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
+      "label": "autoMetaIconHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:checkedFields",
+      "label": "checkedFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:escapeHtml",
+      "label": "escapeHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:focusWand",
+      "label": "focusWand",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:proposalCardHtml",
+      "label": "proposalCardHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:proposalMountHtml",
+      "label": "proposalMountHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:removeProposal",
+      "label": "removeProposal",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "label": "renderProposal",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:setProposalNote",
+      "label": "setProposalNote",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/card",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "label": "applyAutoMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/index",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "label": "handleAutoMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/index",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "label": "handleAutoMetadataAi",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/index",
+      "leaf": false,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:authorIsDefault",
+      "label": "authorIsDefault",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:copyrightYear",
+      "label": "copyrightYear",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:headingCandidate",
+      "label": "headingCandidate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true,
+      "types": [
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:openingPlainText",
+      "label": "openingPlainText",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true,
+      "types": [
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeFromAi",
+      "label": "proposeFromAi",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "label": "proposeLocalMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": true,
+      "types": [
+        "LibraryRecord",
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:scanHeadings",
+      "label": "scanHeadings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/local",
+      "leaf": false,
+      "types": [
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/remote:byoActive",
+      "label": "byoActive",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/remote",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/remote:requestAiMetadata",
+      "label": "requestAiMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/autoMetadata/remote",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "label": "buildSourceHtml",
       "kind": "fn",
@@ -2871,6 +3067,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.applyAutoMetadata",
+      "label": "SourceContainerManager.applyAutoMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "label": "SourceContainerManager.attachInternalListeners",
       "kind": "fn",
@@ -2969,6 +3173,22 @@
     {
       "id": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
       "label": "SourceContainerManager.handleAiReviewGenerate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadata",
+      "label": "SourceContainerManager.handleAutoMetadata",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadataAi",
+      "label": "SourceContainerManager.handleAutoMetadataAi",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/index",
@@ -10773,6 +10993,14 @@
       ]
     },
     {
+      "id": "indexedDB/core/library:forgetAutoDerivedTitle",
+      "label": "forgetAutoDerivedTitle",
+      "kind": "fn",
+      "stage": "domain",
+      "module": "indexedDB/core/library",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/core/library:getAllOfflineAvailableBooks",
       "label": "getAllOfflineAvailableBooks",
       "kind": "fn",
@@ -17616,6 +17844,59 @@
       ]
     },
     {
+      "id": "components/sourceContainer/autoMetadata/card",
+      "label": "components/sourceContainer/autoMetadata/card",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
+        "components/sourceContainer/autoMetadata/card:checkedFields",
+        "components/sourceContainer/autoMetadata/card:escapeHtml",
+        "components/sourceContainer/autoMetadata/card:focusWand",
+        "components/sourceContainer/autoMetadata/card:proposalCardHtml",
+        "components/sourceContainer/autoMetadata/card:proposalMountHtml",
+        "components/sourceContainer/autoMetadata/card:removeProposal",
+        "components/sourceContainer/autoMetadata/card:renderProposal",
+        "components/sourceContainer/autoMetadata/card:setProposalNote"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index",
+      "label": "components/sourceContainer/autoMetadata/index",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+        "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+        "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local",
+      "label": "components/sourceContainer/autoMetadata/local",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/autoMetadata/local:authorIsDefault",
+        "components/sourceContainer/autoMetadata/local:copyrightYear",
+        "components/sourceContainer/autoMetadata/local:headingCandidate",
+        "components/sourceContainer/autoMetadata/local:openingPlainText",
+        "components/sourceContainer/autoMetadata/local:proposeFromAi",
+        "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+        "components/sourceContainer/autoMetadata/local:scanHeadings"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/remote",
+      "label": "components/sourceContainer/autoMetadata/remote",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/autoMetadata/remote:byoActive",
+        "components/sourceContainer/autoMetadata/remote:requestAiMetadata"
+      ]
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml",
       "label": "components/sourceContainer/buildSourceHtml",
       "stage": "components",
@@ -17800,6 +18081,7 @@
       "fnIds": [
         "components/sourceContainer/index:SourceContainerManager._awaitReconvert",
         "components/sourceContainer/index:SourceContainerManager._settleAnimation",
+        "components/sourceContainer/index:SourceContainerManager.applyAutoMetadata",
         "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
         "components/sourceContainer/index:SourceContainerManager.cleanUrl",
         "components/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
@@ -17813,6 +18095,8 @@
         "components/sourceContainer/index:SourceContainerManager.fetchHarvestMap",
         "components/sourceContainer/index:SourceContainerManager.fetchPipelineMap",
         "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
+        "components/sourceContainer/index:SourceContainerManager.handleAutoMetadata",
+        "components/sourceContainer/index:SourceContainerManager.handleAutoMetadataAi",
         "components/sourceContainer/index:SourceContainerManager.handleCheckSource",
         "components/sourceContainer/index:SourceContainerManager.handleDeleteBook",
         "components/sourceContainer/index:SourceContainerManager.handleEditClick",
@@ -19831,6 +20115,7 @@
         "indexedDB/core/library:buildLibraryUrl",
         "indexedDB/core/library:cleanLibraryItemForStorage",
         "indexedDB/core/library:fetchLibraryRecordWithStatus",
+        "indexedDB/core/library:forgetAutoDerivedTitle",
         "indexedDB/core/library:getAllOfflineAvailableBooks",
         "indexedDB/core/library:getLibraryObjectFromIndexedDB",
         "indexedDB/core/library:getLibraryRecordFromServer",
@@ -24353,6 +24638,292 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/autoMetadata/card:proposalCardHtml__call__components/sourceContainer/autoMetadata/card:escapeHtml",
+      "source": "components/sourceContainer/autoMetadata/card:proposalCardHtml",
+      "target": "components/sourceContainer/autoMetadata/card:escapeHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:removeProposal__domwrite__dom",
+      "source": "components/sourceContainer/autoMetadata/card:removeProposal",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:renderProposal__call__components/sourceContainer/autoMetadata/card:proposalCardHtml",
+      "source": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "target": "components/sourceContainer/autoMetadata/card:proposalCardHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:renderProposal__domwrite__dom",
+      "source": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/card:setProposalNote__domwrite__dom",
+      "source": "components/sourceContainer/autoMetadata/card:setProposalNote",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__components/sourceContainer/autoMetadata/card:checkedFields",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/card:checkedFields",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__components/sourceContainer/autoMetadata/card:setProposalNote",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/card:setProposalNote",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__components/sourceContainer/helpers:getRecord",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "components/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__indexedDB/core/library:forgetAutoDerivedTitle",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "indexedDB/core/library:forgetAutoDerivedTitle",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__call__indexedDB/core/library:prepareLibraryForIndexedDB",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:applyAutoMetadata__write__store:library",
+      "source": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/card:focusWand",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/card:focusWand",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/card:removeProposal",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/card:removeProposal",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/card:renderProposal",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/autoMetadata/remote:byoActive",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/remote:byoActive",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__components/sourceContainer/helpers:getRecord",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "components/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadata__call__indexedDB/nodes/read:getNodesFromIndexedDB",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/card:focusWand",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/card:focusWand",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/card:removeProposal",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/card:removeProposal",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/card:renderProposal",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/card:setProposalNote",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/card:setProposalNote",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/local:openingPlainText",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/local:openingPlainText",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/local:proposeFromAi",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/local:proposeFromAi",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/remote:byoActive",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/remote:byoActive",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/remote:requestAiMetadata",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/remote:requestAiMetadata",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__components/sourceContainer/helpers:getRecord",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "components/sourceContainer/helpers:getRecord",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__call__indexedDB/nodes/read:getNodesFromIndexedDB",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi__domwrite__dom",
+      "source": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:headingCandidate__call__components/sourceContainer/autoMetadata/local:scanHeadings",
+      "source": "components/sourceContainer/autoMetadata/local:headingCandidate",
+      "target": "components/sourceContainer/autoMetadata/local:scanHeadings",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeFromAi__call__components/sourceContainer/autoMetadata/local:authorIsDefault",
+      "source": "components/sourceContainer/autoMetadata/local:proposeFromAi",
+      "target": "components/sourceContainer/autoMetadata/local:authorIsDefault",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata__call__components/sourceContainer/autoMetadata/local:authorIsDefault",
+      "source": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "target": "components/sourceContainer/autoMetadata/local:authorIsDefault",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata__call__components/sourceContainer/autoMetadata/local:copyrightYear",
+      "source": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "target": "components/sourceContainer/autoMetadata/local:copyrightYear",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata__call__components/sourceContainer/autoMetadata/local:openingPlainText",
+      "source": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "target": "components/sourceContainer/autoMetadata/local:openingPlainText",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata__call__components/sourceContainer/autoMetadata/local:scanHeadings",
+      "source": "components/sourceContainer/autoMetadata/local:proposeLocalMetadata",
+      "target": "components/sourceContainer/autoMetadata/local:scanHeadings",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/autoMetadata/local:scanHeadings__domwrite__dom",
+      "source": "components/sourceContainer/autoMetadata/local:scanHeadings",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/autoMetadata/card:proposalMountHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/autoMetadata/card:proposalMountHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:isCitationLinked",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/checkSource:isCitationLinked",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
@@ -24839,6 +25410,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/editForm:handleFormSubmit__call__indexedDB/core/library:forgetAutoDerivedTitle",
+      "source": "components/sourceContainer/editForm:handleFormSubmit",
+      "target": "indexedDB/core/library:forgetAutoDerivedTitle",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/editForm:handleFormSubmit__call__indexedDB/core/library:prepareLibraryForIndexedDB",
       "source": "components/sourceContainer/editForm:handleFormSubmit",
       "target": "indexedDB/core/library:prepareLibraryForIndexedDB",
@@ -24875,6 +25452,12 @@
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/editForm:saveEditForm__call__indexedDB/core/library:forgetAutoDerivedTitle",
+      "source": "components/sourceContainer/editForm:saveEditForm",
+      "target": "indexedDB/core/library:forgetAutoDerivedTitle",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/editForm:saveEditForm__call__indexedDB/core/library:prepareLibraryForIndexedDB",
@@ -24937,6 +25520,13 @@
       "id": "components/sourceContainer/index:SourceContainerManager._awaitReconvert__call__components/sourceContainer/creatorTools/reconvert:_awaitReconvert",
       "source": "components/sourceContainer/index:SourceContainerManager._awaitReconvert",
       "target": "components/sourceContainer/creatorTools/reconvert:_awaitReconvert",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.applyAutoMetadata__call__components/sourceContainer/autoMetadata/index:applyAutoMetadata",
+      "source": "components/sourceContainer/index:SourceContainerManager.applyAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/index:applyAutoMetadata",
       "rel": "call",
       "dataPath": true
     },
@@ -25060,6 +25650,20 @@
       "id": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate__call__components/sourceContainer/aiReview/index:handleAiReviewGenerate",
       "source": "components/sourceContainer/index:SourceContainerManager.handleAiReviewGenerate",
       "target": "components/sourceContainer/aiReview/index:handleAiReviewGenerate",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadata__call__components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "source": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadata",
+      "target": "components/sourceContainer/autoMetadata/index:handleAutoMetadata",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadataAi__call__components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "source": "components/sourceContainer/index:SourceContainerManager.handleAutoMetadataAi",
+      "target": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
       "rel": "call",
       "dataPath": true
     },
@@ -28487,6 +29091,54 @@
       "id": "dom__domread__components/sourceContainer/audiobookDownload:initAudiobookDownload",
       "source": "dom",
       "target": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/card:checkedFields",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/card:checkedFields",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/card:focusWand",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/card:focusWand",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/card:removeProposal",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/card:removeProposal",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/card:renderProposal",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/card:renderProposal",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/card:setProposalNote",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/card:setProposalNote",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/index:handleAutoMetadataAi",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/local:scanHeadings",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/local:scanHeadings",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/autoMetadata/remote:requestAiMetadata",
+      "source": "dom",
+      "target": "components/sourceContainer/autoMetadata/remote:requestAiMetadata",
       "rel": "domread"
     },
     {
@@ -36992,12 +37644,6 @@
       "rel": "call"
     },
     {
-      "id": "indexedDB/core/library:syncFirstNodeToTitle__domwrite__dom",
-      "source": "indexedDB/core/library:syncFirstNodeToTitle",
-      "target": "dom",
-      "rel": "domwrite"
-    },
-    {
       "id": "indexedDB/core/library:syncFirstNodeToTitle__write__store:library",
       "source": "indexedDB/core/library:syncFirstNodeToTitle",
       "target": "store:library",
@@ -37573,6 +38219,13 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/core/library:syncFirstNodeToTitle",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/core/library:syncFirstNodeToTitle",
       "rel": "call",
       "dataPath": true
     },
@@ -46982,6 +47635,41 @@
       "kind": "static"
     },
     {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "components/sourceContainer/autoMetadata/card",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "components/sourceContainer/autoMetadata/local",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "components/sourceContainer/autoMetadata/remote",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "indexedDB/core/library",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/autoMetadata/index",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/autoMetadata/card",
+      "kind": "static"
+    },
+    {
       "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/checkSource",
       "kind": "static"
@@ -47129,6 +47817,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/audiobookDownload",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/autoMetadata/index",
       "kind": "static"
     },
     {

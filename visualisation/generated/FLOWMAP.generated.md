@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1864 functions in 394 modules · 10 object stores · 10 PG tables · 3808 edges
+**MarkdownDB** schema v28 · 1889 functions in 398 modules · 10 object stores · 10 PG tables · 3867 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -283,6 +283,27 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `stopAiReviewPolling` | `components/sourceContainer/aiReview/polling` | — | — | — | — |
 | `aiReviewSectionHtml` | `components/sourceContainer/aiReview/section` | — | — | — | — |
 | `initAudiobookDownload` | `components/sourceContainer/audiobookDownload` | — | — | read/write | — |
+| `autoMetaIconHtml` | `components/sourceContainer/autoMetadata/card` | — | — | — | — |
+| `checkedFields` | `components/sourceContainer/autoMetadata/card` | — | — | read | — |
+| `escapeHtml` | `components/sourceContainer/autoMetadata/card` | — | — | — | — |
+| `focusWand` | `components/sourceContainer/autoMetadata/card` | — | — | read | — |
+| `proposalCardHtml` | `components/sourceContainer/autoMetadata/card` | — | — | — | — |
+| `proposalMountHtml` | `components/sourceContainer/autoMetadata/card` | — | — | — | — |
+| `removeProposal` | `components/sourceContainer/autoMetadata/card` | — | — | read/write | — |
+| `renderProposal` | `components/sourceContainer/autoMetadata/card` | — | — | read/write | — |
+| `setProposalNote` | `components/sourceContainer/autoMetadata/card` | — | — | read/write | — |
+| `applyAutoMetadata` | `components/sourceContainer/autoMetadata/index` | — | `library` | — | — |
+| `handleAutoMetadata` | `components/sourceContainer/autoMetadata/index` | — | — | — | — |
+| `handleAutoMetadataAi` | `components/sourceContainer/autoMetadata/index` | — | — | read/write | — |
+| `authorIsDefault` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `copyrightYear` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `headingCandidate` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `openingPlainText` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `proposeFromAi` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `proposeLocalMetadata` | `components/sourceContainer/autoMetadata/local` | — | — | — | — |
+| `scanHeadings` | `components/sourceContainer/autoMetadata/local` | — | — | read/write | — |
+| `byoActive` | `components/sourceContainer/autoMetadata/remote` | — | — | — | — |
+| `requestAiMetadata` | `components/sourceContainer/autoMetadata/remote` | — | — | read | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |
@@ -343,6 +364,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `destroySourceManager` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager._awaitReconvert` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager._settleAnimation` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.applyAutoMetadata` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.attachInternalListeners` | `components/sourceContainer/index` | — | — | read/write | — |
 | `SourceContainerManager.cleanUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.closeAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
@@ -356,6 +378,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.fetchHarvestMap` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.fetchPipelineMap` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleAiReviewGenerate` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleAutoMetadata` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.handleAutoMetadataAi` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleCheckSource` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleDeleteBook` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.handleEditClick` | `components/sourceContainer/index` | — | — | — | — |
@@ -1189,13 +1213,14 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildLibraryUrl` | `indexedDB/core/library` | — | — | — | — |
 | `cleanLibraryItemForStorage` | `indexedDB/core/library` | — | — | — | — |
 | `fetchLibraryRecordWithStatus` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `forgetAutoDerivedTitle` | `indexedDB/core/library` | — | — | — | — |
 | `getAllOfflineAvailableBooks` | `indexedDB/core/library` | `library` `nodes` | — | — | — |
 | `getLibraryObjectFromIndexedDB` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `getLibraryRecordFromServer` | `indexedDB/core/library` | `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `initLibraryDependencies` | `indexedDB/core/library` | — | — | — | — |
 | `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
 | `raiseLocalLibraryTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
-| `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | write | — |
+| `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `updateAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `updateBookTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `updateLocalAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |

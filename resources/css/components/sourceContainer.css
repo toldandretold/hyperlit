@@ -57,6 +57,34 @@
   padding-right: 44px;
 }
 
+/* The auto-metadata wand, riding inline at the end of the citation line. Carries
+   the panel's aqua accent (as [check source] does) — muted-label grey at this
+   size was simply not legible against the dark glass. */
+.auto-meta-icon {
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.auto-meta-icon:hover,
+.auto-meta-icon:focus-visible {
+  opacity: 1;
+  transform: rotate(-12deg);
+}
+
+.auto-meta-icon:active {
+  transform: rotate(-12deg) scale(0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-meta-icon,
+  .auto-meta-icon:hover,
+  .auto-meta-icon:focus-visible,
+  .auto-meta-icon:active {
+    transition: none;
+    transform: none;
+  }
+}
+
 #source-container .license-line {
   margin: 0;
 }

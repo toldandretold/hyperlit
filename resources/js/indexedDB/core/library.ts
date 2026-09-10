@@ -7,6 +7,10 @@ import { openDatabase } from './connection';
 import { isSyntheticFeedBook, isUserHomeVariantBook } from './utilities';
 import { buildBibtexEntry } from '../../utilities/bibtexProcessor';
 import { parseSubBookId } from '../../utilities/subBookIdHelper';
+import { nodePlainText } from '../../utilities/nodeText';
+// One shared definition of "good enough to be a title", also used by the source
+// panel's auto-metadata wand and ported from the server's hasUsableTitle().
+import { headingIsPlausibleTitle, truncateToWords } from '../../utilities/titleQuality';
 
 import { queueForSync } from '../syncQueue/queue';
 import { log } from '../../utilities/logger';
@@ -224,8 +228,33 @@ export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolea
 }
 
 /**
- * Sync the first node's text content to the library title
- * Only updates if title is still "Untitled"
+ * Titles this function derived itself, per book, for THIS session.
+ *
+ * The old rule was "only ever fire while the title is exactly 'Untitled'", which
+ * made it a one-shot on a 500ms snapshot of half-typed text: type `# m`, pause
+ * two seconds, keep typing, and the book was permanently called "m" with no way
+ * back except the edit form. (That is the "sorta works if you type really
+ * quickly" behaviour.) Remembering our own last guess lets us keep the title in
+ * step with the heading while the user is still writing it, WITHOUT ever
+ * overwriting a title a human chose — a value we didn't put there fails the
+ * check and locks the sync off, exactly as before.
+ */
+const autoDerivedTitles = new Map<string, string>();
+
+/** The edit form / auto-metadata Apply call this: a human has chosen a title now. */
+export function forgetAutoDerivedTitle(bookId: BookId): void {
+  autoDerivedTitles.delete(String(bookId));
+}
+
+/**
+ * Sync the first node's text content to the library title.
+ *
+ * Fires while the title is still the "Untitled" placeholder, or while it is
+ * still a value THIS function derived earlier in the session (see
+ * autoDerivedTitles). The candidate must clear the shared quality bar in
+ * utilities/titleQuality — the same bar the source panel's wand and the server's
+ * CanonicalSourceMatcher::hasUsableTitle() use — so a half-typed fragment, a
+ * bare "Introduction", or a 400-word first paragraph no longer become the title.
  */
 export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string): Promise<boolean> {
   try {
@@ -243,26 +272,44 @@ export async function syncFirstNodeToTitle(bookId: BookId, nodeContent: string):
       getRequest.onsuccess = async () => {
         const libraryRecord = getRequest.result as LibraryRecord | undefined;
 
-        // Only update if library record exists and title is "Untitled"
-        if (!libraryRecord || libraryRecord.title !== "Untitled") {
+        if (!libraryRecord) {
           resolve(false);
           return;
         }
 
-        // Extract text content from HTML (strip tags)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = nodeContent;
-        const textContent = (tempDiv.textContent ?? '').trim();
-
-        // Don't update if the text is empty or just whitespace
-        if (!textContent) {
+        // Ours to touch only while it is the placeholder, or still the value we
+        // derived ourselves. Anything else is a human's choice — leave it.
+        const key = String(bookId);
+        const current = libraryRecord.title ?? '';
+        const ourEarlierGuess = autoDerivedTitles.get(key);
+        if (current !== 'Untitled' && !(ourEarlierGuess && current === ourEarlierGuess)) {
           resolve(false);
           return;
         }
 
-        // Update the title
-        libraryRecord.title = textContent;
+        // nodeContent is stored HTML — parse it INERT. A detached div's innerHTML
+        // executes <img onerror> (the stored-XSS vector in docs/security); the
+        // shared nodePlainText helper uses DOMParser and normalises whitespace.
+        const textContent = nodePlainText(nodeContent);
+
+        // Hold the title back until the heading is actually worth having. A
+        // fragment ("m"), a placeholder, a section heading ("Introduction") or a
+        // whole paragraph must not become the book's citation identity.
+        if (!headingIsPlausibleTitle(textContent)) {
+          resolve(false);
+          return;
+        }
+
+        // Truncate the way the server will, so IndexedDB and Postgres agree.
+        const nextTitle = truncateToWords(textContent);
+        if (nextTitle === current) {
+          resolve(false);
+          return;
+        }
+
+        libraryRecord.title = nextTitle;
         libraryRecord.timestamp = Date.now();
+        autoDerivedTitles.set(key, nextTitle);
 
         // Set author from the creator username if not already set. (Anonymous books already get
         // author="anon" at creation in SPA/createNewBook.ts; the server never sends creator_token to

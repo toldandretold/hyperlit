@@ -49,6 +49,12 @@ This is the map of every dollar that moves through hyperlit: what we charge for,
 
 - LLM token cost, charged only after the response parsed into valid CSS overrides; unparseable output = 422 and no charge. BYO path gets an inference ticket and no server charge.
 
+### Auto metadata — the source panel's wand (`category: citation_meta`)
+
+- LLM token cost for one small extraction call (`services.llm.extraction_model`, ~$0.0004 raw for a 6k-char opening), charged only after the response parsed into at least one usable field; unparseable or all-null output = 422 and no charge. BYO path gets an inference ticket and no server charge.
+- Only the AI tier is billed. The wand's FREE tier (first heading, your username, a copyright line) runs entirely in the browser, never reaches the server, and is the only tier available for encrypted books.
+- The response returns `charged` — the post-multiplier ledger amount — so the UI can state what was actually taken without keeping its own copy of the tier table.
+
 ### TTS audiobooks (`category: tts`, hold: `tts_reservation`)
 
 - **Rate** — synthesized characters / 1M × `services.tts.pricing.billed_per_million_chars` ($1.00 raw; our DeepInfra cost is $0.80).

@@ -162,6 +162,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/translate', [\App\Http\Controllers\TranslationController::class, 'translate']);
     Route::get('/translate/languages', [\App\Http\Controllers\TranslationController::class, 'languages']);
 
+    // Auto metadata — the AI tier of the source panel's wand: read a document's
+    // opening and recover its title/author/year. Owner-only, requester-pays,
+    // refuses encrypted books. The FREE tier runs entirely in the browser and
+    // never comes here.
+    Route::post('/citation-meta/extract', [\App\Http\Controllers\CitationMetadataController::class, 'extract']);
+
     // User preferences
     Route::get('/user/preferences', [UserPreferencesController::class, 'show']);
     Route::post('/user/preferences', [UserPreferencesController::class, 'update']);

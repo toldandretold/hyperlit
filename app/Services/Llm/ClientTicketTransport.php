@@ -26,7 +26,9 @@ class ClientTicketTransport implements InferenceTransport
 
     /**
      * @param string       $creator          owning user (= app.current_user)
-     * @param string       $feature          'vibe_css' | 'ai_brain' | 'ai_review'
+     * @param string       $feature          'vibe_css' | 'ai_brain' | 'ai_review' | 'translation' | 'citation_meta'
+     *                                       (must also be listed in InferenceTicketController::FEATURES,
+     *                                       or the client can never claim the parked ticket)
      * @param string|null  $contextId        pipeline/highlight id, or null
      * @param Closure|null $onTicketCreated  fn(InferenceTicket): void — e.g. emit an SSE event
      * @param Closure|null $onWait           fn(): void — called each poll tick (e.g. SSE heartbeat)
