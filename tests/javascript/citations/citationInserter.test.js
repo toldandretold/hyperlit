@@ -38,9 +38,15 @@ vi.mock('../../../resources/js/indexedDB/index', () => ({
   queueForSync: (...args) => queueSpy(...args),
 }));
 
-vi.mock('../../../resources/js/utilities/bibtexProcessor', () => ({
-  formatBibtexToCitation: vi.fn(async (bibtex) => `[FORMATTED] ${bibtex}`),
-}));
+vi.mock('../../../resources/js/utilities/bibtexProcessor', async (importOriginal) => {
+  // parseAuthorYear needs the REAL parseBibtexFields (it's the unit under test);
+  // only the async formatter (which hits auth for anonymisation) stays mocked.
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    formatBibtexToCitation: vi.fn(async (bibtex) => `[FORMATTED] ${bibtex}`),
+  };
+});
 
 import {
   generateReferenceId,
@@ -91,6 +97,29 @@ describe('parseAuthorYear', () => {
   it('falls back to "Unknown" / "n.d." when fields missing', () => {
     expect(parseAuthorYear('@misc{x, title = {Anonymous}}'))
       .toEqual({ author: 'Unknown', year: 'n.d.' });
+  });
+
+  // The multi-author bug: harvest metadata joins authors with "; " (OpenAlex /
+  // Semantic Scholar / Open Library normalisers), which the old parser treated
+  // as ONE author and reduced to its last word — "(Berinsky 2026)".
+  it('uses "et al." for 3+ semicolon-joined authors (the Berinsky bug)', () => {
+    expect(parseAuthorYear('@misc{x, author = {Kevin Munger; Bert N. Bakker; Adam J. Berinsky}, year = {2026}}'))
+      .toEqual({ author: 'Munger et al.', year: '2026' });
+  });
+
+  it('joins two semicolon-separated authors with ampersand', () => {
+    expect(parseAuthorYear('@misc{x, author = {Kevin Munger; Bert N. Bakker}, year = {2026}}'))
+      .toEqual({ author: 'Munger & Bakker', year: '2026' });
+  });
+
+  it('keeps a brace-protected corporate author whole', () => {
+    expect(parseAuthorYear('@misc{x, author = {{World Health Organization}}, year = {2021}}'))
+      .toEqual({ author: 'World Health Organization', year: '2021' });
+  });
+
+  it('renders a UUID author (anonymous creator) as Anon', () => {
+    expect(parseAuthorYear('@misc{x, author = {123e4567-e89b-42d3-a456-426614174000}, year = {2020}}'))
+      .toEqual({ author: 'Anon', year: '2020' });
   });
 });
 

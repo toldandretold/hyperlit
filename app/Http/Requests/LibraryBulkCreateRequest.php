@@ -21,10 +21,12 @@ class LibraryBulkCreateRequest extends FormRequest
             'data' => ['required', 'array'],
             'data.book' => ['required', new BookId()],
             'data.title' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'data.author' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // Full "; "-joined author lists are stored; a real bibtex entry
+            // trivially exceeds 100 chars — both old caps were traps.
+            'data.author' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'data.type' => ['sometimes', 'nullable', 'string', 'max:50'],
             'data.timestamp' => ['sometimes', 'nullable', 'integer', 'min:0'],
-            'data.bibtex' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'data.bibtex' => ['sometimes', 'nullable', 'string', 'max:20000'],
             'data.visibility' => ['sometimes', 'in:public,private'],
             'data.listed' => ['sometimes', 'boolean'],
             'data.year' => ['sometimes', 'nullable', 'string', 'max:20'],

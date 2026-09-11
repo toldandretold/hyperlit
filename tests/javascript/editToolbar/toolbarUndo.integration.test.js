@@ -25,6 +25,7 @@ vi.mock('../../../resources/js/utilities/idHelpers', () => {
   let nextGeneratedId = 0;
   return {
     asLineId: (s) => s,
+    NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/,
     setElementIds: vi.fn((el) => { if (!el.id) el.id = `gen${++nextGeneratedId}`; }),
     findPreviousElementId: vi.fn(() => null),
     findNextElementId: vi.fn(() => null),

@@ -101,7 +101,9 @@ class ImportController extends Controller
         $request->validate([
             'book' => 'required|string|regex:/^[a-zA-Z0-9_-]+$/',
             'title' => 'required|string|max:255',
-            'author' => 'nullable|string|max:255',
+            // Full "; "-joined author lists are stored (column is text) — 255
+            // would 422 a ~12-author paper. 5000 is a DoS guard, not a cap.
+            'author' => 'nullable|string|max:5000',
             'year' => 'nullable|integer|min:1000|max:' . (date('Y') + 10),
             // Bibliographic pass-through fields (cite form + scrape-folder
             // manifests — docs/web-scrape-import.md). Written to `library`

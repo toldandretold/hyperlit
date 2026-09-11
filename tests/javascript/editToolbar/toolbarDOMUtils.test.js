@@ -210,6 +210,41 @@ describe('toolbarDOMUtils', () => {
       // Not in document, no block parent
       expect(findClosestBlockParent(span)).toBe(null);
     });
+
+    // The book ROOT is a container, never a content block. The `.chunk` skip
+    // walks straight past the chunk, so without the root gate a multi-node
+    // selection (commonAncestorContainer === the chunk) resolved to the root,
+    // and callers saved under its non-numeric id — which batch.ts rejects and
+    // escalates to a `batch-invalid-id` integrity-mismatch report.
+    it('stops at a sub-book root instead of returning it (.sub-book-content[data-book-id])', () => {
+      document.body.innerHTML = `
+        <div id="user-about-book" class="sub-book-content" data-book-id="toldandretoldAbout" contenteditable="true">
+          <div class="chunk" data-chunk-id="0">
+            <p id="1">first</p>
+            <p id="2">second</p>
+          </div>
+        </div>`;
+      const chunk = document.querySelector('.chunk');
+      expect(findClosestBlockParent(chunk)).toBe(null);
+    });
+
+    it('stops at the reader root instead of returning it (main.main-content)', () => {
+      document.body.innerHTML = `
+        <main id="book_1769036890566" class="main-content" contenteditable="true">
+          <div class="chunk" data-chunk-id="0"><p id="1">hi</p></div>
+        </main>`;
+      const chunk = document.querySelector('.chunk');
+      expect(findClosestBlockParent(chunk)).toBe(null);
+    });
+
+    it('still resolves a real node inside a sub-book root', () => {
+      document.body.innerHTML = `
+        <div id="user-about-book" class="sub-book-content" data-book-id="toldandretoldAbout" contenteditable="true">
+          <div class="chunk" data-chunk-id="0"><p id="1">a<strong>b</strong></p></div>
+        </div>`;
+      const strong = document.querySelector('strong');
+      expect(findClosestBlockParent(strong)).toBe(document.getElementById('1'));
+    });
   });
 
   // ===== getLastTextNode =====

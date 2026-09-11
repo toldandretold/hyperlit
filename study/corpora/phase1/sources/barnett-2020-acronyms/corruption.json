@@ -1,0 +1,8 @@
+{
+    "seed": 424242,
+    "counts": {
+        "fabrication": 2,
+        "source_swap": 1,
+        "claim_distortion": 1
+    }
+}

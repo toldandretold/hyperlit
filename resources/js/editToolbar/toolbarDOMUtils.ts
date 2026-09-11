@@ -116,10 +116,35 @@ export function getElementsInSelectionRange(range: Range): Element[] {
 }
 
 /**
+ * The editable ROOT of a book — the host the block walk must never escape.
+ * Two shapes exist: `<main class="main-content" id="{bookId}">` (reader) and
+ * `.sub-book-content[data-book-id]` (container-panel sub-books and the user
+ * page's About book, `#user-about-book`).
+ *
+ * Both are block tags (MAIN / DIV), so without this gate the `.chunk` skip
+ * below walks straight past the chunk and hands the ROOT back as if it were a
+ * content block — which happens on any selection spanning more than one node
+ * (its commonAncestorContainer IS the chunk). Callers then save under the
+ * root's id, and since that id is never numeric (`user-about-book`,
+ * `book_1769…`) batch.ts rejects the write and escalates it to a
+ * `batch-invalid-id` integrity-mismatch report. undoManager's
+ * findBlockFromTarget carries the same guard locally (it hit this first); this
+ * is the central one, so every caller gets it.
+ */
+function isEditableRoot(element: Element): boolean {
+  return element.hasAttribute?.('contenteditable')
+    || element.hasAttribute?.('data-book-id')
+    || !!element.classList?.contains('main-content');
+}
+
+/**
  * Find the closest block-level parent element
  */
 export function findClosestBlockParent(element: Element | null): Element | null {
   if (!element) return null;
+
+  // Stop at the book root: it is a container, not a content block.
+  if (isEditableRoot(element)) return null;
 
   if (STRUCTURAL_BLOCK_TAGS.has(element.tagName)) {
     // Skip chunk divs - they're containers, not content blocks that should be formatted/replaced

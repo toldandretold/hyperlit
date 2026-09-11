@@ -109,6 +109,27 @@ function apiBase(): string {
 
 let statusTimer: number | undefined;
 
+/**
+ * The run currently being polled, or null.
+ *
+ * Guards the re-attach in loadDetail(): the articles payload reports an in-flight run on every
+ * load, and without this a reload that lands while a poll is already running would start a
+ * second loop against the same row.
+ */
+let pollingRunId: string | null = null;
+
+/** When the current run was first seen queued — for the "no worker is running" hint. */
+let queuedSince: number | null = null;
+
+/**
+ * Re-attach an in-flight run, set by wireJournalActions (which owns the buttons and the status
+ * line it needs). Null on the shelf console, which has no journal-scoped actions to resume.
+ *
+ * Declared up here with the rest of the module state rather than beside its assignment: a `let`
+ * is in the temporal dead zone until its declaration is evaluated, and loadDetail() reads this.
+ */
+let resumeActiveRun: ((run: RunState) => void) | null = null;
+
 function setStatus(text: string): void {
   const node = document.getElementById('ji-status') || document.getElementById('ji-actions-status');
   if (!node) return;
@@ -228,6 +249,11 @@ async function loadDetail(): Promise<void> {
 
   const data = await resp.json();
   articles = (data.articles ?? []) as Article[];
+
+  // A bulk run that outlived the page. The poll lives in a promise chain with no persisted id, so
+  // before this a reload mid-import was indistinguishable from a dead worker — the job kept going
+  // and the console never mentioned it again. Absent on the shelf console, which has no bulk runs.
+  if (data.active_run && resumeActiveRun) resumeActiveRun(data.active_run as RunState);
 
   const link = el<HTMLAnchorElement>('ji-public-link');
   if (data.shelf) {
@@ -695,6 +721,7 @@ async function runAction(
   body: Record<string, string>,
   setter: (text: string) => void,
   buttons: string[],
+  showPanel = false,
 ): Promise<void> {
   if (!isDetail) return;
 
@@ -703,6 +730,17 @@ async function runAction(
 
   for (const id of buttons) el<HTMLButtonElement>(id).disabled = true;
   setter('dispatching…');
+  // Up front, not on the first poll tick 2.5s later: the whole point is that pressing the button
+  // visibly does something. A panel that appears two and a half seconds after the click has
+  // already spent the moment it exists to fill.
+  if (showPanel) {
+    queuedSince = Date.now();
+    renderRunProgress(
+      { status: 'pending', step_detail: 'dispatching…' },
+      runHeadline({ status: 'pending', step_detail: null, action: body.action, lanes: body.lanes ?? null,
+        work_limit: body.limit != null ? Number(body.limit) : null }),
+    );
+  }
 
   try {
     const resp = await fetch(`${apiBase()}/run`, {
@@ -723,7 +761,7 @@ async function runAction(
     if (payload.already_running && payload.action && payload.action !== body.action) {
       setter(`waiting: "${payload.action}" is already running on this journal`);
     }
-    await pollRun(payload.run_id, setter);
+    await pollRun(payload.run_id, setter, showPanel);
   } catch (e) {
     log.error('Journal import action failed', 'maintainer-journal-import', e);
     setter('failed — see logs');
@@ -732,35 +770,75 @@ async function runAction(
   }
 }
 
-/** Poll a run row to completion, then reload the list so the new/changed lane shows. */
-async function pollRun(runId: string, setter: (text: string) => void): Promise<void> {
-  for (;;) {
-    await new Promise((r) => window.setTimeout(r, 2500));
-    const resp = await fetch(`/api/maintainer/journal-import/runs/${encodeURIComponent(runId)}`, {
-      credentials: 'include',
-    });
-    if (!resp.ok) {
-      setter(`lost the run (${resp.status})`);
-      return;
-    }
-    const run = await resp.json() as {
-      status: string; step_detail: string | null; error: string | null;
-      counts: { summary?: string; failures?: RunFailure[] };
-    };
+/**
+ * Poll a run row to completion, then reload the list so the new/changed lane shows.
+ *
+ * `showPanel` is only set by the JOURNAL-scoped bar. An article-scoped action already reports
+ * into its own bar beside the buttons that fired it, and mirroring it into the run panel would
+ * put one article's progress where the bulk run's belongs.
+ */
+async function pollRun(runId: string, setter: (text: string) => void, showPanel = false): Promise<void> {
+  // Claimed before the first tick so a loadDetail() that lands mid-run doesn't start a second
+  // loop against the same row — two pollers race and the panel flickers between their ticks.
+  pollingRunId = runId;
+  queuedSince = Date.now();
+  let headline = 'run';
+  // The row being polled RIGHT NOW, which is not always the one we were handed: a self-continuing
+  // import hands off to its successor mid-loop (see the `completed` branch).
+  let currentId = runId;
 
-    if (run.status === 'completed') {
-      setter(run.counts.summary ? `done — ${run.counts.summary}` : 'done');
-      // Reload FIRST: the failure rows link into the article list, which must hold the fresh
-      // lanes before a click can find them.
-      if (isDetail) await loadDetail();
-      renderFailures(run.counts.failures ?? []);
-      return;
+  try {
+    for (;;) {
+      await new Promise((r) => window.setTimeout(r, 2500));
+      const resp = await fetch(`/api/maintainer/journal-import/runs/${encodeURIComponent(currentId)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) {
+        setter(`lost the run (${resp.status})`);
+        if (showPanel) {
+          renderRunProgress({ status: 'failed', step_detail: null, error: `lost the run (${resp.status})` }, headline);
+        }
+        return;
+      }
+      const run = await resp.json() as RunState;
+      if (run.action) headline = runHeadline(run);
+      if (run.status !== 'pending') queuedSince = null;
+      if (showPanel) renderRunProgress(run, headline);
+
+      if (run.status === 'completed') {
+        // Reload FIRST: the failure rows link into the article list, which must hold the fresh
+        // lanes before a click can find them.
+        if (isDetail) await loadDetail();
+        renderFailures(run.counts?.failures ?? []);
+
+        // A self-continuing import is one JOURNAL-level operation spread over many run rows,
+        // because each is capped at 50 minutes. Reporting "done" at the end of link 1 of 12 is
+        // the whole bug this follows through: hand off to the successor the job just enqueued and
+        // keep the same panel, the same disabled buttons, and the same poll alive.
+        const next = run.counts?.next_run_id;
+        if (next) {
+          setter(`continuing — ${run.counts?.remaining_eligible ?? 0} still eligible`);
+          currentId = next;
+          pollingRunId = next;
+          queuedSince = Date.now();
+          continue;
+        }
+
+        setter(run.counts?.summary ? `done — ${run.counts.summary}` : 'done');
+        return;
+      }
+      if (run.status === 'failed') {
+        setter(run.error ? `failed: ${run.error}` : 'failed');
+        return;
+      }
+      setter(run.step_detail || run.status);
     }
-    if (run.status === 'failed') {
-      setter(run.error ? `failed: ${run.error}` : 'failed');
-      return;
-    }
-    setter(run.step_detail || run.status);
+  } finally {
+    // Released on every exit, including the early returns above — a stuck id would make the
+    // resume check below refuse to ever re-attach. Compared against the CURRENT id, not the one
+    // we started with, or a chain that handed off would leave its successor's claim behind.
+    if (pollingRunId === currentId) pollingRunId = null;
+    queuedSince = null;
   }
 }
 
@@ -1130,6 +1208,192 @@ interface RunFailure {
   reason: string | null;
 }
 
+/** The live beat a running job writes to `journal_import_runs.progress`, one write per work. */
+interface RunProgress {
+  phase: 'html' | 'pdf' | 'enumerate' | 'shelf' | null;
+  n: number;
+  total: number;
+  title: string | null;
+  imported: number;
+  already: number;
+  failed: number;
+  recent_failures: RunFailure[];
+}
+
+/**
+ * What the bulk control can ask for. `html_first` is a STRATEGY, not a lane — it tries the free
+ * publisher page per work and buys OCR only where that yields nothing publishable — which is why
+ * it is offered here and not on the per-article import bar, where you are picking a lane to look at.
+ */
+type BulkLane = 'pdf' | 'html' | 'both' | 'html_first';
+
+const LANE_LABELS: Record<BulkLane, string> = {
+  html_first: 'HTML, PDF if needed',
+  html: 'HTML only',
+  pdf: 'PDF only',
+  both: 'both',
+};
+
+/** What `runStatus` (and, for an in-flight run, the articles payload) hands back. */
+interface RunState {
+  id?: string;
+  status: string;
+  action?: string;
+  lanes?: string | null;
+  work_limit?: number | null;
+  step_detail: string | null;
+  progress?: RunProgress | null;
+  counts?: {
+    summary?: string;
+    failures?: RunFailure[];
+    /** True when the run hit the 50-minute work budget with work still queued. */
+    stopped_early?: boolean;
+    remaining_eligible?: number;
+    /** Eligible-but-for the retry cooldown: excluded from `remaining_eligible`, not forgotten. */
+    cooling_off?: number;
+    /** Set by the job when it enqueued its own successor — the chain's next link. */
+    next_run_id?: string;
+  };
+  error?: string | null;
+  /** Chain state, for a self-continuing bulk import. */
+  continue_until_done?: boolean;
+  chain_position?: number;
+  chain_spend?: number;
+  spend_cap?: number | null;
+}
+
+/**
+ * Paint the run panel from one poll of a run row.
+ *
+ * Falls back to `step_detail` whenever `progress` is absent: a run dispatched before the progress
+ * column shipped, one still being worked by a pre-deploy worker, or an article-scoped action whose
+ * steps have no countable work. That line already carries the same n/total as prose, so the panel
+ * degrades to a sentence rather than to nothing.
+ */
+function renderRunProgress(run: RunState, headline: string): void {
+  const panel = document.getElementById('ji-run-panel');
+  if (!panel) return;   // the shelf console's blade has no panel — it has no bulk runs to show
+
+  const p = run.progress ?? null;
+  const terminal = run.status === 'completed' || run.status === 'failed';
+  const queued = run.status === 'pending';
+
+  panel.hidden = false;
+  panel.classList.toggle('is-done', run.status === 'completed');
+  panel.classList.toggle('is-failed', run.status === 'failed');
+
+  el<HTMLElement>('ji-run-title').textContent = headline;
+
+  // Indeterminate whenever there is no honest denominator: queued, enumerating (OpenAlex
+  // paginates, so the count is unknown until the last page), or shelf sync.
+  const fill = el<HTMLElement>('ji-run-bar-fill');
+  const determinate = !!p && p.total > 0 && !queued;
+  fill.classList.toggle('is-indeterminate', !determinate && !terminal);
+  fill.style.width = determinate ? `${Math.min(100, Math.round((p.n / p.total) * 100))}%` : '';
+
+  const count = el<HTMLElement>('ji-run-count');
+  const current = el<HTMLElement>('ji-run-current');
+
+  if (terminal) {
+    count.textContent = run.status === 'completed' ? '✓' : '✗';
+    current.textContent = run.status === 'completed'
+      ? (run.counts?.summary ?? 'done')
+      : (run.error ?? 'failed');
+  } else if (queued) {
+    count.textContent = '';
+    // A run can sit here legitimately for a few seconds. Past that it is nearly always the
+    // citation-pipeline worker being down — a real and recurring failure mode, and the row's own
+    // watchdog does not call it for THIRTY MINUTES. Say so rather than spin silently.
+    const waited = queuedSince ? Date.now() - queuedSince : 0;
+    current.textContent = waited > 15000
+      ? 'queued — no worker has picked this up (is the citation-pipeline worker running?)'
+      : 'queued — waiting for a worker';
+  } else if (p && p.total > 0) {
+    count.textContent = `${p.n} / ${p.total}`;
+    current.textContent = p.title ?? '';
+  } else {
+    count.textContent = '';
+    current.textContent = p?.title ?? run.step_detail ?? run.status;
+  }
+
+  const tallies = el<HTMLElement>('ji-run-tallies');
+  tallies.textContent = p && (p.imported || p.already || p.failed)
+    ? [
+      `${p.imported} imported`,
+      p.already ? `${p.already} already there` : '',
+      p.failed ? `${p.failed} failed` : '',
+      p.phase ? `· ${p.phase} lane` : '',
+    ].filter(Boolean).join(' · ')
+    : '';
+
+  // The running tail only. The grouped-by-cause panel that lands at completion is still where
+  // triage happens — this is here so a run that dies at minute 40 has already said why.
+  const errors = el<HTMLElement>('ji-run-errors');
+  const recent = p?.recent_failures ?? [];
+  errors.textContent = '';
+  errors.hidden = recent.length === 0 || terminal;
+  for (const f of recent) {
+    const row = document.createElement('div');
+    row.className = 'ji-run-error';
+    row.textContent = `✗ ${f.lane} · ${f.reason || f.status}`;
+    row.title = `${f.title}\n${f.reason || f.status}`;
+    errors.appendChild(row);
+  }
+
+  renderStoppedEarly(run, terminal);
+
+  // Dismissable only once nothing is still moving — closing it mid-run would put the operator
+  // straight back in the silence this exists to end.
+  el<HTMLButtonElement>('ji-run-close').hidden = !terminal;
+}
+
+/**
+ * The banner for a run that stopped at its time limit with work still queued.
+ *
+ * This is the single most important fact about a big import and it used to be a CLAUSE at the end
+ * of the summary sentence, in the small grey line, while "7 failed" got a panel with a bold header.
+ * The result was exactly backwards: a tripleC run did 73 of 960 works and read as a finished job
+ * with a handful of errors. The headline is "you are 8% done and must press again"; the failures
+ * are the footnote.
+ *
+ * Silent unless there is something to say — a run that emptied the queue has no banner, and a
+ * chain that is still continuing reports its own progress rather than asking for a press.
+ */
+function renderStoppedEarly(run: RunState, terminal: boolean): void {
+  const banner = document.getElementById('ji-run-continue');
+  if (!banner) return;
+
+  const stopped = terminal && run.status === 'completed' && run.counts?.stopped_early === true;
+  const remaining = run.counts?.remaining_eligible ?? 0;
+  banner.hidden = !stopped || remaining < 1;
+  if (banner.hidden) return;
+
+  const cooling = run.counts?.cooling_off ?? 0;
+  const chaining = !!run.counts?.next_run_id;
+
+  el<HTMLElement>('ji-run-continue-text').textContent = chaining
+    ? `Hit the 50-minute limit — continuing automatically. ${remaining} still eligible`
+      + (cooling ? `, ${cooling} cooling off after earlier failures.` : '.')
+    : `Hit the 50-minute limit with ${remaining} still eligible`
+      + (cooling ? ` (plus ${cooling} cooling off after earlier failures)` : '')
+      + '. This journal is not finished — press continue, or tick "keep going" to have it run itself.';
+
+  // The chain is already doing what the button would do; offering it invites a second run that
+  // the server would only refuse as already-running.
+  el<HTMLButtonElement>('ji-run-continue-go').hidden = chaining;
+}
+
+/** Headline for the run panel: what was asked for, in the words of the controls that asked. */
+function runHeadline(run: RunState): string {
+  const bits = [run.action === 'import_all' ? 'import' : (run.action ?? 'run')];
+  if (run.lanes) bits.push(run.lanes === 'html_first' ? 'html → pdf' : run.lanes);
+  if (run.work_limit != null) bits.push(run.work_limit === 0 ? 'all eligible' : `next ${run.work_limit}`);
+  // Link N of a self-continuing chain. Without it every link looks like the operator's original
+  // press, and a chain seven runs deep is indistinguishable from one stuck on its first.
+  if ((run.chain_position ?? 1) > 1) bits.push(`run ${run.chain_position}`);
+  return bits.join(' · ');
+}
+
 /** The failures of the last bulk run, kept so the copy button can reproduce exactly what is shown. */
 let lastFailures: RunFailure[] = [];
 
@@ -1247,9 +1511,19 @@ function wireFailuresPanel(): void {
  */
 function wireJournalActions(): void {
   const buttons = ['ji-enumerate', 'ji-bulk-import'];
+  // `.ji-actions-status` is opacity:0 until `.ji-visible` is on it. Setting textContent alone —
+  // which this did — painted every message this bar has ever produced into an invisible span:
+  // "dispatching…", every "html 7/25: <title>", the final summary, the failure, and both certify
+  // confirmations. A 50-minute import reported itself perfectly to nobody.
+  //
+  // No auto-hide here, unlike setStatus(): this line tracks a RUN, and a progress report that
+  // fades after 4 seconds while the run keeps going is the same silence with extra steps. The
+  // run panel and pollRun own when it stops meaning something.
   const setJournalStatus = (text: string): void => {
     const node = document.getElementById('ji-journal-status');
-    if (node) node.textContent = text;
+    if (!node) return;
+    node.textContent = text;
+    node.classList.add('ji-visible');
   };
 
   const certify = document.getElementById('ji-certify');
@@ -1284,27 +1558,79 @@ function wireJournalActions(): void {
     })();
   });
 
+  document.getElementById('ji-run-close')?.addEventListener('click', () => {
+    el<HTMLElement>('ji-run-panel').hidden = true;
+  });
+
   document.getElementById('ji-enumerate')?.addEventListener('click', () => {
-    void runAction({ action: 'enumerate' }, setJournalStatus, buttons);
+    void runAction({ action: 'enumerate' }, setJournalStatus, buttons, true);
   });
 
   document.getElementById('ji-bulk-import')?.addEventListener('click', () => {
-    const lanes = (el<HTMLSelectElement>('ji-bulk-lanes').value || 'html') as 'pdf' | 'html' | 'both';
+    void startBulkImport();
+  });
+
+  // Same action as the bulk button, fired from the "stopped at the time limit" banner so
+  // continuing is one click where the news is, rather than a trip back up to the controls.
+  document.getElementById('ji-run-continue-go')?.addEventListener('click', () => {
+    void startBulkImport();
+  });
+
+  function startBulkImport(): void {
+    const lanes = (el<HTMLSelectElement>('ji-bulk-lanes').value || 'html_first') as BulkLane;
     const limit = el<HTMLSelectElement>('ji-bulk-limit').value || '5';
+    const keepGoing = el<HTMLInputElement>('ji-bulk-continue').checked;
     const howMany = limit === '0' ? 'EVERY eligible work' : `up to ${limit} works`;
 
-    // Two separate things worth stopping for: spending money, and unbounded scope. Either one
-    // alone deserves the prompt — "all eligible" on the free HTML lane still hammers a publisher.
-    if (lanes !== 'html' || limit === '0') {
+    // Three separate things worth stopping for: spending money, unbounded scope, and a run that
+    // will restart itself unattended. Any one of them alone deserves the prompt — "all eligible"
+    // on the free HTML lane still hammers a publisher.
+    if (lanes !== 'html' || limit === '0' || keepGoing) {
       const cost = lanes === 'html'
         ? 'The HTML lane is free, but this fetches from the publisher repeatedly.'
-        : 'The PDF lane runs OCR, which is charged to your account.';
-      if (!window.confirm(`Import ${howMany} (${lanes}) for this journal?\n\n${cost}`)) return;
+        : lanes === 'html_first'
+          ? 'Each work tries the free publisher page first; OCR is charged to you only where that yields nothing publishable.'
+          : 'The PDF lane runs OCR, which is charged to your account.';
+      const chain = keepGoing
+        ? '\n\n"Keep going" restarts the run until the journal is done — possibly for hours, unattended. It stops at its spend cap.'
+        : '';
+      if (!window.confirm(`Import ${howMany} (${LANE_LABELS[lanes]}) for this journal?\n\n${cost}${chain}`)) return;
     }
 
-    void runAction({ action: 'import_all', lanes, limit }, setJournalStatus, buttons);
-  });
+    void runAction(
+      { action: 'import_all', lanes, limit, continue_until_done: keepGoing ? '1' : '0' },
+      setJournalStatus,
+      buttons,
+      true,
+    );
+  }
+
+  // A run already in flight when the page loads — the operator refreshed, or opened the console
+  // in a second tab. Re-attach rather than sit silent for the rest of it.
+  resumeActiveRun = (run: RunState): void => {
+    if (!run.id || pollingRunId === run.id) return;
+    renderRunProgress(run, runHeadline(run));
+    setJournalStatus(run.step_detail ?? run.status);
+    for (const id of buttons) el<HTMLButtonElement>(id).disabled = true;
+    void runResume(run.id, setJournalStatus, buttons);
+  };
 }
+
+/**
+ * Re-attached poll. Same loop as a pressed action, minus the dispatch — the run is already out
+ * there, so this only follows it and puts the buttons back when it settles.
+ */
+async function runResume(runId: string, setter: (text: string) => void, buttons: string[]): Promise<void> {
+  try {
+    await pollRun(runId, setter, true);
+  } catch (e) {
+    log.error('Journal import run resume failed', 'maintainer-journal-import', e);
+    setter('lost the run — reload to re-attach');
+  } finally {
+    for (const id of buttons) el<HTMLButtonElement>(id).disabled = false;
+  }
+}
+
 
 /**
  * Paint the certify toggle from a known state. Absent on the shelf console, which has no

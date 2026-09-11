@@ -1,0 +1,182 @@
+{
+    "book": "toy-synthetic",
+    "generator": "CitationCorruptor v1",
+    "seed": 424242,
+    "entries": [
+        {
+            "gt_id": "toy-synthetic/c01",
+            "label": "fabricated_reference",
+            "bib_text_normalized": "welteroth c d 2013 latent gatekeeping and the economics of scholarly attention studies in scholarly communication 17 3 49 76",
+            "bib_text_hash": "sha256:f7568f94cad83b7a0743653864d15d7b363ebd6223f0f8ffa281e8c33d21700e",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "source_not_found_or_rejected",
+            "corruption_meta": {
+                "type": "fabrication",
+                "original_bib_text_hash": "sha256:e4ac90beded94d3693258187b3fc9f9a26b0f7cf22869b803d4a65424befc701",
+                "original_surname": "Bornmann",
+                "original_year": "2015",
+                "fake_surname": "Welteroth",
+                "fake_year": "2013",
+                "library_collision_checked": true
+            },
+            "bound_reference_id": "welteroth2013"
+        },
+        {
+            "gt_id": "toy-synthetic/c02",
+            "label": "fabricated_reference",
+            "bib_text_normalized": "ferrandino m v 2011 reassessing threshold models of collective attention annals of evidence practice 27 4 196 220",
+            "bib_text_hash": "sha256:2c4382fd7d8ce5db98aeed98fc53dc06f833013339308b6afba43f0b4820eb4f",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "source_not_found_or_rejected",
+            "corruption_meta": {
+                "type": "fabrication",
+                "original_bib_text_hash": "sha256:07fdb898a261b62f7ffea6c24582779bd40bd54a04cbedb11eba7a628f4d44c4",
+                "original_surname": "Suber",
+                "original_year": "2012",
+                "fake_surname": "Ferrandino",
+                "fake_year": "2011",
+                "library_collision_checked": true
+            },
+            "bound_reference_id": "ferrandino2011"
+        },
+        {
+            "gt_id": "toy-synthetic/c03",
+            "label": "source_swap",
+            "bib_text_normalized": "ioannidis j p a 2005 why most published research findings are false plos medicine 2 8 e124",
+            "bib_text_hash": "sha256:f76ba71891b4ec9d87aeff25fba3c68ab1d0f46cee7926603b880dafe74e6cb6",
+            "claim_snippet": "registered reports which review protocols before results are known were proposed as a structural fix to publication bias",
+            "cited_occurrences": 1,
+            "expected_detection": "claim_unsupported",
+            "corruption_meta": {
+                "type": "source_swap",
+                "original_bib_text_hash": "sha256:0893a4d614730d27f1f96b27dd69ad1f19ed8ceee3bb9f1ee575547f0aa7601d",
+                "original_surname": "Chambers",
+                "swapped_to_surname": "Ioannidis",
+                "swapped_to_year": "2005"
+            },
+            "bound_reference_id": "ioannidis2005"
+        },
+        {
+            "gt_id": "toy-synthetic/c04",
+            "label": "claim_distortion",
+            "bib_text_normalized": "nosek b a ebersole c r dehaven a c mellor d t 2018 the preregistration revolution proceedings of the national academy of sciences 115 11 2600 2606",
+            "bib_text_hash": "sha256:dc80668ac714d77b7f743859ad070ba6cbd26b614cd047889706350bf3827e6d",
+            "claim_snippet": "preregistration less broadly has been defended as a way to distinguish confirmatory from exploratory analysis nosek 2018",
+            "cited_occurrences": 1,
+            "expected_detection": "claim_unsupported",
+            "corruption_meta": {
+                "type": "claim_distortion",
+                "template": "direction_reversal",
+                "original_sentence_hash": "sha256:c4b4bdd041dd28a0a13a54d6a09d666b66336e0824688c505e190dc83b0c875c"
+            },
+            "bound_reference_id": "nosek2018"
+        },
+        {
+            "gt_id": "toy-synthetic/c05",
+            "label": "intact",
+            "bib_text_normalized": "chambers c d 2013 registered reports a new publishing initiative at cortex cortex 49 3 609 610",
+            "bib_text_hash": "sha256:0893a4d614730d27f1f96b27dd69ad1f19ed8ceee3bb9f1ee575547f0aa7601d",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "chambers2013"
+        },
+        {
+            "gt_id": "toy-synthetic/c06",
+            "label": "intact",
+            "bib_text_normalized": "fanelli d 2009 how many scientists fabricate and falsify research a systematic review and meta analysis of survey data plos one 4 5 e5738",
+            "bib_text_hash": "sha256:ff28d6b3fe0e4e424c54de90f6c83bcd84d957e5279cd78fafd648073abd86d8",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "fanelli2009"
+        },
+        {
+            "gt_id": "toy-synthetic/c07",
+            "label": "intact",
+            "bib_text_normalized": "fang f c steen r g casadevall a 2012 misconduct accounts for the majority of retracted scientific publications proceedings of the national academy of sciences 109 42 17028 17033",
+            "bib_text_hash": "sha256:ca94a090496e633e632c491329491bd35eecdb97f3dfdd8f8ee42e6c7bf1b422",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "fang2012"
+        },
+        {
+            "gt_id": "toy-synthetic/c08",
+            "label": "intact",
+            "bib_text_normalized": "ioannidis j p a 2005 why most published research findings are false plos medicine 2 8 e124",
+            "bib_text_hash": "sha256:f76ba71891b4ec9d87aeff25fba3c68ab1d0f46cee7926603b880dafe74e6cb6",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "ioannidis2005"
+        },
+        {
+            "gt_id": "toy-synthetic/c09",
+            "label": "intact",
+            "bib_text_normalized": "nosek b a ebersole c r dehaven a c mellor d t 2018 the preregistration revolution proceedings of the national academy of sciences 115 11 2600 2606",
+            "bib_text_hash": "sha256:dc80668ac714d77b7f743859ad070ba6cbd26b614cd047889706350bf3827e6d",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "nosek2018"
+        },
+        {
+            "gt_id": "toy-synthetic/c10",
+            "label": "intact",
+            "bib_text_normalized": "nuijten m b hartgerink c h j van assen m a l m epskamp s wicherts j m 2016 the prevalence of statistical reporting errors in psychology 1985 2013 behavior research methods 48 4 1205 1226",
+            "bib_text_hash": "sha256:c84dfeca3bf41f473729a5269e6a81ffebffad5794a788ede379d6f1de0b19c8",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "assenepskamphartgerinknuijtenwicherts2016"
+        },
+        {
+            "gt_id": "toy-synthetic/c11",
+            "label": "intact",
+            "bib_text_normalized": "open science collaboration 2015 estimating the reproducibility of psychological science science 349 6251 aac4716",
+            "bib_text_hash": "sha256:abb5c518617df01dff778d683c936ee0ea3608dec27389eb128ea496106815ba",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "collaboration2015"
+        },
+        {
+            "gt_id": "toy-synthetic/c12",
+            "label": "intact",
+            "bib_text_normalized": "priem j piwowar h orr r 2022 openalex a fully open index of scholarly works authors venues institutions and concepts arxiv preprint arxiv 2205 01833",
+            "bib_text_hash": "sha256:f21f82752bc9f4d6faf07b4ee757f089e0dbe4da1318d3aba3f520c270dfbb6c",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "priem2022"
+        },
+        {
+            "gt_id": "toy-synthetic/c13",
+            "label": "intact",
+            "bib_text_normalized": "simkin m v roychowdhury v p 2003 read before you cite complex systems 14 3 269 274",
+            "bib_text_hash": "sha256:2cb6a2bd77b874880df1d665688f7fb91d6a9283e34e24d19c37e7db32958905",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "simkin2003"
+        }
+    ],
+    "binding": {
+        "bound_at": "2026-09-10T04:03:21+00:00",
+        "book_id": "study_toy_toy-synthetic",
+        "unmatched": [],
+        "unlabelled_reference_ids": []
+    }
+}

@@ -43,6 +43,7 @@ class HarvestRunner
         private HarvestEligibility $eligibility,
         private HarvestShelf $shelf,
         private YieldReportBook $report,
+        private HarvestAttemptRecorder $attempts,
     ) {
     }
 
@@ -300,6 +301,13 @@ class HarvestRunner
 
                     $counts[$status === 'error' ? 'errors' : $status] =
                         ($counts[$status === 'error' ? 'errors' : $status] ?? 0) + 1;
+
+                    // Same retry backoff the journal harvest uses — this walker selects through the
+                    // same HarvestEligibility, so without it a dead citation is re-fetched at the
+                    // head of every scan of every book that cites it.
+                    in_array($status, ['assigned', 'assigned_existing'], true)
+                        ? $this->attempts->recordSuccess($row->id, HarvestAttemptRecorder::LANE_PDF)
+                        : $this->attempts->recordFailure($row->id, HarvestAttemptRecorder::LANE_PDF, $result['reason'] ?? $status);
 
                     // Surface which OA copy won / how many were tried (Phase E
                     // of the OA-fetch hardening) so a run's telemetry shows

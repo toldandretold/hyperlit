@@ -116,7 +116,9 @@ class LibraryCardGenerator
 
         $html = '';
         if ($hasAuthor) {
-            $html .= '<strong>' . e($this->anonymizeIfNeeded($record->author)) . '</strong>. ';
+            // Full author lists are stored; the et-al display cutoff is applied
+            // here at render time. Anonymisation first — it inspects the raw value.
+            $html .= '<strong>' . e(\App\Support\AuthorList::formatForReference($this->anonymizeIfNeeded($record->author))) . '</strong>. ';
         } else {
             $html .= '<strong>Anon.</strong> ';
         }
@@ -257,7 +259,9 @@ class LibraryCardGenerator
         // carry it. Render those entries author-less rather than as "null.".
         $author = $get('author');
         if ($author !== '' && strtolower($author) !== 'null') {
-            $html .= '<strong>' . e($this->anonymizeIfNeeded($author)) . '</strong>. ';
+            // Bibtex author fields are " and "-joined full lists; apply the
+            // et-al display cutoff at render time (anonymisation first).
+            $html .= '<strong>' . e(\App\Support\AuthorList::formatForReference($this->anonymizeIfNeeded($author))) . '</strong>. ';
         }
         if ($title = $get('title')) {
             if (in_array($type, ['book', 'inbook', 'incollection'])) {

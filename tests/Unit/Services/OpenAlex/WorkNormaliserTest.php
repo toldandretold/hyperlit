@@ -89,7 +89,10 @@ test('normaliseWork produces the shared citation shape from a raw work', functio
     expect($n['abstract'])->toBe('Neoliberalism is everywhere');
 });
 
-test('normaliseWork keeps only the first three authors joined by semicolons', function () use ($svc) {
+test('normaliseWork keeps ALL authors joined by semicolons', function () use ($svc) {
+    // The flat string used to slice to the first 3 with no marker — reading as
+    // a complete list and corrupting citations. Full list now; the et-al
+    // cutoff is a render-time concern (App\Support\AuthorList).
     $work = rawOpenAlexWork();
     $work['authorships'] = array_map(fn ($name) => [
         'author' => ['id' => null, 'display_name' => $name, 'orcid' => null],
@@ -98,8 +101,8 @@ test('normaliseWork keeps only the first three authors joined by semicolons', fu
     ], ['One Author', 'Two Author', 'Three Author', 'Four Author']);
 
     $n = $svc()->normaliseWork($work);
-    expect($n['author'])->toBe('One Author; Two Author; Three Author');
-    // but structured authorships keep everyone
+    expect($n['author'])->toBe('One Author; Two Author; Three Author; Four Author');
+    // structured authorships keep everyone too
     expect($n['authorships'])->toHaveCount(4);
 });
 

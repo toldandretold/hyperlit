@@ -73,7 +73,8 @@ Rules:
   list, a journal entry or a transcript, and no author is named, set
   "author": null and "self_authored": true. When in doubt prefer null.
 - Write the author as it appears, e.g. "Ursula K. Le Guin". Join multiple
-  authors with " and ". Do not reformat to "Lastname, Firstname".
+  authors with "; " (semicolon + space) and include EVERY named author. Do not
+  reformat to "Lastname, Firstname".
 - "year": the publication or copyright year stated in the text, as an integer. A
   date occurring inside the prose (a diary entry, a quoted letter) is NOT a
   publication year — return null rather than that.

@@ -1,0 +1,68 @@
+{
+    "book": "toy-control",
+    "generator": "CitationCorruptor v1 (skeleton)",
+    "seed": null,
+    "entries": [
+        {
+            "gt_id": "toy-control/c01",
+            "label": "intact",
+            "bib_text_normalized": "aczel b szaszi b holcombe a o 2021 a billion dollar donation estimating the cost of researchers time spent on peer review research integrity and peer review 6 1 14",
+            "bib_text_hash": "sha256:f0754fc94c78082817e4aa63fa4593d6aa79d094677758cb79d6d65564aad5b7",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "aczel2021"
+        },
+        {
+            "gt_id": "toy-control/c02",
+            "label": "intact",
+            "bib_text_normalized": "cicchetti d v 1991 the reliability of peer review for manuscript and grant submissions a cross disciplinary investigation behavioral and brain sciences 14 1 119 135",
+            "bib_text_hash": "sha256:ca8ebb56dad0a280ab0478c41287de74545221695682a6416a97fed89ac0bedf",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "cicchetti1991"
+        },
+        {
+            "gt_id": "toy-control/c03",
+            "label": "intact",
+            "bib_text_normalized": "nuijten m b hartgerink c h j van assen m a l m epskamp s wicherts j m 2016 the prevalence of statistical reporting errors in psychology 1985 2013 behavior research methods 48 4 1205 1226",
+            "bib_text_hash": "sha256:c84dfeca3bf41f473729a5269e6a81ffebffad5794a788ede379d6f1de0b19c8",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "assenepskamphartgerinknuijtenwicherts2016"
+        },
+        {
+            "gt_id": "toy-control/c04",
+            "label": "intact",
+            "bib_text_normalized": "publons 2018 global state of peer review clarivate analytics",
+            "bib_text_hash": "sha256:29493fdb27cb8eadb2ff4053900198eabf5fb55929cc7f965e4c46ef72ba5342",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "publons2018"
+        },
+        {
+            "gt_id": "toy-control/c05",
+            "label": "intact",
+            "bib_text_normalized": "ross hellauer t 2017 what is open peer review a systematic review f1000research 6 588",
+            "bib_text_hash": "sha256:1104c3ca2b3d48a16582f1e7ae0fe865fe2a45b2083742fae0c828c12a22c5c2",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "rosshellauer2017"
+        }
+    ],
+    "binding": {
+        "bound_at": "2026-09-10T04:03:22+00:00",
+        "book_id": "study_toy_toy-control",
+        "unmatched": [],
+        "unlabelled_reference_ids": []
+    }
+}

@@ -171,7 +171,8 @@ class SemanticScholarService
     private function normaliseResult(array $paper): array
     {
         $authors = $paper['authors'] ?? [];
-        $authorNames = array_map(fn($a) => $a['name'] ?? 'Unknown', array_slice($authors, 0, 3));
+        // FULL list, "; "-joined — et-al truncation is a render-time concern.
+        $authorNames = array_map(fn($a) => $a['name'] ?? 'Unknown', $authors);
         $author = $authorNames ? implode('; ', $authorNames) : null;
 
         $externalIds = $paper['externalIds'] ?? [];

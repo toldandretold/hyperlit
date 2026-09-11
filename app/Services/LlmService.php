@@ -619,13 +619,17 @@ You are an academic citation analyst. The text contains citations as two kinds o
 
 For each marker, extract the claim text it supports.
 
-Return ONLY valid JSON: [{"referenceId": "refId", "truth_claim": "...", "contextualised_claim": "..."}]
+Return ONLY valid JSON: [{"referenceIds": ["refId", ...], "truth_claim": "...", "contextualised_claim": "..."}]
 
 RULES:
 - Each citation includes its claim span (after "— appears in sentence:"). USE IT — it is computed with the correct attachment direction. The truth_claim should be this span.
 - If the span is an anaphoric reference (e.g. "The same argument is made by...", "This is also noted by..."), include the substantive preceding sentence(s) that contain the actual claim.
 - truth_claim: Copy the claim span VERBATIM from the TEXT section ([CITE]: the complete sentence containing the marker; [FNCITE]: the text preceding the marker, which may be a clause). Do not include the markers themselves. Do not rephrase, summarise, or truncate.
-- If two citations share the same span, produce one entry per referenceId with the same truth_claim.
+- GROUP BY CLAIM, NEVER REPEAT IT. When several citations share the same span — a multi-citation
+  parenthetical like "(A 2016; B 2017; C 2018)" — emit ONE entry whose referenceIds lists ALL of
+  them. Never emit the same truth_claim text more than once: repeating a long sentence per citation
+  overruns the response limit and the whole node is lost.
+- Every referenceId that appears in the TEXT must appear in exactly one entry's referenceIds.
 - contextualised_claim: Rewrite the truth_claim so the FACTUAL SUBSTANCE is fully self-contained and verifiable in isolation.
   Do NOT include author names or attribution phrases ("X argues", "attributed to Y", "according to Z").
   State ONLY the factual assertion itself — the verification step already knows which source is being checked.
@@ -707,12 +711,112 @@ PROMPT;
             $parsed = !empty($merged) ? $merged : null;
         }
 
+        // Salvage a response truncated mid-array by max_tokens: the complete
+        // objects before the cut are still valid data. Discarding them loses
+        // EVERY citation in the node — and the nodes that overrun are the
+        // citation-dense ones, exactly where padded or fabricated references
+        // hide. Recover what parses; never invent.
+        if (!is_array($parsed)) {
+            $salvaged = $this->salvageTruncatedJsonObjects($result);
+            if ($salvaged !== []) {
+                Log::warning('LLM truth claim extraction: recovered objects from a truncated response', [
+                    'recovered' => count($salvaged),
+                    'raw_length' => strlen($result),
+                ]);
+                $parsed = $salvaged;
+            }
+        }
+
         if (!is_array($parsed)) {
             Log::warning('LLM truth claim extraction: invalid JSON response', ['raw' => $result]);
             return null;
         }
 
-        return $parsed;
+        return $this->fanOutGroupedClaims($parsed);
+    }
+
+    /**
+     * Pull every complete {...} object out of a partial JSON array by scanning
+     * for balanced braces (string-aware, so braces inside text don't confuse
+     * it). Used only after a normal decode has failed.
+     *
+     * @return array[] decoded objects, in order
+     */
+    private function salvageTruncatedJsonObjects(string $raw): array
+    {
+        $objects = [];
+        $depth = 0;
+        $start = null;
+        $inString = false;
+        $escaped = false;
+        $length = strlen($raw);
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $raw[$i];
+
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($char === '\\') {
+                    $escaped = true;
+                } elseif ($char === '"') {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = true;
+            } elseif ($char === '{') {
+                if ($depth === 0) {
+                    $start = $i;
+                }
+                $depth++;
+            } elseif ($char === '}') {
+                $depth--;
+                if ($depth === 0 && $start !== null) {
+                    $decoded = json_decode(substr($raw, $start, $i - $start + 1), true);
+                    if (is_array($decoded)) {
+                        $objects[] = $decoded;
+                    }
+                    $start = null;
+                } elseif ($depth < 0) {
+                    $depth = 0;
+                }
+            }
+        }
+
+        return $objects;
+    }
+
+    /**
+     * Normalise extraction entries to one record per citation. The prompt asks
+     * for claims GROUPED ({"referenceIds": [...]}) so a shared span is written
+     * once; downstream expects one {referenceId, ...} per citation. Legacy
+     * single-referenceId entries pass through unchanged.
+     */
+    private function fanOutGroupedClaims(array $entries): array
+    {
+        $out = [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $ids = $entry['referenceIds'] ?? null;
+            if ($ids === null) {
+                $out[] = $entry;
+                continue;
+            }
+
+            unset($entry['referenceIds']);
+            foreach ((array) $ids as $id) {
+                if (is_string($id) && $id !== '') {
+                    $out[] = ['referenceId' => $id] + $entry;
+                }
+            }
+        }
+        return $out;
     }
 
     /**
@@ -744,7 +848,10 @@ PROMPT;
                 'system'      => $this->extractClaimsSystemPrompt(),
                 'user'        => $this->buildExtractClaimsMessage($markedText, $citationContext, $precedingContext, $extractedSentences),
                 'model'       => $this->extractionModel,
-                'max_tokens'  => 4096,
+                // Headroom for citation-dense nodes. Grouping (referenceIds)
+                // is the real fix for the O(citations x claim length) blow-up;
+                // this is the backstop, with truncation salvage behind it.
+                'max_tokens'  => 8192,
                 'temperature' => 0.0,
             ];
         }

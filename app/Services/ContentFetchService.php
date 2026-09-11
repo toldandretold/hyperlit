@@ -675,7 +675,7 @@ class ContentFetchService
             return $r['html'];
         }
         Log::info('Browser HTML fetch did not yield a page', [
-            'url' => $url, 'reason' => is_array($r) ? ($r['reason'] ?? 'unknown') : 'no output',
+            'url' => $url, 'reason' => self::describeBrowserFailure($r),
         ]);
         return null;
     }
@@ -863,8 +863,47 @@ class ContentFetchService
             ];
         }
 
-        $detail = is_array($result) ? ($result['reason'] ?? 'unknown') : 'no parseable output';
-        return ['status' => 'failed', 'reason' => "Browser fetch failed: {$detail}"];
+        return ['status' => 'failed', 'reason' => 'Browser fetch failed: ' . self::describeBrowserFailure($result)];
+    }
+
+    /**
+     * One readable line from a browser script's failure payload.
+     *
+     * The scripts report a machine CODE (`reason`: navigation_failed, not_a_pdf) plus the message
+     * that actually says what went wrong (`detail`: "Timeout 30000ms exceeded", "net::ERR_ABORTED",
+     * a cert error). Reporting the code alone is what made a tripleC batch undiagnosable — five
+     * identical `navigation_failed` lines that could each have been a different fault, and no way
+     * to tell a slow publisher from a dead one without re-running the fetch by hand.
+     *
+     * Shaped for the console's failure grouping: the stable CAUSE leads, and the per-work URL goes
+     * last in a parenthetical, which `failureKey()` in maintainerJournalImport/main.ts already
+     * strips. Playwright's own message inlines both its call prefix and the URL, so both are
+     * removed here — left in, five identical timeouts would render as five separate one-off causes.
+     */
+    private static function describeBrowserFailure(mixed $result): string
+    {
+        if (! is_array($result)) {
+            return 'no parseable output';
+        }
+
+        $cause = trim((string) ($result['reason'] ?? '')) ?: 'unknown';
+
+        $detail = trim((string) ($result['detail'] ?? ''));
+        if ($detail !== '') {
+            $detail = (string) preg_replace('/^[a-z]+\.[a-zA-Z]+:\s*/', '', $detail);   // "page.goto: "
+            $detail = (string) preg_replace('/\s+at\s+https?:\/\/\S+/i', '', $detail);  // "… at https://…"
+            $detail = trim(explode("\n", $detail)[0]);
+        }
+
+        $line = implode(' — ', array_filter([
+            $cause,
+            ($detail !== '' && $detail !== $cause) ? Str::limit($detail, 160) : null,
+            ! empty($result['httpStatus']) ? 'HTTP ' . $result['httpStatus'] : null,
+        ]));
+
+        $url = trim((string) ($result['finalUrl'] ?? ''));
+
+        return $url !== '' ? $line . ' (' . Str::limit($url, 120) . ')' : $line;
     }
 
     /**

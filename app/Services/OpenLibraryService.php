@@ -183,7 +183,8 @@ class OpenLibraryService
     public function normaliseDoc(array $doc): array
     {
         $authors = $doc['author_name'] ?? [];
-        $author = $authors ? implode('; ', array_slice($authors, 0, 3)) : null;
+        // FULL list, "; "-joined — et-al truncation is a render-time concern.
+        $author = $authors ? implode('; ', $authors) : null;
 
         $publishers = $doc['publisher'] ?? [];
         $publisher = $publishers ? $publishers[0] : null;

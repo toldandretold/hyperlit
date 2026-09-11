@@ -30,6 +30,7 @@ vi.mock('../../../resources/js/indexedDB/index', () => ({
   batchUpdateIndexedDBRecords: vi.fn(async () => {}),
 }));
 vi.mock('../../../resources/js/utilities/idHelpers', () => ({
+  NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/,
   setElementIds: vi.fn(),
   findPreviousElementId: vi.fn(() => null),
   findNextElementId: vi.fn(() => null),

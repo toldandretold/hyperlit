@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // idHelpers transitively imports app.ts (module side effects) — stub the used surface.
 vi.mock('../../../resources/js/utilities/idHelpers', () => ({
   asLineId: (s) => s,
+  NUMERICAL_ID_PATTERN: /^\d+(\.\d+)?$/,
   setElementIds: vi.fn(),
   findPreviousElementId: vi.fn(() => null),
   findNextElementId: vi.fn(() => null),

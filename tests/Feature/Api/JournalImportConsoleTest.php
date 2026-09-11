@@ -476,6 +476,183 @@ test('a fresh run is left alone by the watchdog', function () {
         ->assertJsonPath('status', 'pending');
 });
 
+// ── Mid-run reporting: the console's only defence against looking hung ──
+
+/**
+ * A bulk run can take fifty minutes. Everything it says about itself while it runs comes through
+ * these two fields, so a run row that reports its beat and a poll that drops it are the same
+ * thing to an operator: a dimmed button and silence.
+ */
+test('the status poll hands back the live progress the job writes', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $progress = [
+        'phase' => 'html', 'n' => 7, 'total' => 25, 'title' => 'JCon Seven',
+        'imported' => 5, 'already' => 1, 'failed' => 1,
+        'recent_failures' => [[
+            'lane' => 'html', 'title' => 'JCon Six', 'canonical_id' => null,
+            'book' => null, 'status' => 'fetch_failed', 'reason' => 'empty shell',
+        ]],
+    ];
+
+    $runId = (string) Str::uuid();
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'import_all',
+        'lanes'             => 'html',
+        'work_limit'        => 25,
+        'status'            => 'running',
+        'step_detail'       => 'html 7/25: JCon Seven',
+        'counts'            => '{}',
+        'progress'          => json_encode($progress),
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/runs/{$runId}")
+        ->assertOk()
+        ->assertJsonPath('progress.n', 7)
+        ->assertJsonPath('progress.total', 25)
+        ->assertJsonPath('progress.phase', 'html')
+        ->assertJsonPath('progress.failed', 1)
+        ->assertJsonPath('progress.recent_failures.0.reason', 'empty shell')
+        // Still written, still returned: it is what the console renders when `progress` is null.
+        ->assertJsonPath('step_detail', 'html 7/25: JCon Seven');
+});
+
+/**
+ * A run dispatched before the progress column existed — or one being worked by a pre-deploy
+ * worker — must not blank the panel. Null progress falls back to the prose line.
+ */
+test('a run with no progress written yet reports null rather than an empty object', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = (string) Str::uuid();
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'import_all',
+        'lanes'             => 'html',
+        'status'            => 'running',
+        'step_detail'       => 'starting',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/runs/{$runId}")
+        ->assertOk()
+        ->assertJsonPath('progress', null)
+        ->assertJsonPath('step_detail', 'starting');
+});
+
+/**
+ * The poll lives in a promise chain with no persisted run id, so a RELOAD mid-import used to be
+ * indistinguishable from a dead worker: the job kept going and the page never mentioned it again.
+ * The articles payload carries the in-flight run so the console can re-attach.
+ */
+test('the articles payload carries an in-flight journal run so a reload can re-attach', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = (string) Str::uuid();
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'import_all',
+        'lanes'             => 'pdf',
+        'work_limit'        => 5,
+        'status'            => 'running',
+        'step_detail'       => 'pdf 2/5 (fetch + OCR): JCon Two',
+        'counts'            => '{}',
+        'progress'          => json_encode(['phase' => 'pdf', 'n' => 2, 'total' => 5]),
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('active_run.id', $runId)
+        ->assertJsonPath('active_run.action', 'import_all')
+        ->assertJsonPath('active_run.work_limit', 5)
+        // Decoded server-side, so the client doesn't have to know one field arrives as a string.
+        ->assertJsonPath('active_run.progress.n', 2);
+});
+
+test('a finished run is not offered for re-attach', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                => (string) Str::uuid(),
+        'journal_source_id' => $journal->id,
+        'action'            => 'import_all',
+        'lanes'             => 'html',
+        'status'            => 'completed',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('active_run', null);
+});
+
+/**
+ * An ARTICLE-scoped run reports into its own bar beside the buttons that fired it. Re-attaching
+ * it to the journal bar would put one article's progress where the bulk run's belongs — and
+ * would disable the bulk controls for a run that isn't holding the journal lock.
+ */
+test('an article-scoped run is not offered as the journal-scoped active run', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id);
+
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                  => (string) Str::uuid(),
+        'journal_source_id'   => $journal->id,
+        'canonical_source_id' => $article['canonical_id'],
+        'action'              => 'import',
+        'lanes'               => 'html',
+        'status'              => 'running',
+        'counts'              => '{}',
+        'created_at'          => now(),
+        'updated_at'          => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('active_run', null);
+});
+
+/**
+ * Same one-hour window the in-flight guard uses. A run the watchdog has not got to yet must not
+ * be re-attached, or a reload seats the console on a job nothing is working.
+ */
+test('a stale run past the in-flight window is not offered for re-attach', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    jconDb()->table('journal_import_runs')->insert([
+        'id'                => (string) Str::uuid(),
+        'journal_source_id' => $journal->id,
+        'action'            => 'import_all',
+        'lanes'             => 'html',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now()->subHours(3),
+        'updated_at'        => now()->subHours(3),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('active_run', null);
+});
+
 // ── Journal-scoped actions (the console's own enumerate / bulk import) ──
 
 /**
@@ -532,6 +709,98 @@ test('import_all takes 0 as "all eligible" but refuses an unoffered cap', functi
         ['action' => 'import_all', 'lanes' => 'html', 'limit' => 7])
         ->assertStatus(422)
         ->assertJsonPath('message', 'limit must be one of: 5, 25, 100, 0 (0 = all eligible).');
+});
+
+/**
+ * `html_first` is a bulk STRATEGY, not a lane: try the free publisher page per work and buy OCR
+ * only where that yields nothing publishable. It is meaningless for the article-scoped actions,
+ * which name one lane to act on — so it is accepted on import_all and refused everywhere else.
+ */
+test('html_first is accepted for a bulk import and refused for an article action', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id);
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html_first', 'limit' => 5])->assertOk()->json('run_id');
+    expect(jconDb()->table('journal_import_runs')->where('id', $runId)->value('lanes'))->toBe('html_first');
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import', 'lanes' => 'html_first', 'canonical_id' => $article['canonical_id']])
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'lanes must be one of: pdf, html, both.');
+});
+
+/**
+ * A run is capped at 50 minutes, so a journal of any size needs many of them. The chain makes the
+ * job re-dispatch itself — opt-in, and capped, because it spends money unattended.
+ */
+test('a bulk import records its chain opt-in and a clamped spend cap', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run", [
+        'action' => 'import_all', 'lanes' => 'html_first', 'limit' => 0,
+        'continue_until_done' => true, 'spend_cap' => 12.5,
+    ])->assertOk()->json('run_id');
+
+    $row = jconDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect((bool) $row->continue_until_done)->toBeTrue();
+    expect((float) $row->spend_cap)->toBe(12.5);
+    expect((float) $row->chain_spend)->toBe(0.0);
+    expect((int) $row->chain_position)->toBe(1);
+
+});
+
+// A cap nobody could have meant is clamped rather than honoured — the field is a safety rail, so a
+// fat-fingered value must not be able to authorise an unbounded unattended spend. Its own journal:
+// the run above is still in flight, and a second journal-wide run would rightly join it instead.
+test('an absurd spend cap is clamped to the maximum, not honoured', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal(['display_name' => 'JCon Cap']);
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run", [
+        'action' => 'import_all', 'lanes' => 'html', 'limit' => 5,
+        'continue_until_done' => true, 'spend_cap' => 999999,
+    ])->assertOk()->json('run_id');
+
+    expect((float) jconDb()->table('journal_import_runs')->where('id', $runId)->value('spend_cap'))->toBe(250.0);
+});
+
+test('a bulk import without the opt-in never chains', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 5])->assertOk()->json('run_id');
+
+    $row = jconDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect((bool) $row->continue_until_done)->toBeFalse();
+    expect($row->spend_cap)->toBeNull();
+});
+
+test('the run status poll carries the chain state so the console can follow it', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $runId = (string) Str::uuid();
+    jconDb()->table('journal_import_runs')->insert([
+        'id' => $runId, 'journal_source_id' => $journal->id, 'action' => 'import_all',
+        'lanes' => 'html_first', 'status' => 'running', 'work_limit' => 0,
+        'continue_until_done' => true, 'spend_cap' => 40, 'chain_spend' => 7.25, 'chain_position' => 3,
+        'counts' => '{}', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/runs/{$runId}")
+        ->assertOk()
+        ->assertJsonPath('continue_until_done', true)
+        ->assertJsonPath('chain_position', 3)
+        ->assertJsonPath('chain_spend', 7.25)
+        ->assertJsonPath('spend_cap', 40);
 });
 
 /**

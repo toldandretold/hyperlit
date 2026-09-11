@@ -99,3 +99,6 @@ tests/translation/out/
 
 # Prod pull config (ssh target for pull_case.sh / pull_journal.sh) — machine-local.
 tests/conversion/.env.pull
+
+# Citation study harness — corpora are committed, results are run artifacts
+/study/results/

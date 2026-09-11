@@ -23,12 +23,14 @@ class LibraryUpsertRequest extends FormRequest
             'data.book' => ['required', new BookId()],
             // 🔒 SECURITY: SafeString validation prevents XSS in text fields
             'data.title' => ['sometimes', 'nullable', 'string', 'max:500', new SafeString(500)],
-            'data.author' => ['sometimes', 'nullable', 'string', 'max:255', new SafeString(255)],
+            // Full "; "-joined author lists are stored — 255 would 422 a many-author paper.
+            'data.author' => ['sometimes', 'nullable', 'string', 'max:5000', new SafeString(5000)],
             'data.visibility' => ['sometimes', 'in:public,private,deleted'],
             'data.listed' => ['sometimes', 'boolean'],
             'data.timestamp' => ['sometimes', 'integer', 'min:0'],
             'data.type' => ['sometimes', 'nullable', 'string', 'max:50', new SafeString(50)],
-            'data.bibtex' => ['sometimes', 'nullable', 'string', 'max:100', new SafeString(100)],
+            // A real bibtex entry trivially exceeds 100 chars — this was a trap.
+            'data.bibtex' => ['sometimes', 'nullable', 'string', 'max:20000', new SafeString(20000)],
             'data.url' => ['sometimes', 'nullable', 'url', 'max:2000'],
             'data.year' => ['sometimes', 'nullable', 'string', 'max:20'],
             'data.journal' => ['sometimes', 'nullable', 'string', 'max:255', new SafeString(255)],

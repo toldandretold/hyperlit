@@ -22,7 +22,7 @@ import { BlockFormatter } from "./blockFormatter";
 import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager";
 import { getTextOffsetInElement } from "./toolbarDOMUtils";
 import { initTapAreaExtender } from "./tapAreaExtender";
-import { asLineId, type LineId, type BookId } from "../utilities/idHelpers";
+import { asLineId, NUMERICAL_ID_PATTERN, type LineId, type BookId } from "../utilities/idHelpers";
 
 // Private module-level variable to hold the toolbar instance
 let editToolbarInstance: EditToolbar | null = null;
@@ -1067,6 +1067,17 @@ class EditToolbar {
    */
   async saveToIndexedDB(id: LineId, html: string, options: Record<string, unknown> = {}) {
     // `id` here is the positional LineId of the DOM element being saved
+
+    // Only numeric (decimal-capable) startLine ids are real content nodes / DB rows.
+    // A container id — the book root (`user-about-book`, `book_1769…`) or an inline
+    // marker — reaching here means a block resolver escaped its node; batch.ts rejects
+    // it and escalates to a scary `batch-invalid-id` integrity report even though the
+    // real nodes were already saved by the editor's MutationObserver. Drop it at this
+    // chokepoint, exactly like editorState's queueNodeForSave.
+    if (!NUMERICAL_ID_PATTERN.test(String(id))) {
+      verbose.content(`Skipping toolbar save for non-node id: '${id}'`, '/editToolbar/index.ts');
+      return;
+    }
 
     // Derive the correct book from where the element actually lives in the DOM.
     // When editing a sub-book the element is inside [data-book-id][contenteditable],

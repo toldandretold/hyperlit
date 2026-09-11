@@ -76,6 +76,32 @@ test('a bare-UUID author is anonymised on the structured-field path', function (
     expect($html)->not->toContain('123e4567');
 });
 
+test('a "; "-joined author list renders in full with "&" before the last', function () {
+    $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
+        'author' => 'Kevin Munger; Bert N. Bakker; Adam J. Berinsky', 'title' => 'Peer Review 2027',
+    ]));
+
+    expect($html)->toContain('Kevin Munger, Bert N. Bakker &amp; Adam J. Berinsky');
+});
+
+test('an 11-author list is cut to the first seven + et al. at render time', function () {
+    $authors = implode('; ', array_map(fn ($i) => "Author {$i}", range(1, 11)));
+    $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
+        'author' => $authors, 'title' => 'Big Collab',
+    ]));
+
+    expect($html)->toContain('Author 7, et al.');
+    expect($html)->not->toContain('Author 8');
+});
+
+test('an " and "-joined bibtex author list renders in full on the bibtex path', function () {
+    $html = (new LibraryCardGenerator())->parseBibtexToHtml(
+        '@article{x, author = {Munger, Kevin and Bakker, Bert N. and Berinsky, Adam J.}, title = {T}, year = {2026}}'
+    );
+
+    expect($html)->toContain('Munger, Kevin, Bakker, Bert N. &amp; Berinsky, Adam J.');
+});
+
 test('bibtex wins over structured fields when parseable', function () {
     $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
         'author' => 'Field Author', 'title' => 'Field Title',

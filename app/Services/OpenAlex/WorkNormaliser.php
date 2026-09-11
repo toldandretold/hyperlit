@@ -42,9 +42,13 @@ class WorkNormaliser
     public function normaliseWork(array $work): array
     {
         $authorships = $work['authorships'] ?? [];
+        // FULL list, "; "-joined — display layers apply the et-al cutoff at
+        // render time (App\Support\AuthorList / resources/js/utilities/authorList.ts).
+        // This used to slice to the first 3 with no marker, silently reading as
+        // a complete author list and corrupting citations downstream.
         $authors = array_map(
             fn($a) => $a['author']['display_name'] ?? 'Unknown',
-            array_slice($authorships, 0, 3)
+            $authorships
         );
         $author = $authors ? implode('; ', $authors) : null;
 

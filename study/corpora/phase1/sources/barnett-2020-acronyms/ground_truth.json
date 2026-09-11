@@ -1,0 +1,336 @@
+{
+    "book": "barnett-2020-acronyms",
+    "generator": "CitationCorruptor v1",
+    "seed": 424242,
+    "entries": [
+        {
+            "gt_id": "barnett-2020-acronyms/c01",
+            "label": "fabricated_reference",
+            "bib_text_normalized": "welteroth s e 2019 on the stability of derived indicators under archival revision journal of institutional dynamics 40 1 99 124",
+            "bib_text_hash": "sha256:c681080768fe1f687ce877b9125fd5315ffd5b4733afe75749093202d0d09549",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "source_not_found_or_rejected",
+            "corruption_meta": {
+                "type": "fabrication",
+                "original_bib_text_hash": "sha256:18a1e4ca39b055358ded3629f82b41abfddf4fc9fe4f2be393ea522573aef010",
+                "original_surname": "Narod",
+                "original_year": "2016",
+                "fake_surname": "Welteroth",
+                "fake_year": "2019",
+                "library_collision_checked": true
+            },
+            "bound_reference_id": "welteroth2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c02",
+            "label": "fabricated_reference",
+            "bib_text_normalized": "ovelli h b 2003 recursive boundary effects in comparative institutional analysis quarterly journal of methodological advances 15 2 220 236",
+            "bib_text_hash": "sha256:6afaa012b760a49806b3eedbe961415f64ec15d18f3c0571e87630b4dcdf2fb9",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "source_not_found_or_rejected",
+            "corruption_meta": {
+                "type": "fabrication",
+                "original_bib_text_hash": "sha256:0348a144d28e2afd915eef2d865ac3232bab9bdced51bf2c506b89993f737a55",
+                "original_surname": "Fred",
+                "original_year": "2003",
+                "fake_surname": "Ovelli",
+                "fake_year": "2003",
+                "library_collision_checked": true
+            },
+            "bound_reference_id": "ovelli2003"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c03",
+            "label": "source_swap",
+            "bib_text_normalized": "jeschke jm lokatis s bartram i tockner k 2019 knowledge in the dark scientific challenges and ways forward facets 4 423 441 doi https doi org 10 1139 facets 2019 0007",
+            "bib_text_hash": "sha256:c2eb16ce8020482ddc987a7e77aeaa6aaf9dfbee8628f0e53a24f8d236473a7f",
+            "claim_snippet": "one feature that can make scientific papers difficult to read is the widespread use of acronyms sword 2012 pinker 2015 h",
+            "cited_occurrences": 1,
+            "expected_detection": "claim_unsupported",
+            "corruption_meta": {
+                "type": "source_swap",
+                "original_bib_text_hash": "sha256:3d5881cce134cebf7e4e9e00c4c4ce3a6c161c504233445029034b74d1c62d39",
+                "original_surname": "Patel",
+                "swapped_to_surname": "Jeschke",
+                "swapped_to_year": "2019"
+            },
+            "bound_reference_id": "jm2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c04",
+            "label": "claim_distortion",
+            "bib_text_normalized": "freeling b doubleday za connell sd 2019 opinion how can we boost the impact of publications try better writing pnas 116 341 343 doi https doi org 10 1073 pnas 1819937116 pmid 30622212",
+            "bib_text_hash": "sha256:fa1c5718e8a7c8a52d1f308f3fc161ca86910ab11736d99de848739858f26b6a",
+            "claim_snippet": "writing scientific papers that are clearer to read could help to close this gap and decrease the usefulness of scientifi",
+            "cited_occurrences": 1,
+            "expected_detection": "claim_unsupported",
+            "corruption_meta": {
+                "type": "claim_distortion",
+                "template": "direction_reversal",
+                "original_sentence_hash": "sha256:7c310a2d2017f95a866fd916ac5795325e8b3ca375138746dd89c827ab116322"
+            },
+            "bound_reference_id": "freeling2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c05",
+            "label": "intact",
+            "bib_text_normalized": "barnett a 2020 analysing acronyms in pubmed data github 1 05 https github com agbarnett acronyms",
+            "bib_text_hash": "sha256:99f8df00a0f5e60fc09389f38a9ba45101568aa3bd3d7446de06d61944c657e9",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "barnett2020"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c06",
+            "label": "intact",
+            "bib_text_normalized": "bornmann l mutz r 2015 growth rates of modern science a bibliometric analysis based on the number of publications and cited references journal of the association for information science and technology 66 2215 2222 doi https doi org 10 1002 asi 23329",
+            "bib_text_hash": "sha256:b401b738b7fed631c83446d5b1898ab91160b54680c5961e916090875d30358a",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "bornmann2015"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c07",
+            "label": "intact",
+            "bib_text_normalized": "cannon g 1989 abbreviations and acronyms in english word formation american speech 64 99 127 doi https doi org 10 2307 455038",
+            "bib_text_hash": "sha256:9c986a960c83fb77e31cb7da2db5bbaf82ff634b669e8ef2ca7bb3b5d8d25575",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "cannon1989"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c08",
+            "label": "intact",
+            "bib_text_normalized": "chang jt sch utze h altman rb 2002 creating an online dictionary of abbreviations from medline journal of the american medical informatics association 9 612 620 doi https doi org 10 1197 jamia m1139 pmid 12386112 cordero rj de",
+            "bib_text_hash": "sha256:49e596524d2c221d0119b8022d0016ddd75c67882e06750ae2000870a69f897d",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "jt2002"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c09",
+            "label": "intact",
+            "bib_text_normalized": "le on rodriguez cm alvarado torres jk rodr iguez ar casadevall a 2016 life science s average publishable unit apu has increased over the past two decades plos one 11 e0156983 doi https doi org 10 1371 journal pone 0156983 pmid 27310929",
+            "bib_text_hash": "sha256:16724cdc14210ad6d2626f4547219e7956e0b3acc2e7bb1ed1bbaf774f5d7518",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "cm2016"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c10",
+            "label": "intact",
+            "bib_text_normalized": "delanty g 1998 the idea of the university in the global era from knowledge as an end to the end of knowledge social epistemology 12 3 25 doi https doi org 10 1080 02691729808578856",
+            "bib_text_hash": "sha256:d66928a90743aec022421e11a2df7385c78b077c3861ed2d91b9cadba5ad859c",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "delanty1998"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c11",
+            "label": "intact",
+            "bib_text_normalized": "doubleday za connell sd 2017 publishing with objective charisma breaking science s paradox trends in ecology evolution 32 803 805 doi https doi org 10 1016 j tree 2017 06 011 pmid 28734592",
+            "bib_text_hash": "sha256:556ec69ff34c50480be4b2e861b615257ec29e1dcad990ea78a19352c006aca8",
+            "claim_snippet": null,
+            "cited_occurrences": 2,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "za2017"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c12",
+            "label": "intact",
+            "bib_text_normalized": "freeling b doubleday za connell sd 2019 opinion how can we boost the impact of publications try better writing pnas 116 341 343 doi https doi org 10 1073 pnas 1819937116 pmid 30622212",
+            "bib_text_hash": "sha256:fa1c5718e8a7c8a52d1f308f3fc161ca86910ab11736d99de848739858f26b6a",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "freeling2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c13",
+            "label": "intact",
+            "bib_text_normalized": "glasziou p altman dg bossuyt p boutron i clarke m julious s michie s moher d wager e 2014 reducing waste from incomplete or unusable reports of biomedical research the lancet 383 267 276 doi https doi org 10 1016 s0140 6736 13 62228 x",
+            "bib_text_hash": "sha256:a56fb7e814133d3e46224831e4da11d5cb92aecaabe070b3c879e77cc1e9a1e9",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "glasziou2014"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c14",
+            "label": "intact",
+            "bib_text_normalized": "hales ah williams kd rector j 2017 alienating the audience how abbreviations hamper scientific communication https www psychologicalscience org observer alienating the audience how abbreviations hamper scientific communication accessed july 9 2020",
+            "bib_text_hash": "sha256:3404514f22c9c13bb871306a878f16e304448ad5dc22306d379a38c044544dd7",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "ah2020"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c15",
+            "label": "intact",
+            "bib_text_normalized": "heard s 2014 on whimsy jokes and beauty can scientific writing be enjoyed ideas in ecology and evolution 7 64 72 doi https doi org 10 4033 iee 2014 7 14 f",
+            "bib_text_hash": "sha256:54f40a3212fc97b799feb00170d58032c5ab2c3898c4c50b34982fcd1a6be654",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "heard2014"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c16",
+            "label": "intact",
+            "bib_text_normalized": "jeschke jm lokatis s bartram i tockner k 2019 knowledge in the dark scientific challenges and ways forward facets 4 423 441 doi https doi org 10 1139 facets 2019 0007",
+            "bib_text_hash": "sha256:c2eb16ce8020482ddc987a7e77aeaa6aaf9dfbee8628f0e53a24f8d236473a7f",
+            "claim_snippet": null,
+            "cited_occurrences": 2,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "jm2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c17",
+            "label": "intact",
+            "bib_text_normalized": "lang t 2019 the long and the short of abbreviations european science editing 45 1114",
+            "bib_text_hash": "sha256:905e294ac71312757ede47d92bfa9f8ab6081b2f33862b8c3307ce10f3db9449",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "lang2019"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c18",
+            "label": "intact",
+            "bib_text_normalized": "letchford a moat hs preis t 2015 the advantage of short paper titles royal society open science 2 150266 doi https doi org 10 1098 rsos 150266 pmid 26361556",
+            "bib_text_hash": "sha256:6618ca6530c13c0f72e15df21cb5899f40d2e9c64dcff7b7040ed5862894604b",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "letchford2015"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c19",
+            "label": "intact",
+            "bib_text_normalized": "lowe d 2019 acronym fever we need an acronym for that https blogs sciencemag org pipeline archives 2019 07 18 acronym fever we need anacronym for that accessed july 9 2020",
+            "bib_text_hash": "sha256:34f7aaf4abd2700526c7e0cbe73ff8a6d16cf3830bcbc7ba909baff7e3f4617d",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "july2020"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c20",
+            "label": "intact",
+            "bib_text_normalized": "parvaiz m singh g hafeez r sharma h 2006 do multidisciplinary team members correctly interpret the abbreviations used in the medical records scottish medical journal 51 1 6 doi https doi org 10 1258 rsmsmj 51 4 49e",
+            "bib_text_hash": "sha256:7c4577623689d43ca5e5b5ea377db15c76b77fbd8e0c8ebdee1900f67d537a23",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "parvaiz2006"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c21",
+            "label": "intact",
+            "bib_text_normalized": "patel cb rashid rm 2009 averting the proliferation of acronymophilia in dermatology effectively avoiding adcomsubordcomphibspac journal of the american academy of dermatology 60 340 344 doi https doi org 10 1016 j jaad 2008 10 035 pmid 19150279",
+            "bib_text_hash": "sha256:3d5881cce134cebf7e4e9e00c4c4ce3a6c161c504233445029034b74d1c62d39",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "cb2008"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c22",
+            "label": "intact",
+            "bib_text_normalized": "pinker s 2015 the sense of style the thinking person s guide to writing in the 21st century penguin books",
+            "bib_text_hash": "sha256:956848a473842f841ed02ed11331caf1438139d6babdb4dc59be61d3155599a6",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "pinker2015"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c23",
+            "label": "intact",
+            "bib_text_normalized": "plav en sigray p matheson gj schiffler bc thompson wh 2017 the readability of scientific texts is decreasing over time elife 6 e27725 doi https doi org 10 7554 elife 27725 pmid 28873054",
+            "bib_text_hash": "sha256:3e011dbbd23b81f52b31eb9844e4cfe61c435d58029d647982f4aa449cbe5545",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "plavensigray2017"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c24",
+            "label": "intact",
+            "bib_text_normalized": "pottegard a haastrup mb stage tb hansen mr larsen ks meegaard pm meegaard lh horneberg h gils c dideriksen d aagaard l almarsdottir ab hallas j damkier p 2014 search for humouristic and extravagant acronyms and thoroughly inappropriate names for important clinical trials scientific qualitative and quantitative systematic study bmj 349 g7092 doi https doi org 10 1136 bmj g7092 pmid 25516539 r core team 2020 the r project for statistical computing https www r project org accessed july 9 2020",
+            "bib_text_hash": "sha256:853011e6d48985bd7c22554f9b3cfaee5f97457d8736a3586530e7ad8bcbe784",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "pottegard2020"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c25",
+            "label": "intact",
+            "bib_text_normalized": "sword h 2012 stylish academic writing harvard university press talk",
+            "bib_text_hash": "sha256:f7ce9be3b68be55ce089bb90a614d407d87acdb213ad40b9d77ca369d46066e8",
+            "claim_snippet": null,
+            "cited_occurrences": 0,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "sword2012"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c26",
+            "label": "intact",
+            "bib_text_normalized": "medicine bmj 2019 podcast talk evidence aggravating acronyms and screening again https soundcloud com bmjpodcasts talk evidence november 2019 acronyms timing of dose and screeningjuly 9 2020",
+            "bib_text_hash": "sha256:8d47f03dc36932677538713cf8963303c5f95c1bbf146d22fb2cf4f597f1a0ce",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "talk2020"
+        },
+        {
+            "gt_id": "barnett-2020-acronyms/c27",
+            "label": "intact",
+            "bib_text_normalized": "weale j soysa r yentis sm 2018 use of acronyms in anaesthetic and associated investigations appropriate or unnecessary the uoaiaaaiu study anaesthesia 73 1531 1534 doi https doi org 10 1111 anae 14450 pmid 30412290 text processing algorithm the data were downloaded in extensible markup language xml format and read into r for processing the complete r code is freely available on github the list of key processing steps in order are below unless otherwise stated each step was applied to the title and abstract remove commonly used copyright sentences such as this article is protected by copyright from the abstract extract the pubmed id date the paper was added to pubmed title abstract journal name article type language and number of authors remove copyright sections and sub headings from the abstract such as background remove systematic review registrations from the abstract exclude papers not in english exclude titles and abstracts that are empty exclude abstracts of 10 words or fewer that have the article type published erratum because they are usually just a citation note remove roman numerals from 1 to 30 that is from i to xxx the upper limit of 30 was based on trial and error also remove roman numerals suffixed with a lower case letter or th remove the chromosomes xx xy xo zo xxyy zw zww xxx xxxx xxxxx yyyyy remove symbols including mathematical symbols spacing symbols punctuation currencies trademarks arrows superscripts and subscripts remove common capitals from the title such as withdrawn corrigendum and editorial remove sub headings such as setting and subjects from the abstract this step is performed in addition to the sub heading removal step mentioned above replace common units in the abstract with dummy for example change kg m2 to dummy so that they are counted as one word during word counts remove full stops in acronyms so that for example w h o becomes who replace all plurals by replacing s with a space this removes plurals from acronyms for example eds becomes ed break the title and abstract into words exclude the title or abstract if 60 or more of the words are in capitals as this is a journal style and makes it hard to find acronyms exclude abstracts with strings of four or more words in capitals trial and error showed that this was a journal style and it makes it hard to spot acronyms exclude the title if the first four words or last four words are in capitals this is a journal style remove gene sequences defined as characters of six or more than only contain the letters a t c g u and p find and exclude citations to the current paper in the abstract as these often have author initials which look like acronyms exclude titles of just one word exclude papers with a missing pubmed date extract acronyms defined as a word where half or more of the characters are upper case exclude acronyms longer than 15 characters as these are often gene strings we did not include the following as acronyms common units of measurement like ph hr or ml chemical symbols like na or ca acronyms that have become common words such as laser e g and i e",
+            "bib_text_hash": "sha256:3a82c5991c93a20af2e05ef7bfb3d1f304194c467889ddcb738eb50b3db45ce4",
+            "claim_snippet": null,
+            "cited_occurrences": 1,
+            "expected_detection": "pass",
+            "corruption_meta": null,
+            "bound_reference_id": "weale2018"
+        }
+    ],
+    "binding": {
+        "bound_at": "2026-09-10T13:36:13+00:00",
+        "book_id": "study_phase1_barnett-2020-acronyms",
+        "unmatched": [],
+        "unlabelled_reference_ids": []
+    }
+}

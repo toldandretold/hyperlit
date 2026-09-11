@@ -9,6 +9,7 @@ use App\Services\CanonicalSourceMatcher;
 use App\Services\CanonicalVersions\AutoVersionCreator;
 use App\Services\OpenAlex\WorksApi;
 use App\Services\OpenAlex\WorkScorer;
+use App\Services\SourceHarvest\HarvestAttemptRecorder;
 use App\Services\SourceHarvest\HarvestEligibility;
 use App\Services\SourceHarvest\HarvestShelf;
 use App\Services\SourceHarvest\WorkOcrCharger;
@@ -43,7 +44,33 @@ class JournalHarvestRunner
         private HtmlLaneCreator $htmlLane,
         private WorkOcrCharger $charger,
         private HarvestShelf $shelf,
+        private HarvestAttemptRecorder $attempts,
+        private JournalVersionPromoter $promoter,
     ) {
+    }
+
+    /**
+     * Statuses that mean "this work is settled on this lane" — no retry owed.
+     *
+     * `already_imported` / `assigned_existing` count: nothing was fetched, but there is nothing
+     * wrong either, and leaving a stale cooldown on a work that demonstrably has content would
+     * hide it from a later run that legitimately needs to revisit it.
+     */
+    public const SETTLED_STATUSES = ['imported', 'reimported', 'already_imported', 'assigned', 'assigned_existing'];
+
+    /**
+     * Record one work's outcome against its lane's retry backoff.
+     *
+     * Every non-settled status backs off, INCLUDING `deferred` (a stub that got no converted
+     * content). Deferred looks benign next to `fetch_failed`, but it is the same thing as far as
+     * the queue is concerned: the work is still selectable, still at the front, and re-running it
+     * costs exactly as much as the first time.
+     */
+    private function recordAttempt(string $canonicalId, string $lane, string $status, ?string $reason): void
+    {
+        in_array($status, self::SETTLED_STATUSES, true)
+            ? $this->attempts->recordSuccess($canonicalId, $lane)
+            : $this->attempts->recordFailure($canonicalId, $lane, $reason ?? $status);
     }
 
     /**
@@ -157,6 +184,7 @@ class JournalHarvestRunner
                 $result = $this->htmlLane->create($canonical, $force);
                 $status = $result['status'];
                 $stats[array_key_exists($status, $stats) ? $status : 'error']++;
+                $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_HTML, $status, $result['reason'] ?? null);
                 $this->emit($progress, [
                     'stage'  => 'html_result',
                     'status' => $status,
@@ -167,6 +195,7 @@ class JournalHarvestRunner
             } catch (\Throwable $e) {
                 // One bad article must never kill the run — the same promise the CLI makes.
                 $stats['error']++;
+                $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_HTML, 'error', $e->getMessage());
                 $this->emit($progress, ['stage' => 'html_result', 'status' => 'error', 'reason' => $e->getMessage()]);
             }
 
@@ -233,6 +262,12 @@ class JournalHarvestRunner
                 $result = $this->creator->create($canonical, $skipOcr);
                 $status = $result['status'] ?? 'error';
                 $stats[array_key_exists($status, $stats) ? $status : 'error']++;
+                // `--skip-ocr` deliberately leaves every stub deferred, so recording those as
+                // failures would put the whole journal into cooldown for doing exactly what was
+                // asked. The fetch still happened; its verdict just isn't in yet.
+                if (! $skipOcr) {
+                    $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_PDF, $status, $result['reason'] ?? null);
+                }
 
                 $cost = 0.0;
                 if ($status === 'assigned') {
@@ -256,7 +291,170 @@ class JournalHarvestRunner
             } catch (\Throwable $e) {
                 // One bad work must never kill the journal run.
                 $stats['error']++;
+                $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_PDF, 'error', $e->getMessage());
                 $this->emit($progress, ['stage' => 'pdf_result', 'status' => 'error', 'reason' => $e->getMessage()]);
+            }
+
+            if ($sleep > 0 && $n < $total) {
+                sleep($sleep);
+            }
+        }
+
+        return ['stats' => $stats, 'spend' => $spend, 'books' => $books, 'stopped_early' => $stoppedEarly];
+    }
+
+    /**
+     * Stage 3b — the CHEAP-FIRST lane: try the publisher's HTML, and only pay for OCR when it
+     * doesn't yield a publishable article.
+     *
+     * The existing `both` mode runs the two lanes as independent passes, which is right when the
+     * point is to COMPARE them (the GSCJ debugging workflow this console was built for). It is the
+     * wrong shape for filling a journal: it OCRs every work regardless, so a corpus whose publisher
+     * serves perfectly good server-rendered HTML — most OJS journals, tripleC included — is paid
+     * for twice over at roughly $0.04 an article.
+     *
+     * Selection is the PDF queue (`auto_version_book IS NULL`), because the question here is "do we
+     * have this article at all", not "does this lane exist". Per work:
+     *
+     *   1. HTML lane, unless it is serving its own cooldown (then straight to 3).
+     *   2. If it imported, PROMOTE it. A fresh HTML lane does NOT claim `auto_version_book` on its
+     *      own (HtmlLaneCreator leaves the pointer alone by design), so without this the work stays
+     *      PDF-eligible and the next run pays for the OCR we just avoided.
+     *   3. Only if there is still no version — HTML failed, or produced something the authenticity
+     *      gate will not publish — fall back to the PDF lane and charge for it.
+     *
+     * Promotion refusing is therefore a FEATURE, not an error to route around: a lane that cannot
+     * be published is a lane readers cannot be given, which is exactly the condition under which
+     * paying for the PDF is the right call.
+     *
+     * Events: `{stage: work, n, total, title, canonical_id}` per work, then `html_result` and —
+     * only when the fallback fires — `pdf_result`.
+     *
+     * @param  callable(array):void|null  $progress
+     * @param  callable():bool|null  $shouldStop  checked before each work; true ends the run cleanly
+     * @return array{stats: array<string,int>, spend: float, books: array<int,string>, stopped_early: bool}
+     */
+    public function importHtmlFirst(
+        JournalSource $journal,
+        int $limit,
+        ?User $payer,
+        int $sleep = 0,
+        ?callable $progress = null,
+        ?callable $shouldStop = null,
+    ): array {
+        $stats = [
+            'html_won'     => 0,  // free: the publisher page carried the article
+            'pdf_assigned' => 0,  // paid: HTML gave us nothing usable
+            'already'      => 0,
+            'failed'       => 0,  // neither lane produced a version
+            'skipped_html' => 0,  // HTML lane was cooling off; went straight to PDF
+        ];
+        $books = [];
+        $spend = 0.0;
+        $stoppedEarly = false;
+
+        $eligible = $this->eligibility->eligibleCanonicalsForJournal($journal->id, $limit);
+        $total = count($eligible);
+
+        $this->emit($progress, ['stage' => 'html_first_start', 'total' => $total]);
+
+        foreach ($eligible as $i => $row) {
+            $n = $i + 1;
+
+            if ($shouldStop && $shouldStop()) {
+                $stoppedEarly = true;
+                $this->emit($progress, ['stage' => 'stopped', 'done' => $i, 'total' => $total]);
+                break;
+            }
+
+            $this->emit($progress, [
+                'stage' => 'work', 'n' => $n, 'total' => $total,
+                'title' => mb_substr($row->title ?? '(untitled)', 0, 66),
+                'canonical_id' => $row->id,
+            ]);
+
+            $canonical = CanonicalSource::find($row->id);
+            if (! $canonical) {
+                $stats['failed']++;
+                $this->emit($progress, ['stage' => 'html_result', 'status' => 'error', 'reason' => 'canonical row vanished mid-run']);
+                continue;
+            }
+
+            $claimed = false;
+
+            if ($this->attempts->isCoolingOff($row->id, HarvestAttemptRecorder::LANE_HTML)) {
+                $stats['skipped_html']++;
+            } else {
+                try {
+                    $html = $this->htmlLane->create($canonical, false);
+                    $status = $html['status'];
+                    $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_HTML, $status, $html['reason'] ?? null);
+
+                    // `already_imported` means a converted lane exists but never won the pointer —
+                    // still worth promoting, and still free. That is the resumed-run case.
+                    if (in_array($status, self::SETTLED_STATUSES, true) && ! empty($html['book'])) {
+                        $promotion = $this->promoter->promote($html['book']);
+                        $claimed = $promotion['promoted'];
+                        if ($claimed) {
+                            $stats[$status === 'already_imported' ? 'already' : 'html_won']++;
+                            $books[] = $html['book'];
+                        }
+                        $this->emit($progress, [
+                            'stage'  => 'html_result',
+                            'status' => $claimed ? $status : 'not_publishable',
+                            'book'   => $html['book'],
+                            'nodes'  => $html['node_count'] ?? null,
+                            'reason' => $claimed ? null : ($promotion['reason'] ?? 'the authenticity gate would not publish this lane'),
+                        ]);
+                    } else {
+                        $this->emit($progress, [
+                            'stage'  => 'html_result',
+                            'status' => $status,
+                            'book'   => $html['book'] ?? null,
+                            'reason' => $html['reason'] ?? null,
+                        ]);
+                    }
+                } catch (\Throwable $e) {
+                    $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_HTML, 'error', $e->getMessage());
+                    $this->emit($progress, ['stage' => 'html_result', 'status' => 'error', 'reason' => $e->getMessage()]);
+                }
+            }
+
+            if (! $claimed) {
+                try {
+                    $result = $this->creator->create($canonical, false);
+                    $status = $result['status'] ?? 'error';
+                    $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_PDF, $status, $result['reason'] ?? null);
+
+                    $cost = 0.0;
+                    if ($status === 'assigned') {
+                        $stats['pdf_assigned']++;
+                        $books[] = $result['book'];
+                        $cost = $this->charger->charge(
+                            $payer,
+                            $result['book'],
+                            "Journal harvest OCR ({$journal->slug}): {$result['book']}",
+                        );
+                        $spend += $cost;
+                    } elseif ($status === 'assigned_existing') {
+                        $stats['already']++;
+                    } else {
+                        $stats['failed']++;
+                    }
+
+                    $this->emit($progress, [
+                        'stage'  => 'pdf_result',
+                        'status' => $status,
+                        'book'   => $result['book'] ?? null,
+                        'via'    => $result['via'] ?? null,
+                        'cost'   => $cost,
+                        'reason' => $result['reason'] ?? null,
+                    ]);
+                } catch (\Throwable $e) {
+                    $stats['failed']++;
+                    $this->recordAttempt($row->id, HarvestAttemptRecorder::LANE_PDF, 'error', $e->getMessage());
+                    $this->emit($progress, ['stage' => 'pdf_result', 'status' => 'error', 'reason' => $e->getMessage()]);
+                }
             }
 
             if ($sleep > 0 && $n < $total) {
@@ -300,6 +498,32 @@ class JournalHarvestRunner
         ]);
 
         return $shelfRow;
+    }
+
+    /**
+     * Fold a run's two lane stat-blocks into the one flat array `finalise()` accumulates.
+     *
+     * The lanes share key NAMES (`fetch_failed`, `error`) while counting different things, so the
+     * obvious `$pdf + $html` silently discards the HTML lane's copies — PHP's array `+` keeps the
+     * left-hand value on a collision, and both callers had the PDF block on the left. The journal's
+     * cumulative `harvest_stats` has therefore never recorded a single HTML fetch failure.
+     *
+     * Namespacing the HTML lane rather than summing keeps the two readable apart in the registry:
+     * "6 fetch_failed" means nothing if it could be either lane, and the whole point of running two
+     * is to compare them. PDF keys stay bare so existing accumulated history keeps adding up.
+     *
+     * @param  array<string,int>  $pdf
+     * @param  array<string,int>  $html
+     * @return array<string,int>
+     */
+    public static function mergeLaneStats(array $pdf, array $html): array
+    {
+        $merged = $pdf;
+        foreach ($html as $key => $value) {
+            $merged['html_' . $key] = $value;
+        }
+
+        return $merged;
     }
 
     /** How many works are still worth fetching — the console's "eligible" number. */

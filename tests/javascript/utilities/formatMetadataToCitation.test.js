@@ -35,6 +35,18 @@ describe('formatMetadataToCitation', () => {
     expect(c).toContain('<i>Untitled</i>');
   });
 
+  it('lists a "; "-joined author list in full with "&" before the last', () => {
+    const c = formatMetadataToCitation({ title: 'Peer Review 2027', author: 'Kevin Munger; Bert N. Bakker; Adam J. Berinsky', year: 2026, type: 'misc' });
+    expect(c).toContain('Kevin Munger, Bert N. Bakker & Adam J. Berinsky,');
+  });
+
+  it('cuts an 11-author list to the first seven + ", et al." at render time', () => {
+    const eleven = Array.from({ length: 11 }, (_, i) => `Author ${i + 1}`).join('; ');
+    const c = formatMetadataToCitation({ title: 'Big Collab', author: eleven, year: 2026, type: 'misc' });
+    expect(c).toContain('Author 7, et al.,');
+    expect(c).not.toContain('Author 8');
+  });
+
   // The link. A harvested row carries `doi` but no `url`, and the copy the harvester found
   // (oa_url/pdf_url) is often a publisher deep link that 403s — so the DOI is the fallback link,
   // and a bare DOI must never be emitted as an href.

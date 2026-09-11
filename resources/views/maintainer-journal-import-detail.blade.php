@@ -33,11 +33,15 @@
             <span class="ji-bulk-group">
                 <label class="ji-visually-hidden" for="ji-bulk-lanes">Lane to import</label>
                 <select id="ji-bulk-lanes">
-                    {{-- HTML first and selected: it is free, and on the pilot journal it converted
-                         BETTER than OCR (which dropped whole sections). PDF is opt-in. --}}
-                    <option value="html" selected>HTML</option>
-                    <option value="pdf">PDF</option>
-                    <option value="both">both</option>
+                    {{-- Cheap-first is the default for FILLING a journal: it tries the free
+                         publisher page per work and only buys OCR where that yields nothing
+                         publishable. The three below are the COMPARISON modes — they import a lane
+                         because you want to look at it, which is a different job and, for `both`,
+                         pays for every work twice. --}}
+                    <option value="html_first" selected>HTML, PDF if needed</option>
+                    <option value="html">HTML only</option>
+                    <option value="pdf">PDF only</option>
+                    <option value="both">both (compare)</option>
                 </select>
                 <label class="ji-visually-hidden" for="ji-bulk-limit">How many works</label>
                 <select id="ji-bulk-limit">
@@ -46,8 +50,16 @@
                     <option value="100">next 100</option>
                     <option value="0">all eligible</option>
                 </select>
+                {{-- One run is capped at 50 minutes (the queue's retry_after leaves no room for
+                     more), so a journal of a few hundred works needs a dozen presses. This makes
+                     the job re-dispatch itself until the queue is empty. Opt-in and capped,
+                     because it spends money with nobody watching. --}}
+                <label class="ji-bulk-continue" title="Keep re-starting the run until the journal is fully imported. Each run is capped at 50 minutes; without this you have to press import again for each one.">
+                    <input type="checkbox" id="ji-bulk-continue">
+                    keep going
+                </label>
                 <button type="button" id="ji-bulk-import"
-                        title="Import the most-cited eligible works that have no lane yet. HTML is free; PDF runs OCR and is charged to you.">⇩ import</button>
+                        title="Import the most-cited eligible works that have no version yet. The HTML lane is free; PDF runs OCR and is charged to you.">⇩ import</button>
             </span>
             {{-- Certification is the editorial half of this console: everything else here decides
                  whether a CONVERSION is good, this decides whether the JOURNAL is ready to show
@@ -158,6 +170,40 @@
         <span class="ji-actions-status" id="ji-import-status" role="status" aria-live="polite"></span>
     </div>
 
+    {{-- What a bulk run is DOING, while it does it. The job has always reported every work
+         ("html 7/25: <title>"), but the journal bar painted it into a span the stylesheet keeps
+         at opacity 0, so a 50-minute import looked exactly like a dead queue worker: a dimmed
+         button and nothing else. This is that report, given somewhere to live — and somewhere
+         that survives a reload, because the poll is re-attached from `active_run`.
+
+         Bottom-RIGHT: the failures panel is bottom-left and both are open at once when a run
+         finishes badly. Not a modal — it reports, it never blocks, and it takes no focus. --}}
+    <div class="ji-run-panel" id="ji-run-panel" hidden>
+        <div class="ji-run-head">
+            <strong id="ji-run-title"></strong>
+            <button type="button" id="ji-run-close" aria-label="Close run progress" hidden>✕</button>
+        </div>
+        <div class="ji-run-bar"><div class="ji-run-bar-fill" id="ji-run-bar-fill"></div></div>
+        {{-- The live region is this line ALONE, not the panel: announcing the whole panel on
+             every 2.5s poll would read the bar, the tallies and the error list out again each
+             tick. The count plus the work in hand is the sentence worth hearing. --}}
+        <div class="ji-run-line" role="status" aria-live="polite">
+            <span class="ji-run-count" id="ji-run-count"></span>
+            <span class="ji-run-current" id="ji-run-current"></span>
+        </div>
+        <div class="ji-run-tallies" id="ji-run-tallies"></div>
+        <div class="ji-run-errors" id="ji-run-errors" hidden></div>
+        {{-- "This journal is NOT finished." A run is capped at 50 minutes, so a big journal takes
+             a dozen of them — and that fact used to be a clause at the end of the summary sentence
+             in the grey line above, while a handful of failures got their own panel with a bold
+             header. A tripleC run did 73 of 960 works and read as a finished job. The headline is
+             how much is left; the failures are the footnote. --}}
+        <div class="ji-run-continue" id="ji-run-continue" role="status" aria-live="polite" hidden>
+            <span id="ji-run-continue-text"></span>
+            <button type="button" id="ji-run-continue-go">continue →</button>
+        </div>
+    </div>
+
     {{-- Why the last bulk run's failures happened, grouped by reason. A run that says "13 failed"
          has not told you anything actionable: 13 empty shells is publisher intermittency (press
          again), 3 identity mismatches is our bug. Copy ships the same grouping as plain text. --}}
@@ -174,7 +220,9 @@
         <h2>Reading this page <button type="button" id="ji-help-close" aria-label="Close help">✕</button></h2>
         <ol>
             <li><strong>Start with ⟳ enumerate</strong> — it asks OpenAlex what this journal has published and lists it here. Nothing else on this page works until it has run, because every other action targets an article row. Free: no publisher is contacted and no OCR runs.</li>
-            <li><strong>Then ⇩ import</strong> to work the queue in bulk — most-cited eligible works first, in the lane you pick. <code>HTML</code> is free; <code>PDF</code> runs OCR and is charged to you. The cap is your spend control; <code>all eligible</code> is a real option but never the default, and a long run stops at its time limit and tells you to press again.</li>
+            <li><strong>Then ⇩ import</strong> to work the queue in bulk — most-cited eligible works first. <code>HTML, PDF if needed</code> is the default and the one to use for FILLING a journal: per work it tries the publisher page, which is free, and buys OCR only where that yields nothing publishable. The three single-lane options import a lane because you want to <em>look</em> at it, which is a different job — <code>both</code> in particular pays for every work whether or not the free lane already worked.</li>
+            <li><strong>A run is capped at 50 minutes</strong>, so a journal of a few hundred works needs many of them. When one stops at that limit the panel says so and offers <em>continue →</em>; tick <strong>keep going</strong> before you start and it re-runs itself until the journal is done, stopping at its spend cap. The work cap is your other spend control — <code>all eligible</code> is a real option but never the default.</li>
+            <li><strong>A work that fails backs off</strong> before it is tried again — an hour, then six, then a day, and so on per consecutive failure. Without that a dead article would sit at the front of the queue (it is usually a much-cited one) and be re-fetched at the head of every single run. Works waiting out a cooldown are reported separately from <em>eligible</em>, so a "remaining" number that stops falling has a visible reason. Importing an article by hand ignores the cooldown entirely, and succeeding clears it.</li>
             <li><strong>One row per article</strong>, most-cited first — every work OpenAlex lists for this journal, whether or not we've imported it.</li>
             <li><strong>Each imported lane is a sub-row</strong>: <code>pdf</code> (vacuumed PDF + OCR), <code>html</code> (publisher page via the paste engine), <code>ar5iv</code> — plus <code>jats</code> / <code>web</code> when the vacuum ladder won with publisher XML or a browser-fetched page instead of a PDF. Lanes are sibling library rows on one canonical, each with its own book id and artifacts.</li>
             <li><strong>★ marks the promoted lane</strong> — the one <code>/j/&lt;slug&gt;</code>, the shelf and readers resolve to. The others stay imported but unlisted.</li>

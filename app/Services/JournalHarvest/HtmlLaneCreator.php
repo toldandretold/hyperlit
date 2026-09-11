@@ -5,6 +5,7 @@ namespace App\Services\JournalHarvest;
 use App\Models\CanonicalSource;
 use App\Services\CanonicalVersions\SystemVersionMinter;
 use App\Services\ContentFetchService;
+use App\Services\SourceHarvest\HarvestAttemptRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
@@ -112,7 +113,13 @@ class HtmlLaneCreator
      * HTML lane exist", plus something to fetch from.
      *
      * `$includeConverted` drops that gate, for re-running an improved processor over articles
-     * already imported (paired with `create(force: true)`).
+     * already imported (paired with `create(force: true)`). It also drops the retry backoff: a
+     * forced re-convert is an operator saying "run the new processor over these NOW", and making
+     * them wait out a cooldown tuned for unattended batches would defeat the point.
+     *
+     * The backoff itself mirrors HarvestEligibility::applyBackoff — same reasoning, own lane row,
+     * because a work whose publisher page cannot be fetched must not also suppress the PDF attempt,
+     * which is a completely different route to the same article.
      *
      * @return \Illuminate\Support\Collection<int, object>
      */
@@ -126,8 +133,22 @@ class HtmlLaneCreator
                 $q->where(fn ($q2) => $q2->whereNotNull('cs.doi')->where('cs.doi', '!=', ''))
                   ->orWhere(fn ($q2) => $q2->whereNotNull('cs.oa_url')->where('cs.oa_url', '!=', ''));
             })
-            ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
             ->select('cs.*');
+
+        if ($includeConverted) {
+            $query->orderByRaw('cs.cited_by_count DESC NULLS LAST');
+        } else {
+            $query
+                ->leftJoin('harvest_attempts as ha', function ($join) {
+                    $join->on('ha.canonical_source_id', '=', 'cs.id')
+                        ->where('ha.lane', '=', HarvestAttemptRecorder::LANE_HTML);
+                })
+                ->where(function ($q) {
+                    $q->whereNull('ha.retry_after')->orWhere('ha.retry_after', '<=', now());
+                })
+                ->orderByRaw('COALESCE(ha.attempts, 0) ASC')
+                ->orderByRaw('cs.cited_by_count DESC NULLS LAST');
+        }
 
         if (! $includeConverted) {
             $query->whereNotExists(function ($q) {

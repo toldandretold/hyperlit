@@ -32,7 +32,7 @@ class JournalHarvestCommand extends Command
                             {--dry-run : Enumerate + report eligibility only; no canonical writes, no fetches}
                             {--sleep= : Seconds between works (default: services.source_fetch.work_sleep_seconds)}
                             {--type=article : OpenAlex type filter for enumeration (empty = all citable types)}
-                            {--lane=pdf : Which lane(s) to import: pdf | html | both}
+                            {--lane=pdf : Which lane(s) to import: pdf | html | both | html_first (try free HTML per work, buy OCR only if it yields nothing publishable)}
                             {--force-html : Re-fetch and re-convert HTML lanes that are already imported (to apply a processor fix)}';
 
     protected $description = 'Harvest all open-access works of one registry journal into the commons: enumerate via OpenAlex, fetch + convert via the shared harvest machinery, land in /maintainer/conversion for review.';
@@ -57,8 +57,8 @@ class JournalHarvestCommand extends Command
         $type = trim((string) $this->option('type')) ?: null;
 
         $lane = strtolower(trim((string) $this->option('lane'))) ?: 'pdf';
-        if (!in_array($lane, ['pdf', 'html', 'both'], true)) {
-            $this->error("--lane must be pdf, html, or both (got \"{$lane}\").");
+        if (!in_array($lane, ['pdf', 'html', 'both', 'html_first'], true)) {
+            $this->error("--lane must be pdf, html, both, or html_first (got \"{$lane}\").");
             return 1;
         }
 
@@ -114,6 +114,57 @@ class JournalHarvestCommand extends Command
             // fetching. (Without this, 0 would fall through to eligibility's
             // "0 = unlimited" and fetch the whole journal.)
             $this->info('max-works=0 — enumeration/backfill only, nothing fetched.');
+            return 0;
+        }
+
+        // ── Stage 2a: cheap-first, when asked for ──
+        // One pass over the eligible queue trying the free publisher page per work and buying OCR
+        // only where that yields nothing publishable. Replaces stages 2b + 3 rather than joining
+        // them: those run the two lanes as independent passes to COMPARE them, which imports (and
+        // pays for) every work twice.
+        if ($lane === 'html_first') {
+            $run = $runner->importHtmlFirst($journal, $maxWorks, $user, $sleep, function (array $e) {
+                match ($e['stage']) {
+                    'html_first_start' => $this->info("Cheap-first: {$e['total']} work(s) without a version"),
+                    'work'             => $this->line("→ [{$e['n']}/{$e['total']}] {$e['title']}"),
+                    'html_result'      => match ($e['status']) {
+                        'imported', 'reimported' => $this->line("   <fg=green>html won — free</> ({$e['book']}"
+                                                      . ($e['nodes'] !== null ? ", {$e['nodes']} nodes" : '') . ')'),
+                        'already_imported'       => $this->line('   <fg=green>html lane already there — promoted, free</>'),
+                        'not_publishable'        => $this->line('   <fg=yellow>html not publishable: '
+                                                      . ($e['reason'] ?? 'unknown') . ' — falling back to pdf</>'),
+                        default                  => $this->line("   <fg=yellow>html {$e['status']}: "
+                                                      . ($e['reason'] ?? 'unknown') . ' — falling back to pdf</>'),
+                    },
+                    'pdf_result'       => match ($e['status']) {
+                        'assigned'          => $this->line("   <fg=green>pdf assigned</> ({$e['book']}, via " . ($e['via'] ?? '?')
+                                                 . sprintf(', $%.4f', $e['cost']) . ')'),
+                        'assigned_existing' => $this->line('   <fg=green>pdf assigned (existing version)</>'),
+                        default             => $this->warn("   pdf {$e['status']}: " . ($e['reason'] ?? 'unknown')),
+                    },
+                    default            => null,
+                };
+            });
+
+            $runner->finalise($journal, $run['stats'], $run['spend'], function (array $e) {
+                match ($e['stage']) {
+                    'shelf'        => $this->line("  shelf sync: {$e['added']} book(s) added"),
+                    'shelf_failed' => $this->warn('Shelf step failed: ' . $e['reason']),
+                    default        => null,
+                };
+            });
+
+            $this->newLine();
+            $this->info('Summary:');
+            foreach ($run['stats'] as $k => $v) {
+                $this->line(sprintf('  %-18s %d', $k, $v));
+            }
+            $this->line(sprintf('  %-18s $%.4f', 'ocr spend', $run['spend']));
+            $estimate = $runner->estimate($journal);
+            $this->line("  remaining eligible: {$estimate['eligible']}"
+                . ($estimate['cooling_off'] ? " ({$estimate['cooling_off']} cooling off after earlier failures)" : ''));
+            $this->line("  journal page: /j/{$journal->slug}");
+
             return 0;
         }
 
@@ -183,7 +234,10 @@ class JournalHarvestCommand extends Command
             return 0;
         }
 
-        $stats = $run['stats'];
+        // A `--lane=both` run harvested TWO lanes; recording only the PDF one leaves the registry
+        // claiming a journal was never HTML-fetched. Namespaced rather than summed — see
+        // JournalHarvestRunner::mergeLaneStats.
+        $stats = JournalHarvestRunner::mergeLaneStats($run['stats'], $lane === 'both' ? $htmlStats : []);
         $spend = $run['spend'];
 
         // ── Stage 4: shelf + registry bookkeeping ──

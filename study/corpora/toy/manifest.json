@@ -1,0 +1,40 @@
+{
+  "corpus": "toy",
+  "description": "Two-book development corpus for exercising the citation:study harness end-to-end. Never reported.",
+  "created": "2026-09-10",
+  "frozen": false,
+  "books": [
+    {
+      "slug": "toy-synthetic",
+      "arm": "synthetic",
+      "source_file": "sources/toy-synthetic/original.md",
+      "study_file": "sources/toy-synthetic/corrupted.md",
+      "corruption_spec": "sources/toy-synthetic/corruption.json",
+      "ground_truth": "sources/toy-synthetic/ground_truth.json",
+      "default_label": "intact",
+      "provenance": {
+        "title": "Open Scholarship and the Reproducibility Conversation: A Toy Review",
+        "author": "Study Harness",
+        "year": "2026",
+        "doi": null,
+        "license": "synthetic-fixture",
+        "retrieved": "2026-09-10"
+      }
+    },
+    {
+      "slug": "toy-control",
+      "arm": "control",
+      "source_file": "sources/toy-control/original.md",
+      "ground_truth": "sources/toy-control/ground_truth.json",
+      "default_label": "intact",
+      "provenance": {
+        "title": "Peer Review Under Pressure: A Toy Commentary",
+        "author": "Study Harness",
+        "year": "2026",
+        "doi": null,
+        "license": "synthetic-fixture",
+        "retrieved": "2026-09-10"
+      }
+    }
+  ]
+}

@@ -1,5 +1,23 @@
 import { getCurrentUserId } from "./auth/index";
 import { log, verbose } from "./logger";
+import { authorsToBibtexField, formatAuthorsForReference } from "./authorList";
+
+/**
+ * Parse the `key = {value}` / `key = "value"` fields out of a BibTeX entry.
+ * Brace-aware to ONE nesting level, so protected names survive intact:
+ * `author = {{van Rossum}, Guido and {World Health Organization}}` parses whole,
+ * where the old first-closing-brace regex truncated at `{van Rossum}`.
+ * Keys are lowercased. Values keep their inner braces (splitAuthors strips them).
+ */
+export function parseBibtexFields(bibtex: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  const fieldRegex = /(\w+)\s*=\s*(?:\{((?:[^{}]|\{[^{}]*\})*)\}|"([^"]*)")/g;
+  let match: RegExpExecArray | null;
+  while ((match = fieldRegex.exec(String(bibtex ?? ''))) !== null) {
+    fields[match[1]!.toLowerCase()] = (match[2] ?? match[3] ?? '').trim();
+  }
+  return fields;
+}
 
 const CITATION_ARTICLE_TYPES = new Set(['article', 'journal-article', 'journal article', 'proceedings-article', 'conference-paper', 'paper']);
 const CITATION_CHAPTER_TYPES = new Set(['incollection', 'book-chapter', 'chapter', 'book chapter']);
@@ -24,7 +42,9 @@ export function doiToUrl(doi: any): string | null {
  * (journal-article/book-chapter). Author must already be resolved (no anonymisation here).
  */
 export function formatMetadataToCitation(meta: any): string {
-  const author = meta?.author || 'Unknown Author';
+  // Full author lists are stored; the reference-list et-al cutoff is applied
+  // here at render time ("Anon"/"Anon (me)"/UUIDs pass through untouched).
+  const author = formatAuthorsForReference(String(meta?.author || 'Unknown Author'));
   const title = meta?.title || 'Untitled';
   const journal = meta?.journal || null;
   const publisher = meta?.publisher || null;
@@ -93,19 +113,9 @@ export function formatMetadataToCitation(meta: any): string {
  * @returns {Promise<string>} - The formatted citation.
  */
 export async function formatBibtexToCitation(bibtex: any, preResolvedUserId = null) {
-  // Helper to pull out all key = { value } or "value" pairs
-  const parseBibtex = (bibtex: any) => {
-    const fields: any = {};
-    const fieldRegex = /(\w+)\s*=\s*[{"]([^"}]+)[}"]/g;
-    let match: any;
-    while ((match = fieldRegex.exec(bibtex)) !== null) {
-      (fields as any)[match[1]!] = match[2];
-    }
-    return fields;
-  };
-
-  // Pull out all fields
-  const fields = parseBibtex(bibtex);
+  // Brace-aware shared parser (keys lowercased) — the old local regex truncated
+  // values at the first inner brace, corrupting protected author names.
+  const fields = parseBibtexFields(String(bibtex ?? ''));
   const rawAuthor = fields.author || "";
   const currentUserId = preResolvedUserId || await getCurrentUserId();
 
@@ -211,7 +221,9 @@ export function buildBibtexEntry({ book, title, author, year }: any) {
   // as "<strong>null</strong>" on every library card built from this entry.
   const lines = [`@book{${book},`];
   if (author !== undefined && author !== null && String(author).trim() !== '') {
-    lines.push(`  author = {${author}},`);
+    // Flat strings are "; "-joined; the BibTeX author field uses " and ".
+    // UUIDs (anonymous creators) pass through authorsToBibtexField untouched.
+    lines.push(`  author = {${authorsToBibtexField(String(author))}},`);
   }
   lines.push(`  title  = {${title}},`);
   const cleanYear = year === undefined || year === null ? '' : String(year).trim();

@@ -73,6 +73,192 @@ body.ji-detail {
   line-height: 1;
 }
 
+/* ── Run panel: what the bulk run is doing, while it does it ──
+   Bottom-RIGHT, because the failures panel below is bottom-left and a run that ends badly opens
+   both. Fixed rather than in the header strip: a 25-work run outlives any amount of scrolling
+   through the article list, and progress you have to scroll back up to find is progress you
+   stop trusting. Bar/sweep borrowed from components/importQueue.css under ji- names — that
+   file is SPA-scoped and this blade is standalone, so it cannot simply be imported. */
+.ji-run-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 11px;
+  background: color-mix(in srgb, var(--color-background) 92%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  border-radius: 8px;
+  z-index: 1003;
+  font-size: 0.78rem;
+}
+.ji-run-panel[hidden] {
+  display: none;
+}
+.ji-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ji-run-head strong {
+  flex: 1;
+  font-weight: 600;
+}
+.ji-run-head button {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.ji-run-head button:hover {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.ji-run-head button[hidden] {
+  display: none;
+}
+.ji-run-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text) 15%, transparent);
+  overflow: hidden;
+}
+.ji-run-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4eacae, #ef8d34);
+  transition: width 0.4s ease;
+}
+/* No denominator (enumerating, shelf sync, or queued): sweep rather than invent a percentage. */
+.ji-run-bar-fill.is-indeterminate {
+  width: 40%;
+  animation: ji-run-sweep 1.2s ease-in-out infinite;
+}
+@keyframes ji-run-sweep {
+  0% { margin-left: 0%; }
+  50% { margin-left: 60%; }
+  100% { margin-left: 0%; }
+}
+/* Terminal: freeze the bar. A sweep that never stops reads as "still working". */
+.ji-run-panel.is-done .ji-run-bar-fill,
+.ji-run-panel.is-failed .ji-run-bar-fill {
+  animation: none;
+}
+.ji-run-panel.is-done .ji-run-bar-fill {
+  width: 100%;
+}
+.ji-run-panel.is-failed .ji-run-bar-fill {
+  background: var(--color-warning, #b45309);
+}
+.ji-run-line {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+.ji-run-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+/* One line, ellipsed — article titles are long and a panel that reflows on every work is
+   harder to read than one that holds its shape. */
+.ji-run-current {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-faint, #888);
+}
+.ji-run-tallies {
+  color: var(--color-text-faint, #888);
+  font-size: 0.74rem;
+}
+.ji-run-tallies:empty {
+  display: none;
+}
+/* Its own scroll box: a capped run can report a hundred failures and the panel must not run off
+   the bottom of the screen. (wheelScrollForwarder does not run on the maintainer blades, so
+   there is no SCROLLABLE_OVERLAY_SEL entry to add for this.) */
+.ji-run-errors {
+  max-height: 22vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 3px;
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+.ji-run-errors[hidden] {
+  display: none;
+}
+.ji-run-error {
+  color: var(--color-warning, #b45309);
+  font-size: 0.73rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Stopped at the time limit" — deliberately the loudest thing in this panel.
+   A run is capped at 50 minutes, so a big journal needs a dozen of them, and that used to be a
+   clause in the grey line above while a handful of failures got a bold panel header. Accent
+   border + full-width button, because the operator's next action is a press, not a read. */
+.ji-run-continue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding: 7px 9px;
+  border-radius: 5px;
+  border-left: 3px solid var(--color-warning, #b45309);
+  background: color-mix(in srgb, var(--color-warning, #b45309) 12%, transparent);
+  color: var(--color-text, #222);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+.ji-run-continue[hidden] {
+  display: none;
+}
+.ji-run-continue button {
+  margin-left: auto;
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--color-warning, #b45309);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ji-run-continue button:hover {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 22%, transparent);
+}
+.ji-run-continue button[hidden] {
+  display: none;
+}
+
+/* The "keep going" opt-in, beside the bulk cap it modifies. */
+.ji-bulk-continue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--color-text-faint, #888);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 /* ── Failures panel: why the last bulk run's works failed, grouped by cause ──
    Sits over the article list rather than in it: it is about a RUN, not the journal, and it goes
    away when you close it. */

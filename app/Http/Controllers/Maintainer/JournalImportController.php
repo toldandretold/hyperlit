@@ -53,6 +53,18 @@ class JournalImportController extends Controller
     /** Caps offered for a bulk import. 0 = every eligible work — deliberate, never the default. */
     private const WORK_LIMITS = [5, 25, 100, 0];
 
+    /**
+     * Dollar ceilings for a self-continuing import chain.
+     *
+     * A chain keeps re-dispatching itself for as long as the journal has work, so unlike a single
+     * run its spend is not bounded by anything the operator can see at press time. The DEFAULT is
+     * roughly a mid-size journal at observed rates (tripleC: ~$0.041 an article, ~960 articles);
+     * the MAX is a backstop against a typo in the field, not a policy — a bigger corpus is a
+     * deliberate decision that belongs in config, not in a number someone typed once.
+     */
+    private const DEFAULT_CHAIN_SPEND_CAP = 40.0;
+    private const MAX_CHAIN_SPEND_CAP = 250.0;
+
     /** GET /maintainer/journal-import — pick a journal. */
     public function index(Request $request)
     {
@@ -161,7 +173,29 @@ class JournalImportController extends Controller
 
         $estimate = $eligibility->estimateForJournal($journal->id);
 
+        // An in-flight journal-scoped run rides along so a RELOADED page re-attaches its poll
+        // instead of going silent for the rest of a 50-minute import. The poll lives in a promise
+        // chain with no persisted run id, so without this a refresh is indistinguishable from a
+        // dead worker — which is exactly what it looked like.
+        //
+        // Journal-scoped only (`canonical_source_id` null): a per-article action reports into its
+        // own bar, and re-attaching it to the journal bar would put one article's progress where
+        // the bulk run's belongs.
+        $activeRun = $db->table('journal_import_runs')
+            ->where('journal_source_id', $journal->id)
+            ->whereNull('canonical_source_id')
+            ->whereIn('status', ['pending', 'running'])
+            ->where('updated_at', '>', now()->subHour())
+            ->orderByDesc('created_at')
+            ->first(['id', 'status', 'action', 'lanes', 'work_limit', 'step_detail', 'progress',
+                     'continue_until_done', 'chain_position', 'chain_spend', 'spend_cap']);
+
+        if ($activeRun) {
+            $activeRun->progress = json_decode((string) $activeRun->progress, true) ?: null;
+        }
+
         return response()->json([
+            'active_run' => $activeRun,
             'journal' => [
                 'slug'               => $journal->slug,
                 'display_name'       => $journal->display_name,
@@ -323,9 +357,13 @@ class JournalImportController extends Controller
             return response()->json(['message' => "Unknown action \"{$action}\"."], 422);
         }
 
+        // `html_first` is a BULK strategy, not a lane: it tries the free publisher page per work and
+        // only buys OCR when that yields nothing publishable. Meaningless for the article-scoped
+        // actions, which name one lane to act on.
         $lanes = (string) $request->input('lanes', 'both');
-        if (! in_array($lanes, ['pdf', 'html', 'both'], true)) {
-            return response()->json(['message' => "lanes must be pdf, html or both."], 422);
+        $allowed = $action === 'import_all' ? ['pdf', 'html', 'both', 'html_first'] : ['pdf', 'html', 'both'];
+        if (! in_array($lanes, $allowed, true)) {
+            return response()->json(['message' => 'lanes must be one of: ' . implode(', ', $allowed) . '.'], 422);
         }
 
         $db = DB::connection('pgsql_admin');
@@ -333,6 +371,8 @@ class JournalImportController extends Controller
         $book = $request->input('book');
         $journalScoped = in_array($action, self::JOURNAL_ACTIONS, true);
         $workLimit = null;
+        $continue = false;
+        $spendCap = null;
 
         if ($journalScoped) {
             // A journal action names no article; its target IS the journal, already resolved.
@@ -345,6 +385,18 @@ class JournalImportController extends Controller
                     return response()->json([
                         'message' => 'limit must be one of: ' . implode(', ', self::WORK_LIMITS) . ' (0 = all eligible).',
                     ], 422);
+                }
+
+                $continue = $request->boolean('continue_until_done');
+                if ($continue) {
+                    // A chain re-dispatches itself unattended, so it never runs uncapped: the cap
+                    // is the operator's stated ceiling for the WHOLE chain, clamped to a
+                    // configured maximum so a fat-fingered field cannot authorise an unbounded
+                    // spend. Enforced by the job before each successor is enqueued.
+                    $spendCap = min(
+                        max((float) $request->input('spend_cap', self::DEFAULT_CHAIN_SPEND_CAP), 0.01),
+                        self::MAX_CHAIN_SPEND_CAP,
+                    );
                 }
             }
         }
@@ -408,6 +460,10 @@ class JournalImportController extends Controller
             'status'              => 'pending',
             'book'                => $book,
             'work_limit'          => $workLimit,
+            'continue_until_done' => $continue,
+            'spend_cap'           => $spendCap,
+            'chain_spend'         => 0,
+            'chain_position'      => 1,
             'counts'              => '{}',
             'created_at'          => now(),
             'updated_at'          => now(),
@@ -451,7 +507,19 @@ class JournalImportController extends Controller
             'book'        => $run->book,
             'step_detail' => $run->step_detail,
             'counts'      => json_decode((string) $run->counts, true) ?: [],
+            // The live beat, as fields. Null on a run dispatched before the column existed (or by
+            // a pre-deploy worker) — the console falls back to `step_detail`, which still carries
+            // the same n/total as prose.
+            'progress'    => json_decode((string) $run->progress, true) ?: null,
             'error'       => $run->error,
+            // The chain, so the console can follow a self-continuing import across run rows instead
+            // of reporting "done" at the end of link 1 of 12. `next_run_id` rides inside `counts`,
+            // written by the job as it enqueues the successor.
+            'work_limit'          => $run->work_limit,
+            'continue_until_done' => (bool) $run->continue_until_done,
+            'chain_position'      => (int) $run->chain_position,
+            'chain_spend'         => (float) $run->chain_spend,
+            'spend_cap'           => $run->spend_cap === null ? null : (float) $run->spend_cap,
         ]);
     }
 

@@ -855,7 +855,9 @@ class SearchService
     private function buildSyntheticBibtex(\stdClass $row): string
     {
         $sanitize = fn($s) => str_replace(['{', '}'], '', (string) $s);
-        $author = $sanitize($row->author ?? 'Unknown');
+        // Flat author strings are "; "-joined; the bibtex field uses " and "
+        // (this string feeds the citation picker's parseAuthorYear directly).
+        $author = \App\Support\AuthorList::toBibtexField($sanitize($row->author ?? 'Unknown'));
         $year   = $sanitize($row->year ?? 'n.d.');
         $title  = $sanitize($row->title ?? 'Untitled');
         $key    = 'cite_' . substr(md5((string) ($row->id ?? '')), 0, 8);

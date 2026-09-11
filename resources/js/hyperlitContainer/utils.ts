@@ -3,6 +3,8 @@
  * Shared helper functions used across the hyperlit container system
  */
 
+import { authorsToBibtexField } from '../utilities/authorList';
+
 /**
  * Format a timestamp into relative time (e.g., "2min", "3hr", "5d")
  * @param {number} timeSince - Unix timestamp in seconds
@@ -57,12 +59,15 @@ export async function fetchLibraryFromServer(bookId: string): Promise<any | null
       if (data.library.bibtex) {
         return data.library;
       } else if (data.library.title || data.library.author) {
-        // Create basic bibtex from available fields
+        // Create basic bibtex from available fields. The author flat string is
+        // "; "-joined — bibtex uses " and ". The year comes from the RECORD and
+        // is omitted when absent (stamping the current year fabricated a
+        // publication date; downstream degrades to "Unknown Year"/"n.d.").
+        const yearLine = data.library.year ? `  year = {${data.library.year}},\n` : '';
         const basicBibtex = `@misc{${bookId},
-  author = {${data.library.author || 'Unknown'}},
+  author = {${authorsToBibtexField(String(data.library.author || 'Unknown'))}},
   title = {${data.library.title || 'Untitled'}},
-  year = {${new Date().getFullYear()}},
-}`;
+${yearLine}}`;
         return {
           ...data.library,
           bibtex: basicBibtex

@@ -14,7 +14,8 @@ import { asBookId } from "../indexedDB/types";
 
 import { openDatabase, queueForSync } from '../indexedDB/index';
 import type { BibliographyRecord } from '../indexedDB/types';
-import { formatBibtexToCitation } from '../utilities/bibtexProcessor';
+import { formatBibtexToCitation, parseBibtexFields } from '../utilities/bibtexProcessor';
+import { formatInTextAuthors } from '../utilities/authorList';
 
 /**
  * Generate a unique reference ID
@@ -27,60 +28,18 @@ export function generateReferenceId(): string {
 }
 
 /**
- * Parse bibtex to extract author and year for inline citation
+ * Parse bibtex to extract author and year for inline citation.
+ * Author formatting (APA-ish: surname / "A & B" / "A et al.") delegates to the
+ * shared authorList vocabulary, which understands BOTH the "; " harvest
+ * convention and BibTeX's " and " — a semicolon-joined list used to fall
+ * through as one author and render as its last word ("Berinsky").
  */
 export function parseAuthorYear(bibtex: string): { author: string; year: string } {
-  const fields: Record<string, string> = {};
-  const fieldRegex = /(\w+)\s*=\s*[{"]([^"}]+)[}"]/g;
-  let match: RegExpExecArray | null;
-  while ((match = fieldRegex.exec(bibtex)) !== null) {
-    fields[match[1]!.toLowerCase()] = match[2]!;
-  }
-
-  // Extract author - take first author's surname for "et al." format
-  let author = 'Unknown';
-  if (fields.author) {
-    const rawAuthor = fields.author;
-    // Handle "Last, First" or "First Last" format
-    // Also handle multiple authors separated by "and"
-    const authors = rawAuthor.split(/\s+and\s+/i);
-
-    if (authors.length === 1) {
-      // Single author - extract surname
-      const parts = authors[0]!.split(',');
-      if (parts.length > 1) {
-        // "Last, First" format
-        author = parts[0]!.trim();
-      } else {
-        // "First Last" format - take last word
-        const words = authors[0]!.trim().split(/\s+/);
-        author = words[words.length - 1]!;
-      }
-    } else if (authors.length === 2) {
-      // Two authors: "Author1 & Author2"
-      const getLastName = (name: string): string => {
-        const parts = name.split(',');
-        if (parts.length > 1) return parts[0]!.trim();
-        const words = name.trim().split(/\s+/);
-        return words[words.length - 1]!;
-      };
-      author = `${getLastName(authors[0]!)} & ${getLastName(authors[1]!)}`;
-    } else {
-      // Three or more: "Author1 et al."
-      const parts = authors[0]!.split(',');
-      if (parts.length > 1) {
-        author = parts[0]!.trim() + ' et al.';
-      } else {
-        const words = authors[0]!.trim().split(/\s+/);
-        author = words[words.length - 1]! + ' et al.';
-      }
-    }
-  }
-
-  // Extract year
-  const year = fields.year || 'n.d.';
-
-  return { author, year };
+  const fields = parseBibtexFields(bibtex);
+  return {
+    author: formatInTextAuthors(fields.author ?? ''),
+    year: fields.year || 'n.d.',
+  };
 }
 
 /**

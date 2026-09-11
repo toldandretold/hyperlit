@@ -1,0 +1,131 @@
+{
+    "corpus": "phase1",
+    "description": "Phase 1 development corpus: tune the citation review tool here. Reported results come from a separate frozen corpus.",
+    "created": "2026-09-10",
+    "frozen": false,
+    "books": [
+        {
+            "slug": "chacko-2025-conspiracy",
+            "arm": "control",
+            "source_file": "sources/chacko-2025-conspiracy/original.md",
+            "ground_truth": "sources/chacko-2025-conspiracy/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Conspiracy theories and India’s transnational authoritarian populism: NGOs, Khalistanis and Soros",
+                "author": "Priya Chacko",
+                "year": "2025",
+                "doi": "10.1177/13691481251393570",
+                "url": null,
+                "source_book_id": "book_1789025680384",
+                "source_markdown": "exported-from-nodes",
+                "adopted_at": "2026-09-10"
+            }
+        },
+        {
+            "slug": "peer-review-2027",
+            "arm": "control",
+            "source_file": "sources/peer-review-2027/original.md",
+            "ground_truth": "sources/peer-review-2027/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Peer Review 2027: Scenarios for Academic Publishing in the Age of AI",
+                "author": "pleaseplease",
+                "year": "2026",
+                "doi": null,
+                "url": null,
+                "source_book_id": "book_1777271888985",
+                "source_markdown": "exported-from-nodes",
+                "adopted_at": "2026-09-10"
+            }
+        },
+        {
+            "slug": "mittelstadt-2016-ethics",
+            "arm": "synthetic",
+            "source_file": "sources/mittelstadt-2016-ethics/original.md",
+            "ground_truth": "sources/mittelstadt-2016-ethics/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The ethics of algorithms: Mapping the debate",
+                "author": "Brent Mittelstadt; Patrick Allo; Mariarosaria Taddeo",
+                "year": "2016",
+                "doi": "10.1177/2053951716679679",
+                "url": null,
+                "source_book_id": "book_1789026053074",
+                "source_markdown": "exported-from-nodes",
+                "adopted_at": "2026-09-10"
+            },
+            "study_file": "sources/mittelstadt-2016-ethics/corrupted.md",
+            "corruption_spec": "sources/mittelstadt-2016-ethics/corruption.json"
+        },
+        {
+            "slug": "underwood-2016-genres",
+            "arm": "control",
+            "source_file": "sources/underwood-2016-genres/original.md",
+            "ground_truth": "sources/underwood-2016-genres/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The Life Cycles of Genres",
+                "author": "Ted Underwood",
+                "year": "2016",
+                "doi": "10.22148/16.005",
+                "url": null,
+                "source_book_id": "ted2018the",
+                "source_markdown": "main-text.md",
+                "adopted_at": "2026-09-10"
+            }
+        },
+        {
+            "slug": "barnett-2020-acronyms",
+            "arm": "synthetic",
+            "source_file": "sources/barnett-2020-acronyms/original.md",
+            "ground_truth": "sources/barnett-2020-acronyms/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The growth of acronyms in the scientific literature",
+                "author": "Adrian Barnett; Zoë A. Doubleday",
+                "year": "2020",
+                "doi": "10.7554/elife.60080",
+                "url": null,
+                "source_book_id": "book_1789026382630",
+                "source_markdown": "main-text.md",
+                "adopted_at": "2026-09-10"
+            },
+            "study_file": "sources/barnett-2020-acronyms/corrupted.md",
+            "corruption_spec": "sources/barnett-2020-acronyms/corruption.json"
+        },
+        {
+            "slug": "deloitte-2025-tcf",
+            "arm": "retracted",
+            "source_file": "sources/deloitte-2025-tcf/original.md",
+            "ground_truth": "sources/deloitte-2025-tcf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Independent Review of the TCF - Final Report - July 2025",
+                "author": "Deloitte",
+                "year": "2025",
+                "doi": null,
+                "url": null,
+                "source_book_id": "deloitte2025independent",
+                "source_markdown": "main-text.md",
+                "adopted_at": "2026-09-10"
+            }
+        },
+        {
+            "slug": "aczel-2021-billion",
+            "arm": "control",
+            "source_file": "sources/aczel-2021-billion/original.html",
+            "ground_truth": "sources/aczel-2021-billion/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "A billion-dollar donation: estimating the cost of researchers’ time spent on peer review",
+                "author": "Balázs Aczél; Barnabás Szászi; Alex O. Holcombe",
+                "year": "2021",
+                "doi": "10.1186/s41073-021-00118-2",
+                "url": null,
+                "source_book_id": "book_1789026777142",
+                "source_markdown": "exported-from-nodes (html, pre-linked anchors preserved)",
+                "adopted_at": "2026-09-10"
+            }
+        }
+    ]
+}

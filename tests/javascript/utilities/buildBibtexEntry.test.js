@@ -39,4 +39,15 @@ describe('buildBibtexEntry', () => {
     const bib = buildBibtexEntry({ book: 'b', title: 't', author: 'a' });
     expect(bib).toBe('@book{b,\n  author = {a},\n  title  = {t},\n}');
   });
+
+  it('converts a "; "-joined author list to the BibTeX " and " convention', () => {
+    const bib = buildBibtexEntry({ book: 'b', title: 't', author: 'Kevin Munger; Bert N. Bakker; Adam J. Berinsky', year: '2026' });
+    expect(bib).toContain('author = {Kevin Munger and Bert N. Bakker and Adam J. Berinsky}');
+  });
+
+  it('passes a UUID author (anonymous creator) through untouched', () => {
+    const uuid = '123e4567-e89b-42d3-a456-426614174000';
+    const bib = buildBibtexEntry({ book: 'b', title: 't', author: uuid });
+    expect(bib).toContain(`author = {${uuid}}`);
+  });
 });

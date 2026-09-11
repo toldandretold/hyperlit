@@ -2,6 +2,7 @@ import { setCurrentBook } from '../../app';
 import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
 import { verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
+import { formatAuthorsForReference } from '../../utilities/authorList';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
@@ -619,7 +620,9 @@ function parseBibtexToCitation(bibtex: any) {
 
     let citation = '';
     if (author) {
-      citation += `<strong>${escapeHtml(author)}</strong>. `;
+      // Full author lists are stored; apply the reference-list et-al cutoff at
+      // render time (parity with the server-side LibraryCardGenerator).
+      citation += `<strong>${escapeHtml(formatAuthorsForReference(author))}</strong>. `;
     }
     if (title) {
       citation += `<em>${escapeHtml(title)}</em>`;
