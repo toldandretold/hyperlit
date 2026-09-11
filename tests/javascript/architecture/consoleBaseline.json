@@ -1,8 +1,8 @@
 {
   "_comment": "Ratchet baselines for tests/javascript/architecture/noNewConsole.test.js \u2014 raw console.* calls per top-level resources/js folder (utilities/logger.ts and archive/ excluded). Counts may only go DOWN; the test prints the new number when you remove calls.",
-  "SPA": 143,
+  "SPA": 130,
   "citations": 3,
-  "components": 176,
+  "components": 174,
   "conversion": 2,
   "dev": 12,
   "divEditor": 103,
@@ -10,7 +10,7 @@
   "footnotes": 5,
   "hypercites": 112,
   "hyperlights": 113,
-  "hyperlitContainer": 92,
+  "hyperlitContainer": 91,
   "indexedDB": 162,
   "integrity": 29,
   "lazyLoader": 30,
@@ -20,5 +20,5 @@
   "scrolling": 24,
   "search": 7,
   "sourceVerify": 1,
-  "utilities": 104
+  "utilities": 103
 }

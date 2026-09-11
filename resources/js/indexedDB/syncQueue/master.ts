@@ -23,6 +23,8 @@ import type { ConflictNodeInput } from './selfConflictContentCheck';
 import { generateSyncToken, recordSentSyncToken, hasSentSyncToken } from './sentSyncTokens';
 import { advanceBaseTimestamp, raiseLocalLibraryTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
+import { whenNewBookEstablished } from '../../utilities/newBookEstablished';
+import { isPendingNewBook } from '../../utilities/pendingNewBook';
 import { asBookId } from '../types';
 // E2EE seam (docs/e2ee.md): registry is a zero-import leaf (cheap sync check);
 // the transform module is dynamic-imported only when a book is actually encrypted.
@@ -46,7 +48,6 @@ import type {
 
 interface MasterSyncDeps {
   book: BookId | null | undefined;
-  getInitialBookSyncPromise: () => Promise<unknown> | null;
   glowCloudGreen?: (opts?: unknown) => void;
   glowCloudRed?: (opts?: unknown) => void;
   glowCloudLocalSave?: () => void;
@@ -77,7 +78,6 @@ export interface SyncPayloadInput {
 
 // Dependencies that will be injected
 let book: MasterSyncDeps['book'];
-let getInitialBookSyncPromise: MasterSyncDeps['getInitialBookSyncPromise'];
 let glowCloudGreen: MasterSyncDeps['glowCloudGreen'];
 let glowCloudRed: MasterSyncDeps['glowCloudRed'];
 let glowCloudLocalSave: MasterSyncDeps['glowCloudLocalSave'];
@@ -127,7 +127,6 @@ const SYNC_TIMEOUT_MS = 30000;
 // Initialization function to inject dependencies
 export function initMasterSyncDependencies(deps: MasterSyncDeps): void {
   book = deps.book;
-  getInitialBookSyncPromise = deps.getInitialBookSyncPromise;
   glowCloudGreen = deps.glowCloudGreen;
   glowCloudRed = deps.glowCloudRed;
   glowCloudLocalSave = deps.glowCloudLocalSave;
@@ -222,14 +221,10 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
   // `library.timestamp` (:104), so we null BOTH on the wire — never mutating the IDB record. Success
   // still returns `server_timestamp`, which advances the base, so the FIRST post-settle sync has a
   // correct base; the flag is cleared once creation truly settles (createNewBook.fireAndForgetSync).
-  let isPendingNewBook = false;
-  try {
-    const pending = JSON.parse(sessionStorage.getItem('pending_new_book_sync') || 'null');
-    isPendingNewBook = !!pending && pending.bookId === bookId;
-  } catch { /* malformed flag — treat as not pending */ }
+  const pendingNewBook = isPendingNewBook(bookId);
 
   const wireLibrary: any = payload.updates.library || null;
-  const finalLibrary = (isPendingNewBook && wireLibrary) ? { ...wireLibrary, timestamp: undefined } : wireLibrary;
+  const finalLibrary = (pendingNewBook && wireLibrary) ? { ...wireLibrary, timestamp: undefined } : wireLibrary;
 
   // Prepare the unified sync request payload (typed to the wire contract).
   const unifiedPayload: UnifiedSyncPayload = {
@@ -247,7 +242,7 @@ export async function executeSyncPayload(payload: SyncPayloadInput): Promise<Rec
     // it fresh from IDB; replay carries the queue-time base); fall back to the library record's
     // own base_timestamp, then its timestamp (brand-new book never pulled → no base yet). For a
     // pending (not-yet-settled) new book, force it undefined so the server skips the stale check.
-    base_timestamp: isPendingNewBook
+    base_timestamp: pendingNewBook
       ? undefined
       : (payload.base_timestamp
         ?? payload.updates.library?.base_timestamp
@@ -772,41 +767,26 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
 /** Longest a drain will wait on the new-book handshake before pushing anyway. */
 const INITIAL_SYNC_WAIT_MS = 10000;
 
-/** Initial-sync promises that REJECTED — never awaited again (see awaitInitialBookSync). */
-const _deadInitialSyncPromises = new WeakSet<object>();
-
 /**
  * Wait for a freshly-created book's bulk-create handshake before pushing nodes,
  * so the library row exists server-side (otherwise the node upsert 404s).
  *
- * This wait must NEVER be able to kill the drain. `fireAndForgetSync` REJECTS
- * when the bulk-create fails, the promise is stored once per SPA-created book
- * and (on that path) never cleared — so a bare `await` meant one failed
- * handshake wedged the queue for the rest of the tab's life: every later drain
- * threw here, before `pendingSyncs.clear()`, so NOTHING was ever POSTed again,
- * for any book, silently. That is the worst shape a sync bug can have, and it
- * was reachable from a single flaky create. So: a rejection is logged and the
- * promise retired; a promise that never settles is raced against a cap and the
- * drain proceeds (an early push at worst 404s and parks in historyLog, which
- * retryFailedBatches replays — recoverable, unlike the wedge).
+ * The wait goes through `utilities/newBookEstablished`, whose whole contract is
+ * that it always settles and never rejects — because as a bare stored promise
+ * this gate (sitting BEFORE `pendingSyncs.clear()`) meant one failed create
+ * wedged the queue for the tab's whole life: nothing was ever POSTed again, for
+ * any book, silently. Proceeding on `failed`/`timeout` is the safe branch: a
+ * push at a not-yet-created book parks in historyLog and retryFailedBatches
+ * replays it.
  */
 async function awaitInitialBookSync(): Promise<void> {
-  const initialSyncPromise = getInitialBookSyncPromise?.();
-  if (!initialSyncPromise || typeof initialSyncPromise !== 'object') return;
-  if (_deadInitialSyncPromises.has(initialSyncPromise)) return;
-
-  try {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    await Promise.race([
-      initialSyncPromise,
-      new Promise<void>((resolve) => { timer = setTimeout(resolve, INITIAL_SYNC_WAIT_MS); }),
-    ]).finally(() => { if (timer) clearTimeout(timer); });
-  } catch (error) {
-    _deadInitialSyncPromises.add(initialSyncPromise);
+  const result = await whenNewBookEstablished(INITIAL_SYNC_WAIT_MS);
+  if (result.reason === 'failed' || result.reason === 'timeout') {
     log.error(
-      'New-book handshake failed — syncing anyway (a failed handshake must not wedge the queue)',
+      `New-book handshake ${result.reason} for ${result.bookId} — syncing anyway ` +
+      `(a failed handshake must not wedge the queue)`,
       '/indexedDB/syncQueue/master.ts',
-      error,
+      result.error,
     );
   }
 }

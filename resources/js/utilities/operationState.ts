@@ -12,24 +12,11 @@ export let keyboardLayoutInProgress = false;
 let keyboardWasRecentlyClosed = false;
 
 
-let initialBookSyncPromise: any = null;
-
-/**
- * Stores the promise for the initial book creation sync.
- * @param {Promise<void> | null} promise
- */
-export function setInitialBookSyncPromise(promise: any) {
-  console.log("SYNC STATE: Initial book sync promise has been set.");
-  initialBookSyncPromise = promise;
-}
-
-/**
- * Retrieves the promise for the initial book creation sync.
- * @returns {Promise<void> | null}
- */
-export function getInitialBookSyncPromise() {
-  return initialBookSyncPromise;
-}
+// The initial-book-sync promise used to live here as a raw, nullable holder.
+// It now belongs to utilities/newBookEstablished, which owns the ONE signal for
+// "does the server have this book yet" — and, unlike a raw stored promise,
+// always settles, never rejects, and retires itself (a rejected one parked here
+// wedged masterSync's drain for the tab's whole life).
 
 
 

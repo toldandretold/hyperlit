@@ -12,7 +12,9 @@ import { fireAndForgetSync } from "../SPA/createNewBook";
 import { universalPageInitializer } from "../SPA/viewManager";
 import { initializeHomepage } from "../components/homepage/homepage";
 // ✅ REMOVED: initializeFootnoteCitationListeners now managed by ButtonRegistry
-import { setInitialBookSyncPromise, withPending, getInitialBookSyncPromise } from "../utilities/operationState";
+import { withPending } from "../utilities/operationState";
+import { trackNewBookEstablishment } from "../utilities/newBookEstablished";
+import { getPendingNewBook, clearPendingNewBook } from "../utilities/pendingNewBook";
 import { generateTableOfContents } from "../components/tocContainer/index";
 import { hasVibeReviewMarker } from "../conversion/vibeReviewMarker";
 // ✅ REMOVED: TogglePerimeterButtons now managed exclusively by ButtonRegistry
@@ -44,42 +46,37 @@ export { updatePageLoadProgress, hidePageLoadProgress } from './progress';
 // NOW: ButtonRegistry handles initialization via registerComponents.ts
 
 function handlePendingNewBookSync() {
-  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-  if (pendingSyncJSON) {
+  const pendingSync = getPendingNewBook();
+  if (pendingSync) {
     // Ensure overlay is definitely hidden for new book creation
     const overlay = document.getElementById('initial-navigation-overlay');
     if (overlay) {
       overlay.style.display = 'none';
     }
 
-    // Don't remove sessionStorage here - let permission checks work until sync completes
+    // Don't clear the marker here - let permission checks work until sync completes
     try {
-      const pendingSync = JSON.parse(pendingSyncJSON);
       const { bookId, isNewBook } = pendingSync;
       if (bookId && isNewBook) {
-        // ✅ THE FIX: Use your state manager instead of the window property.
-        const syncPromise = fireAndForgetSync(
+        // ONE signal for "does the server have this book yet"
+        // (utilities/newBookEstablished): it always settles, never rejects, and
+        // retires itself — so a failed handshake can't gate a later push.
+        void trackNewBookEstablishment(
           bookId,
-          isNewBook,
-          pendingSync,
-        ).finally(() => {
-          // Clean up sessionStorage after sync completes (success or failure)
-          sessionStorage.removeItem("pending_new_book_sync");
-          // Also, ensure the promise is cleared from the state manager when done.
-          setInitialBookSyncPromise(null);
+          fireAndForgetSync(bookId, isNewBook, pendingSync),
+        ).then(() => {
+          // Clear the marker once the handshake has settled either way (the
+          // permission checks read it until then).
+          clearPendingNewBook(bookId);
         });
-
-        setInitialBookSyncPromise(syncPromise);
       } else {
         // Not a valid new book, clean up immediately
-        sessionStorage.removeItem("pending_new_book_sync");
+        clearPendingNewBook();
       }
     } catch (error: any) {
       log.error("Failed to handle pending book sync", "readerDOMContentLoaded.js", error);
       // Clean up on error
-      sessionStorage.removeItem("pending_new_book_sync");
-      // Ensure the promise is cleared on error too.
-      setInitialBookSyncPromise(null);
+      clearPendingNewBook();
     }
   }
 }
@@ -95,10 +92,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const isReconvertReload = !!book && pageType === 'reader' && isReconvertHandoff(book);
   if (isReconvertReload) showReconvertOverlay('Loading reconverted book…');
 
-  // Check if this is a new book creation scenario
-  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-  const isNewBookCreation = !!pendingSyncJSON;
-
   handlePendingNewBookSync();
   await openDatabase();
   verbose.init("IndexedDB initialized", "readerDOMContentLoaded.js");
@@ -108,7 +101,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   initializeDatabaseModules({
     book,
     withPending,
-    getInitialBookSyncPromise,
     glowCloudGreen,
     glowCloudRed,
     glowCloudLocalSave,

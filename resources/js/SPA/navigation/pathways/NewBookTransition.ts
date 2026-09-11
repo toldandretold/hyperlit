@@ -23,7 +23,7 @@ import { reinitializeContainerManagers } from '../utils/initHelpers.js';
 import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheets';
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook';
-import { setInitialBookSyncPromise } from '../../../utilities/operationState';
+import { trackNewBookEstablishment } from '../../../utilities/newBookEstablished';
 import { syncIndexedDBtoPostgreSQL } from '../../../indexedDB/serverSync/index';
 
 export class NewBookTransition {
@@ -473,57 +473,53 @@ export class NewBookTransition {
         throw new Error('Failed to create new book data');
       }
 
-      // Start background sync
-      const syncPromise = fireAndForgetSync(
+      // Start the bulk-create handshake and register it as THE signal for
+      // "does the server have this book yet" (utilities/newBookEstablished).
+      // Everything that pushes during the window — masterSync's drain, the paste
+      // sync, the initial-content sync below — waits on that one signal, which
+      // always settles and never rejects.
+      const established = trackNewBookEstablishment(
         pendingSyncData.bookId,
-        pendingSyncData.isNewBook,
-        pendingSyncData
-      ).finally(() => {
-        // Retire the handshake once it has settled — readerEntry's full-load path
-        // has always done this; this SPA path never did, so a REJECTED promise
-        // (bulk-create failed) stayed installed for the tab's whole life and every
-        // masterSync drain re-threw on it before cutting a batch: nothing ever
-        // reached the server again, silently. masterSync now defends itself too
-        // (awaitInitialBookSync), but the promise should not outlive its handshake.
-        setInitialBookSyncPromise(null);
-      });
-      setInitialBookSyncPromise(syncPromise);
-      
+        fireAndForgetSync(
+          pendingSyncData.bookId,
+          pendingSyncData.isNewBook,
+          pendingSyncData
+        ),
+      );
+
       // Execute the transition
       await this.execute({
         bookId: pendingSyncData.bookId,
         pendingSyncData,
         shouldEnterEditMode: true
       });
-      
-      // 🔥 CRITICAL: Ensure the initial H1 node gets included in first debounced sync
-      // This prevents the initial "Untitled" H1 from being lost if user starts editing immediately
-      setTimeout(async () => {
+
+      // Ensure the initial H1 reaches the server even if the user never types
+      // (the debounced sync only fires on a change). This used to be a blind
+      // `setTimeout(…, 2000)` guessing that the bulk-create had committed —
+      // waiting on the handshake itself is both faster and correct: a full sync
+      // that lands before the library row exists 404s ("Book not found") and
+      // surfaced a misleading red "Connection hiccup" toast.
+      void established.then(async (result) => {
+        if (!result.established) {
+          // fireAndForgetSync has already re-queued the book for the normal sync
+          // path (queueNewBookForRetry) — just reflect it in the cloud.
+          verbose.nav(`New book handshake ${result.reason}; content re-queued`, 'NewBookTransition.js');
+          glowCloudRed({ error: result.error, savedLocally: true });
+          return;
+        }
         try {
           verbose.nav('Ensuring initial H1 node is queued for sync', 'NewBookTransition.js');
-
-          // Wait for bulk-create to commit the library row before this redundant
-          // full-sync — otherwise the library upsert 404s ("Book not found") on a
-          // row that doesn't exist yet (self-healing race that surfaced a misleading
-          // red "Connection hiccup" toast). A genuine bulk-create failure rethrows
-          // here and is handled by the catch below ("saved locally, will retry").
-          await syncPromise;
-
-          // Force a sync of the initial content to ensure the H1 doesn't get lost
           await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);
-
           verbose.nav('Initial content sync completed', 'NewBookTransition.js');
-
-          // Show green tick - H1 saved to backend
-          glowCloudGreen();
-
+          glowCloudGreen(); // green tick — H1 saved to backend
         } catch (error) {
           console.warn('Initial content sync failed (will retry later):', error);
           // Retryable: the new book is saved locally and the sync retries later → transient toast.
           glowCloudRed({ error, savedLocally: true });
         }
-      }, 2000); // Wait 2 seconds after transition completes
-      
+      });
+
       return pendingSyncData;
       
     } catch (error) {

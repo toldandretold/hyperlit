@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1890,
-    "moduleCount": 398,
+    "fnCount": 1893,
+    "moduleCount": 399,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3875,
+    "edgeCount": 3869,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -15666,6 +15666,30 @@
       "leaf": false
     },
     {
+      "id": "SPA/navigation/localContentEntry:isImportedBookEntry",
+      "label": "isImportedBookEntry",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/localContentEntry",
+      "leaf": false
+    },
+    {
+      "id": "SPA/navigation/localContentEntry:isLocalContentEntry",
+      "label": "isLocalContentEntry",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/localContentEntry",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/localContentEntry:isNewBookEntry",
+      "label": "isNewBookEntry",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/localContentEntry",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/NavigationCompletionBarrier:NavigationCompletionBarrier._allProcessesComplete",
       "label": "NavigationCompletionBarrier._allProcessesComplete",
       "kind": "fn",
@@ -16135,7 +16159,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/pathways/FreshPageLoader",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.setupFreshPageLoadHandling",
@@ -16455,7 +16479,7 @@
       "kind": "fn",
       "stage": "SPA",
       "module": "SPA/navigation/ProgressOverlayConductor",
-      "leaf": false
+      "leaf": true
     },
     {
       "id": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showSPATransition",
@@ -21751,6 +21775,17 @@
       "band": "store",
       "fnIds": [
         "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal"
+      ]
+    },
+    {
+      "id": "SPA/navigation/localContentEntry",
+      "label": "SPA/navigation/localContentEntry",
+      "stage": "SPA",
+      "band": "store",
+      "fnIds": [
+        "SPA/navigation/localContentEntry:isImportedBookEntry",
+        "SPA/navigation/localContentEntry:isLocalContentEntry",
+        "SPA/navigation/localContentEntry:isNewBookEntry"
       ]
     },
     {
@@ -43497,34 +43532,10 @@
       "dataPath": true
     },
     {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:bibliography",
+      "id": "SPA/createNewBook:fireAndForgetSync__call__indexedDB/syncQueue/queue:queueForSync",
       "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:bibliography",
-      "rel": "write"
-    },
-    {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:footnotes",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:footnotes",
-      "rel": "write"
-    },
-    {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:historyLog",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:historyLog",
-      "rel": "write"
-    },
-    {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:hypercites",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:hypercites",
-      "rel": "write"
-    },
-    {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:hyperlights",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:hyperlights",
-      "rel": "write"
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
     },
     {
       "id": "SPA/createNewBook:fireAndForgetSync__write__store:library",
@@ -43533,21 +43544,9 @@
       "rel": "write"
     },
     {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:markdownStore",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:markdownStore",
-      "rel": "write"
-    },
-    {
       "id": "SPA/createNewBook:fireAndForgetSync__write__store:nodes",
       "source": "SPA/createNewBook:fireAndForgetSync",
       "target": "store:nodes",
-      "rel": "write"
-    },
-    {
-      "id": "SPA/createNewBook:fireAndForgetSync__write__store:sessionStorage",
-      "source": "SPA/createNewBook:fireAndForgetSync",
-      "target": "store:sessionStorage",
       "rel": "write"
     },
     {
@@ -43884,6 +43883,19 @@
       "dataPath": true
     },
     {
+      "id": "SPA/navigation/localContentEntry:isLocalContentEntry__call__SPA/navigation/localContentEntry:isImportedBookEntry",
+      "source": "SPA/navigation/localContentEntry:isLocalContentEntry",
+      "target": "SPA/navigation/localContentEntry:isImportedBookEntry",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/localContentEntry:isLocalContentEntry__call__SPA/navigation/localContentEntry:isNewBookEntry",
+      "source": "SPA/navigation/localContentEntry:isLocalContentEntry",
+      "target": "SPA/navigation/localContentEntry:isNewBookEntry",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
       "source": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl",
       "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
@@ -44103,6 +44115,13 @@
       "id": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.initialize__call__SPA/viewManager:universalPageInitializer",
       "source": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.initialize",
       "target": "SPA/viewManager:universalPageInitializer",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad__call__SPA/navigation/localContentEntry:isLocalContentEntry",
+      "source": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
+      "target": "SPA/navigation/localContentEntry:isLocalContentEntry",
       "rel": "call",
       "dataPath": true
     },
@@ -44436,6 +44455,13 @@
       "source": "SPA/navigation/pathways/SameTemplateTransition:SameTemplateTransition.handleHomeToHome",
       "target": "SPA/navigation/utils/structureDetection:getBookIdFromUrl",
       "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad__call__SPA/navigation/localContentEntry:isLocalContentEntry",
+      "source": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad",
+      "target": "SPA/navigation/localContentEntry:isLocalContentEntry",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "SPA/navigation/ProgressOverlayEnactor:ProgressOverlayEnactor._bindElements__domwrite__dom",
@@ -45088,6 +45114,12 @@
       "id": "SPA/viewManager:universalPageInitializer__call__SPA/domReadiness:waitForLayoutStabilization",
       "source": "SPA/viewManager:universalPageInitializer",
       "target": "SPA/domReadiness:waitForLayoutStabilization",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/viewManager:universalPageInitializer__call__SPA/navigation/localContentEntry:isNewBookEntry",
+      "source": "SPA/viewManager:universalPageInitializer",
+      "target": "SPA/navigation/localContentEntry:isNewBookEntry",
       "rel": "call"
     },
     {
@@ -46045,21 +46077,9 @@
       "rel": "read"
     },
     {
-      "id": "store:sessionStorage__read__indexedDB/syncQueue/master:executeSyncPayload",
-      "source": "store:sessionStorage",
-      "target": "indexedDB/syncQueue/master:executeSyncPayload",
-      "rel": "read"
-    },
-    {
       "id": "store:sessionStorage__read__lazyLoader/index:createLazyLoader",
       "source": "store:sessionStorage",
       "target": "lazyLoader/index:createLazyLoader",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__pageLoad/loadHyperText:loadHyperText",
-      "source": "store:sessionStorage",
-      "target": "pageLoad/loadHyperText:loadHyperText",
       "rel": "read"
     },
     {
@@ -46087,21 +46107,15 @@
       "rel": "read"
     },
     {
-      "id": "store:sessionStorage__read__SPA/createNewBook:fireAndForgetSync",
-      "source": "store:sessionStorage",
-      "target": "SPA/createNewBook:fireAndForgetSync",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "source": "store:sessionStorage",
-      "target": "SPA/navigation/chunkLoadRouter:isLocalCacheFresh",
-      "rel": "read"
-    },
-    {
       "id": "store:sessionStorage__read__SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "source": "store:sessionStorage",
       "target": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "rel": "read"
+    },
+    {
+      "id": "store:sessionStorage__read__SPA/navigation/localContentEntry:isImportedBookEntry",
+      "source": "store:sessionStorage",
+      "target": "SPA/navigation/localContentEntry:isImportedBookEntry",
       "rel": "read"
     },
     {
@@ -46111,21 +46125,9 @@
       "rel": "read"
     },
     {
-      "id": "store:sessionStorage__read__SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
-      "source": "store:sessionStorage",
-      "target": "SPA/navigation/pathways/FreshPageLoader:FreshPageLoader.isFreshPageLoad",
-      "rel": "read"
-    },
-    {
       "id": "store:sessionStorage__read__SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute",
       "source": "store:sessionStorage",
       "target": "SPA/navigation/pathways/ImportBookTransition:ImportBookTransition.execute",
-      "rel": "read"
-    },
-    {
-      "id": "store:sessionStorage__read__SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad",
-      "source": "store:sessionStorage",
-      "target": "SPA/navigation/ProgressOverlayConductor:ProgressOverlayConductor.showInitialPageLoad",
       "rel": "read"
     },
     {
@@ -46145,6 +46147,11 @@
     {
       "source": "SPA/createNewBook",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/createNewBook",
+      "target": "indexedDB/syncQueue/queue",
       "kind": "static"
     },
     {
@@ -46275,6 +46282,11 @@
     {
       "source": "SPA/navigation/ProgressOverlayConductor",
       "target": "SPA/navigation/ProgressOverlayEnactor",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/ProgressOverlayConductor",
+      "target": "SPA/navigation/localContentEntry",
       "kind": "static"
     },
     {
@@ -46485,6 +46497,11 @@
     {
       "source": "SPA/navigation/pathways/FreshPageLoader",
       "target": "SPA/navigation/ProgressOverlayConductor",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/pathways/FreshPageLoader",
+      "target": "SPA/navigation/localContentEntry",
       "kind": "static"
     },
     {
@@ -46780,6 +46797,11 @@
     {
       "source": "SPA/viewManager",
       "target": "SPA/navigation/RevealGate",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/viewManager",
+      "target": "SPA/navigation/localContentEntry",
       "kind": "static"
     },
     {

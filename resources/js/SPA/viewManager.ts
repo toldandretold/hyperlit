@@ -1,6 +1,7 @@
 
 import { log, verbose } from '../utilities/logger';
 import { attachGlobalLinkClickHandler, removeGlobalHandlers } from './navigation/navigationRegistry';
+import { isNewBookEntry } from './navigation/localContentEntry';
 import { book, setCurrentBook } from "../app";
 import { getCurrentUser, getAnonymousToken, initializeAuthBroadcastListener, initializeAuthStateListener } from "../utilities/auth/index";
 import { checkEditPermissionsAndUpdateUI } from "../components/editButton/index";
@@ -290,8 +291,9 @@ export async function universalPageInitializer(progressCallback = null) {
   // 🎯 FIRST PRIORITY: Restore navigation overlay if it was active during page transition
   // Skip restore if overlay is already active from page load or if this is a new book creation
   const overlayAlreadyActive = document.querySelector('.navigation-overlay');
-  const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
-  
+  // Presentation question, not a sync one — see navigation/localContentEntry.
+  const isNewBookCreation = isNewBookEntry();
+
   if (!overlayAlreadyActive && !isNewBookCreation) {
     restoreNavigationOverlayIfNeeded();
   } else if (isNewBookCreation) {

@@ -46,6 +46,50 @@ class HarvestAttemptRecorder
     private const BACKOFF_HOURS = [1, 6, 24, 96, 336, 720];
 
     /**
+     * Failure signatures that are about OUR egress, not about the work.
+     *
+     * A dead proxy fails every work identically, and treating those as per-work failures is
+     * actively harmful: it spends each article's retry budget on a fault the article had no part
+     * in, so when the proxy comes back the whole journal is in cooldown. Observed on tripleC
+     * (2026-09-11): an IPRoyal outage produced 37 works whose ONLY recorded failure was
+     * `net::ERR_TUNNEL_CONNECTION_FAILED`, on both lanes, at 100% of everything attempted.
+     *
+     * Kept deliberately narrow — only faults that cannot possibly be a property of the target.
+     * `ERR_NAME_NOT_RESOLVED` is excluded on purpose: a publisher domain that no longer exists is
+     * exactly the kind of dead work the backoff is FOR.
+     */
+    private const INFRASTRUCTURE_SIGNATURES = [
+        'ERR_TUNNEL_CONNECTION_FAILED',
+        'ERR_PROXY_CONNECTION_FAILED',
+        'ERR_PROXY_AUTH_UNSUPPORTED',
+        'ERR_INTERNET_DISCONNECTED',
+        'ERR_NETWORK_CHANGED',
+        'browser_launch_failed',
+        'Browser fetch unavailable',
+    ];
+
+    /**
+     * Is this failure ours rather than the work's?
+     *
+     * Callers use it twice: to decline to charge the work's retry budget, and to count consecutive
+     * occurrences so a run can abort instead of grinding a whole journal into cooldown.
+     */
+    public static function isInfrastructureFailure(?string $reason): bool
+    {
+        if ($reason === null || $reason === '') {
+            return false;
+        }
+
+        foreach (self::INFRASTRUCTURE_SIGNATURES as $signature) {
+            if (stripos($reason, $signature) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * A work was attempted on this lane and failed. Escalates its cooldown and records why.
      *
      * `$reason` is stored verbatim for the operator — it is what lets a console row say what

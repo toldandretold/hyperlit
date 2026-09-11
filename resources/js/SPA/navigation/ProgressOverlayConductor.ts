@@ -6,6 +6,7 @@
  * This class provides high-level business logic and navigation pathway decisions
  */
 import { ProgressOverlayEnactor } from './ProgressOverlayEnactor.js';
+import { isLocalContentEntry } from './localContentEntry';
 import { verbose } from '../../utilities/logger';
 
 export class ProgressOverlayConductor {
@@ -18,14 +19,11 @@ export class ProgressOverlayConductor {
    * @param {boolean} blockInteractions - If true, block all user interactions (default: false)
    */
   static showInitialPageLoad(percent = 5, message = 'Loading...', blockInteractions = false) {
-    // 🔥 CRITICAL: Don't show overlay if blade template already hid it
-    // This happens for new book creation and imported books where content is immediately available
-    const isNewBookCreation = sessionStorage.getItem('pending_new_book_sync');
-    const isImportedBook = sessionStorage.getItem('pending_import_book');
-
-    // Only show overlay if it's NOT a new book creation or import
-    // For new books/imports, blade template correctly hides it and we should respect that
-    if (!isNewBookCreation && !isImportedBook) {
+    // 🔥 CRITICAL: Don't show overlay if blade template already hid it. New books
+    // and imports land with their content already local, and blade correctly hid
+    // the overlay — respect that. Asked through navigation/localContentEntry so
+    // this presentation decision doesn't read the SYNC markers directly.
+    if (!isLocalContentEntry()) {
       ProgressOverlayEnactor.show(percent, message, blockInteractions);
       verbose.debug(`Initial page load progress: ${percent}% - ${message}`, 'navigation/ProgressOverlayConductor.js');
     } else {

@@ -290,6 +290,10 @@ class JournalImportActionJob implements ShouldQueue
         // reports both per work — this just stops throwing them away.
         $failures = [];
         $current = null;
+        // Set when a lane gave up because OUR egress was failing, not the publisher. Distinct from
+        // `stopped_early` in the one way that matters: there is nothing to continue TO, so the run
+        // says what to fix and the chain refuses to enqueue a successor that would fail identically.
+        $abortedReason = null;
 
         // The live beat the console renders: where we are, in fields. Held across events because
         // the `*_result` stage reports an OUTCOME and carries no n/total — it settles the work the
@@ -412,6 +416,7 @@ class JournalImportActionJob implements ShouldQueue
             $counts['html_first'] = $first['stats'];
             $counts['spend'] = round($first['spend'], 4);
             $spend = $first['spend'];
+            $abortedReason = $first['aborted_reason'] ?? null;
             $s = $first['stats'];
             $done[] = "{$s['html_won']} free from html, {$s['pdf_assigned']} via pdf"
                 . ($s['already'] ? ", {$s['already']} already there" : '')
@@ -434,7 +439,11 @@ class JournalImportActionJob implements ShouldQueue
                     $publish("html {$beat['n']}/{$beat['total']}: {$beat['title']}");
                 }
             }, $outOfTime);
+            // Both are run-level facts, not per-lane tallies: leaving them in would feed a boolean
+            // and a sentence into finalise()'s numeric accumulation of `harvest_stats`.
             unset($html['stopped_early']);
+            $abortedReason = $html['aborted_reason'] ?? null;
+            unset($html['aborted_reason']);
             $counts['html'] = $html;
             $done[] = "html: {$html['imported']} imported, {$html['already_imported']} already there, "
                 . ($html['fetch_failed'] + $html['error']) . ' failed';
@@ -456,6 +465,7 @@ class JournalImportActionJob implements ShouldQueue
             $counts['pdf'] = $pdf['stats'];
             $counts['spend'] = round($pdf['spend'], 4);
             $spend = $pdf['spend'];
+            $abortedReason = $pdf['aborted_reason'] ?? $abortedReason;
 
             // A lane that was asked for and never got a single work is NOT "nothing to do" — on a
             // `both` run the two lanes share one deadline and the HTML lane goes first, so it can
@@ -497,11 +507,16 @@ class JournalImportActionJob implements ShouldQueue
         // these are works serving a retry cooldown, not works nobody will ever get to.
         $counts['cooling_off'] = $estimate['cooling_off'] ?? 0;
         $counts['stopped_early'] = $stoppedEarly;
+        $counts['aborted_reason'] = $abortedReason;
         $counts['failures'] = $failures;
         $counts['summary'] = implode(' · ', $done)
             . ", {$counts['remaining_eligible']} still eligible"
             . ($counts['cooling_off'] ? " ({$counts['cooling_off']} cooling off after earlier failures)" : '')
-            . ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : '');
+            // An egress abort takes precedence over "press again": pressing again is exactly the
+            // wrong advice while the proxy is down, and the fix is named instead.
+            . ($abortedReason
+                ? " — ABORTED: {$abortedReason}"
+                : ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : ''));
 
         return $counts;
     }
@@ -586,6 +601,16 @@ class JournalImportActionJob implements ShouldQueue
     private function maybeChain(object $run, array $counts): ?string
     {
         if ($run->action !== 'import_all' || ! ($run->continue_until_done ?? false)) {
+            return null;
+        }
+        // An egress abort ends the chain outright. The successor would run the same broken proxy
+        // over the same queue and abort five works later, forever — a loop that burns the work
+        // budget and reports nothing new until someone notices.
+        if (! empty($counts['aborted_reason'])) {
+            Log::warning('JournalImportActionJob: chain stopped, egress looks down', [
+                'run' => $this->runId, 'reason' => $counts['aborted_reason'],
+            ]);
+
             return null;
         }
         if (empty($counts['stopped_early']) || (int) ($counts['remaining_eligible'] ?? 0) < 1) {

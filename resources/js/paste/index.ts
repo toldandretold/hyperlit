@@ -99,14 +99,11 @@ export { extractQuotedText } from '../utilities/textExtraction';
  */
 async function syncPasteToPostgreSQL(bookId: BookId) {
   // Wait for initial book sync to complete first (prevents race condition with new book creation)
-  const { getInitialBookSyncPromise } = await import('../utilities/operationState');
-  const initialSyncPromise = getInitialBookSyncPromise();
-  if (initialSyncPromise) {
-    // Swallow a REJECTED handshake (bulk-create failed): the paste must still be
-    // pushed. A bare await here aborted the whole paste sync — same wedge shape as
-    // masterSync's drain gate (see awaitInitialBookSync in syncQueue/master).
-    await Promise.resolve(initialSyncPromise).catch(() => undefined);
-  }
+  // ONE signal (utilities/newBookEstablished): always settles, never rejects, so a
+  // failed/hung create can't abort the paste sync. A bare await on the old raw
+  // promise did exactly that — the same wedge shape as masterSync's drain gate.
+  const { whenNewBookEstablished } = await import('../utilities/newBookEstablished');
+  await whenNewBookEstablished();
 
   // Show orange indicator while syncing
   glowCloudOrange();
@@ -204,7 +201,7 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
     // SKIPPED while a paste is in progress (see indexedDB/footnotes & bibliography):
     // during a paste into a fresh book those fire before the `library` row exists
     // server-side and get rejected 500 by the footnotes/bibliography RLS insert policy.
-    // We're past getInitialBookSyncPromise() here, so the book row is guaranteed to
+    // We're past whenNewBookEstablished() here, so the book row is guaranteed to
     // exist and the inserts pass. Non-fatal — nodes are the primary payload.
     try {
       const [{ getAllFootnotesForBook, syncFootnotesToPostgreSQL }, { getAllReferencesForBook, syncReferencesToPostgreSQL }] = await Promise.all([

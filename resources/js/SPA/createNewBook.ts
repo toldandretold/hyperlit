@@ -12,22 +12,11 @@ import { buildBibtexEntry } from "../utilities/bibtexProcessor";
 import { syncIndexedDBtoPostgreSQL } from "../indexedDB/serverSync/index";
 import { getCurrentUser, getAnonymousToken } from "../utilities/auth/index";
 import { generateDataNodeId } from "../utilities/IDfunctions";
+import { queueForSync } from "../indexedDB/syncQueue/queue";
+import { log } from "../utilities/logger";
+import { setPendingNewBook, clearPendingNewBook } from "../utilities/pendingNewBook";
 
 
-
-/**
- * Clear the `pending_new_book_sync` marker for `bookId` once its creation has settled on the
- * server. The SPA create path (NewBookTransition) never runs readerEntry's clear, so without this
- * the flag leaks for the tab's lifetime — keeping the sync's base-check skip AND the new-book
- * overlay suppression on forever. Only clears if the flag is for THIS book (a second new book may
- * have overwritten it).
- */
-function clearPendingNewBookFlag(bookId: any): void {
-  try {
-    const pending = JSON.parse(sessionStorage.getItem("pending_new_book_sync") || "null");
-    if (pending && pending.bookId === bookId) sessionStorage.removeItem("pending_new_book_sync");
-  } catch { /* malformed flag — leave it for readerEntry's full-load cleanup */ }
-}
 
 // Helper remains the same
 function generateUUID() {
@@ -103,7 +92,7 @@ export async function fireAndForgetSync(
             }
             // Book's library row is now on the server and the base is adopted → it's settled;
             // stop skipping the base-check for it (also un-suppresses new-book overlays).
-            clearPendingNewBookFlag(bookId);
+            clearPendingNewBook(bookId);
             resolve(); // Skip server CONTENT updates (local content is newer)
             return;
           }
@@ -154,32 +143,75 @@ export async function fireAndForgetSync(
           });
         }
 
-        // The critical part is done. We can resolve the promise now.
+        // The library row exists on the server → the handshake has done its job and
+        // every gated consumer may proceed. Resolve BEFORE the node sync (which is
+        // not part of "the book exists"), but hand that tail its OWN error handling:
+        // after resolve(), `reject` below is a no-op, so a failure there used to
+        // vanish completely.
         resolve();
 
-        // The non-critical part (syncing nodes) can continue in the background.
-        await syncNodesForNewBook(bookId, payload?.nodes, syncStartTime);
-
-        // New book fully settled on the server (library + nodes) → clear the pending marker so the
-        // base-check skip / overlay suppression don't leak for the rest of the tab's life.
-        clearPendingNewBookFlag(bookId);
+        try {
+          await syncNodesForNewBook(bookId, payload?.nodes, syncStartTime);
+          // New book fully settled on the server (library + nodes) → clear the pending marker so the
+          // base-check skip / overlay suppression don't leak for the rest of the tab's life.
+          clearPendingNewBook(bookId);
+          console.log(`[Background Sync] Successfully synced new book: ${bookId}`);
+        } catch (nodeErr) {
+          // Post-resolve: nobody is listening on this promise any more, so queue the
+          // content through the NORMAL sync path instead of dropping it. (Logged as a
+          // failure — this tail used to fall through to the "Successfully synced" line.)
+          queueNewBookForRetry(bookId, payload, nodeErr);
+        }
       } else {
         // For existing books, the sync is the whole operation.
         await syncIndexedDBtoPostgreSQL(bookId);
         resolve();
+        console.log(`[Background Sync] Successfully synced existing book: ${bookId}`);
       }
-
-      console.log(
-        `[Background Sync] Successfully synced ${
-          isNewBook ? "new" : "existing"
-        } book: ${bookId}`
-      );
     } catch (err) {
       console.error(`[Background Sync] Failed for book: ${bookId}`, err);
-      await storeFallbackSync(bookId, err, isNewBook);
-      reject(err); // Reject the promise on failure.
+      // Hand the book to the ordinary sync queue so the debounced masterSync retries
+      // it (and historyLog + retryFailedBatches back that up). The server self-heals a
+      // missing library row on the unified-sync path — UnifiedSyncController calls
+      // SubBookRegistrar::ensureLibraryRecords before upserting nodes — so a failed
+      // bulk-create is recoverable through the same machinery as every other failure.
+      queueNewBookForRetry(bookId, payload, err);
+      reject(err); // The caller (trackNewBookEstablishment) turns this into a result.
     }
   });
+}
+
+/**
+ * Re-queue a new book whose create handshake failed, through the ONE retry path
+ * the rest of the app uses.
+ *
+ * This replaces `storeFallbackSync`, which wrote to a `failedSyncs` object store
+ * that the schema never created (so it always hit its own "store not found" warn
+ * and returned) and that nothing ever read. Two dead ends pretending to be a
+ * safety net: every failed create logged a line and evaporated.
+ */
+function queueNewBookForRetry(bookId: any, payload: any, error: unknown): void {
+  log.error(
+    `New book "${bookId}" did not settle on the server — re-queued for the normal sync`,
+    '/SPA/createNewBook.ts',
+    error,
+  );
+  // Each item is queued independently: one bad record must not drop the rest.
+  // (queueForSync arms the debounced drain itself — no explicit kick needed.)
+  const items: Array<[() => void, string]> = [];
+  if (payload?.libraryRecord) {
+    items.push([() => queueForSync('library', bookId, 'update', payload.libraryRecord, null, true), 'library row']);
+  }
+  for (const node of payload?.nodes ?? []) {
+    items.push([() => queueForSync('nodes', node.startLine, 'update', node, null, true), `node ${node.startLine}`]);
+  }
+  for (const [queueIt, what] of items) {
+    try {
+      queueIt();
+    } catch (queueError) {
+      log.error(`Could not re-queue ${what} for "${bookId}"`, '/SPA/createNewBook.ts', queueError);
+    }
+  }
 }
 
 /**
@@ -363,11 +395,9 @@ export async function createNewBook() {
       nodes: [initialNode],
     };
 
-    // We still save to sessionStorage as a fallback for page reloads.
-    sessionStorage.setItem(
-      "pending_new_book_sync",
-      JSON.stringify(pendingSyncData),
-    );
+    // Reload-recovery record (utilities/pendingNewBook): if the user refreshes
+    // before the create lands, readerEntry re-sends this payload.
+    setPendingNewBook(pendingSyncData);
 
     // ✅ Return the full object, not just the ID.
     return pendingSyncData;
@@ -382,110 +412,8 @@ export async function createNewBook() {
 
 
 
-/**
- * Store failed syncs for later retry
- */
-async function storeFallbackSync(bookId: any, error: any, isNewBook = false) {
-  try {
-    const db = await openDatabase();
-    
-    // Make sure failedSyncs object store exists
-    if (!db.objectStoreNames.contains('failedSyncs')) {
-      console.warn('failedSyncs store not found, cannot store fallback');
-      return;
-    }
-    
-    const tx = db.transaction(['failedSyncs'], 'readwrite');
-    tx.objectStore('failedSyncs').put({
-      bookId,
-      timestamp: Date.now(),
-      error: error.message,
-      retryCount: 0,
-      isNewBook,
-      syncType: isNewBook ? 'bulk-create' : 'upsert'
-    });
-    
-    console.log(`📝 Stored failed sync for later retry: ${bookId}`);
-  } catch (e) {
-    console.error('Failed to store fallback sync:', e);
-  }
-}
 
 
-/**
- * Retry failed syncs (call this when connection is restored)
- */
-// In initializePage.js (or wherever this function lives)
-
-async function retryFailedSyncs() {
-  try {
-    const db = await openDatabase();
-    
-    // Check if the store exists before trying to use it
-    if (!db.objectStoreNames.contains('failedSyncs')) {
-      console.log('✅ No failedSyncs store found, nothing to retry.');
-      return;
-    }
-    
-    // Step 1: Get the list of all failed syncs in a readonly transaction.
-    const readTx = db.transaction(['failedSyncs'], 'readonly');
-    const failedSyncsStore = readTx.objectStore('failedSyncs');
-    const failedSyncs: any = await new Promise<any>((resolve, reject) => {
-        const request = failedSyncsStore.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = (e: any) => reject(e.target.error);
-    });
-    await (readTx as any).done;
-
-    if (failedSyncs.length === 0) {
-        console.log('✅ No failed syncs to retry.');
-        return;
-    }
-    
-    console.log(`🔄 Retrying ${failedSyncs.length} failed syncs sequentially...`);
-    
-    // Step 2: Use a for...of loop to process each failed sync one by one.
-    for (const sync of failedSyncs) {
-      try {
-        console.log(`🔄 Retrying sync for: ${sync.bookId}`);
-        
-        // Perform the actual network sync operation
-        if (sync.isNewBook) {
-          await syncNewBookToPostgreSQL(sync.bookId);
-        } else {
-          await syncIndexedDBtoPostgreSQL(sync.bookId);
-        }
-        
-        // If sync is successful, open a NEW transaction to remove it from the failed list.
-        const writeTxSuccess = db.transaction(['failedSyncs'], 'readwrite');
-        await writeTxSuccess.objectStore('failedSyncs').delete(sync.bookId);
-        await (writeTxSuccess as any).done;
-        
-        console.log(`✅ Retry successful for: ${sync.bookId}`);
-        
-      } catch (retryError) {
-        console.error(`❌ Retry failed for: ${sync.bookId}`, retryError);
-        
-        // If sync fails again, open a NEW transaction to update its retry count or delete it.
-        const writeTxFail = db.transaction(['failedSyncs'], 'readwrite');
-        const store = writeTxFail.objectStore('failedSyncs');
-        
-        sync.retryCount = (sync.retryCount || 0) + 1;
-        if (sync.retryCount < 5) { // Max 5 retries
-          await store.put(sync);
-          console.log(`📝 Updated retry count for ${sync.bookId} to ${sync.retryCount}.`);
-        } else {
-          console.error(`🚫 Max retries reached for: ${sync.bookId}. Removing from queue.`);
-          await store.delete(sync.bookId);
-        }
-        await (writeTxFail as any).done;
-      }
-    }
-    console.log('✅ All failed syncs have been processed.');
-  } catch (e) {
-    console.error('Failed to process the retry queue:', e);
-  }
-}
 
 /**
  * Retrieve and sync nodes for a new book
@@ -548,8 +476,9 @@ async function syncNodesForNewBook(bookId: any, chunksData: any = null, syncStar
   }
 }
 
-// Add this to your main app initialization
-window.addEventListener('online', () => {
-  console.log('🌐 Connection restored - retrying failed syncs...');
-  retryFailedSyncs();
-});
+// NOTE: this file used to end with its own `online` listener calling a
+// `retryFailedSyncs()` that read the `failedSyncs` store — a second, parallel
+// retry system whose store the schema never created, so both ends were no-ops
+// ("✅ No failedSyncs store found, nothing to retry"). The real one is
+// pageLoad/onlineRetry.ts: it replays historyLog on boot AND on `online`, and
+// queueNewBookForRetry (above) now feeds failed creates into that same path.

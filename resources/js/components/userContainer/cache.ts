@@ -2,6 +2,7 @@
 // that clears IndexedDB + CacheStorage + local/sessionStorage (preserving a few
 // critical keys). Leaf module (was userContainer/cacheManager.js).
 import { clearDatabase } from '../../indexedDB/index';
+import { PENDING_NEW_BOOK_KEY } from '../../utilities/pendingNewBook';
 
 /**
  * Clears all cached data - the "nuclear option" for auth changes.
@@ -36,7 +37,7 @@ export async function clearAllCachedData() {
     });
 
     // 5. Clear sessionStorage (preserve critical keys)
-    const sessionStoragePreserve = ['pending_new_book_sync', 'imported_book_flag'];
+    const sessionStoragePreserve = [PENDING_NEW_BOOK_KEY, 'imported_book_flag'];
     const sessionStorageData: Record<string, string> = {};
     sessionStoragePreserve.forEach(key => {
       const v = sessionStorage.getItem(key);

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1890 functions in 398 modules · 10 object stores · 10 PG tables · 3875 edges
+**MarkdownDB** schema v28 · 1893 functions in 399 modules · 10 object stores · 10 PG tables · 3869 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1303,7 +1303,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `runSerializedPerKey` | `indexedDB/syncQueue/bookSyncChain` | — | — | — | — |
 | `filterFreshNodesForBook` | `indexedDB/syncQueue/freshNodeFilter` | — | — | — | — |
 | `__resetSyncConcurrencyStateForTests` | `indexedDB/syncQueue/master` | — | — | — | — |
-| `executeSyncPayload` | `indexedDB/syncQueue/master` | `sessionStorage` | — | read | `↑route:/api/db/unified-sync` |
+| `executeSyncPayload` | `indexedDB/syncQueue/master` | — | — | read | `↑route:/api/db/unified-sync` |
 | `getMasterSyncInFlight` | `indexedDB/syncQueue/master` | — | — | — | — |
 | `initMasterSyncDependencies` | `indexedDB/syncQueue/master` | — | — | — | — |
 | `syncIndexedDBtoPostgreSQLBlocking` | `indexedDB/syncQueue/master` | `nodes` | — | — | — |
@@ -1386,7 +1386,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeMainLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `resetCurrentLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |
 | `loadFromJSONFiles` | `pageLoad/loadHyperText` | — | — | — | — |
-| `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` `sessionStorage` | `sessionStorage` | read | — |
+| `loadHyperText` | `pageLoad/loadHyperText` | `library` `localStorage` | `sessionStorage` | read | — |
 | `generateNodesFromMarkdown` | `pageLoad/nodeGen` | — | — | — | — |
 | `cleanupOnlineSyncListener` | `pageLoad/onlineRetry` | — | — | — | — |
 | `setupOnlineSyncListener` | `pageLoad/onlineRetry` | `historyLog` | — | — | — |
@@ -1691,7 +1691,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `searchCacheGet` | `search/searchResultCache` | — | — | — | — |
 | `searchCacheSet` | `search/searchResultCache` | — | — | — | — |
 | `createNewBook` | `SPA/createNewBook` | `sessionStorage` | `library` `nodes` `sessionStorage` | — | — |
-| `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` `sessionStorage` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `markdownStore` `nodes` `sessionStorage` | read | — |
+| `fireAndForgetSync` | `SPA/createNewBook` | `library` `nodes` | `library` `nodes` | read | — |
 | `waitForChunkLoadingComplete` | `SPA/domReadiness` | — | — | read | — |
 | `waitForCompleteReadiness` | `SPA/domReadiness` | — | — | read | — |
 | `waitForContentReady` | `SPA/domReadiness` | — | — | read | — |
@@ -1704,7 +1704,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `getCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
 | `setCascadeOriginId` | `SPA/navigation/cascadeOriginState` | — | — | — | — |
-| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` `localStorage` `sessionStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
+| `isLocalCacheFresh` | `SPA/navigation/chunkLoadRouter` | `library` `localStorage` | — | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `loadChunkForTarget` | `SPA/navigation/chunkLoadRouter` | — | — | — | — |
 | `checkNavigationHealth` | `SPA/navigation/healthCheck` | — | — | read | — |
 | `compareHealth` | `SPA/navigation/healthCheck` | — | — | — | — |
@@ -1745,6 +1745,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LinkNavigationHandler.shouldSkipLinkHandling` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
 | `LinkNavigationHandler.trackRecentLinkClick` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `loadInitialChunkLocal` | `SPA/navigation/loadInitialChunkLocal` | `footnotes` | — | — | — |
+| `isImportedBookEntry` | `SPA/navigation/localContentEntry` | `sessionStorage` | — | — | — |
+| `isLocalContentEntry` | `SPA/navigation/localContentEntry` | — | — | — | — |
+| `isNewBookEntry` | `SPA/navigation/localContentEntry` | — | — | — | — |
 | `NavigationCompletionBarrier._allProcessesComplete` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
 | `NavigationCompletionBarrier._clearSafetyTimeout` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
 | `NavigationCompletionBarrier._forceCleanup` | `SPA/navigation/NavigationCompletionBarrier` | — | — | — | — |
@@ -1803,7 +1806,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `DifferentTemplateTransition.detectTargetStructure` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | — | — |
 | `DifferentTemplateTransition.execute` | `SPA/navigation/pathways/DifferentTemplateTransition` | — | — | read | — |
 | `FreshPageLoader.initialize` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
-| `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | `sessionStorage` | — | — | — |
+| `FreshPageLoader.isFreshPageLoad` | `SPA/navigation/pathways/FreshPageLoader` | — | — | — | — |
 | `FreshPageLoader.setupFreshPageLoadHandling` | `SPA/navigation/pathways/FreshPageLoader` | — | — | read | — |
 | `ImportBookTransition.attachNativeOcrIfAvailable` | `SPA/navigation/pathways/ImportBookTransition` | — | — | write | — |
 | `ImportBookTransition.cleanupPreviousState` | `SPA/navigation/pathways/ImportBookTransition` | — | — | — | — |
@@ -1843,7 +1846,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ProgressOverlayConductor.hide` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.isVisible` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.showBookToBookTransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
-| `ProgressOverlayConductor.showInitialPageLoad` | `SPA/navigation/ProgressOverlayConductor` | `sessionStorage` | — | — | — |
+| `ProgressOverlayConductor.showInitialPageLoad` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.showSPATransition` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayConductor.updateProgress` | `SPA/navigation/ProgressOverlayConductor` | — | — | — | — |
 | `ProgressOverlayEnactor._bindElements` | `SPA/navigation/ProgressOverlayEnactor` | — | — | read/write | — |

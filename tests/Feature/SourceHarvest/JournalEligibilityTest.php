@@ -152,6 +152,26 @@ test('the two lanes back off independently — an HTML failure never suppresses 
     expect($recorder->isCoolingOff($work, \App\Services\SourceHarvest\HarvestAttemptRecorder::LANE_PDF))->toBeFalse();
 });
 
+/**
+ * A dead proxy fails every work identically. Charging each article's retry budget for that is
+ * actively harmful: when the proxy comes back the whole journal is in cooldown, from a fault no
+ * article had any part in. Observed on tripleC (2026-09-11) — 37 works, both lanes, one cause.
+ */
+test('an egress failure is recognised as ours, a publisher failure is not', function () {
+    $recorder = \App\Services\SourceHarvest\HarvestAttemptRecorder::class;
+
+    expect($recorder::isInfrastructureFailure('Browser fetch failed: navigation_failed — net::ERR_TUNNEL_CONNECTION_FAILED'))->toBeTrue();
+    expect($recorder::isInfrastructureFailure('Browser fetch unavailable: spawn node ENOENT'))->toBeTrue();
+    expect($recorder::isInfrastructureFailure('browser_launch_failed'))->toBeTrue();
+
+    // Properties of the WORK, which is exactly what the backoff is for.
+    expect($recorder::isInfrastructureFailure('no article body — only 2 prose paragraph(s)'))->toBeFalse();
+    expect($recorder::isInfrastructureFailure('stub has no converted content yet'))->toBeFalse();
+    expect($recorder::isInfrastructureFailure('navigation_failed — net::ERR_NAME_NOT_RESOLVED'))->toBeFalse();
+    expect($recorder::isInfrastructureFailure(null))->toBeFalse();
+    expect($recorder::isInfrastructureFailure(''))->toBeFalse();
+});
+
 test('backoff escalates with consecutive failures', function () {
     $recorder = app(\App\Services\SourceHarvest\HarvestAttemptRecorder::class);
 

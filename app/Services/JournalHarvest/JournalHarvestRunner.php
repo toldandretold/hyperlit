@@ -68,9 +68,57 @@ class JournalHarvestRunner
      */
     private function recordAttempt(string $canonicalId, string $lane, string $status, ?string $reason): void
     {
-        in_array($status, self::SETTLED_STATUSES, true)
-            ? $this->attempts->recordSuccess($canonicalId, $lane)
-            : $this->attempts->recordFailure($canonicalId, $lane, $reason ?? $status);
+        if (in_array($status, self::SETTLED_STATUSES, true)) {
+            $this->attempts->recordSuccess($canonicalId, $lane);
+            $this->consecutiveInfraFailures = 0;
+
+            return;
+        }
+
+        // An egress fault is not this work's failure and must not spend its retry budget — see
+        // HarvestAttemptRecorder::isInfrastructureFailure. The work stays exactly as selectable as
+        // it was, so when the proxy comes back the queue is intact.
+        if (HarvestAttemptRecorder::isInfrastructureFailure($reason)) {
+            $this->consecutiveInfraFailures++;
+
+            return;
+        }
+
+        $this->consecutiveInfraFailures = 0;
+        $this->attempts->recordFailure($canonicalId, $lane, $reason ?? $status);
+    }
+
+    /**
+     * How many works in a row may fail on OUR egress before a run gives up.
+     *
+     * The point is to stop a dead proxy from being walked through an entire journal. Each of those
+     * attempts costs up to 75s of browser process timeout and produces an identical, useless
+     * failure; at 890 works that is a whole day of burning nothing into nothing. Five is enough to
+     * distinguish an outage from two unlucky works, and costs about six minutes to establish.
+     */
+    private const INFRA_FAILURE_LIMIT = 5;
+
+    /** Consecutive works that failed on our egress; reset by any outcome that wasn't one. */
+    private int $consecutiveInfraFailures = 0;
+
+    /**
+     * Has our egress failed often enough in a row to call the run off?
+     *
+     * Checked at the TOP of each work alongside the time budget, so the run stops before paying for
+     * another doomed fetch rather than after.
+     */
+    private function egressLooksDown(): bool
+    {
+        return $this->consecutiveInfraFailures >= self::INFRA_FAILURE_LIMIT;
+    }
+
+    /** The message a run carries when the breaker tripped — it names the fault as ours. */
+    private function egressAbortReason(): string
+    {
+        return self::INFRA_FAILURE_LIMIT . ' works in a row failed on our own network egress '
+            . '(proxy/browser), not on the publisher — stopped rather than working through the '
+            . 'journal marking everything failed. Check SOURCE_FETCH_PROXY, then run again; '
+            . 'no work was put into retry cooldown by this.';
     }
 
     /**
@@ -153,14 +201,21 @@ class JournalHarvestRunner
         ?callable $shouldStop = null,
     ): array {
         $stats = ['imported' => 0, 'reimported' => 0, 'already_imported' => 0, 'fetch_failed' => 0, 'error' => 0, 'stopped_early' => false];
+        $this->consecutiveInfraFailures = 0;
         $pending = $this->htmlLane->pendingForJournal($journal->id, $limit, $force);
         $total = count($pending);
+        $abort = null;
 
         $this->emit($progress, ['stage' => 'html_start', 'total' => $total, 'force' => $force]);
 
         foreach ($pending as $i => $row) {
             $n = $i + 1;
 
+            if ($this->egressLooksDown()) {
+                $abort = $this->egressAbortReason();
+                $this->emit($progress, ['stage' => 'aborted', 'done' => $i, 'total' => $total, 'reason' => $abort]);
+                break;
+            }
             if ($shouldStop && $shouldStop()) {
                 $stats['stopped_early'] = true;
                 $this->emit($progress, ['stage' => 'stopped', 'done' => $i, 'total' => $total]);
@@ -204,7 +259,7 @@ class JournalHarvestRunner
             }
         }
 
-        return $stats;
+        return $stats + ['aborted_reason' => $abort];
     }
 
     /**
@@ -231,6 +286,8 @@ class JournalHarvestRunner
         $books = [];
         $spend = 0.0;
         $stoppedEarly = false;
+        $abort = null;
+        $this->consecutiveInfraFailures = 0;
 
         $eligible = $this->eligibility->eligibleCanonicalsForJournal($journal->id, $limit);
         $total = count($eligible);
@@ -240,6 +297,11 @@ class JournalHarvestRunner
         foreach ($eligible as $i => $row) {
             $n = $i + 1;
 
+            if ($this->egressLooksDown()) {
+                $abort = $this->egressAbortReason();
+                $this->emit($progress, ['stage' => 'aborted', 'done' => $i, 'total' => $total, 'reason' => $abort]);
+                break;
+            }
             if ($shouldStop && $shouldStop()) {
                 $stoppedEarly = true;
                 $this->emit($progress, ['stage' => 'stopped', 'done' => $i, 'total' => $total]);
@@ -300,7 +362,7 @@ class JournalHarvestRunner
             }
         }
 
-        return ['stats' => $stats, 'spend' => $spend, 'books' => $books, 'stopped_early' => $stoppedEarly];
+        return ['stats' => $stats, 'spend' => $spend, 'books' => $books, 'stopped_early' => $stoppedEarly, 'aborted_reason' => $abort];
     }
 
     /**
@@ -352,6 +414,8 @@ class JournalHarvestRunner
         $books = [];
         $spend = 0.0;
         $stoppedEarly = false;
+        $abort = null;
+        $this->consecutiveInfraFailures = 0;
 
         $eligible = $this->eligibility->eligibleCanonicalsForJournal($journal->id, $limit);
         $total = count($eligible);
@@ -361,6 +425,15 @@ class JournalHarvestRunner
         foreach ($eligible as $i => $row) {
             $n = $i + 1;
 
+            // Checked first, and before the time budget: when our egress is down every remaining
+            // work fails identically at up to 75s a go, so there is nothing to spend the rest of
+            // the budget on. This is the mode that made a 37-work tripleC batch report a single
+            // uniform cause on both lanes.
+            if ($this->egressLooksDown()) {
+                $abort = $this->egressAbortReason();
+                $this->emit($progress, ['stage' => 'aborted', 'done' => $i, 'total' => $total, 'reason' => $abort]);
+                break;
+            }
             if ($shouldStop && $shouldStop()) {
                 $stoppedEarly = true;
                 $this->emit($progress, ['stage' => 'stopped', 'done' => $i, 'total' => $total]);
@@ -462,7 +535,7 @@ class JournalHarvestRunner
             }
         }
 
-        return ['stats' => $stats, 'spend' => $spend, 'books' => $books, 'stopped_early' => $stoppedEarly];
+        return ['stats' => $stats, 'spend' => $spend, 'books' => $books, 'stopped_early' => $stoppedEarly, 'aborted_reason' => $abort];
     }
 
     /**

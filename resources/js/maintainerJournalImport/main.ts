@@ -1248,6 +1248,8 @@ interface RunState {
     failures?: RunFailure[];
     /** True when the run hit the 50-minute work budget with work still queued. */
     stopped_early?: boolean;
+    /** Set when the run gave up because OUR egress was failing — pressing again is not the fix. */
+    aborted_reason?: string | null;
     remaining_eligible?: number;
     /** Eligible-but-for the retry cooldown: excluded from `remaining_eligible`, not forgotten. */
     cooling_off?: number;
@@ -1363,10 +1365,20 @@ function renderStoppedEarly(run: RunState, terminal: boolean): void {
   const banner = document.getElementById('ji-run-continue');
   if (!banner) return;
 
+  const aborted = run.counts?.aborted_reason ?? null;
   const stopped = terminal && run.status === 'completed' && run.counts?.stopped_early === true;
   const remaining = run.counts?.remaining_eligible ?? 0;
-  banner.hidden = !stopped || remaining < 1;
+  banner.hidden = !terminal || (!aborted && (!stopped || remaining < 1));
   if (banner.hidden) return;
+
+  // Our egress failing is a different message with a different next action: "press again" is
+  // actively wrong while the proxy is down, so the banner names the fix and hides the button.
+  if (aborted) {
+    el<HTMLElement>('ji-run-continue-text').textContent = aborted;
+    el<HTMLButtonElement>('ji-run-continue-go').hidden = true;
+
+    return;
+  }
 
   const cooling = run.counts?.cooling_off ?? 0;
   const chaining = !!run.counts?.next_run_id;

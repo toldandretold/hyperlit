@@ -28,6 +28,10 @@ vi.mock('../../../resources/js/integrity/reporter', () => ({
 
 import { installFreshIndexedDB, seedStore } from './idbHarness.js';
 import {
+  trackNewBookEstablishment,
+  __resetNewBookEstablishmentForTests,
+} from '../../../resources/js/utilities/newBookEstablished';
+import {
   debouncedMasterSync,
   initMasterSyncDependencies,
   __resetSyncConcurrencyStateForTests,
@@ -44,11 +48,11 @@ const node = (content) => ({
   hyperlights: [], hypercites: [], footnotes: [],
 });
 
-/** Seed IDB + queue one edit, with `handshake` standing in for the new-book sync promise. */
+/** Seed IDB + queue one edit, with `handshake` installed as the real new-book signal. */
 async function queueAnEdit(handshake) {
+  if (handshake) trackNewBookEstablishment('bookA', handshake);
   initMasterSyncDependencies({
     book: 'bookA',
-    getInitialBookSyncPromise: () => handshake,
     glowCloudGreen: vi.fn(), glowCloudRed: vi.fn(), glowCloudLocalSave: vi.fn(),
   });
   initSyncQueueDependencies({ debouncedMasterSync });
@@ -64,6 +68,7 @@ describe('masterSync — new-book handshake gate', () => {
     pendingSyncs.clear();
     __resetSyncConcurrencyStateForTests();
     __clearSentSyncTokensForTests();
+    __resetNewBookEstablishmentForTests();
     document.head.innerHTML = '<meta name="csrf-token" content="test-csrf-token">';
     document.body.innerHTML = '<div class="main-content" id="bookA"></div>';
     fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });

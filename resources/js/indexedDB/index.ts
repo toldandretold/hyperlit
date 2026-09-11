@@ -203,7 +203,6 @@ import type { BookId } from './types';
 export interface DatabaseDependencies {
   book: BookId | null | undefined;
   withPending: <T>(fn: () => Promise<T>) => Promise<T>;
-  getInitialBookSyncPromise: () => Promise<unknown> | null;
   glowCloudGreen?: (opts?: unknown) => void;
   glowCloudRed?: (opts?: unknown) => void;
   glowCloudLocalSave?: () => void;
@@ -225,7 +224,6 @@ export async function initializeDatabaseModules(dependencies: DatabaseDependenci
   const {
     book,
     withPending,
-    getInitialBookSyncPromise,
     glowCloudGreen,
     glowCloudRed,
     glowCloudLocalSave,
@@ -243,7 +241,7 @@ export async function initializeDatabaseModules(dependencies: DatabaseDependenci
   initFootnotesDependencies({ updateBookTimestamp, withPending });
   initReferencesDependencies({ withPending });
   initSyncQueueDependencies({ debouncedMasterSync });
-  initMasterSyncDependencies({ book, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
+  initMasterSyncDependencies({ book, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book });
 
 }
@@ -260,7 +258,7 @@ export function updateDatabaseBookId(newBookId: BookId): void {
     return;
   }
 
-  const { withPending, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave } = _storedDeps;
+  const { withPending, glowCloudGreen, glowCloudRed, glowCloudLocalSave } = _storedDeps;
 
   // Re-initialize modules that depend on book
   initLibraryDependencies({ book: newBookId });
@@ -268,7 +266,7 @@ export function updateDatabaseBookId(newBookId: BookId): void {
   initNodeBatchDependencies({ book: newBookId });
   initNodeDeleteDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
   initNodeNormalizeDependencies({ withPending, book: newBookId, updateBookTimestamp, queueForSync });
-  initMasterSyncDependencies({ book: newBookId, getInitialBookSyncPromise, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
+  initMasterSyncDependencies({ book: newBookId, glowCloudGreen, glowCloudRed, glowCloudLocalSave });
   initUnloadSyncDependencies({ book: newBookId });
 
 }

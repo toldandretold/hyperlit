@@ -8,6 +8,7 @@
  */
 import { log } from '../../../utilities/logger';
 import { ProgressOverlayConductor } from '../ProgressOverlayConductor.js';
+import { isLocalContentEntry } from '../localContentEntry';
 
 export class FreshPageLoader {
   /**
@@ -37,8 +38,8 @@ export class FreshPageLoader {
    */
   static isFreshPageLoad() {
     // Check various indicators that suggest this is a fresh page load
-    const hasSessionStorage = !!sessionStorage.getItem('pending_new_book_sync') || 
-                             !!sessionStorage.getItem('pending_import_book');
+    // "arrived with content already local" — see navigation/localContentEntry.
+    const hasSessionStorage = isLocalContentEntry();
     
     const isPageReload = performance.navigation?.type === performance.navigation.TYPE_RELOAD ||
                         (performance.getEntriesByType('navigation')[0] as any)?.type === 'reload';

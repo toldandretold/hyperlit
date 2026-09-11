@@ -98,7 +98,6 @@ describe('E2EE proof: no plaintext leaves the client for an encrypted book', () 
 
     initMasterSyncDependencies({
       book: ENC,
-      getInitialBookSyncPromise: () => null,
     });
     initSyncQueueDependencies({ debouncedMasterSync });
     initUnloadSyncDependencies({ book: ENC });

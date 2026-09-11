@@ -155,6 +155,9 @@ class JournalHarvestCommand extends Command
             });
 
             $this->newLine();
+            if (! empty($run['aborted_reason'])) {
+                $this->error('ABORTED: ' . $run['aborted_reason']);
+            }
             $this->info('Summary:');
             foreach ($run['stats'] as $k => $v) {
                 $this->line(sprintf('  %-18s %d', $k, $v));
@@ -201,6 +204,10 @@ class JournalHarvestCommand extends Command
 
             if ($lane === 'html') {
                 $this->newLine();
+                if (! empty($htmlStats['aborted_reason'])) {
+                    $this->error('ABORTED: ' . $htmlStats['aborted_reason']);
+                }
+                unset($htmlStats['aborted_reason']);
                 $this->info('HTML lane summary:');
                 foreach ($htmlStats as $k => $v) {
                     $this->line(sprintf('  %-18s %d', $k, $v));
@@ -237,8 +244,15 @@ class JournalHarvestCommand extends Command
         // A `--lane=both` run harvested TWO lanes; recording only the PDF one leaves the registry
         // claiming a journal was never HTML-fetched. Namespaced rather than summed — see
         // JournalHarvestRunner::mergeLaneStats.
+        // `aborted_reason` is a sentence about the RUN, not a tally — it must not reach finalise()'s
+        // numeric accumulation of harvest_stats.
+        $aborted = $run['aborted_reason'] ?? ($htmlStats['aborted_reason'] ?? null);
+        unset($htmlStats['aborted_reason']);
         $stats = JournalHarvestRunner::mergeLaneStats($run['stats'], $lane === 'both' ? $htmlStats : []);
         $spend = $run['spend'];
+        if ($aborted) {
+            $this->error('ABORTED: ' . $aborted);
+        }
 
         // ── Stage 4: shelf + registry bookkeeping ──
         $shelfRow = $runner->finalise($journal, $stats, $spend, function (array $e) {

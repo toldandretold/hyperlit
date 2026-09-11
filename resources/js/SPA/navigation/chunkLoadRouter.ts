@@ -7,6 +7,7 @@
 
 import { openDatabase } from '../../indexedDB/core/connection';
 import { verbose } from '../../utilities/logger';
+import { isPendingNewBook } from '../../utilities/pendingNewBook';
 
 /**
  * Load the initial chunk for a target, choosing the optimal source.
@@ -66,13 +67,7 @@ export async function isLocalCacheFresh(bookId: any) {
   if (bookId.endsWith('/timemachine')) return true;
 
   // Skip if this is a pending new book that hasn't synced to server yet
-  try {
-    const pendingJSON = sessionStorage.getItem('pending_new_book_sync');
-    if (pendingJSON) {
-      const pending = JSON.parse(pendingJSON);
-      if (pending.bookId === bookId) return true;
-    }
-  } catch { /* ignore */ }
+  if (isPendingNewBook(bookId)) return true;
 
   try {
     const [serverRecord, localRecord]: [any, any] = await Promise.all([

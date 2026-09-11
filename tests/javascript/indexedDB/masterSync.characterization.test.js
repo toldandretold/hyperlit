@@ -72,7 +72,6 @@ describe('debouncedMasterSync (characterization)', () => {
     glowLocalSave = vi.fn();
     initMasterSyncDependencies({
       book: 'bookA',
-      getInitialBookSyncPromise: () => null,
       glowCloudGreen: glowGreen,
       glowCloudRed: glowRed,
       glowCloudLocalSave: glowLocalSave,

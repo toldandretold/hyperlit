@@ -2,6 +2,7 @@
 // Was the canUserEditBook / checkUserPermission portion of utilities/auth.js.
 import { getLibraryObjectFromIndexedDB } from '../../indexedDB/index';
 import { authState, editPermissionCache } from './state';
+import { isPendingNewBook } from '../pendingNewBook';
 import { initializeAuth, getCurrentUser } from './session';
 
 /**
@@ -87,15 +88,11 @@ export async function canUserEditBook(bookId: any) {
       return editPermissionCache.get(bookId);
     }
 
-    // Check for pending new book creation
-    const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-    if (pendingSyncJSON) {
-      const pendingData = JSON.parse(pendingSyncJSON);
-      // Check if the pending book ID matches the one we're checking permissions for.
-      if (pendingData.bookId === bookId) {
-        editPermissionCache.set(bookId, true);
-        return true; // Grant permission immediately
-      }
+    // A book you just created is yours to edit even though the server has never
+    // heard of it (utilities/pendingNewBook).
+    if (isPendingNewBook(bookId)) {
+      editPermissionCache.set(bookId, true);
+      return true; // Grant permission immediately
     }
 
     // Check for pending/recently imported book

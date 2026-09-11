@@ -95,7 +95,6 @@ describe('flushAllPendingEdits — durability verdict', () => {
 
     initMasterSyncDependencies({
       book: 'bookA',
-      getInitialBookSyncPromise: () => null,
       glowCloudGreen: vi.fn(),
       glowCloudRed: vi.fn(),
       glowCloudLocalSave: vi.fn(),

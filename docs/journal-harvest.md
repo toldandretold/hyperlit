@@ -125,7 +125,31 @@ Selection used to have no memory. "Can this work be fetched?" was a pure stateme
 
 Things that do NOT back off: a per-article import from the console (it names its article and never consults eligibility, which is what keeps "just try it now" always available — and succeeding clears the cooldown), and a `--force-html` reconvert (an operator running a new processor should not wait out a curve tuned for unattended batches). `--skip-ocr` does not record either: it leaves every stub deferred by design, so recording those as failures would put a whole journal into cooldown for doing exactly what was asked.
 
+### A failure on OUR egress is not the work's failure
+
+The backoff has one failure mode that would make it worse than no backoff at all: a dead proxy fails every work identically, so each article spends its retry budget on a fault it had no part in, and when the proxy comes back the whole journal is invisible. Observed on tripleC (2026-09-11) the day after the backoff shipped — 37 works, both lanes, a single uniform `net::ERR_TUNNEL_CONNECTION_FAILED`, which is Chromium failing to open a CONNECT tunnel through `SOURCE_FETCH_PROXY`, not anything to do with the publisher.
+
+So `HarvestAttemptRecorder::isInfrastructureFailure` classifies a reason as OURS (tunnel/proxy/browser-launch/disconnected) and those never record an attempt. The signature list is deliberately narrow — only faults that cannot be a property of the target. `ERR_NAME_NOT_RESOLVED` is excluded on purpose: a publisher domain that no longer exists is exactly the dead work the backoff is for.
+
+Five of those IN A ROW (`INFRA_FAILURE_LIMIT`) aborts the run, checked at the top of each work so it stops before paying for another doomed fetch. The counter resets on any other outcome, so an intermittent blip between real failures never reads as an outage. The run carries `aborted_reason`, which takes precedence over the "press again" banner — pressing again is the wrong advice while the proxy is down — and a chain REFUSES to enqueue a successor, since it would run the same broken proxy over the same queue and abort five works later, forever.
+
 Works in cooldown are excluded from `eligible` and reported separately as `cooling_off`, in both `estimateForJournal` and `estimateFor`. Hiding them would make "remaining eligible" stall at a non-zero number with nothing to explain it; counting them as eligible would have the console promise 890 works and the runner find 883.
+
+## The proxy is opt-in per publisher
+
+`SOURCE_FETCH_PROXY` was all-or-nothing, which is wrong in both directions. What a residential pool sells is IP REPUTATION — Cloudflare scores datacenter ASNs badly and consumer ISPs well — and that is a property of the PUBLISHER, not of us. Most of the diamond corpus is OJS installs and institutional repositories that wall nobody, so routing them through a metered pool buys nothing and is billed per GB (a headed browser pulls 2–5MB an article, plus the PDF; for one 890-article journal that is plausibly $10–35 of traffic). And as one global switch it made a single vendor a single point of failure: an IPRoyal 402 on 2026-09-11 stopped ALL acquisition dead, on both lanes, mid-journal.
+
+`fetch_host_policy` answers it per host, and `ProxyPolicy` is the only thing that decides. Three rules carry the design:
+
+- **Unknown hosts go direct.** The two mistakes are not symmetrical: probing direct at a walled host costs ONE refused request and is corrected forever, while defaulting to proxy at an open host costs metered GB on every work forever and nothing would ever discover the error, because direct would never be tried again.
+- **The verdict is a ratchet.** `direct` → `proxy` on any wall evidence, at any time, and never automatically back. This is the load-bearing rule. Bristol's AWS WAF is RATE-based — it serves cleanly and starts challenging partway through a batch — so a policy that reverted on a later clean response would oscillate, and each swing back to `direct` spends another datacenter-IP probe on a host already known to wall us. `markDirectOk` therefore only ever COUNTS; only a human (`--set`) moves a host back.
+- **Escalation is immediate, not next-run.** A retryable gate (`body_absent` / `access_wall` / `fetch_failed`) while direct marks the host and re-runs the work through the proxy inside the same `retryOnFreshSession` that already existed for IP rotation — so the operator sees a slower work, not a failure.
+
+Seeding matters because a probe is NOT free: a refused request teaches Cloudflare that this droplet scrapes, and that damage is effectively permanent and shared across the whole datacenter range. `php artisan harvest:proxy-policy --seed-diamond` marks the publisher hosts of diamond-journal works `direct` up front so the corpus we actually harvest never probes at all. Hosts come from `canonical_source.pdf_url` / `oa_url` rather than the registry, because a journal's identity and the address its full text is served from differ constantly. Seeding only ever INSERTS — diamond means "no APC", not "no bot wall", so it must not erase a learned refusal.
+
+The policy host is pinned ONCE per work, not per request: a work's fetches span doi.org, the publisher and a PDF endpoint, and flipping proxy mode between them breaks the one thing the sticky session guarantees — `cf_clearance` is IP-bound, so the challenge solve and the download must share an address. `pdf_url`/`oa_url` are preferred because they already name the publisher; doi.org is explicitly skipped, since it walls nobody and would otherwise answer `direct` for the entire corpus. A DOI-only work adopts its landing host in `landedUrl()`.
+
+Inspect with `php artisan harvest:proxy-policy` (it tells you when nothing needs the pool at all, i.e. when `SOURCE_FETCH_PROXY` can stay unset); override with `--set=host --mode=direct|proxy`; re-probe with `--forget=host`.
 
 ## Investigating a run's failures
 

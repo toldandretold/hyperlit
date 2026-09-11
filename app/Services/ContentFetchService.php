@@ -7,6 +7,7 @@ use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
 use App\Services\Security\UrlGuard;
+use App\Services\SourceHarvest\ProxyPolicy;
 use App\Services\SourceImport\Content\AccessWallDetector;
 use App\Services\SourceImport\Content\ArticleImageHarvester;
 use App\Services\SourceImport\Content\BodyPresenceAssessor;
@@ -99,6 +100,12 @@ class ContentFetchService
      * is not the article, it will not be the article from anywhere else either.
      */
     private const RETRYABLE_GATES = ['body_absent', 'access_wall', 'fetch_failed'];
+
+    /** The host whose ProxyPolicy verdict governs this work's fetches. Null = unknown → direct. */
+    private ?string $currentPolicyHost = null;
+
+    /** Set when this work was walled going direct and has escalated to the proxy for the rest of the ladder. */
+    private bool $forceProxyThisWork = false;
 
     public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
     {
@@ -195,7 +202,14 @@ class ContentFetchService
     public function fetch(object $libraryRecord): array
     {
         try {
-            return $this->fetchInner($libraryRecord);
+            $result = $this->fetchInner($libraryRecord);
+            // Recorded here rather than inside the ladder because `fetchInner` returns success from
+            // half a dozen strategies; one place that sees the verdict is one place to keep right.
+            if (($result['status'] ?? 'failed') !== 'failed') {
+                $this->notePolicySuccess();
+            }
+
+            return $result;
         } finally {
             // Every exit path — success, reject, exhausted ladder, throw — leaves
             // the acquisition evidence on disk. It lands in the artifact dir, so
@@ -253,7 +267,8 @@ class ContentFetchService
         $this->lastFetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null, 'won_license' => null, 'won_version' => null, 'completeness' => null, 'completeness_reason' => null, 'session' => null, 'proxy' => null, 'body_verdict' => null, 'body_reason' => null, 'html_channel' => null];
         $this->currentSession = Str::random(12);
         $this->lastFetchTrace['session'] = $this->currentSession;
-        if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
+        $this->setPolicyHost($pageUrl, $oaUrl);
+        if (($proxyUrl = $this->sessionProxyUrl()) !== null) {
             $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
         }
 
@@ -270,6 +285,10 @@ class ContentFetchService
 
             if (in_array($result['gate'] ?? null, self::RETRYABLE_GATES, true) && $this->canRotateSession()) {
                 $result = $this->retryOnFreshSession($url, $bookId, $result);
+            }
+
+            if ($result['status'] !== 'failed') {
+                $this->notePolicySuccess();
             }
 
             return $result;
@@ -295,6 +314,22 @@ class ContentFetchService
      */
     private function retryOnFreshSession(string $url, string $bookId, array $firstResult): array
     {
+        // We were going DIRECT and got a verdict about our address. The cheapest different address
+        // is the proxy itself — so ratchet this host to `proxy` (permanently, see ProxyPolicy) and
+        // escalate for the rest of this work, rather than asking the same question from the same
+        // droplet IP, which buys nothing and costs the publisher a second request.
+        if (! $this->forceProxyThisWork && ! app(ProxyPolicy::class)->useProxyFor($this->currentPolicyHost)) {
+            $this->notePolicyLanding($this->lastFinalUrl);
+            if ($this->currentPolicyHost !== null) {
+                app(ProxyPolicy::class)->markWalled(
+                    $this->currentPolicyHost,
+                    $firstResult['reason'] ?? ($firstResult['gate'] ?? 'walled on a direct fetch'),
+                );
+            }
+            $this->forceProxyThisWork = true;
+            $this->lastFetchTrace['proxy_escalated'] = true;
+        }
+
         sleep($this->ipRetryDelaySeconds());
 
         $this->currentSession = Str::random(12);
@@ -329,6 +364,21 @@ class ContentFetchService
     private function canRotateSession(): bool
     {
         return self::stickyProxy(Str::random(8)) !== null;
+    }
+
+    /**
+     * Record that going direct WORKED, so the table reflects reality rather than only failures.
+     *
+     * Deliberately only on a genuine acquisition: a 200 that the body gate then rejects is not
+     * evidence the address is welcome, and counting it would make a soft bot-block look like a
+     * healthy direct host.
+     */
+    private function notePolicySuccess(): void
+    {
+        if ($this->forceProxyThisWork || $this->currentPolicyHost === null) {
+            return;
+        }
+        app(ProxyPolicy::class)->markDirectOk($this->currentPolicyHost);
     }
 
     /**
@@ -407,7 +457,11 @@ class ContentFetchService
         // different sessions → still effectively rotating across works.
         $this->currentSession = Str::random(12);
         $this->lastFetchTrace['session'] = $this->currentSession;
-        if (($proxyUrl = self::stickyProxy($this->currentSession)) !== null) {
+        // pdf_url / oa_url name the PUBLISHER; the DOI only names doi.org, which walls nobody and
+        // would answer `direct` for every work in the corpus. A DOI-only work stays unknown here
+        // and adopts its landing host later (notePolicyLanding).
+        $this->setPolicyHost($pdfUrl, $oaUrl);
+        if (($proxyUrl = $this->sessionProxyUrl()) !== null) {
             $this->lastFetchTrace['proxy'] = self::maskProxy($proxyUrl);
             Log::info('ContentFetchService fetch start', [
                 'book' => $bookId, 'session' => $this->currentSession,
@@ -817,6 +871,9 @@ class ContentFetchService
         $landed = $this->lastFinalUrl ?: $requested;
         $this->lastFetchTrace['page_url'] = $landed;
         $this->lastFetchTrace['won_host'] = parse_url($landed, PHP_URL_HOST) ?: ($this->lastFetchTrace['won_host'] ?? null);
+        // A DOI-only work learns its publisher here, and nowhere earlier — without adopting it, a
+        // wall met via doi.org could never be attributed to the host that raised it.
+        $this->notePolicyLanding($landed);
 
         return $landed;
     }
@@ -1320,6 +1377,15 @@ class ContentFetchService
 
     private function sessionProxyUrl(): ?string
     {
+        // The proxy is opt-IN per publisher now (see ProxyPolicy): most of the corpus is OJS and
+        // repositories that wall nobody, and a metered residential pool buys nothing there. A work
+        // that has already been walled this run carries `forceProxyThisWork`, which overrides the
+        // stored verdict for the remainder of the ladder — the escalation must not be re-decided
+        // by a policy row that the escalation itself is in the middle of writing.
+        if (! $this->forceProxyThisWork && ! app(ProxyPolicy::class)->useProxyFor($this->currentPolicyHost)) {
+            return null;
+        }
+
         return self::stickyProxy($this->currentSession);
     }
 
@@ -1328,6 +1394,53 @@ class ContentFetchService
     {
         $url = $this->sessionProxyUrl();
         return $url ? ['proxy' => $url] : [];
+    }
+
+    /**
+     * Pin the host whose policy governs this work, for the whole ladder.
+     *
+     * Decided ONCE per work rather than per request, because a work's fetches span several URLs
+     * (doi.org, then the publisher, then a PDF endpoint) and flipping proxy mode between them would
+     * break the one thing the sticky session exists to guarantee: `cf_clearance` is IP-bound, so
+     * the challenge solve and the download must share an address.
+     *
+     * `pdf_url` / `oa_url` are preferred over the DOI because they already name the PUBLISHER.
+     * A DOI only names doi.org, which walls nobody and would therefore answer `direct` for every
+     * work in the corpus — the landed host is picked up later by `notePolicyLanding()`.
+     */
+    private function setPolicyHost(?string ...$candidates): void
+    {
+        $policy = app(ProxyPolicy::class);
+        $this->forceProxyThisWork = false;
+        $this->currentPolicyHost = null;
+
+        foreach ($candidates as $candidate) {
+            $host = $policy->hostOf($candidate);
+            if ($host !== null && $host !== 'doi.org' && $host !== 'dx.doi.org') {
+                $this->currentPolicyHost = $host;
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * Where we ACTUALLY landed, once a redirect has told us.
+     *
+     * A DOI-only work starts with no policy host at all; the publisher is only known after
+     * doi.org resolves. Without adopting it here, a walled publisher reached via its DOI could
+     * never be recorded — the wall would be blamed on nothing, and the next run would probe it
+     * from the droplet again.
+     */
+    private function notePolicyLanding(?string $landedUrl): void
+    {
+        if ($this->currentPolicyHost !== null) {
+            return;
+        }
+        $host = app(ProxyPolicy::class)->hostOf($landedUrl);
+        if ($host !== null && $host !== 'doi.org' && $host !== 'dx.doi.org') {
+            $this->currentPolicyHost = $host;
+        }
     }
 
     /** Redact credentials from a proxy URL for logging: user:***@host:port. */

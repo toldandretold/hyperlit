@@ -1,6 +1,7 @@
 import { book, bookSlug, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
+import { isPendingNewBook } from '../utilities/pendingNewBook';
 import type { ReadingPosition } from '../scrolling/readingPosition';
 import { maybePaginatorReveal } from '../scrolling/paginator';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier';
@@ -517,22 +518,12 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     return;
   }
 
-  // ===================== THE FIX =====================
-  // First, check if this is the brand-new book we just created.
-  const pendingSyncJSON = sessionStorage.getItem("pending_new_book_sync");
-  if (pendingSyncJSON) {
-    try {
-      const pendingSync = JSON.parse(pendingSyncJSON);
-      // If the pending sync is for the book we are currently loading...
-      if (pendingSync.bookId === bookId) {
-        verbose.content(`✅ Skipping server timestamp check for newly created book "${bookId}" that is pending sync to bankend.`, '/pageLoad/loadHyperText.ts');
-        // ...then we know it doesn't exist on the server yet.
-        // There's nothing to compare, so we exit the function early.
-        return;
-      }
-    } catch (e) {
-      log.error('Could not parse pending_new_book_sync from sessionStorage', '/pageLoad/loadHyperText.ts', e);
-    }
+  // A brand-new book isn't on the server yet, so there is no server timestamp to
+  // compare against (utilities/pendingNewBook — the reload-surviving half of that
+  // question; newBookEstablished is the in-flight half).
+  if (isPendingNewBook(bookId)) {
+    verbose.content(`✅ Skipping server timestamp check for newly created book "${bookId}" that is pending sync to backend.`, '/pageLoad/loadHyperText.ts');
+    return;
   }
 
   // This part only runs for EXISTING books.
