@@ -260,7 +260,11 @@ test('the svg is responsive and labelled', function () {
     $svg = jmapSvg($journal);
 
     expect($svg)->toContain('viewBox="');
-    expect($svg)->toContain('role="img"');
+    // role="group", NOT role="img": the dots are real <a href> links, and an
+    // interactive descendant inside a children-presentational role is the axe
+    // `nested-interactive` violation (WCAG 4.1.2) the user-page a11y scan caught.
+    expect($svg)->toContain('role="group"');
+    expect($svg)->not->toContain('role="img"');
     expect($svg)->toContain('aria-label="Hypercite network of ' . e($journal->display_name) . '"');
     expect($svg)->toContain('width:100%');
     expect($svg)->toContain('tabindex="-1"'); // welcome-copy keyboard model

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1889,
+    "fnCount": 1890,
     "moduleCount": 398,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3867,
+    "edgeCount": 3875,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3952,7 +3952,7 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/auth",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "components/userContainer/auth:handleRegister",
@@ -11739,7 +11739,7 @@
       "kind": "fn",
       "stage": "serverSync",
       "module": "indexedDB/serverSync/flush",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
@@ -11885,6 +11885,14 @@
       "types": [
         "PublicNode"
       ]
+    },
+    {
+      "id": "indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "label": "getMasterSyncInFlight",
+      "kind": "fn",
+      "stage": "push",
+      "module": "indexedDB/syncQueue/master",
+      "leaf": true
     },
     {
       "id": "indexedDB/syncQueue/master:initMasterSyncDependencies",
@@ -20446,6 +20454,7 @@
       "fnIds": [
         "indexedDB/syncQueue/master:__resetSyncConcurrencyStateForTests",
         "indexedDB/syncQueue/master:executeSyncPayload",
+        "indexedDB/syncQueue/master:getMasterSyncInFlight",
         "indexedDB/syncQueue/master:initMasterSyncDependencies",
         "indexedDB/syncQueue/master:syncIndexedDBtoPostgreSQLBlocking",
         "indexedDB/syncQueue/master:updateHistoryLog"
@@ -26345,7 +26354,14 @@
       "id": "components/userContainer/auth:handleLogout__call__indexedDB/serverSync/flush:flushAllPendingEdits",
       "source": "components/userContainer/auth:handleLogout",
       "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/auth:handleLogout__domwrite__dom",
+      "source": "components/userContainer/auth:handleLogout",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/userContainer/auth:handleRegister__call__components/userContainer/cache:clearAllCachedData",
@@ -29451,6 +29467,12 @@
       "id": "dom__domread__components/userContainer/auth:handleLogin",
       "source": "dom",
       "target": "components/userContainer/auth:handleLogin",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/auth:handleLogout",
+      "source": "dom",
+      "target": "components/userContainer/auth:handleLogout",
       "rel": "domread"
     },
     {
@@ -38693,6 +38715,12 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__components/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "components/cloudRef/editIndicator:glowCloudSyncSuccess",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__divEditor/index:flushAllPendingSaves",
       "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "target": "divEditor/index:flushAllPendingSaves",
@@ -38709,6 +38737,33 @@
       "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "target": "footnotes/footnoteAnnotations:flushPendingFootnoteSaves",
       "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__indexedDB/syncQueue/master:executeSyncPayload",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "indexedDB/syncQueue/master:executeSyncPayload",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__indexedDB/syncQueue/master:updateHistoryLog",
+      "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "target": "indexedDB/syncQueue/master:updateHistoryLog",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/loaders:loadBibliographyToIndexedDB__write__store:bibliography",
@@ -38798,7 +38853,8 @@
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/flush:flushAllPendingEdits",
       "source": "indexedDB/serverSync/pull:syncAnnotationsOnly",
       "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/pull:syncAnnotationsOnly__call__indexedDB/serverSync/loaders:loadHypercitesToIndexedDB",
@@ -38837,7 +38893,8 @@
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/flush:flushAllPendingEdits",
       "source": "indexedDB/serverSync/pull:syncBookDataFromDatabase",
       "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "indexedDB/serverSync/pull:syncBookDataFromDatabase__call__indexedDB/serverSync/loaders:loadBibliographyToIndexedDB",
@@ -45148,6 +45205,12 @@
       "rel": "read"
     },
     {
+      "id": "store:historyLog__read__indexedDB/serverSync/flush:flushAllPendingEdits",
+      "source": "store:historyLog",
+      "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
+      "rel": "read"
+    },
+    {
       "id": "store:historyLog__read__pageLoad/onlineRetry:setupOnlineSyncListener",
       "source": "store:historyLog",
       "target": "pageLoad/onlineRetry:setupOnlineSyncListener",
@@ -50651,12 +50714,22 @@
     },
     {
       "source": "indexedDB/serverSync/flush",
+      "target": "indexedDB/core/connection",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
       "target": "indexedDB/syncQueue/master",
       "kind": "lazy"
     },
     {
       "source": "indexedDB/serverSync/flush",
       "target": "indexedDB/syncQueue/queue",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/flush",
+      "target": "pageLoad/onlineRetry",
       "kind": "lazy"
     },
     {
@@ -52185,6 +52258,6 @@
       ]
     ],
     "breakerCount": 5,
-    "lazyCount": 283
+    "lazyCount": 285
   }
 }

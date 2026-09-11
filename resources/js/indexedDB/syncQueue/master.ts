@@ -769,12 +769,54 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
   }
 }
 
+/** Longest a drain will wait on the new-book handshake before pushing anyway. */
+const INITIAL_SYNC_WAIT_MS = 10000;
+
+/** Initial-sync promises that REJECTED — never awaited again (see awaitInitialBookSync). */
+const _deadInitialSyncPromises = new WeakSet<object>();
+
 /**
- * Main debounced sync function
- * Processes all pending syncs and sends them to PostgreSQL
- * Waits 3 seconds after last change before syncing
+ * Wait for a freshly-created book's bulk-create handshake before pushing nodes,
+ * so the library row exists server-side (otherwise the node upsert 404s).
+ *
+ * This wait must NEVER be able to kill the drain. `fireAndForgetSync` REJECTS
+ * when the bulk-create fails, the promise is stored once per SPA-created book
+ * and (on that path) never cleared — so a bare `await` meant one failed
+ * handshake wedged the queue for the rest of the tab's life: every later drain
+ * threw here, before `pendingSyncs.clear()`, so NOTHING was ever POSTed again,
+ * for any book, silently. That is the worst shape a sync bug can have, and it
+ * was reachable from a single flaky create. So: a rejection is logged and the
+ * promise retired; a promise that never settles is raced against a cap and the
+ * drain proceeds (an early push at worst 404s and parks in historyLog, which
+ * retryFailedBatches replays — recoverable, unlike the wedge).
  */
-export const debouncedMasterSync = debounce(async () => {
+async function awaitInitialBookSync(): Promise<void> {
+  const initialSyncPromise = getInitialBookSyncPromise?.();
+  if (!initialSyncPromise || typeof initialSyncPromise !== 'object') return;
+  if (_deadInitialSyncPromises.has(initialSyncPromise)) return;
+
+  try {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      initialSyncPromise,
+      new Promise<void>((resolve) => { timer = setTimeout(resolve, INITIAL_SYNC_WAIT_MS); }),
+    ]).finally(() => { if (timer) clearTimeout(timer); });
+  } catch (error) {
+    _deadInitialSyncPromises.add(initialSyncPromise);
+    log.error(
+      'New-book handshake failed — syncing anyway (a failed handshake must not wedge the queue)',
+      '/indexedDB/syncQueue/master.ts',
+      error,
+    );
+  }
+}
+
+/**
+ * One drain of the queue: cut a batch, group it by book, push each book.
+ * Split out of the debounced wrapper so the RUNNING drain is awaitable — see
+ * `getMasterSyncInFlight`.
+ */
+async function drainPendingSyncs(): Promise<void> {
   if (pendingSyncs.size === 0) {
     return;
   }
@@ -794,10 +836,7 @@ export const debouncedMasterSync = debounce(async () => {
     return;
   }
 
-  const initialSyncPromise = getInitialBookSyncPromise();
-  if (initialSyncPromise) {
-    await initialSyncPromise;
-  }
+  await awaitInitialBookSync();
 
   const itemsToSync = new Map(pendingSyncs);
   pendingSyncs.clear();
@@ -820,7 +859,33 @@ export const debouncedMasterSync = debounce(async () => {
   for (const [bookId, bookItems] of itemsByBook) {
     await runSerializedPerKey(_bookSyncChain, bookId, () => syncItemsForBook(bookId, bookItems));
   }
+}
 
+// The drain that is RUNNING RIGHT NOW, or null. `debounce().flush()` only runs
+// (and returns) the pending TIMER — once the timer has fired there is nothing
+// left to flush, so a "flush before you destroy local data" caller would sail
+// past a batch that is queued-but-not-yet-acked. That is data loss on logout
+// (clearDatabase() takes historyLog with it, so the retry path dies too), and
+// it is what silently ate the e2ee lifecycle test's edit. Publishing the
+// in-flight promise lets serverSync/flush wait for the round trip.
+let _masterSyncInFlight: Promise<void> | null = null;
+
+/** The drain currently pushing to the server, or null when idle. */
+export function getMasterSyncInFlight(): Promise<void> | null {
+  return _masterSyncInFlight;
+}
+
+/**
+ * Main debounced sync function
+ * Processes all pending syncs and sends them to PostgreSQL
+ * Waits 3 seconds after last change before syncing
+ */
+export const debouncedMasterSync = debounce(() => {
+  const run = drainPendingSyncs();
+  _masterSyncInFlight = run;
+  const settle = () => { if (_masterSyncInFlight === run) _masterSyncInFlight = null; };
+  run.then(settle, settle); // never swallow the rejection — the caller still sees it
+  return run;
 }, 3000);
 
 /**

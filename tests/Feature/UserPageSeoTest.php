@@ -266,14 +266,14 @@ test('the hypercite network SVG renders BY DEFAULT; an explicit false renders no
     // toggle off → the stored opt-out (false), the ONLY value that hides it
     upseoAdminConn()->table('library')->where('book', $book)
         ->update(['page_settings' => json_encode(['show_map' => false])]);
-    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v1");
+    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v2");
     $html2 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
     expect($html2)->not->toContain('journal-hypercite-map');
 
     // a legacy row from when it was opt-in (stored `true`) still shows it
     upseoAdminConn()->table('library')->where('book', $book)
         ->update(['page_settings' => json_encode(['show_map' => true])]);
-    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v1");
+    \Illuminate\Support\Facades\Cache::forget("user-hypercite-map:{$book}:v2");
     $html3 = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
     expect($html3)->toContain('journal-hypercite-map');
 });

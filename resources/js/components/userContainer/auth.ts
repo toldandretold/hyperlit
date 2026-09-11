@@ -211,15 +211,57 @@ export async function handleRegister(self: any) {
   }
 }
 
+/** The logout row, switched to a busy label while the flush runs (it can take seconds). */
+function setLogoutBusy(self: any, busy: boolean, previousLabel?: string): string | undefined {
+  const btn = self?.container?.querySelector('#logout') as HTMLButtonElement | null;
+  if (!btn) return undefined;
+  if (busy) {
+    const was = btn.textContent ?? '';
+    btn.disabled = true;
+    btn.textContent = 'Saving your last changes…';
+    return was;
+  }
+  btn.disabled = false;
+  if (previousLabel !== undefined) btn.textContent = previousLabel;
+  return undefined;
+}
+
 export async function handleLogout(self: any) {
   // Flush any in-progress edits (typing → IndexedDB → server) BEFORE we end
   // the session and wipe local data. Must run while still authenticated — the
   // /logout POST below destroys the server session and clearCurrentUser()
   // resets the token. Fast-path no-ops when there's nothing pending.
+  //
+  // Logout is the ONE caller whose cleanup is unrecoverable: clearAllCachedData
+  // → clearDatabase() wipes historyLog too, so the replay path that saves every
+  // other failed sync dies with it. So it gets a bigger budget than the default
+  // AND it must never wipe on an unsynced verdict without asking — a silent
+  // "flushed!" that hadn't reached the server is how an edit disappears for good.
+  let flush = { synced: true, pendingBatches: 0, timedOut: false };
+  const previousLabel = setLogoutBusy(self, true);
   try {
-    await flushAllPendingEdits();
+    flush = await flushAllPendingEdits({ budgetMs: 30_000 });
   } catch (error) {
     console.error("⚠️ Failed to flush pending edits before logout:", error);
+    flush = { synced: false, pendingBatches: 0, timedOut: false };
+  } finally {
+    setLogoutBusy(self, false, previousLabel);
+  }
+
+  if (!flush.synced) {
+    const { confirmDialog } = await import('../dialog/dialog');
+    const keepEditing = !(await confirmDialog({
+      title: 'Unsaved changes',
+      message:
+        'Some of your latest edits have not reached the server yet' +
+        (flush.timedOut ? ' (it is taking unusually long)' : '') +
+        '.\n\nLogging out clears this device, so those changes would be lost. ' +
+        'Stay signed in for a moment and they should finish saving.',
+      confirmLabel: 'Log out anyway',
+      cancelLabel: 'Stay signed in',
+      danger: true,
+    }));
+    if (keepEditing) return;
   }
 
   try {

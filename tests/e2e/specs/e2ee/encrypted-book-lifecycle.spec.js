@@ -1,22 +1,14 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-
-// Vite dev origin (public/hot) for raw `.ts` imports — the app origin 404s for .ts modules.
-// Mirrors the vetted pattern in a11y/modal-surfaces.spec.js. Null in a built (CI) run.
-function viteOrigin() {
-  try { return readFileSync(join(HERE, '../../../../public/hot'), 'utf8').trim(); } catch { return null; }
-}
+import { readBookData } from '../../helpers/backendRead.js';
 
 /**
  * E2EE lifecycle, driven by REAL gestures with a CDP virtual authenticator
  * (docs/e2ee.md): register a PRF-capable passkey → save the recovery code →
  * create a born-encrypted book → type a sentinel → prove every request body
  * that leaves the page carries only hlenc envelopes (never the sentinel) →
- * wipe local state (fresh-device simulation) → unlock via the modal.
+ * read the row back from Postgres to prove the edit is DURABLE (and still
+ * ciphertext at rest) → wipe local state (fresh-device simulation) → unlock
+ * via the modal.
  *
  * Requires Chromium (CDP WebAuthn.hasPrf, Chrome 119+). Manual suite:
  *   npx playwright test tests/e2e/specs/e2ee/ --project=chromium
@@ -39,6 +31,35 @@ async function addPrfAuthenticator(page) {
     },
   });
   return { client, authenticatorId };
+}
+
+/**
+ * The book's first node AS STORED IN POSTGRES (ciphertext for an encrypted
+ * book), or null while the book has no rows yet. Read through the app's own
+ * session (backendRead's in-page fetch) — `page.request` has no Origin and
+ * Sanctum 401s it.
+ */
+async function serverFirstNodeContent(page, bookId) {
+  const res = await readBookData(page, bookId);
+  const nodes = Array.isArray(res.body?.nodes) ? res.body.nodes : [];
+  if (!res.ok || nodes.length === 0) return null;
+  const first = [...nodes].sort((a, b) => parseFloat(a.startLine) - parseFloat(b.startLine))[0];
+  return typeof first?.content === 'string' ? first.content : null;
+}
+
+/** Poll that stored value until `accept` is satisfied; throw `message` (with the last value) on timeout. */
+async function waitForServerNode(page, bookId, accept, message, timeout = 45_000) {
+  const deadline = Date.now() + timeout;
+  let last = null;
+  for (;;) {
+    last = await serverFirstNodeContent(page, bookId);
+    if (accept(last)) return last;
+    if (Date.now() >= deadline) {
+      const seen = last === null ? 'no rows on the server' : `${last.length} chars: ${last.slice(0, 60)}…`;
+      throw new Error(`${message} — after ${timeout}ms the stored first node was ${seen}`);
+    }
+    await page.waitForTimeout(500);
+  }
 }
 
 /** Collect every outgoing API request body for later leak-scanning. */
@@ -178,15 +199,27 @@ test.describe('E2EE encrypted book lifecycle', () => {
     }
     expect(await page.evaluate(() => window.isEditing === true), 'entered edit mode on the encrypted book').toBe(true);
 
+    // The stored ciphertext BEFORE the sentinel edit — the baseline the
+    // landed-on-the-server gate below measures against.
+    const preEditCipher = await waitForServerNode(
+      page, bookId, (c) => c !== null,
+      'the new encrypted book never synced its first node to the server',
+    );
+
     const firstNode = page.locator('.main-content h1').first();
     await firstNode.click();
     await page.keyboard.type(` ${SENTINEL}`);
     // Confirm the edit actually landed in the DOM before relying on the sync.
     await expect(firstNode).toContainText(SENTINEL, { timeout: 5_000 });
-    // The debounced master sync fires at 3s; give it room + the beacon path
-    await page.waitForTimeout(6_000);
-    await page.evaluate(() => document.body.click()); // blur → flush edit pipeline
-    await page.waitForTimeout(4_000);
+    await page.evaluate(() => document.body.click()); // blur → close the edit cycle
+    // Cheap pre-wait on the app's own durable-sync signal (the #cloudRef
+    // contract every other workflow spec polls); the server read-back below is
+    // the authority, this just stops it polling through the whole debounce.
+    await page.waitForFunction(() => {
+      const btn = document.getElementById('cloudRef');
+      return !!btn && btn.getAttribute('data-last-sync') === 'success'
+        && btn.getAttribute('data-save-state') !== 'saving';
+    }, null, { timeout: 20_000 }).catch(() => {});
 
     // ── 4. PROOF on the wire: this book's content never left as plaintext ──
     const bookRequests = apiBodies.filter(({ body }) => body.includes(bookId));
@@ -197,21 +230,24 @@ test.describe('E2EE encrypted book lifecycle', () => {
     // And at least one payload actually carried ciphertext for it
     expect(bookRequests.some(({ body }) => body.includes('hlenc.v1.'))).toBe(true);
 
-    // Deterministically drain the encrypted edit pipeline to the SERVER before the fresh-device
-    // wipe. The fixed debounce waits above populate the wire-proof assertions, but the sentinel
-    // edit's debounced masterSync may not have landed server-side yet — without this the fresh-device
-    // load renders the pre-edit (empty) title and the sentinel assertion flakes. Best-effort via the
-    // app's real flush capability (raw-vite import; dev-server only, skipped in a built CI run).
-    try {
-      const hot = viteOrigin();
-      if (hot) {
-        await page.evaluate(async (origin) => {
-          const { flushAllPendingEdits } = await import(`${origin}/resources/js/indexedDB/serverSync/flush.ts`);
-          await flushAllPendingEdits();
-        }, hot);
-        await page.waitForTimeout(1_500);
-      }
-    } catch { /* best-effort — fall through to the fixed-wait behaviour */ }
+    // ── 4b. The edit is DURABLE before the fresh-device wipe ──────────
+    // Read the row back from Postgres and require it to have grown by the
+    // sentinel. Without this gate the wipe could race the debounced masterSync
+    // (a 5s flush timeout + an in-flight POST that page.goto then aborts), the
+    // fresh device would re-download the PRE-edit empty <h1>, and the failure
+    // would surface 30s later as a blank .main-content — reading as a decrypt
+    // bug rather than the lost sync it actually is. AES-GCM doesn't compress,
+    // so the base64url envelope grows ~4/3 per added plaintext byte: +26 chars
+    // of sentinel ⇒ ≥24 more stored chars. A same-plaintext re-save (fresh IV)
+    // can't fake that.
+    const postEditCipher = await waitForServerNode(
+      page, bookId,
+      (c) => c !== null && c.length >= preEditCipher.length + 24,
+      'the sentinel edit never reached the server (debounced masterSync did not land it)',
+    );
+    // At rest in Postgres it is still an envelope, and still not the plaintext.
+    expect(postEditCipher.startsWith('hlenc.v1.')).toBe(true);
+    expect(postEditCipher).not.toContain(SENTINEL);
 
     // ── 5. Fresh-device simulation: wipe local state, reload, unlock ──
     await page.evaluate(async () => {

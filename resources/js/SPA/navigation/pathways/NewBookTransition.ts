@@ -478,7 +478,15 @@ export class NewBookTransition {
         pendingSyncData.bookId,
         pendingSyncData.isNewBook,
         pendingSyncData
-      );
+      ).finally(() => {
+        // Retire the handshake once it has settled — readerEntry's full-load path
+        // has always done this; this SPA path never did, so a REJECTED promise
+        // (bulk-create failed) stayed installed for the tab's whole life and every
+        // masterSync drain re-threw on it before cutting a batch: nothing ever
+        // reached the server again, silently. masterSync now defends itself too
+        // (awaitInitialBookSync), but the promise should not outlive its handshake.
+        setInitialBookSyncPromise(null);
+      });
       setInitialBookSyncPromise(syncPromise);
       
       // Execute the transition

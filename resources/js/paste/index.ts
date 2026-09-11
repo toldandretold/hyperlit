@@ -102,7 +102,10 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
   const { getInitialBookSyncPromise } = await import('../utilities/operationState');
   const initialSyncPromise = getInitialBookSyncPromise();
   if (initialSyncPromise) {
-    await initialSyncPromise;
+    // Swallow a REJECTED handshake (bulk-create failed): the paste must still be
+    // pushed. A bare await here aborted the whole paste sync — same wedge shape as
+    // masterSync's drain gate (see awaitInitialBookSync in syncQueue/master).
+    await Promise.resolve(initialSyncPromise).catch(() => undefined);
   }
 
   // Show orange indicator while syncing

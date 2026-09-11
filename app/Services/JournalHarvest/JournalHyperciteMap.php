@@ -75,7 +75,7 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:v6",
+            "journal-hypercite-map:{$journal->id}:v7",
             self::CACHE_TTL,
             fn () => $this->buildFromCorpus(
                 $this->journalArticles($journal),
@@ -348,9 +348,15 @@ class JournalHyperciteMap
         $rLitBase = min(self::R_LIT_PX * $k, 0.8 * self::SPIRAL_SPACING);
         $rExternal = self::R_EXTERNAL_PX * $k;
 
+        // role="group", NOT role="img": every dot is a real <a href> (SEO-visible
+        // and the mouse click target), and `img` is a children-presentational role
+        // — an interactive descendant inside it is the axe `nested-interactive`
+        // violation (WCAG 4.1.2, serious) that the user-page a11y scan caught. A
+        // labelled group keeps the one-line name for the diagram while letting the
+        // node links stay legitimately in the accessibility tree.
         $s = [];
         $s[] = '<svg viewBox="' . $this->n($minX) . ' ' . $this->n($minY) . ' ' . $this->n($width) . ' ' . $this->n($height) . '"'
-            . ' role="img" aria-label="' . e($ariaLabel) . '"'
+            . ' role="group" aria-label="' . e($ariaLabel) . '"'
             . ' style="display:block;width:100%;max-width:' . $this->n(self::RENDER_WIDTH_PX) . 'px;height:auto;margin:0 auto">';
 
         // Edges first, under the dots. Internal pairs bow toward the blob

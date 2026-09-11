@@ -7,7 +7,7 @@
  * import — those handlers live in the page-load layer, not the data layer.
  */
 import { openDatabase } from '../index';
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { flushAllPendingEdits } from './flush';
 import {
   clearBookDataFromIndexedDB,
@@ -31,6 +31,22 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
   verbose.content(`Starting database sync for: ${bookId}`, 'serverSync/pull');
 
   try {
+    // 0. Flush pending edits FIRST — BEFORE the fetch, like syncAnnotationsOnly.
+    // This used to run at step 2.5 (after the response was already in hand), so
+    // an edit the flush successfully pushed was not in the snapshot that then
+    // overwrote the local stores: the reader visibly reverted until the
+    // historyLog replay caught up. Local work is recoverable here (unlike
+    // logout — clearBookDataFromIndexedDB deliberately leaves historyLog
+    // alone), so an unsynced verdict is logged, not escalated.
+    const flush = await flushAllPendingEdits();
+    if (!flush.synced) {
+      log.error(
+        `Redownloading ${bookId} with ${flush.pendingBatches} batch(es) still unsent — ` +
+        `they stay in historyLog and replay on the next sync`,
+        'serverSync/pull',
+      );
+    }
+
     // 1. Fetch data from Laravel API
     verbose.content('Making API request', 'serverSync/pull');
 
@@ -86,9 +102,6 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
     // 2. Open IndexedDB
     verbose.content('Opening IndexedDB', 'serverSync/pull');
     const db = await openDatabase();
-
-    // 2.5 Flush any pending edits to the server before clearing
-    await flushAllPendingEdits();
 
     // 3. Clear existing data for this book
     verbose.content('Clearing existing data for this book', 'serverSync/pull');
@@ -185,7 +198,17 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     // library update (gate_defaults save/reset); the server must see it before
     // it computes the gate-filtered annotation set, or a "Reset to Global
     // Default" refetch is filtered by the STALE book defaults.
-    await flushAllPendingEdits();
+    // NOTE the asymmetry with syncBookDataFromDatabase: annotation edits are NOT
+    // in historyLog (that store is nodes only), so an unsynced one really is lost
+    // when clearAnnotationsFromIndexedDB runs below — worth saying out loud when
+    // it happens, even though this path can't reasonably refuse to proceed.
+    const annFlush = await flushAllPendingEdits();
+    if (!annFlush.synced) {
+      log.error(
+        `Annotations-only resync for ${bookId} with ${annFlush.pendingBatches} batch(es) unsent`,
+        'serverSync/pull',
+      );
+    }
 
     // 1. Fetch only annotations (not the full book with all nodes)
     // Include gate filter as query param so server applies it immediately

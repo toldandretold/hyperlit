@@ -259,7 +259,7 @@ class UserHomeServerController extends Controller
             $hyperciteMap = app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->svgForBooks(
                 $mapCorpus,
                 'Hypercite network of ' . $title,
-                "user-hypercite-map:{$sanitizedUsername}:v1",
+                "user-hypercite-map:{$sanitizedUsername}:v2",
             );
         }
 
