@@ -580,3 +580,26 @@ def test_unit_exponents_never_become_footnote_markers():
     assert M.convert_footnotes('as noted earlier.² More') == 'as noted earlier.[^2] More'
     assert M.convert_footnotes('in Vietnam² the war') == 'in Vietnam[^2] the war'
     assert M.convert_bare_caret_footnotes('en masse^{2}.') == 'en masse[^2].'
+
+
+# ---------------------------------------------------------------------------
+# A comma between digits is a SEPARATOR, not a sentence comma (7fa30289)
+# ---------------------------------------------------------------------------
+def test_decimal_and_thousands_commas_are_not_footnote_markers():
+    # European decimal notation in a table column ("Market Capitalisation … 451,8") and
+    # English thousands separators ("2,042 bookmarks") both put a 1-3 digit run after a
+    # comma followed by a space — the exact shape of a marker after a sentence comma.
+    # The per-page converter always guarded this; the whole-document one did not, and a
+    # ten-row table grew seven phantom footnote markers.
+    for text in ('| CISCO | USA | 21 000 | 451,8 |\n| MICROSOFT | USA | 31 396 | 410,9 |',
+                 'a[^1] total of 2,042 bookmarks and 63,013 active journals b[^3]'):
+        out = M.normalize_all_footnote_refs(text)
+        assert '451,[^8]' not in out and '410,[^9]' not in out
+        assert '2,[^42]' not in out and '63,[^13]' not in out
+
+
+def test_marker_after_a_real_sentence_comma_still_converts():
+    # The guard keys on a DIGIT before the comma — a letter before it is prose, so
+    # "preferable,30 but" keeps its marker (85542c5e).
+    out = M.normalize_all_footnote_refs('found this[^29] preferable,30 but others[^31] did')
+    assert 'preferable,[^30] but' in out

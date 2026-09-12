@@ -199,6 +199,9 @@ class JournalImportController extends Controller
             'journal' => [
                 'slug'               => $journal->slug,
                 'display_name'       => $journal->display_name,
+                // The hero override, RAW (null when unset) — the console edits the override,
+                // not the resolved name, so an empty box means "use OpenAlex's full title".
+                'hero_name'          => $journal->hero_name,
                 'publisher'          => $journal->publisher,
                 'issn_l'             => $journal->issn_l,
                 'openalex_source_id' => $journal->openalex_source_id,
@@ -242,6 +245,40 @@ class JournalImportController extends Controller
         return response()->json([
             'certified'    => $journal->certified_at !== null,
             'certified_at' => $journal->certified_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * POST /api/maintainer/journal-import/{slug}/hero-name — the short name for the public hero.
+     *
+     * The /j/{slug} lockup sizes the colon squares to the rendered title block, so a venue that
+     * registered its name as a sentence ("… Open Access Journal for a Global Sustainable
+     * Information Society") turns the mark into two squares floating 300px apart. There is no
+     * machine answer to "what is this journal actually called" — tripleC's own masthead says
+     * "tripleC" — so it is an operator field.
+     *
+     * Writes hero_name, never display_name: journal:sync-registry overwrites display_name from
+     * OpenAlex on every run, and the full name is what the <title>, the meta description and the
+     * JSON-LD need. Empty clears the override. Synchronous and lock-free, like certify.
+     */
+    public function heroName(Request $request, string $slug)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'hero_name' => 'nullable|string|max:120',
+        ]);
+
+        $name = trim((string) ($validated['hero_name'] ?? ''));
+        $journal->hero_name = $name === '' ? null : $name;
+        $journal->save();
+
+        return response()->json([
+            'hero_name'  => $journal->hero_name,
+            'hero_title' => $journal->heroTitle(),
         ]);
     }
 

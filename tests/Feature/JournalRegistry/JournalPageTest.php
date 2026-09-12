@@ -196,6 +196,30 @@ test('a journal without a shelf renders the hero without feed buttons', function
     expect($html)->not->toContain('class="main-content');
 });
 
+test('hero_name shortens the hero heading only — title, description and JSON-LD keep the full name', function () {
+    // The venue's registered name can be a sentence, and the colon squares are sized to the
+    // rendered title block, so an unshortened one wrecks the lockup. hero_name is the operator's
+    // answer for the HEADING; the citation identity must not move with it.
+    $long = 'JPage Communication Capitalism & Critique Open Access Journal for a Global Sustainable Information Society';
+    $journal = jpageSeedJournal(['display_name' => $long, 'hero_name' => 'JPage tripleC']);
+
+    $html = $this->get('/j/' . $journal->slug)->assertOk()->getContent();
+
+    // The lockup heading is the short form, with the full name on hover.
+    expect($html)->toContain('<h1 class="journal-title"');
+    expect($html)->toMatch('/<h1 class="journal-title"[^>]*>JPage tripleC<\/h1>/');
+    expect($html)->toContain('title="' . e($long) . '"');
+
+    // Everything that identifies the journal to a machine stays on display_name.
+    expect($html)->toContain('<title>' . e($long) . ' — Hyperlit</title>');
+    expect($html)->toContain('"name":' . json_encode($long));
+
+    // No override: the heading is the full name and there is no redundant title attribute.
+    $plain = jpageSeedJournal(['display_name' => 'JPage Plain Journal']);
+    $plainHtml = $this->get('/j/' . $plain->slug)->assertOk()->getContent();
+    expect($plainHtml)->toMatch('/<h1 class="journal-title"\s*>JPage Plain Journal<\/h1>/');
+});
+
 test('the /j index lists diamond journals ranked by citations', function () {
     $big = jpageSeedJournal(['display_name' => 'JPage Big Journal', 'cited_by_count' => 9000]);
     $small = jpageSeedJournal(['display_name' => 'JPage Small Journal', 'cited_by_count' => 10]);

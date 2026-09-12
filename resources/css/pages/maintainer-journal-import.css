@@ -375,6 +375,28 @@ body.ji-detail {
   padding-right: 4px;
 }
 
+/* Hero name + its save button: the same one-control grouping as the bulk trio. The box is
+   narrow on purpose — what fits here is roughly what fits on one line of the public lockup. */
+.ji-hero-name-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ji-hero-name-group input {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 3px 7px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  width: 190px;
+}
+.ji-hero-name-group input:focus {
+  outline: none;
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+
 /* Labels the selects need for screen readers but that would only add noise on screen — the
    visible text of each option already says what it is ("next 5", "HTML"). */
 .ji-visually-hidden {

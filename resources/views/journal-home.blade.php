@@ -60,7 +60,15 @@
           <rect y="56.67" width="28.33" height="28.33" fill="url(#New_Gradient_Swatch_copy_4)"/>
         </svg>
         </a>
-        <h1 class="journal-title">{{ $journal->display_name }}</h1>
+        {{-- heroTitle(), not display_name: a venue's registered name can run to a dozen
+             words ("tripleC Communication Capitalism & Critique Open Access Journal for a
+             Global Sustainable Information Society"), which is nine lines here and drags
+             the colon with it. The short form is set per journal in the import console;
+             display_name still carries the citation identity everywhere else on the page,
+             and hangs off the title attribute so the full name is one hover away. --}}
+        <h1 class="journal-title"
+            @if($journal->heroTitle() !== $journal->display_name) title="{{ $journal->display_name }}" @endif
+        >{{ $journal->heroTitle() }}</h1>
       </div>
       <div class="arranger-buttons-container">
         <!-- Journal-scoped search (journalSearch component keys off these ids;

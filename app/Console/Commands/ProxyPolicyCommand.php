@@ -15,14 +15,21 @@ use Illuminate\Support\Facades\DB;
  * datacenter IP range. For the corpus we actually harvest we already know the answer, so it should
  * be in the table before anything asks.
  *
- * `--seed-diamond` derives hosts from the works of DIAMOND journals. Diamond is a fact about APCs,
- * not about bot walls, so it is a heuristic and not a guarantee — which is exactly why seeding only
- * ever INSERTS. A host that has since walled us keeps its learned `proxy` verdict.
+ * `--seed-diamond` runs TWO passes, and the order is the correctness property:
+ *
+ *   1. Hosts the import history records as having WALLED us → `proxy`. This is real evidence.
+ *   2. Hosts of diamond-journal works → `direct`. This is a heuristic.
+ *
+ * Diamond is a fact about APCs and says nothing about bot walls, and the two come apart in
+ * practice: Bristol University Press publishes diamond-OA journals from behind an AWS WAF bot
+ * check. A diamond-only seed therefore marked the single host we have the most recorded evidence
+ * about as `direct`, which is the exact probe seeding exists to prevent. Evidence first, heuristic
+ * second, and because both passes only ever INSERT, evidence always wins.
  */
 class ProxyPolicyCommand extends Command
 {
     protected $signature = 'harvest:proxy-policy
-                            {--seed-diamond : Mark the publisher hosts of diamond-journal works as direct (insert-only)}
+                            {--seed-diamond : Seed from history first (hosts that have walled us → proxy), then diamond-journal hosts → direct. Insert-only.}
                             {--set= : Host to set explicitly, e.g. direct.mit.edu}
                             {--mode=proxy : With --set: direct | proxy}
                             {--forget= : Delete a host row so it is probed fresh}
@@ -54,9 +61,67 @@ class ProxyPolicyCommand extends Command
         return $this->report();
     }
 
+    /**
+     * Hosts we have ALREADY watched wall us, straight out of the import history.
+     *
+     * This pass runs FIRST and it is the one that makes seeding safe. Diamond is a fact about APCs;
+     * it says nothing about bot walls, and the two genuinely come apart — Bristol University Press
+     * publishes diamond-OA journals from behind an AWS WAF bot check, so a diamond-only seed marks
+     * the single host we have the most evidence about as `direct` and then probes it from the
+     * droplet. That probe is the thing seeding exists to avoid.
+     *
+     * `library.pdf_url_status` is where `setPdfUrlStatus` records a refusal, and every reason
+     * AccessWallDetector produces begins "blocked by " (see its MARKERS). Matching that prefix
+     * rather than naming vendors keeps this correct when a new wall vendor is added there.
+     *
+     * Because seeding is insert-only, running this before the diamond pass means recorded evidence
+     * always beats the heuristic — no ordering subtlety beyond "walls first".
+     */
+    private function seedKnownWalls(ProxyPolicy $policy, bool $dry): int
+    {
+        $rows = DB::connection('pgsql_admin')
+            ->table('library as l')
+            ->join('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
+            ->where('l.pdf_url_status', 'ILIKE', 'blocked by %')
+            ->select('cs.pdf_url', 'cs.oa_url', 'l.pdf_url_status')
+            ->get();
+
+        $walls = [];
+        foreach ($rows as $row) {
+            foreach ([$row->pdf_url, $row->oa_url] as $url) {
+                $host = $policy->hostOf($url);
+                if ($host !== null && $host !== 'doi.org' && $host !== 'dx.doi.org') {
+                    $walls[$host] ??= ['hits' => 0, 'reason' => $row->pdf_url_status];
+                    $walls[$host]['hits']++;
+                }
+            }
+        }
+        arsort($walls);
+
+        $seeded = 0;
+        foreach ($walls as $host => $info) {
+            if ($dry) {
+                $this->line(sprintf('  <fg=yellow>would mark proxy</> %-45s (%d recorded wall(s))', $host, $info['hits']));
+                continue;
+            }
+            // seedDirect is insert-only by design; a wall needs the ratchet, which markWalled owns.
+            if ($policy->modeFor($host) === ProxyPolicy::MODE_PROXY) {
+                continue;
+            }
+            $policy->markWalled($host, "seeded from import history: {$info['reason']} ({$info['hits']} works)");
+            $seeded++;
+            $this->line(sprintf('  <fg=yellow>proxy </> %-45s (%d recorded wall(s))', $host, $info['hits']));
+        }
+
+        return $dry ? count($walls) : $seeded;
+    }
+
     private function seedDiamond(ProxyPolicy $policy): int
     {
         $dry = (bool) $this->option('dry-run');
+
+        // Evidence before heuristic — see seedKnownWalls.
+        $walled = $this->seedKnownWalls($policy, $dry);
 
         // Hosts come from the works themselves rather than from the registry: `journal_sources`
         // records the journal's identity, not the address its full text is actually served from,
@@ -96,8 +161,9 @@ class ProxyPolicyCommand extends Command
 
         $this->newLine();
         $this->info($dry
-            ? count($hosts) . ' distinct host(s) found — nothing written.'
-            : "{$seeded} newly seeded, " . (count($hosts) - $seeded) . ' already had a verdict (left alone).');
+            ? count($hosts) . " distinct diamond host(s) found, {$walled} with recorded walls — nothing written."
+            : "{$walled} marked proxy from recorded walls, {$seeded} newly seeded direct, "
+                . (count($hosts) - $seeded) . ' already had a verdict (left alone).');
 
         return 0;
     }

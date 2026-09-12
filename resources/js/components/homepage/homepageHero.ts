@@ -39,6 +39,11 @@ let returnTimer = 0;
 // travel in px, so it moves at the same speed as the text)
 const HERO_TRAVEL = 280;
 
+// How tall the journal/user colon may grow, in TITLE LINES. Three is the point where
+// the squares still read as a mark beside the name rather than as decoration flanking a
+// paragraph. See watchJournalColon.
+const MAX_COLON_LINES = 3;
+
 const heroRoot = (): HTMLElement | null =>
   document.querySelector<HTMLElement>('#app-container.lava-lamp-background');
 
@@ -151,6 +156,27 @@ function closeFeed(): void {
 }
 
 /**
+ * The colon's height for a given title block — its measured height, CAPPED at
+ * MAX_COLON_LINES worth of text.
+ *
+ * Matching the title exactly is right while the name is a name; past a few lines it stops
+ * reading as a lockup and becomes two gradient squares floating a screen apart (tripleC's
+ * registered name is nine lines here = a 342px colon). The gap is derived from this too
+ * (`gap: colon-h / 3` in the CSS), so capping the height keeps the mark's proportions
+ * instead of blowing the negative space out with it.
+ *
+ * `lineHeight` is NaN when the computed value is `normal` (or the element is unstyled) —
+ * no cap then, which restores the old behaviour rather than guessing a wrong one.
+ *
+ * Per-journal, the real fix is the short hero name in the import console; this is the
+ * floor under every journal nobody has got to yet, and under user library titles.
+ */
+export function capColonHeight(titleHeight: number, lineHeight: number): number {
+  const cap = lineHeight > 0 ? lineHeight * MAX_COLON_LINES : Infinity;
+  return Math.min(titleHeight, cap);
+}
+
+/**
  * Journal lockup: the colon squares track the MEASURED title-block height
  * (writes --colon-h on the lockup — see journalHome.css). Line count isn't
  * knowable in CSS, and a flex-stretch %-height chain collapses against the
@@ -162,7 +188,8 @@ function watchJournalColon(): void {
   const lockup = title?.closest<HTMLElement>('.journal-logo-lockup');
   if (!title || !lockup) return;
   const apply = (): void => {
-    lockup.style.setProperty('--colon-h', `${title.offsetHeight}px`);
+    const lineHeight = parseFloat(getComputedStyle(title).lineHeight); // NaN if `normal`
+    lockup.style.setProperty('--colon-h', `${capColonHeight(title.offsetHeight, lineHeight)}px`);
   };
   apply();
   colonObserver?.disconnect();

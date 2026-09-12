@@ -85,6 +85,23 @@ test('a manual direct override survives later wall hits', function () {
     expect((int) ppDb()->table('fetch_host_policy')->where('host', 'override.pptest')->value('wall_hits'))->toBe(1);
 });
 
+/**
+ * The seeding order is the correctness property, and this is the case that proved it: Bristol
+ * University Press publishes DIAMOND-OA journals from behind an AWS WAF bot check. A diamond-only
+ * seed marked the one host we had the most recorded evidence about as `direct` and would then have
+ * probed it from the droplet — the exact request seeding exists to avoid.
+ */
+test('recorded wall evidence beats the diamond heuristic, whatever order the passes insert in', function () {
+    $policy = app(ProxyPolicy::class);
+
+    // Pass 1 (history) has already ratcheted it.
+    $policy->markWalled('walled-diamond.pptest', 'seeded from import history: blocked by an AWS WAF bot check');
+
+    // Pass 2 (diamond) must not be able to undo that, because seeding only ever inserts.
+    expect($policy->seedDirect('walled-diamond.pptest', 'diamond-journal host, 106 works'))->toBeFalse();
+    expect(app(ProxyPolicy::class)->useProxyFor('walled-diamond.pptest'))->toBeTrue();
+});
+
 test('hostOf normalises what it is given, and ignores what it cannot key on', function () {
     $policy = app(ProxyPolicy::class);
 

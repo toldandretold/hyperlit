@@ -1011,3 +1011,57 @@ test('the detail page ships the certify toggle main.ts wires', function () {
     expect($html)->toContain('id="ji-certify"');
     expect($html)->toContain('aria-pressed="false"');
 });
+
+test('hero-name sets and clears the public hero override without touching display_name', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal(['display_name' => 'JCon Very Long Registered Journal Name For A Sustainable Society']);
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/hero-name", ['hero_name' => '  JCon Short  '])
+        ->assertOk()
+        ->assertJson(['hero_name' => 'JCon Short', 'hero_title' => 'JCon Short']);
+
+    // Default connection, not pgsql_admin: the endpoint's write lives inside the test
+    // transaction the admin connection cannot see (same reason as the certify test).
+    $fresh = \App\Models\JournalSource::find($journal->id);
+    expect($fresh->hero_name)->toBe('JCon Short');
+    // display_name is OpenAlex's and journal:sync-registry rewrites it — an override that
+    // edited it in place would be silently reverted by the next sync.
+    expect($fresh->display_name)->toBe($journal->display_name);
+
+    // Empty clears it, and the resolved hero title falls back to the registered name.
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/hero-name", ['hero_name' => ''])
+        ->assertOk()
+        ->assertJson(['hero_name' => null, 'hero_title' => $journal->display_name]);
+
+    expect(\App\Models\JournalSource::find($journal->id)->hero_name)->toBeNull();
+});
+
+test('hero-name is admin-gated, 404s an unknown journal, and rejects an over-long name', function () {
+    $journal = jconSeedJournal();
+
+    $this->loginUser(); // not admin
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/hero-name", ['hero_name' => 'Nope'])
+        ->assertStatus(403);
+
+    $this->loginUser(['is_admin' => true]);
+    $this->postJson('/api/maintainer/journal-import/no-such-journal/hero-name', ['hero_name' => 'Nope'])
+        ->assertStatus(404);
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/hero-name", ['hero_name' => str_repeat('x', 121)])
+        ->assertStatus(422);
+
+    expect(\App\Models\JournalSource::find($journal->id)->hero_name)->toBeNull();
+});
+
+test('the detail payload and page carry the hero name field main.ts wires', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal(['display_name' => 'JCon Named', 'hero_name' => 'JCon N']);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")
+        ->assertOk()
+        ->assertJsonPath('journal.hero_name', 'JCon N');
+
+    $html = $this->get('/maintainer/journal-import/' . $journal->slug)->assertOk()->getContent();
+    expect($html)->toContain('id="ji-hero-name"');
+    expect($html)->toContain('id="ji-hero-name-save"');
+});

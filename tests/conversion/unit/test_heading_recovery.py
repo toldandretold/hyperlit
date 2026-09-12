@@ -121,3 +121,47 @@ def test_section_tier_ignores_a_lone_title_heading():
     """A single h1 on page 1 is the article title, not a section tier — dividers follow the h2s."""
     pages = [_page("# Title"), _page("# Stray\n\n## Section One"), _page("## Section Two")]
     assert A._body_section_level(pages) == 2
+
+
+# ---------------------------------------------------------------------------
+# 7fa30289 — two more ways a non-heading becomes a heading
+# ---------------------------------------------------------------------------
+
+def test_masthead_chrome_is_never_a_section_name():
+    """'tripleC 1(1): 1-52, 2003' appeared on 15 of 39 header-bearing pages — a hair under the
+    40% running-header bar — so it was injected mid-paragraph as '# tripleC 1(1): 1-52,' (the
+    trailing-page-number strip ate the year). A citation locator / ISSN / URL is never a
+    section, and neither is a name left dangling on a comma."""
+    assert extract_section_name('tripleC 1(1): 1-52, 2003') is None
+    assert extract_section_name('ISSN 1726-670X') is None
+    assert extract_section_name('http://tripleC.uti.at') is None
+    assert extract_section_name('Collectivity in scholar-led publishing | Adema and Moore') is None
+    assert extract_section_name("Earl Stanhope's Logic Demonstrator, 1777") is None
+    # real section names still come through, page number stripped
+    assert extract_section_name('Introduction 35') == 'Introduction'
+    assert extract_section_name('4. Information and Self-Organisation in Society') == \
+        '4. Information and Self-Organisation in Society'
+
+
+def test_list_leadin_sentence_is_demoted_to_prose():
+    """A bolded sentence that introduces the list under it ('Aspects of emergence are:') is a
+    lead-in, not a section: as a heading it enters the TOC as a fragment and is severed from
+    the list that completes it. The same article leaves the unbolded parallel construction as
+    prose, which is what the sentence was meant to be."""
+    md = ('## Aspects of emergence are:\n\n'
+          '- Synergism: Emergence is due to productive interaction.\n'
+          '- Novelty: new qualities show up.\n')
+    assert A._demote_list_leadin_headings(md).startswith('Aspects of emergence are:\n')
+
+
+def test_real_headings_over_a_list_keep_their_level():
+    """Gated on SENTENCE shape — a title-case heading, a numbered section, and a colon heading
+    with no list under it all stay headings."""
+    keep = [
+        '## Key Findings and Limits:\n\n- one thing\n- another thing\n',
+        '## 3.1 Materials and Methods:\n\n- a reagent\n- another\n',
+        '## Aspects of emergence are:\n\nEmergence is due to productive interaction.\n',
+        '## Results:\n\n- one\n- two\n',                      # too few words to be a sentence
+    ]
+    for md in keep:
+        assert A._demote_list_leadin_headings(md) == md

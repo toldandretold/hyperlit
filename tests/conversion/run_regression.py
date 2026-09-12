@@ -176,7 +176,26 @@ def run_pdf_pipeline(fixture, tmp_dir):
                 shutil.copy2(src, os.path.join(tmp_dir, 'source.pdf'))
                 break
 
-    r = _run([sys.executable, MISTRAL_OCR_SCRIPT, '/dev/null', tmp_dir])
+    # Manifest "stage_pdf": true — hand assembly the real PDF instead of /dev/null, so the
+    # pypdf recovery paths run (page-bottom def extraction, the footnote-MARKER rescue that
+    # reads the PDF's own text layer, mangled-URL repair). Those paths are invisible to a
+    # PDF-less replay: the fixture whose OCR dropped 8 of its 9 superscript markers converts to
+    # one lone footnote here while converting to all nine in production, so without this every
+    # recovery fix is untested. Opt-in per fixture, never default — most fixtures ship no PDF,
+    # and the recovery is only interesting where the OCR actually lost something. pypdf's text
+    # extraction is deterministic, so an opted-in fixture's golden stays byte-stable.
+    ocr_arg = '/dev/null'
+    if fixture['manifest'].get('stage_pdf') and not OCR_VARIANT:
+        for pdf_name in ('source.pdf', 'original.pdf'):
+            src = os.path.join(fixture['dir'], pdf_name)
+            if os.path.isfile(src):
+                ocr_arg = src
+                break
+        if ocr_arg == '/dev/null':
+            return ('skipped: manifest asks for stage_pdf but no source.pdf/original.pdf '
+                    'in the fixture')
+
+    r = _run([sys.executable, MISTRAL_OCR_SCRIPT, ocr_arg, tmp_dir])
     if r.returncode != 0:
         return _err('mistral_ocr', r)
 

@@ -657,6 +657,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // journal's in-flight run lock and stall behind an import.
     Route::post('/maintainer/journal-import/{slug}/certify', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'certify'])
         ->where('slug', '[a-z0-9-]+');
+    // The short name the public hero shows instead of OpenAlex's full registered title
+    // (which can be a sentence). Same shape as certify: one column, synchronous, no run lock.
+    Route::post('/maintainer/journal-import/{slug}/hero-name', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'heroName'])
+        ->where('slug', '[a-z0-9-]+');
 
     // Shelf-import console: journal-import's assessment workflow over any public shelf.
     // Only `shelves` (picker), `articles` and `run` are shelf-scoped — promote / resolve /

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1893,
+    "fnCount": 1894,
     "moduleCount": 399,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3869,
+    "edgeCount": 3870,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -646,6 +646,14 @@
       "stage": "components",
       "module": "components/homepage/homepageDisplayUnit",
       "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageHero:capColonHeight",
+      "label": "capColonHeight",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageHero",
+      "leaf": true
     },
     {
       "id": "components/homepage/homepageHero:destroyHomepageHero",
@@ -17198,6 +17206,7 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/homepage/homepageHero:capColonHeight",
         "components/homepage/homepageHero:destroyHomepageHero",
         "components/homepage/homepageHero:initHomepageHero"
       ]
@@ -22625,6 +22634,12 @@
       "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/homepageDisplayUnit:resetHeaderAlignment",
       "source": "components/homepage/homepageHero:initHomepageHero",
       "target": "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/homepageHero:capColonHeight",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "components/homepage/homepageHero:capColonHeight",
       "rel": "call"
     },
     {

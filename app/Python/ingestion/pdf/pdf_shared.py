@@ -500,6 +500,14 @@ def normalize_all_footnote_refs(text):
                     j -= 1
                 if pos - 2 - j <= 3:
                     continue
+        # A digit before the COMMA makes it a separator inside one number, not a sentence comma
+        # with a marker after it: "3,141" (thousands) and — in European typography — "451,8"
+        # (decimal). The per-page converter has always had this guard; without it here, a
+        # German-decimal TABLE COLUMN became seven phantom footnote markers (7fa30289's
+        # "Market Capitalisation … 451,8" → "451,[^8]"). "preferable,30 but" keeps its marker:
+        # the char before the comma is a letter.
+        if text[pos - 1] == ',' and pos >= 2 and text[pos - 2].isdigit():
+            continue
         bare_candidates.append((pos, num, m.start(), m.start() + len(m.group(1)), 'bare'))
 
     all_candidates = bracket_candidates + bare_candidates
@@ -787,6 +795,17 @@ def is_page_number_header(header_text):
     return bool(re.match(r'^\d+$', header_text.strip()))
 
 
+# Masthead / publication chrome in a page header: a journal citation locator ("1(1): 1-52"),
+# an ISSN / ISBN / DOI, a URL, or the "Short title | Authors" running-head form (the same ' | '
+# signal the pypdf def scan already treats as page chrome). None is ever a section divider.
+_HEADER_CHROME_RE = re.compile(
+    r'\b\d{1,4}\s*\(\s*\d{1,4}\s*\)\s*:'            # vol(issue): pages
+    r'|\b(?:ISSN|ISBN|DOI)\b'
+    r'|https?://|www\.'
+    r'| \| ',
+    re.IGNORECASE)
+
+
 def extract_section_name(header_text):
     """Extract a clean section name from a header, stripping page numbers."""
     if not header_text:
@@ -795,13 +814,33 @@ def extract_section_name(header_text):
     # Pure page number — not a section
     if re.match(r'^\d+$', stripped):
         return None
+    # Journal CHROME is never a section name: the masthead citation line
+    # ("tripleC 1(1): 1-52, 2003"), an ISSN/ISBN/DOI line, or a bare URL. This is not just
+    # cosmetic — a chrome line that slips the running-header repeat threshold gets INJECTED
+    # into the body as an h1 (7fa30289's masthead appeared on 15 of 39 header-bearing pages,
+    # a hair under the 40% bar, and landed mid-paragraph as "# tripleC 1(1): 1-52,").
+    if _HEADER_CHROME_RE.search(stripped):
+        return None
     # Strip trailing page number (e.g. "Introduction 35")
     cleaned = re.sub(r'\s+\d+$', '', stripped)
     # Strip leading page number (e.g. "42 Some Title")
     cleaned = re.sub(r'^\d+\s+', '', cleaned)
+    # A name left dangling on a comma/semicolon is the truncated remains of such a line, not a
+    # heading — real section titles do not end mid-list.
+    if cleaned.endswith((',', ';')):
+        return None
     if cleaned:
         return cleaned
     return None
+
+
+# A line that OPENS a footnote definition — never the continuation of the paragraph above it, so
+# the page-break rejoiner must not swallow it. The superscript-LETTER form is Mistral's rendering
+# of a superscript digit it could not resolve; it counts as lowercase, so without this guard a
+# stranded def got glued onto the tail of the previous definition (7fa30289 fn 9 onto fn 3).
+_DEF_OPENER_LINE_RE = re.compile(
+    r'^\s*(?:\[\^\d+\][:.]?\s|[¹²³⁰-⁹]\s|\^\d{1,3}\s'
+    r'|[ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]\s)')
 
 
 def rejoin_page_breaks(text):
@@ -848,6 +887,7 @@ def rejoin_page_breaks(text):
             if (not stripped_for_check.endswith(('.', '!', '?', ':', ';', '"', ')', ']', '---'))
                     and next_nonempty[0].islower()
                     and not next_nonempty.startswith('#')
+                    and not _DEF_OPENER_LINE_RE.match(next_nonempty)
                     and len(stripped) > 20):
                 result.append(stripped + ' ' + next_nonempty)
                 i = next_idx + 1

@@ -14,6 +14,7 @@
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
 import { initShelfDrop } from './shelfDrop';
+import { isAttempted, isFailed } from './articleFilters';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
 } from '../utilities/sourceFrameTheme';
@@ -276,6 +277,7 @@ async function loadDetail(): Promise<void> {
     link.href = j.public_page;
     // Server truth, every reload — the flag is settable from anywhere with the API.
     paintCertifyButton(!!j.certified);
+    paintHeroNameField(j.hero_name ?? null);
   }
 
   // The selected lane is a snapshot of the previous payload; re-point it at the fresh row so the
@@ -294,15 +296,24 @@ async function loadDetail(): Promise<void> {
 
 function renderArticles(): void {
   const onlyImported = el<HTMLInputElement>('ji-only-imported')?.checked ?? false;
-  // A failed import still mints its lane row — it just never gets content — so "failed" is a lane
-  // with no nodes. A work nobody has attempted has no lanes at all and is correctly excluded.
+  // "Failed" = this work has NO usable version, not "some lane is empty".
+  //
+  // A failed import still mints its lane row and never gets content, so an empty lane used to be a
+  // sound proxy for a failed work — back when a work had one lane. The html-first strategy broke
+  // that: it tries the free publisher page per work and falls back to the PDF, so every work whose
+  // HTML lane failed and whose PDF lane then SUCCEEDED carries a permanent empty `journal_html`
+  // stub beside a perfectly good pdf lane. After a 944-work run that was most of the journal, and
+  // "failed only" listed nearly all of it.
   const onlyFailed = el<HTMLInputElement>('ji-only-failed')?.checked ?? false;
 
   const needle = (el<HTMLInputElement>('ji-article-search')?.value || '').trim().toLowerCase();
 
   let rows = articles;
-  if (onlyImported) rows = rows.filter((a) => a.lanes.length > 0);
-  if (onlyFailed) rows = rows.filter((a) => a.lanes.some((l) => !l.has_nodes));
+  if (onlyImported) rows = rows.filter(isAttempted);
+  // Attempted but nothing came of it. A work nobody has tried has no lanes at all and is correctly
+  // excluded — that is "not imported yet", not "failed". See articleFilters.ts for why this is
+  // "no lane has content" rather than the cheaper "some lane is empty".
+  if (onlyFailed) rows = rows.filter(isFailed);
   if (needle) {
     rows = rows.filter((a) => (a.title || '').toLowerCase().includes(needle)
       || (a.doi || '').toLowerCase().includes(needle));
@@ -1570,6 +1581,45 @@ function wireJournalActions(): void {
     })();
   });
 
+  // The hero name: what /j/{slug} calls this journal. Saved on its own, not folded into an
+  // import run — it is a one-column write about presentation, and must not wait on (or take
+  // the lock of) whatever is harvesting beside it.
+  const heroName = document.getElementById('ji-hero-name') as HTMLInputElement | null;
+  const heroSave = document.getElementById('ji-hero-name-save');
+  const saveHeroName = (): void => {
+    if (!heroName || !heroSave) return;
+    const value = heroName.value.trim();
+    void (async () => {
+      const headers = await csrfHeaders();
+      if (!headers) return;
+      heroSave.setAttribute('disabled', 'true');
+      try {
+        const resp = await fetch(`${apiBase()}/hero-name`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hero_name: value }),
+        });
+        if (!resp.ok) {
+          log.error(`Hero name save failed (${resp.status})`, 'maintainer-journal-import');
+          setJournalStatus(`could not save the hero name (${resp.status})`);
+          return;
+        }
+        const data = await resp.json();
+        heroName.value = data.hero_name ?? '';
+        setJournalStatus(data.hero_name
+          ? `public page now reads “${data.hero_name}”`
+          : 'public page back to the full registered title');
+      } finally {
+        heroSave.removeAttribute('disabled');
+      }
+    })();
+  };
+  heroSave?.addEventListener('click', saveHeroName);
+  heroName?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveHeroName(); }
+  });
+
   document.getElementById('ji-run-close')?.addEventListener('click', () => {
     el<HTMLElement>('ji-run-panel').hidden = true;
   });
@@ -1648,6 +1698,19 @@ async function runResume(runId: string, setter: (text: string) => void, buttons:
  * Paint the certify toggle from a known state. Absent on the shelf console, which has no
  * journal to certify — every caller is a no-op there.
  */
+/**
+ * Paint the hero-name box from server truth. Skipped while it has focus: the payload is
+ * re-fetched after every action (and on every run poll tick), and overwriting a half-typed
+ * name mid-edit is the same class of bug as the note editor's re-render guard.
+ *
+ * Absent on the shelf console — a shelf has no journal hero to name.
+ */
+function paintHeroNameField(heroName: string | null): void {
+  const input = document.getElementById('ji-hero-name') as HTMLInputElement | null;
+  if (!input || document.activeElement === input) return;
+  input.value = heroName ?? '';
+}
+
 function paintCertifyButton(certified: boolean): void {
   const button = document.getElementById('ji-certify');
   if (!button) return;

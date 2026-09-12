@@ -735,6 +735,25 @@ class ContentFetchService
     }
 
     /**
+     * A publisher page fetched for its METADATA only — no gates, no import, no cost.
+     *
+     * Deliberately the plain rung and nothing else. A metadata repair (`library:repair-years`) wants
+     * a handful of `citation_*` meta tags; escalating to the headed browser for that would spend up
+     * to 75s and a proxy session per work, and running the full ladder could spend OCR money on a
+     * job that is not importing anything. If the plain GET is walled, the answer is "we don't know",
+     * which is the correct outcome for a repair pass — not a reason to buy a fetch.
+     *
+     * The policy host is set so a publisher already known to need the proxy still gets it.
+     */
+    public function fetchPageForMetadata(string $url): ?string
+    {
+        $this->currentSession = Str::random(12);
+        $this->setPolicyHost($url);
+
+        return $this->fetchHtmlPlain($url);
+    }
+
+    /**
      * Plain proxied GET of an article page — the cheap rung below the browser.
      * Null on any non-200 / non-HTML / tiny response; the caller falls through
      * to the browser, and everything still passes the wall/identity/body gates

@@ -124,6 +124,14 @@ def _footer_bare_num_defs(footer):
     return out
 
 
+# A superscript LETTER modifier where a superscript DIGIT belongs — Mistral's rendering when it
+# can't resolve the glyph (7fa30289: footnote 9 came back as "Oberquelle 1991ᵃ)" in the body and
+# 'ᵃ "Unter kooperativer Arbeit…"' for the definition, which then sat unrecognised MID-SENTENCE in
+# the body flow). As rendered it is unlinkable junk either way; treated as a marker it is at least
+# recoverable, because the PDF's own text layer still carries the digit.
+_SUP_LETTER = '[ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]'
+
+
 # A paragraph that unambiguously OPENS a footnote definition, judged by its first line:
 # caret-bracket ([^N]: / [^N] text), a line-start unicode superscript (¹ text), a line-start LaTeX
 # superscript ($^{1}$ text), or a line-start bare caret (^23 text). Deliberately NOT the plain
@@ -135,6 +143,7 @@ _DEF_PARAGRAPH_OPENER_RE = re.compile(
     r'|[¹²³⁰-⁹]+\s'         # ¹ text
     r'|\$\^\{?\d+(?:\s*,\s*\d+)*\}?\$\s'                # $^{1}$ text / $^{1,2}$ text
     r'|\^\d{1,3}\s'                                     # ^23 text
+    r'|' + _SUP_LETTER + r'\s'                          # ᵃ text — see _SUP_LETTER
     r')'
 )
 
@@ -548,6 +557,145 @@ def _demote_defless_citation_refs(combined):
     return out
 
 
+def _demote_list_leadin_headings(combined):
+    """A colon-terminated SENTENCE that introduces the list under it is a lead-in, not a heading.
+
+    Mistral promotes it whenever the print sets it in bold ('## Aspects of emergence are:' —
+    7fa30289, flagged by the maintainer), which puts a fragment in the table of contents and
+    breaks the sentence off from the list that completes it. The same document proves the intent:
+    its parallel construction two paragraphs down, 'Aspects of self-organisation are:', was left
+    as prose because the print did not bold it.
+
+    Gated to leave real headings alone: must end in ':', must be followed immediately by a list,
+    and must read as a SENTENCE — >= 3 words in sentence case. A title-case heading over a list
+    ('## Key Findings:') keeps its level, and so does any numbered section heading.
+    """
+    lines = combined.split('\n')
+    demoted = []
+    for i, line in enumerate(lines):
+        m = re.match(r'^(#{1,6})\s+(.+?):\s*$', line)
+        if not m:
+            continue
+        text = m.group(2).strip()
+        words = text.split()
+        if len(words) < 3 or len(text) > 90:
+            continue
+        if re.match(r'^(?:\d+(?:\.\d+)*|[IVXLC]+|[A-Z])[.)]\s', text):
+            continue                                   # '3.1 Methods:' is a real heading
+        # Sentence case: at most one capitalised word after the first (a proper noun).
+        if sum(1 for w in words[1:] if w[:1].isupper()) > 1 or text.isupper():
+            continue
+        nxt = next((l.strip() for l in lines[i + 1:i + 3] if l.strip()), '')
+        if not re.match(r'^(?:[-*+]\s|\d{1,3}[.)]\s)', nxt):
+            continue                                   # only a LIST completes a lead-in
+        lines[i] = text + ':'
+        demoted.append(text)
+    if demoted:
+        print(f"  Demoted {len(demoted)} list lead-in(s) from heading to prose: "
+              + ', '.join(f'"{d}"' for d in demoted[:4])
+              + (' …' if len(demoted) > 4 else ''))
+    return '\n'.join(lines)
+
+
+def _drop_substituted_marker_duplicates(combined, recovered):
+    """Remove def paragraphs opening with a SUBSTITUTED superscript-letter marker whose text pypdf
+    has just recovered under its real number — otherwise the note renders twice, once unlinkable."""
+    heads = {re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:40] for _n, t in recovered}
+    heads.discard('')
+    if not heads:
+        return combined
+    opener = re.compile(r'^\s*' + _SUP_LETTER + r'\s')
+    paras = re.split(r'\n\s*\n', combined)
+    kept = []
+    for para in paras:
+        head = re.sub(r'[^a-z0-9]+', ' ',
+                      opener.sub('', para.strip()).lower()).strip()[:40]
+        if opener.match(para.strip()) and head in heads:
+            continue
+        kept.append(para)
+    if len(kept) == len(paras):
+        return combined              # nothing to drop — leave the text byte-identical
+    return '\n\n'.join(kept)
+
+
+def _pypdf_footnote_run(pypdf_defs_by_page, page_offsets=None):
+    """Top number of a continuous PAGE-BOTTOM footnote run in the PDF's own text layer, else 0.
+
+    Independent evidence of the document's footnote universe for the case where the OCR dropped
+    the superscript MARKERS wholesale: the surviving-ref ceiling is then 0-2 and everything above
+    it gets binned, even though pypdf can see every note sitting at the bottom of its page.
+
+    "A run" is deliberately narrow, because the same "N + text at line start" shape is also how a
+    numbered BIBLIOGRAPHY reads: it must start at 1, cover >= 70% of 1..top (one un-extracted def
+    is tolerated — a lowercase opener like "6  cf. …"), span >= 3 pages, and ascend WITH the
+    pages — and no page may carry more than 4 of them, which is what separates two notes at a
+    page foot from twenty stacked reference entries.
+    """
+    page_offsets = page_offsets or {}
+    first_page = {}
+    per_page = {}
+    for page_idx in sorted(pypdf_defs_by_page):
+        off = page_offsets.get(page_idx, 0)
+        for n, _text in pypdf_defs_by_page[page_idx]:
+            n += off
+            if 1 <= n <= 300:
+                per_page[page_idx] = per_page.get(page_idx, 0) + 1
+                first_page.setdefault(n, page_idx)
+    if len(first_page) < 3 or 1 not in first_page:
+        return 0
+    if max(per_page.values()) > 4 or len(per_page) < 3:
+        return 0
+    nums = sorted(first_page)
+    pages = [first_page[n] for n in nums]
+    if any(b < a for a, b in zip(pages, pages[1:])):
+        return 0                       # note N+1 printed before note N — not a run
+    top = nums[-1]
+    if len(nums) < top * 0.7:
+        return 0                       # too holey to be a continuous printed sequence
+    return top
+
+
+def _marker_seam_witnesses(ptext, num):
+    """Every way footnote marker `num` can render in a pypdf text layer, tightest shape first.
+
+    Yields (match, (word, punct, follow)) — the seam MINUS the digit. The caller rebuilds the
+    digitless pattern from it and only inserts where that pattern is absent from the text layer
+    and unique in the markdown, so a loose shape here costs a failed candidate, not a wrong link.
+    """
+    shapes = (
+        # glued digit-first, marker inside the punctuation:  "reviewed1. The" / "systems5: the"
+        (rf'([A-Za-z]{{3,}})\s?{num}([.,;:!?])\s+([A-Za-z]{{2,}})', 3),
+        # glued punct-first, also after digits/parens:       "…Aniekwe et al. (2012).2 The"
+        (rf'([A-Za-z0-9)\]]{{2,}}[.,;:!?]){num}\s+([A-Za-z]{{2,}})', 2),
+        # line-start marker (the superscript opened a text run):   "ESD.\n1 For"
+        (rf'([A-Za-z]{{2,}}[.!?)])\n{num} ([A-Za-z]{{2,}})', 2),
+        # line-end marker (the superscript closed one):            "2010). 2\nThis"
+        (rf'([A-Za-z0-9)\]]{{2,}}[.!?]) {num}\n([A-Za-z]{{2,}})', 2),
+        # digit ALONE on its own line between the punct line and the continuation —
+        # cece961b: "…(Chouhan et al., 2017).⏎4⏎The regulation states…"
+        (rf'([A-Za-z0-9)\]]{{2,}}[.,;!?])\s*\n{num} ?\n\s*([A-Za-z]{{2,}})', 2),
+        # NO punctuation anywhere near the marker — the marker is glued straight onto a word and
+        # the sentence simply carries on ("…the duality of structure4 because the structural…",
+        # "…in capitalism7 because…", and a heading's own note: "1. Introduction1⏎In recent…").
+        # Nothing but gluedness distinguishes this from a number in the prose, which is why the
+        # word must be a real word (4+ letters) and the whole-document uniqueness check does the
+        # actual deciding. 7fa30289 loses 3 of its 9 notes without this shape.
+        (rf'([A-Za-z]{{4,}}){num}\s+([A-Za-z]{{2,}})', 2),
+        # glued onto a closing paren or a citation YEAR, punctuation AFTER the marker:
+        # "(see figure 4)6: dispositions…", "(see also Oberquelle 19919). This…" — up to two
+        # punctuation marks, because a marker inside a parenthetical closes both at once (").").
+        (rf'([A-Za-z0-9)\]]{{2,}}){num}([.,;:!?)\]]{{1,2}})\s+([A-Za-z]{{2,}})', 3),
+    )
+    for pattern, groups in shapes:
+        m = re.search(pattern, ptext)
+        if not m:
+            continue
+        if groups == 3:
+            yield m, (m.group(1), m.group(2), m.group(3))
+        else:
+            yield m, (m.group(1), '', m.group(2))
+
+
 # A def-shaped entry opening a page FOOTER: "1 As examined in section 2: …" / "1. Text…".
 _FOOTER_RESCUE_DEF_RE = re.compile(r'(?m)^\s*(\d{1,2})[.)]?[ \t]+(?=[A-Z(‘“"\'])')
 
@@ -578,8 +726,8 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
     # Candidate set 2 — ORPHANED defs already IN combined (c2d6bdb1: the Notes-section defs
     # converted fine, only the in-text superscripts were dropped). def_text None = marker-only
     # rescue, and the marker MUST keep the def's own number to link to it.
-    for m in re.finditer(r'(?m)^\[\^(\d{1,2})\]:', combined):
-        candidates.append((None, int(m.group(1)), None))
+    orphan_defs = [(int(m.group(1)), m.group(2))
+                   for m in re.finditer(r'(?m)^\[\^(\d{1,2})\]:[ \t]*(.*)$', combined)]
 
     if not pdf_path:
         return combined, 0
@@ -590,6 +738,21 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
 
     def _norm_head(t):
         return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:30]
+
+    # PAGE-ANCHOR each orphan def by finding the page whose text layer carries its opening words.
+    # A page-bottom note and the marker that calls it are printed on the SAME page, so this turns
+    # a whole-document seam hunt (first regex hit anywhere wins — and for a one-digit number the
+    # first hit is very often the wrong page) into a single-page one.
+    page_norm = {idx: re.sub(r'[^a-z0-9]+', ' ', (t or '').lower())
+                 for idx, t in page_texts.items()}
+    for num, def_text in orphan_defs:
+        head = _norm_head(def_text)
+        home = None
+        if head:
+            homes = [idx for idx, nt in page_norm.items() if head in nt]
+            if len(homes) == 1:
+                home = homes[0]
+        candidates.append((home, num, None))
 
     # Candidate set 3 — DOUBLE LOSS (cece961b): Mistral dropped the markers AND the page-bottom
     # defs wholesale, but the TEXT LAYER holds both. Defs render as a digit ALONE on its line
@@ -660,70 +823,59 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
                 continue
             if _head(existing.group(1)) == _head(def_text):
                 continue                # same note already linked — nothing to rescue
-        ptexts = ([page_texts.get(page_idx)] if page_idx is not None
-                  else list(page_texts.values()))
-        seam = None
-        for ptext in ptexts:
-            if not ptext:
-                continue
-            # marker renderings in the pypdf layer, tightest first:
-            #   glued digit-first   "reviewed1. The"
-            #   glued punct-first   "risk.9 This"
-            #   line-start marker   "ESD.\n1 For"   (the superscript opened a new text run)
-            #   line-end marker     "2010). 2\nThis" (the superscript closed one)
-            m = re.search(rf'([A-Za-z]{{3,}})\s?{num}([.,;:!?])\s+([A-Za-z]{{2,}})', ptext)
-            if m:
-                seam = (m.group(1), m.group(2), m.group(3))
+        # Search the note's OWN page first (a page-bottom note and its marker are printed
+        # together), then the rest in page order. The first page that witnesses the marker at
+        # all owns the rescue — a witness from an unrelated page is how a phantom marker gets
+        # planted (ad752a46).
+        ordered = []
+        if page_idx is not None and page_texts.get(page_idx):
+            ordered.append(page_texts[page_idx])
+        ordered += [pt for i, pt in sorted(page_texts.items())
+                    if pt and i != page_idx]
+        seams = []
+        for ptext in ordered:
+            seams = [(sh, re.sub(r'\s+', ' ', ptext[mm.end():mm.end() + 60]).strip())
+                     for mm, sh in _marker_seam_witnesses(ptext, num)]
+            if seams:
                 break
-            # glued punct-first also after digits/parens: "…Aniekwe et al. (2012).2 The"
-            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.,;:!?]){num}\s+([A-Za-z]{{2,}})', ptext)
-            if m:
-                seam = (m.group(1), '', m.group(2))
-                break
-            m = re.search(rf'([A-Za-z]{{2,}}[.!?)])\n{num} ([A-Za-z]{{2,}})', ptext)
-            if m:
-                seam = (m.group(1), '', m.group(2))
-                break
-            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.!?]) {num}\n([A-Za-z]{{2,}})', ptext)
-            if m:
-                seam = (m.group(1), '', m.group(2))
-                break
-            # digit ALONE on its own line between the punct line and the continuation —
-            # cece961b: "…(Chouhan et al., 2017).⏎4⏎The regulation states…"
-            m = re.search(rf'([A-Za-z0-9)\]]{{2,}}[.,;!?])\s*\n{num} ?\n\s*([A-Za-z]{{2,}})',
-                          ptext)
-            if m:
-                seam = (m.group(1), '', m.group(2))
-                break
-        if seam is None:
+        if not seams:
             continue                    # no witness in the PDF text layer — never guess
-        # follow_tail: further words after the seam in the SAME text-layer context (m/ptext
-        # hold the breaking iteration's match), used to extend an ambiguous witness
-        # ("2017). The" matches twice in the md; "2017). The regulation" matches once —
-        # cece961b's [^4]).
-        follow_tail = re.sub(r'\s+', ' ', ptext[m.end():m.end() + 60]).strip() if m else ''
-        word, punct, follow = (re.escape(s) for s in seam)
-        pattern = rf'{word}{punct}\s+{follow}'
-        # The DIGITLESS seam must not exist anywhere in the text layer itself: if the PDF
-        # carries both "study10 :" (the marker site) and "case study: over" (plain prose,
-        # possibly pages away), the markdown's unique match can be the WRONG site — the
-        # witness and the insertion would be different locations (ad752a46: a law-review
-        # abstract got a phantom [^10] from a seam witnessed 40 pages later).
-        if any(re.search(pattern, pt) for pt in page_texts.values() if pt):
+        # Every witness this page offers gets a turn at the validation below: the looser shapes
+        # exist to catch markers with no punctuation around them at all ("…duality of
+        # structure4 because"), and a loose shape that picked the wrong site simply fails to
+        # validate and hands over to the next candidate rather than planting a marker.
+        placed = None
+        for seam, follow_tail in seams:
+            word, punct, follow = (re.escape(s) for s in seam)
+            # `(…)?` = the marker's own corpse: where the text layer has the digit, the markdown
+            # may carry a superscript LETTER Mistral substituted for it. Matching it optionally
+            # lets the seam line up, and the insertion REPLACES it rather than leaving junk
+            # beside the new marker.
+            pattern = rf'{word}({_SUP_LETTER}?){punct}\s+{follow}'
+            # The DIGITLESS seam must not exist anywhere in the text layer itself: if the PDF
+            # carries both "study10 :" (the marker site) and "case study: over" (plain prose,
+            # possibly pages away), the markdown's unique match can be the WRONG site — the
+            # witness and the insertion would be different locations (ad752a46: a law-review
+            # abstract got a phantom [^10] from a seam witnessed 40 pages later).
+            if any(re.search(pattern, pt) for pt in page_texts.values() if pt):
+                continue
+            hits = list(re.finditer(pattern, combined))
+            if len(hits) > 1 and follow_tail:
+                # ambiguous with one follow word — extend the witness word by word until unique
+                extra_words = follow_tail.split()
+                for w in extra_words[:3]:
+                    if not re.match(r'^[A-Za-z]{2,}[.,;:]?$', w):
+                        break
+                    pattern += rf'\s+{re.escape(w.rstrip(".,;:"))}'
+                    hits = list(re.finditer(pattern, combined))
+                    if len(hits) <= 1:
+                        break
+            if len(hits) != 1 or hits[0].start() >= body_end:
+                continue                # reworded, ambiguous, or in the back matter — skip
+            placed = (hits[0], len(seam[0]))
+            break
+        if placed is None:
             continue
-        hits = list(re.finditer(pattern, combined))
-        if len(hits) > 1 and follow_tail:
-            # ambiguous with one follow word — extend the witness word by word until unique
-            extra_words = follow_tail.split()
-            for w in extra_words[:3]:
-                if not re.match(r'^[A-Za-z]{2,}[.,;:]?$', w):
-                    break
-                pattern += rf'\s+{re.escape(w.rstrip(".,;:"))}'
-                hits = list(re.finditer(pattern, combined))
-                if len(hits) <= 1:
-                    break
-        if len(hits) != 1 or hits[0].start() >= body_end:
-            continue                    # reworded, ambiguous, or in the back matter — skip
         if def_text is None:
             target = num                # marker-only: must link to the EXISTING def
         else:
@@ -731,10 +883,11 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
             if target == next_free:
                 next_free += 1
         used.add(target)
-        h = hits[0]
-        word_len = len(seam[0])
+        h, word_len = placed
         insert_at = h.start() + word_len
-        combined = combined[:insert_at] + f'[^{target}]' + combined[insert_at:]
+        # group 1 is the substituted superscript letter (empty when the OCR dropped the marker
+        # outright) — the marker takes its place instead of standing beside it.
+        combined = combined[:insert_at] + f'[^{target}]' + combined[h.end(1):]
         if def_text is not None:
             rescued_defs.append(f'[^{target}]: {def_text}')
         rescued += 1
@@ -2245,6 +2398,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined = combined + "\n\n" + "\n\n".join(ctx.deferred_defs_parts)
     combined = assembler.post_combine(ctx, combined)
 
+    # A bolded sentence that introduces the list beneath it is a lead-in, not a section.
+    combined = _demote_list_leadin_headings(combined)
+
     # --- Fix mangled URLs from OCR ---
     if pdf_path:
         combined = fix_mangled_urls(combined, pdf_path)
@@ -2262,7 +2418,14 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         ref_nums = set(int(n) for n in re.findall(r'\[\^(\d+)\]', combined))
         # Find refs that have no definition
         missing = ref_nums - ocr_def_nums
-        if missing:
+        # A SURVIVING ref is what normally licenses recovery. When the OCR dropped the whole
+        # superscript layer, there are no refs to license anything — the notes are invisible in
+        # the markdown yet fully present in the PDF's own text layer, and the only evidence left
+        # is the page-bottom def RUN itself (7fa30289: 9 notes, 1 surviving marker, so `missing`
+        # was empty and every note was silently dropped). Look for the run whenever the assembled
+        # doc is footnote-poor; _pypdf_footnote_run below decides whether what pypdf found is a
+        # real continuous run or noise, and the marker rescue then hunts each note's seam.
+        if missing or len(ocr_def_nums) < 3:
             max_ref = max(ref_nums) if ref_nums else 0
             if ctx.pypdf_page_defs is not None:
                 pypdf_defs = ctx.pypdf_page_defs     # extracted once before the page loop
@@ -2314,6 +2477,18 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 clean_pypdf_defs = translated
                 page_offsets_map = {}
 
+            # The recovery ceiling is normally the highest SURVIVING ref — but that ceiling is
+            # exactly what a dropped superscript layer destroys, and a too-low ceiling silently
+            # discards the notes past it (7fa30289: ceiling 3, notes 4-9 binned). A page-bottom
+            # def RUN that pypdf found in the PDF's own text layer is independent evidence of
+            # the document's footnote universe, so it raises the ceiling to its own top.
+            run_top = _pypdf_footnote_run(clean_pypdf_defs, page_offsets_map)
+            if run_top > max_ref:
+                print(f"  pypdf fallback: page-bottom note run 1..{run_top} found in the PDF text "
+                      f"layer — raising the recovery ceiling from {max_ref} (the OCR kept "
+                      f"{len(ref_nums)} of the markers)")
+                max_ref = run_top
+
             recovered = recover_missing_defs(
                 ocr_def_nums, clean_pypdf_defs, max_ref,
                 page_offsets=page_offsets_map,
@@ -2322,6 +2497,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
                 combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
                 print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
+                # The same note may also be sitting there under its SUBSTITUTED marker ('ᵃ "Unter
+                # kooperativer…"'), split out of the body as an unnumbered def paragraph. pypdf's
+                # copy carries the real number, so it wins and the unnumbered twin goes.
+                combined = _drop_substituted_marker_duplicates(combined, recovered)
             if pypdf_rejected_mojibake:
                 # These are "candidate" defs pypdf pattern-matched (^N + Uppercase)
                 # on the source PDF — but the text payload was unreadable glyphs.

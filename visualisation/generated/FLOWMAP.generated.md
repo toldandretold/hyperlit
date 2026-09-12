@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1893 functions in 399 modules · 10 object stores · 10 PG tables · 3869 edges
+**MarkdownDB** schema v28 · 1894 functions in 399 modules · 10 object stores · 10 PG tables · 3870 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -70,6 +70,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | `localStorage` | `localStorage` | read/write | — |
 | `resetHeaderAlignment` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
 | `transitionToBookContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
+| `capColonHeight` | `components/homepage/homepageHero` | — | — | — | — |
 | `destroyHomepageHero` | `components/homepage/homepageHero` | — | — | — | — |
 | `initHomepageHero` | `components/homepage/homepageHero` | — | `localStorage` | read/write | — |
 | `initializeHomepage` | `components/homepage/homepage` | — | — | — | — |

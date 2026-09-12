@@ -11,7 +11,7 @@
           "marker": "2"
         }
       ],
-      "i": 24,
+      "i": 23,
       "references": [],
       "type": "p"
     },
@@ -30,7 +30,7 @@
           "marker": "5"
         }
       ],
-      "i": 40,
+      "i": 39,
       "references": [],
       "type": "p"
     },
@@ -57,7 +57,7 @@
           "marker": "10"
         }
       ],
-      "i": 43,
+      "i": 42,
       "references": [],
       "type": "p"
     },
@@ -80,7 +80,7 @@
           "marker": "14"
         }
       ],
-      "i": 45,
+      "i": 44,
       "references": [],
       "type": "p"
     },
@@ -91,7 +91,7 @@
           "marker": "15"
         }
       ],
-      "i": 51,
+      "i": 50,
       "references": [],
       "type": "p"
     },
@@ -102,7 +102,7 @@
           "marker": "16"
         }
       ],
-      "i": 53,
+      "i": 52,
       "references": [],
       "type": "p"
     },
@@ -117,7 +117,7 @@
           "marker": "20"
         }
       ],
-      "i": 54,
+      "i": 53,
       "references": [],
       "type": "p"
     },
@@ -128,7 +128,7 @@
           "marker": "21"
         }
       ],
-      "i": 56,
+      "i": 55,
       "references": [],
       "type": "p"
     },
@@ -143,7 +143,7 @@
           "marker": "23"
         }
       ],
-      "i": 59,
+      "i": 58,
       "references": [],
       "type": "p"
     },
@@ -158,7 +158,7 @@
           "marker": "25"
         }
       ],
-      "i": 61,
+      "i": 60,
       "references": [],
       "type": "p"
     },
@@ -177,7 +177,7 @@
           "marker": "28"
         }
       ],
-      "i": 64,
+      "i": 63,
       "references": [],
       "type": "p"
     },
@@ -188,7 +188,7 @@
           "marker": "29"
         }
       ],
-      "i": 65,
+      "i": 64,
       "references": [],
       "type": "p"
     },
@@ -203,7 +203,7 @@
           "marker": "31"
         }
       ],
-      "i": 66,
+      "i": 65,
       "references": [],
       "type": "p"
     },
@@ -214,7 +214,7 @@
           "marker": "32"
         }
       ],
-      "i": 72,
+      "i": 71,
       "references": [],
       "type": "p"
     },
@@ -225,7 +225,7 @@
           "marker": "33"
         }
       ],
-      "i": 75,
+      "i": 74,
       "references": [],
       "type": "p"
     },
@@ -236,7 +236,7 @@
           "marker": "34"
         }
       ],
-      "i": 76,
+      "i": 75,
       "references": [],
       "type": "p"
     },
@@ -247,7 +247,7 @@
           "marker": "35"
         }
       ],
-      "i": 77,
+      "i": 76,
       "references": [],
       "type": "p"
     },
@@ -258,7 +258,7 @@
           "marker": "36"
         }
       ],
-      "i": 78,
+      "i": 77,
       "references": [],
       "type": "p"
     },
@@ -277,12 +277,12 @@
           "marker": "39"
         }
       ],
-      "i": 81,
+      "i": 80,
       "references": [],
       "type": "p"
     }
   ],
-  "node_count": 137,
+  "node_count": 136,
   "text_hashes": [
     "0dfcaad0ac",
     "4aa646d81b",
@@ -295,7 +295,6 @@
     "37c852fe19",
     "6a290fc19a",
     "1878ff3d0e",
-    "75cf669276",
     "7214120703",
     "f530db58b3",
     "334857ed25",
@@ -306,16 +305,16 @@
     "6304449a16",
     "44c1aee9c9",
     "64dd60fe1a",
-    "9f5de04e3e",
+    "3f1fce9aa2",
     "b19cea86dd",
-    "f2bbf3fcb5",
+    "4b582d9ce1",
     "107763c227",
     "a9293d463c",
     "5e1a1da2be",
     "dc2a5d4e5b",
     "b454d1f27e",
     "0d71c77ba4",
-    "96db9a82c4",
+    "fb9ccdadf8",
     "60d7dc1581",
     "c5693ebd24",
     "fe4e968253",
@@ -331,7 +330,7 @@
     "43facedbd9",
     "b56ce9cdf4",
     "da50f1a158",
-    "e8e610ccbe",
+    "502fdf27c8",
     "2a67be0bf1",
     "8480e98091",
     "0e06ddf987",
@@ -346,12 +345,12 @@
     "deb15eaed1",
     "23c7f25042",
     "37f4e6f463",
-    "1359f595d6",
+    "61eb69bfca",
     "ad6206ffa6",
     "e5ccbcb74b",
     "489d8d8c66",
     "4aa15b630f",
-    "89e04f7944",
+    "bbf35208f5",
     "bf4b607229",
     "1e64306f9e",
     "66879ce3b3",
@@ -372,7 +371,7 @@
     "ccdaef2776",
     "5d20d0fee3",
     "ec0c3b7663",
-    "d3cbf63825",
+    "9847f107e3",
     "4c30287d9a",
     "e05e88d8bd",
     "3c9fc9175f",
@@ -425,7 +424,7 @@
   "type_histogram": {
     "a": 2,
     "blockquote": 1,
-    "h1": 5,
+    "h1": 4,
     "h2": 10,
     "img": 5,
     "p": 114

@@ -86,6 +86,16 @@ def fix_mangled_urls(text, pdf_path):
     return text
 
 
+# A note that opens LOWERCASE because it opens with scholarly apparatus rather than a sentence:
+# "6  cf. Fuchs/Hofkirchner/Klauninger (2001)". The def scan otherwise demands an uppercase /
+# quote / paren opener (a plain lowercase line after a number is far more often a numbered list
+# item or a wrapped table row), so a whole note went missing (7fa30289 fn 6). The vocabulary is
+# closed on purpose — these words open a REFERENCE, never a list item.
+_APPARATUS_DEF_RE = re.compile(
+    r'^(\d{1,3})\s{1,3}((?:cf|ibid|id|e\.g|i\.e|viz|vgl|cp|op\.\s*cit|loc\.\s*cit|siehe|see|'
+    r'quoted|cited|translated|trans)\b[.,]?\s.{2,})', re.IGNORECASE)
+
+
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     """Extract per-page footnote definitions from PDF using pypdf.
 
@@ -125,7 +135,8 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             # ("1Senate Education and Employment\u2026", deloitte fn 1) \u2014 accept zero-space only when
             # followed by Uppercase-then-lowercase, so "42AM" (a legal section id) never splits.
             m = re.match(r'^(\d{1,3})\s{1,3}([A-Z"\'(\u201c\u2018].{2,})', line) \
-                or re.match(r'^(\d{1,3})([A-Z][a-z].{2,})', line)
+                or re.match(r'^(\d{1,3})([A-Z][a-z].{2,})', line) \
+                or _APPARATUS_DEF_RE.match(line)
             if m:
                 num = int(m.group(1))
                 def_text = m.group(2).strip()
@@ -174,6 +185,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
                 if stripped and not is_chrome \
                         and not re.match(r'^\d{1,3}\s{1,3}[A-Z"\'(\u201c\u2018]', line) \
                         and not re.match(r'^\d{1,3}[A-Z][a-z]', line) \
+                        and not _APPARATUS_DEF_RE.match(line) \
                         and len(current_text) + len(stripped) <= 700:
                     current_text += ' ' + stripped
                 else:

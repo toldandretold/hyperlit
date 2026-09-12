@@ -67,6 +67,20 @@
                  grant it, because "I have read these and they're right" is not a thing a gate can
                  check. The homepage additionally drops any certified journal with no readable
                  article, so this never has to be un-set to fix an emptied journal. --}}
+            {{-- The public hero shows OpenAlex's registered name, which for some venues is a
+                 whole sentence — and the colon squares are sized to the rendered title block,
+                 so a nine-line name stretches the mark across the card. This sets a short
+                 form for the HERO ONLY (hero_name); the full display_name still carries the
+                 <title>, meta description and JSON-LD, and is resynced from OpenAlex. Empty
+                 the box to go back to the full name. --}}
+            <span class="ji-hero-name-group">
+                <label class="ji-visually-hidden" for="ji-hero-name">Short name for the public page hero</label>
+                <input type="text" id="ji-hero-name" maxlength="120" autocomplete="off"
+                       placeholder="hero name (blank = full title)"
+                       title="What the /j page shows as the journal's name. Leave blank to use the full registered title.">
+                <button type="button" id="ji-hero-name-save"
+                        title="Save the hero name. Affects the public page's heading only — the citation identity stays the full title.">save</button>
+            </span>
             <button type="button" id="ji-certify" aria-pressed="false"
                     title="Show this journal on the Hyperlit homepage. Certify it once you've read the conversions — it only appears there while it has at least one readable article.">☆ certify</button>
             <span class="ji-actions-status" id="ji-journal-status" role="status" aria-live="polite"></span>

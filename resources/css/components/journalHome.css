@@ -13,8 +13,11 @@ body[data-page="journal"] .journal-logo-lockup {
   /* The colon matches the RENDERED TITLE BLOCK — one line or three, any
      viewport or width setting. Line count isn't knowable in CSS and a
      %-height chain collapses against the auto-height lockup, so homepageHero
-     MEASURES the h1 (ResizeObserver) and writes --colon-h here in px. The
-     fallback ≈ one title line covers the pre-JS first frame. The gap to the
+     MEASURES the h1 (ResizeObserver) and writes --colon-h here in px — CAPPED
+     at three title lines, or a journal whose registered name is a sentence
+     drags the mark to 342px and the squares end up floating a screen apart
+     (the hero name override in the import console is the per-journal fix).
+     The fallback ≈ one title line covers the pre-JS first frame. The gap to the
      text is ONE SQUARE WIDTH: the SVG is 28.33×85 (1:3), so square width =
      colon height / 3. */
   --title-fs: clamp(1.4rem, 4.5vw, 2.1rem);

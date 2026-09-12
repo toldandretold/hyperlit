@@ -22,6 +22,9 @@ class JournalSource extends Model
         'issn_l',
         'issns',
         'display_name',
+        // Hand-set short form for the public hero ONLY — see heroTitle(). display_name
+        // stays OpenAlex's and is resynced by journal:sync-registry.
+        'hero_name',
         'publisher',
         'slug',
         'is_diamond',
@@ -77,6 +80,21 @@ class JournalSource extends Model
     public function canonicals()
     {
         return $this->hasMany(CanonicalSource::class, 'journal_source_id', 'id');
+    }
+
+    /**
+     * The name shown in the /j/{slug} hero lockup: the hand-set short form when there is
+     * one, else OpenAlex's full title.
+     *
+     * ONLY the hero uses this. The <title>, meta description, JSON-LD `name` and the
+     * maintainer console all stay on `display_name` — that is the journal's citation
+     * identity, and shortening it there would be a lie about which venue this is.
+     */
+    public function heroTitle(): string
+    {
+        $short = trim((string) $this->hero_name);
+
+        return $short !== '' ? $short : (string) $this->display_name;
     }
 
     protected static function boot()

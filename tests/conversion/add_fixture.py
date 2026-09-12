@@ -113,6 +113,22 @@ def main():
         shutil.copy2(geo, os.path.join(fixture_dir, 'quote_geometry.json'))
         print('Copied quote_geometry.json')
 
+    # The SOURCE PDF, when the case carries one. Assembly's recovery paths read the PDF's own
+    # text layer (page-bottom definitions the OCR missed, the footnote-MARKER rescue, mangled-URL
+    # repair), and a PDF-less replay silently skips all of them — 7fa30289 replayed to ONE
+    # footnote where production produced nine, so the fixture could not have caught its own bug.
+    # Its presence sets manifest "stage_pdf", which is what run_regression.py reads.
+    staged_pdf = None
+    if pipeline == 'full':
+        for pdf_name in ('original.pdf', 'source.pdf'):
+            src_pdf = os.path.join(source_dir, pdf_name)
+            if os.path.isfile(src_pdf):
+                staged_pdf = os.path.join(fixture_dir, 'source.pdf')
+                shutil.copy2(src_pdf, staged_pdf)
+                print(f'Copied {pdf_name} → source.pdf '
+                      f'({os.path.getsize(staged_pdf):,} bytes) — pypdf recovery will replay')
+                break
+
     # Run the pipeline to generate golden outputs
     print(f'Running pipeline with book_id={book_id}...')
 
@@ -124,9 +140,10 @@ def main():
                 os.path.join(tmp_dir, 'ocr_response.json')
             )
 
-            # Stage 1: mistral_ocr.py
+            # Stage 1: mistral_ocr.py — the staged PDF when we have one (recovery paths),
+            # /dev/null otherwise (cached-OCR-only replay).
             result = subprocess.run(
-                [sys.executable, MISTRAL_OCR_SCRIPT, '/dev/null', tmp_dir],
+                [sys.executable, MISTRAL_OCR_SCRIPT, staged_pdf or '/dev/null', tmp_dir],
                 capture_output=True, text=True, timeout=120,
             )
             if result.returncode != 0:
@@ -195,6 +212,7 @@ def main():
         'citation_style': stats.get('citation_style', 'unknown'),
         'footnote_strategy': stats.get('footnote_strategy', 'unknown'),
         'pipeline': pipeline,
+        **({'stage_pdf': True} if staged_pdf else {}),
         'expected': {
             'references_count': stats.get('references_found', 0),
             'citations_linked': stats.get('citations_linked', 0),
