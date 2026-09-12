@@ -29,6 +29,16 @@
         <h1 id="ji-journal-name">…</h1>
         <span class="ji-header-sub" id="ji-journal-meta"></span>
 
+        {{-- Shelf-WIDE, so it lives in the header rather than the per-article action bar below
+             (which is hidden until a lane is selected). Re-runs the current converter over every
+             imported lane on the shelf, each from its own cached source — free, nothing re-fetched,
+             no OCR. The way a processor fix reaches a corpus imported before it existed. --}}
+        <div class="ji-journal-actions">
+            <button type="button" id="ji-reconvert-all"
+                    title="Re-run the current converter over EVERY imported lane on this shelf, from each one's cached source. Free — nothing is re-fetched and no OCR runs. Books convert one at a time on the import worker.">⟲ reconvert all</button>
+            <span class="ji-actions-status" id="ji-journal-status" role="status" aria-live="polite"></span>
+        </div>
+
         <nav class="ji-header-nav">
             <a href="/maintainer/shelf-import">&larr; all shelves</a>
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>

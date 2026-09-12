@@ -125,8 +125,23 @@ export async function getLibraryObjectFromIndexedDB(book: unknown): Promise<Libr
 
 /**
  * Update the timestamp for a book (for content/node changes)
+ *
+ * @param opts.queueSync  Push the bumped row to the server too (default true). Pass
+ *   false when the CALLER is already sending this exact library row on the wire —
+ *   book creation does, via /api/db/library/bulk-create. Queuing it as well fires a
+ *   redundant node-less unified-sync ~3s later, AFTER the create handshake has
+ *   settled and the pending-new-book marker is gone, so it lands in the middle of
+ *   the user's first edits: two drains for one action, which means one server
+ *   outage instant produces two "consecutive" 5xx failures and falsely escalates to
+ *   the persistent-server-error modal, and a node-less batch can never prove a 409
+ *   is its own write (no nodes to content-compare) so it hard-blocks with the
+ *   discard overlay. See syncQueue/master.ts.
  */
-export async function updateBookTimestamp(bookId: BookId = book || LATEST): Promise<boolean> {
+export async function updateBookTimestamp(
+  bookId: BookId = book || LATEST,
+  opts: { queueSync?: boolean } = {},
+): Promise<boolean> {
+  const { queueSync = true } = opts;
   try {
     const db = await openDatabase();
     const tx = db.transaction("library", "readwrite");
@@ -152,7 +167,9 @@ export async function updateBookTimestamp(bookId: BookId = book || LATEST): Prom
         putRequest.onerror = () => reject(putRequest.error);
         putRequest.onsuccess = () => {
           // Library timestamp updates are always side-effects, never clear redo history
-          queueForSync("library", bookId, "update", recordToSave, originalRecord, true);
+          if (queueSync) {
+            queueForSync("library", bookId, "update", recordToSave, originalRecord, true);
+          }
 
           // Sub-book → also update parent book
           // Footnote edits touch parent's content timestamp;

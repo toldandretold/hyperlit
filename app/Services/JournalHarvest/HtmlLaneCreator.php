@@ -5,9 +5,11 @@ namespace App\Services\JournalHarvest;
 use App\Models\CanonicalSource;
 use App\Services\CanonicalVersions\SystemVersionMinter;
 use App\Services\ContentFetchService;
+use App\Services\Metadata\MetadataDriftDetector;
 use App\Services\SourceHarvest\HarvestAttemptRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The publisher-HTML lane: a SECOND system version of a work, sitting beside the PDF one.
@@ -93,6 +95,8 @@ class HtmlLaneCreator
                 $this->promoter->promote($bookId);
             }
 
+            $this->checkMetadataAgainstPublisherPage($canonical->id);
+
             return [
                 'status'     => $wasTheVersion || ($existing && $existing->has_nodes) ? 'reimported' : 'imported',
                 'book'       => $bookId,
@@ -101,6 +105,23 @@ class HtmlLaneCreator
             ];
         } catch (\Throwable $e) {
             return ['status' => 'error', 'book' => null, 'reason' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Reconcile the stored citation metadata against the page we just fetched.
+     *
+     * Runs AFTER the import rather than before it because the import is what puts the publisher's
+     * page on disk — the detector then reads it for free, with no second fetch. Wrapped because a
+     * metadata disagreement must never fail an import that otherwise succeeded: the content is
+     * already saved, and a wrong year is a flag, not a reason to throw the article away.
+     */
+    private function checkMetadataAgainstPublisherPage(string $canonicalId): void
+    {
+        try {
+            app(MetadataDriftDetector::class)->inspect($canonicalId);
+        } catch (\Throwable $e) {
+            Log::warning('Metadata drift check failed', ['canonical' => $canonicalId, 'error' => $e->getMessage()]);
         }
     }
 

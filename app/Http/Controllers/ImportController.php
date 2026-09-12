@@ -830,88 +830,27 @@ class ImportController extends Controller
             chmod("{$path}/original.{$ext}", 0644);
         }
 
-        // 3. Determine source file + processor type
-        $sourceType = null;
-        $inputFile  = null;
+        // 3-6. Source detection, the concurrency lock, the annotation snapshot, the content clear
+        // and the dispatch all live in BookReconverter — the consoles' bulk "reconvert all" button
+        // has to repeat that sequence EXACTLY, and the snapshot and clear in particular are not
+        // steps a second implementation could plausibly get right by accident.
+        //
+        // `requireCachedSource` is false here: one book at a time, an operator replacing or
+        // re-OCR'ing a source is a deliberate act with visible feedback. The bulk callers pass
+        // true, because the same surprise queued across a journal is a silent four-figure one.
+        $result = app(\App\Services\Conversion\BookReconverter::class)
+            ->queue($book, Auth::id(), $creatorInfo, requireCachedSource: false);
 
-        foreach (['pdf', 'md', 'html', 'docx', 'epub', 'doc', 'odt', 'rtf'] as $ext) {
-            if (File::exists("{$path}/original.{$ext}")) {
-                $sourceType = $ext;
-                $inputFile  = "{$path}/original.{$ext}";
-                break;
-            }
-        }
-        if (!$inputFile && File::exists("{$path}/main-text.md")) {
-            $sourceType = 'md';
-            $inputFile  = "{$path}/main-text.md";
-        }
-        if (!$inputFile) {
-            return response()->json(['success' => false, 'message' => 'No source file found'], 404);
-        }
+        if (! $result['queued']) {
+            $noSource = str_starts_with((string) $result['reason'], 'no source file');
 
-        // F1/F4: stop a concurrent re-trigger (e.g. a double-click) from launching
-        // a SECOND conversion that races this one on the same files/rows. A short
-        // atomic lock makes the check-and-mark sequence safe against simultaneous
-        // requests; the fresh progress.json marker is the longer-lived in-flight
-        // signal. The lock has a TTL so a crash never permanently blocks the book.
-        $lock = Cache::lock("reconvert:{$book}", 30);
-        if (!$lock->get()) {
-            return response()->json(['success' => false, 'message' => 'A conversion is already starting for this book.'], 409);
-        }
-        try {
-            $progressFile = "{$path}/progress.json";
-            if (File::exists($progressFile)) {
-                $prev   = json_decode(File::get($progressFile), true) ?: [];
-                $prevAt = isset($prev['updated_at']) ? strtotime($prev['updated_at']) : 0;
-                $fresh  = $prevAt && (time() - $prevAt) < 1800;   // ignore markers >30 min stale
-                if (in_array($prev['status'] ?? '', ['queued', 'processing'], true) && $fresh) {
-                    return response()->json(['success' => false, 'message' => 'A conversion is already in progress for this book.'], 409);
-                }
-            }
-
-            // 4. Clean stale output files
-            foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html', 'notify_email.json'] as $staleFile) {
-                $f = "{$path}/{$staleFile}";
-                if (File::exists($f)) File::delete($f);
-            }
-
-            // 5. Snapshot annotation anchor text, THEN clear content from
-            //    PostgreSQL (keeps library record + hypercites + highlights;
-            //    the snapshot lets the import job re-anchor them to the new
-            //    nodes — see AnnotationReattachmentService).
-            try {
-                app(\App\Services\Annotations\AnnotationSnapshotService::class)
-                    ->snapshot($book, \DB::connection('pgsql_admin'));
-            } catch (\Throwable $e) {
-                Log::warning('Annotation snapshot failed (reconvert continues)', [
-                    'book' => $book, 'error' => $e->getMessage(),
-                ]);
-            }
-            $this->clearBookContent($book);
-
-            // 6. Mark queued. The job (dispatched below) writes progress.json; the
-            //    client polls /api/import-progress/{book}. Running the conversion
-            //    inline here used to 524/OOM the site, hence the background job.
-            File::put("{$path}/progress.json", json_encode([
-                'status'     => 'queued',
-                'percent'    => 0,
-                'stage'      => 'queued',
-                'detail'     => 'Waiting to start...',
-                'updated_at' => now()->toIso8601String(),
-            ], JSON_PRETTY_PRINT));
-        } finally {
-            $lock->release();
+            return response()->json(
+                ['success' => false, 'message' => ucfirst((string) $result['reason']) . '.'],
+                $noSource ? 404 : 409,
+            );
         }
 
-        ProcessDocumentImportJob::dispatch(
-            $book,
-            $sourceType,
-            Auth::id(),
-            [], // no metadata changes on reconvert; the job only fills empty fields
-            $creatorInfo,
-        );
-
-        Log::info('Reconvert job dispatched', ['book' => $book, 'sourceType' => $sourceType]);
+        $sourceType = $result['source'];
 
         // 7. Return immediately. Deliberately NO library timestamp bump here:
         // the import job bumps it AFTER the new content (and reattached
@@ -924,18 +863,6 @@ class ImportController extends Controller
             'bookId'  => $book,
             'status'  => 'processing',
         ]);
-    }
-
-    private function clearBookContent(string $bookId): void
-    {
-        // Shared clearer: preserves hyperlight ANNOTATION sub-books (which
-        // nothing regenerates — deleting them was a data-loss bug) while
-        // clearing footnote sub-books as before. Via pgsql_admin: ownership
-        // (or admin) was verified by the caller, and an ADMIN reconverting a
-        // book they don't own has no RLS right to the owner's rows on the
-        // default connection — the delete would silently no-op and the old
-        // content would duplicate under the new import.
-        app(\App\Services\Import\BookContentClearer::class)->clear($bookId, \DB::connection('pgsql_admin'));
     }
 
     /**

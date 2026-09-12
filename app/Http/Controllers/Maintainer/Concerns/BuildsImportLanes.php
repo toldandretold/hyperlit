@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Maintainer\Concerns;
 
+use App\Models\ConversionFlag;
 use App\Services\CanonicalVersions\AutoVersionResolver;
 use App\Services\Conversion\ReconvertQueue;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,7 @@ trait BuildsImportLanes
                     && is_file(base_path("tests/conversion/{$fixtureTree}/{$r->book}/golden/nodes.summary.json")),
                 'open_flags'        => $flagged[$r->book]['count'] ?? 0,
                 'maintainer_note'   => $flagged[$r->book]['note'] ?? null,
+                'metadata_drift'    => $flagged[$r->book]['metadata_drift'] ?? null,
                 'artifacts'         => $queue->artifactsFor($r->book),
                 'fetch_trace'       => $this->fetchTrace($r->book),
                 'created_at'        => $r->lane_created_at,
@@ -130,10 +132,21 @@ trait BuildsImportLanes
         // The maintainer's own note comes back with the count: it is written into the open flags'
         // details and rides the case bundle into dev, so the page has to be able to show what is
         // already there rather than silently offering an empty box over an existing note.
-        foreach (DB::table('conversion_flags')->where('status', 'open')->get(['book', 'details']) as $flag) {
+        foreach (DB::table('conversion_flags')->where('status', 'open')->get(['book', 'source', 'details']) as $flag) {
             $details = is_array($flag->details) ? $flag->details : (json_decode((string) $flag->details, true) ?: []);
             $out[$flag->book]['count'] = ($out[$flag->book]['count'] ?? 0) + 1;
             $out[$flag->book]['note'] ??= $details['maintainer_note'] ?? null;
+
+            // A metadata flag is a different KIND of problem from the rest: the conversion is
+            // fine, a citation field is wrong. Carry its field-by-field diff so the console can
+            // show stored-vs-page and let the maintainer settle it on sight, instead of showing
+            // a flag count that implies the text needs re-converting.
+            if ($flag->source === ConversionFlag::SOURCE_METADATA_DRIFT) {
+                $out[$flag->book]['metadata_drift'] = [
+                    'fields'  => $details['fields'] ?? [],
+                    'applied' => $details['applied'] ?? [],
+                ];
+            }
         }
 
         return $out;

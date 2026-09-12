@@ -804,6 +804,49 @@ test('the run status poll carries the chain state so the console can follow it',
 });
 
 /**
+ * `reconvert_all` spends nothing and touches no publisher, but it rewrites the nodes of every book
+ * in scope — so it is journal-scoped and takes the journal-wide lock exactly like an import does.
+ */
+test('reconvert_all queues a journal-scoped run naming no article', function () {
+    Queue::fake();
+    $admin = $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $article = jconSeedArticle($journal->id);
+
+    $runId = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'reconvert_all', 'lanes' => 'pdf', 'canonical_id' => $article['canonical_id']])
+        ->assertOk()->json('run_id');
+
+    $row = jconDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect($row->action)->toBe('reconvert_all');
+    expect($row->lanes)->toBe('pdf');
+    expect((int) $row->user_id)->toBe($admin->id);
+    // A journal action names no article even when a canonical_id is posted — a stray one here
+    // would make the in-flight guard treat a journal-wide sweep as a single-article run.
+    expect($row->canonical_source_id)->toBeNull();
+    expect($row->book)->toBeNull();
+
+    Queue::assertPushed(\App\Jobs\JournalImportActionJob::class);
+});
+
+test('a reconvert_all in flight holds off an import, and vice versa', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $first = $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'reconvert_all', 'lanes' => 'both'])->assertOk()->json('run_id');
+
+    // Both rewrite nodes across the whole journal; running them together would interleave writes.
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/run",
+        ['action' => 'import_all', 'lanes' => 'html', 'limit' => 5])
+        ->assertOk()
+        ->assertJsonPath('already_running', true)
+        ->assertJsonPath('run_id', $first)
+        ->assertJsonPath('action', 'reconvert_all');
+});
+
+/**
  * A journal-wide run may touch ANY work of the journal, so it cannot overlap anything else on
  * that journal in either direction — two runs writing the same book would interleave node writes.
  */

@@ -40,7 +40,7 @@ class JournalImportController extends Controller
     use BuildsImportLanes;
 
     /** Everything the console can fire; see JournalImportActionJob for what each one means. */
-    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'enumerate', 'import_all'];
+    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'enumerate', 'import_all', 'reconvert_all'];
 
     /**
      * The actions that act on the JOURNAL rather than one article. They take no `canonical_id`
@@ -48,7 +48,7 @@ class JournalImportController extends Controller
      * `import_all` and a per-article `import` racing on the same work would interleave node
      * writes on one book.
      */
-    private const JOURNAL_ACTIONS = ['enumerate', 'import_all'];
+    private const JOURNAL_ACTIONS = ['enumerate', 'import_all', 'reconvert_all'];
 
     /** Caps offered for a bulk import. 0 = every eligible work — deliberate, never the default. */
     private const WORK_LIMITS = [5, 25, 100, 0];
@@ -375,9 +375,13 @@ class JournalImportController extends Controller
      *
      * Queued (JournalImportActionJob), because each of these either hits a publisher or runs OCR.
      * Two scopes: the article actions are the diagnoses an operator makes about a lane, and the
-     * journal actions (`enumerate`, `import_all`) are the steps that fill the page in the first
-     * place — see the job's docblock. Deliberately NOT a "reconvert" for the PDF lane: that book
-     * has an `original.pdf` and an OCR cache on disk, so it goes through the existing, proven
+     * journal actions (`enumerate`, `import_all`, `reconvert_all`) are the steps that fill and
+     * refresh the page — see the job's docblock. `reconvert_all` is the odd one: it spends nothing
+     * and touches no publisher, but it still takes the journal-wide lock, because it rewrites the
+     * nodes of every book in scope and must not interleave with an import doing the same.
+     *
+     * The single-article PDF reconvert is deliberately NOT here: that book has an `original.pdf`
+     * and an OCR cache on disk, so it goes through the existing, proven
      * `/api/books/{book}/reconvert` — one reconvert implementation, not two.
      *
      * `import_all` bills the admin who pressed it (`user_id`), exactly as the CLI bills `--user`.

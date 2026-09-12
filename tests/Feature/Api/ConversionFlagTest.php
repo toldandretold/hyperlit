@@ -254,3 +254,42 @@ test('book:export → book:import --force round-trips a book losslessly', functi
         cfAdmin()->table('hyperlights')->where('book', $book)->delete();
     }
 });
+
+// ── case_kind routes the case to the right loop (harvest ≠ conversion) ──
+
+test('a harvest case suggests retract, never reconvert', function () {
+    // The two loops are not interchangeable: a harvest case means the INPUT was wrong (a
+    // paywall landing page, a captcha, 3 pages of front matter), so replaying the converter
+    // only converts the junk again — the fix site is ContentFetchService + its gates, and the
+    // close is harvest:retract. Artifact presence cannot tell the kinds apart, because a
+    // harvested landing page still leaves an ocr_response.json on disk, so suggestAction used
+    // to route every body_absent case to 'reconvert' — in the terminal AND on
+    // /maintainer/conversion, which share this service.
+    $queue = app(App\Services\Conversion\ReconvertQueue::class);
+    $artifacts = ['original.pdf', 'ocr_response.json', 'assessment.json'];
+
+    expect($queue->suggestAction($artifacts, null, 'harvest'))->toBe('retract');
+    expect($queue->suggestAction($artifacts, null, 'conversion'))->toBe('reconvert');
+    expect($queue->suggestAction($artifacts, null, null))->toBe('reconvert');
+});
+
+test('openFlagsGrouped surfaces case_kind and lets harvest win over a sibling flag', function () {
+    $book = 'apitest_kindbook';
+    ConversionFlag::create([
+        'book' => $book, 'source' => 'user_report', 'status' => 'open',
+        'reason' => 'footnotes look wrong', 'details' => ['issueTypes' => ['footnotes_not_matched']],
+    ]);
+    ConversionFlag::create([
+        'book' => $book, 'source' => 'auto_sweep', 'status' => 'open',
+        'reason' => 'no article body', 'details' => ['case_kind' => 'harvest', 'issueTypes' => ['body_absent']],
+    ]);
+
+    $entries = app(App\Services\Conversion\ReconvertQueue::class)->openFlagsGrouped();
+    $entry = collect($entries)->firstWhere('book', $book);
+
+    // A body_absent finding on the book settles it even when another flag carries no kind:
+    // converting junk is never the right move just because someone also reported footnotes.
+    expect($entry)->not->toBeNull();
+    expect($entry['case_kind'])->toBe('harvest');
+    expect($entry['suggested'])->toBe('retract');
+});

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\JournalSource;
 use App\Services\JournalHarvest\DoajJournalDirectory;
+use App\Services\Metadata\JournalYearFloor;
 use App\Services\OpenAlex\SourceNormaliser;
 use App\Services\OpenAlex\SourcesApi;
 use Illuminate\Console\Command;
@@ -201,13 +202,31 @@ class JournalSyncRegistryCommand extends Command
         $journal = JournalSource::where('openalex_source_id', $source['openalex_source_id'])->first();
         if ($journal) {
             $journal->update($attributes);
+            $this->establishYearFloor($journal, $doajRow);
             return $journal;
         }
 
-        return JournalSource::create($attributes + [
+        $journal = JournalSource::create($attributes + [
             'openalex_source_id' => $source['openalex_source_id'],
             'slug'               => $this->uniqueSlug($source['display_name']),
         ]);
+        $this->establishYearFloor($journal, $doajRow);
+
+        return $journal;
+    }
+
+    /**
+     * Record the earliest year this journal could plausibly have published.
+     *
+     * Not part of `$attributes` because it is not a straight copy of a DOAJ field: DOAJ's
+     * `oa_start` is when the journal went OPEN ACCESS, which for a converted journal is later
+     * than its founding year, so the stored floor is the earlier of that and the oldest
+     * non-sentinel year we have actually observed among its works. `JournalYearFloor` owns that
+     * reconciliation — see its docblock for why using `oa_start` alone would be unsafe.
+     */
+    private function establishYearFloor(JournalSource $journal, ?array $doajRow): void
+    {
+        app(JournalYearFloor::class)->establish($journal->id, $doajRow['oa_start'] ?? null);
     }
 
     private function uniqueSlug(string $displayName): string

@@ -6,7 +6,9 @@ use App\Models\CanonicalSource;
 use App\Models\JournalSource;
 use App\Models\User;
 use App\Services\CanonicalVersions\AutoVersionCreator;
+use App\Services\CanonicalVersions\AutoVersionResolver;
 use App\Services\ContentFetchService;
+use App\Services\Conversion\BookReconverter;
 use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\JournalHarvest\JournalHarvestRunner;
 use App\Services\SourceHarvest\HarvestAttemptRecorder;
@@ -118,6 +120,7 @@ class JournalImportActionJob implements ShouldQueue
                 'refetch_html'   => $this->runHtmlAction($run, $fetcher, $htmlLane, reconvertOnly: false),
                 'enumerate'      => $this->runEnumerate($run, $runner),
                 'import_all'     => $this->runImportAll($run, $runner),
+                'reconvert_all'  => $this->runReconvertAll($run),
                 default          => throw new \RuntimeException("unknown action \"{$run->action}\""),
             };
 
@@ -517,6 +520,94 @@ class JournalImportActionJob implements ShouldQueue
             . ($abortedReason
                 ? " — ABORTED: {$abortedReason}"
                 : ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : ''));
+
+        return $counts;
+    }
+
+    /**
+     * Re-run the CURRENT converter over every lane in scope, from each lane's own cached source.
+     *
+     * The operation a processor fix needs in order to reach the corpus it was written for. A fix
+     * shipped after a 944-article journal was imported applies to nothing until every one of those
+     * books is put back through it, and doing that a book at a time is not a real option — the
+     * Bristol footnote fix left 65 books waiting for exactly this button.
+     *
+     * FREE, and that is a hard requirement rather than a nice property. Each lane reconverts from
+     * what is already on disk: a PDF lane replays `ocr_response.json` (mistral_ocr.py uses the
+     * cache and never calls the API when it exists), an HTML lane re-runs the paste engine over the
+     * stored publisher page. Nothing is fetched and nothing is OCR'd. A PDF lane whose OCR cache
+     * has gone is REFUSED rather than silently re-OCR'd — one book like that is a visible surprise,
+     * 900 of them is a four-figure one nobody authorised.
+     *
+     * This QUEUES; it does not wait. Each book becomes a ProcessDocumentImportJob on the import
+     * worker, which then runs them one at a time — so this run finishes in seconds having reported
+     * how many it enqueued, and the conversions themselves land over the following hours. Watch
+     * them at /maintainer/jobs, not here: a progress bar that sat at "944/944 queued" for six hours
+     * would be lying about what it was measuring.
+     */
+    private function runReconvertAll(object $run): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $lanes = $db->table('library as l')
+            ->join('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
+            ->when($run->journal_source_id, fn ($q) => $q->where('cs.journal_source_id', $run->journal_source_id))
+            ->when($run->shelf_id ?? null, fn ($q) => $q->whereIn('l.book', function ($sub) use ($run) {
+                $sub->select('book')->from('shelf_items')->where('shelf_id', $run->shelf_id);
+            }))
+            // Only lanes that HAVE content: an empty lane has nothing to reconvert, and clearing it
+            // would turn a failed import into a failed import with its evidence deleted.
+            ->where('l.has_nodes', true)
+            ->where('l.visibility', '!=', 'deleted')
+            ->when($run->lanes === 'pdf', fn ($q) => $q->where('l.foundation_source', '!=', HtmlLaneCreator::FOUNDATION_SOURCE))
+            ->when($run->lanes === 'html', fn ($q) => $q->where('l.foundation_source', HtmlLaneCreator::FOUNDATION_SOURCE))
+            ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
+            ->get(['l.book', 'l.foundation_source', 'cs.title', 'cs.id as canonical_id']);
+
+        $reconverter = app(BookReconverter::class);
+        $creatorInfo = ['creator' => AutoVersionResolver::CREATOR, 'creator_token' => null, 'valid' => true];
+
+        $counts = ['queued' => 0, 'skipped' => 0, 'total' => $lanes->count()];
+        $failures = [];
+
+        foreach ($lanes as $i => $lane) {
+            $result = $reconverter->queue($lane->book, $run->user_id, $creatorInfo, requireCachedSource: true);
+
+            if ($result['queued']) {
+                $counts['queued']++;
+            } else {
+                $counts['skipped']++;
+                if (count($failures) < self::MAX_REPORTED_FAILURES) {
+                    $failures[] = [
+                        'lane'         => $lane->foundation_source === HtmlLaneCreator::FOUNDATION_SOURCE ? 'html' : 'pdf',
+                        'title'        => mb_substr($lane->title ?? '(untitled)', 0, 66),
+                        'canonical_id' => $lane->canonical_id,
+                        'book'         => $lane->book,
+                        'status'       => 'skipped',
+                        'reason'       => $result['reason'],
+                    ];
+                }
+            }
+
+            // Every 25 rather than every book: this loop is pure local work and finishes fast, so
+            // per-book writes would be pure database traffic saying almost the same thing.
+            if ($i % 25 === 0 || $i === $lanes->count() - 1) {
+                $this->markProgress(
+                    "queueing reconversions: {$counts['queued']} of {$counts['total']}",
+                    [
+                        'phase' => 'reconvert', 'n' => $i + 1, 'total' => $counts['total'],
+                        'title' => mb_substr($lane->title ?? '', 0, 60),
+                        'imported' => $counts['queued'], 'already' => 0, 'failed' => $counts['skipped'],
+                        'recent_failures' => array_slice(array_reverse($failures), 0, 5),
+                    ],
+                );
+            }
+        }
+
+        $counts['failures'] = $failures;
+        $counts['summary'] = "{$counts['queued']} book(s) queued for reconversion"
+            . ($counts['skipped'] ? ", {$counts['skipped']} skipped" : '')
+            . ' — they convert one at a time on the import worker; watch /maintainer/jobs.';
 
         return $counts;
     }

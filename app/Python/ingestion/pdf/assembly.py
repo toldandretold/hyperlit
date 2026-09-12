@@ -557,6 +557,89 @@ def _demote_defless_citation_refs(combined):
     return out
 
 
+# A heading numbered in a NON-Arabic regime: Roman ('IV. RESULTS') or lettered ('A. DATASET').
+# Their presence means the Arabic numbers are not the document's only tier, so the Arabic-only
+# levelling below has to stand down. Uppercase-only, and the number must be followed by real
+# title text, so a sentence opening "I." or a bare initial cannot qualify.
+_OTHER_REGIME_HEADING_RE = re.compile(
+    r'(?m)^#{1,6}[ \t]+[*_`]*(?:[IVXLC]{1,6}|[A-H])[.)][ \t]+\S')
+
+
+def _numbered_heading_depth(text):
+    """Outline depth a heading's own section number declares: '3.' → 1, '8.1' → 2, '4.1.1' → 3.
+
+    None when the leading token is not a section number. A MULTI-part number needs no separator
+    ('8.1 Towards…'), a single-part one must carry a '.' or ')' — otherwise '1984 and the
+    Surveillance State' would read as section 1984. Components are capped at two digits for the
+    same reason.
+
+    Leading markdown EMPHASIS is stripped first: Mistral wraps a heading it read as bold/italic
+    type ('## **4. Analysis of the Impacts**', '## *4.1 Domestic Influences*'), and those markers
+    hid the number from this parser — d4c0b31e's whole section 4 stayed scattered across h3/h4/h5
+    while sections 1-3 sat at h2.
+    """
+    text = text.lstrip('*_`').lstrip()
+    m = re.match(r'^(\d{1,2}(?:\.\d{1,2})+)[.)]?\s', text)
+    if m:
+        return m.group(1).count('.') + 1
+    if re.match(r'^\d{1,2}[.)]\s', text):
+        return 1
+    return None
+
+
+def _level_numbered_headings(combined):
+    """Make heading LEVELS agree with the section numbers the headings carry.
+
+    Mistral assigns a level from how big the type looked on that page, so sibling sections drift
+    apart: 7fa30289's ten top-level sections alternated h1/h2 at random ('5. Co-action' ended up
+    ABOVE '6. Self-organization'), and 8.1-8.4 sat at the SAME level as their own parent section
+    8 while 8.5 became h3. The number is unambiguous structure — 8.1 is a child of 8 by
+    definition — so it decides, and the TOC inherits a real hierarchy.
+
+    Minimal churn on purpose: the depth-1 tier keeps whatever level the document already uses
+    MOST (ties resolve DEEPER, so sections nest under an unnumbered title h1 rather than being
+    promoted to sit beside it), and deeper tiers are derived from it. Unnumbered headings — the
+    title, 'Abstract', 'Footnotes' — are never touched. Needs >= 3 depth-1 numbered headings, so
+    a document with one stray 'Introduction 1.' is left alone.
+
+    Bails entirely on a MULTI-REGIME outline (Roman chapters over lettered sections over Arabic
+    subsections — 1ee13ed9: 'IV. RESULTS' > 'A. ANTICIPATED TENDENCY' > '1. OVERALL RESULTS').
+    There the Arabic tier is the DEEPEST one, so levelling it at its own majority would hoist
+    real subsections up beside the chapters. Only the other regimes carry the evidence that would
+    place it, and this pass cannot read them — so it declines rather than guesses.
+    """
+    if len(_OTHER_REGIME_HEADING_RE.findall(combined)) >= 2:
+        return combined, []
+
+    lines = combined.split('\n')
+    hits = []
+    for i, line in enumerate(lines):
+        m = re.match(r'^(#{1,6})[ \t]+(\S.*)$', line)
+        if not m:
+            continue
+        depth = _numbered_heading_depth(m.group(2))
+        if depth is not None:
+            hits.append((i, len(m.group(1)), depth))
+
+    top_levels = [lvl for _i, lvl, depth in hits if depth == 1]
+    if len(top_levels) < 3:
+        return combined, []
+
+    freq = {}
+    for lvl in top_levels:
+        freq[lvl] = freq.get(lvl, 0) + 1
+    base = max(lvl for lvl, n in freq.items() if n == max(freq.values()))
+
+    relevelled = []
+    for i, lvl, depth in hits:
+        want = min(6, base + depth - 1)
+        if want == lvl:
+            continue
+        relevelled.append((re.sub(r'^#+[ \t]+', '', lines[i])[:48], lvl, want))
+        lines[i] = '#' * want + lines[i][lvl:]
+    return '\n'.join(lines), relevelled
+
+
 def _demote_list_leadin_headings(combined):
     """A colon-terminated SENTENCE that introduces the list under it is a lead-in, not a heading.
 
@@ -2400,6 +2483,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
     # A bolded sentence that introduces the list beneath it is a lead-in, not a section.
     combined = _demote_list_leadin_headings(combined)
+
+    # Heading LEVELS follow the section NUMBERS. Skipped when a printed Contents drove the
+    # levels per page above (toc_numbered) — the TOC is the stronger evidence of the two.
+    if not toc_numbered:
+        combined, _relevelled = _level_numbered_headings(combined)
+        if _relevelled:
+            print(f"  Re-levelled {len(_relevelled)} numbered heading(s) to match their section "
+                  f"numbers: " + ', '.join(f'"{t}" h{was}→h{now}' for t, was, now in _relevelled[:5])
+                  + (' …' if len(_relevelled) > 5 else ''))
 
     # --- Fix mangled URLs from OCR ---
     if pdf_path:

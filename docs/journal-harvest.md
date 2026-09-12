@@ -163,19 +163,43 @@ The policy host is pinned ONCE per work, not per request: a work's fetches span 
 
 Inspect with `php artisan harvest:proxy-policy` (it tells you when nothing needs the pool at all, i.e. when `SOURCE_FETCH_PROXY` can stay unset); override with `--set=host --mode=direct|proxy`; re-probe with `--forget=host`.
 
-## When the registries have the year wrong
+## When the registries have the citation details wrong
 
 OpenAlex carries `publication_year: 1970` for a slice of tripleC — a journal that started in 2003. The instinct is to blame OpenAlex and re-derive from the DOI registry, and that is wrong: `10.31269/triplec.v1i1.2` is deposited at **Crossref** as `issued: 1970-01-01`, and OpenAlex copied it faithfully. 1970-01-01 is the Unix epoch, i.e. a null date serialised as a real one somewhere in the publisher's deposit pipeline, and it will come back on every re-sync. No registry can fix this.
 
-The article's own page can. That same work's OJS page carries `<meta name="citation_date" content="2003">` alongside volume 1, issue 1 — which is also what the DOI string encodes. So `PublisherYearRepair` reads the page we ALREADY STORED when we imported the article (`resources/markdown/{book}/fetched_page.html`), making the repair free, offline and repeatable:
+Two things can, and we already had both. **The article's own page**: that work's OJS page carries `<meta name="citation_date" content="2003">` alongside volume 1, issue 1 — which is also what the DOI string encodes. And **the journal's own lifespan**: tripleC started in 2003, so an article dated before that is impossible rather than merely suspicious, and that needs no second opinion at all. `app/Services/Metadata/` owns both (see its README); the repair is free, offline and repeatable because it reads the page we ALREADY STORED at import.
 
-- `php artisan library:repair-years --journal=<slug> --dry-run` — report disagreements.
-- `--suspect-only` restricts to years that already look wrong (null, ≤1970, in the future). Cheap, but it only catches the obvious ones: a year that is merely EARLY is invisible to any plausibility rule, which is why the default checks every work with a stored page instead.
+- `php artisan library:repair-metadata --journal=<slug> --dry-run` — report disagreements. (`library:repair-years` is kept as an alias.)
+- `--suspect-only` restricts to years that already carry evidence of breakage: empty, a deposit sentinel, in the future, or **before the journal's `first_year`**. That last arm is what catches a wrong year which is not a recognisable sentinel — 1995 for a journal founded in 2003 looks perfectly plausible as a value. A year that is merely EARLY but still after the journal started remains invisible, which is why this is an option and not the default.
 - `--fetch` is opt-in for works whose page we never kept. It uses `ContentFetchService::fetchPageForMetadata` — the PLAIN rung only, never the browser or the full ladder, because a metadata repair must not spend 75s of browser timeout or any OCR money per work.
+
+**Where the stored page actually lives.** `fetched_page.html` is written only by the HTML lane's SUCCESS path. A PDF-lane import saves the same landing page as `original.html`, before it decides the page is abstract-only and downloads the PDF instead. The repair used to look only for `fetched_page.html`, so every PDF-lane work reported "no stored page" while its page sat on disk — which is how the tripleC article stayed at 1970 despite a tool existing to fix it. `PublisherPageMetadata::PAGE_FILENAMES` now tries all four names.
+
+**What gets corrected versus flagged.** The stored value is overwritten only where it is PROVABLY broken — an epoch sentinel, a year before the journal existed, or an empty column. Where both years are plausible and merely differ (page says 2004, OpenAlex says 2005) a `metadata_drift` flag is raised and nothing is written, because silently preferring the page would trade a known bug for an unknown one. Those flags surface in both import consoles via the existing flag badge, and the existing resolve/dismiss buttons close them. The page's own year has to clear the same plausibility gate, or a junk page could "repair" a good year into a bad one.
+
+**`journal_sources.first_year`** is set by `journal:sync-registry` from DOAJ's `bibjson.oa_start`, floored by the earliest non-sentinel year observed among the journal's works. `oa_start` is when the journal went OPEN ACCESS, not when it was founded — for a converted journal that is LATER than real articles — so taking the earlier of the two means the gate can never reject an article we have real evidence for. Run the sync before a repair, or the gate is simply absent (the command prints the floor it is using per journal).
+
+**A metadata flag must never trigger a re-OCR.** `ReconvertQueue` selected every open flag regardless of source, so adding any new flag kind silently enrolled its books for re-conversion — here that would have queued 112 tripleC books for re-OCR over a wrong YEAR. The fence is `ConversionFlag::CONVERSION_SOURCES`, an allow-list so the next flag kind is opt-in.
 
 Two write-path details that are easy to get wrong. The library rows must be written EXPLICITLY: `HarvestShelf::syncJournalShelfMembership` heals biblio fields from the canonical but only into columns that are still EMPTY — it is a backfill for rows minted before those columns existed, not a corrector, so a row already carrying 1970 would keep it forever. And the stored bibtex must be patched too, because cards render bibtex in PREFERENCE to the structured columns (the same reason `LibraryCardGenerator::patchBibtexFields` exists at all). Volume and issue only ever FILL a gap — the year is the field we have positive evidence is broken; a publisher page's volume string is not obviously better than one already stored.
 
-Behaviour is locked by `tests/Canonical/PublisherYearRepairTest.php` (meta formats, no-date-means-no-guess, all-lanes-plus-bibtex, fill-don't-overwrite).
+The import itself now runs this check after each lane lands (`HtmlLaneCreator`, `AutoVersionCreator`), so a fresh harvest does not need the repair pass at all. It runs AFTER the fetch because the fetch is what puts the page on disk, and it can never fail an import whose content already saved.
+
+Behaviour is locked by `tests/Canonical/PublisherYearRepairTest.php` (meta formats, no-date-means-no-guess, all-lanes-plus-bibtex, fill-don't-overwrite) and `tests/Canonical/MetadataDriftTest.php` (the floor's min() reconciliation, correct-vs-flag, both sides of the reconvert fence).
+
+## Reconverting a whole corpus after a processor fix
+
+A converter fix shipped after a journal was imported applies to nothing until every book goes back through it, and a book at a time is not a real option at 944 articles — the Bristol footnote fix left 65 books waiting on exactly this. `⟲ reconvert all` on both consoles (`reconvert_all`, journal-scoped on /maintainer/journal-import and shelf-scoped on /maintainer/shelf-import) queues every imported lane in scope.
+
+**It is free, and that is a requirement rather than a nice property.** Each lane reconverts from what is already on disk: a PDF lane replays `ocr_response.json` (`mistral_ocr.py` uses the cache and only calls the API when it is absent), an HTML lane re-runs the paste engine over its stored publisher page. Nothing is fetched and nothing is OCR'd. A PDF lane whose OCR cache has gone is REFUSED, with the reason naming the cost — `BookReconverter::queue(requireCachedSource: true)`. One such book is a visible surprise; nine hundred queued unattended is a four-figure one nobody authorised, which is why the bulk callers pass the flag and the single-book HTTP endpoint does not.
+
+`BookReconverter` is the one implementation, extracted from `ImportController::reconvert` when the bulk button appeared. The controller keeps authorisation and the replace-the-file upload; everything from source detection to dispatch lives in the service, because the annotation snapshot and the content clear are not steps a second copy could plausibly get right by accident.
+
+The action QUEUES and does not wait: each book becomes a `ProcessDocumentImportJob` on the import worker, which runs them one at a time, so the run finishes in seconds reporting how many it enqueued while the conversions land over the following hours. Watch them at /maintainer/jobs — a bar sitting at "944/944 queued" for six hours would be lying about what it measures. Only lanes with `has_nodes` are touched: an empty lane has nothing to reconvert, and clearing it would turn a failed import into a failed import with its evidence deleted.
+
+It takes the scope-wide lock in both consoles despite spending nothing, because it rewrites the nodes of every book in scope and must not interleave with an import doing the same. That is new for the shelf console, which until now had only per-article actions (`SHELF_ACTIONS`).
+
+Gates: `tests/Feature/Conversion/BookReconverterTest.php` (the cost guard in both directions, no-source refusal, the in-flight marker and its 30-minute staleness rule) and the `reconvert_all` cases in `tests/Feature/Api/JournalImportConsoleTest.php`.
 
 ## Investigating a run's failures
 

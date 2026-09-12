@@ -48,7 +48,14 @@ export async function fireAndForgetSync(
     try {
       // Store the sync start time to avoid overwriting newer local changes
       const syncStartTime = Date.now();
-      await updateBookTimestamp(bookId);
+      // A NEW book's library row goes out on the bulk-create call below (it re-reads
+      // the freshly-bumped row from IndexedDB), so queuing the bump for the sync
+      // pipeline as well would POST the identical row a second time — a node-less
+      // unified-sync that drains ~3s later, i.e. after the handshake has settled and
+      // straight into the user's first edits. See updateBookTimestamp's note for what
+      // that stray drain breaks. A failed create still re-queues both the library row
+      // and the nodes via queueNewBookForRetry, so nothing loses its retry path.
+      await updateBookTimestamp(bookId, { queueSync: !isNewBook });
 
       if (isNewBook) {
         console.log(`🔥 Firing sequential sync for new book: ${bookId}`);

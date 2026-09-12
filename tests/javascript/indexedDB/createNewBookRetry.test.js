@@ -36,7 +36,7 @@ vi.mock('../../../resources/js/indexedDB/serverSync/index', () => ({
 }));
 vi.mock('../../../resources/js/components/editIndicator.js', () => ({ glowCloudOrange: vi.fn() }));
 
-import { syncNodesToPostgreSQL } from '../../../resources/js/indexedDB/index.js';
+import { syncNodesToPostgreSQL, updateBookTimestamp } from '../../../resources/js/indexedDB/index.js';
 import { installFreshIndexedDB, seedStore } from './idbHarness.js';
 import { fireAndForgetSync } from '../../../resources/js/SPA/createNewBook';
 import { pendingSyncs, initSyncQueueDependencies } from '../../../resources/js/indexedDB/syncQueue/queue';
@@ -111,5 +111,23 @@ describe('createNewBook — a failed create is re-queued, never dropped', () => 
     await vi.waitFor(() => expect(syncNodesToPostgreSQL).toHaveBeenCalled());
 
     expect(pendingSyncs.size).toBe(0);
+    // ...including the creation timestamp bump, which must NOT be queued: bulk-create
+    // (below) re-reads and sends that exact row, so queuing it too fires a second,
+    // node-less unified-sync ~3s later — after the handshake has settled and the
+    // pending-new-book marker is gone, i.e. into the user's first edits. Two drains
+    // per action is how ONE 500 escalates to the "persistent server error" modal, and
+    // a batch with no nodes can never content-prove a 409 is its own write (so it
+    // hard-blocks with the discard-your-edits overlay). `pendingSyncs.size` alone
+    // can't catch a regression here — updateBookTimestamp is mocked in this file —
+    // so assert the flag itself. Real queue behaviour: library.test.js.
+    expect(updateBookTimestamp).toHaveBeenCalledWith('book_1', { queueSync: false });
+  });
+
+  it('an EXISTING book still queues its timestamp bump (only creation opts out)', async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200, text: async () => '', json: async () => ({ success: true }) });
+
+    await fireAndForgetSync('book_1', false, payload());
+
+    expect(updateBookTimestamp).toHaveBeenCalledWith('book_1', { queueSync: true });
   });
 });

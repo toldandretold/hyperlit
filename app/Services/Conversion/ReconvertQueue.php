@@ -52,12 +52,20 @@ class ReconvertQueue
     /**
      * @return array[] one entry per flagged book:
      *  {book, title, creator, conversion_method, completeness,
-     *   artifacts: string[], suggested: reconvert|re-fetch|inspect,
+     *   artifacts: string[], case_kind: conversion|harvest|null,
+     *   suggested: retract|reconvert|re-fetch|inspect,
      *   flags: [{source, reason, report_count, details, created_at}]}
      */
     public function openFlagsGrouped(): array
     {
-        $flags = ConversionFlag::where('status', 'open')->orderBy('created_at')->get();
+        // Only flags that mean "the CONTENT is suspect". This used to select every open flag
+        // regardless of source, which made `conversion_flags` load-bearing for two unrelated
+        // jobs at once: the moment a flag kind was added for anything other than a bad
+        // conversion, its books were enrolled for re-conversion too. A `metadata_drift` flag
+        // says a YEAR is wrong — re-running OCR would cost real money and change nothing.
+        $flags = ConversionFlag::where('status', 'open')
+            ->whereIn('source', ConversionFlag::CONVERSION_SOURCES)
+            ->orderBy('created_at')->get();
         if ($flags->isEmpty()) {
             return [];
         }
@@ -71,6 +79,18 @@ class ReconvertQueue
         foreach ($flags->groupBy('book') as $bookId => $bookFlags) {
             $lib = $libRows->get($bookId);
             $artifacts = $this->artifactsFor($bookId);
+            // case_kind decides WHICH loop this case belongs to (conversion vs harvest vs the
+            // paste engine) and the two are not interchangeable — surface it, don't bury it in
+            // per-flag details. Any flag on the book carrying 'harvest' settles it.
+            $caseKind = null;
+            foreach ($bookFlags as $f) {
+                $kind = $f->details['case_kind'] ?? null;
+                if ($kind === 'harvest') {
+                    $caseKind = 'harvest';
+                    break;
+                }
+                $caseKind ??= $kind;
+            }
 
             $out[] = [
                 'book'              => $bookId,
@@ -80,7 +100,8 @@ class ReconvertQueue
                 'completeness'      => $lib->completeness ?? null,
                 'artifacts'         => $artifacts,
                 'fixture'           => $this->fixtureTreeFor($bookId),
-                'suggested'         => $this->suggestAction($artifacts, $lib),
+                'case_kind'         => $caseKind,
+                'suggested'         => $this->suggestAction($artifacts, $lib, $caseKind),
                 'flags'             => $bookFlags->map(fn ($f) => [
                     'source'       => $f->source,
                     'reason'       => $f->reason,
@@ -138,9 +159,19 @@ class ReconvertQueue
         return $found;
     }
 
-    /** reconvert (source on disk) | re-fetch (URL identity only) | inspect. */
-    public function suggestAction(array $artifacts, ?object $lib): string
+    /** retract (acquired the wrong thing) | reconvert (source on disk) | re-fetch | inspect. */
+    public function suggestAction(array $artifacts, ?object $lib, ?string $caseKind = null): string
     {
+        // A HARVEST case must never be sent down the reconvert loop: the converter did its job
+        // faithfully on junk input (a paywall landing page, a captcha interstitial, 3 pages of
+        // front matter), so replaying it only converts the junk again. Artifact presence cannot
+        // tell the two apart — a harvested landing page still leaves an ocr_response.json on
+        // disk — so the case_kind the harvest sweep already recorded is the deciding signal.
+        // Without this the queue told the maintainer (and /maintainer/conversion) to reconvert
+        // all five of the local body_absent cases.
+        if ($caseKind === 'harvest') {
+            return 'retract';
+        }
         $hasSource = (bool) array_filter(
             $artifacts,
             fn ($a) => str_starts_with($a, 'original.') || $a === 'ocr_response.json' || $a === 'epub_original',

@@ -43,7 +43,16 @@ class ShelfImportController extends Controller
     use BuildsImportLanes;
 
     /** The article actions a shelf scope can fire — no journal-registry actions. */
-    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html'];
+    private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'reconvert_all'];
+
+    /**
+     * Actions scoped to the whole SHELF rather than one article.
+     *
+     * Only one so far, and it is the reason this concept exists here at all: `reconvert_all`
+     * rewrites the nodes of every book on the shelf, so unlike every other action here it cannot
+     * be allowed to interleave with a per-article action on the same shelf.
+     */
+    private const SHELF_ACTIONS = ['reconvert_all'];
 
     /** Public shelf by uuid, or null. Same rule as HyperciteConsoleController::shelfScope. */
     private function publicShelf(string $id): ?object
@@ -321,10 +330,15 @@ class ShelfImportController extends Controller
         $db = DB::connection('pgsql_admin');
         $canonicalId = $request->input('canonical_id');
         $book = $request->input('book');
+        $shelfScoped = in_array($action, self::SHELF_ACTIONS, true);
 
         // Validate the target up front so the operator gets a real error instead of a run row
         // that fails a second later on the worker.
-        if ($action === 'import') {
+        if ($shelfScoped) {
+            // A shelf action names no article; its target IS the shelf, already resolved above.
+            $canonicalId = null;
+            $book = null;
+        } elseif ($action === 'import') {
             $onShelf = $canonicalId
                 && Str::isUuid((string) $canonicalId)
                 && $this->shelfCanonicalIds($shelf->id)->contains($canonicalId);
@@ -345,11 +359,20 @@ class ShelfImportController extends Controller
         }
 
         // Per-target collision guard — the actions replace a book's nodes, so two at once would
-        // interleave writes. No scope-wide clause: a shelf has no shelf-wide actions.
+        // interleave writes. A SHELF-scoped run has no single target: it may touch any book on the
+        // shelf, so it excludes and is excluded by everything else on that shelf, in both
+        // directions — the same rule the journal console applies to its journal-wide runs.
         $inFlight = $db->table('journal_import_runs')
             ->whereIn('status', ['pending', 'running'])
             ->where('updated_at', '>', now()->subHour())
-            ->where(fn ($q) => $q->where('canonical_source_id', $canonicalId)->orWhere('book', $book))
+            ->where(function ($q) use ($shelf, $shelfScoped, $canonicalId, $book) {
+                $q->where(fn ($s) => $s->where('shelf_id', $shelf->id)
+                    ->whereIn('action', self::SHELF_ACTIONS));
+
+                $shelfScoped
+                    ? $q->orWhere('shelf_id', $shelf->id)
+                    : $q->orWhere(fn ($a) => $a->where('canonical_source_id', $canonicalId)->orWhere('book', $book));
+            })
             ->first();
         if ($inFlight) {
             return response()->json([

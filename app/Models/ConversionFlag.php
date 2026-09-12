@@ -27,6 +27,26 @@ class ConversionFlag extends Model
     public const SOURCE_MANUAL      = 'manual';
 
     /**
+     * The publisher's page disagrees with the citation metadata we stored. NOT a conversion
+     * problem — the book's text is fine, its year or volume is wrong — so it must never reach
+     * `library:reconvert-queue`. See `CONVERSION_SOURCES` for the fence.
+     */
+    public const SOURCE_METADATA_DRIFT = 'metadata_drift';
+
+    /**
+     * Sources that mean "this book's CONTENT is suspect", i.e. the ones the reconvert queue acts
+     * on. An allow-list rather than an exclusion of `metadata_drift`, deliberately: the queue
+     * used to select every open flag regardless of source, so adding any new flag kind silently
+     * enrolled its books for re-conversion. On this corpus that would have queued 112 tripleC
+     * books for re-OCR over a wrong YEAR, at real money. New flag kinds are now opt-in.
+     */
+    public const CONVERSION_SOURCES = [
+        self::SOURCE_USER_REPORT,
+        self::SOURCE_AUTO_SWEEP,
+        self::SOURCE_MANUAL,
+    ];
+
+    /**
      * Upsert the single OPEN flag for (book, source): create it, or fold the
      * new signal into the existing one (bump report_count, merge details,
      * refresh reason). Returns the open flag.

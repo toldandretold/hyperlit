@@ -61,6 +61,13 @@
                 <button type="button" id="ji-bulk-import"
                         title="Import the most-cited eligible works that have no version yet. The HTML lane is free; PDF runs OCR and is charged to you.">⇩ import</button>
             </span>
+            {{-- Re-run the CURRENT converter over everything already imported. This is how a
+                 processor fix reaches the corpus it was written for — without it a fix shipped
+                 after a 944-article journal applies to nothing, and doing it a book at a time is
+                 not a real option. FREE: each lane replays what is already on disk (a PDF lane its
+                 ocr_response.json, an HTML lane its stored page), so nothing is fetched or OCR'd. --}}
+            <button type="button" id="ji-reconvert-all"
+                    title="Re-run the current converter over every imported lane, from each one's cached source. Free — nothing is re-fetched and no OCR runs. Books convert one at a time on the import worker.">⟲ reconvert all</button>
             {{-- Certification is the editorial half of this console: everything else here decides
                  whether a CONVERSION is good, this decides whether the JOURNAL is ready to show
                  visitors. It is what puts a journal in the homepage copy — nothing automatic can

@@ -71,20 +71,34 @@ class ReconvertQueueCommand extends Command
                 ));
             }
             $this->line(sprintf(
-                '  method=%s  completeness=%s  artifacts=[%s]',
+                '  kind=%s  method=%s  completeness=%s  artifacts=[%s]',
+                $entry['case_kind'] ?? 'conversion?',
                 $entry['conversion_method'] ?? '—',
                 $entry['completeness'] ?? '—',
                 implode(', ', $entry['artifacts']) ?: 'none',
             ));
             $this->line("  → suggested: <options=bold>{$entry['suggested']}</>");
             $this->line('  triage:     ' . rtrim(config('app.url'), '/') . "/maintainer/conversion?book={$bookId}");
-            $this->line("  pull case:  tests/conversion/pull_case.sh {$bookId} --corpus");
+            if ($entry['suggested'] !== 'retract') {
+                $this->line("  pull case:  tests/conversion/pull_case.sh {$bookId} --corpus");
+            }
             $this->line(match ($entry['suggested']) {
-                'reconvert' => "  reconvert:  php artisan library:reconvert-system-version {$bookId}",
+                // --book= is an OPTION on reconvert-system-version; a bare positional id is a
+                // hard "No arguments expected" error, so this line must never print one.
+                'reconvert' => "  reconvert:  php artisan library:reconvert-system-version --book={$bookId}",
                 're-fetch'  => '  re-fetch:   clear pdf_url_status + ocr cache, then reconvert (fetch ladder re-runs)',
+                // harvest:retract takes POSITIONAL book ids (unlike reconvert-system-version's
+                // --book=). Both spellings are printed for copy-paste, so both must be real.
+                'retract'   => "  retract:    php artisan harvest:retract {$bookId} --dry-run   (harvest case: "
+                               . 'the INPUT was wrong — fix ContentFetchService + its gates, then retract so the '
+                               . 'canonical is free to re-fetch. Reconverting only converts the junk again.)',
                 default     => "  inspect:    php artisan book:export {$bookId}  (then open locally)",
             });
-            $this->line("  resolve:    php artisan library:reconvert-queue --resolve={$bookId} --resolution=reconverted");
+            // A retraction closes the flag itself (resolution 'retracted'), so pointing the
+            // maintainer at a manual --resolution=reconverted would mislabel the outcome.
+            $this->line($entry['suggested'] === 'retract'
+                ? '  resolve:    (harvest:retract closes the flag as `retracted` — no manual resolve)'
+                : "  resolve:    php artisan library:reconvert-queue --resolve={$bookId} --resolution=reconverted");
         }
 
         $this->newLine();

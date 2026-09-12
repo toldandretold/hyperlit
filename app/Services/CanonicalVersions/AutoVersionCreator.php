@@ -4,9 +4,11 @@ namespace App\Services\CanonicalVersions;
 
 use App\Models\CanonicalSource;
 use App\Services\ContentFetchService;
+use App\Services\Metadata\MetadataDriftDetector;
 use App\Services\SourceHarvest\OaLicenseMapper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Creates (or completes) the system auto-version for one canonical: mint a
@@ -148,6 +150,17 @@ class AutoVersionCreator
             // fetched row keeps the completeness a prior run assigned.
             if (!$alreadyFetched) {
                 $this->applyCompleteness($bookId, $fetchTrace);
+            }
+
+            // The publisher's landing page is on disk by now — the fetch saves it before deciding
+            // the page is abstract-only and downloading the PDF instead — so reconciling the
+            // stored citation metadata against it costs nothing here. This is the lane the
+            // tripleC 1970-vs-2003 case actually arrives through. Never allowed to fail the
+            // import: the content is saved, and a wrong year is a flag, not a reason to lose it.
+            try {
+                app(MetadataDriftDetector::class)->inspect($canonical->id);
+            } catch (\Throwable $e) {
+                Log::warning('Metadata drift check failed', ['canonical' => $canonical->id, 'error' => $e->getMessage()]);
             }
 
             // ---- Wire the pointer. Requires has_nodes=true, so a skip-ocr /

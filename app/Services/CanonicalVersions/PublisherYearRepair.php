@@ -3,8 +3,8 @@
 namespace App\Services\CanonicalVersions;
 
 use App\Services\LibraryCardGenerator;
+use App\Services\Metadata\PublisherPageMetadata;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 
 /**
  * Repair a work's publication year from the PUBLISHER'S OWN PAGE.
@@ -27,24 +27,10 @@ use Illuminate\Support\Facades\File;
  */
 class PublisherYearRepair
 {
-    /**
-     * Meta tags that carry a publication date, best first.
-     *
-     * `citation_date` is what OJS emits and is the one that matters for this corpus;
-     * `citation_publication_date` is the Highwire-standard spelling other platforms use. Both may
-     * be a bare year, `YYYY/MM/DD`, or `YYYY-MM-DD`, hence the loose year extraction below.
-     */
-    private const DATE_META = [
-        'citation_date',
-        'citation_publication_date',
-        'citation_cover_date',
-        'citation_year',
-        'DC.Date',
-        'dc.date',
-    ];
-
-    public function __construct(private LibraryCardGenerator $cards)
-    {
+    public function __construct(
+        private LibraryCardGenerator $cards,
+        private PublisherPageMetadata $page,
+    ) {
     }
 
     /**
@@ -54,37 +40,21 @@ class PublisherYearRepair
      */
     public function extractFromPage(string $html): ?array
     {
-        $year = null;
-        foreach (self::DATE_META as $name) {
-            $raw = $this->metaContent($html, $name);
-            if ($raw === null) {
-                continue;
-            }
-            // Any 4-digit year in the value. Deliberately not a date parse: the field is
-            // inconsistently formatted across platforms and the year is the only part we use.
-            if (preg_match('/\b(1[89]\d{2}|20\d{2})\b/', $raw, $m)) {
-                $year = (int) $m[1];
-                break;
-            }
-        }
-
-        if ($year === null) {
-            return null;
-        }
-
-        return [
-            'year'   => $year,
-            'volume' => $this->metaContent($html, 'citation_volume'),
-            'issue'  => $this->metaContent($html, 'citation_issue'),
-        ];
+        return $this->page->extractFromPage($html);
     }
 
-    /** The stored publisher page for a book, if we kept one. */
+    /**
+     * The stored publisher page for a book, if we kept one.
+     *
+     * Delegates to `PublisherPageMetadata`, which looks under every name a landing page is saved
+     * as — not just `fetched_page.html`. That mattered: the HTML lane writes `fetched_page.html`
+     * only on success, while a PDF-lane import saves the SAME landing page as `original.html`
+     * before deciding the page is abstract-only and downloading the PDF, so every PDF-lane work
+     * reported "no stored page" while its page sat on disk.
+     */
     public function storedPageFor(string $book): ?string
     {
-        $path = resource_path("markdown/{$book}/fetched_page.html");
-
-        return File::exists($path) ? File::get($path) : null;
+        return $this->page->storedPageFor($book);
     }
 
     /**
@@ -136,20 +106,5 @@ class PublisherYearRepair
         }
 
         return $lanes->count();
-    }
-
-    /** `<meta name="X" content="Y">` in either attribute order, case-insensitively. */
-    private function metaContent(string $html, string $name): ?string
-    {
-        $n = preg_quote($name, '/');
-
-        if (preg_match('/<meta[^>]+name\s*=\s*["\']' . $n . '["\'][^>]*content\s*=\s*["\']([^"\']*)["\']/i', $html, $m)) {
-            return html_entity_decode(trim($m[1])) ?: null;
-        }
-        if (preg_match('/<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]*name\s*=\s*["\']' . $n . '["\']/i', $html, $m)) {
-            return html_entity_decode(trim($m[1])) ?: null;
-        }
-
-        return null;
     }
 }

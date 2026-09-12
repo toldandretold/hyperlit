@@ -6,6 +6,7 @@ use App\Helpers\SubBookIdHelper;
 use App\Services\DocumentImport\FileHelpers;
 use App\Services\DocumentImport\Processors\HtmlProcessor;
 use App\Services\DocumentImport\Processors\PdfProcessor;
+use App\Services\Metadata\PublisherPageMetadata;
 use App\Services\Security\UrlGuard;
 use App\Services\SourceHarvest\ProxyPolicy;
 use App\Services\SourceImport\Content\AccessWallDetector;
@@ -107,8 +108,13 @@ class ContentFetchService
     /** Set when this work was walled going direct and has escalated to the proxy for the rest of the ladder. */
     private bool $forceProxyThisWork = false;
 
-    public function __construct(FileHelpers $fileHelpers, HtmlProcessor $htmlProcessor, PdfProcessor $pdfProcessor, LlmService $llmService)
-    {
+    public function __construct(
+        FileHelpers $fileHelpers,
+        HtmlProcessor $htmlProcessor,
+        PdfProcessor $pdfProcessor,
+        LlmService $llmService,
+        private PublisherPageMetadata $pageMeta,
+    ) {
         $this->fileHelpers = $fileHelpers;
         $this->htmlProcessor = $htmlProcessor;
         $this->pdfProcessor = $pdfProcessor;
@@ -1583,17 +1589,22 @@ class ContentFetchService
     private function extractScholarlyMetaTags(string $html): array
     {
         $tags = [];
-        $metaNames = ['citation_pdf_url', 'citation_abstract', 'citation_title', 'citation_doi'];
 
-        foreach ($metaNames as $name) {
-            // Match <meta name="citation_xxx" content="...">
-            if (preg_match('/<meta\s+[^>]*name=["\']' . preg_quote($name, '/') . '["\']\s+[^>]*content=["\']([^"\']*)["\'][^>]*>/is', $html, $m)) {
-                $tags[$name] = html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8');
-            } elseif (preg_match('/<meta\s+[^>]*content=["\']([^"\']*)["\'][^>]*name=["\']' . preg_quote($name, '/') . '["\']\s*[^>]*>/is', $html, $m)) {
-                // content before name order
-                $tags[$name] = html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8');
+        // The four names the identity/PDF-discovery gates have always needed. Keyed by the raw
+        // meta name because callers index them that way (`$meta['citation_doi']`).
+        foreach (['citation_pdf_url', 'citation_abstract', 'citation_title', 'citation_doi'] as $name) {
+            if (($value = $this->pageMeta->metaContent($html, $name)) !== null) {
+                $tags[$name] = $value;
             }
         }
+
+        // Everything else the page is telling us about the work. This used to be parsed and
+        // thrown away on every import: the same OJS page that carries `citation_doi` also carries
+        // `citation_date`, volume, issue, pages, authors, journal and ISSN — and the registries
+        // are wrong about the date often enough that discarding the publisher's own answer is how
+        // a 2003 article ends up filed as 1970. Nested under one key so no existing caller
+        // reading `$tags['citation_*']` can collide with it.
+        $tags['citation_metadata'] = $this->pageMeta->extractAll($html);
 
         return $tags;
     }

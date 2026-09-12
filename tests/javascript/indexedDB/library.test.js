@@ -100,6 +100,21 @@ describe('core/library.js (characterization)', () => {
     expect(pendingSyncs.get('library-bookA-bookA').data.base_timestamp).toBe(1000);
   });
 
+  it('updateBookTimestamp with queueSync:false bumps the record but sends NOTHING', async () => {
+    // Book creation uses this: the bumped row goes out on /api/db/library/bulk-create,
+    // so queuing it as well POSTs the identical row a second time — a node-less
+    // unified-sync that drains ~3s later, straight into the user's first edits (two
+    // drains for one action: a single outage looks like two consecutive 5xx and
+    // escalates to the persistent-server-error modal, and a node-less batch can't
+    // content-prove a 409 is its own write, so it hard-blocks with the discard overlay).
+    await seedStore('library', [{ book: 'bookA', title: 'X', timestamp: 1000, base_timestamp: 1000 }]);
+
+    await updateBookTimestamp('bookA', { queueSync: false });
+
+    expect((await readOne('library', 'bookA')).timestamp).toBeGreaterThan(1000);
+    expect(pendingSyncs.size).toBe(0);
+  });
+
   it('updateBookTimestamp on a SUB-book also touches the parent book', async () => {
     await updateBookTimestamp('book_parent/Fn7');
 

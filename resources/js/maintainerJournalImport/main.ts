@@ -64,8 +64,42 @@ interface Lane {
   golden_complete: boolean;
   open_flags: number;
   maintainer_note: string | null;
+  metadata_drift: MetadataDrift | null;
   artifacts: string[];
   fetch_trace: FetchTrace | null;
+}
+
+/**
+ * The publisher's own page disagrees with the citation metadata we stored.
+ *
+ * `action` is the detector's verdict per field: `correct`/`fill` were applied because the stored
+ * value was provably broken (an epoch sentinel, or a year before the journal existed);
+ * `dispute` means both values are plausible and a human has to choose; `reject_page` means the
+ * PAGE failed the plausibility gate and we kept what we had.
+ */
+interface DriftField {
+  stored: string | number | null;
+  page: string | number | null;
+  action: 'correct' | 'fill' | 'dispute' | 'reject_page';
+  rule: string | null;
+}
+
+interface MetadataDrift {
+  fields: Record<string, DriftField>;
+  applied: Record<string, string | number>;
+}
+
+/** One readable line per field, for the badge tooltip. */
+function describeDrift(drift: MetadataDrift): string {
+  const show = (v: string | number | null): string =>
+    v === null || v === '' ? '(empty)' : String(v);
+
+  return Object.entries(drift.fields)
+    .map(([field, d]) => {
+      const verb = d.action === 'dispute' ? 'DISPUTED —' : d.action === 'reject_page' ? 'kept ours —' : 'fixed —';
+      return `${field}: ${verb} stored ${show(d.stored)}, publisher page ${show(d.page)}${d.rule ? ` (${d.rule})` : ''}`;
+    })
+    .join('\n');
 }
 
 interface Article {
@@ -85,6 +119,20 @@ interface Article {
 
 const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const has = (id: string): boolean => document.getElementById(id) !== null;
+
+/**
+ * Disable/enable a set of buttons, ignoring any this page doesn't have.
+ *
+ * The journal and shelf consoles are the same module and share these id lists, but not their
+ * markup — the shelf blade has no enumerate or bulk-import control. A hard `el()` lookup here
+ * throws on the first press of any action the two pages DO share.
+ */
+function setButtonsDisabled(ids: string[], disabled: boolean): void {
+  for (const id of ids) {
+    const button = document.getElementById(id) as HTMLButtonElement | null;
+    if (button) button.disabled = disabled;
+  }
+}
 
 /**
  * The blade's boot handshake. mode 'shelf' is the shelf-import console — same
@@ -397,6 +445,12 @@ function buildLane(lane: Lane): HTMLElement {
   }
   if (lane.fetch_trace?.won_host) badges.push(['dim', lane.fetch_trace.won_host, 'winning OA host']);
   if (lane.open_flags) badges.push(['flag', `${lane.open_flags} flag${lane.open_flags === 1 ? '' : 's'}`, '']);
+  if (lane.metadata_drift) {
+    // Its own badge rather than folding into the flag count: the conversion is fine here, a
+    // CITATION FIELD is wrong, and the two need different actions from the maintainer. The title
+    // carries the whole stored-vs-page diff so the disagreement is readable without a drill-down.
+    badges.push(['warn', '⚑ metadata', describeDrift(lane.metadata_drift)]);
+  }
   if (lane.fixture) {
     badges.push(lane.golden_complete
       ? ['ok', 'golden ✓', `regression golden frozen (${lane.fixture})`]
@@ -739,7 +793,10 @@ async function runAction(
   const headers = await csrfHeaders();
   if (!headers) return;
 
-  for (const id of buttons) el<HTMLButtonElement>(id).disabled = true;
+  // Tolerant of ids that aren't on THIS page: the journal and shelf consoles share this module and
+  // this button list, and the shelf blade has no enumerate or bulk-import control. A hard lookup
+  // here throws on the first press of any control the two pages DO share.
+  setButtonsDisabled(buttons, true);
   setter('dispatching…');
   // Up front, not on the first poll tick 2.5s later: the whole point is that pressing the button
   // visibly does something. A panel that appears two and a half seconds after the click has
@@ -777,7 +834,7 @@ async function runAction(
     log.error('Journal import action failed', 'maintainer-journal-import', e);
     setter('failed — see logs');
   } finally {
-    for (const id of buttons) el<HTMLButtonElement>(id).disabled = false;
+    setButtonsDisabled(buttons, false);
   }
 }
 
@@ -1085,7 +1142,7 @@ async function resolveCase(resolution: 'reconverted' | 'dismissed'): Promise<voi
   if (!headers) return;
 
   const buttons = ['ji-resolve', 'ji-dismiss'];
-  for (const id of buttons) el<HTMLButtonElement>(id).disabled = true;
+  setButtonsDisabled(buttons, true);
   setStatus('closing case…');
 
   try {
@@ -1113,7 +1170,7 @@ async function resolveCase(resolution: 'reconverted' | 'dismissed'): Promise<voi
     log.error('Close case failed', 'maintainer-journal-import', e);
     setStatus('close failed — see logs');
   } finally {
-    for (const id of buttons) el<HTMLButtonElement>(id).disabled = false;
+    setButtonsDisabled(buttons, false);
   }
 }
 
@@ -1408,7 +1465,7 @@ function renderStoppedEarly(run: RunState, terminal: boolean): void {
 
 /** Headline for the run panel: what was asked for, in the words of the controls that asked. */
 function runHeadline(run: RunState): string {
-  const bits = [run.action === 'import_all' ? 'import' : (run.action ?? 'run')];
+  const bits = [{ import_all: 'import', reconvert_all: 'reconvert all' }[run.action ?? ''] ?? (run.action ?? 'run')];
   if (run.lanes) bits.push(run.lanes === 'html_first' ? 'html → pdf' : run.lanes);
   if (run.work_limit != null) bits.push(run.work_limit === 0 ? 'all eligible' : `next ${run.work_limit}`);
   // Link N of a self-continuing chain. Without it every link looks like the operator's original
@@ -1533,7 +1590,10 @@ function wireFailuresPanel(): void {
  * the queue in bulk.
  */
 function wireJournalActions(): void {
-  const buttons = ['ji-enumerate', 'ji-bulk-import'];
+  // Every journal-scoped control, disabled together for the duration of any one of them: the
+  // server refuses a second journal-wide run anyway, so leaving them live would only produce
+  // "already running" messages for a press that could not have worked.
+  const buttons = ['ji-enumerate', 'ji-bulk-import', 'ji-reconvert-all'];
   // `.ji-actions-status` is opacity:0 until `.ji-visible` is on it. Setting textContent alone —
   // which this did — painted every message this bar has ever produced into an invisible span:
   // "dispatching…", every "html 7/25: <title>", the final summary, the failure, and both certify
@@ -1628,6 +1688,29 @@ function wireJournalActions(): void {
     void runAction({ action: 'enumerate' }, setJournalStatus, buttons, true);
   });
 
+  document.getElementById('ji-reconvert-all')?.addEventListener('click', () => {
+    // Optional: the shelf console has this button but no lane picker, and defaults to both.
+    const picker = document.getElementById('ji-bulk-lanes') as HTMLSelectElement | null;
+    const lanes = (picker?.value || 'both') as BulkLane;
+    // The picker is shared with import, where `html_first` is a fetch STRATEGY. There is nothing to
+    // choose between when reconverting — every lane already exists — so it collapses to "both",
+    // rather than quietly reconverting only half the corpus.
+    const scope = lanes === 'html_first' ? 'both' : lanes;
+
+    // Confirmed despite being free, because it is not reversible: every book in scope has its
+    // nodes cleared and rebuilt, and any annotation the reattachment pass cannot re-anchor is
+    // orphaned. Worth a sentence before a few hundred of them.
+    const where = boot.mode === 'shelf' ? 'shelf' : 'journal';
+    if (!window.confirm(
+      `Re-run the current converter over every imported ${scope === 'both' ? '' : scope + ' '}lane in this ${where}?\n\n`
+      + 'Free — each lane reconverts from its cached source, so nothing is re-fetched and no OCR runs.\n\n'
+      + 'Every book in scope is rebuilt from scratch and they convert one at a time, so a big corpus '
+      + 'takes hours. Watch progress at /maintainer/jobs.',
+    )) return;
+
+    void runAction({ action: 'reconvert_all', lanes: scope }, setJournalStatus, buttons, true);
+  });
+
   document.getElementById('ji-bulk-import')?.addEventListener('click', () => {
     void startBulkImport();
   });
@@ -1673,7 +1756,7 @@ function wireJournalActions(): void {
     if (!run.id || pollingRunId === run.id) return;
     renderRunProgress(run, runHeadline(run));
     setJournalStatus(run.step_detail ?? run.status);
-    for (const id of buttons) el<HTMLButtonElement>(id).disabled = true;
+    setButtonsDisabled(buttons, true);
     void runResume(run.id, setJournalStatus, buttons);
   };
 }
@@ -1689,7 +1772,7 @@ async function runResume(runId: string, setter: (text: string) => void, buttons:
     log.error('Journal import run resume failed', 'maintainer-journal-import', e);
     setter('lost the run — reload to re-attach');
   } finally {
-    for (const id of buttons) el<HTMLButtonElement>(id).disabled = false;
+    setButtonsDisabled(buttons, false);
   }
 }
 

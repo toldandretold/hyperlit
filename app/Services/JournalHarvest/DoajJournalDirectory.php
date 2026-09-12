@@ -61,6 +61,11 @@ class DoajJournalDirectory
                 fn ($s) => $s['term'] ?? null,
                 (array) ($bibjson['subject'] ?? [])
             ))),
+            // The year the journal began publishing OPEN ACCESS. Not necessarily its founding
+            // year — for a journal that converted to OA later, this is the LATER of the two — so
+            // callers must treat it as one bound among several, never as "nothing before this
+            // exists". DOAJ has emitted it both as a bare integer and as `{year: 2003}`.
+            'oa_start'          => $this->yearOf($bibjson['oa_start'] ?? null),
             'license'           => $bibjson['license'][0]['type'] ?? null,
             'review_process'    => implode(', ', (array) ($bibjson['editorial']['review_process'] ?? [])) ?: null,
             'institution'       => $bibjson['institution']['name'] ?? null,
@@ -72,6 +77,27 @@ class DoajJournalDirectory
                 'author_instructions' => $bibjson['ref']['author_instructions'] ?? null,
             ]) ?: null,
         ];
+    }
+
+    /**
+     * A four-digit year out of whatever shape DOAJ served it in.
+     *
+     * `oa_start` has appeared as an int, a numeric string, and `{"year": 2003}` across DOAJ API
+     * versions. Anything that is not a plausible year is no answer at all — a zero or a stray
+     * timestamp here would become a plausibility floor, which is worse than having none.
+     */
+    private function yearOf(mixed $raw): ?int
+    {
+        if (is_array($raw)) {
+            $raw = $raw['year'] ?? null;
+        }
+        if (! is_numeric($raw)) {
+            return null;
+        }
+
+        $year = (int) $raw;
+
+        return ($year >= 1600 && $year <= (int) date('Y') + 1) ? $year : null;
     }
 
     /**
@@ -140,6 +166,12 @@ class DoajJournalDirectory
             $aimsCol       = $col["URL for journal's aims & scope"] ?? null;
             $boardCol      = $col['URL for the Editorial Board page'] ?? null;
             $journalUrlCol = $col['Journal URL'] ?? null;
+            // DOAJ has spelled this header several ways across dumps; try each. Absent ⇒ null,
+            // and the year floor falls back to the works we have actually observed.
+            $oaStartCol = $col['When did the journal start to publish all content using an open license?']
+                ?? $col['First calendar year journal provided online Open Access content']
+                ?? $col['Journal start year']
+                ?? null;
 
             $splitList = fn (?string $raw): array => array_values(array_filter(array_map('trim', explode(',', (string) $raw))));
 
@@ -152,6 +184,7 @@ class DoajJournalDirectory
                     'languages' => $langCol !== null
                         ? array_values(array_filter(array_map('trim', explode(',', $row[$langCol] ?? ''))))
                         : [],
+                    'oa_start'       => $oaStartCol !== null ? $this->yearOf($row[$oaStartCol] ?? null) : null,
                     'keywords'       => $keywordsCol !== null ? $splitList($row[$keywordsCol] ?? null) : [],
                     'subjects'       => $subjectsCol !== null ? $splitList($row[$subjectsCol] ?? null) : [],
                     'license'        => $licenseCol !== null ? (trim($row[$licenseCol] ?? '') ?: null) : null,
