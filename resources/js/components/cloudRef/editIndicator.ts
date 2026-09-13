@@ -185,6 +185,15 @@ export function glowCloudGreen() {
     else glowCloudOrange() // work pending but no open cycle — open one
     return
   }
+  // A green with NOTHING pending settles every reglow request that preceded it.
+  // Oranges landing during a previous green's fade (withPending IDB writes, a
+  // paste sync opening) set pendingReglow; if THIS green — the server ACK that
+  // work was waiting on — arrives before the fade ends, the isComplete early-
+  // return below would leave pendingReglow armed and maybeReengage would open a
+  // phantom 'saving' cycle over an empty queue, which nothing ever closes (the
+  // 30s "stuck orange" safety reset — the paste-publisher e2e failure). Work
+  // arriving AFTER this green re-sets the flag, so clearing here is ordering-safe.
+  pendingReglow = false
   // Record the outcome even when the glow itself is skipped (e.g. a sync that
   // finished after the safety reset) — the sync DID succeed.
   setCloudAttr('data-last-sync', 'success')
