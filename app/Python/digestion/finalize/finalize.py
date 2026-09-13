@@ -3,6 +3,8 @@ contradictions (StructuralCoverageAssessment), remove ALL spans before the DB (S
 build the node chunks (GenerateNodeChunks), and sanitize + write the artifacts (SanitizeAndWrite).
 Turns the processed soup into nodes.jsonl / footnotes.jsonl / references.json + the report files.
 Extracted from process_document.py (the orchestrator now just imports these into DOC_PASSES)."""
+import base64
+import copy
 import json
 import os
 import re
@@ -13,6 +15,69 @@ from shared.refkeys import is_likely_reference
 from shared.sanitize import sanitize_html
 from shared.pipeline_base import DocPass
 from digestion._doc_shared import emit_progress
+
+
+def _latex_to_readable(payload):
+    """A `<latex>` element's `data-math` payload as readable prose: `88.1\\%` → `88.1%`.
+
+    Not a LaTeX engine — just enough to stop a statistic reading as markup in search results and
+    embeddings. Anything it cannot simplify it passes through rather than mangling."""
+    t = payload.strip()
+    t = re.sub(r'^\$+|\$+$', '', t).strip()                 # $…$ / $$…$$ delimiters
+    t = re.sub(r'\\(?:text|mathrm|mathit|mbox)\{([^{}]*)\}', r'\1', t)
+    t = re.sub(r'\\[,;:!]|\\quad|\\qquad', ' ', t)          # spacing macros
+    t = t.replace(r'\%', '%').replace(r'\$', '$').replace(r'\&', '&').replace(r'\#', '#')
+    # Purely typographic macros carry no meaning — drop them. Everything else keeps its NAME
+    # (backslash removed): '\Delta t' must not become a bare 't', which would read as a different
+    # quantity; 'Delta t' is both honest and searchable.
+    t = re.sub(r'\\(?:l?dots|cdots|ldotp|hfill|noindent|displaystyle|left|right)\b', ' ', t)
+    t = re.sub(r'\\[,;:!]', ' ', t)
+    t = re.sub(r'\\([a-zA-Z]+)', r'\1', t)
+    t = t.replace('{', '').replace('}', '')
+    t = re.sub(r'\s+', ' ', t)
+    t = re.sub(r',(\s*,)+', ',', t)          # a dropped \ldots leaves 'p_1, p_2, , p_n'
+    return re.sub(r'\s+([,.;:])', r'\1', t).strip()
+
+
+def node_plain_text(node):
+    """The node's text as a reader would say it — the basis of `plainText`.
+
+    Two reasons this is not `node.get_text(strip=True)`, which is what it used to be:
+
+    1. `<latex data-math="…"></latex>` is an EMPTY element by design (KaTeX renders from the
+       attribute), so math contributed ZERO characters — `"… matched the queries.  $88.1\\%$  of
+       the posts"` stored as `"… matched the queries.of the posts"`. 13k elements corpus-wide.
+    2. `strip=True` strips each text node individually and THEN concatenates, destroying real
+       whitespace around inline elements: `queries.  <latex/>  of the` became `queries.of the`,
+       `the <em>Journal</em> of X` became `theJournalof X`. ~12.7% of stored nodes are affected.
+
+    The remedy is to keep the document's OWN whitespace (plain `get_text()`, no separator) and
+    merely collapse runs. A separator is deliberately NOT used: passing `' '` invents spaces the
+    document never had — `(<a>1999</a>)` would become `( 1999 )`, which breaks the very
+    `mb_strpos` lookup this is meant to fix. Where the source glues deliberately, as a superscript
+    marker does in `capitalism<sup>7</sup>`, staying glued is the faithful rendering.
+
+    `plainText` is not cosmetic: it backs full-text search, embeddings / AI context, and
+    BackendHighlightService's `mb_strpos` offset lookup — glued text makes a highlight's anchor
+    text unfindable. The stored `content` is untouched (it must keep the LaTeX for KaTeX), so this
+    works on a COPY. Mirrors `resources/js/integrity/verifier.ts` textContentCanonical, which
+    canonicalises the same elements via `data-math` on the front end."""
+    clone = copy.copy(node)
+    for el in clone.find_all('latex'):
+        raw = el.get('data-math') or ''
+        try:
+            payload = base64.b64decode(raw).decode('utf-8')
+        except Exception:
+            payload = raw                      # not base64 — use it as-is rather than dropping it
+        readable = _latex_to_readable(payload)
+        # Substitute only a short QUANTITY — a percentage, a count, an ordinal. Symbolic maths
+        # renders to macro soup ('fracmathdsE(y | y>y^*)', 'p_1, p_2, , p_n') which is pure noise
+        # in an FTS index and an embedding, so it keeps contributing nothing, as before. A digit
+        # plus a short length is what separates '88.1%' from a display equation. `latex-block` is
+        # excluded entirely for the same reason: a standalone equation is never prose.
+        if readable and len(readable) <= 32 and re.search(r'\d', readable):
+            el.string = readable
+    return re.sub(r'\s+', ' ', clone.get_text()).strip()
 
 
 class StructuralCoverageAssessment(DocPass):
@@ -314,7 +379,7 @@ class GenerateNodeChunks(DocPass):
                 "startLine": start_line_counter, "content": str(node),
                 "references": references_in_node, "footnotes": footnotes_in_node,
                 "hypercites": [], "hyperlights": [],
-                "plainText": node.get_text(strip=True),
+                "plainText": node_plain_text(node),
                 "type": node.name if hasattr(node, 'name') else 'p'
             }
             node_chunks_data.append(node_object)

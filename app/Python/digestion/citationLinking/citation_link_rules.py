@@ -531,6 +531,53 @@ class NumberedBracketCitationLinker(NumberedParenCitationLinker):
     _OPEN, _CLOSE = '[', ']'
 
 
+class UnresolvedCitationDemoter(LinkRule):
+    """Last line of defence: a citation whose anchor does not EXIST is returned to plain text.
+
+    Every linker above resolves through `bibliography_map`, so in principle an href always names a
+    real entry id — but the map and the anchors are built in separate steps and can drift, and a
+    dead link is worse than no link: it looks live, goes nowhere, and (because the linkers count it
+    as linked) inflates the quality score that the maintainer loop reads. Observed live on
+    study_phase1_aczel-2021-billion, where 26 of 48 hrefs named key-shaped ids that were never
+    assigned as an entry id. The remedy is shape-agnostic, so it also covers future variants.
+
+    Runs BEFORE AssessmentRecorder so the recorded linked-count is the corrected one. Note it does
+    NOT run for STEM documents — `citation_pass.py` returns early for those — which is why the STEM
+    branch existence-checks its own hrefs at the point of creation instead.
+
+    Uses BeautifulSoup id lookup, never a regex over the serialised HTML: an ordered
+    `class="…" … id="…"` pattern silently misses `<p id="CR1" class="bib-entry">`.
+    """
+
+    name = 'unresolved_citation_demoter'
+    description = 'Unwrap in-text citations whose target anchor is absent from the document.'
+
+    def apply(self, ctx, log=None):
+        soup = ctx.soup
+        resolved_ids = None
+        demoted = []
+        for a_tag in list(soup.find_all('a', class_='in-text-citation')):
+            href = (a_tag.get('href') or '').strip()
+            if not href.startswith('#') or len(href) < 2:
+                continue
+            target = href[1:]
+            if resolved_ids is None:
+                # Build once, and only if there is something to check.
+                resolved_ids = {t['id'] for t in soup.find_all(attrs={'id': True})}
+            if target in resolved_ids:
+                continue
+            demoted.append(a_tag.get_text(strip=True) or target)
+            a_tag.unwrap()
+            if ctx.citations_linked > 0:
+                ctx.citations_linked -= 1
+            ctx.citations_unlinked.append({'citation': demoted[-1],
+                                           'generated_keys': [target],
+                                           'reason': 'anchor_absent'})
+        if demoted:
+            print(f"  ⚠️ Unlinked {len(demoted)} citation(s) whose reference anchor is missing: "
+                  + ', '.join(demoted[:5]) + (' …' if len(demoted) > 5 else ''))
+
+
 class AssessmentRecorder(LinkRule):
     """Record the citation-linking pass to the assessment trace. AGGREGATE fork: the "roads not
     taken" are the citations we could NOT link (their tried keys), plus the two known SKIP gates."""
@@ -654,6 +701,7 @@ CITATION_LINK_RULES = [
     SquareBracketCitationLinker(),
     NumberedParenCitationLinker(),
     NumberedBracketCitationLinker(),
+    UnresolvedCitationDemoter(),   # must precede the recorder — it corrects citations_linked
     AssessmentRecorder(),
 ]
 

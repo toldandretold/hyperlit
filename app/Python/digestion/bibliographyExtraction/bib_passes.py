@@ -32,7 +32,9 @@ class StemBibliography(DocPass):
         footnotes_data = []
         all_footnotes_data = []
 
-        # Convert wackSTEMdef → bib-entry and collect references
+        # Convert wackSTEMdef → bib-entry and collect references. `emitted_ids` is the set of
+        # anchors that actually EXIST — the citation loop below must not invent hrefs past it.
+        emitted_ids = set()
         for a_tag in soup.find_all('a', class_='wackSTEMdef'):
             ref_id = a_tag.get('id', '')
             a_tag['class'] = 'bib-entry'
@@ -40,33 +42,60 @@ class StemBibliography(DocPass):
             ref_text = a_tag.get_text()
             if ref_text:
                 references_data.append({"referenceId": ref_id, "content": ref_text})
+                if ref_id:
+                    emitted_ids.add(ref_id)
 
-        # Convert wackSTEMcite → in-text-citation with href
+        # Convert wackSTEMcite → in-text-citation with href — but ONLY where the target anchor
+        # exists. The number here comes from the marker's own visible text, so nothing else ties
+        # it to reality: when the OCR loses reference entries (a degenerate page, a dropped
+        # column) the tail of the citations used to be linked to anchors that were never emitted,
+        # and every one of those links was dead. A marker we cannot resolve stays PLAIN TEXT —
+        # correct where determinable, no link where ambiguous — and is counted below instead.
+        stem_cites = 0
+        stem_linked = 0
+        unmatched_refs = []
         for a_tag in soup.find_all('a', class_='wackSTEMcite'):
+            stem_cites += 1
             cite_text = a_tag.get_text()
-            data_refs = a_tag.get('data-refs')
+            data_refs = [r for r in (a_tag.get('data-refs') or '').split(',') if r]
             if data_refs:
-                # Range citation: href points to first ref, data-refs preserved
-                first_ref = data_refs.split(',')[0]
-                a_tag['href'] = f'#{first_ref}'
+                # Range citation ("[1-3]"): keep only the members that resolve, so the popup can
+                # never offer a dead target, and point href at the first surviving one.
+                live = [r for r in data_refs if r in emitted_ids]
+                target = live[0] if live else None
+                if live:
+                    a_tag['data-refs'] = ','.join(live)
+                else:
+                    del a_tag['data-refs']
             else:
                 num_match = re.search(r'\d+', cite_text)
-                if num_match:
-                    a_tag['href'] = f'#stemref_{num_match.group()}'
-            a_tag['class'] = 'in-text-citation'
+                candidate = f'stemref_{num_match.group()}' if num_match else None
+                target = candidate if candidate in emitted_ids else None
+            if target:
+                a_tag['href'] = f'#{target}'
+                a_tag['class'] = 'in-text-citation'
+                stem_linked += 1
+            else:
+                # Unlinkable: unwrap to plain text so it is not styled as a live link.
+                unmatched_refs.append({'citation': cite_text.strip()})
+                a_tag.unwrap()
 
-        stem_cites = len(soup.find_all('a', class_='in-text-citation'))
         print(f"Converted {len(references_data)} STEM bibliography entries")
-        print(f"Converted {stem_cites} STEM in-text citations")
+        print(f"Converted {stem_linked} of {stem_cites} STEM in-text citations"
+              + (f" ({len(unmatched_refs)} left unlinked — no such reference entry)"
+                 if unmatched_refs else ""))
 
-        # Write audit.json
+        # Write audit.json. These counts are REAL: the STEM branch used to hardcode empty
+        # gaps/unmatched and report citations_linked == citations_total, so a document whose
+        # reference list the OCR had truncated still scored 100% linked and the maintainer queue
+        # could never surface it (stem_bibliography_example: 156/156 reported, 56 of them dead).
         os.makedirs(output_dir, exist_ok=True)
         audit_data = {
             'stem_mode': True,
             'total_refs': stem_cites,
             'total_defs': len(references_data),
             'gaps': [], 'duplicates': [],
-            'unmatched_refs': [], 'unmatched_defs': [],
+            'unmatched_refs': unmatched_refs, 'unmatched_defs': [],
             'font_encoding_warnings': ctx.footnote_warnings,
             'segment_boundaries': ctx.segment_boundaries,
         }
@@ -78,7 +107,7 @@ class StemBibliography(DocPass):
         conversion_stats = {
             'references_found': len(references_data),
             'citations_total': stem_cites,
-            'citations_linked': stem_cites,
+            'citations_linked': stem_linked,
             'footnotes_matched': 0,
             'footnote_strategy': 'stem_bibliography',
             'citation_style': 'numbered-bracket',
@@ -89,6 +118,37 @@ class StemBibliography(DocPass):
         with open(os.path.join(output_dir, 'conversion_stats.json'), 'w', encoding='utf-8') as f:
             json.dump(conversion_stats, f, ensure_ascii=False, indent=4)
         print(f"Successfully created {os.path.join(output_dir, 'conversion_stats.json')}")
+
+        # The STEM branch is terminal — AuditPass returns early for it (audit_pass.py) — so without
+        # this record the whole class of document had NO assessment entry at all and its failures
+        # were invisible to the maintainer loop and the vibe loop alike. FLAGS suspicion, never
+        # asserts failure: a shortfall here is usually an upstream OCR loss (a degenerate or
+        # dropped reference page), not a linking bug, so it names the gap and asks for a look.
+        _unlinked = len(unmatched_refs)
+        _cited_max = max((int(m.group()) for a in unmatched_refs
+                          for m in [re.search(r'\d+', a['citation'])] if m), default=0)
+        ASSESSMENT.record(
+            module='stem_citation_link_audit',
+            code_ref='bib_passes.py:StemBibliography.apply',
+            node_help=self.plain,
+            decision=('clean' if _unlinked == 0 else 'reference_entries_missing'),
+            rationale=(f'{stem_linked} of {stem_cites} numbered citation(s) resolved against '
+                       f'{len(references_data)} reference entr(y/ies)'
+                       + ('' if _unlinked == 0 else
+                          f'; {_unlinked} cited number(s) have no entry (highest cited '
+                          f'{_cited_max}) — the reference list is shorter than the citations')),
+            evidence={'citations_total': stem_cites, 'citations_linked': stem_linked,
+                      'references_found': len(references_data), 'unlinked': _unlinked,
+                      'unlinked_sample': [a['citation'] for a in unmatched_refs[:8]],
+                      'highest_cited_unresolved': _cited_max},
+            question='Did every numbered [N] citation find its reference entry?',
+            considered=['clean', 'reference_entries_missing'],
+            confidence=round(1.0 if not stem_cites else stem_linked / stem_cites, 2),
+            margin=('every numbered citation resolved' if _unlinked == 0 else
+                    f'{_unlinked} citation(s) left as plain text rather than linked to a '
+                    f'non-existent anchor — SUSPECT the OCR dropped reference entries (check the '
+                    f'reference pages in ocr_response.json) before suspecting the linker'),
+        )
 
         ctx.references_data = references_data
         ctx.footnotes_data = footnotes_data

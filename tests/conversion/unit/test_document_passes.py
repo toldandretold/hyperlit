@@ -77,6 +77,42 @@ def test_stem_bibliography_converts_and_writes(tmp_path):
     assert stats['footnote_strategy'] == 'stem_bibliography'
 
 
+def test_stem_citation_without_a_reference_entry_stays_plain_text(tmp_path):
+    """A numbered [N] marker is linked from its own visible text, so nothing tied it to reality:
+    when the OCR loses reference entries the tail of the citations used to be linked to anchors
+    that were never emitted. stem_bibliography_example cited [1]..[137] against 81 surviving
+    entries — 56 dead links, reported as 156/156 linked because citations_linked was ASSIGNED the
+    total. Unresolvable markers now stay plain text and the counts say so."""
+    html = ('<body><p>A<a class="wackSTEMcite">1</a> and B<a class="wackSTEMcite">2</a>.</p>'
+            '<a class="wackSTEMdef" id="stemref_1">Marcuse 1964</a></body>')
+    ctx = _ctx(tmp_path, html)
+    ctx.is_stem = True
+    P.StemBibliography().apply(ctx)
+
+    cites = ctx.soup.find_all('a', class_='in-text-citation')
+    assert [c['href'] for c in cites] == ['#stemref_1']      # [2] has no entry — not linked
+    assert 'and B2.' in ctx.soup.get_text()                  # its text survives, unlinked
+    stats = json.load(open(os.path.join(str(tmp_path), 'conversion_stats.json')))
+    assert (stats['citations_total'], stats['citations_linked']) == (2, 1)
+    audit = json.load(open(os.path.join(str(tmp_path), 'audit.json')))
+    assert [u['citation'] for u in audit['unmatched_refs']] == ['2']
+
+
+def test_stem_range_citation_drops_only_the_unresolvable_members(tmp_path):
+    """A range marker carries data-refs; an entry that does not exist must not stay in it, or the
+    popup offers a dead target."""
+    html = ('<body><p>A<a class="wackSTEMcite" data-refs="stemref_1,stemref_2,stemref_3">1-3</a>.</p>'
+            '<a class="wackSTEMdef" id="stemref_1">One</a>'
+            '<a class="wackSTEMdef" id="stemref_3">Three</a></body>')
+    ctx = _ctx(tmp_path, html)
+    ctx.is_stem = True
+    P.StemBibliography().apply(ctx)
+
+    cite = ctx.soup.find('a', class_='in-text-citation')
+    assert cite['href'] == '#stemref_1'
+    assert cite['data-refs'] == 'stemref_1,stemref_3'        # stemref_2 removed
+
+
 def test_stem_bibliography_guard_noop_when_not_stem(tmp_path):
     ctx = _ctx(tmp_path, '<body><a class="wackSTEMdef" id="x">y</a></body>')
     ctx.is_stem = False

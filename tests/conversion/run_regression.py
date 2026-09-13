@@ -574,7 +574,11 @@ def compare_citation_anchors(fixture, tmp_dir):
     is randomised PER PROCESS, so the same book reconverted twice got a different anchor. The
     harness pins PYTHONHASHSEED=0 and production does not, which is exactly how a golden stays green
     while prod orphans its own citations. Two anchor families: author-year `bib-entry` and numbered
-    STEM `wackSTEMdef` (#stemref_N)."""
+    STEM `wackSTEMdef` (#stemref_N).
+
+    Reads `id` INDEPENDENTLY of attribute order. A single regex demanding class-before-id silently
+    misses `<p id="CR1" class="bib-entry">` — the order the JATS lane emits — and would report every
+    one of that lane's citations as dangling."""
     nodes = _read_jsonl(os.path.join(tmp_dir, 'nodes.jsonl'))
     if not nodes:
         return None
@@ -582,7 +586,13 @@ def compare_citation_anchors(fixture, tmp_dir):
     hrefs = re.findall(r'class="in-text-citation" href="#([^"]+)"', html)
     if not hrefs:
         return None
-    anchors = set(re.findall(r'class="(?:bib-entry|wackSTEMdef)"[^>]*\bid="([^"]+)"', html))
+    anchors = set()
+    for tag in re.findall(r'<[^/!][^>]*>', html):
+        cls = re.search(r'\bclass="([^"]*)"', tag)
+        tid = re.search(r'\bid="([^"]+)"', tag)
+        # whole-token class match: `\b` would accept 'bib-entry-note', since '-' is a word boundary
+        if cls and tid and {'bib-entry', 'wackSTEMdef'} & set(cls.group(1).split()):
+            anchors.add(tid.group(1))
     dangling = sorted({h for h in hrefs if h not in anchors})
     # A fixture with a KNOWN residual declares it (documented + visible, never silent) — same
     # contract as max_unmatched_defs. The two STEM survey fixtures cite [1]..[155] while the

@@ -136,7 +136,11 @@ def test_square_bracket_linker_links_matching_citation(soup):
 def test_bracket_only_document_links_through_full_chain(soup):
     # The regression case for the fix: a source citing ONLY with [Author, YEAR] (NO parentheses) must
     # link end-to-end — the gate now fires on the bracket pattern, so SquareBracketCitationLinker runs.
-    s = soup('<body><p>Recent work [Baldwin, 2018] and others [Wolfe, 2018] agree.</p></body>')
+    # the bib-entry anchors must EXIST: extract_bibliography creates the anchor and the map
+    # entry together, and UnresolvedCitationDemoter rightly unwraps an href naming no anchor.
+    s = soup('<body><p>Recent work [Baldwin, 2018] and others [Wolfe, 2018] agree.</p>'
+             '<p><a class="bib-entry" id="bib-baldwin"></a>Baldwin 2018.</p>'
+             '<p><a class="bib-entry" id="bib-wolfe"></a>Wolfe 2018.</p></body>')
     bib = {_key('Baldwin 2018'): 'bib-baldwin', _key('Wolfe 2018'): 'bib-wolfe'}
     found, linked, unlinked = link_citations_rules(s, bib)
     assert linked == 2, 'both square-bracket author-date citations should link'
@@ -226,7 +230,9 @@ def test_assessment_recorder_runs_for_each_branch(soup):
 # link_citations_rules — end-to-end tuple return
 # ---------------------------------------------------------------------------
 def test_link_citations_rules_end_to_end(soup):
-    s = soup('<body><p>As argued (Marcuse 2009) and [Smith 2010].</p></body>')
+    s = soup('<body><p>As argued (Marcuse 2009) and [Smith 2010].</p>'
+             '<p><a class="bib-entry" id="bib-m"></a>Marcuse 2009.</p>'
+             '<p><a class="bib-entry" id="bib-s"></a>Smith 2010.</p></body>')
     bib = {_key('Marcuse 2009'): 'bib-m', _key('Smith 2010'): 'bib-s'}
     found, linked, unlinked = link_citations_rules(s, bib)
     assert found == 2

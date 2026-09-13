@@ -8,10 +8,10 @@
     "pipeline": "full",
     "expected": {
         "references_count": 31,
-        "citations_linked": 40,
+        "citations_linked": 38,
         "citations_total": 40,
         "footnotes_count": 1,
         "audit_gaps": 0,
-        "max_dangling_citations": 2
+        "max_dangling_citations": 0
     }
 }
