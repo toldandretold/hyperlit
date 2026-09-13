@@ -6,6 +6,7 @@ import re
 import argparse
 import base64
 from pathlib import Path
+from collections import Counter
 from statistics import median
 from mistralai.client import Mistral
 from pypdf import PdfReader, PdfWriter
@@ -344,6 +345,131 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 seen.add(shifted_num)
                 recovered.append((shifted_num, split_text))
     return recovered
+
+
+def _norm_chunk(t):
+    return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()
+
+
+def scan_page_degeneration(response_dict, pdf_path=None):
+    """Detect pages where the OCR model DEGENERATED — looped instead of transcribing.
+
+    This is the most dangerous OCR failure mode we have, because it does not lose text visibly: it
+    substitutes fluent, plausible FILLER. stem_bibliography_example's reference pages 35/36/38 came
+    back at 727/1321/1176 chars against ~5.5 KB neighbours, carrying a repeated conference caption
+    and the heading '# 4.2.2.2.2.2.2.2.2…'. References 62-103 and 124-155 were never transcribed,
+    and nothing downstream could tell — the book simply read as though the author had written the
+    filler. A dropped page is a visible hole; this is invented content sitting in a library.
+
+    The measure is the DUPLICATION RATIO — what fraction of the page's prose sits in sentences that
+    occur more than once — combined with the page COLLAPSING against its neighbours. Both are
+    needed, and a repetition COUNT is not enough: a healthy page legitimately repeats a sentence
+    three times (table captions, legal boilerplate, 'See Table 4.'), and counting occurrences
+    flagged 47 pages of which 43 were fine. The ratio separates them cleanly — measured over this
+    corpus, degenerate pages score 0.50-0.75 AND come in at a third of the median page, while the
+    healthy repeaters score 0.05-0.42 at or ABOVE median length:
+
+        stem_bibliography_example  p35  727 chars  ratio 0.50   <- degenerate
+                                   p36 1321 chars  ratio 0.75   <- degenerate (+ runaway heading)
+                                   p38 1176 chars  ratio 0.53   <- degenerate
+                                   p34 5541 chars  ratio 0.20      healthy
+        deloitte2025independent    p219 5496 chars ratio 0.42      healthy
+
+    Repetition alone still cannot separate a degenerate page from a legitimately short, repetitive
+    one — a figure page whose two captions share a boilerplate sentence is statistically identical
+    (93d34a74 p359: 626 chars, ratio 0.50, and entirely genuine). The PDF's OWN TEXT LAYER settles
+    it, and it is ground truth rather than a heuristic: on that page pypdf sees 588 chars against
+    the OCR's 626 — the page really is that short — whereas a degenerate reference page hides
+    thousands of characters pypdf can still read. So when the PDF is present, repetition is only
+    believed if the text layer shows material MISSING text; that combination has zero false
+    positives across every PDF-bearing book in this corpus.
+
+    A runaway numeric heading ('# 4.2.2.2.2.2.2.2.2') triggers on its own — a pure decoder loop,
+    never real structure, and cheap to recognise without the PDF.
+
+    Without a PDF (the fixture replay) the verdict degrades to 'suspected' on repetition + collapse
+    alone, and a caption-heavy figure page can land there. Production always has the PDF.
+
+    Detection only — this neither repairs the page nor rejects the import. It exists so a
+    degenerate run is VISIBLE instead of scoring clean.
+
+    Returns a list of per-page dicts; [] when the response looks healthy.
+    """
+    pages = response_dict.get('pages') or []
+    if not pages:
+        return []
+    non_empty = sorted(len(p.get('markdown') or '') for p in pages
+                       if len(p.get('markdown') or '') > 200)
+    if not non_empty:
+        return []
+    median = non_empty[len(non_empty) // 2]
+
+    layer = {}
+    if pdf_path:
+        try:
+            layer = extract_pypdf_page_texts(pdf_path)
+        except Exception:
+            layer = {}
+
+    findings = []
+    for page in pages:
+        md = page.get('markdown') or ''
+        if len(md) < 120:
+            continue                       # a near-empty page is its own (visible) problem
+        sents = [_norm_chunk(s) for s in re.split(r'(?<=[.!?])\s+', re.sub(r'\s+', ' ', md))]
+        sents = [s for s in sents if len(s) > 40]
+        counts = Counter(sents)
+        total = sum(len(s) for s in sents)
+        dup = sum(len(s) * n for s, n in counts.items() if n > 1)
+        ratio = (dup / total) if total else 0.0
+        collapsed = len(md) < median * 0.6
+        # HEADING-scoped: a bare '.N.N.N…' run elsewhere on the page is ordinary content — a
+        # mathematical integer partition ('5.4.1.3.2.3.1.1.2.2.1.2.1.1.1.1.1.1.1' in a power-law
+        # paper) and a mangled-URL artifact both matched an unscoped pattern on prod.
+        runaway = bool(re.search(r'(?m)^#{1,6}[^\n]*(?:\.\d){8,}', md))
+
+        idx = page.get('index')
+        layer_chars = len(layer.get(idx) or '') if layer else 0
+        shortfall = bool(layer_chars) and layer_chars > len(md) * 1.5
+
+        repeats = max(counts.values()) if counts else 0
+        reasons = []
+        verdict = None
+        if runaway:
+            verdict = 'confirmed'
+            reasons.append('runaway numeric heading — a decoder loop, not real structure')
+        # `repeats >= 3` is the decisive addition. Ratio + collapse alone still confused a figure
+        # PLATE — two figures whose captions share a Source/Note boilerplate sentence — with a
+        # loop: measured on prod, every true positive repeats one sentence 5x while every false
+        # positive tops out at 2 (unctad2019digital p83, 93d34a74 p359, travis-ficarra-mfa p36/37).
+        if ratio >= 0.45 and collapsed and repeats >= 3:
+            detail = (f'{round(ratio * 100)}% of the page is repeated text, one sentence '
+                      f'{repeats}x, at {len(md)} chars against a {median}-char median page')
+            if shortfall:
+                verdict = 'confirmed'
+                reasons.append(detail + f" — and the PDF's own text layer holds {layer_chars} "
+                                        f'chars here, so the text is missing, not absent')
+            elif repeats >= 5:
+                # 5 identical sentences is not a document. No corroboration needed.
+                verdict = 'confirmed'
+                reasons.append(detail)
+            elif not layer_chars:
+                verdict = verdict or 'suspected'
+                reasons.append(detail + ' (no PDF text layer available to corroborate)')
+            # layer present and NOT short ⇒ the page really is this short. Not degenerate.
+        if not reasons:
+            continue
+        findings.append({
+            'page': idx,
+            'verdict': verdict,
+            'ocr_chars': len(md),
+            'duplication_ratio': round(ratio, 2),
+            'max_sentence_repeats': repeats,
+            'text_layer_chars': layer_chars or None,
+            'median_page_chars': median,
+            'reasons': reasons,
+        })
+    return findings
 
 
 def scan_footnote_mojibake(response_dict, footnote_meta, pdf_path,

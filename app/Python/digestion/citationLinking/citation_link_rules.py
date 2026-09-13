@@ -266,13 +266,26 @@ class PreLinkedAnchorConverter(LinkRule):
         bibliography_map = ctx.bibliography_map
         anchor_converted = 0
         anchor_unmatched = 0
+        # ids this document actually carries — an already-classed citation is left alone only when
+        # its target EXISTS (see below). Built once, lazily.
+        live_ids = None
         for a_tag in soup.find_all('a', href=True):
             href = a_tag.get('href', '')
             # Skip if already a citation, bib-entry, footnote, or external link
             if not href.startswith('#'):
                 continue
             if 'in-text-citation' in a_tag.get('class', []):
-                continue
+                # Already classed — normally our own output, so leave it. BUT when the SOURCE is
+                # itself previously-converted output (study_phase1_aczel-2021-billion: 48
+                # `class="in-text-citation"` anchors and zero bib-entries in its original.html),
+                # those hrefs were written by an OLDER key generator and name ids this conversion
+                # no longer mints. Skipping them unconditionally left 33 permanently dead links
+                # even though the map still knew where 15 of them belonged. So: skip only while
+                # the target resolves; a STALE one falls through and is re-pointed below.
+                if live_ids is None:
+                    live_ids = {t['id'] for t in soup.find_all(attrs={'id': True})}
+                if href.lstrip('#') in live_ids:
+                    continue
             if 'bib-entry' in a_tag.get('class', []):
                 continue
             if 'footnote-ref' in a_tag.get('class', []):
@@ -286,7 +299,9 @@ class PreLinkedAnchorConverter(LinkRule):
             if anchor_id in bibliography_map:
                 primary_id = bibliography_map[anchor_id]
                 a_tag['href'] = f'#{primary_id}'
-                a_tag['class'] = a_tag.get('class', []) + ['in-text-citation']
+                classes = a_tag.get('class', [])
+                if 'in-text-citation' not in classes:        # a re-pointed stale one already has it
+                    a_tag['class'] = classes + ['in-text-citation']
                 anchor_converted += 1
             else:
                 anchor_unmatched += 1

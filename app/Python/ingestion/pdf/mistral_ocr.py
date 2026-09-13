@@ -68,9 +68,39 @@ def write_classification_assessment(footnote_meta, output_dir, markdown=None, fo
         'margin': footnote_meta.get('margin'),
     }
     records = [record]
+    # OCR degeneration is an UPSTREAM verdict, so it belongs in the trace beside the classification
+    # rather than anywhere in digestion — nothing downstream can see it, because the filler reads
+    # as ordinary prose. Flags suspicion and names the pages; never asserts the book is unusable.
+    degeneration = footnote_meta.get('ocr_degeneration') or []
+    if degeneration:
+        _conf = [d for d in degeneration if d.get('verdict') == 'confirmed']
+        records.append({
+            'seq': len(records),
+            'module': 'ocr_page_degeneration',
+            'code_ref': 'recovery.py:scan_page_degeneration',
+            'node_help': ('Pages where the OCR model repeated itself instead of transcribing. It '
+                          'does not leave a hole — it substitutes fluent, plausible FILLER, so the '
+                          'loss is invisible to every later stage and to the reader. Content on '
+                          'these pages is NOT the work; re-OCR them.'),
+            'decision': ('degenerate_pages_confirmed' if _conf else 'degenerate_pages_suspected'),
+            'rationale': (f'{len(degeneration)} page(s) look like a decoder loop '
+                          f'({len(_conf)} confirmed against the PDF text layer): '
+                          + '; '.join(f"p{d['page']} {d['reasons'][0]}" for d in degeneration[:4])),
+            'evidence': {'pages': [d['page'] for d in degeneration],
+                         'confirmed': [d['page'] for d in _conf],
+                         'detail': degeneration[:8]},
+            'question': 'Did the OCR model transcribe every page, or loop on some of them?',
+            'considered': ['degenerate_pages_confirmed', 'degenerate_pages_suspected'],
+            'confidence': 0.9 if _conf else 0.5,
+            'margin': ('the PDF text layer holds text these pages do not — the content is missing, '
+                       'not absent' if _conf else
+                       'no PDF available to corroborate; a figure page with repeated captions can '
+                       'look the same, so confirm against the source before acting'),
+        })
     if markdown is not None:
         fidelity = assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings)
         if fidelity:
+            fidelity['seq'] = len(records)
             records.append(fidelity)
     try:
         with open(os.path.join(str(output_dir), 'assessment.json'), 'w', encoding='utf-8') as f:
@@ -159,6 +189,21 @@ def main():
             except OSError:
                 pass
 
+    # OCR DEGENERATION — measured FIRST, on the pristine response. Pages where the model looped
+    # instead of transcribing are the one fidelity failure that leaves no hole: it substitutes
+    # fluent, plausible FILLER, so nothing downstream and no reader can tell. It has to be measured
+    # before fold_footer_defs_into_markdown / renumber_chunk_footnotes touch `response_dict` —
+    # folding appends footer text to every page, which inflates the very page lengths the collapse
+    # signal compares (it silently stopped detecting a known-degenerate page when run afterwards).
+    degeneration = scan_page_degeneration(response_dict, pdf_path if pdf_path.exists() else None)
+    if degeneration:
+        _conf = [d for d in degeneration if d.get('verdict') == 'confirmed']
+        print(f"  ⚠️ OCR DEGENERATION on {len(degeneration)} page(s) ({len(_conf)} confirmed): the "
+              f"model repeated itself instead of transcribing, so the real content of these pages "
+              f"is MISSING and replaced by plausible filler — re-OCR them before trusting the text.")
+        for d in degeneration[:6]:
+            print(f"     page {d['page']} [{d['verdict']}]: {d['reasons'][0]}")
+
     # Initial classification (used to gate the renumber pass — chapter_endnotes
     # books have their own per-chapter offset machinery and we must not double-shift).
     emit_progress(46, "ocr_analyze", "Analyzing footnote layout")
@@ -239,6 +284,8 @@ def main():
             print(f"Font-encoding mojibake on {len(footnote_warnings)} page(s): "
                   f"recovered {rec} defs via pypdf, {unrec} unrecoverable.")
     footnote_meta["footnote_warnings"] = footnote_warnings
+    # carried from the pristine-response scan above (classify_footnotes rebuilds footnote_meta)
+    footnote_meta["ocr_degeneration"] = degeneration
 
     # Save images to media/ subdirectory
     img_count = save_images(response_dict, media_dir)

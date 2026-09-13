@@ -370,3 +370,27 @@ def test_bibliography_region_does_not_swallow_prose_between_distant_entries(soup
              f'{body}<p><a class="bib-entry" id="b2"></a>Smith, J. Other (2010).</p></body>')
     found, linked, _ = link_citations_rules(s, {_key('Marcuse 2009'): 'b1'})
     assert (found, linked) == (4, 4)
+
+
+def test_stale_citation_href_from_reconverted_source_is_repointed(soup):
+    """A source that is itself previously-converted output carries `class="in-text-citation"`
+    anchors whose hrefs an OLDER key generator wrote (study_phase1_aczel-2021-billion: 48 of them,
+    zero bib-entries). The already-classed guard used to skip every one, so they stayed permanently
+    dead even where the current map still knew the answer — 15 of 33 on that book."""
+    s = soup('<body><p>A claim <a href="#uglyconcatenatedkey2019" class="in-text-citation">1</a>.</p>'
+             '<p><a class="bib-entry" id="smith2019"></a>Smith, J. (2019).</p></body>')
+    found, linked, unlinked = link_citations_rules(s, {'uglyconcatenatedkey2019': 'smith2019'})
+
+    a = s.find('a', class_='in-text-citation')
+    assert a is not None and a['href'] == '#smith2019'
+    assert a.get('class').count('in-text-citation') == 1        # not duplicated by re-pointing
+
+
+def test_a_resolving_citation_is_never_touched_twice(soup):
+    """The already-classed guard still holds for our OWN output — an href whose target exists is
+    left exactly as it is, so the rule stays idempotent."""
+    s = soup('<body><p>A claim <a href="#smith2019" class="in-text-citation">1</a>.</p>'
+             '<p><a class="bib-entry" id="smith2019"></a>Smith, J. (2019).</p></body>')
+    before = str(s)
+    link_citations_rules(s, {'smith2019': 'smith2019'})
+    assert str(s) == before
