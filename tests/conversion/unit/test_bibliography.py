@@ -3,7 +3,11 @@ Pins the bibliography_map (key -> entry_id) that the citation linker matches aga
 especially the author+year collision suffixing, which is what keeps two different works
 by the same author/year from collapsing onto one id (a confident wrong link)."""
 
+import os
+
 from digestion.bibliographyExtraction.bibliography import extract_bibliography
+
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 
 def _doc(soup, body):
@@ -174,3 +178,51 @@ def test_headingless_footnote_paper_yields_no_bibliography(soup):
     bib, data = extract_bibliography(s)
     assert data == []
     assert bib == {}
+
+
+# ---------------------------------------------------------------------------
+# Pre-1900 citation years (7fa30289) + a deterministic canonical id
+# ---------------------------------------------------------------------------
+
+def test_historical_citation_years_generate_keys():
+    """A 1900 year floor made generate_ref_keys return NO KEYS AT ALL for a 19th-century
+    citation, so "(Engels 1886a: 356f; Hegel 1874: §§97f)" linked to nothing — even though both
+    bibliography entries existed and were keyed correctly (an entry's parenthesized year takes a
+    branch with no floor, which is why only the in-text side broke)."""
+    from shared.refkeys import HISTORICAL_YEAR_MIN, generate_ref_keys
+    for cite, want in [('Engels 1886a: 356f', 'engels1886a'), ('Hegel 1874: §§97f', 'hegel1874'),
+                       ('Marx 1867', 'marx1867'), ('Smith 1776: 12', 'smith1776')]:
+        assert generate_ref_keys(cite) == []                      # modern floor: invisible
+        assert want in generate_ref_keys(cite, min_year=HISTORICAL_YEAR_MIN)
+
+
+def test_a_historical_year_never_outranks_a_modern_one():
+    """Strictly a FALLBACK. Admitted to the same pool, a historical year WINS the last-year rule
+    ("Author 2005: 1850" → author1850) and cost 93d34a74 a link that used to resolve."""
+    from shared.refkeys import HISTORICAL_YEAR_MIN as H, generate_ref_keys
+    for cite in ('Author 2005: 1850', 'Jones 1999, 1850', 'Giddens 1984: 25'):
+        assert generate_ref_keys(cite, min_year=H) == generate_ref_keys(cite)
+
+
+def test_canonical_reference_id_is_deterministic_across_processes():
+    """`keys[0]` becomes the entry's bibliography ANCHOR id, and the alt-year path built it with
+    `list(set(...))[0]` — set() iteration over strings is randomised PER PROCESS, so the same book
+    reconverted twice got a different anchor and silently orphaned every citation pointing at the
+    old one. The regression harness pins PYTHONHASHSEED=0; production does not."""
+    import subprocess
+    import sys as _sys
+    code = (
+        "import sys; sys.path.insert(0, 'app/Python');"
+        "from shared.refkeys import generate_ref_keys;"
+        "from digestion.bibliographyExtraction.bibliography import _ordered_unique;"
+        "t='Spencer, Herbert (1884) The Man Versus The State. Indianapolis. Liberty Fund. 1992.';"
+        "k=generate_ref_keys(t);"
+        "a=[x.replace('1884','1992') for x in k if '1884' in x];"
+        "print(_ordered_unique(k+a)[0])"
+    )
+    env = {k: v for k, v in os.environ.items() if k != 'PYTHONHASHSEED'}
+    ids = {subprocess.run([_sys.executable, '-c', code], capture_output=True, text=True,
+                          env=env, cwd=_REPO_ROOT).stdout.strip() for _ in range(6)}
+    assert len(ids) == 1, f'canonical id varies across processes: {ids}'
+    # the PRINTED year stays canonical; the reprint year is a match-only alias
+    assert ids == {'spencer1884'}

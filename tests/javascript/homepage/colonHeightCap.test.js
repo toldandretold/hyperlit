@@ -15,18 +15,17 @@ import { describe, it, expect } from 'vitest';
 import { capColonHeight } from '../../../resources/js/components/homepage/homepageHero';
 
 const LINE = 24; // a title line at the default clamp
-const CAP = LINE * 3;
+const CAP = LINE * 2; // MAX_COLON_LINES
 
 describe('capColonHeight', () => {
-  it('passes short titles through untouched — one, two and three lines all match exactly', () => {
+  it('passes short titles through untouched — one and two lines match exactly', () => {
     expect(capColonHeight(LINE, LINE)).toBe(LINE);
-    expect(capColonHeight(LINE * 2, LINE)).toBe(LINE * 2);
     expect(capColonHeight(CAP, LINE)).toBe(CAP);
   });
 
-  it('caps a long name at three lines instead of tracking it', () => {
-    // the tripleC case: nine lines measured, three lines of colon
-    expect(capColonHeight(342, 38)).toBe(38 * 3);
+  it('caps a long name at two lines instead of tracking it', () => {
+    // the tripleC case: nine lines measured, two lines of colon
+    expect(capColonHeight(342, 38)).toBe(38 * 2);
     expect(capColonHeight(LINE * 9, LINE)).toBe(CAP);
   });
 

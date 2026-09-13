@@ -4,6 +4,7 @@ namespace App\Services\Metadata;
 
 use App\Models\ConversionFlag;
 use App\Services\CanonicalVersions\PublisherYearRepair;
+use App\Services\OpenAlexService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -52,7 +53,7 @@ class MetadataDriftDetector
      * @param  ?string $html         the publisher page; null ⇒ read the stored one
      * @param  bool    $dryRun       decide and report, write nothing
      * @return array{
-     *     status: 'no_page'|'no_date'|'agreed'|'corrected'|'flagged',
+     *     status: 'no_page'|'identity_unconfirmed'|'no_date'|'agreed'|'corrected'|'flagged',
      *     fields: array<string, array{stored: mixed, page: mixed, action: string, rule: ?string}>,
      *     applied: array<string, mixed>, rows: int
      * }
@@ -61,7 +62,7 @@ class MetadataDriftDetector
     {
         $canonical = DB::connection('pgsql_admin')->table('canonical_source')
             ->where('id', $canonicalId)
-            ->first(['id', 'year', 'volume', 'issue', 'journal_source_id', 'auto_version_book', 'title']);
+            ->first(['id', 'year', 'volume', 'issue', 'journal_source_id', 'auto_version_book', 'title', 'doi']);
 
         if (! $canonical) {
             return $this->result('no_page');
@@ -70,6 +71,25 @@ class MetadataDriftDetector
         $html ??= $this->storedPageForCanonical($canonicalId, $canonical->auto_version_book);
         if ($html === null) {
             return $this->result('no_page');
+        }
+
+        // Prove the page is THIS work before letting it touch anything. `storedPageFor()` returns
+        // whatever HTML is in the book's directory, and an engine-crash `rejected_page.html` was
+        // never identity-checked by the import (that gate runs before the authenticity gate).
+        // A different article's page carrying a plausible date would turn an obviously-ugly 1970
+        // into a confidently wrong year — strictly worse, because nothing downstream can see it.
+        $identity = $this->page->identityMatches(
+            $html,
+            $canonical->doi,
+            $canonical->title,
+            fn (string $a, string $b): float => app(OpenAlexService::class)->titleSimilarity($a, $b),
+        );
+        if (! $identity['ok']) {
+            Log::info('Metadata drift check refused a page it could not identify', [
+                'canonical' => $canonicalId, 'basis' => $identity['basis'],
+            ]);
+
+            return $this->result('identity_unconfirmed');
         }
 
         $found = $this->page->extractAll($html);
@@ -107,7 +127,12 @@ class MetadataDriftDetector
             ]);
         }
 
-        if ($disputed !== [] && ! $dryRun) {
+        // A flag is raised whenever ANYTHING moved or is contested — not only for disputes.
+        // An automatic correction is still a machine rewriting a citation from a scraped page, so
+        // it leaves a reviewable, reversible record of what changed and why. Without this the
+        // only trace of a silent fix is a log line nobody reads, and "the card says 2003 now and
+        // I don't know who decided that" is its own kind of data-integrity problem.
+        if (($disputed !== [] || $applied !== []) && ! $dryRun) {
             $this->raiseFlag($canonicalId, $canonical, $fields, $disputed, $applied);
         }
 
@@ -156,6 +181,13 @@ class MetadataDriftDetector
             if ($pageValue === null || (string) $pageValue === (string) $stored) {
                 continue;
             }
+            // "There isn't one yet" is not a value. An ahead-of-print article really does carry
+            // `citation_volume: -1` / `citation_issue: aop`, and filling an empty column with
+            // that is worse than leaving the gap — the gap is honest and self-heals on the next
+            // sync, whereas `volume = -1` renders on the card and looks deliberate.
+            if (! $this->page->isPlausibleDesignator($pageValue)) {
+                continue;
+            }
             $fields[$field] = ($stored === null || $stored === '')
                 ? $this->field($stored, $pageValue, 'fill', 'stored_empty')
                 : $this->field($stored, $pageValue, 'dispute', 'both_present');
@@ -189,16 +221,27 @@ class MetadataDriftDetector
             return;
         }
 
-        $reason = 'Publisher page disagrees on ' . implode(', ', array_keys($disputed))
-            . ' — ' . implode('; ', array_map(
-                fn ($f, $d) => "{$f}: stored " . $this->show($d['stored']) . ', page ' . $this->show($d['page']),
-                array_keys($disputed),
-                $disputed,
+        // Two different messages, because they need two different things from the reader: a
+        // dispute is a decision waiting on them, an applied correction is a record to check.
+        $describe = fn (array $set) => implode('; ', array_map(
+            fn ($f, $d) => "{$f}: stored " . $this->show($d['stored']) . ', page ' . $this->show($d['page']),
+            array_keys($set),
+            $set,
+        ));
+
+        $reason = $disputed !== []
+            ? 'Publisher page disagrees on ' . implode(', ', array_keys($disputed)) . ' — ' . $describe($disputed)
+            : 'Corrected from the publisher page — ' . $describe(array_filter(
+                $fields,
+                fn ($d) => $d['action'] === 'correct' || $d['action'] === 'fill',
             ));
 
         foreach ($books as $book) {
             ConversionFlag::raise($book, ConversionFlag::SOURCE_METADATA_DRIFT, $reason, [
                 'canonical_source_id' => $canonicalId,
+                // The console needs to tell "you must choose" from "here is what was changed for
+                // you" — same flag kind, very different call to action.
+                'needs_decision'      => $disputed !== [],
                 'fields'              => $fields,
                 'applied'             => $applied,
                 'page_file'           => $canonical->auto_version_book

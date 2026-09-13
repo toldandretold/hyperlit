@@ -566,6 +566,36 @@ def compare_detectors(fixture, tmp_dir):
     return True, f'{len(want)} detector(s) fired'
 
 
+def compare_citation_anchors(fixture, tmp_dir):
+    """Semantic correctness gate: every in-text citation must point at an anchor that EXISTS in the
+    same document. A golden suite freezes whatever ids the converter emitted, so it certifies a
+    conversion whose citation hrefs and bibliography anchors have drifted apart — and they really
+    could: the entry's canonical id came from `list(set(keys))[0]`, and set() iteration over strings
+    is randomised PER PROCESS, so the same book reconverted twice got a different anchor. The
+    harness pins PYTHONHASHSEED=0 and production does not, which is exactly how a golden stays green
+    while prod orphans its own citations. Two anchor families: author-year `bib-entry` and numbered
+    STEM `wackSTEMdef` (#stemref_N)."""
+    nodes = _read_jsonl(os.path.join(tmp_dir, 'nodes.jsonl'))
+    if not nodes:
+        return None
+    html = ' '.join((n.get('content') or '') for n in nodes)
+    hrefs = re.findall(r'class="in-text-citation" href="#([^"]+)"', html)
+    if not hrefs:
+        return None
+    anchors = set(re.findall(r'class="(?:bib-entry|wackSTEMdef)"[^>]*\bid="([^"]+)"', html))
+    dangling = sorted({h for h in hrefs if h not in anchors})
+    # A fixture with a KNOWN residual declares it (documented + visible, never silent) — same
+    # contract as max_unmatched_defs. The two STEM survey fixtures cite [1]..[155] while the
+    # reference-list extraction only reaches 81 entries, so the tail has nothing to point at.
+    ceiling = fixture['manifest'].get('expected', {}).get('max_dangling_citations', 0)
+    if len(dangling) <= ceiling:
+        return True, (f'{len(hrefs)} citation link(s), {len(dangling)} dangling'
+                      + (f' (<= {ceiling} allowed)' if ceiling else '; all anchors resolve'))
+    return False, (f'{len(dangling)} citation href(s) point at no anchor in the document, max '
+                   f'allowed {ceiling} (e.g. {dangling[:4]}) — bibliography ids and citation '
+                   f'hrefs have drifted')
+
+
 def compare_golden_files(fixture, tmp_dir):
     """Byte-compare normalized artifacts against committed goldens (catch-all).
     No-op until a fixture has been migrated to the new model (signalled by the
@@ -600,6 +630,7 @@ COMPARATORS = [
     ('orphans', compare_orphans),
     ('strategy', compare_strategy),
     ('footnote_links', compare_footnote_links),
+    ('citation_anchors', compare_citation_anchors),
     ('detectors', compare_detectors),
     ('golden', compare_golden_files),
 ]

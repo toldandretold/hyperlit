@@ -9,7 +9,8 @@ import os
 import re
 
 from shared.assessment import ASSESSMENT
-from shared.refkeys import generate_ref_keys, is_likely_reference, normalize_unicode_name
+from shared.refkeys import (generate_ref_keys, is_likely_reference, is_plausible_year,
+                            normalize_unicode_name)
 
 
 # Per-entry key/collision chatter (one 🔑 line per reference, plus 🔀 collision
@@ -18,6 +19,16 @@ from shared.refkeys import generate_ref_keys, is_likely_reference, normalize_uni
 # summary; set HYPERLIT_CONVERSION_VERBOSE=1 to get the per-entry trace back
 # when debugging a conversion. The assessment trace keeps the counts either way.
 _VERBOSE = os.environ.get("HYPERLIT_CONVERSION_VERBOSE", "") == "1"
+
+
+def _ordered_unique(items):
+    """De-duplicate while PRESERVING first-appearance order. keys[0] is a reference's canonical
+    anchor id, and `set()` iteration over strings is randomised per process — see the call sites."""
+    out = []
+    for it in items:
+        if it not in out:
+            out.append(it)
+    return out
 
 
 def _vprint(msg):
@@ -464,11 +475,19 @@ def extract_bibliography(soup):
                     prefix_yr = paren_yr.group(1)
                     body_text = text[paren_yr.end():]
                     body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', body_text))
-                    body_years = [m for m in body_years if 1900 <= int(m.group(1)) <= 2099 and m.group(1) != prefix_yr]
+                    body_years = [m for m in body_years if is_plausible_year(m.group(1)) and m.group(1) != prefix_yr]
                     if body_years:
                         alt_yr = body_years[-1].group(1)
                         alt_keys = [k.replace(prefix_yr, alt_yr) for k in keys if prefix_yr in k]
-                        keys = list(set(keys + alt_keys))
+                        # ORDER-PRESERVING, never set(): keys[0] becomes this entry's anchor id
+                        # (base_entry_id below), and set() iteration over strings is randomised
+                        # PER PROCESS — so the same book reconverted twice got a different
+                        # bibliography anchor, silently orphaning every in-text citation that
+                        # pointed at the old one. Production does not pin PYTHONHASHSEED (the
+                        # regression harness does, which is why the goldens never caught it).
+                        # The PRINTED year stays canonical; the body year is a match-only alias
+                        # (Spencer 1884 … reprinted 1992 → anchor herbertspencer1884).
+                        keys = _ordered_unique(keys + alt_keys)
 
         if not keys:
             # Fallback: for entries with garbled prefix initials like "K. E. (2005) Daniel Kennefick..."
@@ -487,11 +506,11 @@ def extract_bibliography(soup):
                 keys = generate_ref_keys(author_text)
                 # Also generate keys with alternative years from body text
                 body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', remainder))
-                body_years = [m for m in body_years if 1900 <= int(m.group(1)) <= 2099 and m.group(1) != prefix_year]
+                body_years = [m for m in body_years if is_plausible_year(m.group(1)) and m.group(1) != prefix_year]
                 if body_years:
                     alt_year = body_years[-1].group(1)
                     alt_keys = generate_ref_keys(author_text.replace(prefix_year, alt_year))
-                    keys = list(set(keys + alt_keys))
+                    keys = _ordered_unique(keys + alt_keys)   # see above — never set()
                 if keys:
                     _vprint(f"  🔄 Fallback keys from post-prefix text: {keys}")
 

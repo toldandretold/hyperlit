@@ -90,7 +90,7 @@ class RepairPublicationYearsCommand extends Command
         $this->info("Checking {$works->count()} work(s)…");
         $this->reportFloors($works, $floor);
 
-        $changed = $flagged = $noPage = $noDate = $agreed = 0;
+        $changed = $flagged = $noPage = $noDate = $agreed = $unidentified = 0;
 
         foreach ($works as $work) {
             if ($limit > 0 && $changed >= $limit) {
@@ -107,9 +107,10 @@ class RepairPublicationYearsCommand extends Command
             $result = $detector->inspect($work->id, $html, $dry);
 
             match ($result['status']) {
-                'no_page', 'no_date' => $noDate++,
-                'agreed'             => $agreed++,
-                default              => null,
+                'no_page', 'no_date'   => $noDate++,
+                'identity_unconfirmed' => $unidentified++,
+                'agreed'               => $agreed++,
+                default                => null,
             };
 
             if ($result['status'] === 'corrected' || $result['status'] === 'flagged') {
@@ -124,7 +125,15 @@ class RepairPublicationYearsCommand extends Command
         $this->newLine();
         $this->info(($dry ? 'Would fix ' : 'Fixed ') . "{$changed}; {$flagged} flagged for review; {$agreed} already correct; "
             . "{$noPage} with no stored page" . ($this->option('fetch') ? ' (fetch failed)' : ' (use --fetch)')
-            . "; {$noDate} whose page carries no date.");
+            . "; {$noDate} whose page carries no date"
+            . "; {$unidentified} whose stored page could not be confirmed as the same work.");
+
+        if ($unidentified > 0) {
+            $this->newLine();
+            $this->warn("{$unidentified} work(s) had a page on disk that does not identify as that article "
+                . '(a DOI/title mismatch, or no identifying meta at all). Refused rather than trusted — '
+                . 'a different article\'s date would be a confidently wrong year, not an obviously ugly one.');
+        }
 
         if ($flagged > 0) {
             $this->newLine();

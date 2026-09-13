@@ -115,6 +115,12 @@
                 <label class="ji-only-imported">
                     <input type="checkbox" id="ji-only-failed"> failed only
                 </label>
+                {{-- Without this the metadata flags are decorative: a journal-wide repair leaves
+                     a badge on ~1 row in 10, scattered through a thousand, and the diff only on
+                     hover. This is how you find the ones asking you to decide. --}}
+                <label class="ji-only-imported">
+                    <input type="checkbox" id="ji-only-metadata"> metadata drift
+                </label>
             </div>
             {{-- 107 rows is past the point where scrolling finds anything. Title/DOI, live. --}}
             <input type="search" id="ji-article-search" class="ji-article-search"

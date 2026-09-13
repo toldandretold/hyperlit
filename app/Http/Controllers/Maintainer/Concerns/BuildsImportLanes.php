@@ -143,8 +143,11 @@ trait BuildsImportLanes
             // a flag count that implies the text needs re-converting.
             if ($flag->source === ConversionFlag::SOURCE_METADATA_DRIFT) {
                 $out[$flag->book]['metadata_drift'] = [
-                    'fields'  => $details['fields'] ?? [],
-                    'applied' => $details['applied'] ?? [],
+                    // "You must choose" versus "here is what was changed for you" — same flag
+                    // kind, very different call to action.
+                    'needs_decision' => (bool) ($details['needs_decision'] ?? true),
+                    'fields'         => $details['fields'] ?? [],
+                    'applied'        => $details['applied'] ?? [],
                 ];
             }
         }

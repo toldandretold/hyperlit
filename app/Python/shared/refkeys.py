@@ -23,7 +23,31 @@ def normalize_unicode_name(name):
     return ascii_name
 
 
-def generate_ref_keys(text, context_text=""):
+# The window in which a bare 4-digit number is plausibly a PUBLICATION YEAR. The ceiling excludes
+# arXiv-style ids ("2601"); the floor excludes stray 4-digit numbers in an entry's title, venue or
+# page range.
+#
+# TWO floors, because the two callers have opposite risk profiles. A BIBLIOGRAPHY ENTRY is a long
+# string full of incidental numbers, so it keeps the conservative 1900 — dropping it to 1500
+# measurably invented references (an EPUB with no bibliography grew one) and shifted entry keys so
+# that citations which used to resolve stopped (80bb62b6 lost 3 links, 93d34a74 lost 2). An
+# IN-TEXT CITATION is a few words long, and scholarly prose cites originals constantly — there the
+# 1900 floor made `generate_ref_keys` return NO KEYS AT ALL, so "(Engels 1886a: 356f; Hegel 1874:
+# §§97f)" linked to nothing even though both bibliography entries existed and were keyed correctly
+# (an entry's own parenthesized year takes the branch above, which has no floor — which is why the
+# targets looked fine and only the in-text side was broken).
+PLAUSIBLE_YEAR_MAX = 2099
+MODERN_YEAR_MIN = 1900
+HISTORICAL_YEAR_MIN = 1500      # in-text citations only — see above
+
+
+def is_plausible_year(token, min_year=MODERN_YEAR_MIN):
+    """Is this token plausibly a publication year? Accepts a bare '1886' or a suffixed '1886a'."""
+    m = re.match(r'\d{4}', str(token))
+    return bool(m) and min_year <= int(m.group()) <= PLAUSIBLE_YEAR_MAX
+
+
+def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     # Normalize curly apostrophes to straight for consistent matching
     text = text.replace('’', "'").replace('‘', "'").replace('ʼ', "'")
     context_text = context_text.replace('’', "'").replace('‘', "'").replace('ʼ', "'")
@@ -33,10 +57,17 @@ def generate_ref_keys(text, context_text=""):
     if paren_year:
         year_match = paren_year
     else:
-        # For entries without parenthesized year, find the LAST plausible year (1900-2099)
-        # to avoid picking up title numbers like "Scopus 1900–2020" or arXiv IDs like "2601"
-        plausible_years = list(re.finditer(r'(?<!\d)(\d{4}[a-z]?)(?!\d)', processed_text))
-        plausible_years = [m for m in plausible_years if 1900 <= int(re.match(r'\d{4}', m.group(1)).group()) <= 2099]
+        # For entries without parenthesized year, find the LAST plausible year (see
+        # MODERN_YEAR_MIN / PLAUSIBLE_YEAR_MAX) to avoid picking up title numbers or arXiv IDs
+        # like "2601".
+        all_years = list(re.finditer(r'(?<!\d)(\d{4}[a-z]?)(?!\d)', processed_text))
+        plausible_years = [m for m in all_years if is_plausible_year(m.group(1))]
+        # A historical year is a FALLBACK, never a competitor. Admitting it to the same pool let
+        # it WIN the last-year rule over the real one — "(Author 2005: 1850)" would key
+        # author1850 — which cost 93d34a74 a link that used to resolve. Only reach below the
+        # modern floor when there is no modern year to be found at all.
+        if not plausible_years and min_year < MODERN_YEAR_MIN:
+            plausible_years = [m for m in all_years if is_plausible_year(m.group(1), min_year)]
         # A LETTER-SUFFIXED year ("2015b") is a disambiguation marker — it IS the publication year a
         # citation references, and in "Author. 2015b. Title … 2015 International Conference…" it sits
         # BEFORE an incidental venue year, so the last-year rule would drop the 'b' (keying the entry

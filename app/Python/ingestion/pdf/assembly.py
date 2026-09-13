@@ -565,7 +565,7 @@ _OTHER_REGIME_HEADING_RE = re.compile(
     r'(?m)^#{1,6}[ \t]+[*_`]*(?:[IVXLC]{1,6}|[A-H])[.)][ \t]+\S')
 
 
-def _numbered_heading_depth(text):
+def _numbered_heading_depth(text, bare_tops=False):
     """Outline depth a heading's own section number declares: '3.' → 1, '8.1' → 2, '4.1.1' → 3.
 
     None when the leading token is not a section number. A MULTI-part number needs no separator
@@ -584,7 +584,34 @@ def _numbered_heading_depth(text):
         return m.group(1).count('.') + 1
     if re.match(r'^\d{1,2}[.)]\s', text):
         return 1
+    # `bare_tops` = this document demonstrably numbers its top-level sections with no separator
+    # at all ('2 Background and Related Work'). Only the caller can know that, and only from
+    # CORROBORATION — see _bare_number_tops.
+    if bare_tops and re.match(r'^\d{1,2}\s+\S', text):
+        return 1
     return None
+
+
+def _bare_number_tops(headings):
+    """Does this document number its top-level sections with NO separator ('2 Background')?
+
+    Unknowable from one heading — '5 Reasons to Switch' is a title. It becomes knowable from the
+    document: if a bare-number heading's number also opens a DOTTED heading ('2.1 CS Functions'),
+    that bare heading is the dotted one's parent, and two such corroborations settle it for the
+    whole document. Without this the parent tier is invisible and its own subsections get pinned
+    at the same level as it (1313c1a2: '2 Background' and '2.1 CS Functions' both h2).
+    """
+    dotted_firsts, bare = set(), []
+    for text in headings:
+        t = text.lstrip('*_`').lstrip()
+        m = re.match(r'^(\d{1,2})\.\d{1,2}', t)
+        if m:
+            dotted_firsts.add(m.group(1))
+            continue
+        m = re.match(r'^(\d{1,2})\s+\S', t)
+        if m:
+            bare.append(m.group(1))
+    return sum(1 for n in bare if n in dotted_firsts) >= 2
 
 
 def _level_numbered_headings(combined):
@@ -596,11 +623,17 @@ def _level_numbered_headings(combined):
     8 while 8.5 became h3. The number is unambiguous structure — 8.1 is a child of 8 by
     definition — so it decides, and the TOC inherits a real hierarchy.
 
-    Minimal churn on purpose: the depth-1 tier keeps whatever level the document already uses
-    MOST (ties resolve DEEPER, so sections nest under an unnumbered title h1 rather than being
-    promoted to sit beside it), and deeper tiers are derived from it. Unnumbered headings — the
-    title, 'Abstract', 'Footnotes' — are never touched. Needs >= 3 depth-1 numbered headings, so
-    a document with one stray 'Introduction 1.' is left alone.
+    Minimal churn on purpose: the SHALLOWEST depth the body actually carries keeps whatever level
+    the document already uses MOST for it (ties resolve DEEPER, so sections nest under an
+    unnumbered title h1 rather than being promoted to sit beside it), and the other depths are
+    derived from it. Unnumbered headings — the title, 'Abstract', 'Footnotes' — are never touched.
+    Needs >= 3 numbered headings, so a document with one stray 'Introduction 1.' is left alone.
+
+    The anchor is the shallowest depth PRESENT, not depth 1, because OCR sometimes drops the
+    top-level headings outright and leaves only subsections (1313c1a2: thirteen '2.1'/'3.2'-style
+    headings spread across h1/h2/h3 with no numbered parent anywhere). Its level is then clamped
+    to at least its own depth — a depth-2 heading is never an h1 — so a document missing its
+    parent tier still gets room for one.
 
     Bails entirely on a MULTI-REGIME outline (Roman chapters over lettered sections over Arabic
     subsections — 1ee13ed9: 'IV. RESULTS' > 'A. ANTICIPATED TENDENCY' > '1. OVERALL RESULTS').
@@ -612,27 +645,30 @@ def _level_numbered_headings(combined):
         return combined, []
 
     lines = combined.split('\n')
+    heads = [(i, m.group(1), m.group(2))
+             for i, m in ((i, re.match(r'^(#{1,6})[ \t]+(\S.*)$', l)) for i, l in enumerate(lines))
+             if m]
+    bare_tops = _bare_number_tops([t for _i, _h, t in heads])
     hits = []
-    for i, line in enumerate(lines):
-        m = re.match(r'^(#{1,6})[ \t]+(\S.*)$', line)
-        if not m:
-            continue
-        depth = _numbered_heading_depth(m.group(2))
+    for i, hashes, text in heads:
+        depth = _numbered_heading_depth(text, bare_tops)
         if depth is not None:
-            hits.append((i, len(m.group(1)), depth))
+            hits.append((i, len(hashes), depth))
 
-    top_levels = [lvl for _i, lvl, depth in hits if depth == 1]
-    if len(top_levels) < 3:
+    if len(hits) < 3:
         return combined, []
 
+    anchor_depth = min(depth for _i, _lvl, depth in hits)
     freq = {}
-    for lvl in top_levels:
-        freq[lvl] = freq.get(lvl, 0) + 1
+    for _i, lvl, depth in hits:
+        if depth == anchor_depth:
+            freq[lvl] = freq.get(lvl, 0) + 1
     base = max(lvl for lvl, n in freq.items() if n == max(freq.values()))
+    base = max(base, anchor_depth)
 
     relevelled = []
     for i, lvl, depth in hits:
-        want = min(6, base + depth - 1)
+        want = min(6, base + depth - anchor_depth)
         if want == lvl:
             continue
         relevelled.append((re.sub(r'^#+[ \t]+', '', lines[i])[:48], lvl, want))
@@ -2484,14 +2520,17 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # A bolded sentence that introduces the list beneath it is a lead-in, not a section.
     combined = _demote_list_leadin_headings(combined)
 
-    # Heading LEVELS follow the section NUMBERS. Skipped when a printed Contents drove the
-    # levels per page above (toc_numbered) — the TOC is the stronger evidence of the two.
-    if not toc_numbered:
-        combined, _relevelled = _level_numbered_headings(combined)
-        if _relevelled:
-            print(f"  Re-levelled {len(_relevelled)} numbered heading(s) to match their section "
-                  f"numbers: " + ', '.join(f'"{t}" h{was}→h{now}' for t, was, now in _relevelled[:5])
-                  + (' …' if len(_relevelled) > 5 else ''))
+    # Heading LEVELS follow the section NUMBERS. Runs even when a printed Contents drove levels
+    # per page above: the TOC pass derives its level from the number too (`1 + count('.')`), so
+    # the two agree on the RULE and never fight — but it can only reach headings the Contents
+    # actually lists, and a printed Contents normally stops at two levels. That left every
+    # deeper heading at whatever Mistral guessed (ca74000e: forty '2.5.1'-style headings sharing
+    # h2 with their own '2.5' parents).
+    combined, _relevelled = _level_numbered_headings(combined)
+    if _relevelled:
+        print(f"  Re-levelled {len(_relevelled)} numbered heading(s) to match their section "
+              f"numbers: " + ', '.join(f'"{t}" h{was}→h{now}' for t, was, now in _relevelled[:5])
+              + (' …' if len(_relevelled) > 5 else ''))
 
     # --- Fix mangled URLs from OCR ---
     if pdf_path:

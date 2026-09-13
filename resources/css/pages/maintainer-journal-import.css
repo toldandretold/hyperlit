@@ -29,11 +29,22 @@ body.ji-detail {
 }
 
 /* ── Header (shared) ── */
+/* The stats line gets its OWN ROW, and the header is allowed to wrap.
+   As one nowrap flex row this collapsed badly on a real journal: the toolbar is fixed-width
+   (selects, buttons, the hero-name input), so the only items that could give were the two text
+   ones. `ji-header-sub` had no flex rules, so it was squeezed to a ~110px column and wrapped
+   "3 imported · 105 eligible · 108 enumerated · Bristol University Press" onto SIX lines —
+   `align-items: baseline` then let that column set the row height, a ~220px header above a
+   three-pane layout sized in percent. Meanwhile the h1 hit its ellipsis and rendered as "G…",
+   so the page did not even say which journal you were on. */
 .ji-header {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding: 10px 18px;
+  flex-wrap: wrap;
+  /* Not `baseline`: with wrapping items, baseline alignment lets the tallest item dictate the
+     line box. `center` keeps the controls on one visual line whatever wraps. */
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 18px;
   border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
 }
 .ji-header h1 {
@@ -42,27 +53,60 @@ body.ji-detail {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40vw;
+  /* `ch` rather than `40vw`: this is a title, and 40vw of a wide screen is far more than a name
+     needs while still not guaranteeing room for the toolbar beside it. `min-width` stops flex
+     from shrinking it to the "G…" case — it wraps to its own line before it disappears. */
+  flex: 0 1 auto;
+  min-width: 14ch;
+  max-width: 46ch;
 }
+/* Second row: the stats on the left, the nav links pushed to the right, sharing one line.
+   The three order:99 items are what makes that happen. `ji-journal-actions` grows to fill the
+   first line, so anything ordered after it is guaranteed to wrap — and because these three wrap
+   TOGETHER they land on one line rather than the nav taking a row of its own (which is what it
+   did while it was still ordered before the stats: it competed for row 1, lost, and wrapped
+   alone, giving three visual levels for two rows of content). */
 .ji-header-sub {
   color: var(--color-text-faint, #888);
   font-size: 0.85rem;
+  order: 99;
+  /* `auto` basis, not `100%`: a full-width basis forces a line to itself and there is nothing
+     left for the nav to share. `min-width: 0` lets it shrink past its content so a long journal
+     name scrolls within itself instead of shoving the nav onto another row. */
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ji-header-sub::-webkit-scrollbar {
+  display: none;
 }
 .ji-header-nav {
+  order: 99;
+  /* Still right-aligned, now against the stats line rather than an empty row. */
   margin-left: auto;
   display: flex;
   gap: 14px;
+  flex: 0 0 auto;
 }
 .ji-header a {
   color: var(--color-text-faint, #888);
   font-size: 0.85rem;
   text-decoration: none;
+  /* These are two-word links ("all journals", "public page"); letting them wrap mid-phrase was
+     adding a second line to the nav for no reason. */
+  white-space: nowrap;
 }
 .ji-header a:hover {
   color: var(--color-text);
   text-decoration: underline;
 }
 #ji-help-toggle {
+  /* Travels with the nav it sits beside; left on the default order it would stay behind on the
+     first row, marooned from the links it belongs to. */
+  order: 99;
+  flex: 0 0 auto;
   background: none;
   border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
   color: var(--color-text-faint, #888);
@@ -342,6 +386,11 @@ body.ji-detail {
    thing — an action that queues work — just aimed at the journal rather than one article. */
 .ji-journal-actions {
   display: flex;
+  /* Wraps internally on a narrow window rather than forcing the header's text items to shrink —
+     the controls are fixed-width, so without this they win every fight for space and the journal
+     name is what disappears. */
+  flex-wrap: wrap;
+  flex: 1 1 auto;
   align-items: center;
   gap: 8px;
 }

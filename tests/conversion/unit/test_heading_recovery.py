@@ -16,6 +16,8 @@ on e938f76f (Global Social Challenges Journal, a diamond-OA harvest):
 Pure functions over OCR-shaped dicts: no PDF, no network.
 """
 
+import re
+
 from ingestion.pdf import assembly as A
 from ingestion.pdf.pdf_shared import extract_section_name
 
@@ -165,3 +167,97 @@ def test_real_headings_over_a_list_keep_their_level():
     ]
     for md in keep:
         assert A._demote_list_leadin_headings(md) == md
+
+
+# ---------------------------------------------------------------------------
+# Heading LEVELS follow the section NUMBERS (7fa30289)
+# ---------------------------------------------------------------------------
+
+def test_numbered_siblings_are_levelled_together_and_subsections_nest():
+    """Mistral levels a heading by how big the type looked on its page, so siblings drift: the
+    Fuchs article's ten top-level sections alternated h1/h2 ('5. Co-action' ended up ABOVE
+    '6. Self-organization'), and 8.1-8.4 sat at the SAME level as their own parent 8 while 8.5
+    became h3. The number is unambiguous structure, so it decides."""
+    md = ('# Co-Operation and Self-Organization\n\n'
+          '# 1. Introduction\n\n## 2. General Aspects\n\n# 3. Physical Co-operation\n\n'
+          '## 8. From Competition\n\n## 8.1 Towards a Co-operative Ecology\n\n'
+          '### 8.2 Towards a Co-operative Technology\n\n## Footnotes\n')
+    out, relevelled = A._level_numbered_headings(md)
+    levels = dict((t, len(h)) for h, t in re.findall(r'(?m)^(#{1,6})[ \t]+(.+)$', out))
+    assert levels['Co-Operation and Self-Organization'] == 1   # unnumbered title untouched
+    assert levels['Footnotes'] == 1 or levels['Footnotes'] == 2  # unnumbered, not re-levelled
+    assert levels['1. Introduction'] == 2
+    assert levels['2. General Aspects'] == 2
+    assert levels['3. Physical Co-operation'] == 2
+    assert levels['8. From Competition'] == 2
+    assert levels['8.1 Towards a Co-operative Ecology'] == 3
+    assert levels['8.2 Towards a Co-operative Technology'] == 3
+    assert relevelled != []
+
+
+def test_emphasis_wrapped_section_numbers_are_seen():
+    """Mistral wraps a heading it read as bold type ('## **4. Analysis of the Impacts**'), and
+    the markers hid the number — d4c0b31e's section 4 family stayed spread over h3/h4/h5 while
+    sections 1-3 sat at h2."""
+    assert A._numbered_heading_depth('**4. Analysis of the Impacts**') == 1
+    assert A._numbered_heading_depth('*4.1 Domestic Influences*') == 2
+    md = ('## 1. Introduction\n\n## 2. Ukraine Crisis\n\n## 3. Sanctions\n\n'
+          '#### **4. Analysis of the Impacts**\n\n##### *4.1 Domestic Influences*\n\n'
+          '##### **4.1.1 Economy**\n')
+    out, _ = A._level_numbered_headings(md)
+    assert '## **4. Analysis of the Impacts**' in out
+    assert '### *4.1 Domestic Influences*' in out
+    assert '#### **4.1.1 Economy**' in out
+
+
+def test_multi_regime_outline_is_left_alone():
+    """Roman chapters over lettered sections over Arabic subsections (1ee13ed9): the Arabic tier
+    is the DEEPEST one, so levelling it at its own majority would hoist real subsections up
+    beside the chapters. Only the regimes this pass cannot read carry the placing evidence — so
+    it declines rather than guesses."""
+    md = ('# I. BACKGROUND\n\n## A. RATIONALES\n\n## II. METHODS\n\n### C. DATA SOURCES\n\n'
+          '## 1. OVERALL RESULTS\n\n### 2. RESULTS OVER TIME\n\n## 3. DISCUSSION\n')
+    out, relevelled = A._level_numbered_headings(md)
+    assert out == md and relevelled == []
+
+
+def test_a_year_or_a_lone_number_is_not_a_section_number():
+    """A single-part number needs a '.' or ')' separator, so a year-opening title stays prose-
+    levelled; and fewer than three top-level numbered headings means no outline to trust."""
+    assert A._numbered_heading_depth('1984 and the Surveillance State') is None
+    assert A._numbered_heading_depth('2. Methods') == 1
+    md = '# Title\n\n## 1. Only One Numbered Heading\n\n## Discussion\n\n## References\n'
+    out, relevelled = A._level_numbered_headings(md)
+    assert out == md and relevelled == []
+
+
+def test_bare_number_top_level_needs_corroboration_from_a_dotted_child():
+    """'2 Background and Related Work' numbers a section with no separator at all. One such
+    heading is unknowable ('5 Reasons to Switch' is a title), but a bare number that ALSO opens a
+    dotted heading ('2.1 CS Functions') is that heading's parent — two corroborations settle it
+    for the document. Without this 1313c1a2 pinned '2.1' level-with its own parent '2'."""
+    assert A._bare_number_tops(['2 Background', '2.1 CS Functions', '3 Problem', '3.1 Definitions'])
+    # no dotted children to corroborate → a bare number stays prose-numbered
+    assert not A._bare_number_tops(['5 Reasons to Switch', '7 Habits', '1 Big Idea'])
+    # one corroboration is not enough
+    assert not A._bare_number_tops(['2 Background', '2.1 CS Functions', '9 Other'])
+
+    md = ('# Title\n\n# 1 Introduction\n\n## 2 Background\n\n### 2.1 CS Functions\n\n'
+          '### 2.2 Bilingualism\n\n# 3 Problem Formulation\n\n# 3.1 Definitions\n')
+    out, _ = A._level_numbered_headings(md)
+    levels = dict((t, len(h)) for h, t in re.findall(r'(?m)^(#{1,6})[ \t]+(.+)$', out))
+    assert levels['1 Introduction'] == levels['2 Background'] == levels['3 Problem Formulation']
+    assert levels['2.1 CS Functions'] == levels['2.2 Bilingualism'] == levels['3.1 Definitions']
+    assert levels['2.1 CS Functions'] == levels['2 Background'] + 1
+
+
+def test_a_missing_parent_tier_still_leaves_room_for_it():
+    """OCR dropped every top-level heading and left only subsections (1313c1a2). They are still
+    siblings and must be levelled TOGETHER — and never at h1, because something contains them
+    (the title, plus the parent section the OCR lost)."""
+    md = ('# Title\n\n### 2.1 CS Functions\n\n## 2.2 Bilingualism\n\n# 3.1 Definitions\n')
+    out, _ = A._level_numbered_headings(md)
+    got = re.findall(r'(?m)^(#+)[ \t]+\d', out)
+    assert len(set(got)) == 1                       # one tier, not three
+    assert len(got[0]) >= 2                         # depth-2 headings are never h1
+    assert len(got) == 3

@@ -82,10 +82,15 @@ body[data-page="user"] #app-container.lava-lamp-background .fixed-header {
      any viewport width. Viewport cap: on narrow screens --content-width
      resolves to 40ch/100% (wider than the viewport) and the sum would
      full-bleed, so the card keeps at least --hero-edge-min per side. */
-  width: calc(
+  /* Published as a variable, not just consumed as `width`, because the lockup
+     needs to size its title AGAINST THE CARD (journalHome.css / userPageHero.css
+     cap --title-fs on it). Nothing else may re-derive this expression — the card
+     width has one definition. */
+  --card-w: calc(
     min(92vw, 480px) * (1 - var(--p)) +
     min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px) * var(--p)
   );
+  width: var(--card-w);
   max-width: none;
   background-color: var(--container-glass-bg, rgba(34, 31, 32, 0.35));
   -webkit-backdrop-filter: blur(10px);

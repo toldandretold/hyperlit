@@ -6,7 +6,7 @@
       "references": [
         "undp2007",
         "magnan2016",
-        "work2018b",
+        "work2019b",
         "pearse2017",
         "vincent2014",
         "taylor2015",
@@ -21,7 +21,7 @@
       "footnotes": [],
       "i": 53,
       "references": [
-        "kuhlmaanenscyphers2020"
+        "kuhl2020"
       ],
       "type": "p"
     },
@@ -54,8 +54,8 @@
       "footnotes": [],
       "i": 60,
       "references": [
-        "antwiagyei2017",
-        "juhola2015",
+        "antwiagyei2018",
+        "juhola2016",
         "magnan2016"
       ],
       "type": "p"
@@ -64,10 +64,10 @@
       "footnotes": [],
       "i": 62,
       "references": [
-        "arturhilhorst2012",
+        "artur2012",
         "dasgupta2007",
         "kita2019",
-        "ahlershadzovicruscaschwartz2015"
+        "rusca2015"
       ],
       "type": "p"
     },
@@ -80,7 +80,7 @@
         "taylor2020",
         "omukuti2020a",
         "nelson2009",
-        "arturhilhorst2012",
+        "artur2012",
         "thomas2019b",
         "camargo2017"
       ],
@@ -106,8 +106,8 @@
         "pakuthai2018",
         "barrett2014",
         "funds2009",
-        "arturhilhorst2012",
-        "dalywestyanda2016",
+        "artur2012",
+        "west2018",
         "taylor2020",
         "murtinho2013"
       ],
@@ -121,8 +121,8 @@
         "pelling2015",
         "nagoda2017",
         "buggy2016",
-        "karlssonnaessnightingalethompson2017",
-        "karlssonnaessnightingalethompson2017"
+        "karlsson2018",
+        "karlsson2018"
       ],
       "type": "p"
     },
@@ -134,7 +134,7 @@
         "levine2014",
         "matthew2014",
         "schilling2017",
-        "ide2019"
+        "ide2020"
       ],
       "type": "p"
     },
@@ -144,12 +144,12 @@
       "references": [
         "corbera2017",
         "nightingale2017",
-        "work2018b",
-        "arsanomilman2013",
-        "arsanomilman2013",
+        "work2019b",
+        "milman2014",
+        "milman2014",
         "valle2013",
         "decobert2020",
-        "dodmanmitlin2015"
+        "dodman2015"
       ],
       "type": "p"
     },
@@ -159,7 +159,7 @@
       "references": [
         "taylor2015",
         "tschakert2016",
-        "wilson2012",
+        "wilson2014",
         "eriksen2015",
         "ahlborg2018",
         "nightingale2017",
@@ -196,7 +196,7 @@
         "ferdous2020",
         "thomas2019b",
         "atteridge2018",
-        "warner2015"
+        "warner2016"
       ],
       "type": "p"
     },
@@ -222,10 +222,10 @@
       "i": 77,
       "references": [
         "ojwang2017",
-        "antwiagyei2017",
+        "antwiagyei2018",
         "dilling2015",
-        "mikulewicztaylor2020",
-        "juhola2015",
+        "mikulewicz2020",
+        "juhola2016",
         "levin2012",
         "ipcc2018",
         "unep2017",
@@ -246,9 +246,9 @@
       "i": 79,
       "references": [
         "abbink2014",
-        "haji2016",
+        "haji2017",
         "arnall2014",
-        "arturhilhorst2012",
+        "artur2012",
         "kothari2014"
       ],
       "type": "p"
@@ -257,8 +257,8 @@
       "footnotes": [],
       "i": 80,
       "references": [
-        "wilson2012",
-        "bergius2016"
+        "wilson2014",
+        "bergius2018"
       ],
       "type": "p"
     },
@@ -270,7 +270,7 @@
         "bassett2013",
         "tschakert2013",
         "morchain2015",
-        "remling2014b",
+        "remling2015",
         "fund2019"
       ],
       "type": "p"
@@ -280,8 +280,8 @@
       "i": 85,
       "references": [
         "ojwang2017",
-        "mikulewicz2020",
-        "mikulewicztaylor2020"
+        "mikulewicz2020b",
+        "mikulewicz2020"
       ],
       "type": "p"
     },
@@ -290,8 +290,8 @@
       "i": 86,
       "references": [
         "horstmann2011",
-        "remling2014b",
-        "dalywestyanda2016"
+        "remling2015",
+        "west2018"
       ],
       "type": "p"
     },
@@ -309,7 +309,7 @@
       "i": 88,
       "references": [
         "dilling2019",
-        "andersonbarrettbrooksnebsuquadrianto2019",
+        "barrett2020",
         "brooks2019",
         "moser2014",
         "eriksen2007",
@@ -331,7 +331,7 @@
       "footnotes": [],
       "i": 91,
       "references": [
-        "forsyth2018b",
+        "forsyth2019",
         "tschakert2013",
         "taylor2015",
         "nightingale2017"
@@ -344,9 +344,9 @@
       "references": [
         "omukuti2020b",
         "khatri2018",
-        "mikulewicz2020",
+        "mikulewicz2020b",
         "nightingale2017",
-        "mosbergnyukurinæss1968",
+        "mosberg2017",
         "khatri2018",
         "mcnamara2020",
         "omukuti2020b"
@@ -367,7 +367,7 @@
       "footnotes": [],
       "i": 97,
       "references": [
-        "huftyjamaliscovillesimonds2020"
+        "scovillesimonds2020"
       ],
       "type": "p"
     },
@@ -375,8 +375,8 @@
       "footnotes": [],
       "i": 98,
       "references": [
-        "adam2014",
-        "adam2014"
+        "adam2015",
+        "adam2015"
       ],
       "type": "p"
     },
@@ -398,7 +398,7 @@
       "references": [
         "stadelmann2011",
         "brooks2019",
-        "davisjohnsonschipperthomallavulturius2016"
+        "schipper2016"
       ],
       "type": "p"
     },
@@ -408,7 +408,7 @@
       "references": [
         "westengen2018",
         "bruun2018",
-        "mikulewicz2020"
+        "mikulewicz2020b"
       ],
       "type": "p"
     },
@@ -416,7 +416,7 @@
       "footnotes": [],
       "i": 104,
       "references": [
-        "arsanomilman2013",
+        "milman2014",
         "sanderson1990",
         "olroyd1983",
         "cooper1997",
@@ -446,7 +446,7 @@
         "ahlborg2018",
         "arorajonsson2016",
         "schilling2017",
-        "huftyjamaliscovillesimonds2020"
+        "scovillesimonds2020"
       ],
       "type": "p"
     },
@@ -455,7 +455,7 @@
       "i": 109,
       "references": [
         "ludi2014",
-        "ojha2019",
+        "ojha2020",
         "jasanoff2003"
       ],
       "type": "p"
@@ -466,8 +466,8 @@
       "references": [
         "klenk2017",
         "goldman2018",
-        "boydbrowneriksenforsythharveyjoneskerrmehtanaessnewshamnightingaleockwellpellingsconnestannertaylorwhitfield2019",
-        "mikulewicz2020"
+        "nightingale2020",
+        "mikulewicz2020b"
       ],
       "type": "p"
     },
@@ -486,10 +486,10 @@
         "kaika2017",
         "mees2014",
         "goldman2018",
-        "ojha2019",
-        "forsyth2018b",
+        "ojha2020",
+        "forsyth2019",
         "klenk2017",
-        "mikulewicztaylor2020",
+        "mikulewicz2020",
         "ziervogel2016"
       ],
       "type": "p"
@@ -520,7 +520,7 @@
       "footnotes": [],
       "i": 115,
       "references": [
-        "huftyjamaliscovillesimonds2020"
+        "scovillesimonds2020"
       ],
       "type": "p"
     },
@@ -548,7 +548,7 @@
       "references": [
         "tschakert2016",
         "matin2018",
-        "ojha2019",
+        "ojha2020",
         "eyben2005",
         "mackinnon2013"
       ],
@@ -559,7 +559,7 @@
       "i": 119,
       "references": [
         "mikulewicz2020a",
-        "mikulewicz2020"
+        "mikulewicz2020b"
       ],
       "type": "p"
     },
@@ -580,10 +580,10 @@
       "i": 123,
       "references": [
         "thomas2019b",
-        "antwiagyei2017",
-        "juhola2015",
+        "antwiagyei2018",
+        "juhola2016",
         "magnan2016",
-        "work2018b"
+        "work2019b"
       ],
       "type": "p"
     },
@@ -601,7 +601,7 @@
         "blythe2018",
         "blythe2018",
         "ireland2013",
-        "mikulewicztaylor2020",
+        "mikulewicz2020",
         "webber2016"
       ],
       "type": "p"

@@ -8,6 +8,7 @@
 /** Just enough of a lane for the filters to judge it. */
 export interface FilterableLane {
   has_nodes: boolean;
+  metadata_drift?: { needs_decision: boolean } | null;
 }
 
 export interface FilterableArticle {
@@ -36,4 +37,23 @@ export function isAttempted(article: FilterableArticle): boolean {
  */
 export function isFailed(article: FilterableArticle): boolean {
   return isAttempted(article) && !article.lanes.some((lane) => lane.has_nodes);
+}
+
+/**
+ * Does this work carry an open metadata-drift flag — the publisher's page disagreeing with the
+ * citation data we stored?
+ *
+ * Sorts DECISIONS FIRST. The flag covers two different things: a dispute the machine refused to
+ * settle (both years plausible, someone has to choose) and an audit record of a correction it
+ * did make. Only the first is work. A journal-wide repair can leave a thousand of the second, so
+ * a filter that treated them alike would bury the handful that actually need a person — which is
+ * the same "you hunt 100+ rows for the handful a run reported" problem `isFailed` exists for.
+ */
+export function hasMetadataDrift(article: FilterableArticle): boolean {
+  return article.lanes.some((lane) => !!lane.metadata_drift);
+}
+
+/** Only works where a maintainer still has to choose between two plausible values. */
+export function needsMetadataDecision(article: FilterableArticle): boolean {
+  return article.lanes.some((lane) => lane.metadata_drift?.needs_decision === true);
 }

@@ -39,10 +39,12 @@ let returnTimer = 0;
 // travel in px, so it moves at the same speed as the text)
 const HERO_TRAVEL = 280;
 
-// How tall the journal/user colon may grow, in TITLE LINES. Three is the point where
-// the squares still read as a mark beside the name rather than as decoration flanking a
-// paragraph. See watchJournalColon.
-const MAX_COLON_LINES = 3;
+// How tall the journal/user colon may grow, in TITLE LINES. Two, because the mark is not
+// only tall: the gap to the text is one square width (= colon height / 3), so every line
+// the colon grows STEALS horizontal space from the title that made it grow. Capping at two
+// gives the text that width back — it takes tripleC's registered name from nine rendered
+// lines to seven at the same font size. See watchJournalColon.
+const MAX_COLON_LINES = 2;
 
 const heroRoot = (): HTMLElement | null =>
   document.querySelector<HTMLElement>('#app-container.lava-lamp-background');

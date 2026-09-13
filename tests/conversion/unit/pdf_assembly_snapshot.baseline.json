@@ -111,8 +111,8 @@
   "tests/conversion/corpus/production_power_and_world_order_social_forces_i/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 1.0,
-    "md_len": 1234522,
-    "md_sha256": "c9b486d7b937af4229873ae9c98d2b2290b3fa5f7ae9cc774cf5d1cc5c0c5d71",
+    "md_len": 1234521,
+    "md_sha256": "8370960edd9b0ae41f13fbb0f17d610673719fa06279f22fe740fd0b247dbe79",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -229,8 +229,8 @@
   "tests/conversion/fixtures-local/pdf/author_year_bracket/433d423b-9a1c-487a-ba86-39657bf34509/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 0.5,
-    "md_len": 60648,
-    "md_sha256": "c778671e797d82a32422b7561de7bcce670d08bd8005e3791784c51163d566e8",
+    "md_len": 60649,
+    "md_sha256": "dd4425b61fd8ac9781c1ebf730a7471dec861bf5505847da13618542f403034e",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0312,
@@ -307,8 +307,8 @@
   "tests/conversion/fixtures-local/pdf/bibliography/stem_bibliography_example/ocr_response.json": {
     "classification": "wackSTEMbibliographyNotes",
     "confidence": 0.7,
-    "md_len": 149784,
-    "md_sha256": "aa103f73b3df8f0b3ba2d235471ce81b1a1a9959ae2c0e2c0d94fd5b4481018b",
+    "md_len": 149831,
+    "md_sha256": "6c39ef9e133ad6195d14e0191c60ce96b1cc52a32d4c45adc8290b8fe934e56f",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0397,
@@ -437,8 +437,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/218d6d3d-cd86-44e1-ac3a-c4d970e7d6ab/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107149,
-    "md_sha256": "e72afdc628a39151bdbddd311d6abf6483462850eaf8537c9043e757a1d8f44e",
+    "md_len": 107150,
+    "md_sha256": "8274d0ce10fefa269c7f03fa888e1b9e9190db6b19364114f264808a658b9182",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -619,8 +619,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/d4c0b31e-3c47-4abc-8e2a-d24851bfda1e/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 28455,
-    "md_sha256": "3821bc01521cf22c297a9f34224490eedeb4db0683f1d8089acc5395ca0c5aac",
+    "md_len": 28446,
+    "md_sha256": "a1bd39fe92e8abc10dc7a930ad76cefa3bf61eac3cf9535b071eb1f67e1c5dba",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -645,8 +645,8 @@
   "tests/conversion/fixtures-local/pdf/whole_document/whole_document_example/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 107149,
-    "md_sha256": "e72afdc628a39151bdbddd311d6abf6483462850eaf8537c9043e757a1d8f44e",
+    "md_len": 107150,
+    "md_sha256": "8274d0ce10fefa269c7f03fa888e1b9e9190db6b19364114f264808a658b9182",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,

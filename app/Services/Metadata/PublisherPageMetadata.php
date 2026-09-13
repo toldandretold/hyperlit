@@ -60,7 +60,6 @@ class PublisherPageMetadata
         'citation_cover_date',
         'citation_year',
         'DC.Date',
-        'dc.date',
     ];
 
     /** Single-valued citation tags worth keeping, keyed by the field we map them to. */
@@ -157,30 +156,22 @@ class PublisherPageMetadata
      */
     public function authors(string $html): array
     {
-        $out = [];
-
-        foreach (['citation_author', 'DC.Creator', 'dc.creator'] as $name) {
-            $n = preg_quote($name, '/');
-            foreach ([
-                '/<meta[^>]+name\s*=\s*["\']' . $n . '["\'][^>]*content\s*=\s*["\']([^"\']*)["\']/i',
-                '/<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]*name\s*=\s*["\']' . $n . '["\']/i',
-            ] as $pattern) {
-                if (preg_match_all($pattern, $html, $ms)) {
-                    foreach ($ms[1] as $raw) {
-                        $name_ = html_entity_decode(trim($raw), ENT_QUOTES, 'UTF-8');
-                        if ($name_ !== '' && ! in_array($name_, $out, true)) {
-                            $out[] = $name_;
-                        }
-                    }
+        foreach (['citation_author', 'DC.Creator'] as $name) {
+            $values = [];
+            foreach ($this->metaValues($html, $name) as $value) {
+                // De-duplicated because some templates emit the author block twice (once for
+                // Highwire, once for Dublin Core) — but ORDER is preserved, since author position
+                // is part of a citation.
+                if (! in_array($value, $values, true)) {
+                    $values[] = $value;
                 }
             }
-
-            if ($out !== []) {
-                break;
+            if ($values !== []) {
+                return $values;
             }
         }
 
-        return $out;
+        return [];
     }
 
     /**
@@ -216,18 +207,176 @@ class PublisherPageMetadata
         return null;
     }
 
-    /** `<meta name="X" content="Y">` in either attribute order, case-insensitively. */
+    /**
+     * Values a publisher uses to mean "there isn't one yet", which must never be stored as if
+     * they were one. Not a theoretical list: a 2026-09 corpus audit found Bristol UP emitting
+     * `citation_volume: -1` and `citation_issue: aop` on an ahead-of-print article, and a naive
+     * gap-fill would have written `volume = -1, issue = aop` onto the card.
+     */
+    private const NON_VALUES = [
+        'aop', 'ahead of print', 'aheadofprint', 'online first', 'onlinefirst', 'in press',
+        'inpress', 'forthcoming', 'preprint', 'n/a', 'na', 'none', 'null', 'nil', 'undefined',
+        'tba', 'tbd', '-', '--',
+    ];
+
+    /**
+     * Does this look like a real volume/issue designator?
+     *
+     * Deliberately a REJECT list plus a shape check rather than a strict numeric rule: real
+     * designators are messily various ("12A", "Suppl 1", "Part 2", "1-2"), so demanding digits
+     * would throw away good data. What must be excluded is the publisher's own way of saying
+     * "unassigned" — a negative or zero number, or one of the placeholder words above.
+     */
+    public function isPlausibleDesignator(mixed $value): bool
+    {
+        $v = trim((string) $value);
+
+        if ($v === '' || ! preg_match('/[a-z0-9]/i', $v)) {
+            return false;
+        }
+        if (in_array(mb_strtolower($v), self::NON_VALUES, true)) {
+            return false;
+        }
+        // A leading minus or an all-zero value is a sentinel, never a volume.
+        if (preg_match('/^-/', $v) || preg_match('/^0+$/', $v)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Is this page actually the work we think it is?
+     *
+     * Asked BEFORE any of its metadata is allowed to overwrite the database, because
+     * `storedPageFor()` returns whatever HTML is in the book's directory and not all of it is a
+     * verified landing page for that article:
+     *
+     *  - `rejected_page.html` is written by three gates, and the ENGINE-CRASH one fires BEFORE
+     *    `assessArticleAuthenticity` runs — so that page's identity was never checked by anyone.
+     *  - `original.html` is the publisher landing page for a PDF/legacy fetch, but for the ar5iv
+     *    lane it is the rendered ar5iv article: a different document class that may carry its own
+     *    dates.
+     *
+     * Without this, a page belonging to a different work could "repair" a year that was merely
+     * ugly into one that is confidently wrong — which is worse than the bug being fixed, because
+     * a plausible wrong year is invisible to every downstream check.
+     *
+     * The rule mirrors `ContentFetchService::assessArticleAuthenticity`: a DOI match settles it
+     * outright; failing that, the title has to be strongly similar. **No corroboration at all is
+     * a refusal, not a pass** — an unidentifiable page does not get to rewrite citation data.
+     *
+     * @param  callable(string, string): float  $titleSimilarity
+     * @return array{ok: bool, basis: string}
+     */
+    public function identityMatches(string $html, ?string $doi, ?string $title, callable $titleSimilarity): array
+    {
+        $norm = fn (string $d): string => strtolower(trim(preg_replace('#^https?://(dx\.)?doi\.org/#i', '', $d)));
+
+        $pageDoi = $this->metaContent($html, 'citation_doi');
+        if ($pageDoi && $doi) {
+            return $norm($pageDoi) === $norm($doi)
+                ? ['ok' => true,  'basis' => 'doi_match']
+                : ['ok' => false, 'basis' => 'doi_mismatch'];
+        }
+
+        $pageTitle = $this->metaContent($html, 'citation_title');
+        if ($pageTitle && $title) {
+            $sim = $titleSimilarity($title, $pageTitle);
+
+            return $sim >= 0.7
+                ? ['ok' => true,  'basis' => 'title_match']
+                : ['ok' => false, 'basis' => 'title_mismatch'];
+        }
+
+        return ['ok' => false, 'basis' => 'unidentifiable'];
+    }
+
+    /** The first `<meta name="X">` content on the page, or null. */
     public function metaContent(string $html, string $name): ?string
     {
-        $n = preg_quote($name, '/');
-
-        if (preg_match('/<meta[^>]+name\s*=\s*["\']' . $n . '["\'][^>]*content\s*=\s*["\']([^"\']*)["\']/i', $html, $m)) {
-            return html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8') ?: null;
-        }
-        if (preg_match('/<meta[^>]+content\s*=\s*["\']([^"\']*)["\'][^>]*name\s*=\s*["\']' . $n . '["\']/i', $html, $m)) {
-            return html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8') ?: null;
-        }
-
-        return null;
+        return $this->metaValues($html, $name)[0] ?? null;
     }
+
+    /**
+     * Every value for a meta name, in document order.
+     *
+     * Parsed with DOMDocument rather than matched with a regex, and scoped to `<head>`. A regex
+     * over the raw page cannot tell a live tag from one inside an HTML comment or a `<script>`
+     * template, and cannot tell the page's OWN citation tags from a "related articles" widget
+     * embedding a different work's. The parser skips comments and script contents by
+     * construction, and meta belongs in the head — so the widget case disappears rather than
+     * being defended against.
+     *
+     * Falls back to the whole document only when the head carries no meta at all (a malformed
+     * page where the parser put everything in the body); if there are head tags, they are the
+     * page's own and nothing below competes with them.
+     *
+     * @return array<int, string>
+     */
+    public function metaValues(string $html, string $name): array
+    {
+        $out = [];
+        foreach ($this->metaMap($html) as $key => $values) {
+            // Meta names are case-insensitive in practice: `DC.Date` and `dc.date` are the same
+            // tag, and publishers are inconsistent about which they emit.
+            if (strcasecmp($key, $name) === 0) {
+                $out = array_merge($out, $values);
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * name => [values] for the page, parsed once.
+     *
+     * Memoised on the page's hash because `extractAll()` asks for a dozen names and reparsing a
+     * 300KB publisher page each time would make an import-time check expensive. One entry: the
+     * caller is always working through a single page before moving on.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function metaMap(string $html): array
+    {
+        $key = md5($html);
+        if (($this->metaCacheKey ?? null) === $key) {
+            return $this->metaCache;
+        }
+
+        $doc = new \DOMDocument();
+        // The XML declaration forces UTF-8; without it libxml assumes ISO-8859-1 and mangles any
+        // non-ASCII author name. Errors are suppressed because real publisher HTML is never valid
+        // and we only want the tags it did manage to parse.
+        $ok = @$doc->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NOERROR | LIBXML_NOWARNING);
+
+        $map = [];
+        if ($ok) {
+            $xpath = new \DOMXPath($doc);
+            $nodes = $xpath->query('//head//meta[@name][@content]');
+            if ($nodes === false || $nodes->length === 0) {
+                $nodes = $xpath->query('//meta[@name][@content]');
+            }
+
+            foreach ($nodes ?: [] as $node) {
+                /** @var \DOMElement $node */
+                // getAttribute returns the value already entity-decoded — do NOT decode again, or
+                // a literal `&amp;` in a journal title becomes a bare `&`.
+                $value = trim($node->getAttribute('content'));
+                if ($value !== '') {
+                    $map[$node->getAttribute('name')][] = $value;
+                }
+            }
+        }
+
+        $this->metaCacheKey = $key;
+        $this->metaCache = $map;
+
+        return $map;
+    }
+
+    /** @var array<string, array<int, string>> */
+    private array $metaCache = [];
+
+    private ?string $metaCacheKey = null;
 }

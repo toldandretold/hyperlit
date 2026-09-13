@@ -49,7 +49,7 @@ _CITATION_PLAIN = (
     "linked against an ordinal-numbered bibliography, and a numbered LIST in prose — \"(1) x, (2) y, "
     "(3) z\" — is recognised as an enumeration and left alone.")
 from shared.link_base import LinkRule, run_link_rules
-from shared.refkeys import generate_ref_keys
+from shared.refkeys import HISTORICAL_YEAR_MIN, generate_ref_keys
 
 
 class CitationLinkContext:
@@ -162,7 +162,10 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                 sibling_texts.append(str(sibling))
                         if sibling_texts:
                             context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
-                    keys = generate_ref_keys(sub_cite, context_text=context_for_keys)
+                    # An in-text citation is a few words long, so the historical floor is safe here in a
+                    # way it is not for a long bibliography entry — see HISTORICAL_YEAR_MIN.
+                    keys = generate_ref_keys(sub_cite, context_text=context_for_keys,
+                                             min_year=HISTORICAL_YEAR_MIN)
                     linked = False
                     for key in keys:
                         if key in bibliography_map:
@@ -185,7 +188,9 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                         if extra_year:
                                             separator = extra_year.group(1)
                                             extra_year_str = extra_year.group(2)
-                                            extra_keys = generate_ref_keys(author_part + extra_year_str, context_text=preceding_text)
+                                            extra_keys = generate_ref_keys(author_part + extra_year_str,
+                                                           context_text=preceding_text,
+                                                           min_year=HISTORICAL_YEAR_MIN)
                                             extra_linked = False
                                             for ek in extra_keys:
                                                 if ek in bibliography_map:

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { isAttempted, isFailed } from '../../../resources/js/maintainerJournalImport/articleFilters.ts';
+import {
+  hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision,
+} from '../../../resources/js/maintainerJournalImport/articleFilters.ts';
 
 const lanes = (...hasNodes) => ({ lanes: hasNodes.map((has_nodes) => ({ has_nodes })) });
 
@@ -33,5 +35,33 @@ describe('journal-import article filters', () => {
 
   it('every lane empty is still a failure, however many were tried', () => {
     expect(isFailed(lanes(false, false))).toBe(true);
+  });
+
+  /**
+   * The metadata flag covers two different things and only one of them is work: a DISPUTE the
+   * machine refused to settle (both years plausible, someone must choose) and an AUDIT RECORD of
+   * a correction it already made. A journal-wide repair can leave a thousand of the second, so
+   * treating them alike would bury the handful that need a person — the same trap `isFailed` has.
+   */
+  const drift = (needs_decision) => ({ lanes: [{ has_nodes: true, metadata_drift: { needs_decision } }] });
+
+  it('a work with no metadata flag is not drifted', () => {
+    expect(hasMetadataDrift(lanes(true))).toBe(false);
+    expect(needsMetadataDecision(lanes(true))).toBe(false);
+  });
+
+  it('an applied correction is drift, but is not a decision', () => {
+    expect(hasMetadataDrift(drift(false))).toBe(true);
+    expect(needsMetadataDecision(drift(false))).toBe(false);
+  });
+
+  it('a dispute is both', () => {
+    expect(hasMetadataDrift(drift(true))).toBe(true);
+    expect(needsMetadataDecision(drift(true))).toBe(true);
+  });
+
+  it('a flag on any lane counts, since lanes share one canonical', () => {
+    const mixed = { lanes: [{ has_nodes: true }, { has_nodes: true, metadata_drift: { needs_decision: true } }] };
+    expect(needsMetadataDecision(mixed)).toBe(true);
   });
 });

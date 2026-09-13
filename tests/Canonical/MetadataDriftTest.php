@@ -47,13 +47,17 @@ function mdCleanup(): void
 
 beforeEach(fn () => mdCleanup());
 
-function mdOjsPage(string $year, string $volume = '1', string $issue = '1'): string
+/** The DOI every fixture work carries, so a page can prove it is that work. */
+const MDD_DOI = '10.31269/triplec.v1i1.2';
+
+function mdOjsPage(string $year, string $volume = '1', string $issue = '1', string $doi = MDD_DOI): string
 {
     return <<<HTML
     <html><head>
     <meta name="citation_journal_title" content="tripleC"/>
     <meta name="citation_author" content="Christian Fuchs"/>
-    <meta name="citation_title" content="Co-operation and Self-Organization"/>
+    <meta name="citation_title" content="MDD Co-operation and Self-Organization"/>
+    <meta name="citation_doi" content="{$doi}"/>
     <meta name="citation_date" content="{$year}"/>
     <meta name="citation_volume" content="{$volume}"/>
     <meta name="citation_issue" content="{$issue}"/>
@@ -85,10 +89,14 @@ function mdWork(?int $year, ?string $journalId = null, ?string $pageHtml = null,
 {
     $canonicalId = (string) Str::uuid();
     $book = 'book_mdd_' . substr((string) Str::uuid(), 0, 8);
+    $doi = MDD_DOI . '.' . substr($canonicalId, 0, 8);
 
     mdDb()->table('canonical_source')->insert([
         'id' => $canonicalId, 'title' => 'MDD Co-operation and Self-Organization',
         'year' => $year, 'journal_source_id' => $journalId, 'auto_version_book' => $book,
+        // Unique per work: the canonical_source DOI column is indexed and the matcher dedupes on
+        // it, so a shared literal would collide across fixtures.
+        'doi' => $doi,
         'created_at' => now(), 'updated_at' => now(),
     ]);
     mdDb()->table('library')->insert([
@@ -99,6 +107,11 @@ function mdWork(?int $year, ?string $journalId = null, ?string $pageHtml = null,
     ]);
 
     if ($pageHtml !== null) {
+        // Point the fixture page's citation_doi at THIS work, so it passes the identity check the
+        // detector runs before trusting any page. A test that wants a mismatch writes its own DOI
+        // into the page and is left alone here.
+        $pageHtml = str_replace('content="' . MDD_DOI . '"', 'content="' . $doi . '"', $pageHtml);
+
         File::ensureDirectoryExists(resource_path("markdown/{$book}"));
         File::put(resource_path("markdown/{$book}/{$pageFile}"), $pageHtml);
     }
@@ -133,6 +146,50 @@ test('every author is kept, in order — et-al is a render concern', function ()
         . '<meta name="citation_author" content="C Three">';
 
     expect(app(PublisherPageMetadata::class)->authors($html))->toBe(['A One', 'B Two', 'C Three']);
+});
+
+test('a commented-out or templated meta tag is not a meta tag', function () {
+    // The regex this replaced could not tell a live tag from one inside an HTML comment or a
+    // `<script>` template. The parser skips both by construction.
+    $page = app(PublisherPageMetadata::class);
+
+    $commented = '<html><head><!-- <meta name="citation_date" content="1999"> --></head></html>';
+    expect($page->year($commented))->toBeNull();
+
+    $templated = '<html><head><script type="text/template">'
+        . '<meta name="citation_date" content="1999">'
+        . '</script></head></html>';
+    expect($page->year($templated))->toBeNull();
+});
+
+test('a related-articles widget in the body cannot impersonate the page', function () {
+    // A publisher page that lists other works can carry their citation tags too. Meta belongs in
+    // the head, so scoping there makes the widget case disappear rather than defending against it.
+    $html = '<html><head>'
+        . '<meta name="citation_date" content="2003">'
+        . '<meta name="citation_volume" content="1">'
+        . '</head><body>'
+        . '<div class="related"><meta name="citation_date" content="2019">'
+        . '<meta name="citation_volume" content="42"></div>'
+        . '</body></html>';
+
+    $found = app(PublisherPageMetadata::class)->extractAll($html);
+
+    expect($found['year'])->toBe(2003);
+    expect($found['volume'])->toBe('1');
+});
+
+test('meta names match case-insensitively, as publishers actually emit them', function () {
+    // `DC.Date` and `dc.date` are the same tag and publishers are inconsistent about which.
+    expect(app(PublisherPageMetadata::class)->year('<meta content="2008" name="dc.date">'))->toBe(2008);
+});
+
+test('entity-encoded values are decoded exactly once', function () {
+    // getAttribute already decodes; decoding again would turn `&amp;amp;` into a bare `&`.
+    $html = '<meta name="citation_journal_title" content="Capitalism &amp;amp; Critique">';
+
+    expect(app(PublisherPageMetadata::class)->metaContent($html, 'citation_journal_title'))
+        ->toBe('Capitalism &amp; Critique');
 });
 
 test('finds the landing page under original.html, not just fetched_page.html', function () {
@@ -211,8 +268,24 @@ test('an epoch sentinel is corrected from the page without asking anyone', funct
     // Cards render the stored bibtex in PREFERENCE to the structured columns, so patching only
     // the column would leave the visible citation showing 1970 forever.
     expect($row->bibtex)->toContain('year = {2003}');
+});
 
-    expect(DB::table('conversion_flags')->where('book', $book)->count())->toBe(0);
+test('an automatic correction still leaves an audit flag, marked as needing no decision', function () {
+    // Nothing is ever rewritten invisibly. A silent fix whose only trace is a log line means
+    // "the card says 2003 now and nobody knows who decided that" — its own integrity problem.
+    $journalId = mdJournal(2003);
+    [$canonicalId, $book] = mdWork(1970, $journalId, mdOjsPage('2003'));
+
+    app(MetadataDriftDetector::class)->inspect($canonicalId);
+
+    $flag = DB::table('conversion_flags')->where('book', $book)->first();
+    expect($flag)->not->toBeNull();
+    expect($flag->source)->toBe(ConversionFlag::SOURCE_METADATA_DRIFT);
+    expect($flag->reason)->toContain('Corrected from the publisher page');
+
+    $details = json_decode((string) $flag->details, true);
+    expect($details['needs_decision'])->toBeFalse();
+    expect($details['applied']['year'])->toBe(2003);
 });
 
 test('a year before the journal started is corrected even though it is not a sentinel', function () {
@@ -244,6 +317,7 @@ test('two plausible years that merely differ are flagged, not silently picked', 
     expect($flag->status)->toBe('open');
     expect($flag->reason)->toContain('stored 2005');
     expect($flag->reason)->toContain('page 2004');
+    expect(json_decode((string) $flag->details, true)['needs_decision'])->toBeTrue();
 });
 
 test('a page whose own year is impossible cannot repair anything', function () {
@@ -270,6 +344,34 @@ test('volume and issue fill a gap but a disagreement is flagged, never overwritt
     expect($row->issue)->toBe('4');             // was empty — filled
     expect($result['fields']['volume']['action'])->toBe('dispute');
     expect($result['fields']['issue']['action'])->toBe('fill');
+});
+
+test('an ahead-of-print sentinel is never filled into an empty column', function () {
+    // Found by auditing the real corpus, not imagined: Bristol UP emits `citation_volume: -1`
+    // and `citation_issue: aop` on an ahead-of-print article. Filling an empty column with that
+    // is worse than leaving the gap — the gap is honest and self-heals on the next sync, whereas
+    // `volume = -1` renders on the card and looks deliberate.
+    $journalId = mdJournal(2003);
+    [$canonicalId] = mdWork(2003, $journalId, mdOjsPage('2003', '-1', 'aop'));
+
+    $result = app(MetadataDriftDetector::class)->inspect($canonicalId);
+
+    expect($result['fields'])->toBe([]);
+    $row = mdDb()->table('canonical_source')->where('id', $canonicalId)->first();
+    expect($row->volume)->toBeNull();
+    expect($row->issue)->toBeNull();
+});
+
+test('the placeholder vocabulary is rejected but messy real designators survive', function () {
+    $page = app(PublisherPageMetadata::class);
+
+    foreach (['-1', '0', '000', 'aop', 'AOP', 'in press', 'n/a', 'none', '—', ' ', ''] as $junk) {
+        expect($page->isPlausibleDesignator($junk))->toBeFalse("'{$junk}' should be rejected");
+    }
+    // Real designators are messily various; demanding digits would throw away good data.
+    foreach (['1', '12A', 'Suppl 1', 'Part 2', '1-2', '7646'] as $real) {
+        expect($page->isPlausibleDesignator($real))->toBeTrue("'{$real}' should be kept");
+    }
 });
 
 test('agreement writes nothing and flags nothing', function () {
@@ -301,6 +403,56 @@ test('no stored page is a status, not a crash', function () {
     [$canonicalId] = mdWork(1970, mdJournal(2003));
 
     expect(app(MetadataDriftDetector::class)->inspect($canonicalId)['status'])->toBe('no_page');
+});
+
+// ---------------------------------------------------------------------------
+// The identity gate — a page only gets to rewrite the database if it proves it
+// is the same work. `storedPageFor()` returns whatever HTML is in the book's
+// directory, and an engine-crash `rejected_page.html` was never identity-checked
+// by the import (that gate runs BEFORE the authenticity gate).
+// ---------------------------------------------------------------------------
+
+test('a page for a DIFFERENT work is refused, however plausible its date', function () {
+    // The failure this prevents is worse than the bug being fixed: 1970 is obviously ugly and
+    // every plausibility rule catches it, whereas another article's 2011 is confidently wrong
+    // and invisible to everything downstream.
+    $journalId = mdJournal(2003);
+    [$canonicalId] = mdWork(1970, $journalId, mdOjsPage('2011', '1', '1', '10.9999/someone.else.99'));
+
+    $result = app(MetadataDriftDetector::class)->inspect($canonicalId);
+
+    expect($result['status'])->toBe('identity_unconfirmed');
+    expect((int) mdDb()->table('canonical_source')->where('id', $canonicalId)->value('year'))->toBe(1970);
+});
+
+test('a page that identifies as nothing at all is refused, not trusted by default', function () {
+    $journalId = mdJournal(2003);
+    [$canonicalId] = mdWork(1970, $journalId, '<meta name="citation_date" content="2003">');
+
+    expect(app(MetadataDriftDetector::class)->inspect($canonicalId)['status'])->toBe('identity_unconfirmed');
+    expect((int) mdDb()->table('canonical_source')->where('id', $canonicalId)->value('year'))->toBe(1970);
+});
+
+test('a matching title stands in when neither side has a DOI', function () {
+    $page = app(PublisherPageMetadata::class);
+    $sim = fn (string $a, string $b): float => app(\App\Services\OpenAlexService::class)->titleSimilarity($a, $b);
+
+    $html = '<meta name="citation_title" content="Co-operation and Self-Organization">';
+
+    expect($page->identityMatches($html, null, 'Co-operation and Self-Organization', $sim)['ok'])->toBeTrue();
+    expect($page->identityMatches($html, null, 'An Entirely Different Paper About Bees', $sim)['ok'])->toBeFalse();
+});
+
+test('a DOI match settles identity outright, in either direction of prefix', function () {
+    $page = app(PublisherPageMetadata::class);
+    $sim = fn (string $a, string $b): float => 0.0;   // must not be consulted when a DOI decides
+
+    $html = '<meta name="citation_doi" content="https://doi.org/10.31269/TripleC.V1I1.2">';
+
+    // Case and the doi.org prefix are presentation, not identity.
+    expect($page->identityMatches($html, '10.31269/triplec.v1i1.2', 'x', $sim))
+        ->toBe(['ok' => true, 'basis' => 'doi_match']);
+    expect($page->identityMatches($html, '10.31269/triplec.v1i1.3', 'x', $sim)['ok'])->toBeFalse();
 });
 
 // ---------------------------------------------------------------------------

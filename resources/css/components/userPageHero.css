@@ -14,7 +14,10 @@
 /* ---------- logo lockup: colon squares (or custom logo) + library title ---------- */
 
 body[data-page="user"] .user-logo-lockup {
-  --title-fs: clamp(1.4rem, 4.5vw, 2.1rem);
+  /* Card-capped as well as viewport-clamped — mirror of journalHome.css, same
+     reason (a reader with a large browser font-size otherwise gets a title too
+     big for a card that never grew with it). */
+  --title-fs: min(clamp(1.4rem, 4.5vw, 2.1rem), calc(var(--card-w, 480px) / 14));
   --colon-fallback: calc(var(--title-fs) * 1.15);
   display: flex !important;
   flex-direction: row;

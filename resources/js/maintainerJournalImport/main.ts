@@ -14,7 +14,7 @@
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
 import { initShelfDrop } from './shelfDrop';
-import { isAttempted, isFailed } from './articleFilters';
+import { hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision } from './articleFilters';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
 } from '../utilities/sourceFrameTheme';
@@ -85,6 +85,8 @@ interface DriftField {
 }
 
 interface MetadataDrift {
+  /** true = a maintainer has to choose; false = an audit record of what was already corrected. */
+  needs_decision: boolean;
   fields: Record<string, DriftField>;
   applied: Record<string, string | number>;
 }
@@ -353,6 +355,7 @@ function renderArticles(): void {
   // stub beside a perfectly good pdf lane. After a 944-work run that was most of the journal, and
   // "failed only" listed nearly all of it.
   const onlyFailed = el<HTMLInputElement>('ji-only-failed')?.checked ?? false;
+  const onlyMetadata = el<HTMLInputElement>('ji-only-metadata')?.checked ?? false;
 
   const needle = (el<HTMLInputElement>('ji-article-search')?.value || '').trim().toLowerCase();
 
@@ -362,6 +365,14 @@ function renderArticles(): void {
   // excluded — that is "not imported yet", not "failed". See articleFilters.ts for why this is
   // "no lane has content" rather than the cheaper "some lane is empty".
   if (onlyFailed) rows = rows.filter(isFailed);
+  // Metadata flags cover two things: a dispute someone must settle, and an audit record of a
+  // correction already made. Show the decisions if there are any, and only fall back to the whole
+  // set when there is nothing to decide — otherwise a journal-wide repair's thousand audit rows
+  // bury the handful that are actually work.
+  if (onlyMetadata) {
+    const decisions = rows.filter(needsMetadataDecision);
+    rows = decisions.length > 0 ? decisions : rows.filter(hasMetadataDrift);
+  }
   if (needle) {
     rows = rows.filter((a) => (a.title || '').toLowerCase().includes(needle)
       || (a.doi || '').toLowerCase().includes(needle));
@@ -448,8 +459,11 @@ function buildLane(lane: Lane): HTMLElement {
   if (lane.metadata_drift) {
     // Its own badge rather than folding into the flag count: the conversion is fine here, a
     // CITATION FIELD is wrong, and the two need different actions from the maintainer. The title
-    // carries the whole stored-vs-page diff so the disagreement is readable without a drill-down.
-    badges.push(['warn', '⚑ metadata', describeDrift(lane.metadata_drift)]);
+    // carries the whole stored-vs-page diff so it is readable without a drill-down. A dispute is
+    // a decision waiting on someone (warn); an applied correction is a record to check (dim).
+    badges.push(lane.metadata_drift.needs_decision
+      ? ['warn', '⚑ metadata — decide', describeDrift(lane.metadata_drift)]
+      : ['dim', '⚑ metadata — corrected', describeDrift(lane.metadata_drift)]);
   }
   if (lane.fixture) {
     badges.push(lane.golden_complete
@@ -1264,6 +1278,7 @@ function wireDetailActions(): void {
 
   document.getElementById('ji-only-imported')?.addEventListener('change', renderArticles);
   document.getElementById('ji-only-failed')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-only-metadata')?.addEventListener('change', renderArticles);
   document.getElementById('ji-article-search')?.addEventListener('input', renderArticles);
 }
 

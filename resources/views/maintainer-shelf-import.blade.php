@@ -84,6 +84,11 @@
                 <label class="ji-only-imported">
                     <input type="checkbox" id="ji-only-failed"> failed only
                 </label>
+                {{-- Same bundle as the journal console, so this filter has to exist on both or
+                     the flags are unfindable on whichever page lacks it. --}}
+                <label class="ji-only-imported">
+                    <input type="checkbox" id="ji-only-metadata"> metadata drift
+                </label>
             </div>
             <input type="search" id="ji-article-search" class="ji-article-search"
                    placeholder="Find a work by title or DOI…" aria-label="Find a work">

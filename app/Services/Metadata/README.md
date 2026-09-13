@@ -17,7 +17,11 @@ Two things know better, and we already had both on disk:
 
 ### `PublisherPageMetadata`
 
-The one citation-meta scraper. Reads the full Highwire / Dublin Core set out of a page string, and finds the stored page on disk.
+The one citation-meta reader. Pulls the full Highwire / Dublin Core set out of a page, and finds the stored page on disk.
+
+**Parsed with DOMDocument, scoped to `<head>`** — not matched with a regex. A regex over raw HTML cannot tell a live tag from one inside an HTML comment or a `<script>` template, and cannot tell the page's own citation tags from a "related articles" widget embedding a different work's. The parser skips comments and script contents by construction, and meta belongs in the head, so the widget case *disappears* rather than being defended against. It falls back to the whole document only when the head carries no meta at all. Switching from regex to DOM changed the outcome on **zero** of 213 real stored pages — it is purely a robustness upgrade, and the tags themselves are a deliberate machine-readable standard (Google Scholar and Zotero read the same ones), not prose being guessed at.
+
+**"There isn't one yet" is not a value.** `isPlausibleDesignator()` rejects the placeholder vocabulary publishers really use — a corpus audit found Bristol UP emitting `citation_volume: -1` and `citation_issue: aop` on an ahead-of-print article, and a naive gap-fill would have put `volume = -1` on the card. It rejects negatives, zeroes and the placeholder words while keeping messily-real designators (`12A`, `Suppl 1`, `Part 2`): demanding digits would throw away good data. An honest gap self-heals on the next sync; a stored `-1` looks deliberate forever.
 
 The filename list is load-bearing. `fetched_page.html` is written only by the HTML lane's **success** path; a PDF-lane import saves the *same landing page* as `original.html` before deciding the page is abstract-only and downloading the PDF instead. The repair only ever looked for `fetched_page.html`, so every PDF-lane work reported "no stored page" while its page sat right there — which is exactly how the tripleC article stayed at 1970 despite a tool existing to fix it. `PAGE_FILENAMES` tries all four names, unambiguous ones first.
 
@@ -33,13 +37,17 @@ The floor answers **impossible**, never **correct**. A year that is merely early
 
 ### `MetadataDriftDetector`
 
-Compares stored against page, and splits the outcome deliberately:
+**First, the page has to prove it is this work.** `storedPageFor()` returns whatever HTML is in the book's directory, and not all of it is a verified landing page for that article: `rejected_page.html` is written by three gates, and the **engine-crash** one fires *before* `assessArticleAuthenticity` runs, so that page's identity was never checked by anyone; and `original.html` is the publisher landing page for a PDF/legacy fetch but the rendered **ar5iv article** for the ar5iv lane. `identityMatches()` requires a DOI match, or failing that a title similarity ≥ 0.7 — and **no corroboration at all is a refusal, not a pass**. Without it, another article's page carrying a plausible date could turn an obviously-ugly 1970 into a *confidently wrong* year, which is strictly worse: nothing downstream can see it.
+
+Then it compares stored against page, and splits the outcome deliberately:
 
 - **Corrects silently** only where the stored value is provably broken — an epoch sentinel, a year before the journal existed, or an empty column. 1970 for a journal founded in 2003 is not a competing opinion.
 - **Flags and touches nothing** where both values are plausible and merely differ (page says 2004, OpenAlex says 2005). Preferring the page there would trade a known bug for an unknown one. The page is not automatically the better source for every field.
 - **Rejects the page** when the page's own year fails the same plausibility gate — otherwise a junk page could "fix" a good year into a bad one.
 
 Volume and issue only ever **fill** an empty column. The year is the one field with positive evidence of breakage; a publisher page's volume string is not obviously better than one already stored.
+
+**Nothing is ever rewritten invisibly.** A flag is raised whenever anything moved *or* is contested, not only for disputes — an automatic correction is still a machine rewriting a citation from a scraped page, so it leaves a reviewable, reversible record. `details.needs_decision` separates "you must choose" from "here is what was changed for you", and the console badge renders them differently. Without it, the only trace of a silent fix is a log line nobody reads, and *"the card says 2003 now and I don't know who decided that"* is its own integrity problem.
 
 Writes go through `PublisherYearRepair::apply()` — canonical + **every** library version row + `LibraryCardGenerator::patchBibtexFields`. The bibtex patch is mandatory, not cosmetic: cards render stored bibtex **in preference to** the structured columns, so fixing only the column leaves the visible citation wrong.
 
