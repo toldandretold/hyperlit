@@ -7,12 +7,10 @@ so each strategy's extraction is an addressable, unit-testable unit. Mutates the
 """
 
 import re
-import random
-import string
-import time
 
 from bs4 import NavigableString
 
+from shared.fnids import footnote_id
 from shared.sanitize import get_element_html_content
 from shared.assessment import ASSESSMENT
 from digestion.strategySelection.strategy import _BIBLIOGRAPHY_HEADING_RE
@@ -197,8 +195,7 @@ def process_whole_document_footnotes(soup, book_id):
         print(f"Processing whole-doc footnote {identifier}: {full_content[:50]}... ({len(content_parts)} parts)")
 
         # Generate unique footnote ID (shorter format without book prefix)
-        random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-        unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
+        unique_fn_id = footnote_id()
 
         # Add anchor with unique ID to the first element
         anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -296,8 +293,7 @@ def process_sequential_footnotes(soup, book_id):
 
             full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
 
-            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            unique_fn_id = f"seq{section_number}_Fn{int(time.time() * 1000)}_{random_suffix}"
+            unique_fn_id = footnote_id(f'seq{section_number}_')
 
             anchor_tag = soup.new_tag('a', id=unique_fn_id)
             anchor_tag['fn-count-id'] = identifier

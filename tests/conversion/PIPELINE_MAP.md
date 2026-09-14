@@ -137,6 +137,10 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  │     quote_geometry.py (zero-import leaf): GEOMETRIC blockquotes — per-line indentation read from the
 │  │       source PDF (pypdf visitor) and aligned back to the markdown; catches indentation-only quotes the
 │  │       typographic heuristics can't see; inert without a PDF (fixture replays)
+│  │     heading_geometry.py (zero-import leaf): GEOMETRIC headings — per-line TYPE STYLE (font+size) read
+│  │       from the source PDF and aligned back to the markdown; promotes the headings the OCR left as plain
+│  │       paragraphs and restores the printed section NUMBERS it dropped, using only styles this document
+│  │       already marks as headings; cached to heading_geometry.json, inert without a PDF
 │  │     OCR→ocr_response.json ∅replay · PDF_CLASSIFIERS {none|page_bottom|chapter_endnotes|
 │  │       document_endnotes|wackSTEMbibliographyNotes | unknown ✗} · renumber[cond] · segments ·
 │  │       PDF_ASSEMBLERS(per layout) ·
@@ -191,6 +195,7 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 ## Shared libraries (cross-cutting, every backend stage)
 
 `conversion/refkeys.py` (citation keys) · `conversion/sanitize.py` (HTML/URL sanitise) ·
+`conversion/fnids.py` (the ONE footnote-element-id generator — unique by construction) ·
 `conversion/assessment.py` (the decision trace → `assessment.json`) ·
 `conversion/pipeline_base.py` (`DocPass`) · `conversion/link_base.py` (`LinkRule`).
 

@@ -8,14 +8,12 @@ This is a PURE extraction of the original method — the rules preserve its exac
 including the in-place mutation of the caller's `all_footnotes` list (reverse-definition appends to
 it, and epub_normalizer's `_write_assessment` reads it afterwards).
 """
-import random
 import re
-import string
-import time
 
 from bs4 import BeautifulSoup, NavigableString
 
 from shared.link_base import LinkRule, run_link_rules     # was `.link_base` (link_base moved to shared/)
+from shared.fnids import footnote_id
 
 _BLOCK_TAGS = {'p', 'div', 'li', 'aside', 'section', 'blockquote', 'td'}
 
@@ -153,7 +151,7 @@ def convert_noteref_element(elem, new_id, fn_count, soup) -> bool:
 
 
 def _new_fn_id():
-    return f"Fn{int(time.time() * 1000)}_{''.join(random.choices(string.ascii_lowercase + string.digits, k=8))}"
+    return footnote_id()
 
 
 # ---------------------------------------------------------------------------

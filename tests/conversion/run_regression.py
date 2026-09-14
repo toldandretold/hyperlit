@@ -166,6 +166,13 @@ def run_pdf_pipeline(fixture, tmp_dir):
     if os.path.isfile(geo) and not OCR_VARIANT:
         shutil.copy2(geo, os.path.join(tmp_dir, 'quote_geometry.json'))
 
+    # Heading-geometry cache (type styles read from the source PDF at convert time) — same contract
+    # as the quote cache: stage it so a PDF-less replay still reproduces the heading pass. Fixtures
+    # captured before this cache existed simply have none; a staged PDF (stage_pdf) recomputes it.
+    head_geo = os.path.join(fixture['dir'], 'heading_geometry.json')
+    if os.path.isfile(head_geo) and not OCR_VARIANT:
+        shutil.copy2(head_geo, os.path.join(tmp_dir, 'heading_geometry.json'))
+
     # GROBID experiment mode ONLY (env GROBID_URL set): stage the fixture's source PDF so the
     # bibliography pass can exercise the ML path. Deliberately NOT done by default — the default
     # suite must stay byte-identical with no PDF in the tmp dir (and CI has no GROBID server).

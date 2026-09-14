@@ -307,6 +307,21 @@ def main():
         except Exception:
             geometry_blocks = None
 
+    # Heading type styles: the same detect-and-cache contract (heading_geometry.json) — the PDF's
+    # own fonts/sizes name the headings Mistral left as plain paragraphs and the section numbers it
+    # dropped, and the cache keeps a PDF-less replay faithful to what production saw.
+    from ingestion.pdf.heading_geometry import detect_heading_lines
+    head_cache = output_dir / "heading_geometry.json"
+    heading_lines = None
+    if pdf_path.is_file():
+        heading_lines = detect_heading_lines(str(pdf_path))
+        head_cache.write_text(json.dumps(heading_lines, ensure_ascii=False), encoding="utf-8")
+    elif head_cache.exists():
+        try:
+            heading_lines = json.loads(head_cache.read_text(encoding="utf-8"))
+        except Exception:
+            heading_lines = None
+
     # Assemble markdown — may append additional mojibake warnings to
     # `footnote_warnings` for pypdf-extracted defs we had to reject.
     print("Assembling markdown...")
@@ -319,6 +334,7 @@ def main():
         segment_boundaries=segment_boundaries,
         footnote_warnings=footnote_warnings,
         geometry_blocks=geometry_blocks,
+        heading_lines=heading_lines,
     )
     output_md.write_text(markdown, encoding="utf-8")
 

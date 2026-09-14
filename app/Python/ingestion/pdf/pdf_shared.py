@@ -8,6 +8,7 @@ import time
 import argparse
 import base64
 import threading
+from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 from statistics import median
@@ -189,6 +190,33 @@ _BARE_CARET_FN_RE = re.compile(r'(?<=[A-Za-z0-9.,;:!?)\'"’”])\^(\d{1,3})(?![
 # expression — legal from Python 3.12 (PEP 701), a SyntaxError on 3.11 (prod's python3).
 _WS_RUN_RE = re.compile(r'\s+')
 
+# An ORDINAL suffix Mistral rendered as a LaTeX superscript OUTSIDE math mode: "In the early
+# 21^{st} century", "the 20^{th} and the 21^{st} Centuries" (4d0b6f35 ×18, 3f202e8f ×14). Nothing
+# downstream touches it — the footnote caret rules require digits inside the braces and the math
+# passes require $-delimiters — so it reached the reader as literal "21^{st}" in body text AND in
+# heading titles. The $-wrapped form ("$75^{\text{th}}$") is genuine math mode and is left to the
+# latex path; this is only the naked one.
+_ORDINAL_SUP_RE = re.compile(r'(?<=\d)\^\{(st|nd|rd|th)\}')
+
+
+def normalise_ordinal_superscripts(text):
+    """"21^{st}" → "21<sup>st</sup>", outside maths only.
+
+    Math spans are masked first: "The $20^{th}$ century structure of the scientific article"
+    (3f202e8f) is a LaTeX expression the reader renders through the latex path, and rewriting its
+    innards leaves broken markup ("$20<sup>th</sup>$")."""
+    spans = []
+
+    def _mask(m):
+        spans.append(m.group(0))
+        return f'\x00ORDMATH{len(spans) - 1}\x00'
+
+    masked = _MATH_SPAN_RE.sub(_mask, text or '')
+    masked = _ORDINAL_SUP_RE.sub(r'<sup>\1</sup>', masked)
+    for i, s in enumerate(spans):
+        masked = masked.replace(f'\x00ORDMATH{i}\x00', s)
+    return masked
+
 
 def convert_bare_caret_footnotes(text):
     """"word^24" / line-start "^24 Text" → "[^24]" — outside maths only."""
@@ -252,6 +280,16 @@ _DATE_LINE_RE = re.compile(
     r'November|December)\s+\d{4}$', re.IGNORECASE)
 
 
+# A footnote DEFINITION's text, after its number, normally opens with a capital or a quote — that
+# is what separates "2 The company does not…" from a numbered list item or a page number. A URL is
+# the other unambiguous opener, and it is COMMON: journal notes are routinely nothing but a link
+# ("2 http://wokinfo.com/essays/journal-selection-process/, accessed on July 26, 2013" — ffbb3ac7,
+# whose notes are almost all bare URLs). Lowercase "http" failed the capital test at every def
+# scan — the OCR-side signal collection, the page-bottom collector, AND the pypdf text-layer
+# rescue — so a note the PDF's own text layer carried plainly was invisible to the whole pipeline.
+DEF_URL_OPENER = r'https?://|www\.'
+
+
 def collect_page_refs_and_defs(md_raw):
     """The ONE per-page footnote ref/def detector — shared by classify_footnotes (signal
     collection) and renumber_chunk_footnotes (anthology-reset detection). These two carried
@@ -289,7 +327,7 @@ def collect_page_refs_and_defs(md_raw):
     defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
     defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
     for line in md.split('\n'):
-        m = re.match(r'^(\d{1,3}) [A-Z‘“\'"]', line)
+        m = re.match(r'^(\d{1,3}) (?:[A-Z‘“\'"]|' + DEF_URL_OPENER + r')', line)
         if not m:
             continue
         stripped = line.rstrip()
@@ -657,7 +695,7 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
             return None
         num, rest = m.group(1), m.group(2)
         has_period = stripped[len(num)] == '.'
-        if has_period or re.match(r'[A-Z‘“\'"]', rest):
+        if has_period or re.match(r'(?:[A-Z‘“\'"]|' + DEF_URL_OPENER + r')', rest):
             return int(num), num, rest
         return None
 
@@ -843,9 +881,121 @@ _DEF_OPENER_LINE_RE = re.compile(
     r'|[ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ]\s)')
 
 
+# --------------------------------------------------------------------------------------------
+# "Is this line HALF of a sentence?" — one vocabulary, two consumers (the page-break rejoiner
+# below and assembly's sentence-interrupting-box relocator).
+# --------------------------------------------------------------------------------------------
+
+# Words a sentence CANNOT end on. A paragraph ending on one of these — or on a comma/dash, a
+# possessive, or a hyphenated compound — is VISIBLY unfinished, which is the only real evidence
+# that what follows it is a continuation. A paragraph ending on a CONTENT word is a complete line
+# that merely lacks a full stop, and journal front matter is full of them: "Keywords: …, digital
+# socialism", a byline ("Doctoral researcher Birkbeck, University of London"), a table caption
+# ("Table 2.4: Discourse elements of the scientific article"), an epigraph attribution ("—JOHN
+# DEWEY, The Public and Its Problems"). Without this test the box relocator fired on 19 such lines
+# across the fixture corpus, and every firing was a double corruption: the front-matter line was
+# glued to a page-break continuation belonging to a paragraph three slots down (tripleC's keyword
+# list swallowed the whole opening of the next page), and the real body section in between was
+# moved out of document order.
+_OPEN_TAIL_WORDS = frozenset("""
+a an the this that these those each every either neither both all some any no such another other
+its their his her our your my whose who whom which what
+of to in on at by for with from into onto upon over under between among amongst through during
+before after above below across behind beyond within without against about around toward towards
+per via than as like
+and or but nor yet so because although though while whereas whether if unless until since when
+where how why
+is are was were be been being am has have had having do does did will would shall should can
+could may might must
+one two three several few many most more less fewer much first second third
+not also very only just even still thus hence
+""".split())
+
+# Front matter / captions / locators that end on a content word by DESIGN — never half a sentence.
+_LABEL_PARA_RE = re.compile(
+    r'(?i)^(?:abstract|key\s*words?|received|accepted|revised|published|date of publication'
+    r'|available online|corresponding author|correspondence|e-?mail|doi|issn|isbn'
+    r'|(?:table|figure|fig\.|box|chart|scheme|plate)\s+[\dIVXivx]|https?://|www\.)')
+
+# Page chrome: a bare/dashed page number, a "Page 7" line, a document-control code
+# ("NAC/CONF.5/S2."), or the page-number anchor.
+_CHROME_LINE_RE = re.compile(
+    r'^(?:[-–—\s]*\d{1,4}[-–—\s]*|[Pp]age\s+\d{1,4}\.?'
+    r'|[A-Z][A-Z0-9]*(?:[/.][A-Z0-9]+)+\.?'
+    r'|<a class="pageNumber"[^>]*></a>)$')
+
+_TAIL_WORD_RE = re.compile(r"([A-Za-z][A-Za-z'’\-]*)[)\"'”’\]]*$")
+
+# The tail's terminal quote/bracket is only sentence-FINAL when real punctuation precedes it:
+# 'concepts such as "gold open access"' continues on the next page, '…is nonsense."' does not.
+_QUOTED_SENTENCE_END_RE = re.compile(r'[.!?][)"\'”’\]]+$')
+
+
+def is_page_chrome(text):
+    """Is every line of `text` page chrome (a page number / locator), i.e. nothing a sentence
+    could be part of?"""
+    lines = [l.strip() for l in (text or '').strip().split('\n') if l.strip()]
+    return bool(lines) and all(_CHROME_LINE_RE.match(l) for l in lines)
+
+
+def tail_is_mid_sentence(prev):
+    """Is `prev` the FIRST HALF of a sentence the print layout cut in two?"""
+    t = re.sub(r'<[^>]+>', '', prev or '').rstrip()
+    if t.endswith((',', '–', '—', '-')):
+        return True
+    m = _TAIL_WORD_RE.search(t)
+    if not m:
+        return False
+    w = m.group(1).lower()
+    if w in _OPEN_TAIL_WORDS or w.endswith(("'s", "’s")):
+        return True
+    return '-' in w.strip('-')                  # a hyphenated compound ("Many long-distance")
+
+
+def is_label_line(text):
+    """A front-matter label / caption / locator paragraph ("Keywords: …", "Table 3: …",
+    "Corresponding author:") — it ends on a content word by design, so it is never half a
+    sentence however long it runs."""
+    return bool(_LABEL_PARA_RE.match((text or '').strip()))
+
+
+def is_join_barrier(line):
+    """A SHORT line that physically sits between two halves of a sentence while belonging to
+    neither: the page's own chrome or a front-matter label. The page-1 footer tripleC prints
+    ("Date of Publication: 29 May 2017") lands between a paragraph and its continuation on the
+    next page — as a join TARGET it ends in a digit, so the rejoiner happily glued the next
+    page's opening onto the footer."""
+    s = (line or '').strip()
+    return bool(s) and len(s) <= 120 and (is_page_chrome(s) or is_label_line(s))
+
+
+_WORD_TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z'’]*")
+
+
+def _glues_into_one_word(frag, cont, vocabulary):
+    """Was a WORD split across the page break with its hyphen lost in OCR ("…through 2) cul" +
+    "tural imperialism…")? Evidence, not a guess: the document itself is the dictionary — the
+    glued form has to occur elsewhere in it as a word, and the dangling fragment must occur
+    nowhere else on its own (its ONE occurrence being the dangling half itself). Without both,
+    joining with a space is the safe answer — a space wrongly inserted is a typo, two real words
+    wrongly fused ("the data" + "collected") is a corrupted sentence."""
+    fm = re.search(r"([A-Za-z]{1,4})$", frag)
+    if not fm or not frag.endswith(fm.group(1)) or not fm.group(1).islower():
+        return False
+    piece = fm.group(1)
+    cm = _WORD_TOKEN_RE.match(cont)
+    if not cm:
+        return False
+    joined = (piece + cm.group(0)).lower()
+    return vocabulary.get(joined, 0) >= 1 and vocabulary.get(piece.lower(), 0) <= 1
+
+
 def rejoin_page_breaks(text):
     """Rejoin paragraphs that were split across page boundaries."""
     lines = text.split('\n')
+    # The document's own word list (with counts — the dangling fragment is itself one
+    # occurrence), for the lost-hyphen test in Case 1b.
+    vocabulary = Counter(w.lower() for w in _WORD_TOKEN_RE.findall(text))
     result = []
     i = 0
 
@@ -857,19 +1007,40 @@ def rejoin_page_breaks(text):
         # sentence punctuation), so the continuation rule glued the table's LAST row onto a
         # lowercase-starting next paragraph, breaking the row out of the table entirely
         # (1313c1a2 Table 2: '| Sentiment | 64.4 … |' + 'taken from Christopher Potts…').
-        if not stripped or stripped.startswith('#') or stripped == '---' or stripped.lstrip().startswith('|'):
+        # A page-chrome / front-matter label line is skipped for the same reason: it is not the
+        # first half of anything, so nothing may be appended to it.
+        if (not stripped or stripped.startswith('#') or stripped == '---'
+                or stripped.lstrip().startswith('|') or is_join_barrier(stripped)):
             result.append(line)
             i += 1
             continue
 
-        # Find the next non-empty line
+        # Find the next non-empty line, STEPPING OVER page chrome / front-matter labels: the
+        # thing between the two halves of the sentence is page furniture, and the halves still
+        # belong together (the skipped lines are re-emitted after the rejoined paragraph).
+        #
+        # Stepping over furniture is a bigger claim than joining two adjacent lines, so it is
+        # allowed only when THIS line is running prose — several sentences or a long paragraph.
+        # A short data line ("Current Events (68K): #RailBudget2015, #Beefban, …" sitting above a
+        # table caption, 1313c1a2) is not half of anything; leaving the continuation unjoined is
+        # the honest outcome there.
+        prose = len(stripped) >= 200 or '. ' in stripped
         next_nonempty = ''
         next_idx = None
-        for j in range(i + 1, min(i + 4, len(lines))):
-            if lines[j].strip():
-                next_nonempty = lines[j].strip()
-                next_idx = j
-                break
+        barriers = []
+        j, limit = i + 1, i + 4
+        while j < min(limit, len(lines)):
+            if not lines[j].strip():
+                j += 1
+                continue
+            if prose and is_join_barrier(lines[j]) and len(barriers) < 2:
+                barriers.append(lines[j].rstrip())   # stepped over; re-emitted after the join
+                limit += 2                           # its own blank line + the next candidate
+                j += 1
+                continue
+            next_nonempty = lines[j].strip()
+            next_idx = j
+            break
 
         if next_nonempty and next_idx and next_idx > i + 1:
             # There's a blank gap between this line and the next content
@@ -877,6 +1048,8 @@ def rejoin_page_breaks(text):
             # Case 1: Hyphenated word break — "accumu-" + "lation"
             if stripped.endswith('-') and not stripped.endswith('---') and next_nonempty[0].islower():
                 result.append(stripped[:-1] + next_nonempty)
+                for b in barriers:
+                    result.extend(('', b))
                 i = next_idx + 1
                 continue
 
@@ -884,12 +1057,19 @@ def rejoin_page_breaks(text):
             # next starts lowercase
             # Strip trailing footnote refs so [^N] isn't mistaken for sentence-ending ']'
             stripped_for_check = re.sub(r'\[\^\d+\]\s*$', '', stripped).rstrip()
-            if (not stripped_for_check.endswith(('.', '!', '?', ':', ';', '"', ')', ']', '---'))
+            _quote_final = (stripped_for_check.endswith(('"', "'", '”', '’'))
+                            and _QUOTED_SENTENCE_END_RE.search(stripped_for_check))
+            if ((not stripped_for_check.endswith(('.', '!', '?', ':', ';', ')', ']', '---'))
+                    and (not stripped_for_check.endswith(('"', "'", '”', '’')) or not _quote_final))
                     and next_nonempty[0].islower()
                     and not next_nonempty.startswith('#')
                     and not _DEF_OPENER_LINE_RE.match(next_nonempty)
                     and len(stripped) > 20):
-                result.append(stripped + ' ' + next_nonempty)
+                # Case 1b: the hyphen itself was lost in OCR — glue the halves of the word.
+                sep = '' if _glues_into_one_word(stripped, next_nonempty, vocabulary) else ' '
+                result.append(stripped + sep + next_nonempty)
+                for b in barriers:
+                    result.extend(('', b))
                 i = next_idx + 1
                 continue
 

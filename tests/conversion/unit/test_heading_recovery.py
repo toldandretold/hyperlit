@@ -67,6 +67,21 @@ def test_article_title_and_byline_headers_are_chrome_at_any_count():
     assert "Gurminder K. Bhambra and Peter Newell" in running
 
 
+def test_front_matter_rule_looks_past_a_repository_cover_sheet():
+    """A Leiden/LSE/White-Rose cover sheet pushes the real front matter off page 0, so comparing a
+    running head against page 0 alone found neither the title nor the byline — and the verso head
+    "Sai Englert, Jamie Woodcock and Callum Cant" was injected as an h1 in mid-article (24d86fb9).
+    The title page is the first page that opens with an h1."""
+    cover = ("Universiteit Leiden\n\nVersion: Publisher's Version\n\n"
+             "Downloaded from: https://hdl.handle.net/1887/3220824\n")
+    title = ("# Digital Workerism: Technology, Platforms, and the Circulation of Workers' "
+             "Struggles\n\nSai Englert*, Jamie Woodcock** and Callum Cant***\n")
+    pages = [_page(cover, ""), _page(title, ""), _page("Body.", ""),
+             _page("Body.", "Sai Englert, Jamie Woodcock and Callum Cant")]
+    assert ("Sai Englert, Jamie Woodcock and Callum Cant"
+            in A._front_matter_chrome(pages, ["Sai Englert, Jamie Woodcock and Callum Cant"]))
+
+
 def test_front_matter_rule_is_skipped_on_a_contents_page():
     """A printed Contents page names every chapter; the front-matter rule must not fire there or it
     would suppress the chapter-name injections books rely on."""

@@ -440,6 +440,11 @@
       "filetype": "pdf",
       "role": "zero-import leaf: geometric blockquote detection — per-line indentation from the source PDF (pypdf visitor) aligned back to the assembled markdown; inert without a PDF"
     },
+    "ingestion/pdf/heading_geometry.py": {
+      "band": "frontend",
+      "filetype": "pdf",
+      "role": "zero-import leaf: geometric HEADING recovery — the PDF's own type styles (pypdf visitor) name the headings the OCR left as plain paragraphs and the printed section numbers it dropped, learned from the headings this document already marked; inert without a PDF"
+    },
     "ingestion/pdf/recovery.py": {
       "band": "frontend",
       "filetype": "pdf",
@@ -490,6 +495,10 @@
     "digestion/finalAudit/audit.py": {
       "band": "backend",
       "role": "the verdict"
+    },
+    "shared/fnids.py": {
+      "band": "shared",
+      "role": "the ONE footnote-element-id generator: `[prefix]Fn<epoch-ms>_<base36 counter>` — unique by construction within a conversion (five sites used to mint random suffixes, and a same-millisecond collision silently cost a note its in-text link)"
     },
     "shared/refkeys.py": {
       "band": "shared"

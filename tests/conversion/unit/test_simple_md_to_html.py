@@ -137,3 +137,22 @@ def test_gfm_table_converted():
     out = md('| A | B |\n| --- | --- |\n| 1 | 2 |')
     assert '<table' in out
     assert '<td' in out or '<th' in out
+
+
+# ---------------------------------------------------------------------------
+# Frontend-made <sup>: the PDF assembler converts Mistral's naked LaTeX ordinals ("21^{st}") to a
+# real superscript, so this stage must not escape it into visible "&lt;sup&gt;st&lt;/sup&gt;" text.
+# ---------------------------------------------------------------------------
+def test_short_sup_tag_survives_the_escape_pass():
+    out = process_inline_formatting('In the early 21<sup>st</sup> century, imperialism')
+    assert '21<sup>st</sup> century' in out
+
+
+def test_ordinary_angle_brackets_are_still_escaped():
+    out = process_inline_formatting('a < b and 5 > 3 and <script>alert(1)</script>')
+    assert '&lt;' in out and '<script>' not in out
+
+
+def test_long_sup_like_text_is_not_treated_as_frontend_markup():
+    out = process_inline_formatting('<sup>far too much text to be an ordinal suffix</sup>')
+    assert '&lt;sup&gt;' in out

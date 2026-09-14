@@ -183,6 +183,83 @@ def test_rejoin_footnote_ref_not_mistaken_for_sentence_end():
     assert 'carrying on[^3] and finishing the thought' in out
 
 
+def test_rejoin_steps_over_page_chrome():
+    # The page-1 footer tripleC prints sits BETWEEN the two halves of the sentence. It ends in a
+    # digit, so as a join TARGET it looked open and swallowed the next page's opening line.
+    text = ('Digital activism, a term widely used to describe different forms of activism that '
+            'utilise digital technology, has undergone a rapid transformation. This wave '
+            'encompassed a number of projects and initiatives waged by tech and alternative\n\n'
+            'Date of Publication: 29 May 2017\n\n'
+            'media activists of the anti-globalisation movement, including Indymedia.')
+    out = M.rejoin_page_breaks(text)
+    assert 'waged by tech and alternative media activists of the anti-globalisation' in out
+    assert 'Date of Publication: 29 May 2017 media activists' not in out
+    assert 'Date of Publication: 29 May 2017' in out          # chrome is kept, just not glued
+
+
+def test_rejoin_never_appends_to_a_label_line():
+    text = ('Keywords: activism, ideology, social media, populism, autonomism, counterculture\n\n'
+            'media activists of the anti-globalisation movement, including Indymedia.')
+    out = M.rejoin_page_breaks(text)
+    assert 'counterculture media activists' not in out
+
+
+def test_rejoin_across_a_closing_quote_that_is_not_sentence_final():
+    # '…such as "gold open access"' continues on the next page; only a quote preceded by real
+    # sentence punctuation ends a sentence.
+    text = ('for-profit publishing jobs. Existing concepts such as "gold open access"\n\n'
+            'have serious conceptual limits that can be overcome.')
+    assert 'access" have serious conceptual limits' in M.rejoin_page_breaks(text)
+
+
+def test_rejoin_keeps_sentence_boundary_after_quoted_full_stop():
+    text = ('He called the whole affair "an absolute disgrace."\n\n'
+            'nobody disputed the verdict afterwards.')
+    assert 'disgrace." nobody disputed' not in M.rejoin_page_breaks(text)
+
+
+def test_rejoin_glues_a_word_the_page_break_split_without_a_hyphen():
+    # The document itself is the dictionary: "cultural" occurs elsewhere, "cul" never does.
+    text = ("imperialism, from 1) Lenin's imperialism, through 2) cul\n\n"
+            'tural imperialism, 3) information imperialism, and finally 4) platform imperialism.\n\n'
+            'Cultural imperialism and cultural hegemony are discussed as cultural power.')
+    out = M.rejoin_page_breaks(text)
+    assert 'through 2) cultural imperialism' in out
+
+
+def test_rejoin_does_not_fuse_two_real_words():
+    # "data" and "collected" both occur on their own — a space is the safe answer.
+    text = ('the study rests on a substantial body of data\n\n'
+            'collected over many years of fieldwork.\n\n'
+            'The data are collected annually and the datacollected label is never used.')
+    out = M.rejoin_page_breaks(text)
+    assert 'body of data collected over many years' in out
+
+
+# ---------------------------------------------------------------------------
+# normalise_ordinal_superscripts — "21^{st}" is a naked LaTeX ordinal nothing else claims: the
+# footnote caret rules need digits inside the braces and the math passes need $-delimiters, so it
+# reached the reader as literal "21^{st}" in body text AND heading titles (4d0b6f35 x18).
+# ---------------------------------------------------------------------------
+def test_ordinal_superscript_becomes_a_sup_tag():
+    out = M.normalise_ordinal_superscripts('In the early 21^{st} century, notions of imperialism')
+    assert out == 'In the early 21<sup>st</sup> century, notions of imperialism'
+
+
+def test_ordinal_superscript_in_a_heading():
+    out = M.normalise_ordinal_superscripts('## The Evolution of Imperialism in the 20^{th} Century')
+    assert '20<sup>th</sup> Century' in out
+
+
+def test_math_mode_ordinal_is_left_to_the_latex_path():
+    text = 'the $75^{\\text{th}}$ percentile'
+    assert M.normalise_ordinal_superscripts(text) == text
+
+
+def test_footnote_caret_braces_are_untouched():
+    assert M.normalise_ordinal_superscripts('en masse^{2}.') == 'en masse^{2}.'
+
+
 # ---------------------------------------------------------------------------
 # compute_printable_ratio — OCR mojibake detection
 # ---------------------------------------------------------------------------
@@ -603,3 +680,14 @@ def test_marker_after_a_real_sentence_comma_still_converts():
     # "preferable,30 but" keeps its marker (85542c5e).
     out = M.normalize_all_footnote_refs('found this[^29] preferable,30 but others[^31] did')
     assert 'preferable,[^30] but' in out
+
+
+def test_rejoin_does_not_step_over_furniture_for_a_short_data_line():
+    """Stepping over page furniture is a bigger claim than joining two adjacent lines: a short data
+    line above a table caption is not half of a sentence (1313c1a2)."""
+    text = ('Current Events (68K): #RailBudget2015, #Beefban, #LandAcquisitionBill\n\n'
+            'Table 1: Hashtags used and number of tweets collected\n\n'
+            'say this is an observed pragmatic function of code-switching between Hindi and English.')
+    out = M.rejoin_page_breaks(text)
+    assert '#LandAcquisitionBill say this is' not in out
+    assert 'collected say this is' not in out

@@ -11,6 +11,11 @@ from mistralai.client import Mistral
 from pypdf import PdfReader, PdfWriter
 
 from ingestion.pdf.pdf_shared import *  # noqa: F401,F403
+# `import *` skips _private names — the sentence-half vocabulary is shared with the page-break
+# rejoiner in pdf_shared, so import the public helpers explicitly.
+from ingestion.pdf.pdf_shared import (  # noqa: F401
+    is_label_line, is_page_chrome, tail_is_mid_sentence,
+)
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
     extract_pypdf_page_texts, resurrect_glued_markers_from_pypdf,
@@ -306,16 +311,24 @@ def _recover_orphan_plain_defs(combined, footer_candidates=None):
     # sequence — Mistral drops the superscript style when a def block spans a page break ("⁶ Cagliari…"
     # on one page, plain "7 Goldsmiths…" on the next; book 2e9728f6's author affiliations 7–12).
     # Keyed hard so numbered LISTS never convert: numbers must ascend by exactly 1, EVERY number must
-    # be an orphaned ref, and the run must continue a converted def ([^first-1]: exists) — a real list
-    # restarts at 1 and its numbers aren't orphans. Runs BEFORE Source 2, which would otherwise
-    # swallow the whole run as one long def-7 paragraph.
+    # be an orphaned ref, and the run must either continue a converted def ([^first-1]: exists) or be
+    # THREE-plus long — a real list restarts at 1 and its numbers aren't orphans. Runs BEFORE Source
+    # 2, which would otherwise swallow the whole run as one long def-7 paragraph.
+    #
+    # The 3-long arm exists because the def-anchor is often absent: 5fc4aad4's notes start at 4 (1-3
+    # never made it out of OCR), so "4 Translation from German: …" through "8 …" — five sibling
+    # lines at a page bottom, every number an orphaned marker — had no [^3]: to continue from. Two of
+    # the five were long enough for Source 2's prose-length gate and the other three were dropped on
+    # the floor, which is how a book ends up with footnote definitions sitting in the body as
+    # paragraphs (the maintainer's report) while `assess_harvest_fidelity` correctly calls it a
+    # harvest_gap. A run's numbers are consecutive orphaned MARKERS; that is the evidence, not length.
     if still_orphan:
         lines = combined.split('\n')
         run = []                                    # (line_idx, num, rest_of_line)
 
         def _flush_run(r):
-            if len(r) >= 2 and str(r[0][1] - 1) in defs and \
-                    all(str(n) in still_orphan for _i, n, _t in r):
+            if (len(r) >= 2 and (str(r[0][1] - 1) in defs or len(r) >= 3)
+                    and all(str(n) in still_orphan for _i, n, _t in r)):
                 # MOVE the run to the recovered block at the document end, with the other defs —
                 # rewriting in place left "[^7]: Goldsmiths…" paragraphs scattered mid-body
                 # wherever the print page happened to put them (2e9728f6: affiliations 7-12 at
@@ -1784,14 +1797,47 @@ _BOX_TITLE_RE = re.compile(
     r'policy implications?|box \d+[.:]?)\b')
 
 
+_DEF_OPEN_PARA_RE = re.compile(r'^\[\^(\d+)\]:')
+
+
+def _order_trailing_def_block(combined):
+    """Put the document-end footnote block back in numeric order.
+
+    The pypdf rescue APPENDS whatever the text layer gave it after the defs the OCR already
+    produced, so a book whose notes were half-lost renders its Footnotes section as
+    4,7,8,9,10,11,1,2,3,5 (ffbb3ac7, where 8 of 11 notes are pypdf rescues). Only the maximal
+    TRAILING run of single-paragraph def openers is sorted — the moment a non-def paragraph
+    appears (a def's page-spanning continuation, which belongs to the def above it) the run stops,
+    so a continuation can never be detached from its definition."""
+    paras = re.split(r'\n\s*\n', combined)
+    start = len(paras)
+    for i in range(len(paras) - 1, -1, -1):
+        if _DEF_OPEN_PARA_RE.match(paras[i].strip()):
+            start = i
+        elif paras[i].strip():
+            break
+    block = paras[start:]
+    if len(block) < 2:
+        return combined
+    nums = [int(_DEF_OPEN_PARA_RE.match(p.strip()).group(1)) for p in block]
+    if nums == sorted(nums):
+        return combined
+    paras[start:] = [p for _n, p in sorted(zip(nums, block), key=lambda t: t[0])]
+    return '\n\n'.join(paras)
+
+
 def _relocate_sentence_interrupting_boxes(md):
     """A boxed side-section (BMJ 'Summary points', 63817b36) that print layout drops into the
     MIDDLE of a body sentence: Mistral emits '…they seek and' → '## Summary points' → the box
     paragraphs → 'compete for the best…'. Detect the interruption (paragraph before a heading
     ends mid-sentence; a LOWERCASE-opening paragraph within the next few resumes it), rejoin
     the split sentence, and move the box after it. Bounded to 8 paragraphs and aborted at the
-    next heading, so a genuine long section is never dragged around; a real heading should
-    never sit mid-sentence, so relocation is safe whenever the shape matches."""
+    next heading, so a genuine long section is never dragged around.
+
+    The interruption must be PROVEN, not merely shaped: the paragraph above the heading has to
+    end visibly mid-sentence (`_tail_is_mid_sentence`) or the only thing between the two halves
+    is page chrome. Relocation moves whole sections around and glues two paragraphs together, so
+    a guess here costs more than doing nothing — see _OPEN_TAIL_WORDS."""
     paras = re.split(r'\n\s*\n', md)
     moved = 0
     i = 0
@@ -1802,7 +1848,8 @@ def _relocate_sentence_interrupting_boxes(md):
             if (prev and len(prev) >= 40                  # a short label ("Review") is page
                     and not _BOX_HEADING_PARA_RE.match(prev)   # chrome, not a split sentence
                     and not prev.startswith(('>', '|', '!', '['))
-                    and re.search(r'[a-z,;–—-]$', prev)):
+                    and not is_label_line(prev)           # front matter / caption / locator
+                    and re.search(r'[a-z,–—-]$', prev)):  # ';' ends a list item, not a sentence
                 for j in range(i + 1, min(i + 9, len(paras))):
                     q = paras[j].strip()
                     if not q:
@@ -1811,6 +1858,15 @@ def _relocate_sentence_interrupting_boxes(md):
                         break                     # another heading — not a bounded box
                     if q[0].islower():
                         box = paras[i:j]
+                        # The interruption must be PROVEN: either the tail is visibly unfinished,
+                        # or everything between the two halves is page chrome. A complete-looking
+                        # line + an unrelated lowercase paragraph a few slots down is the shape of
+                        # ordinary front matter followed by a page-break continuation that belongs
+                        # to the paragraph right above it — relocating there shreds the document.
+                        if not (tail_is_mid_sentence(prev)
+                                or all(is_page_chrome(re.sub(r'^#{1,6}[ \t]+', '', b.strip()))
+                                       for b in box)):
+                            break
                         paras[i - 1] = prev + ' ' + q
                         del paras[i:j + 1]
                         paras[i:i] = box
@@ -2056,6 +2112,14 @@ def _body_section_level(pages):
     return min(min(tiers), 3) if tiers else 2
 
 
+# An institutional-repository COVER SHEET prepended to the real article (Leiden, LSE Research
+# Online, White Rose, DASH…): boilerplate about where the file came from and how to cite it.
+_COVER_SHEET_RE = re.compile(
+    r'(?i)(?:downloaded from|hdl\.handle\.net|handle/\d|permanent (?:link|url)|'
+    r"version:\s*(?:publisher|author|accepted|submitted)|please (?:cite|use) the (?:final|published)|"
+    r'this is (?:an?|the) (?:accepted|published|author)\b.{0,40}\bversion)')
+
+
 def _front_matter_chrome(pages, header_names):
     """Header-field names that merely restate the document's OWN title or byline — page chrome
     at any repeat count, never a section divider.
@@ -2073,6 +2137,16 @@ def _front_matter_chrome(pages, header_names):
         return set()
 
     first_md = pages[0].get('markdown', '') or ''
+    # A REPOSITORY COVER SHEET pushes the real front matter off page 0 — Leiden/LSE/White Rose and
+    # friends prepend "Downloaded from: https://hdl.handle.net/…  Version: Publisher's Version…",
+    # so the title + byline live on page 1 (24d86fb9). Comparing against the cover alone found
+    # neither, and the verso running head "Sai Englert, Jamie Woodcock and Callum Cant" was
+    # injected as an h1 in the middle of the article. Only then is the NEXT page read as front
+    # matter as well: widening the window unconditionally pulls body prose into this comparison,
+    # and a title that happens to be mentioned in the text gets branded chrome and suppressed
+    # (ca74000e's Foreword names "The Metric Tide", costing the book its own h1).
+    if _COVER_SHEET_RE.search(first_md):
+        first_md += '\n\n' + (pages[1].get('markdown', '') or '' if len(pages) > 1 else '')
     if not first_md.strip():
         return set()
 
@@ -2110,7 +2184,8 @@ def _front_matter_chrome(pages, header_names):
 
 
 def assemble_markdown(response_dict, classification="unknown", footnote_meta=None, pdf_path=None,
-                       segment_boundaries=None, footnote_warnings=None, geometry_blocks=None):
+                       segment_boundaries=None, footnote_warnings=None, geometry_blocks=None,
+                       heading_lines=None):
     """Assemble pages into markdown, injecting section headings from headers. Thin conductor over the
     PDF_ASSEMBLERS registry: it runs the SHARED spine (running-header detection, sticky-notes
     tracking, page-number anchors, heading injection, numbered-notes→defs) and the SHARED tail
@@ -2123,6 +2198,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     footnote_warnings (optional list[dict]): mojibake warnings from
         scan_footnote_mojibake. When non-empty, the pypdf def-recovery pass
         runs regardless of classification.
+    geometry_blocks / heading_lines (optional): the two PDF-layout side channels
+        (indentation → blockquotes, type style → headings), replayed from their
+        caches when the PDF itself is absent. See quote_geometry / heading_geometry.
     """
     ctx = AssemblyContext(response_dict, classification, footnote_meta)
     pages = ctx.pages
@@ -2206,6 +2284,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # ("$\triangleright$ increased user involvement…") — downstream that renders as a <latex>
         # element in a <p>, not a list item. Normalise to a markdown bullet so the list survives.
         md = _LATEX_BULLET_RE.sub('- ', md)
+        # "In the early 21^{st} century" — a naked LaTeX ordinal superscript nothing else claims.
+        md = normalise_ordinal_superscripts(md)
         md_stripped = md.strip()
 
         # A blank page OCR'd as bare punctuation (3f202e8f p276: an empty verso rendered as
@@ -2508,6 +2588,28 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                       f"{len(geo_blocks)} indented block(s) in the source PDF")
     except Exception as e:
         print(f"  Geometry blockquote pass skipped ({e.__class__.__name__})")
+    # GEOMETRIC headings — the same universal-key idea applied to section structure: the PDF's own
+    # type styles say which plain paragraphs are headings Mistral failed to mark, and carry the
+    # printed section NUMBERS it dropped. Runs BEFORE _level_numbered_headings so a restored number
+    # drives its heading's level.
+    try:
+        from ingestion.pdf.heading_geometry import (
+            detect_heading_lines, recover_geometric_headings)
+        head_info = heading_lines
+        if head_info is None and pdf_path:
+            head_info = detect_heading_lines(str(pdf_path))
+        if head_info:
+            combined, _renum, _promoted = recover_geometric_headings(combined, head_info)
+            if _renum:
+                print(f"  Geometry headings: restored {len(_renum)} printed section number(s) the "
+                      f"OCR dropped: " + ', '.join(f'"{t}"' for t in _renum[:5])
+                      + (' …' if len(_renum) > 5 else ''))
+            if _promoted:
+                print(f"  Geometry headings: promoted {len(_promoted)} paragraph(s) the PDF sets in "
+                      f"a heading style: " + ', '.join(f'"{t[:60]}"' for t in _promoted[:5])
+                      + (' …' if len(_promoted) > 5 else ''))
+    except Exception as e:
+        print(f"  Geometry heading pass skipped ({e.__class__.__name__})")
     # A boxed side-section dropped mid-sentence by the print layout → rejoin the sentence and
     # move the box after it.
     combined = _relocate_sentence_interrupting_boxes(combined)
@@ -2628,6 +2730,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
                 combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
                 print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
+                combined = _order_trailing_def_block(combined)
                 # The same note may also be sitting there under its SUBSTITUTED marker ('ᵃ "Unter
                 # kooperativer…"'), split out of the body as an unnumbered def paragraph. pypdf's
                 # copy carries the real number, so it wins and the unnumbered twin goes.

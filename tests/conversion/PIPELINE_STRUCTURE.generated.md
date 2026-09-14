@@ -22,6 +22,7 @@ markdown_and_pdf_to_html/
 pdf/
   assembly.py — Phase ② — assemble the markdown per layout  · registries: PDF_ASSEMBLERS
   classification.py — Phase ① — decide the PDF footnote LAYOUT  · registries: PDF_CLASSIFIERS
+  heading_geometry.py — Phase ② — HEADING GEOMETRY: the PDF's own type styles as the universal key for the secti…
   mistral_ocr.py — Convert a PDF to markdown using Mistral OCR
   ocrFetch.py — Phase ⓪ — Mistral OCR acquisition: fetch the OCR JSON (chunking PDFs over the 50MB API l…
   pdf_shared.py — Zero-import leaf — shared PDF substrate: superscript map, the OCR/text-normalisation hel…
@@ -64,6 +65,7 @@ strategySelection/
 ## shared/ — cross-cutting helpers used by both ingestion and digestion
 ```
 assessment.py — The conversion decision-trace collector
+fnids.py — The ONE generator for footnote element ids — collision-proof by construction
 link_base.py — Shared base for the LINKING-stage rule registries
 pipeline_base.py — Shared base for the ORCHESTRATION-stage pass registry
 refkeys.py — Citation reference-key generation + bibliography-entry detection

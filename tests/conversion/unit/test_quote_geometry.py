@@ -219,3 +219,43 @@ def test_small_font_footnote_lines_filtered():
     assert len(kept) == 10 and all(x == 72.0 for x, _y, _t in kept)
     # unknown sizes are kept (degrade safe)
     assert len(filter_small_font_lines(lines, {})) == 12
+
+
+# ---------------------------------------------------------------------------
+# A block quotation the OCR glued onto its own LEAD-IN sentence. The prefix matcher anchors at the
+# paragraph START, so an embedded quote is invisible to it and renders as body text (c0813ca6:
+# 'She describes her work:“My design styles are as broad as my client base…”').
+# ---------------------------------------------------------------------------
+LEAD_IN = ('Ann, a web designer, offers her services on the freelance market platform People Per '
+           'Hour that mediates the purchase of services at a fixed product price. She describes '
+           'her work:\u201cMy design styles are as broad as my client base, from typical hard '
+           'hitting, sound, clear and concise business branding, to more stylised and fluid hand '
+           'drawn work. I relish working to a deadline.\u201d')
+QUOTE = ('My design styles are as broad as my client base, from typical hard hitting, sound, '
+         'clear and concise business branding')
+
+
+def _padded(para):
+    pad = [f'Filler paragraph {i} with enough prose in it to be a real paragraph.' for i in range(12)]
+    return '\n\n'.join(pad[:11] + [para] + pad[11:])
+
+
+def test_quote_glued_to_its_lead_in_is_split_and_wrapped():
+    md, wrapped = wrap_geometry_blockquotes(_padded(LEAD_IN), [[QUOTE]])
+    assert wrapped == 1
+    assert 'She describes her work:' in md
+    assert '> \u201cMy design styles are as broad' in md
+
+
+def test_embedded_split_needs_the_lead_in_colon():
+    # No colon => no defensible split point; geometry alone must not cut a paragraph in half.
+    no_colon = LEAD_IN.replace('her work:', 'her work ')
+    md, wrapped = wrap_geometry_blockquotes(_padded(no_colon), [[QUOTE]])
+    assert wrapped == 0
+    assert '>' not in md
+
+
+def test_embedded_split_is_skipped_when_ambiguous():
+    two = _padded(LEAD_IN) + '\n\n' + LEAD_IN
+    md, wrapped = wrap_geometry_blockquotes(two, [[QUOTE]])
+    assert wrapped == 0

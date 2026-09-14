@@ -356,6 +356,49 @@ def wrap_geometry_blockquotes(md, blocks):
         """Prefix EVERY line — a lazy continuation line breaks the html collector."""
         return '> ' + text.strip().replace('\n', '\n> ')
 
+    def tolerant(btext, words=9):
+        """A pattern matching the block's opening words across ANY punctuation/whitespace
+        differences — the OCR and the PDF text layer disagree constantly about quote glyphs and
+        glued tokens ('work:“My' / 'work: "My')."""
+        toks = re.findall(r'[A-Za-z0-9]+', btext)[:words]
+        if len(toks) < 5:
+            return None
+        return re.compile(r'[^A-Za-z0-9]{0,4}'.join(map(re.escape, toks)), re.IGNORECASE)
+
+    def split_lead_in(btext):
+        """A block quotation the OCR glued onto its own LEAD-IN sentence: 'She describes her
+        work:“My design styles are as broad as my client base…”' arrives as ONE paragraph, so the
+        prefix match above (which anchors at the paragraph START) can never see it and the quote
+        renders as body text (c0813ca6). Split the paragraph at the colon and return (index, lead,
+        quote). Gated on the colon: without a lead-in punctuation mark there is no defensible split
+        point, and geometry alone is not licence to cut a paragraph in half."""
+        pat = tolerant(btext)
+        if pat is None:
+            return None
+        hits = []
+        for i, p in enumerate(paras):
+            if p is None or not (FRONT_MATTER_PARAS <= i < refs_start):
+                continue
+            if p.lstrip().startswith(('#', '>', '[', '|', '!', '<')):
+                continue
+            text = unmark(p)
+            m = pat.search(text)
+            if not m or m.start() == 0:
+                continue
+            s = m.start()
+            while s > 0 and text[s - 1] in '“"‘\'«':
+                s -= 1
+            lead, quote = text[:s].rstrip(), text[s:].strip()
+            if not lead.endswith(':') or len(lead) < 20 or len(quote) < 60:
+                continue
+            # A colon also introduces a LIST, and an inset list is indented typography too — the
+            # same exclusion find_unique applies (3f202e8f: "1. The most radical option is the
+            # elimination of intermediary actors:" + its own numbered items became a blockquote).
+            if is_listy(lead) or is_listy(quote) or _LIST_LINE_RE.match(lead):
+                continue
+            hits.append((i, lead, quote))
+        return hits[0] if len(hits) == 1 else None
+
     for block in blocks:
         idxs = []
         for btext in block:
@@ -366,6 +409,14 @@ def wrap_geometry_blockquotes(md, blocks):
             idxs.append(find_unique(prefix))
         found = [i for i in idxs if i is not None]
         if not found:
+            # Nothing STARTS with this block — it may be glued to its lead-in sentence.
+            if len(block) == 1:
+                embedded = split_lead_in(block[0])
+                if embedded:
+                    i, lead, quote = embedded
+                    paras[i] = lead + '\n\n' + mark(quote)
+                    norm_paras[i] = '\0'
+                    wrapped += 1
             continue
         consecutive = (idxs == list(range(found[0], found[0] + len(idxs)))
                        and None not in idxs)

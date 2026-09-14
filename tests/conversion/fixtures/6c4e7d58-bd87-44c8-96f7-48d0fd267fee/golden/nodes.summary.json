@@ -45,7 +45,7 @@
     },
     {
       "footnotes": [],
-      "i": 13,
+      "i": 14,
       "references": [
         "adger2013",
         "controversy2009",
@@ -55,7 +55,7 @@
     },
     {
       "footnotes": [],
-      "i": 14,
+      "i": 15,
       "references": [
         "ja2011",
         "barros2012",
@@ -67,7 +67,7 @@
     },
     {
       "footnotes": [],
-      "i": 15,
+      "i": 16,
       "references": [
         "change2016",
         "barros2012",
@@ -80,7 +80,7 @@
     },
     {
       "footnotes": [],
-      "i": 16,
+      "i": 17,
       "references": [
         "damodaran2020",
         "rc2003",
@@ -93,7 +93,7 @@
     },
     {
       "footnotes": [],
-      "i": 19,
+      "i": 20,
       "references": [
         "societal2014",
         "ii2012",
@@ -107,7 +107,7 @@
     },
     {
       "footnotes": [],
-      "i": 20,
+      "i": 21,
       "references": [
         "transformation2011",
         "pelling2014",
@@ -117,7 +117,7 @@
     },
     {
       "footnotes": [],
-      "i": 23,
+      "i": 24,
       "references": [
         "godfreywood2016"
       ],
@@ -125,7 +125,7 @@
     },
     {
       "footnotes": [],
-      "i": 25,
+      "i": 26,
       "references": [
         "anthropocene2015"
       ],
@@ -133,7 +133,7 @@
     },
     {
       "footnotes": [],
-      "i": 27,
+      "i": 28,
       "references": [
         "organizations1977",
         "myeonggu2002",
@@ -146,7 +146,7 @@
     },
     {
       "footnotes": [],
-      "i": 28,
+      "i": 29,
       "references": [
         "praxis1979",
         "giddens1989",
@@ -156,7 +156,7 @@
     },
     {
       "footnotes": [],
-      "i": 30,
+      "i": 31,
       "references": [
         "brown2011",
         "obrien2013",
@@ -166,7 +166,7 @@
     },
     {
       "footnotes": [],
-      "i": 31,
+      "i": 32,
       "references": [
         "obrien2013",
         "obrien2013"
@@ -175,7 +175,7 @@
     },
     {
       "footnotes": [],
-      "i": 33,
+      "i": 34,
       "references": [
         "mehta2019"
       ],
@@ -183,7 +183,7 @@
     },
     {
       "footnotes": [],
-      "i": 34,
+      "i": 35,
       "references": [
         "damodaran2020"
       ],
@@ -191,7 +191,7 @@
     },
     {
       "footnotes": [],
-      "i": 36,
+      "i": 37,
       "references": [
         "anthropocene2015"
       ],
@@ -199,7 +199,7 @@
     },
     {
       "footnotes": [],
-      "i": 43,
+      "i": 44,
       "references": [
         "societal2014"
       ],
@@ -207,7 +207,7 @@
     },
     {
       "footnotes": [],
-      "i": 44,
+      "i": 45,
       "references": [
         "adaptation2014"
       ],
@@ -215,14 +215,14 @@
     },
     {
       "footnotes": [],
-      "i": 46,
+      "i": 47,
       "references": [
         "atwood2020"
       ],
       "type": "p"
     }
   ],
-  "node_count": 113,
+  "node_count": 114,
   "text_hashes": [
     "776e3d91eb",
     "8bd4a4c990",
@@ -233,7 +233,8 @@
     "aa4c0c5ec7",
     "30e914dabc",
     "61255a94cd",
-    "921ae62a12",
+    "ee83c345d8",
+    "5dd4d7176e",
     "86d02573aa",
     "2473e96bc6",
     "2c32c54103",
@@ -331,7 +332,7 @@
     "da7d08e2c1",
     "09fb8dadc2",
     "ec0c3b7663",
-    "fb686588a1",
+    "189a78c4ae",
     "cd1f27349a",
     "a13b3f54d0",
     "468717735e",
@@ -342,6 +343,6 @@
     "a": 2,
     "h1": 3,
     "h2": 9,
-    "p": 99
+    "p": 100
   }
 }

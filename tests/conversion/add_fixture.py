@@ -77,10 +77,17 @@ def main():
 
     if os.path.exists(fixture_dir):
         print(f'Warning: Fixture directory already exists: {fixture_dir}')
-        response = input('Overwrite? [y/N] ').strip().lower()
-        if response != 'y':
-            print('Aborted.')
-            sys.exit(0)
+        # `book:import-cases` runs this with no tty (and a batch can legitimately carry two tars of
+        # the SAME book — a re-export after a second triage pass). Asking there raised EOFError and
+        # the capture was reported as failed; the newer bundle is what the maintainer just asked us
+        # to look at, so take it.
+        if not sys.stdin.isatty():
+            print('Non-interactive: overwriting with the newer bundle.')
+        else:
+            response = input('Overwrite? [y/N] ').strip().lower()
+            if response != 'y':
+                print('Aborted.')
+                sys.exit(0)
         shutil.rmtree(fixture_dir)
 
     os.makedirs(golden_dir, exist_ok=True)
@@ -112,6 +119,13 @@ def main():
     if os.path.isfile(geo):
         shutil.copy2(geo, os.path.join(fixture_dir, 'quote_geometry.json'))
         print('Copied quote_geometry.json')
+
+    # heading_geometry.json — the other PDF-layout side channel (type styles → headings the OCR
+    # left plain + printed section numbers it dropped), cached at convert time for the same reason.
+    head_geo = os.path.join(source_dir, 'heading_geometry.json')
+    if os.path.isfile(head_geo):
+        shutil.copy2(head_geo, os.path.join(fixture_dir, 'heading_geometry.json'))
+        print('Copied heading_geometry.json')
 
     # The SOURCE PDF, when the case carries one. Assembly's recovery paths read the PDF's own
     # text layer (page-bottom definitions the OCR missed, the footnote-MARKER rescue, mangled-URL

@@ -15,7 +15,7 @@
     },
     {
       "footnotes": [],
-      "i": 14,
+      "i": 15,
       "references": [
         "stemref_5"
       ],
@@ -23,7 +23,7 @@
     },
     {
       "footnotes": [],
-      "i": 15,
+      "i": 16,
       "references": [
         "stemref_6",
         "stemref_7"
@@ -32,7 +32,7 @@
     },
     {
       "footnotes": [],
-      "i": 16,
+      "i": 17,
       "references": [
         "stemref_8",
         "stemref_9",
@@ -42,7 +42,7 @@
     },
     {
       "footnotes": [],
-      "i": 17,
+      "i": 18,
       "references": [
         "stemref_10",
         "stemref_11"
@@ -51,7 +51,7 @@
     },
     {
       "footnotes": [],
-      "i": 19,
+      "i": 20,
       "references": [
         "stemref_12"
       ],
@@ -59,7 +59,7 @@
     },
     {
       "footnotes": [],
-      "i": 20,
+      "i": 21,
       "references": [
         "stemref_13",
         "stemref_14",
@@ -69,7 +69,7 @@
     },
     {
       "footnotes": [],
-      "i": 22,
+      "i": 23,
       "references": [
         "stemref_16",
         "stemref_17"
@@ -78,7 +78,7 @@
     },
     {
       "footnotes": [],
-      "i": 25,
+      "i": 26,
       "references": [
         "stemref_18"
       ],
@@ -86,7 +86,7 @@
     },
     {
       "footnotes": [],
-      "i": 26,
+      "i": 27,
       "references": [
         "stemref_19"
       ],
@@ -94,7 +94,7 @@
     },
     {
       "footnotes": [],
-      "i": 27,
+      "i": 28,
       "references": [
         "stemref_20",
         "stemref_10",
@@ -104,7 +104,7 @@
     },
     {
       "footnotes": [],
-      "i": 28,
+      "i": 29,
       "references": [
         "stemref_16"
       ],
@@ -112,7 +112,7 @@
     },
     {
       "footnotes": [],
-      "i": 29,
+      "i": 30,
       "references": [
         "stemref_19"
       ],
@@ -120,7 +120,7 @@
     },
     {
       "footnotes": [],
-      "i": 31,
+      "i": 32,
       "references": [
         "stemref_22",
         "stemref_16"
@@ -129,7 +129,7 @@
     },
     {
       "footnotes": [],
-      "i": 32,
+      "i": 33,
       "references": [
         "stemref_23",
         "stemref_24"
@@ -138,7 +138,7 @@
     },
     {
       "footnotes": [],
-      "i": 34,
+      "i": 35,
       "references": [
         "stemref_25",
         "stemref_26",
@@ -148,7 +148,7 @@
     },
     {
       "footnotes": [],
-      "i": 35,
+      "i": 36,
       "references": [
         "stemref_28",
         "stemref_29"
@@ -157,7 +157,7 @@
     },
     {
       "footnotes": [],
-      "i": 36,
+      "i": 37,
       "references": [
         "stemref_30"
       ],
@@ -165,7 +165,7 @@
     },
     {
       "footnotes": [],
-      "i": 38,
+      "i": 39,
       "references": [
         "stemref_24"
       ],
@@ -178,7 +178,7 @@
           "marker": "2"
         }
       ],
-      "i": 40,
+      "i": 41,
       "references": [
         "stemref_31"
       ],
@@ -186,7 +186,7 @@
     },
     {
       "footnotes": [],
-      "i": 41,
+      "i": 42,
       "references": [
         "stemref_32"
       ],
@@ -194,7 +194,7 @@
     },
     {
       "footnotes": [],
-      "i": 42,
+      "i": 43,
       "references": [
         "stemref_33",
         "stemref_8"
@@ -203,14 +203,14 @@
     },
     {
       "footnotes": [],
-      "i": 47,
+      "i": 48,
       "references": [
         "stemref_34"
       ],
       "type": "p"
     }
   ],
-  "node_count": 87,
+  "node_count": 88,
   "text_hashes": [
     "0ada23c08d",
     "4360c2dcd4",
@@ -218,11 +218,12 @@
     "0987548979",
     "b3336c3570",
     "bb328a5466",
-    "49a189cbac",
+    "7dcf272a1c",
     "f189b8dbc4",
     "8383f5adbb",
     "d989ef7939",
     "112fde09c4",
+    "36e427f393",
     "6c11f7b4c3",
     "c9cc625013",
     "f9158db4f5",
@@ -250,7 +251,7 @@
     "58182e4ed0",
     "61400b42ca",
     "d56069e92d",
-    "93d5bc1258",
+    "680bf5dfc8",
     "73a5bca8db",
     "ee3a634861",
     "60ea17003e",
@@ -266,7 +267,7 @@
     "70d01e755b",
     "e4628f26d5",
     "ec0c3b7663",
-    "afd79ccfe3",
+    "3be6fadb13",
     "d6e4f87668",
     "ace934f6e6",
     "d2991c74f9",
@@ -305,6 +306,6 @@
     "blockquote": 3,
     "h1": 2,
     "h2": 6,
-    "p": 74
+    "p": 75
   }
 }

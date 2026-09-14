@@ -41,6 +41,25 @@ MODERN_YEAR_MIN = 1900
 HISTORICAL_YEAR_MIN = 1500      # in-text citations only — see above
 
 
+# The "(accessed on 8 September 2013)" / ", retrieved 2019-03-02" tail of a web-cited entry.
+# Bounded and stopped at a closing bracket so it can never eat the entry's own title.
+# The leading \b matters: without it the alternation matches INSIDE a word — "(cases re|viewed in
+# Atteridge & Remling, 2018)" lost its year and its link (5c548774).
+_ACCESS_CLAUSE_RE = re.compile(
+    r'(?i)\(?\s*\b(?:last\s+)?(?:accessed|retrieved|viewed|downloaded|consulted)\b[^)\]]{0,60}\)?')
+
+# Sentence connectives / stance adverbs that can sit immediately before a narrative citation.
+# Capitalised (they open the clause) and never a surname, so they are excluded from author keys.
+_DISCOURSE_MARKERS = {
+    'Indeed', 'However', 'Thus', 'Therefore', 'Moreover', 'Furthermore', 'Nevertheless',
+    'Nonetheless', 'Meanwhile', 'Similarly', 'Likewise', 'Conversely', 'Accordingly',
+    'Consequently', 'Hence', 'Instead', 'Finally', 'Firstly', 'Secondly', 'Thirdly',
+    'Recently', 'Notably', 'Importantly', 'Crucially', 'Arguably', 'Overall', 'Again',
+    'Here', 'There', 'Yet', 'But', 'While', 'Although', 'Though', 'Whereas', 'Because',
+    'Since', 'When', 'Where', 'After', 'Before', 'According', 'Compare', 'Following',
+}
+
+
 def is_plausible_year(token, min_year=MODERN_YEAR_MIN):
     """Is this token plausibly a publication year? Accepts a bare '1886' or a suffixed '1886a'."""
     m = re.match(r'\d{4}', str(token))
@@ -52,6 +71,13 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     text = text.replace('’', "'").replace('‘', "'").replace('ʼ', "'")
     context_text = context_text.replace('’', "'").replace('‘', "'").replace('ʼ', "'")
     processed_text = re.sub(r'\[\d{4}\]\s*', '', text)
+    # An ACCESS DATE is not a publication year, and it sits at the END of the entry where the
+    # last-year rule below looks: "European Commission. 2012. Towards Better Access… (accessed on
+    # September 8, 2013)" keyed september2013a — the year from the access clause and a "surname"
+    # from the month in front of it — so every "(European Commission 2012)" in the body linked to
+    # nothing (ffbb3ac7 mis-keyed its European Commission, Bergstrom 2002 and Thomson Reuters 2008
+    # entries this way; any web-cited entry with an access date is exposed).
+    processed_text = _ACCESS_CLAUSE_RE.sub(' ', processed_text)
     # Prefer parenthesized year (common in bibliography: "Author (2022). Title...")
     paren_year = re.search(r'\((\d{4}[a-z]?)\)', processed_text)
     if paren_year:
@@ -68,6 +94,23 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
         # modern floor when there is no modern year to be found at all.
         if not plausible_years and min_year < MODERN_YEAR_MIN:
             plausible_years = [m for m in all_years if is_plausible_year(m.group(1), min_year)]
+        # A BIBLIOGRAPHY ENTRY for a pre-1900 work, keyed POSITIONALLY instead of by the floor.
+        # The 1900 floor above means "Marx, Karl. 1875. Critique of the Gotha Programme. In *MECW
+        # Volume 24*, 75-76, London: …" yields NO KEYS, so the entry is dropped as unkeyable and
+        # every "(Marx 1875)" in the body links to nothing (24d86fb9 dropped four consecutive
+        # Marx/Engels entries this way — a systematic hole for any text citing 19th-century
+        # originals). Lowering the floor is what the comment above rejects, and rightly: any
+        # 4-digit number in a long entry would become a candidate YEAR. Position is the missing
+        # evidence — a bibliography entry states its year immediately after the author block, so
+        # accept a historical year ONLY there, and only when no modern year exists anywhere (the
+        # branch can therefore never move a key that already resolves). "1850s" is a decade, not a
+        # year; a trailing 's' is excluded the same way the disambiguation-suffix rule does it.
+        if not plausible_years:
+            lead = re.match(
+                r"^\s*(?:<[^>]+>\s*)*[^\d()\[\]]{3,120}?[.,]\s*\(?"
+                r"(1[5-8]\d{2}[a-rt-z]?)\)?(?=[.,)\s])", processed_text)
+            if lead:
+                plausible_years = [lead]
         # A LETTER-SUFFIXED year ("2015b") is a disambiguation marker — it IS the publication year a
         # citation references, and in "Author. 2015b. Title … 2015 International Conference…" it sits
         # BEFORE an incidental venue year, so the last-year rule would drop the 'b' (keying the entry
@@ -118,6 +161,12 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
         # This pattern matches: Capital letter (including accented) followed by letters/hyphens/apostrophes
         surnames = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
         excluded = {'And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'}
+        # A NARRATIVE citation takes its author from the prose in front of it ("Engels (1888,
+        # 517)"), and the author-group match walks BACKWARDS from the paren — so a sentence-opening
+        # discourse marker gets read as a co-author: "Indeed, Engels (1888, 517)" keyed indeed1888 /
+        # engelsindeed1888 and never engels1888, so the citation could not resolve even once its
+        # bibliography entry was keyed (24d86fb9). These words are never surnames.
+        excluded |= _DISCOURSE_MARKERS
         # Normalize Unicode and remove apostrophe-s for key generation
         surnames = [normalize_unicode_name(s.replace("'s", "")).lower() for s in surnames if s not in excluded and len(s) > 1]
         if surnames:

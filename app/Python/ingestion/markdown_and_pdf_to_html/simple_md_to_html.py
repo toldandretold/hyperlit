@@ -158,6 +158,11 @@ def process_inline_formatting(text):
         return key
     text = re.sub(r'<a\s+class="wackSTEM[^"]*"[^>]*>.*?</a>', save_stem, text)
     text = re.sub(r'<a\s+class="pageNumber"[^>]*></a>', save_stem, text)
+    # A short <sup> the PDF frontend emitted itself — the ordinal superscripts Mistral renders as
+    # naked LaTeX ("In the early 21^{st} century"). Without protection the escape pass below turns
+    # it into visible "&lt;sup&gt;st&lt;/sup&gt;" text, which is worse than the artifact it replaced.
+    # Bounded and tagless inside, so it can only ever be this small piece of frontend-made markup.
+    text = re.sub(r'<sup>[^<>]{1,8}</sup>', save_stem, text)
     text = re.sub(r'<a\s+id="[^"]*"\s+href="[^"]*">[^<]*</a>', save_stem, text)
     text = re.sub(r'<a\s+href="[^"]*"[^>]*>[^<]*</a>', save_stem, text)
 

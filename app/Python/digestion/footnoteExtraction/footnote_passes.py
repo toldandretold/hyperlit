@@ -3,11 +3,9 @@ Extracted from process_document.py (the orchestrator imports these into DOC_PASS
 from bs4 import BeautifulSoup
 from shared.pipeline_base import DocPass
 from digestion._doc_shared import emit_progress
+from shared.fnids import footnote_id
 from shared.sanitize import get_element_html_content
-import random
 import re
-import string
-import time
 
 
 class TraditionalFootnotes(DocPass):
@@ -34,8 +32,7 @@ class TraditionalFootnotes(DocPass):
                 identifier = id_match.group(1)
 
                 # Generate unique footnote ID for traditional footnotes (shorter format without book prefix)
-                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-                unique_fn_id = f"Fn{int(time.time() * 1000)}_{random_suffix}"
+                unique_fn_id = footnote_id()
 
                 # Add anchor with unique ID and count attribute
                 anchor_tag = soup.new_tag('a', id=unique_fn_id)
@@ -137,8 +134,7 @@ class SectionedFootnotes(DocPass):
                 print(f"Processing footnote {identifier} in section {section_id}: {full_content[:30]}... ({len(content_parts)} parts)")
 
                 # Generate unique footnote ID with section prefix (shorter format without book prefix)
-                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-                unique_fn_id = f"s{section_id}_Fn{int(time.time() * 1000)}_{random_suffix}"
+                unique_fn_id = footnote_id(f's{section_id}_')
 
                 # Add anchor with unique ID and section info to the first element
                 anchor_tag = soup.new_tag('a', id=unique_fn_id)

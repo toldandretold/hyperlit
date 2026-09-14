@@ -4,14 +4,14 @@
       "footnotes": [
         {
           "id": "FN0001",
-          "marker": "6"
+          "marker": "1"
         },
         {
           "id": "FN0002",
-          "marker": "7"
+          "marker": "2"
         }
       ],
-      "i": 16,
+      "i": 18,
       "references": [],
       "type": "p"
     },
@@ -19,11 +19,11 @@
       "footnotes": [
         {
           "id": "FN0003",
-          "marker": "1"
+          "marker": "3"
         },
         {
           "id": "FN0004",
-          "marker": "2"
+          "marker": "4"
         }
       ],
       "i": 19,
@@ -34,25 +34,25 @@
       "footnotes": [
         {
           "id": "FN0005",
-          "marker": "3"
-        },
-        {
-          "id": "FN0006",
-          "marker": "4"
+          "marker": "5"
         }
       ],
-      "i": 20,
+      "i": 21,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [
         {
+          "id": "FN0006",
+          "marker": "6"
+        },
+        {
           "id": "FN0007",
-          "marker": "5"
+          "marker": "7"
         }
       ],
-      "i": 22,
+      "i": 23,
       "references": [],
       "type": "p"
     },
@@ -67,7 +67,7 @@
           "marker": "11"
         }
       ],
-      "i": 38,
+      "i": 37,
       "references": [],
       "type": "p"
     },
@@ -82,7 +82,7 @@
           "marker": "13"
         }
       ],
-      "i": 45,
+      "i": 44,
       "references": [],
       "type": "p"
     },
@@ -93,7 +93,7 @@
           "marker": "14"
         }
       ],
-      "i": 49,
+      "i": 48,
       "references": [],
       "type": "p"
     },
@@ -108,7 +108,7 @@
           "marker": "16"
         }
       ],
-      "i": 52,
+      "i": 51,
       "references": [],
       "type": "p"
     },
@@ -123,7 +123,7 @@
           "marker": "18"
         }
       ],
-      "i": 54,
+      "i": 53,
       "references": [],
       "type": "p"
     },
@@ -134,7 +134,7 @@
           "marker": "19"
         }
       ],
-      "i": 56,
+      "i": 55,
       "references": [],
       "type": "p"
     },
@@ -145,7 +145,7 @@
           "marker": "20"
         }
       ],
-      "i": 67,
+      "i": 66,
       "references": [],
       "type": "p"
     },
@@ -164,7 +164,7 @@
           "marker": "23"
         }
       ],
-      "i": 71,
+      "i": 70,
       "references": [],
       "type": "p"
     },
@@ -175,7 +175,7 @@
           "marker": "24"
         }
       ],
-      "i": 72,
+      "i": 71,
       "references": [],
       "type": "p"
     },
@@ -186,7 +186,7 @@
           "marker": "25"
         }
       ],
-      "i": 74,
+      "i": 73,
       "references": [],
       "type": "p"
     },
@@ -205,7 +205,7 @@
           "marker": "28"
         }
       ],
-      "i": 76,
+      "i": 75,
       "references": [],
       "type": "p"
     },
@@ -216,12 +216,12 @@
           "marker": "29"
         }
       ],
-      "i": 77,
+      "i": 76,
       "references": [],
       "type": "p"
     }
   ],
-  "node_count": 132,
+  "node_count": 131,
   "text_hashes": [
     "c51f418c82",
     "952337889d",
@@ -237,16 +237,15 @@
     "665e7c7dd2",
     "d115098d7e",
     "d0111912a8",
-    "3bfb6467c2",
-    "f7175ec123",
+    "a22f8a9584",
     "a75e6f68ed",
-    "21aa7cb7a1",
+    "cb5cd588c1",
     "58c9ac1f77",
     "08efddc741",
     "5f65b564c3",
     "54680c7d4e",
     "327be93152",
-    "4e9b70367b",
+    "c202b2141e",
     "e4f706e2fd",
     "7c533afbdd",
     "b091ec8435",
@@ -254,17 +253,17 @@
     "cf586bbca9",
     "6f467fa74a",
     "aae81ece2c",
-    "126bd87a06",
+    "8b3e407f85",
     "d1fba279c9",
     "77c8b735b0",
     "237895d1f6",
-    "6b066c45f2",
+    "d3686565af",
     "34a312257e",
     "29d421431a",
     "8196fdba62",
     "025226eb40",
     "dcf1bc9c0a",
-    "b70419be30",
+    "5823120ee0",
     "a2b523a32b",
     "adf575d2b6",
     "da0a7684d5",
@@ -283,15 +282,15 @@
     "ecfb09818b",
     "808c22c556",
     "3333f398f4",
-    "f97e6b442c",
+    "099e7176a6",
     "1e8770ee9c",
     "c32a7cf427",
-    "8a3d8777e5",
+    "7f90878881",
     "b8d6a25843",
     "15cca09a67",
     "6f7edeb958",
     "867ac1e3f8",
-    "94a86c76be",
+    "6db54a74f2",
     "cad7246fcb",
     "57617b81f2",
     "4ec906dd15",
@@ -307,7 +306,7 @@
     "19edf7f9ce",
     "5d20d0fee3",
     "ec0c3b7663",
-    "a31aaaba5d",
+    "fccb69b41b",
     "69face84dd",
     "df4464d2ce",
     "0d00210069",
@@ -338,7 +337,7 @@
     "7c185053e2",
     "4259064219",
     "432a60ddaf",
-    "74c70d9706",
+    "fd7930f128",
     "ef77727e1f",
     "1648cb5c6a",
     "6ffcee51ce",
@@ -357,7 +356,7 @@
     "71fba2898c"
   ],
   "type_histogram": {
-    "a": 3,
+    "a": 2,
     "h1": 7,
     "h2": 7,
     "img": 10,

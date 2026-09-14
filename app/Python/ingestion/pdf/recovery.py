@@ -97,6 +97,12 @@ _APPARATUS_DEF_RE = re.compile(
     r'quoted|cited|translated|trans)\b[.,]?\s.{2,})', re.IGNORECASE)
 
 
+# A page-bottom note the text layer glued to the end of another line: a 3-plus-space run (the
+# footnote rule), the note number, then a URL. Captured to the end of the line or the next big gap.
+_GAP_URL_DEF_RE = re.compile(r'(?:^|\s{3,})(\d{1,3})[ \t]((?:https?://|www\.)\S+[^\n]*?)(?=\s{3,}|$)',
+                             re.MULTILINE)
+
+
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     """Extract per-page footnote definitions from PDF using pypdf.
 
@@ -135,7 +141,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             # GLUED fallback: pypdf renders some superscript def numbers with NO space at all
             # ("1Senate Education and Employment\u2026", deloitte fn 1) \u2014 accept zero-space only when
             # followed by Uppercase-then-lowercase, so "42AM" (a legal section id) never splits.
-            m = re.match(r'^(\d{1,3})\s{1,3}([A-Z"\'(\u201c\u2018].{2,})', line) \
+            m = re.match(r'^(\d{1,3})\s{1,3}((?:[A-Z"\'(\u201c\u2018]|' + DEF_URL_OPENER + r').{2,})', line) \
                 or re.match(r'^(\d{1,3})([A-Z][a-z].{2,})', line) \
                 or _APPARATUS_DEF_RE.match(line)
             if m:
@@ -184,7 +190,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
                              or re.match(r'^\d{1,3}\.\s+\S', stripped)
                              or any(low.startswith(rh) for rh in running_lower if rh))
                 if stripped and not is_chrome \
-                        and not re.match(r'^\d{1,3}\s{1,3}[A-Z"\'(\u201c\u2018]', line) \
+                        and not re.match(r'^\d{1,3}\s{1,3}(?:[A-Z"\'(\u201c\u2018]|' + DEF_URL_OPENER + r')', line) \
                         and not re.match(r'^\d{1,3}[A-Z][a-z]', line) \
                         and not _APPARATUS_DEF_RE.match(line) \
                         and len(current_text) + len(stripped) <= 700:
@@ -198,6 +204,21 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
         # Save final definition
         if current_num is not None:
             defs.append((current_num, current_text))
+
+        # A LINK-ONLY note the text layer never put on its own line. pypdf's content-stream order
+        # routinely glues the page-bottom note onto the tail of a body/table line, separated only
+        # by the big whitespace run that stands in for the footnote rule ("…a genuine open access
+        # ␣␣␣␣2 http://wokinfo.com/…, accessed on July 26, 2013."). Every line-anchored rule above
+        # misses it, so ffbb3ac7's notes — almost all bare URLs — were unrecoverable even though
+        # the text layer carried each one. A number + URL after a 3-space run is not something else:
+        # prose does not indent like that, and recovery only injects for an ORPHANED marker anyway.
+        found = {n for n, _t in defs}
+        for m in _GAP_URL_DEF_RE.finditer(text):
+            num = int(m.group(1))
+            if num in found or num > 500:
+                continue
+            found.add(num)
+            defs.append((num, re.sub(r'\s+', ' ', m.group(2)).strip()))
 
         if defs:
             result[page_idx] = defs
