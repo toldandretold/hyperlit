@@ -51,6 +51,35 @@ test('a PDF book with its OCR cache queues, and reports the source it will repla
     Queue::assertPushed(ProcessDocumentImportJob::class);
 });
 
+/**
+ * The OTHER cost guard, and the one that is invisible until the bill arrives: a reconvert clears
+ * `bibliography` and `footnotes`, so without a snapshot taken HERE — before the clear — every
+ * reference's canonical resolution is gone and the next hypercite detect re-buys an LLM extraction
+ * plus external lookups for the whole corpus. Wiring, not behaviour: ResolutionSnapshotService's own
+ * round trip is covered in tests/Feature/Citations/ResolutionSnapshotServiceTest.php, and this is
+ * what fails if the call is ever dropped from the queue path.
+ */
+test('queueing a reconvert snapshots the citation resolution before it clears the book', function () {
+    Queue::fake();
+    $book = 'book_brtest_ressnap';
+    brSeedBook($book, ['original.html' => '<p>x</p>']);
+
+    \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('bibliography')->insert([
+        'book' => $book, 'referenceId' => 'amin1982', 'content' => '<p>Amin, S. (1982).</p>',
+        'foundation_source' => 'book_stub_amin', 'match_method' => 'library',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    app(BookReconverter::class)
+        ->queue($book, null, ['creator' => 'x', 'creator_token' => null], requireCachedSource: true);
+
+    $snapshot = json_decode((string) File::get(brPath($book) . '/citation_resolution_snapshot.json'), true);
+    expect($snapshot['bibliography'][0]['referenceId'])->toBe('amin1982');
+    expect($snapshot['bibliography'][0]['foundation_source'])->toBe('book_stub_amin');
+
+    \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('bibliography')->where('book', $book)->delete();
+});
+
 test('a PDF book with NO OCR cache is refused under requireCachedSource, and nothing is queued', function () {
     Queue::fake();
     brSeedBook('book_brtest_nocache', ['original.pdf' => '%PDF-1.4 fake']);

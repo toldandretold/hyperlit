@@ -177,6 +177,32 @@
     </div>
     @endif
 
+    {{-- What a detect run is DOING, while it does it — the same panel the import console grew for
+         the same reason, and this run is the longer of the two: a first pass over a journal runs a
+         bibliography scan (LLM + external lookups, minutes per article) for every book, then walks
+         every citation in it. All of that used to arrive as one sentence in the header strip with
+         no denominator, so a four-hour run looked identical to a dead queue worker.
+
+         Bottom-RIGHT and fixed, because the candidate list scrolls and progress you have to scroll
+         to find is progress you stop trusting. Not a modal: it reports, it never blocks, it takes
+         no focus, and it survives a reload because the poll is re-attached from `active_run`. --}}
+    <div class="hx-run-panel" id="hx-run-panel" hidden>
+        <div class="hx-run-head">
+            <strong id="hx-run-title"></strong>
+            <button type="button" id="hx-run-close" aria-label="Close run progress" hidden>✕</button>
+        </div>
+        <div class="hx-run-bar"><div class="hx-run-bar-fill" id="hx-run-bar-fill"></div></div>
+        {{-- The live region is this line ALONE, not the panel: announcing the whole panel every
+             2.5s poll would re-read the bar and the tallies on every tick. The count plus the book
+             in hand is the sentence worth hearing. --}}
+        <div class="hx-run-line" role="status" aria-live="polite">
+            <span class="hx-run-count" id="hx-run-count"></span>
+            <span class="hx-run-current" id="hx-run-current"></span>
+        </div>
+        <div class="hx-run-tallies" id="hx-run-tallies"></div>
+        <div class="hx-run-note" id="hx-run-note" hidden></div>
+    </div>
+
     <div class="hx-help-panel" id="hx-help-panel" hidden>
         <h2>Reading this page <button type="button" id="hx-help-close" aria-label="Close help">✕</button></h2>
         <ol>

@@ -4,6 +4,7 @@ namespace App\Services\Conversion;
 
 use App\Jobs\ProcessDocumentImportJob;
 use App\Services\Annotations\AnnotationSnapshotService;
+use App\Services\Citations\ResolutionSnapshotService;
 use App\Services\Import\BookContentClearer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +95,19 @@ class BookReconverter
                 app(AnnotationSnapshotService::class)->snapshot($book, DB::connection('pgsql_admin'));
             } catch (\Throwable $e) {
                 Log::warning('Annotation snapshot failed (reconvert continues)', [
+                    'book' => $book, 'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Snapshot the CITATION RESOLUTION for the same reason and at the same moment: the
+            // clear below takes `bibliography` and `footnotes` with it, and the import re-inserts
+            // them unresolved. Without this, the next hypercite detect re-buys an LLM extraction
+            // plus external lookups for every reference in the corpus — minutes per article — to
+            // re-derive answers that the reconvert never invalidated, only deleted.
+            try {
+                app(ResolutionSnapshotService::class)->snapshot($book, DB::connection('pgsql_admin'));
+            } catch (\Throwable $e) {
+                Log::warning('Citation resolution snapshot failed (reconvert continues)', [
                     'book' => $book, 'error' => $e->getMessage(),
                 ]);
             }

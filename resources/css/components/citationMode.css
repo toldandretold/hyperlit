@@ -335,7 +335,15 @@
 /* Results container - full width with blur background */
 #citation-toolbar-results {
   position: fixed;
-  bottom: 52px; /* Desktop: Position above ~52px toolbar */
+  /* Sit exactly ON TOP of the edit toolbar. --edit-toolbar-height is the
+     toolbar's MEASURED offsetHeight, published by utilities/viewportMetrics
+     (`trackEditToolbarHeight`). The old hardcoded 52px was a guess at the
+     toolbar's height and was ~11px short of the real desktop box (14px top
+     padding + ~31px input + 18px bottom padding), so this blurred panel —
+     which outranks the toolbar at z-index 9999999 — painted over the top of
+     the citation search input. The fallback matches that same measurement,
+     for the frame before JS publishes the var. */
+  bottom: var(--edit-toolbar-height, 63px);
   left: 0;
   right: 0;
   width: 100%;
@@ -546,7 +554,12 @@ body.theme-light.hyperlit-container-open .citation-result-item em {
   }
 
   #citation-toolbar-results {
-    bottom: 40px; /* Mobile: Position above 40px edit toolbar */
+    /* Same measured offset as desktop; only the FALLBACK differs, because the
+       mobile toolbar is padded 12px top / 24px + safe-area bottom around the
+       ~31px input. The old 40px guess was ~27px short, so the panel covered
+       the upper half of the search input — the "results cover the search
+       field" bug. */
+    bottom: var(--edit-toolbar-height, calc(67px + env(safe-area-inset-bottom, 0px)));
     max-height: 50vh;
     transition: none !important; /* Instant transitions on mobile - no animation conflicts with keyboard */
   }

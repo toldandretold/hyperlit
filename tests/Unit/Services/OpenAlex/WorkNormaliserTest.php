@@ -89,6 +89,22 @@ test('normaliseWork produces the shared citation shape from a raw work', functio
     expect($n['abstract'])->toBe('Neoliberalism is everywhere');
 });
 
+test('normaliseWork carries is_paratext through for the citability gate', function () use ($svc) {
+    // WorkScorer::isCitableWork can only honour the flag if the normaliser keeps it; it was
+    // dropped here, which is why the gate's "not paratext" promise went unenforced.
+    expect($svc()->normaliseWork(rawOpenAlexWork(['is_paratext' => true]))['is_paratext'])->toBeTrue();
+    expect($svc()->normaliseWork(rawOpenAlexWork(['is_paratext' => false]))['is_paratext'])->toBeFalse();
+});
+
+test('a work with no is_paratext field normalises to false, never null', function () use ($svc) {
+    // Absent must mean "not asserted to be paratext" — a null here would be falsy by accident
+    // rather than by decision, and the next refactor could flip it.
+    $n = $svc()->normaliseWork(rawOpenAlexWork());
+
+    expect($n['is_paratext'])->toBeFalse();
+    expect($n['is_paratext'])->not->toBeNull();
+});
+
 test('normaliseWork keeps ALL authors joined by semicolons', function () use ($svc) {
     // The flat string used to slice to the first 3 with no marker — reading as
     // a complete list and corrupting citations. Full list now; the et-al

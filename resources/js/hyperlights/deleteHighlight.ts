@@ -11,6 +11,7 @@ import { queueForSync, updateBookTimestamp } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodesWithDeletion } from './database';
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
+import { isBookStaleForEdit } from '../utilities/staleBookGate';
 // queueNodeForSave loaded lazily (edit-only, below) so this read-mode highlight module doesn't
 // statically pull the divEditor (editor) chunk into the eager bundle.
 
@@ -20,6 +21,20 @@ import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 export async function deleteHighlightHandler(event: Event, bookId: BookId): Promise<void> {
   event.preventDefault();
   console.log("Delete button clicked.");
+
+  // Cross-tab staleness gate: deleting a highlight re-saves node HTML from
+  // THIS tab's DOM, which predates another tab's edits — refresh first
+  // (soft reload; shared IndexedDB already holds the latest).
+  if (isBookStaleForEdit(bookId)) {
+    const { showStaleTabOverlay } = await import('../utilities/BroadcastListener');
+    showStaleTabOverlay(
+      'This book was edited in another tab or window, so this view is out of date. Refresh to load the latest before changing highlights — nothing here will be lost.',
+      bookId,
+      undefined,
+      { softReload: true },
+    );
+    return;
+  }
 
   let selection = window.getSelection()!;
   let selectedText = selection.toString();

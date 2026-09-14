@@ -100,8 +100,11 @@ class ReconvertSystemVersionCommand extends Command
             }
             $this->line("Replaying cached OCR for {$bookId} (no API cost)...");
             // Snapshot annotation anchor text BEFORE the pipeline replaces the
-            // nodes — processLocalPdf re-anchors hyperlights/hypercites from it.
+            // nodes — processLocalPdf re-anchors hyperlights/hypercites from it — and the citation
+            // resolution alongside it, so the rebuilt bibliography/footnotes keep their canonical
+            // links instead of costing a fresh LLM scan on the next hypercite detect.
             app(\App\Services\Annotations\AnnotationSnapshotService::class)->snapshot($bookId, $admin);
+            app(\App\Services\Citations\ResolutionSnapshotService::class)->snapshot($bookId, $admin);
             $result = app(ContentFetchService::class)->processLocalPdf($pdfPath, $bookId);
             if (($result['status'] ?? null) === 'imported') {
                 $this->info("Reconverted PDF-OCR system version {$bookId}: {$result['reason']} "
@@ -121,9 +124,12 @@ class ReconvertSystemVersionCommand extends Command
         foreach (['footnotes.json', 'footnotes.jsonl', 'nodes.json', 'nodes.jsonl', 'audit.json', 'references.json', 'intermediate.html'] as $stale) {
             File::delete("{$path}/{$stale}");
         }
-        // Snapshot annotation anchor text BEFORE clearing — the import job
-        // re-anchors hyperlights/hypercites onto the new nodes from it.
+        // Snapshot annotation anchor text BEFORE clearing — the import job re-anchors
+        // hyperlights/hypercites onto the new nodes from it — and the citation resolution with it,
+        // for the same reason: clearBookContent deletes bibliography/footnotes and the import
+        // re-inserts them unresolved.
         app(\App\Services\Annotations\AnnotationSnapshotService::class)->snapshot($bookId, $admin);
+        app(\App\Services\Citations\ResolutionSnapshotService::class)->snapshot($bookId, $admin);
         $this->clearBookContent($admin, $bookId);
 
         ProcessDocumentImportJob::dispatch(

@@ -23,6 +23,21 @@ export const PANEL_TOP_MARGIN = 16;
 /** Bottom gap assumed when the edit toolbar is absent. */
 const DEFAULT_BOTTOM_GAP = 4;
 
+/**
+ * CSS custom property carrying the edit toolbar's MEASURED height, published on
+ * `:root` by `trackEditToolbarHeight()`.
+ *
+ * Anything parked directly above the bottom toolbar must offset by this and not
+ * by a hardcoded number: the toolbar's height is padding (which differs desktop
+ * vs mobile) + `env(safe-area-inset-bottom)` + whatever control is currently in
+ * it, so it is ~63px on desktop and ~67px+inset on mobile — not the 52/40px the
+ * citation results panel used to guess, which parked the blurred panel ON TOP of
+ * the citation search input.
+ */
+export const EDIT_TOOLBAR_HEIGHT_VAR = '--edit-toolbar-height';
+
+let toolbarHeightObserver: ResizeObserver | null = null;
+
 function currentViewport(): VisualViewport | null {
   return window.visualViewport ?? null;
 }
@@ -44,6 +59,50 @@ export function getPanelMaxHeight(vv: VisualViewport | null = currentViewport())
   const editToolbar = document.getElementById('edit-toolbar');
   const bottomGap = editToolbar ? editToolbar.offsetHeight : DEFAULT_BOTTOM_GAP;
   return getVisibleBottom(vv) - PANEL_TOP_MARGIN - bottomGap;
+}
+
+/** Measured height of the bottom edit toolbar; 0 when it is not in the layout. */
+export function getEditToolbarHeight(): number {
+  return document.getElementById('edit-toolbar')?.offsetHeight ?? 0;
+}
+
+/**
+ * Publish the toolbar's measured height to `EDIT_TOOLBAR_HEIGHT_VAR`.
+ *
+ * A 0 measurement is IGNORED: the toolbar is `visibility: hidden` (still laid
+ * out, still measurable) in its resting state, so a 0 means it has genuinely
+ * left the layout — and writing 0 would drop the citation panel onto the very
+ * bottom of the viewport for the frame before it comes back.
+ */
+export function publishEditToolbarHeight(): void {
+  const height = getEditToolbarHeight();
+  if (height > 0) {
+    document.documentElement.style.setProperty(EDIT_TOOLBAR_HEIGHT_VAR, `${height}px`);
+  }
+}
+
+/**
+ * Keep `EDIT_TOOLBAR_HEIGHT_VAR` in step with the toolbar for as long as it
+ * exists. A ResizeObserver (not a one-shot read) because the toolbar changes
+ * height under us: entering citation/link mode swaps 28px icon buttons for a
+ * taller text input, and the safe-area inset lands late on iOS.
+ */
+export function trackEditToolbarHeight(): void {
+  const toolbar = document.getElementById('edit-toolbar');
+  if (!toolbar) return;
+
+  publishEditToolbarHeight();
+
+  if (typeof ResizeObserver === 'undefined') return;
+  toolbarHeightObserver?.disconnect();
+  toolbarHeightObserver = new ResizeObserver(() => publishEditToolbarHeight());
+  toolbarHeightObserver.observe(toolbar);
+}
+
+/** Stop tracking (toolbar teardown). The last published value is left in place. */
+export function untrackEditToolbarHeight(): void {
+  toolbarHeightObserver?.disconnect();
+  toolbarHeightObserver = null;
 }
 
 /**

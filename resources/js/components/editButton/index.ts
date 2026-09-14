@@ -13,6 +13,7 @@ import {
   doesContentExceedViewport, getLastContentElement,
 } from './cursor';
 import { replaceEditButtonWithLock, updateEditButtonVisibility } from './lock';
+import { isBookStaleForEdit } from '../../utilities/staleBookGate';
 // Paginated reading mode round-trip: editing always happens in the scroll flow
 // (contenteditable inside CSS columns is a browser-bug minefield), so the edit
 // button suspends pagination at the current anchor and exiting edit re-engages.
@@ -64,6 +65,22 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
 
   if (!editableDiv) {
     console.error(`no #${book} div`);
+    return;
+  }
+
+  // Cross-tab staleness gate: another tab in this browser edited the book
+  // while this tab was only reading it. This tab's rendered DOM predates
+  // those edits, so entering edit mode here would save stale content over
+  // them. Reading stays free — only the write entry pays: refresh first.
+  // (Soft reload: shared IndexedDB already holds the latest.)
+  if (isBookStaleForEdit(book)) {
+    const { showStaleTabOverlay } = await import('../../utilities/BroadcastListener');
+    showStaleTabOverlay(
+      'This book was edited in another tab or window, so this view is out of date. Refresh to load the latest before editing — nothing here will be lost.',
+      book,
+      undefined,
+      { softReload: true },
+    );
     return;
   }
 

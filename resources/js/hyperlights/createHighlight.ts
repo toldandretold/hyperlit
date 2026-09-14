@@ -21,6 +21,7 @@ import { reprocessHighlightsForNodes } from './deletion';
 import { generateHighlightID, openHighlightById } from './utils';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { withPending, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState';
+import { isBookStaleForEdit } from '../utilities/staleBookGate';
 import { verbose } from '../utilities/logger';
 
 // rangy is a global loaded via a <script> tag in the blade layout.
@@ -246,6 +247,20 @@ export async function openBrainFromSelection(event: Event): Promise<void> {
  * Create a new highlight from selected text
  */
 export async function createHighlightHandler(event: Event, bookId: BookId, options: { skipOpen?: boolean } = {}): Promise<{ highlightId: string; charData: Record<string, { charStart: number; charEnd: number }>; nodeIds: string[]; selectedText: string } | undefined> {
+  // Cross-tab staleness gate: creating a highlight re-saves the node's HTML
+  // from THIS tab's DOM, which predates another tab's edits — refresh first
+  // (soft reload; shared IndexedDB already holds the latest).
+  if (isBookStaleForEdit(bookId)) {
+    const { showStaleTabOverlay } = await import('../utilities/BroadcastListener');
+    showStaleTabOverlay(
+      'This book was edited in another tab or window, so this view is out of date. Refresh to load the latest before highlighting — nothing here will be lost.',
+      bookId,
+      undefined,
+      { softReload: true },
+    );
+    return;
+  }
+
   let selection = window.getSelection()!;
   let range: Range;
   try {

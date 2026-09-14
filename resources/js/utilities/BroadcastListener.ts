@@ -7,6 +7,8 @@ import { applyHypercites, applyHighlights } from "../lazyLoader/chunkRender";
 import { setProgrammaticUpdateInProgress } from "./operationState";
 import { openDatabase } from "../indexedDB/core/connection.js";
 import { nodePlainText } from "./nodeText";
+import { markBookStaleForEdit, clearBookStaleForEdit } from "./staleBookGate";
+import { markCacheDirty } from "../lazyLoader/utilities/cacheState";
 
 // Track recent broadcasts from THIS tab to skip self-processing
 // This prevents the re-render loop where our own broadcast triggers mutation observers
@@ -120,7 +122,13 @@ export function registerBookOpen(bookId: any) {
   }
 
   const root = bookId?.split("/")[0];
-  if (root) openBookRoots.add(root);
+  if (root) {
+    openBookRoots.add(root);
+    // This load (re)renders the book from IndexedDB — which this browser
+    // SHARES with any tab that edited it — so a previous cross-tab stale
+    // mark no longer describes this tab's DOM.
+    clearBookStaleForEdit(root);
+  }
 
   // Attach the message listener exactly once for the lifetime of the tab.
   // Previously every initializePage()/SPA navigation added another anonymous
@@ -150,6 +158,23 @@ export function registerBookOpen(bookId: any) {
       // instances and near-simultaneous self-saves) so we never block the editor
       // on its own work.
       if (editedLocallyRecently(incomingRoot)) return;
+
+      // Only a tab that is ITSELF editing this book right now has edits at
+      // risk — block it immediately (its next save would clobber the other
+      // tab's work, and vice versa). A tab that is merely READING must stay
+      // usable (the user often keeps a second window open just to look
+      // further down the page): mark the book stale so the write entry
+      // points (edit mode, highlight create/delete) force a refresh first,
+      // and dirty the lazy-loader cache so an SPA re-entry re-reads
+      // IndexedDB — shared with the editing tab, hence fresh.
+      const currentRoot = (book || '').split('/')[0];
+      const editingThisBookNow =
+        (window as any).isEditing === true && currentRoot === incomingRoot;
+      if (!editingThisBookNow) {
+        markBookStaleForEdit(incomingRoot);
+        markCacheDirty();
+        return;
+      }
       showStaleTabOverlay(undefined, event.data.book || incomingRoot);
     }
   });
@@ -189,6 +214,7 @@ export function showStaleTabOverlay(
   message: any,
   bookId?: string | null,
   lostNodes?: Array<{ id: any; content: string }>,
+  opts?: { softReload?: boolean },
 ) {
   if (document.getElementById('stale-tab-overlay')) return;
   const hasLostEdit = Array.isArray(lostNodes) && lostNodes.length > 0;
@@ -295,6 +321,15 @@ export function showStaleTabOverlay(
       btn.textContent = 'Refreshing…';
       btn.style.opacity = '0.6';
       btn.style.cursor = 'default';
+    }
+    // softReload: the same-browser read-only case. IndexedDB is SHARED with the
+    // tab that edited, so it already holds the latest — a plain reload re-renders
+    // fresh. Crucially it must NOT run hardRefreshStaleBook: that purge wipes the
+    // book's historyLog rows, which are the EDITING tab's unsynced-edit replay
+    // rescue (shared IDB — a read-only tab must never destroy them).
+    if (opts?.softReload) {
+      window.location.reload();
+      return;
     }
     // PROPER refresh: cleanse stale local data + caches, THEN reload (always reloads
     // in its finally, even if a cleanse step fails). A bare reload would re-render the

@@ -281,6 +281,18 @@ class WorkScorer
 
     /**
      * Check whether a normalised work is a real citable work (not paratext, component, etc.).
+     *
+     * Two independent rejections: the `type` allowlist, and OpenAlex's `is_paratext` flag. The
+     * flag matters because a work can be front matter while still typed `article` — the docblock
+     * has promised "not paratext" since this method was written, but until 2026-09 only the type
+     * was ever consulted, so the promise was unenforced.
+     *
+     * SCOPE, stated because it was over-claimed once: honouring the flag does NOT catch
+     * whole-issue bundles. The OJS "download the entire special issue" PDFs that broke a tripleC
+     * detection run carry real DOIs and come back from OpenAlex as `type: article` with
+     * `is_paratext: false` — verified against W1805886721. Nothing in the upstream metadata
+     * distinguishes them, which is why that guard lives in CandidateDetector, measured on the
+     * bibliography WE extract (config: `hypercites.max_bibliography_scan_rows`).
      */
     public function isCitableWork(array $normalised): bool
     {
@@ -291,6 +303,10 @@ class WorkScorer
             'proceedings', 'standard', 'posted-content',
             'edited-book',
         ];
+
+        if ($normalised['is_paratext'] ?? false) {
+            return false;
+        }
 
         $type = $normalised['type'] ?? null;
 

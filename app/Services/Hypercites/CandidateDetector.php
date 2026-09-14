@@ -52,7 +52,11 @@ class CandidateDetector
      *        its own continuation; every stage is idempotent (scanned books
      *        skip the scan, candidates upsert), so the next slice resumes.
      * @return array<string,int> counts for the run row (`stopped_early` =
-     *         books not reached when the budget ran out)
+     *         books not reached when the budget ran out; `skipped_oversized` =
+     *         bibliographies too large to scan in any slice, needing an
+     *         out-of-band `citation:scan-bibliography`; `deferred_scans` =
+     *         scans this slice declined to START for want of remaining budget,
+     *         which the NEXT slice picks up first)
      */
     public function detect(DetectionScope $scope, string $runId, ?int $deadline = null): array
     {
@@ -62,9 +66,20 @@ class CandidateDetector
             'articles' => 0, 'scanned' => 0,
             'pairs' => 0, 'candidates' => 0, 'with_quote' => 0,
             'matched' => 0, 'no_match' => 0, 'skipped_footnote_only' => 0,
+            // Books whose bibliography was too large to scan inside a slice, and books whose
+            // scan was deferred for want of budget. Both are reported rather than silent:
+            // a run that quietly declined to scan its biggest books reads as full coverage.
+            'skipped_oversized' => 0, 'deferred_scans' => 0,
         ];
 
         $citing = $scope->citingEntries($this->versions);
+        $total = count($citing);
+
+        // Which SLICE this is. A budget-capped run re-dispatches itself on the same run row and
+        // walks the scope list from the top again (already-scanned books fall through fast), so
+        // n/total restarts — without the pass number the console's bar would look like it went
+        // backwards mid-run. Read once, from whatever the previous slice left behind.
+        $pass = $this->passNumber($db, $runId);
 
         // Cache of cited-book node lists (one cited work is typically cited by
         // many books of the same collection).
@@ -79,7 +94,15 @@ class CandidateDetector
             $citingCanonicalId = $entry['canonical_id'];
             $counts['articles']++;
 
-            $this->step($db, $runId, "scanning {$citingBook} — " . Str::limit((string) ($entry['title'] ?? ''), 60), $counts);
+            $title = Str::limit((string) ($entry['title'] ?? ''), 80);
+            $this->step($db, $runId, "scanning {$citingBook} — " . Str::limit((string) ($entry['title'] ?? ''), 60), $counts, [
+                'phase' => 'scanning',
+                'pass'  => $pass,
+                'n'     => $i + 1,
+                'total' => $total,
+                'book'  => $citingBook,
+                'title' => $title !== '' ? $title : $citingBook,
+            ]);
 
             // ── Ensure the bibliography has been resolved to canonicals ──
             // Conversion extracts bibliography ROWS but never matches them —
@@ -90,13 +113,53 @@ class CandidateDetector
             // match_method='no_match'), not "no rows". Footnote-only books
             // scan once ever, tracked via citation_scans.
             if ($this->needsBibliographyScan($citingBook)) {
-                $this->step($db, $runId, "resolving bibliography of {$citingBook} (LLM + external lookups)", $counts);
-                $exit = Artisan::call('citation:scan-bibliography', ['target' => $citingBook]);
-                if ($exit !== 0) {
-                    Log::warning('hypercites: scan-bibliography failed', ['book' => $citingBook, 'exit' => $exit]);
-                    continue;
+                // ── Two refusals BEFORE the expensive step ──
+                // Neither `continue`s: the scan is what we decline, not the book. Whatever its
+                // bibliography already resolves to still produces candidates below, so a
+                // partially-scanned book (the tripleC bundle had 130 of 973 rows attempted)
+                // contributes what it has instead of nothing.
+                // Size the book the way the SCAN will: CitationScanBibliographyCommand works
+                // the bibliography when it has one and falls back to footnotes when it doesn't,
+                // so a guard counting only bibliography rows would wave a 2,000-footnote book
+                // straight through the lane it was built to protect.
+                $refRows = $db->table('bibliography')->where('book', $citingBook)->count()
+                    ?: $db->table('footnotes')->where('book', $citingBook)->count();
+                $verdict = self::scanVerdict($refRows, $deadline, time(), $this->maxScanRows(), $this->scanReserve());
+
+                if ($verdict === self::SCAN_OVERSIZED) {
+                    // Too big to ever fit a slice. See config/hypercites.php — this is the
+                    // whole-issue-bundle guard, and it is measured on OUR extraction because
+                    // no upstream flag distinguishes these.
+                    $counts['skipped_oversized']++;
+                    Log::warning('hypercites: bibliography too large to scan in a slice', [
+                        'run' => $runId, 'book' => $citingBook, 'rows' => $refRows,
+                        'limit' => $this->maxScanRows(),
+                        'hint' => "php artisan citation:scan-bibliography {$citingBook}",
+                    ]);
+                } elseif ($verdict === self::SCAN_DEFER) {
+                    // Enough budget to walk the book, not enough to safely finish a scan.
+                    // Defer it — the next slice starts from the top and reaches it first.
+                    $counts['deferred_scans']++;
+                } else {
+                    // The expensive step, and the one worth naming separately: minutes per article
+                    // against an LLM plus external lookups, and it is the whole reason a first pass
+                    // over a journal takes hours. The console shows it as its own phase.
+                    $this->step($db, $runId, "resolving bibliography of {$citingBook} (LLM + external lookups)", $counts, [
+                        'phase' => 'resolving',
+                        'pass'  => $pass,
+                        'n'     => $i + 1,
+                        'total' => $total,
+                        'book'  => $citingBook,
+                        'title' => $title !== '' ? $title : $citingBook,
+                        'refs'  => $refRows,
+                    ]);
+                    $exit = Artisan::call('citation:scan-bibliography', ['target' => $citingBook]);
+                    if ($exit !== 0) {
+                        Log::warning('hypercites: scan-bibliography failed', ['book' => $citingBook, 'exit' => $exit]);
+                        continue;
+                    }
+                    $counts['scanned']++;
                 }
-                $counts['scanned']++;
             }
 
             // ── refId → held cited work ──
@@ -260,6 +323,49 @@ class CandidateDetector
         }
 
         return $counts;
+    }
+
+    public const SCAN_OK = 'scan';
+    public const SCAN_OVERSIZED = 'oversized';
+    public const SCAN_DEFER = 'defer';
+
+    /**
+     * Whether this slice may START a bibliography scan for a book — the whole guard, as a pure
+     * function, because the bug it prevents is a TIMING bug and timing bugs are only testable
+     * when the clock is an argument.
+     *
+     * Two distinct refusals, deliberately not collapsed into one:
+     *   • `oversized` is permanent — no slice will ever fit this book, so re-running does not
+     *     help and an operator has to scan it out-of-band.
+     *   • `defer` is incidental — this slice is simply too late in its budget, and the NEXT
+     *     slice will do it. Reporting them separately is the difference between "we declined
+     *     24 books forever" and "we pushed 3 books to the next pass".
+     *
+     * An unbudgeted run (`$deadline === null`, the CLI's `--sync` path) never defers: there is
+     * no continuation to defer TO, so deferring would silently drop the book.
+     */
+    public static function scanVerdict(int $refRows, ?int $deadline, int $now, int $maxRows, int $reserve): string
+    {
+        if ($refRows > $maxRows) {
+            return self::SCAN_OVERSIZED;
+        }
+        if ($deadline !== null && $now + $reserve > $deadline) {
+            return self::SCAN_DEFER;
+        }
+
+        return self::SCAN_OK;
+    }
+
+    /** Reference-row ceiling above which a bibliography is never scanned inside a slice. */
+    private function maxScanRows(): int
+    {
+        return (int) config('hypercites.max_bibliography_scan_rows', 400);
+    }
+
+    /** Slice budget that must remain before a new bibliography scan may START. */
+    private function scanReserve(): int
+    {
+        return (int) config('hypercites.scan_reserve_seconds', 900);
     }
 
     private function needsBibliographyScan(string $book): bool
@@ -550,12 +656,51 @@ class CandidateDetector
         return array_merge($row, MatchLocations::mirror($fresh, $stillAt));
     }
 
-    private function step($db, string $runId, string $detail, array $counts): void
+    /**
+     * One beat of the run, written to the run row: the prose line (`step_detail`, the fallback
+     * for any console that has not learned the column) AND the same beat as fields (`progress`),
+     * which is what the console's panel draws its bar and tallies from.
+     *
+     * `$beat` carries phase/pass/n/total/book/title; the running tallies are folded in here so
+     * every call site does not have to remember them. Written on the SAME update as step_detail
+     * so the two can never disagree about which book is in hand.
+     *
+     * @param array<string,int>   $counts
+     * @param array<string,mixed> $beat
+     */
+    private function step($db, string $runId, string $detail, array $counts, array $beat = []): void
     {
-        $db->table('hypercite_runs')->where('id', $runId)->update([
+        $fields = [
             'step_detail' => $detail,
             'counts'      => json_encode($counts),
             'updated_at'  => now(),
-        ]);
+        ];
+
+        if ($beat !== []) {
+            $fields['progress'] = json_encode($beat + [
+                'candidates' => $counts['candidates'] ?? 0,
+                'matched'    => $counts['matched'] ?? 0,
+                'no_match'   => $counts['no_match'] ?? 0,
+                'with_quote' => $counts['with_quote'] ?? 0,
+                'scanned'    => $counts['scanned'] ?? 0,
+            ]);
+        }
+
+        $db->table('hypercite_runs')->where('id', $runId)->update($fields);
+    }
+
+    /**
+     * Slice number for this pass: one more than whatever the previous slice recorded.
+     *
+     * Deliberately derived from the row rather than passed down from the job — the job
+     * re-dispatches itself with the same constructor arguments, so a counter threaded through it
+     * would have to be added to the queue payload and would be wrong for the CLI's --sync path.
+     */
+    private function passNumber($db, string $runId): int
+    {
+        $prior = $db->table('hypercite_runs')->where('id', $runId)->value('progress');
+        $decoded = json_decode((string) $prior, true);
+
+        return is_array($decoded) ? ((int) ($decoded['pass'] ?? 1)) + 1 : 1;
     }
 }

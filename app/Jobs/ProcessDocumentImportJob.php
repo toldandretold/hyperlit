@@ -199,6 +199,23 @@ class ProcessDocumentImportJob implements ShouldQueue
             $this->writeProgress($path, 'processing', 95, 'db_references', 'Saving references to database');
             $this->saveReferencesToDatabase($path, $this->bookId);
 
+            // Reconvert path: carry the citation resolution the clear deleted back onto the rows
+            // just inserted above (ResolutionSnapshotService — fresh imports have no snapshot, so
+            // this no-ops). MUST run after both saveFootnotes and saveReferences: it updates those
+            // rows, and running it earlier would write onto rows about to be deleted and re-made.
+            // Best-effort — a failure costs an LLM rescan on the next detect, never the import.
+            try {
+                $carried = app(\App\Services\Citations\ResolutionSnapshotService::class)
+                    ->restore($this->bookId);
+                if (! isset($carried['skipped'])) {
+                    Log::info('Reconvert citation resolution carried', ['book' => $this->bookId] + $carried);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Citation resolution restore failed (import continues)', [
+                    'book' => $this->bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
             // Reconvert path: re-anchor hyperlights/hypercites onto the NEW
             // nodes from the pre-clear snapshot (AnnotationSnapshotService —
             // fresh imports have no snapshot, so this no-ops). Runs BEFORE the

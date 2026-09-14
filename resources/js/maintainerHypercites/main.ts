@@ -186,6 +186,17 @@ function initDetail(boot: ConsoleBoot): void {
       // run looks dead until the operator presses detect again.
       if (payload.active_run && state.pollingRunId !== payload.active_run.id) {
         setRunStatus(payload.active_run.step_detail ?? payload.active_run.status);
+        // Paint the panel from the payload we already have rather than waiting on poll()'s first
+        // round trip — a reload that shows an empty header for 2.5s is the silence this replaced.
+        renderRunProgress({
+          id: payload.active_run.id,
+          status: payload.active_run.status as RunStatus['status'],
+          action: 'detect',
+          step_detail: payload.active_run.step_detail,
+          counts: {},
+          progress: payload.active_run.progress,
+          error: null,
+        });
         poll(payload.active_run.id);
       }
     } catch (err) {
@@ -607,9 +618,136 @@ function initDetail(boot: ConsoleBoot): void {
 
   /* ── Detect + poll ── */
 
+  /**
+   * When this run went (or was found) `pending`. A detect legitimately queues for a few seconds;
+   * past that it is nearly always the citation-pipeline worker being down — a real and recurring
+   * failure mode that the row's own watchdog does not call for THIRTY MINUTES. The panel says so
+   * rather than sweeping silently for half an hour.
+   */
+  let queuedSince: number | null = null;
+
+  const PHASE_LABELS: Record<string, string> = {
+    scanning: 'walking citations',
+    resolving: 'resolving bibliographies',
+    minting: 'auto-approving',
+  };
+
+  /**
+   * Paint the run panel from one poll of a run row.
+   *
+   * Falls back to `step_detail` whenever `progress` is absent — a run dispatched before the
+   * progress column shipped, or one still being worked by a pre-deploy worker. That line already
+   * carries the same book-in-hand as prose, so the panel degrades to a sentence rather than to
+   * nothing. Mirrors `renderRunProgress` on the import console; the two consoles' run panels are
+   * deliberately the same object.
+   */
+  function renderRunProgress(run: RunStatus): void {
+    const panel = el<HTMLElement>('hx-run-panel');
+    if (!panel) return;   // the index blade has no panel — it has no runs to show
+
+    const p = run.progress ?? null;
+    const terminal = run.status === 'completed' || run.status === 'failed';
+    const queued = run.status === 'pending';
+    // Owned here, not by the press: a page RELOADED onto an already-queued run must start its own
+    // clock, or the "no worker picked this up" warning never fires for the operator who refreshed.
+    if (queued) queuedSince ??= Date.now();
+    else queuedSince = null;
+
+    panel.hidden = false;
+    panel.classList.toggle('is-done', run.status === 'completed');
+    panel.classList.toggle('is-failed', run.status === 'failed');
+
+    const title = el<HTMLElement>('hx-run-title');
+    if (title) {
+      title.textContent = 'detect candidates'
+        + (p?.phase ? ` · ${PHASE_LABELS[p.phase] ?? p.phase}` : '')
+        // Which slice. Without it, a run whose n/total restarted on its second pass looks stuck
+        // on its first — and an unattended overnight journal run is a dozen slices deep.
+        + ((p?.pass ?? 1) > 1 ? ` · pass ${p?.pass}` : '');
+    }
+
+    // Indeterminate whenever there is no honest denominator: queued, or a worker reporting only
+    // prose. Never invent a percentage.
+    const fill = el<HTMLElement>('hx-run-bar-fill');
+    const determinate = !!p && p.total > 0 && !queued;
+    if (fill) {
+      fill.classList.toggle('is-indeterminate', !determinate && !terminal);
+      fill.style.width = determinate ? `${Math.min(100, Math.round((p!.n / p!.total) * 100))}%` : '';
+    }
+
+    const count = el<HTMLElement>('hx-run-count');
+    const current = el<HTMLElement>('hx-run-current');
+
+    if (terminal) {
+      if (count) count.textContent = run.status === 'completed' ? '✓' : '✗';
+      if (current) {
+        current.textContent = run.status === 'completed'
+          ? (run.step_detail ?? 'done')
+          : (run.error ?? 'failed');
+      }
+    } else if (queued) {
+      if (count) count.textContent = '';
+      const waited = queuedSince ? Date.now() - queuedSince : 0;
+      if (current) {
+        current.textContent = waited > 15000
+          ? 'queued — no worker has picked this up (is the citation-pipeline worker running?)'
+          : 'queued — waiting for a worker';
+      }
+    } else if (p && p.total > 0) {
+      if (count) count.textContent = `${p.n} / ${p.total}`;
+      if (current) current.textContent = p.title ?? p.book ?? '';
+    } else {
+      if (count) count.textContent = '';
+      if (current) current.textContent = p?.title ?? run.step_detail ?? run.status;
+    }
+
+    const tallies = el<HTMLElement>('hx-run-tallies');
+    if (tallies) {
+      tallies.textContent = p
+        ? [
+          p.phase === 'minting'
+            ? `${p.minted ?? 0} minted`
+            : `${p.candidates ?? 0} candidates`,
+          p.phase === 'minting' ? '' : `${p.matched ?? 0} quote-matched`,
+          p.scanned ? `${p.scanned} bibliograph${p.scanned === 1 ? 'y' : 'ies'} resolved this pass` : '',
+        ].filter(Boolean).join(' · ')
+        : '';
+    }
+
+    // Why this is slow, and that it is continuing itself. Both facts are invisible in the numbers:
+    // a `resolving` beat can sit on one book for minutes, and a sliced run's bar restarts.
+    const note = el<HTMLElement>('hx-run-note');
+    if (note) {
+      const lines = [
+        p?.phase === 'resolving'
+          ? 'First pass over this book: its bibliography is being resolved against an LLM + external lookups. Minutes per article, once per book.'
+          : '',
+        !terminal && (p?.pass ?? 1) > 1
+          ? 'This run hit its 50-minute budget and re-queued itself — it is continuing on the same run row and needs no press.'
+          : '',
+      ].filter(Boolean);
+      note.textContent = lines.join(' ');
+      note.hidden = lines.length === 0;
+    }
+
+    // Dismissable only once nothing is still moving — closing it mid-run would put the operator
+    // straight back in the silence this exists to end.
+    const close = el<HTMLButtonElement>('hx-run-close');
+    if (close) close.hidden = !terminal;
+  }
+
+  el<HTMLButtonElement>('hx-run-close')?.addEventListener('click', () => {
+    const panel = el<HTMLElement>('hx-run-panel');
+    if (panel) panel.hidden = true;
+  });
+
   el<HTMLButtonElement>('hx-detect')?.addEventListener('click', async () => {
     const auto = el<HTMLInputElement>('hx-auto-approve')?.checked ?? false;
     setRunStatus('starting…');
+    // Open the panel on the press, before the first poll has anything to say. A detect can sit
+    // `pending` for a while (or forever, if the citation-pipeline worker is down), and a press
+    // that paints nothing for 2.5s reads as a press that did not register.
+    renderRunProgress({ id: '', status: 'pending', action: 'detect', step_detail: null, counts: {}, error: null });
     try {
       const { data } = await api.detect(state.base, auto);
       if (data.already_running) setRunStatus('a detect is already running — joining it');
@@ -617,6 +755,10 @@ function initDetail(boot: ConsoleBoot): void {
     } catch (err) {
       log.error('hypercites: detect failed to start', 'maintainer', err);
       setRunStatus('failed to start — see console');
+      renderRunProgress({
+        id: '', status: 'failed', action: 'detect', step_detail: null, counts: {},
+        error: 'failed to start — see console',
+      });
     }
   });
 
@@ -627,6 +769,7 @@ function initDetail(boot: ConsoleBoot): void {
       if (state.pollingRunId !== runId) return; // a newer poll took over
       try {
         const run: RunStatus = await api.runStatus(runId);
+        renderRunProgress(run);
         if (run.status === 'completed') {
           state.pollingRunId = null;
           setRunStatus(`✓ ${run.step_detail ?? 'done'}`);
@@ -644,6 +787,10 @@ function initDetail(boot: ConsoleBoot): void {
         state.pollingRunId = null;
         log.error('hypercites: poll failed', 'maintainer', err);
         setRunStatus('poll failed — refresh to check');
+        renderRunProgress({
+          id: runId, status: 'failed', action: 'detect', step_detail: null, counts: {},
+          error: 'poll failed — refresh to check',
+        });
       }
     };
     void tick();

@@ -129,3 +129,28 @@ test('citable types pass, paratext and unknown fail', function () use ($svc) {
     expect($svc()->isCitableWork(['type' => null]))->toBeFalse();
     expect($svc()->isCitableWork([]))->toBeFalse();
 });
+
+test('the is_paratext flag rejects a work its type alone would admit', function () use ($svc) {
+    // Front matter is routinely typed `article` upstream, so the type allowlist cannot see it.
+    // The docblock promised "not paratext" for a year while only ever checking the type.
+    expect($svc()->isCitableWork(['type' => 'article', 'is_paratext' => true]))->toBeFalse();
+    expect($svc()->isCitableWork(['type' => 'journal-article', 'is_paratext' => true]))->toBeFalse();
+});
+
+test('an unflagged or absent is_paratext leaves the work citable', function () use ($svc) {
+    // The gate may only exclude what upstream POSITIVELY asserts is paratext — a missing field
+    // must never start silently dropping works.
+    expect($svc()->isCitableWork(['type' => 'article', 'is_paratext' => false]))->toBeTrue();
+    expect($svc()->isCitableWork(['type' => 'article']))->toBeTrue();
+});
+
+test('is_paratext does NOT catch whole-issue bundles — that guard lives elsewhere', function () use ($svc) {
+    // Pinning the scope claim in the docblock so nobody "fixes" the bundle problem here again.
+    // Verified against the live API for W1805886721 ("DOWNLOAD THE ENTIRE SPECIAL ISSUE HERE",
+    // DOI 10.31269/triplec.v13i2.719): type `article`, is_paratext FALSE, no page range. It is
+    // admitted here by design; CandidateDetector's row-count cap is what stops it.
+    expect($svc()->isCitableWork([
+        'type' => 'article', 'is_paratext' => false,
+        'title' => 'DOWNLOAD THE ENTIRE SPECIAL ISSUE HERE',
+    ]))->toBeTrue();
+});

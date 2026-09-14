@@ -22,6 +22,7 @@ import { BlockFormatter } from "./blockFormatter";
 import { UndoManager, resolveBookId, findBlockFromTarget } from "./undoManager";
 import { getTextOffsetInElement } from "./toolbarDOMUtils";
 import { initTapAreaExtender } from "./tapAreaExtender";
+import { trackEditToolbarHeight, untrackEditToolbarHeight } from "../utilities/viewportMetrics";
 import { asLineId, NUMERICAL_ID_PATTERN, type LineId, type BookId } from "../utilities/idHelpers";
 
 // Private module-level variable to hold the toolbar instance
@@ -251,6 +252,10 @@ class EditToolbar {
     }
     this.attachButtonHandlers();
     this.hide();
+
+    // Publish the toolbar's measured height as --edit-toolbar-height so the
+    // citation results panel can park exactly on top of it instead of guessing.
+    trackEditToolbarHeight();
 
     // Initialize tap area extender for mobile (captures taps in gaps below/around buttons)
     // Starts disabled — enabled only while in edit mode
@@ -1175,6 +1180,7 @@ class EditToolbar {
    */
   destroy() {
     this.selectionManager.detachListener();
+    untrackEditToolbarHeight();
     if (this.handleResize) window.removeEventListener("resize", this.handleResize);
     if (this.handleClickOutsideSubmenu) document.removeEventListener("click", this.handleClickOutsideSubmenu);
     if (this._undoKeydownHandler) {

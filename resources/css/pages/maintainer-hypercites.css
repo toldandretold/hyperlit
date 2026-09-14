@@ -504,3 +504,129 @@ body.hx-detail {
 .hx-help-doc {
   color: var(--color-text-faint, #888);
 }
+
+/* ── Run panel: what a detect run is doing, while it does it ──
+   Bottom-right and fixed: the candidate list scrolls, and a four-hour run reported only in the
+   header strip is a run you scroll away from and stop trusting. Bar/sweep/tally language is
+   deliberately the same as the import console's .ji-run-panel — they are the same KIND of thing,
+   and an operator moving between the two consoles should not have to re-learn it. Duplicated
+   rather than imported because both pages are standalone blades with their own stylesheet. */
+.hx-run-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 11px;
+  background: color-mix(in srgb, var(--color-background) 92%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-text) 22%, transparent);
+  border-radius: 8px;
+  z-index: 1003;
+  font-size: 0.78rem;
+}
+/* display:flex above beats the UA's [hidden]{display:none} — restate it or the panel is
+   permanently visible (the ji- panel needed exactly this for its ✕). */
+.hx-run-panel[hidden] {
+  display: none;
+}
+.hx-run-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hx-run-head strong {
+  flex: 1;
+  font-weight: 600;
+}
+.hx-run-head button {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--color-text) 28%, transparent);
+  color: var(--color-text);
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.hx-run-head button:hover {
+  border-color: var(--hyperlit-aqua, #4eacae);
+}
+.hx-run-head button[hidden] {
+  display: none;
+}
+.hx-run-bar {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-text) 15%, transparent);
+  overflow: hidden;
+}
+.hx-run-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4eacae, #ef8d34);
+  transition: width 0.4s ease;
+}
+/* No denominator (queued, or a pre-deploy worker reporting only prose): sweep rather than invent
+   a percentage. */
+.hx-run-bar-fill.is-indeterminate {
+  width: 40%;
+  animation: hx-run-sweep 1.2s ease-in-out infinite;
+}
+@keyframes hx-run-sweep {
+  0% { margin-left: 0%; }
+  50% { margin-left: 60%; }
+  100% { margin-left: 0%; }
+}
+/* Terminal: freeze the bar. A sweep that never stops reads as "still working". */
+.hx-run-panel.is-done .hx-run-bar-fill,
+.hx-run-panel.is-failed .hx-run-bar-fill {
+  animation: none;
+}
+.hx-run-panel.is-done .hx-run-bar-fill {
+  width: 100%;
+}
+.hx-run-panel.is-failed .hx-run-bar-fill {
+  width: 100%;
+  background: var(--color-warning, #b45309);
+}
+.hx-run-line {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+.hx-run-count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--hyperlit-aqua, #4eacae);
+}
+/* The book in hand. One line, clipped — a 200-character article title must not be allowed to
+   grow the panel taller than the list it is sitting on top of. */
+.hx-run-current {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary, #aaa);
+}
+.hx-run-tallies {
+  color: var(--color-text-faint, #888);
+  font-size: 0.74rem;
+}
+.hx-run-tallies:empty {
+  display: none;
+}
+/* The slow-phase / slice note: why this is taking hours, and that it is continuing itself. */
+.hx-run-note {
+  color: var(--color-warning, #b45309);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+.hx-run-note[hidden] {
+  display: none;
+}

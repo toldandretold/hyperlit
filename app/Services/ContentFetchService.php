@@ -1949,6 +1949,19 @@ class ContentFetchService
             // was never written. The JATS/HTML lane (persistArticle) always saved them.
             $this->saveReferencesToDatabase($path, $bookId);
 
+            // 5b-ii. Reconvert path: carry the citation resolution the clear deleted back onto the
+            // bibliography/footnote rows re-inserted above (written by
+            // ReconvertSystemVersionCommand; fresh auto-version imports have no snapshot → no-op).
+            // After both saves, because it UPDATES those rows. Best-effort: a failure costs an LLM
+            // rescan on the next hypercite detect, never the import.
+            try {
+                app(\App\Services\Citations\ResolutionSnapshotService::class)->restore($bookId);
+            } catch (\Throwable $e) {
+                Log::warning('Citation resolution restore failed (import continues)', [
+                    'book' => $bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
             // 5c. Reconvert path: re-anchor hyperlights/hypercites onto the new
             // nodes from the pre-clear snapshot (written by
             // ReconvertSystemVersionCommand; fresh auto-version imports have no

@@ -1656,6 +1656,88 @@ test('an out-of-budget detect slice dispatches its own continuation on the same 
     Queue::assertPushed(\App\Jobs\DetectHyperciteCandidatesJob::class, 1); // still just the one
 });
 
+/**
+ * The run panel's data contract. A detect over a journal is measured in HOURS — a first pass
+ * resolves every book's bibliography against an LLM — and the console reported it as one prose
+ * sentence with no denominator, which is indistinguishable from a dead queue worker.
+ *
+ * `progress` is the live beat and `counts` is the verdict: two columns because the job overwrites
+ * `counts` wholesale when it finishes, so a mid-run beat parked there both gets clobbered and
+ * reads as a final result in the meantime.
+ */
+test('a detect writes a structured progress beat per book, numbers its slices, and clears it when terminal', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+
+    foreach ([1, 2] as $n) {
+        $work = hxSeedHeldWork($journal->id, "HX Progress Article {$n}");
+        hxSeedNode($work['book'], $work['book'] . '_n1', 1, '<p data-node-id="' . $work['book'] . '_n1">Plain text, no citations.</p>');
+        hxDb()->table('bibliography')->insert([
+            'book' => $work['book'], 'referenceId' => 'r1', 'content' => 'x',
+            'match_method' => 'no_match', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $runId = (string) Str::uuid();
+    hxDb()->table('hypercite_runs')->insert([
+        'id'                => $runId,
+        'journal_source_id' => $journal->id,
+        'action'            => 'detect',
+        'status'            => 'running',
+        'counts'            => '{}',
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $slice = fn (?int $budget) => (new \App\Jobs\DetectHyperciteCandidatesJob($runId, false, $budget))
+        ->handle(app(\App\Services\Hypercites\CandidateDetector::class), app(\App\Services\Hypercites\HyperciteMinter::class));
+    $progress = fn () => json_decode(
+        (string) hxDb()->table('hypercite_runs')->where('id', $runId)->value('progress'),
+        true
+    );
+
+    // First slice: one book walked, then out of budget. The beat names the phase, the position in
+    // the scope list, and the book in hand — everything the bar and its line are drawn from.
+    $slice(0);
+    $beat = $progress();
+    expect($beat['phase'])->toBe('scanning');
+    expect($beat['n'])->toBe(1);
+    expect($beat['total'])->toBe(2);
+    expect($beat['title'])->toBe('HX Progress Article 1');
+    expect($beat)->toHaveKeys(['candidates', 'matched', 'scanned']);
+    // Pass 1 is implicit in the UI (no "pass N" suffix) but must be recorded, or the next slice
+    // has nothing to increment from.
+    expect($beat['pass'])->toBe(1);
+
+    // A sliced run walks the scope list FROM THE TOP again, so n/total restarts. The pass number
+    // is the only thing that stops that reading as the bar going backwards.
+    $slice(0);
+    $beat = $progress();
+    expect($beat['n'])->toBe(1);
+    expect($beat['pass'])->toBe(2);
+
+    // While it is running the API hands the beat back DECODED — a raw jsonb pass-through would
+    // reach the console as JSON inside JSON and render as nothing.
+    $body = $this->getJson("/api/maintainer/hypercites/runs/{$runId}")->assertOk()->json();
+    expect($body['progress'])->toBeArray();
+    expect($body['progress']['pass'])->toBe(2);
+    expect($body['progress']['total'])->toBe(2);
+
+    // …and so does the candidates payload's active_run, so a REFRESHED page paints the panel from
+    // the fetch it already makes rather than waiting on the first poll.
+    $payload = $this->getJson("/api/maintainer/hypercites/{$journal->slug}/candidates")->assertOk()->json();
+    expect($payload['active_run']['id'])->toBe($runId);
+    expect($payload['active_run']['progress']['pass'])->toBe(2);
+
+    // Terminal: the beat is cleared. A finished run carrying the last book it touched would have
+    // the console draw a half-full bar over a completed job.
+    $slice(null);
+    expect(hxDb()->table('hypercite_runs')->where('id', $runId)->value('status'))->toBe('completed');
+    expect($progress())->toBeNull();
+    expect($this->getJson("/api/maintainer/hypercites/runs/{$runId}")->assertOk()->json()['progress'])->toBeNull();
+});
+
 test('shelf detect queues a run keyed to the shelf', function () {
     Queue::fake();
     $this->loginUser(['is_admin' => true]);

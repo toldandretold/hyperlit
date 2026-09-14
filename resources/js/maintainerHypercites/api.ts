@@ -86,10 +86,41 @@ export interface Candidate {
   cited_year: number | null;
 }
 
+/**
+ * The live beat a running detect writes to `hypercite_runs.progress`, one write per book (and one
+ * per mint during auto-approve). Null whenever the run is terminal, predates the column, or is
+ * being worked by a pre-deploy worker — the console falls back to `step_detail`.
+ */
+export interface RunProgress {
+  /** What it is doing: walking a book, paying for a bibliography scan, or minting. */
+  phase: 'scanning' | 'resolving' | 'minting' | null;
+  /**
+   * Which SLICE this is. A detect is capped at a 50-minute budget and re-dispatches itself on the
+   * same run row, walking the scope list from the top again — so n/total restarts every pass and
+   * the number is what stops that reading as the bar going backwards. Absent on the mint phase.
+   */
+  pass?: number;
+  n: number;
+  total: number;
+  book?: string;
+  title: string | null;
+  candidates?: number;
+  matched?: number;
+  no_match?: number;
+  with_quote?: number;
+  scanned?: number;
+  minted?: number;
+}
+
 export interface CandidatesPayload {
   scope: ScopeMeta;
   status_counts: Record<string, number>;
-  active_run: { id: string; status: string; step_detail: string | null } | null;
+  active_run: {
+    id: string;
+    status: string;
+    step_detail: string | null;
+    progress: RunProgress | null;
+  } | null;
   candidates: Candidate[];
 }
 
@@ -99,6 +130,7 @@ export interface RunStatus {
   action: string;
   step_detail: string | null;
   counts: Record<string, unknown>;
+  progress?: RunProgress | null;
   error: string | null;
 }
 

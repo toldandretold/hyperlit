@@ -133,6 +133,12 @@ class WorkNormaliser
             'cited_by_count' => $work['cited_by_count'] ?? null,
             'language'       => $work['language'] ?? null,
             'type'           => $work['type'] ?? null,
+            // OpenAlex's own "this is front matter, not a contribution" flag (issue covers,
+            // editorial boards, mastheads). Carried so WorkScorer::isCitableWork can honour it —
+            // it claimed to exclude paratext for a year while only ever checking `type`.
+            // Defaults FALSE when absent, i.e. an unflagged work stays citable: this gate may
+            // only ever exclude what upstream positively asserts is paratext.
+            'is_paratext'    => (bool) ($work['is_paratext'] ?? false),
             'volume'         => $work['biblio']['volume'] ?? null,
             'issue'          => $work['biblio']['issue'] ?? null,
             'pages'          => ($firstPage && $lastPage) ? $firstPage . '–' . $lastPage : null,

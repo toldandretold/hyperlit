@@ -331,7 +331,13 @@ class HyperciteConsoleController extends Controller
             ->whereIn('status', ['pending', 'running'])
             ->where('updated_at', '>', now()->subHour())
             ->orderByDesc('created_at')
-            ->first(['id', 'status', 'step_detail']);
+            ->first(['id', 'status', 'step_detail', 'progress']);
+
+        // Decoded here rather than in the client: `progress` is jsonb, and PDO hands it back as a
+        // string, so a raw pass-through would reach the console as JSON-inside-JSON.
+        if ($activeRun) {
+            $activeRun->progress = json_decode((string) $activeRun->progress, true) ?: null;
+        }
 
         return response()->json([
             'scope'         => $scope['meta'],
@@ -544,6 +550,10 @@ class HyperciteConsoleController extends Controller
             'action'      => $run->action,
             'step_detail' => $run->step_detail,
             'counts'      => json_decode((string) $run->counts, true) ?: [],
+            // The live beat (phase, n/total, the book in hand, running tallies). Null on a run
+            // that predates the column, one worked by a pre-deploy worker, or any terminal run —
+            // the console falls back to `step_detail` in all three cases.
+            'progress'    => json_decode((string) ($run->progress ?? ''), true) ?: null,
             'error'       => $run->error,
         ]);
     }
