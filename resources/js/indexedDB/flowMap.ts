@@ -79,6 +79,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'nodes/contentProcessor', plain: 'Turns a live editor node into its persisted form: collects annotations/footnotes/citations, then strips marks, styles, navigation classes and render artifacts from a clone.' },
       { path: 'nodes/annotationUpserts', plain: 'Writes measured mark/u positions into the normalized hyperlight/hypercite stores: orphan recovery, _deleted_nodes cleanup, per-node charData.' },
       { path: 'nodes/batch', plain: 'Batch write orchestrator: resolves the book, reads originals, delegates to contentProcessor + annotationUpserts in one transaction, then queues sync, rebuilds arrays and triggers renumbering.' },
+      { path: 'nodes/absenceReconciler', plain: 'Save-time hypercite self-heal: diffs a saved node\'s previous content against the live DOM; hypercite <u>/<a> ids that vanished without a mutation event are delinked / tombstoned+ghosted / orphaned (the dropped-mutation-batch bug class).' },
       { path: 'nodes/write', plain: 'Direct node writes: import/save-all, renumbering, append paths.' },
       { path: 'nodes/normalize', plain: 'Migrates a node record to a new composite key when its id changes.' },
       { path: 'nodes/delete', plain: 'Single-node delete, including orphan bookkeeping on highlights/hypercites that spanned it.' },

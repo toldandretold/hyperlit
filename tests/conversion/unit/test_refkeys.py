@@ -145,3 +145,48 @@ def test_real_coauthors_survive_the_marker_filter():
                              min_year=HISTORICAL_YEAR_MIN)
     assert keys[0] == "graham2018"
     assert any("woodcock" in k for k in keys)
+
+
+# ---------------------------------------------------------------------------
+# A narrative citation spells its authors out IN FULL ("Michael Hardt and Antonio Negri (2017)").
+# With a single-word author atom the match could only reach the suffix "Negri", so the keys were
+# negri2017 while the entry is keyed on the first author, hardt2017 (a7fc96d5).
+# ---------------------------------------------------------------------------
+def test_full_names_in_a_narrative_citation_key_on_the_first_surname():
+    from shared.refkeys import HISTORICAL_YEAR_MIN
+    keys = generate_ref_keys('2017', context_text='Michael Hardt and Antonio Negri ',
+                             min_year=HISTORICAL_YEAR_MIN)
+    assert keys[0] == 'hardt2017'
+    assert any('negri' in k for k in keys)
+
+
+def test_surname_only_authors_still_key_the_same_way():
+    from shared.refkeys import HISTORICAL_YEAR_MIN
+    keys = generate_ref_keys('2018', context_text='However, Graham and Woodcock ',
+                             min_year=HISTORICAL_YEAR_MIN)
+    assert keys[0] == 'graham2018'
+
+
+# ---------------------------------------------------------------------------
+# The ANTECEDENT walk-back: candidates for a bare-year citation whose author sits earlier in the
+# paragraph ("…argues the philosopher (2002: 33)"). Nearest first; the bibliography is the gate.
+# ---------------------------------------------------------------------------
+def test_trailing_author_candidates_are_nearest_first():
+    from shared.refkeys import trailing_author_candidates
+    ctx = ('Similarly, Lévy anticipated the fall of dictatorships and the advent of what he refers '
+           'to as cyberdemocracy. "The destiny of democracy and cyberspace are intimately linked" '
+           'argues the philosopher ')
+    assert trailing_author_candidates(ctx)[0] == 'levy'
+
+
+def test_trailing_author_candidates_skip_discourse_markers_and_stopwords():
+    from shared.refkeys import trailing_author_candidates
+    got = trailing_author_candidates('Häyhtio and Rinne consider that "most interventions differ" ')
+    assert got[:2] == ['rinne', 'hayhtio']
+    assert 'and' not in got and 'the' not in got
+
+
+def test_trailing_author_candidates_are_bounded():
+    from shared.refkeys import trailing_author_candidates
+    ctx = ' '.join(f'Name{i}' for i in range(40)) + ' '
+    assert len(trailing_author_candidates(ctx)) <= 8

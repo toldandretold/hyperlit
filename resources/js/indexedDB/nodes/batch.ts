@@ -24,6 +24,7 @@ import { getNodesFromIndexedDB } from './read';
 import { rebuildNodeArrays, getNodesByDataNodeIDs } from '../hydration/rebuild';
 import { processNodeContentHighlightsAndCites, determineChunkIdFromDOM } from './contentProcessor';
 import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUpserts';
+import { collectAbsenceCandidates, scheduleAbsenceReconciliation, type AbsenceCandidate } from './absenceReconciler';
 import { asBookId, LATEST, type BookId, type ChunkId, type HyperciteRecord, type HyperlightRecord, type NodeRecord } from '../types';
 import { asLineId, type LineId } from '../../utilities/idHelpers';
 
@@ -144,6 +145,7 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
     const allSavedHyperlights: HyperlightRecord[] = [];
     const allSavedHypercites: HyperciteRecord[] = [];
     const originalNodeStates = new Map<number, NodeRecord>();
+    const absenceCandidates: AbsenceCandidate[] = [];
 
     // This is a critical step: Read all original states BEFORE any writes.
     const readPromises = recordsToProcess.map((record) => {
@@ -260,6 +262,15 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
 
       // ✅ EXTRACT node_id from data-node-id attribute
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;
+
+      // Hypercite absence reconciliation: diff the PREVIOUS content against the
+      // live element — a <u>/<a> gone from a node saved from live DOM (and from
+      // the whole document) means a deletion whose mutation batch may have been
+      // dropped. Reconciled after tx.oncomplete (see absenceReconciler.ts).
+      if (existing && node && processedData) {
+        const candidate = collectAbsenceCandidates(existing.content, node, bookId, asLineId(IDnumerical));
+        if (candidate) absenceCandidates.push(candidate);
+      }
 
       // 🔍 DEBUG: Log node_id extraction
       verbose.content(`node_id extraction: record.id=${record.id}, finalNodeId=${IDnumerical}, node=${node?.tagName}, nodeIdFromDOM=${nodeIdFromDOM}`, 'indexedDB/nodes/batch');
@@ -386,6 +397,13 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
             log.error('Error rebuilding arrays after batch update', '/indexedDB/nodes/batch.ts', error);
             // Don't fail the whole operation if rebuild fails
           }
+        }
+
+        // Reconcile hypercites whose DOM elements vanished from the saved
+        // nodes. skipHistory writes are internal housekeeping (marker
+        // restoration, hydration) — never reconcile those.
+        if (!options.skipHistory && absenceCandidates.length > 0) {
+          scheduleAbsenceReconciliation(absenceCandidates);
         }
 
         // 📝 Trigger footnote renumbering after batch update if footnotes were affected

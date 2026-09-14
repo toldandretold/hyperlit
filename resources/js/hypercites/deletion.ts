@@ -145,21 +145,6 @@ export async function delinkHypercite(hyperciteElementId: string, hrefUrl: strin
 }
 
 /**
- * Helper function to handle hypercite deletion from DOM
- * Call this when you detect a hypercite element is being deleted
- */
-export async function handleHyperciteDeletion(hyperciteElement: HTMLAnchorElement | null): Promise<void> {
-  if (!hyperciteElement || !hyperciteElement.href || !hyperciteElement.id) {
-    return;
-  }
-
-  const hyperciteElementId = hyperciteElement.id;
-  const hrefUrl = hyperciteElement.href;
-
-  await delinkHypercite(hyperciteElementId, hrefUrl);
-}
-
-/**
  * Mark a hypercite as a ghost (tombstone state)
  * Called when the source <u> tag is deleted but citedIN references still exist.
  * The hypercite record is kept with status 'ghost' so citing books can show ghost UX.

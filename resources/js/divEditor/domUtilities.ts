@@ -120,50 +120,14 @@ export async function handleHyperciteRemoval(removedNode: any, mutationTarget: a
         return;
       }
 
-      // Guard: skip duplicate tombstone if one already exists (MutationObserver double-fire)
-      if (document.getElementById(hyperciteId)) {
-        console.log(`👻 Tombstone already exists for ${hyperciteId} — skipping duplicate`);
-        const { markHyperciteAsGhost } = await import('../hypercites/deletion');
-        await markHyperciteAsGhost(hyperciteId);
-        return;
-      }
-
-      // Create tombstone — invisible zero-width element, just an ID to scroll to
-      const tombstone = document.createElement('u');
-      tombstone.id = hyperciteId;
-      tombstone.className = 'hypercite-tombstone';
-      tombstone.setAttribute('data-ghost', 'true');
-
-      // Insert tombstone into the mutation target (parent paragraph)
-      let insertionParent = mutationTarget;
-
-      // Walk up to find a block-level element if mutationTarget is inline
-      if (insertionParent && insertionParent.nodeType === Node.ELEMENT_NODE) {
-        if (!insertionParent.matches(BLOCK_ELEMENT_SELECTOR)) {
-          insertionParent = insertionParent.closest(BLOCK_ELEMENT_SELECTOR);
-        }
-      }
-
-      if (insertionParent && document.contains(insertionParent)) {
-        insertionParent.appendChild(tombstone);
-        console.log(`👻 Tombstone inserted into ${insertionParent.tagName}#${insertionParent.id}`);
-      } else {
-        // Fallback: find the chunk and append to its last child
-        const chunk = mutationTarget?.closest?.('.chunk');
-        if (chunk) {
-          const lastChild = chunk.lastElementChild;
-          if (lastChild) {
-            lastChild.appendChild(tombstone);
-            console.log(`👻 Tombstone inserted into fallback element ${lastChild.tagName}#${lastChild.id}`);
-          }
-        }
-      }
+      // Insert tombstone (idempotent — reuses any existing element with this id,
+      // covering the MutationObserver double-fire) and mark the record ghost.
+      const { insertTombstone } = await import('../hypercites/tombstone');
+      insertTombstone(hyperciteId, mutationTarget);
 
       // Mark hypercite as ghost in IndexedDB and sync
       const { markHyperciteAsGhost } = await import('../hypercites/deletion');
       await markHyperciteAsGhost(hyperciteId);
-
-      console.log(`✅ Tombstone system complete for ${hyperciteId} (${hypercite.citedIN.length} citation(s) preserved)`);
     } catch (error) {
       console.error('❌ Error creating tombstone for hypercite:', error);
     }
@@ -272,11 +236,8 @@ export async function handleHyperciteRemoval(removedNode: any, mutationTarget: a
       }
 
       if (targetNode) {
-        const newTombstone = document.createElement('u');
-        newTombstone.id = hyperciteId;
-        newTombstone.className = 'hypercite-tombstone';
-        newTombstone.setAttribute('data-ghost', 'true');
-        targetNode.appendChild(newTombstone);
+        const { createTombstoneElement } = await import('../hypercites/tombstone');
+        targetNode.appendChild(createTombstoneElement(hyperciteId));
 
         // Explicitly queue save so batch.js updates node_id promptly
         queueNodeForSave(targetNode.id, 'update');

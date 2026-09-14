@@ -317,3 +317,28 @@ def test_trailing_period_after_terminal_citation_still_wraps():
             '(Lawrence, as quoted in Deloria, 1998, p. 4).')
     out = _wrap_quote_blockquotes('Intro paragraph.\n\n' + para + '\n\nNext body paragraph.')
     assert '> ' + para in out
+
+
+# ---------------------------------------------------------------------------
+# The citation-terminated quote rule reads "sentence punctuation, then a parenthetical citation" as
+# a block-quote attribution. An ABBREVIATION dot is not a sentence end: "…promoted in the
+# Marx-inspired work of Radovan Richta et al. (1969)." is ordinary body prose, and reading it as an
+# attribution wrapped a 1122-char paragraph as a quotation (cc796552, "a FALSE blockquote").
+# ---------------------------------------------------------------------------
+def test_et_al_before_a_citation_is_not_an_attribution():
+    import ingestion.pdf.assembly as A
+    assert A._quote_cite_terminal(
+        'In the socialist countries this was discussed under the heading of "scientific and '
+        'technological revolution", promoted in the Marx-inspired work of Radovan Richta et al. '
+        '(1969).') is False
+
+
+def test_initials_before_a_citation_are_not_an_attribution():
+    import ingestion.pdf.assembly as A
+    assert A._quote_cite_terminal('The idea was first set out by J. R. R. (1954).') is False
+
+
+def test_a_real_block_quote_attribution_still_wraps():
+    import ingestion.pdf.assembly as A
+    assert A._quote_cite_terminal(
+        'The land belonged to the people who lived upon it. (Deloria, 1998, p.5)') is True

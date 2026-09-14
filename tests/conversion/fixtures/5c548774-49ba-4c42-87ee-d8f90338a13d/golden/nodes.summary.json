@@ -258,7 +258,8 @@
       "i": 80,
       "references": [
         "wilson2014",
-        "bergius2018"
+        "bergius2018",
+        "paprocki2018"
       ],
       "type": "p"
     },
@@ -270,7 +271,7 @@
         "bassett2013",
         "tschakert2013",
         "morchain2015",
-        "remling2015",
+        "persson2014",
         "fund2019"
       ],
       "type": "p"
@@ -490,7 +491,8 @@
         "forsyth2019",
         "klenk2017",
         "mikulewicz2020",
-        "ziervogel2016"
+        "ziervogel2016",
+        "blackburn2018"
       ],
       "type": "p"
     },

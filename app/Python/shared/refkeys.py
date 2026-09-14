@@ -60,6 +60,55 @@ _DISCOURSE_MARKERS = {
 }
 
 
+# Capitalised words that are never a surname: the old local `excluded` set plus the discourse
+# markers. A NARRATIVE citation takes its author from the prose in front of it ("Engels (1888,
+# 517)") and the author match walks BACKWARDS from the paren, so a sentence-opening marker was read
+# as a co-author — "Indeed, Engels (1888, 517)" keyed indeed1888 / engelsindeed1888 and never
+# engels1888, so the citation could not resolve even once its entry was keyed (24d86fb9).
+_NON_SURNAME_WORDS = ({'And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'}
+                      | _DISCOURSE_MARKERS)
+
+# A name-shaped token: capitalised, then lowercase letters (so acronyms and ALL-CAPS headings are
+# not names). Used to walk BACKWARDS from a bare-year citation for its antecedent author.
+_NAME_TOKEN_RE = re.compile(r"(?<![A-Za-zÀ-ÿßẞ])([A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zà-ÿßẞ'’-]{1,})")
+
+
+def trailing_author_candidates(text, limit=8, window=600):
+    """Surname candidates for a citation whose author is NOT adjacent to the year — nearest first.
+
+    Academic prose routinely separates the two: "Similarly, Lévy anticipated … 'quote' argues the
+    philosopher (2002: 33)", or an author that opens the sentence with the quotation in between
+    ("Häyhtio and Rinne consider that '…' (2008: 26)"). The key-generation rules can only see the
+    text immediately before the paren, so those citations produced no usable key at all (46c0fbb5).
+    This is a LAST RESORT for the caller: it returns candidate keys to try against the bibliography,
+    and the bibliography is the gate — an invented name resolves to nothing.
+    """
+    text = (text or '')[-window:]
+    out = []
+    for m in reversed(list(_NAME_TOKEN_RE.finditer(text))):
+        word = m.group(1)
+        if word in _NON_SURNAME_WORDS:
+            continue
+        key = normalize_unicode_name(word.replace("'s", '')).lower()
+        if key and key not in out:
+            out.append(key)
+        if len(out) >= limit:
+            break
+    return out
+
+
+# Author separators inside a citation's author phrase. The SLASH is the German-language
+# convention and it is everywhere in this corpus ("Schmidt/Bannon (1992)",
+# "Fuchs/Hofkirchner/Klauninger (2001)", "Haralambos/Holborn (1991)"); without it the phrase
+# collapsed to its LAST word, so the keys missed the first author the entry is keyed on — and the
+# antecedent walk-back then resolved the citation to a DIFFERENT work by a middle author (7fa30289).
+_AUTHOR_SEP = r"\s+and\s+|\s*&\s*|\s*/\s*|\s*,\s*(?:and\s+)?"
+_AUTHOR_ATOM = r"[A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+(?:\s+[A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+){0,2}"
+# A trailing author PHRASE: one to three capitalised words per author ("Michael Hardt"), any number
+# of authors joined by those separators, anchored at the end of the text before the year.
+_AUTHOR_GROUP_RE = re.compile(r"(" + _AUTHOR_ATOM + r"(?:(?:" + _AUTHOR_SEP + r")" + _AUTHOR_ATOM + r")*)\s*$")
+
+
 def is_plausible_year(token, min_year=MODERN_YEAR_MIN):
     """Is this token plausibly a publication year? Accepts a bare '1886' or a suffixed '1886a'."""
     m = re.match(r'\d{4}', str(token))
@@ -146,10 +195,12 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     if author_source:
         if not has_author:
             # Try to extract full author group at end of context: "Name", "Name and Name", "Name, Name, and Name"
-            group_match = re.search(
-                r"([A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+(?:(?:\s+and\s+|\s*,\s*(?:and\s+)?)[A-ZÀ-ÖØ-ÞẞĀ-Ž][a-zA-ZÀ-ÿßẞ'-]+)*)\s*$",
-                author_source
-            )
+            # Each author is up to THREE capitalised words, not one: a narrative citation routinely
+            # spells names out in full ("Michael Hardt and Antonio Negri (2017)"), and a single-word
+            # atom could only match the suffix "Negri" — so the keys were negri2017 while the entry
+            # is keyed on the FIRST author, hardt2017, and the citation could never resolve
+            # (a7fc96d5). Over-capture is harmless: each group's SURNAME is its last word.
+            group_match = re.search(_AUTHOR_GROUP_RE, author_source)
             if group_match:
                 author_source = group_match.group(1)
             else:
@@ -160,19 +211,13 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
         # Match capitalized words including Unicode letters and hyphens
         # This pattern matches: Capital letter (including accented) followed by letters/hyphens/apostrophes
         surnames = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", author_source)
-        excluded = {'And', 'The', 'For', 'In', 'An', 'On', 'As', 'Ed', 'Of', 'See', 'Also'}
-        # A NARRATIVE citation takes its author from the prose in front of it ("Engels (1888,
-        # 517)"), and the author-group match walks BACKWARDS from the paren — so a sentence-opening
-        # discourse marker gets read as a co-author: "Indeed, Engels (1888, 517)" keyed indeed1888 /
-        # engelsindeed1888 and never engels1888, so the citation could not resolve even once its
-        # bibliography entry was keyed (24d86fb9). These words are never surnames.
-        excluded |= _DISCOURSE_MARKERS
+        excluded = _NON_SURNAME_WORDS
         # Normalize Unicode and remove apostrophe-s for key generation
         surnames = [normalize_unicode_name(s.replace("'s", "")).lower() for s in surnames if s not in excluded and len(s) > 1]
         if surnames:
             # Last-word-of-each-author-group as surnames (handles "FirstName LastName and
             # FirstName LastName" bibliography patterns).
-            groups = re.split(r'\s+and\s+|,\s*and\s+|,\s+(?=[A-Z])', author_source)
+            groups = re.split(r'\s+and\s+|\s*&\s*|\s*/\s*|,\s*and\s+|,\s+(?=[A-Z])', author_source)
             group_surnames = []
             for group in groups:
                 words = re.findall(r"(?<![a-zA-ZÀ-ÿßẞ])[A-ZÀ-ÖØ-ÞẞĀĂĄĆĈĊČĎĐĒĔĖĘĚĜĞĠĢĤĦĨĪĬĮİĲĴĶĹĻĽĿŁŃŅŇŊŌŎŐŒŔŖŘŚŜŞŠŢŤŦŨŪŬŮŰŲŴŶŸŹŻŽ][a-zA-ZÀ-ÿßẞ'-]*", group)

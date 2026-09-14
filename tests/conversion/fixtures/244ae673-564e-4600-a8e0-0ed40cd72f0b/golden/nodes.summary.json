@@ -153,7 +153,9 @@
         }
       ],
       "i": 46,
-      "references": [],
+      "references": [
+        "fellows1998"
+      ],
       "type": "p"
     },
     {
@@ -543,6 +545,14 @@
       "type": "p"
     },
     {
+      "footnotes": [],
+      "i": 171,
+      "references": [
+        "childs2009"
+      ],
+      "type": "p"
+    },
+    {
       "footnotes": [
         {
           "id": "FN0022",
@@ -573,6 +583,7 @@
       "footnotes": [],
       "i": 266,
       "references": [
+        "grande2004",
         "silva2007"
       ],
       "type": "p"

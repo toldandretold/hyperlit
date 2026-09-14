@@ -44,6 +44,15 @@ REFERENCE_HEADERS = ["references", "bibliography", "works cited", "sources", "li
                      # (6c4e7d58: 53 numbered entries under it were invisible to the exact match)
                      "references and recommended reading", "references and further reading"]
 
+# A heading's text as the REFERENCE_HEADERS lookup sees it: lowercased, and with the trailing
+# punctuation a typesetter may attach stripped. "## References:" (9a266e34) missed the exact match
+# by ONE COLON — the heading-anchored walk never ran, the weak reverse scan salvaged a single entry,
+# and 2 of that article's 105 citations linked. Trailing ':' / '.' / numbering punctuation carries no
+# meaning here; the match itself stays EXACT (a containment check would swallow "Sources of Error").
+def reference_header_key(text):
+    return (text or '').strip().lower().rstrip(':.\u2013\u2014- ').strip()
+
+
 # A HEADING-LESS reverse-scan bibliography is believed only if it is a DENSE block (this many
 # entries) OR carries genuine reference STRUCTURE (below). is_likely_reference is loose by design (a
 # paragraph that starts with a capital and contains a year passes rule #5), so a footnote-cited paper
@@ -86,7 +95,7 @@ def _find_reference_paragraphs(soup):
     # PRIMARY: Find reference section by heading (more reliable for academic papers)
     all_headings = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
     for heading in all_headings:  # Forward scan to find first matching heading
-        header_text = heading.get_text(strip=True).lower()
+        header_text = reference_header_key(heading.get_text(strip=True))
         if header_text in REFERENCE_HEADERS:
             print(f"  \U0001F4D6 Found references heading: '{header_text}'")
             bib_heading_level = int(heading.name[1])  # e.g. h2 -> 2
@@ -148,7 +157,7 @@ def _find_reference_paragraphs(soup):
                 reference_p_tags.insert(0, p)
                 _vprint(f"  ✓ Detected reference: {text_preview}...")
             elif reference_p_tags:
-                header_text = p.get_text(strip=True).lower()
+                header_text = reference_header_key(p.get_text(strip=True))
                 if header_text in REFERENCE_HEADERS:
                     reference_p_tags.insert(0, p)
                     print(f"  \U0001F4D6 Found references header: '{header_text}'")
@@ -166,7 +175,7 @@ def _find_reference_paragraphs(soup):
         # should we … 1990.") is discarded so we emit neither a junk entry nor a phantom citation
         # count. A real header at the top of the run is always trusted.
         found_header = bool(reference_p_tags) and \
-            reference_p_tags[0].get_text(strip=True).lower() in REFERENCE_HEADERS
+            reference_header_key(reference_p_tags[0].get_text(strip=True)) in REFERENCE_HEADERS
         structured = any(_has_reference_structure(p.get_text(" ", strip=True)) for p in reference_p_tags)
         if not found_header and not structured and 0 < len(reference_p_tags) < _MIN_REVERSE_SCAN_ENTRIES:
             print(f"  🚫 Discarding {len(reference_p_tags)} reverse-scan paragraph(s) — short and "

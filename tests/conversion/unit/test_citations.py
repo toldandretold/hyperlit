@@ -153,3 +153,41 @@ def test_demoter_is_indifferent_to_attribute_order(soup):
     a = s.find('a', class_='in-text-citation')
     assert a is not None and a['href'] == '#bib_ostrom_1990'
     assert linked == 1
+
+
+# ---------------------------------------------------------------------------
+# ANTECEDENT author resolution: a bare-year citation whose author sits earlier in the paragraph.
+# "…'quote' argues the philosopher (2002: 33)" / "Häyhtio and Rinne consider that '…' (2008: 26)"
+# (46c0fbb5). Gated three ways: only when the normal keys resolve to nothing, only for a citation
+# that names no author of its own, and never inside a bibliography entry.
+# ---------------------------------------------------------------------------
+def test_bare_year_links_to_the_author_named_earlier_in_the_paragraph(soup):
+    body = ('<p>Similarly, Lévy anticipated the fall of dictatorships. "The destiny of democracy '
+            'and cyberspace are intimately linked" argues the philosopher (2002: 33) using little '
+            'evidence.</p>'
+            '<p id="bib_levy_2002" class="bib-entry">Lévy, P. (2002). Cyberdemocratie.</p>')
+    s = _doc(soup, body)
+    found, linked, unlinked = link_citations(s, {'levy2002': 'bib_levy_2002'})
+    a = s.find('a', class_='in-text-citation')
+    assert a is not None and a['href'] == '#bib_levy_2002'
+
+
+def test_a_citation_that_names_its_own_author_is_never_reassigned(soup):
+    # "(Vanobbergen, 2007)" whose entry is missing must stay UNLINKED: walking back found
+    # "Castells" and linked Vanobbergen's citation to Castells' entry — a confident wrong link.
+    body = ('<p>Castells (2007) discusses mass self-communication. Childhood has been '
+            'commercialised (Vanobbergen, 2007) for decades.</p>'
+            '<p id="bib_castells_2007" class="bib-entry">Castells, M. (2007). Communication power.</p>')
+    s = _doc(soup, body)
+    link_citations(s, {'castells2007': 'bib_castells_2007'})
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert len(anchors) == 1                       # only Castells' own citation
+    assert 'Vanobbergen, 2007' in s.get_text()
+
+
+def test_the_walk_back_never_fires_inside_a_bibliography_entry(soup):
+    body = ('<p>Body prose with no citation.</p>'
+            '<p id="bib_ostrom_1990" class="bib-entry">Ostrom, E. (1990). Governing the Commons.</p>')
+    s = _doc(soup, body)
+    found, linked, unlinked = link_citations(s, {'ostrom1990': 'bib_ostrom_1990'})
+    assert linked == 0

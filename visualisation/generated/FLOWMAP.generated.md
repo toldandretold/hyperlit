@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1894 functions in 399 modules · 10 object stores · 10 PG tables · 3870 edges
+**MarkdownDB** schema v28 · 1904 functions in 404 modules · 10 object stores · 10 PG tables · 3916 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -656,6 +656,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ChunkMutationHandler.shouldSkipMutation` | `divEditor/chunkMutationHandler/index` | — | — | — | — |
 | `ChunkMutationHandler.sweepChunkOverflow` | `divEditor/chunkMutationHandler/index` | — | — | read | — |
 | `destroySpan` | `divEditor/chunkMutationHandler/spanDestroyer` | — | — | read/write | — |
+| `finalizeCut` | `divEditor/cutHandler` | — | — | read | — |
+| `handleCutEvent` | `divEditor/cutHandler` | — | — | — | — |
+| `snapshotCutSelection` | `divEditor/cutHandler` | — | — | read | — |
 | `cleanupAfterImport` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupAfterPaste` | `divEditor/domUtilities` | — | — | — | — |
 | `cleanupStyledSpans` | `divEditor/domUtilities` | — | — | read/write | — |
@@ -727,7 +730,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `IntegrityMonitor.destroy` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
 | `IntegrityMonitor.verifyAfterSave` | `divEditor/saveQueue/integrityMonitor` | — | — | — | — |
 | `SelectionDeletionHandler._handleSpecialElementDeletion` | `divEditor/selectionDelete` | — | — | read/write | — |
-| `SelectionDeletionHandler._rangeIntersectsNode` | `divEditor/selectionDelete` | — | — | read | — |
 | `SelectionDeletionHandler.batchDeleteFromIndexedDB` | `divEditor/selectionDelete` | — | — | — | — |
 | `SelectionDeletionHandler.captureSelectionForDeletion` | `divEditor/selectionDelete` | — | — | read | — |
 | `SelectionDeletionHandler.checkAndUnwrapLinks` | `divEditor/selectionDelete` | — | — | read/write | — |
@@ -743,6 +745,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initSelectionFocusTracker` | `divEditor/selectionFocusTracker` | — | — | read | — |
 | `rescueCaretFromSentinel` | `divEditor/selectionFocusTracker` | — | — | read | — |
 | `updateChunkFocus` | `divEditor/selectionFocusTracker` | — | — | — | — |
+| `findSpecialElementsInRange` | `divEditor/selectionSpecialElements` | — | — | read | — |
+| `rangeIntersectsNode` | `divEditor/selectionSpecialElements` | — | — | read | — |
 | `hyperciteArrowHandler` | `divEditor/supTagHandler/arrowHandler` | — | — | read | — |
 | `supDeleteHandler` | `divEditor/supTagHandler/deleteHandler` | — | — | read/write | — |
 | `supEscapeHandler` | `divEditor/supTagHandler/escapeHandler` | — | — | read/write | — |
@@ -972,7 +976,6 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getHyperciteData` | `hypercites/database` | `nodes` | — | — | — |
 | `NewHyperciteIndexedDB` | `hypercites/database` | — | `hypercites` `nodes` | read/write | — |
 | `delinkHypercite` | `hypercites/deletion` | `nodes` | `hypercites` `nodes` | read/write | — |
-| `handleHyperciteDeletion` | `hypercites/deletion` | — | — | — | — |
 | `markHyperciteAsGhost` | `hypercites/deletion` | — | `hypercites` | — | — |
 | `removeSpecificCitations` | `hypercites/deletion` | `hypercites` `nodes` | `hypercites` `nodes` | read/write | — |
 | `checkHyperciteExists` | `hypercites/healthCheck/index` | `footnotes` `hyperlights` `library` `nodes` | `nodes` | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
@@ -984,6 +987,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleUnderlineClick` | `hypercites/navigation` | — | — | — | — |
 | `navigateToFootnoteTarget` | `hypercites/navigation` | — | `sessionStorage` | read/write | — |
 | `navigateToHyperciteTarget` | `hypercites/navigation` | — | `sessionStorage` | read | — |
+| `isCitingAnchorAlive` | `hypercites/reconciliation` | — | — | read | — |
+| `reconcileCitedINForCitingBook` | `hypercites/reconciliation` | — | — | — | — |
+| `createTombstoneElement` | `hypercites/tombstone` | — | — | write | — |
+| `insertTombstone` | `hypercites/tombstone` | — | — | read/write | — |
 | `determineRelationshipStatus` | `hypercites/utils` | — | — | — | — |
 | `extractHyperciteIdFromHref` | `hypercites/utils` | — | — | — | — |
 | `findParentWithNumericalId` | `hypercites/utils` | — | — | read | — |
@@ -1257,6 +1264,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `syncHyperciteWithNodeImmediately` | `indexedDB/hypercites/syncHypercitesToPostgreSQL` | — | — | read | `↑route:/api/db/unified-sync` |
 | `initializeDatabaseModules` | `indexedDB/index` | — | — | — | — |
 | `updateDatabaseBookId` | `indexedDB/index` | — | — | — | — |
+| `collectAbsenceCandidates` | `indexedDB/nodes/absenceReconciler` | — | — | read/write | — |
+| `reconcileAbsences` | `indexedDB/nodes/absenceReconciler` | — | — | read | — |
+| `scheduleAbsenceReconciliation` | `indexedDB/nodes/absenceReconciler` | — | — | — | — |
 | `updateHyperciteRecords` | `indexedDB/nodes/annotationUpserts` | — | — | read | — |
 | `updateHyperlightRecords` | `indexedDB/nodes/annotationUpserts` | — | — | read | — |
 | `batchDeleteIndexedDBRecords` | `indexedDB/nodes/batch` | `hypercites` `hyperlights` `nodes` | `hypercites` `hyperlights` `nodes` | read | — |
@@ -1907,7 +1917,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 5 · lazy-loads (code-split): 285
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 295
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1915,8 +1925,8 @@ Only *static-import* rings can crash with a TDZ "Cannot access X before initiali
 These are acyclic *only* because a back-edge is deferred with `await import()`; the modules form one bidirectional tangle:
 - (2 modules) `components/homepage/homepageDisplayUnit`, `components/shelves/shelfHeader`
 - (2 modules) `components/utilities/containerManager`, `hyperlitContainer/core`
+- (10 modules) `hypercites/database`, `hypercites/deletion`, `indexedDB/index`, `indexedDB/nodes/absenceReconciler`, `indexedDB/nodes/batch`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
 - (3 modules) `hyperlitContainer/containerSwap`, `hyperlitContainer/highlightNav`, `hyperlitContainer/postOpen`
-- (6 modules) `indexedDB/index`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
 - (2 modules) `SPA/navigation/ProgressOverlayEnactor`, `SPA/navigation/RevealGate`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
@@ -1924,6 +1934,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
 - `components/utilities/containerManager` → `hyperlitContainer/core`
 - `hyperlitContainer/postOpen` → `hyperlitContainer/highlightNav`
+- `indexedDB/nodes/absenceReconciler` → `hypercites/deletion`
 - `indexedDB/syncQueue/selfConflictContentCheck` → `indexedDB/serverSync/pull`
 
 ### Lazy-loads (code-split points)
@@ -2033,8 +2044,13 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `divEditor/chunkMutationHandler/index` → `hypercites/database`
 - `divEditor/chunkMutationHandler/index` → `hypercites/deletion`
 - `divEditor/chunkMutationHandler/index` → `indexedDB/index`
+- `divEditor/cutHandler` → `hypercites/database`
+- `divEditor/cutHandler` → `hypercites/deletion`
+- `divEditor/cutHandler` → `hypercites/tombstone`
+- `divEditor/cutHandler` → `indexedDB/index`
 - `divEditor/domUtilities` → `hypercites/database`
 - `divEditor/domUtilities` → `hypercites/deletion`
+- `divEditor/domUtilities` → `hypercites/tombstone`
 - `divEditor/domUtilities` → `indexedDB/index`
 - `divEditor/imageDrop/insertImageFiles` → `editToolbar/index`
 - `divEditor/saveQueue/index` → `hyperlights/index`
@@ -2118,6 +2134,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/hypercites/helpers` → `indexedDB/hydration/rebuild`
 - `indexedDB/hypercites/helpers` → `indexedDB/nodes/read`
 - `indexedDB/hypercites/index` → `indexedDB/hydration/rebuild`
+- `indexedDB/nodes/absenceReconciler` → `divEditor/editorState`
+- `indexedDB/nodes/absenceReconciler` → `hypercites/tombstone`
+- `indexedDB/nodes/absenceReconciler` → `indexedDB/hydration/rebuild`
+- `indexedDB/nodes/absenceReconciler` → `indexedDB/hypercites/index`
+- `indexedDB/nodes/absenceReconciler` → `indexedDB/hypercites/read`
 - `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
 - `indexedDB/serverSync/flush` → `divEditor/index`
 - `indexedDB/serverSync/flush` → `footnotes/footnoteAnnotations`

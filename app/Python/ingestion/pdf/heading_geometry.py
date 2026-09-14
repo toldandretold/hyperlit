@@ -85,11 +85,23 @@ def collect_styled_lines(pdf_path):
 
         try:
             page.extract_text(visitor_text=visit)
+            mid = float(page.mediabox.width) / 2
         except Exception:
             continue
-        for x, y, text in lines_from_fragments(frags):
-            out.append({'page': page_idx, 'y': y, 'text': text.strip(),
-                        'style': _style_of(fonts.get((x, y)), sizes.get((x, y)))})
+        # Group by COLUMN as well as by line. A two-column journal page puts a right-column heading
+        # at the same y as left-column BODY text, and a y-only grouping concatenates the two into one
+        # "line" whose style is the body's — so the heading is not even a candidate (46c0fbb5 lost
+        # '2.2.' style headings this way, and its right-column sections stayed unnumbered). Splitting
+        # at the page midpoint costs nothing on a single-column page: a body line split in half is
+        # two body lines, and a heading split in half is re-joined by the wrap merge below (same y,
+        # same style).
+        left = [f for f in frags if f[0] < mid]
+        right = [f for f in frags if f[0] >= mid]
+        for column in (left, right):
+            for x, y, text in lines_from_fragments(column):
+                out.append({'page': page_idx, 'y': y, 'x': x, 'text': text.strip(),
+                            'style': _style_of(fonts.get((x, y)), sizes.get((x, y)))})
+    out.sort(key=lambda l: (l['page'], -l['y'], l['x']))
     return out
 
 
@@ -140,7 +152,12 @@ def detect_heading_lines(pdf_path):
                   if len(pages_per_text[norm(c['text'])]) < RUNNING_HEAD_PAGES]
 
     return {'body_style': list(body_style),
-            'lines': [{'page': c['page'], 'text': c['text'], 'style': list(c['style'])}
+            'lines': [{'page': c['page'], 'text': c['text'], 'style': list(c['style']),
+                       # bucketed x: the LEVEL rule treats only VISUALLY IDENTICAL headings as one
+                       # class, and a heading's indent is part of how it looks (a two-column layout
+                       # legitimately puts the same level at two x positions — two classes, each
+                       # normalised on its own).
+                       'x': round((c.get('x') or 0) / X_BUCKET)}
                       for c in candidates]}
 
 
@@ -159,93 +176,146 @@ _CHROME_LABEL_RE = re.compile(
     r'published version|doi|issn|isbn|keywords?|abstract)\b\s*:?')
 
 
-def recover_geometric_headings(md, heading_info):
-    """Restore dropped section NUMBERS on existing headings, and PROMOTE plain paragraphs the PDF
-    sets in a style this document uses for headings.
+def squash(text):
+    """`norm` with the spaces taken out. The PDF text layer glues tokens the markdown keeps apart —
+    a two-column layout concatenates the OTHER column onto the heading's line ("2.2.Discussion and
+    Debatehow the media operates. After a first phase of"), a column-break hyphenates the title
+    itself ("1.4.Classifying Types of Internet Activ-"), and a wrap fuses two words ("the
+    Economyto Political Order"). Spaces therefore carry no information in this comparison; the
+    alphanumeric SEQUENCE does."""
+    return re.sub(r'[^a-z0-9]', '', norm(text))
 
-    Returns (md, renumbered, promoted) where the two lists are '<text>' descriptions for logging.
-    Both repairs are gated on evidence from the SAME document: a style promotes only where the OCR
-    already marked at least one heading in that style, and a paragraph is only touched when the
-    PDF line matches it whole and UNIQUELY (the alignment discipline quote_geometry uses).
+
+def _common_prefix_len(a, b):
+    n = min(len(a), len(b))
+    i = 0
+    while i < n and a[i] == b[i]:
+        i += 1
+    return i
+
+
+# How much of the markdown side a PDF line must cover to be the same heading. Generous for an
+# EXISTING heading (the PDF line is routinely truncated at the column edge or hyphen-split);
+# near-total for a PROMOTION, where a weak match would invent structure.
+MATCH_SCORE_EXISTING = 0.6
+MATCH_SCORE_PROMOTION = 0.9
+MIN_MATCH_CHARS = 10
+# A style class must have at least this many unnumbered, non-title headings before its plurality
+# level is imposed on the outliers.
+MIN_LEVEL_CLASS = 5
+# Left-edge bucket (text-space units) for the level class key — absorbs sub-point jitter.
+X_BUCKET = 4.0
+
+
+def _best_match(line_text, items, min_score):
+    """The one entry in `items` [(idx, squashed_text)] this PDF line names, or None.
+
+    Scored on the common PREFIX of the two squashed strings — the glue and truncation above always
+    happen at the END of the heading, never the start. A clear winner is required: the runner-up
+    must cover strictly less, so "Information" and "Information: Key Concepts" never swap."""
+    scored = []
+    for idx, sq in items:
+        if not sq:
+            continue
+        lcp = _common_prefix_len(line_text, sq)
+        if lcp >= MIN_MATCH_CHARS and lcp / len(sq) >= min_score:
+            scored.append((lcp / len(sq), lcp, idx))
+    if not scored:
+        return None
+    scored.sort(reverse=True)
+    if len(scored) > 1 and scored[0][1] == scored[1][1]:
+        return None                             # tie on coverage — ambiguous, leave it alone
+    return scored[0][2]
+
+
+def recover_geometric_headings(md, heading_info):
+    """Restore dropped section NUMBERS, PROMOTE plain paragraphs the PDF sets in a heading style,
+    and NORMALISE levels within a style.
+
+    Returns (md, renumbered, promoted, relevelled) — lists of descriptions, for logging. Every
+    repair is gated on evidence from the SAME document: a style promotes only where the OCR already
+    marked a heading in that style, and a PDF line must name its markdown counterpart with a clear
+    prefix win (see `_best_match`).
     """
     lines = (heading_info or {}).get('lines') or []
     if not lines:
-        return md, [], []
+        return md, [], [], []
 
     paras = re.split(r'\n\s*\n', md)
-    # Normalised paragraph text → indices (uniqueness is the alignment gate).
-    by_norm = {}
-    for i, p in enumerate(paras):
-        by_norm.setdefault(norm(p.strip()), []).append(i)
-
-    # --- Learn: which styles does THIS document use for headings, and at what level? ---------
-    # A PDF candidate whose text matches an existing markdown heading (with or without its
-    # printed number) confirms that style, and hands us the level the OCR chose for it.
-    style_levels = {}                       # style tuple -> [(page, level)]
-    heading_paras = {}                      # para index -> (hashes, text)
+    heading_paras = {}                          # para index -> (hashes, text)
     for i, p in enumerate(paras):
         m = _MD_HEADING_RE.match(p.strip())
         if m and '\n' not in p.strip():
             heading_paras[i] = (m.group(1), m.group(2))
-    heading_by_norm = {}
-    for i, (_h, text) in heading_paras.items():
-        heading_by_norm.setdefault(norm(text), []).append(i)
+    # Both sides are compared NUMBER-STRIPPED: the markdown heading may already carry its number
+    # ("## 2. The Corporate Publishing Industry") while the PDF line's number is stripped to find
+    # the title, and a leading digit at position 0 destroys the prefix score outright.
+    heading_items = [(i, squash(_LEADING_NUMBER_RE.sub('', text, count=1)))
+                     for i, (_h, text) in heading_paras.items()]
+    title_idx = min(heading_paras) if heading_paras else None
 
-    matched_pdf = set()
-    renumber = []                           # (para_idx, number, pdf_text)
-    for li, line in enumerate(lines):
-        key = norm(line['text'])
-        stripped_key = norm(_LEADING_NUMBER_RE.sub('', line['text'], count=1))
-        hit = heading_by_norm.get(key) or heading_by_norm.get(stripped_key)
-        if not hit or len(hit) != 1:
+    promotable_items = []
+    for i, p in enumerate(paras):
+        t = p.strip()
+        if (not t or '\n' in t or t.startswith(_NOT_A_HEADING_PARA) or len(t) > MAX_HEADING_CHARS
+                or i in heading_paras or i < FRONT_MATTER_PARAS or _CHROME_LABEL_RE.match(t)):
             continue
-        idx = hit[0]
-        matched_pdf.add(li)
+        promotable_items.append((i, squash(_LEADING_NUMBER_RE.sub('', t, count=1))))
+
+    # --- Learn: which styles does THIS document use for headings, and at what level? ---------
+    style_levels = {}                           # style -> [(page, level)]
+    matched_style = {}                          # para index -> style
+    matched_lines = set()
+    renumber = []                               # (para_idx, number)
+    for li, line in enumerate(lines):
+        num_m = _LEADING_NUMBER_RE.match(line['text'])
+        rest = squash(_LEADING_NUMBER_RE.sub('', line['text'], count=1))
+        idx = _best_match(rest, heading_items, MATCH_SCORE_EXISTING)
+        if idx is None:
+            continue
+        matched_lines.add(li)
         hashes, text = heading_paras[idx]
-        style_levels.setdefault(tuple(line['style']), []).append((line['page'], len(hashes)))
-        # The printed number the markdown heading lacks.
-        num = _LEADING_NUMBER_RE.match(line['text'])
-        if num and key != norm(text) and not _LEADING_NUMBER_RE.match(text):
-            renumber.append((idx, num.group(1), text))
+        style = tuple(line['style'])
+        style_levels.setdefault(style, []).append((line['page'], len(hashes)))
+        # The LEVEL class is narrower than the promotion class: same font AND same left edge, i.e.
+        # headings that look EXACTLY alike. Nothing in the print distinguishes them, so nothing but
+        # Mistral's guess distinguishes their markdown levels.
+        matched_style.setdefault(idx, style + (line.get('x', 0),))
+        if num_m and not _LEADING_NUMBER_RE.match(text):
+            renumber.append((idx, num_m.group(1)))
 
     renumbered = []
-    for idx, number, text in renumber:
-        hashes, _t = heading_paras[idx]
+    for idx, number in renumber:
+        hashes, text = heading_paras[idx]
         number = number if number.endswith(('.', ')')) else number + '.'
         paras[idx] = f'{hashes} {number} {text}'
+        heading_paras[idx] = (hashes, f'{number} {text}')
         renumbered.append(f'{number} {text}')
 
     # --- Promote: a plain paragraph set in a confirmed heading style ------------------------
     promoted = []
     for li, line in enumerate(lines):
-        if li in matched_pdf:
+        if li in matched_lines:
             continue
         style = tuple(line['style'])
         seen = style_levels.get(style)
         if not seen:
-            continue                        # unconfirmed style — never guess
-        # Match on the line as printed, then on the line minus its section number: a heading the
-        # OCR dropped BOTH the mark and the number from ("3.The Policy and Industry Perspective:
-        # Gold Open Access as New Business Model" — ffbb3ac7) is a plain paragraph carrying only
-        # the title, so the numbered key can never match it. Restore the number with the mark.
+            continue                            # unconfirmed style — never guess
+        # Try the line as printed, then minus its section number: a heading the OCR dropped BOTH the
+        # mark and the number from ("3.The Policy and Industry Perspective: Gold Open Access as New
+        # Business Model" — ffbb3ac7) is a plain paragraph carrying only the title.
         num_m = _LEADING_NUMBER_RE.match(line['text'])
-        keys = [(norm(line['text']), None)]
-        if num_m:
-            keys.append((norm(_LEADING_NUMBER_RE.sub('', line['text'], count=1)), num_m.group(1)))
-        hit = number = None
-        for key, number in keys:
-            candidate = by_norm.get(key)
-            if candidate and len(candidate) == 1:
-                hit = candidate
+        attempts = [(squash(_LEADING_NUMBER_RE.sub('', line['text'], count=1)),
+                     num_m.group(1) if num_m else None)]
+        idx = number = None
+        for sq, num in attempts:
+            idx = _best_match(sq, promotable_items, MATCH_SCORE_PROMOTION)
+            if idx is not None:
+                number = num
                 break
-        if not hit:
-            continue                        # absent, or ambiguous — leave it alone
-        idx = hit[0]
-        para = paras[idx].strip()
-        if (not para or '\n' in para or para.startswith(_NOT_A_HEADING_PARA)
-                or len(para) > MAX_HEADING_CHARS or idx in heading_paras
-                or idx < FRONT_MATTER_PARAS or _CHROME_LABEL_RE.match(para)):
+        if idx is None:
             continue
+        para = paras[idx].strip()
         # Level: the nearest confirmed heading of the SAME style, by page — locality tracks the
         # document's own nesting better than a document-wide majority.
         level = min(seen, key=lambda pl: (abs(pl[0] - line['page']), pl[0]))[1]
@@ -253,8 +323,45 @@ def recover_geometric_headings(md, heading_info):
             number = number if number.endswith(('.', ')')) else number + '.'
             para = f'{number} {para}'
         paras[idx] = '#' * level + ' ' + para
+        heading_paras[idx] = ('#' * level, para)
+        matched_style[idx] = style + (line.get('x', 0),)
+        promotable_items = [(i, sq) for i, sq in promotable_items if i != idx]
         promoted.append(para)
 
-    if not renumbered and not promoted:
-        return md, [], []
-    return '\n\n'.join(paras), renumbered, promoted
+    # --- Normalise LEVELS within a type style ----------------------------------------------
+    # Headings that are typographically IDENTICAL are the same level. Mistral assigns levels by
+    # guesswork: 5fc4aad4 sets every section in ONE style (Arial-BoldMT) and got #, ## and ###
+    # scattered at random, so a mid-article section rendered as big as the document title ("why this
+    # one big? in original same size as others"). Within a style class the PLURALITY level wins.
+    # Exempt: the document title (the first heading — its style is often shared with References/About
+    # the Author, and it must stay h1) and any NUMBERED heading (its number carries the level, and
+    # _level_numbered_headings applies that afterwards). Needs a real class: >= MIN_LEVEL_CLASS
+    # members and a strict majority, so a document with genuine same-style nesting is left alone.
+    relevelled = []
+    by_style = {}
+    for idx, style in matched_style.items():
+        if idx == title_idx:
+            continue
+        hashes, text = heading_paras[idx]
+        if _LEADING_NUMBER_RE.match(text):
+            continue
+        by_style.setdefault(style, []).append((idx, len(hashes)))
+    for style, members in by_style.items():
+        if len(members) < MIN_LEVEL_CLASS:
+            continue
+        counts = Counter(level for _i, level in members).most_common()
+        level, n = counts[0]
+        runner_up = counts[1][1] if len(counts) > 1 else 0
+        if n <= runner_up or n < len(members) * 0.4:
+            continue                            # no clear plurality — leave the class alone
+        for idx, was in members:
+            if was == level:
+                continue
+            hashes, text = heading_paras[idx]
+            paras[idx] = '#' * level + ' ' + text
+            heading_paras[idx] = ('#' * level, text)
+            relevelled.append((text, was, level))
+
+    if not (renumbered or promoted or relevelled):
+        return md, [], [], []
+    return '\n\n'.join(paras), renumbered, promoted, relevelled

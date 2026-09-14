@@ -20,6 +20,7 @@ import { parseHyperciteHref, attachUnderlineClickListeners, delinkHypercite, res
 import { getEditToolbar } from '../../editToolbar/index';
 import { getTextOffsetInElement } from '../../editToolbar/toolbarDOMUtils';
 import { determineRelationshipStatus, isHyperciteId } from '../../hypercites/utils';
+import { reconcileCitedINForCitingBook } from '../../hypercites/reconciliation';
 import { broadcastToOpenTabs } from '../../utilities/BroadcastListener';
 import {
   setHandleHypercitePaste
@@ -137,21 +138,29 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
   const sourceUTags = pasteWrapper.querySelectorAll('u[id^="hypercite_"]');
   if (sourceUTags.length > 0) {
     const restorations: any[] = [];
+    const booka = targetBookId || getActiveBook();
     for (const uTag of sourceUTags) {
       const hyperciteId = uTag.id;
-      // Only restore if a tombstone exists for this ID in the current DOM.
-      // Tombstone = this was a cut (not a copy from another book).
-      const tombstone = document.getElementById(hyperciteId);
-      if (tombstone && tombstone.classList.contains('hypercite-tombstone')) {
-        restorations.push({ hyperciteId, uTag, tombstone });
+      // Restore when a tombstone with this ID exists in the current DOM
+      // (tombstone = this was a cut, not a copy from another book) — OR when
+      // this book OWNS the record but the id is gone from the DOM entirely:
+      // a cut whose tombstone was lost (dropped mutation batch / muted
+      // observer). A <u> copied from a DIFFERENT book has no record under
+      // this book's key and still falls through to the generic paste path.
+      const existingEl = document.getElementById(hyperciteId);
+      if (existingEl && existingEl.classList.contains('hypercite-tombstone')) {
+        restorations.push({ hyperciteId, uTag, tombstone: existingEl });
+      } else if (!existingEl) {
+        const orphanRecord = await getHyperciteFromIndexedDB(booka, hyperciteId);
+        if (orphanRecord) {
+          restorations.push({ hyperciteId, uTag, tombstone: null });
+        }
       }
     }
 
     if (restorations.length > 0) {
       event.preventDefault();
       setHandleHypercitePaste(true); // suppress mutation observer
-
-      const booka = targetBookId || getActiveBook();
 
       try {
         for (const { hyperciteId, uTag, tombstone } of restorations) {
@@ -162,10 +171,12 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
           const citedCount = Array.isArray(hypercite.citedIN) ? hypercite.citedIN.length : 0;
           const restoredStatus = determineRelationshipStatus(citedCount);
 
-          // 2. Remove tombstone, queue old parent for save
-          const oldParent = tombstone.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
-          tombstone.remove();
-          if (oldParent?.id) queueNodeForSave(oldParent.id, 'update');
+          // 2. Remove tombstone (when one exists), queue old parent for save
+          if (tombstone) {
+            const oldParent = tombstone.closest('p, h1, h2, h3, h4, h5, h6, div, blockquote');
+            tombstone.remove();
+            if (oldParent?.id) queueNodeForSave(oldParent.id, 'update');
+          }
 
           // 3. Fix class on the <u> tag we're about to insert
           uTag.className = restoredStatus;
@@ -531,6 +542,11 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
         const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
         try {
+          // Prune any DEAD citedIN entry for this book (an anchor that was cut
+          // but whose delink was lost) BEFORE appending the fresh one — this is
+          // what prevents the "two citations, one red" duplicate.
+          await reconcileCitedINForCitingBook(booka, hyperciteIDa, bookb);
+
           const updateResult = await updateCitationForExistingHypercite(
             booka,
             hyperciteIDa,
@@ -594,6 +610,11 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
         const { booka, hyperciteIDa, citationIDb, citationIDa } = task;
 
         try {
+          // Prune dead citedIN entries for this book before appending (see the
+          // single-hypercite branch above) — the fetch below must see the
+          // already-reconciled record.
+          await reconcileCitedINForCitingBook(booka, hyperciteIDa, bookb);
+
           // ✅ NEW SYSTEM: Update only the normalized hypercites table
           const existingHypercite = await getHyperciteFromIndexedDB(booka, hyperciteIDa);
           if (!existingHypercite) {

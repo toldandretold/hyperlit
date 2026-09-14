@@ -82,7 +82,6 @@ import {
 } from './chunkManager';
 import { isPasteOperationActive } from '../paste/pasteState';
 import { isChunkLoadingInProgress, getLoadingChunkId } from '../lazyLoader/utilities/chunkLoadingState';
-import { delinkHypercite, handleHyperciteDeletion } from "../hypercites/index";
 import { initSelectionFocusTracker } from './selectionFocusTracker';
 
 // ================================================================

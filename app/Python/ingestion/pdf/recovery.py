@@ -97,10 +97,15 @@ _APPARATUS_DEF_RE = re.compile(
     r'quoted|cited|translated|trans)\b[.,]?\s.{2,})', re.IGNORECASE)
 
 
-# A page-bottom note the text layer glued to the end of another line: a 3-plus-space run (the
-# footnote rule), the note number, then a URL. Captured to the end of the line or the next big gap.
-_GAP_URL_DEF_RE = re.compile(r'(?:^|\s{3,})(\d{1,3})[ \t]((?:https?://|www\.)\S+[^\n]*?)(?=\s{3,}|$)',
-                             re.MULTILINE)
+# A page-bottom note the text layer glued to the end of ANOTHER line: a 3-plus-space run (the
+# footnote rule), the note number, then the note. Captured to the end of the line or the next big
+# gap. The text must open like a definition (capital / quote / paren / URL — the same vocabulary the
+# line-anchored scan uses) and run at least MIN_GAP_DEF_CHARS, because a stray "…   12 Value" in a
+# table row is the shape to avoid; recovery only ever injects for an ORPHANED marker anyway.
+MIN_GAP_DEF_CHARS = 25
+_GAP_DEF_RE = re.compile(
+    r'(?:^|\s{3,})(\d{1,3})[ \t]((?:[A-Z"\'(“‘]|' + DEF_URL_OPENER + r')[^\n]*?)(?=\s{3,}|$)',
+    re.MULTILINE)
 
 
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
@@ -213,12 +218,13 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
         # the text layer carried each one. A number + URL after a 3-space run is not something else:
         # prose does not indent like that, and recovery only injects for an ORPHANED marker anyway.
         found = {n for n, _t in defs}
-        for m in _GAP_URL_DEF_RE.finditer(text):
+        for m in _GAP_DEF_RE.finditer(text):
             num = int(m.group(1))
-            if num in found or num > 500:
+            body = re.sub(r'\s+', ' ', m.group(2)).strip()
+            if num in found or num > 500 or len(body) < MIN_GAP_DEF_CHARS:
                 continue
             found.add(num)
-            defs.append((num, re.sub(r'\s+', ' ', m.group(2)).strip()))
+            defs.append((num, body))
 
         if defs:
             result[page_idx] = defs

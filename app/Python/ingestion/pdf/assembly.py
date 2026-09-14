@@ -1671,12 +1671,26 @@ _QUOTE_CITE_ASIDE_RE = re.compile(
 _QUOTE_DQUOTE_SPAN_RE = re.compile(r'[“"][^”"]{2,}?[”"]')
 
 
+# The period before the citation must END A SENTENCE, not close an ABBREVIATION. "…promoted in the
+# Marx-inspired work of Radovan Richta et al. (1969)." is an ordinary body sentence whose inline
+# citation happens to follow "et al." — read as a block-quote attribution, it wrapped a 1122-char
+# body paragraph as a quotation (cc796552, the maintainer's "FALSE blockquote"). Initials count too
+# ("…as J. R. R. (1954) wrote").
+_ABBREV_BEFORE_CITE_RE = re.compile(
+    r"(?i)(?:\b(?:al|ibid|id|ed|eds|esp|cf|etc|vol|vols|no|nos|pp|p|ff|trans|repr|orig|op|loc|"
+    r"jr|sr|st|inc|ltd|co|corp|univ|ch|chap|fig|figs|tab|sec|art|para|n|e\.g|i\.e|viz)\.|"
+    r"(?<![A-Za-z])[A-Z]\.)[\"'’”]?\s*$")
+
+
 def _quote_cite_terminal(s):
     """The paragraph ends in a standalone parenthetical citation (year or page ref inside,
-    not a '(see also …)' aside, not a full parenthesized sentence ending in its own period)."""
+    not a '(see also …)' aside, not a full parenthesized sentence ending in its own period),
+    and the sentence punctuation in front of it is a real sentence end."""
     m = _QUOTE_CITE_TERMINAL_RE.search(s)
     if not m:
         return False
+    if _ABBREV_BEFORE_CITE_RE.search(s[:m.start() + 1]):
+        return False                       # an abbreviation dot, not a sentence end
     cite = m.group(1).strip()
     return (len(cite) <= 120
             and _QUOTE_CITE_YEARISH_RE.search(cite) is not None
@@ -2599,7 +2613,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         if head_info is None and pdf_path:
             head_info = detect_heading_lines(str(pdf_path))
         if head_info:
-            combined, _renum, _promoted = recover_geometric_headings(combined, head_info)
+            combined, _renum, _promoted, _relevel = recover_geometric_headings(combined, head_info)
             if _renum:
                 print(f"  Geometry headings: restored {len(_renum)} printed section number(s) the "
                       f"OCR dropped: " + ', '.join(f'"{t}"' for t in _renum[:5])
@@ -2608,6 +2622,11 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 print(f"  Geometry headings: promoted {len(_promoted)} paragraph(s) the PDF sets in "
                       f"a heading style: " + ', '.join(f'"{t[:60]}"' for t in _promoted[:5])
                       + (' …' if len(_promoted) > 5 else ''))
+            if _relevel:
+                print(f"  Geometry headings: re-levelled {len(_relevel)} heading(s) to match the level "
+                      f"their type style carries elsewhere: "
+                      + ', '.join(f'"{t[:44]}" h{was}→h{now}' for t, was, now in _relevel[:5])
+                      + (' …' if len(_relevel) > 5 else ''))
     except Exception as e:
         print(f"  Geometry heading pass skipped ({e.__class__.__name__})")
     # A boxed side-section dropped mid-sentence by the print layout → rejoin the sentence and

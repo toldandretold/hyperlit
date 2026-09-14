@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1894,
-    "moduleCount": 399,
+    "fnCount": 1904,
+    "moduleCount": 404,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3870,
+    "edgeCount": 3916,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6465,6 +6465,30 @@
       "leaf": false
     },
     {
+      "id": "divEditor/cutHandler:finalizeCut",
+      "label": "finalizeCut",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/cutHandler",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/cutHandler:handleCutEvent",
+      "label": "handleCutEvent",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/cutHandler",
+      "leaf": true
+    },
+    {
+      "id": "divEditor/cutHandler:snapshotCutSelection",
+      "label": "snapshotCutSelection",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/cutHandler",
+      "leaf": false
+    },
+    {
       "id": "divEditor/domUtilities:cleanupAfterImport",
       "label": "cleanupAfterImport",
       "kind": "fn",
@@ -7033,14 +7057,6 @@
       "leaf": false
     },
     {
-      "id": "divEditor/selectionDelete:SelectionDeletionHandler._rangeIntersectsNode",
-      "label": "SelectionDeletionHandler._rangeIntersectsNode",
-      "kind": "fn",
-      "stage": "divEditor",
-      "module": "divEditor/selectionDelete",
-      "leaf": false
-    },
-    {
       "id": "divEditor/selectionDelete:SelectionDeletionHandler.batchDeleteFromIndexedDB",
       "label": "SelectionDeletionHandler.batchDeleteFromIndexedDB",
       "kind": "fn",
@@ -7159,6 +7175,22 @@
       "stage": "divEditor",
       "module": "divEditor/selectionFocusTracker",
       "leaf": true
+    },
+    {
+      "id": "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "label": "findSpecialElementsInRange",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/selectionSpecialElements",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/selectionSpecialElements:rangeIntersectsNode",
+      "label": "rangeIntersectsNode",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/selectionSpecialElements",
+      "leaf": false
     },
     {
       "id": "divEditor/supTagHandler/arrowHandler:hyperciteArrowHandler",
@@ -9001,14 +9033,6 @@
       "leaf": false
     },
     {
-      "id": "hypercites/deletion:handleHyperciteDeletion",
-      "label": "handleHyperciteDeletion",
-      "kind": "fn",
-      "stage": "hypercites",
-      "module": "hypercites/deletion",
-      "leaf": true
-    },
-    {
       "id": "hypercites/deletion:markHyperciteAsGhost",
       "label": "markHyperciteAsGhost",
       "kind": "fn",
@@ -9094,6 +9118,38 @@
       "kind": "fn",
       "stage": "hypercites",
       "module": "hypercites/navigation",
+      "leaf": false
+    },
+    {
+      "id": "hypercites/reconciliation:isCitingAnchorAlive",
+      "label": "isCitingAnchorAlive",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/reconciliation",
+      "leaf": false
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "label": "reconcileCitedINForCitingBook",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/reconciliation",
+      "leaf": true
+    },
+    {
+      "id": "hypercites/tombstone:createTombstoneElement",
+      "label": "createTombstoneElement",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/tombstone",
+      "leaf": false
+    },
+    {
+      "id": "hypercites/tombstone:insertTombstone",
+      "label": "insertTombstone",
+      "kind": "fn",
+      "stage": "hypercites",
+      "module": "hypercites/tombstone",
       "leaf": false
     },
     {
@@ -11430,6 +11486,30 @@
       "kind": "fn",
       "stage": "infra",
       "module": "indexedDB/index",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "label": "collectAbsenceCandidates",
+      "kind": "fn",
+      "stage": "capture",
+      "module": "indexedDB/nodes/absenceReconciler",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "label": "reconcileAbsences",
+      "kind": "fn",
+      "stage": "capture",
+      "module": "indexedDB/nodes/absenceReconciler",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation",
+      "label": "scheduleAbsenceReconciliation",
+      "kind": "fn",
+      "stage": "capture",
+      "module": "indexedDB/nodes/absenceReconciler",
       "leaf": true
     },
     {
@@ -18705,6 +18785,17 @@
       ]
     },
     {
+      "id": "divEditor/cutHandler",
+      "label": "divEditor/cutHandler",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/cutHandler:finalizeCut",
+        "divEditor/cutHandler:handleCutEvent",
+        "divEditor/cutHandler:snapshotCutSelection"
+      ]
+    },
+    {
       "id": "divEditor/domUtilities",
       "label": "divEditor/domUtilities",
       "stage": "divEditor",
@@ -18909,7 +19000,6 @@
       "band": "capture",
       "fnIds": [
         "divEditor/selectionDelete:SelectionDeletionHandler._handleSpecialElementDeletion",
-        "divEditor/selectionDelete:SelectionDeletionHandler._rangeIntersectsNode",
         "divEditor/selectionDelete:SelectionDeletionHandler.batchDeleteFromIndexedDB",
         "divEditor/selectionDelete:SelectionDeletionHandler.captureSelectionForDeletion",
         "divEditor/selectionDelete:SelectionDeletionHandler.checkAndUnwrapLinks",
@@ -18933,6 +19023,16 @@
         "divEditor/selectionFocusTracker:initSelectionFocusTracker",
         "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
         "divEditor/selectionFocusTracker:updateChunkFocus"
+      ]
+    },
+    {
+      "id": "divEditor/selectionSpecialElements",
+      "label": "divEditor/selectionSpecialElements",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+        "divEditor/selectionSpecialElements:rangeIntersectsNode"
       ]
     },
     {
@@ -19426,7 +19526,6 @@
       "band": "capture",
       "fnIds": [
         "hypercites/deletion:delinkHypercite",
-        "hypercites/deletion:handleHyperciteDeletion",
         "hypercites/deletion:markHyperciteAsGhost",
         "hypercites/deletion:removeSpecificCitations"
       ]
@@ -19470,6 +19569,26 @@
         "hypercites/navigation:handleUnderlineClick",
         "hypercites/navigation:navigateToFootnoteTarget",
         "hypercites/navigation:navigateToHyperciteTarget"
+      ]
+    },
+    {
+      "id": "hypercites/reconciliation",
+      "label": "hypercites/reconciliation",
+      "stage": "hypercites",
+      "band": "capture",
+      "fnIds": [
+        "hypercites/reconciliation:isCitingAnchorAlive",
+        "hypercites/reconciliation:reconcileCitedINForCitingBook"
+      ]
+    },
+    {
+      "id": "hypercites/tombstone",
+      "label": "hypercites/tombstone",
+      "stage": "hypercites",
+      "band": "capture",
+      "fnIds": [
+        "hypercites/tombstone:createTombstoneElement",
+        "hypercites/tombstone:insertTombstone"
       ]
     },
     {
@@ -20295,6 +20414,17 @@
       "fnIds": [
         "indexedDB/index:initializeDatabaseModules",
         "indexedDB/index:updateDatabaseBookId"
+      ]
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler",
+      "label": "indexedDB/nodes/absenceReconciler",
+      "stage": "capture",
+      "band": "capture",
+      "fnIds": [
+        "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+        "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+        "indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation"
       ]
     },
     {
@@ -27776,6 +27906,77 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/cutHandler:finalizeCut__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__hypercites/database:getHyperciteById",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "hypercites/database:getHyperciteById",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__hypercites/deletion:delinkHypercite",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "hypercites/deletion:delinkHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__hypercites/deletion:markHyperciteAsGhost",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "hypercites/deletion:markHyperciteAsGhost",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__hypercites/tombstone:insertTombstone",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "hypercites/tombstone:insertTombstone",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__hypercites/utils:findParentWithNumericalId",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "hypercites/utils:findParentWithNumericalId",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/cutHandler:finalizeCut__call__indexedDB/core/connection:openDatabase",
+      "source": "divEditor/cutHandler:finalizeCut",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/cutHandler:handleCutEvent__call__divEditor/cutHandler:finalizeCut",
+      "source": "divEditor/cutHandler:handleCutEvent",
+      "target": "divEditor/cutHandler:finalizeCut",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "divEditor/cutHandler:handleCutEvent__call__divEditor/cutHandler:snapshotCutSelection",
+      "source": "divEditor/cutHandler:handleCutEvent",
+      "target": "divEditor/cutHandler:snapshotCutSelection",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/cutHandler:snapshotCutSelection__call__divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "source": "divEditor/cutHandler:snapshotCutSelection",
+      "target": "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/cutHandler:snapshotCutSelection__call__hypercites/utils:findParentWithNumericalId",
+      "source": "divEditor/cutHandler:snapshotCutSelection",
+      "target": "hypercites/utils:findParentWithNumericalId",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/domUtilities:cleanupAfterImport__call__divEditor/domUtilities:cleanupStyledSpans",
       "source": "divEditor/domUtilities:cleanupAfterImport",
       "target": "divEditor/domUtilities:cleanupStyledSpans",
@@ -27849,6 +28050,18 @@
       "target": "hypercites/deletion:markHyperciteAsGhost",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/tombstone:createTombstoneElement",
+      "source": "divEditor/domUtilities:handleHyperciteRemoval",
+      "target": "hypercites/tombstone:createTombstoneElement",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/domUtilities:handleHyperciteRemoval__call__hypercites/tombstone:insertTombstone",
+      "source": "divEditor/domUtilities:handleHyperciteRemoval",
+      "target": "hypercites/tombstone:insertTombstone",
+      "rel": "call"
     },
     {
       "id": "divEditor/domUtilities:handleHyperciteRemoval__call__indexedDB/core/connection:openDatabase",
@@ -28366,10 +28579,23 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/selectionDelete:SelectionDeletionHandler.checkForSpecialElements__call__divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "source": "divEditor/selectionDelete:SelectionDeletionHandler.checkForSpecialElements",
+      "target": "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "rel": "call"
+    },
+    {
       "id": "divEditor/selectionDelete:SelectionDeletionHandler.deleteNodes__domwrite__dom",
       "source": "divEditor/selectionDelete:SelectionDeletionHandler.deleteNodes",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/selectionDelete:SelectionDeletionHandler.setupListeners__call__divEditor/cutHandler:handleCutEvent",
+      "source": "divEditor/selectionDelete:SelectionDeletionHandler.setupListeners",
+      "target": "divEditor/cutHandler:handleCutEvent",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "divEditor/selectionFocusTracker:initSelectionFocusTracker__call__divEditor/editSessionManager:isEventInActiveDiv",
@@ -28387,6 +28613,12 @@
       "id": "divEditor/selectionFocusTracker:updateChunkFocus__call__editToolbar/index:getEditToolbar",
       "source": "divEditor/selectionFocusTracker:updateChunkFocus",
       "target": "editToolbar/index:getEditToolbar",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/selectionSpecialElements:findSpecialElementsInRange__call__divEditor/selectionSpecialElements:rangeIntersectsNode",
+      "source": "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "target": "divEditor/selectionSpecialElements:rangeIntersectsNode",
       "rel": "call"
     },
     {
@@ -29874,6 +30106,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/cutHandler:finalizeCut",
+      "source": "dom",
+      "target": "divEditor/cutHandler:finalizeCut",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/cutHandler:snapshotCutSelection",
+      "source": "dom",
+      "target": "divEditor/cutHandler:snapshotCutSelection",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/domUtilities:cleanupStyledSpans",
       "source": "dom",
       "target": "divEditor/domUtilities:cleanupStyledSpans",
@@ -30042,12 +30286,6 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__divEditor/selectionDelete:SelectionDeletionHandler._rangeIntersectsNode",
-      "source": "dom",
-      "target": "divEditor/selectionDelete:SelectionDeletionHandler._rangeIntersectsNode",
-      "rel": "domread"
-    },
-    {
       "id": "dom__domread__divEditor/selectionDelete:SelectionDeletionHandler.captureSelectionForDeletion",
       "source": "dom",
       "target": "divEditor/selectionDelete:SelectionDeletionHandler.captureSelectionForDeletion",
@@ -30099,6 +30337,18 @@
       "id": "dom__domread__divEditor/selectionFocusTracker:rescueCaretFromSentinel",
       "source": "dom",
       "target": "divEditor/selectionFocusTracker:rescueCaretFromSentinel",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "source": "dom",
+      "target": "divEditor/selectionSpecialElements:findSpecialElementsInRange",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/selectionSpecialElements:rangeIntersectsNode",
+      "source": "dom",
+      "target": "divEditor/selectionSpecialElements:rangeIntersectsNode",
       "rel": "domread"
     },
     {
@@ -30708,6 +30958,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hypercites/reconciliation:isCitingAnchorAlive",
+      "source": "dom",
+      "target": "hypercites/reconciliation:isCitingAnchorAlive",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hypercites/tombstone:insertTombstone",
+      "source": "dom",
+      "target": "hypercites/tombstone:insertTombstone",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hypercites/utils:findParentWithNumericalId",
       "source": "dom",
       "target": "hypercites/utils:findParentWithNumericalId",
@@ -31299,6 +31561,18 @@
       "id": "dom__domread__indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
       "source": "dom",
       "target": "indexedDB/hypercites/syncHypercitesToPostgreSQL:syncHyperciteWithNodeImmediately",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "source": "dom",
+      "target": "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "source": "dom",
+      "target": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
       "rel": "domread"
     },
     {
@@ -33897,13 +34171,6 @@
       "rel": "write"
     },
     {
-      "id": "hypercites/deletion:handleHyperciteDeletion__call__hypercites/deletion:delinkHypercite",
-      "source": "hypercites/deletion:handleHyperciteDeletion",
-      "target": "hypercites/deletion:delinkHypercite",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
       "id": "hypercites/deletion:markHyperciteAsGhost__call__hypercites/database:getHyperciteById",
       "source": "hypercites/deletion:markHyperciteAsGhost",
       "target": "hypercites/database:getHyperciteById",
@@ -34178,6 +34445,85 @@
       "source": "hypercites/navigation:navigateToHyperciteTarget",
       "target": "store:sessionStorage",
       "rel": "write"
+    },
+    {
+      "id": "hypercites/reconciliation:isCitingAnchorAlive__call__indexedDB/footnotes/index:getAllFootnotesForBook",
+      "source": "hypercites/reconciliation:isCitingAnchorAlive",
+      "target": "indexedDB/footnotes/index:getAllFootnotesForBook",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:isCitingAnchorAlive__call__indexedDB/nodes/read:getNodesFromIndexedDB",
+      "source": "hypercites/reconciliation:isCitingAnchorAlive",
+      "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__hypercites/reconciliation:isCitingAnchorAlive",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "hypercites/reconciliation:isCitingAnchorAlive",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__hypercites/utils:determineRelationshipStatus",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "hypercites/utils:determineRelationshipStatus",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__hypercites/utils:parseHyperciteHref",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "hypercites/utils:parseHyperciteHref",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/reconciliation:reconcileCitedINForCitingBook__call__indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "source": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hypercites/tombstone:createTombstoneElement__domwrite__dom",
+      "source": "hypercites/tombstone:createTombstoneElement",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hypercites/tombstone:insertTombstone__call__hypercites/tombstone:createTombstoneElement",
+      "source": "hypercites/tombstone:insertTombstone",
+      "target": "hypercites/tombstone:createTombstoneElement",
+      "rel": "call"
+    },
+    {
+      "id": "hypercites/tombstone:insertTombstone__domwrite__dom",
+      "source": "hypercites/tombstone:insertTombstone",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "hyperlights/annotationPaste:addHighlightContainerPasteListener__call__hyperlights/annotationPaste:handleHighlightContainerPaste",
@@ -38217,6 +38563,66 @@
       "rel": "call"
     },
     {
+      "id": "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates__domwrite__dom",
+      "source": "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__divEditor/editorState:queueNodeForSave",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__hypercites/deletion:delinkHypercite",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "hypercites/deletion:delinkHypercite",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__hypercites/tombstone:insertTombstone",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "hypercites/tombstone:insertTombstone",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "indexedDB/hypercites/index:updateHyperciteInIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:reconcileAbsences__call__indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "source": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "target": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation__call__indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "source": "indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation",
+      "target": "indexedDB/nodes/absenceReconciler:reconcileAbsences",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/nodes/batch:batchDeleteIndexedDBRecords",
       "target": "indexedDB/core/connection:openDatabase",
@@ -38325,6 +38731,19 @@
       "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/hydration/rebuild:rebuildNodeArrays",
       "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
       "target": "indexedDB/hydration/rebuild:rebuildNodeArrays",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/nodes/absenceReconciler:collectAbsenceCandidates",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords__call__indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation",
+      "source": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "target": "indexedDB/nodes/absenceReconciler:scheduleAbsenceReconciliation",
       "rel": "call",
       "dataPath": true
     },
@@ -41400,6 +41819,13 @@
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
       "target": "hypercites/marking:restampHyperciteStatusInDOM",
       "rel": "call"
+    },
+    {
+      "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
+      "target": "hypercites/reconciliation:reconcileCitedINForCitingBook",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__hypercites/utils:determineRelationshipStatus",
@@ -48515,6 +48941,41 @@
       "kind": "lazy"
     },
     {
+      "source": "divEditor/cutHandler",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "divEditor/selectionSpecialElements",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "hypercites/utils",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "hypercites/database",
+      "kind": "lazy"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "hypercites/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "hypercites/tombstone",
+      "kind": "lazy"
+    },
+    {
+      "source": "divEditor/cutHandler",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
       "source": "divEditor/domUtilities",
       "target": "divEditor/chunkManager",
       "kind": "static"
@@ -48537,6 +48998,11 @@
     {
       "source": "divEditor/domUtilities",
       "target": "hypercites/deletion",
+      "kind": "lazy"
+    },
+    {
+      "source": "divEditor/domUtilities",
+      "target": "hypercites/tombstone",
       "kind": "lazy"
     },
     {
@@ -48753,6 +49219,16 @@
       "source": "divEditor/saveQueue/index",
       "target": "hyperlights/index",
       "kind": "lazy"
+    },
+    {
+      "source": "divEditor/selectionDelete",
+      "target": "divEditor/cutHandler",
+      "kind": "static"
+    },
+    {
+      "source": "divEditor/selectionDelete",
+      "target": "divEditor/selectionSpecialElements",
+      "kind": "static"
     },
     {
       "source": "divEditor/selectionDelete",
@@ -49207,6 +49683,21 @@
     {
       "source": "hypercites/navigation",
       "target": "scrolling/paginator",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/reconciliation",
+      "target": "hypercites/utils",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/reconciliation",
+      "target": "indexedDB/footnotes/index",
+      "kind": "static"
+    },
+    {
+      "source": "hypercites/reconciliation",
+      "target": "indexedDB/index",
       "kind": "static"
     },
     {
@@ -50600,6 +51091,36 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "divEditor/editorState",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "hypercites/deletion",
+      "kind": "breaker"
+    },
+    {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "hypercites/tombstone",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "indexedDB/hypercites/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/nodes/absenceReconciler",
+      "target": "indexedDB/hypercites/read",
+      "kind": "lazy"
+    },
+    {
       "source": "indexedDB/nodes/batch",
       "target": "indexedDB/core/connection",
       "kind": "static"
@@ -50617,6 +51138,11 @@
     {
       "source": "indexedDB/nodes/batch",
       "target": "indexedDB/hydration/rebuild",
+      "kind": "static"
+    },
+    {
+      "source": "indexedDB/nodes/batch",
+      "target": "indexedDB/nodes/absenceReconciler",
       "kind": "static"
     },
     {
@@ -51721,6 +52247,11 @@
     },
     {
       "source": "paste/handlers/hyperciteHandler",
+      "target": "hypercites/reconciliation",
+      "kind": "static"
+    },
+    {
+      "source": "paste/handlers/hyperciteHandler",
       "target": "hypercites/utils",
       "kind": "static"
     },
@@ -52277,12 +52808,11 @@
         "hyperlitContainer/core"
       ],
       [
-        "hyperlitContainer/containerSwap",
-        "hyperlitContainer/highlightNav",
-        "hyperlitContainer/postOpen"
-      ],
-      [
+        "hypercites/database",
+        "hypercites/deletion",
         "indexedDB/index",
+        "indexedDB/nodes/absenceReconciler",
+        "indexedDB/nodes/batch",
         "indexedDB/serverSync/loaders",
         "indexedDB/serverSync/pull",
         "indexedDB/syncQueue/master",
@@ -52290,11 +52820,16 @@
         "indexedDB/syncQueue/unload"
       ],
       [
+        "hyperlitContainer/containerSwap",
+        "hyperlitContainer/highlightNav",
+        "hyperlitContainer/postOpen"
+      ],
+      [
         "SPA/navigation/ProgressOverlayEnactor",
         "SPA/navigation/RevealGate"
       ]
     ],
-    "breakerCount": 5,
-    "lazyCount": 285
+    "breakerCount": 6,
+    "lazyCount": 295
   }
 }

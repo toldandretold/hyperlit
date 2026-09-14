@@ -226,3 +226,21 @@ def test_canonical_reference_id_is_deterministic_across_processes():
     assert len(ids) == 1, f'canonical id varies across processes: {ids}'
     # the PRINTED year stays canonical; the reprint year is a match-only alias
     assert ids == {'spencer1884'}
+
+
+# ---------------------------------------------------------------------------
+# The REFERENCE_HEADERS lookup is an exact match by design (a containment check swallows "Sources of
+# Error"), but a typesetter's trailing colon is not a different word: "## References:" missed by ONE
+# COLON, the heading-anchored walk never ran, the weak reverse scan salvaged a single entry, and 2 of
+# that article's 105 citations linked (9a266e34).
+# ---------------------------------------------------------------------------
+def test_reference_heading_with_a_trailing_colon_is_recognised():
+    from digestion.bibliographyExtraction.bibliography import reference_header_key, REFERENCE_HEADERS
+    for raw in ('References:', 'References', 'REFERENCES:', ' Bibliography. ', 'Works Cited:'):
+        assert reference_header_key(raw) in REFERENCE_HEADERS, raw
+
+
+def test_reference_header_key_does_not_widen_the_match():
+    from digestion.bibliographyExtraction.bibliography import reference_header_key, REFERENCE_HEADERS
+    for raw in ('Sources of Error', 'Reference frame', 'Bibliographic essay'):
+        assert reference_header_key(raw) not in REFERENCE_HEADERS, raw

@@ -94,3 +94,31 @@ def test_ordering_never_detaches_a_continuation_paragraph():
     assert 'Fourth note that runs on\n\nand continues in lowercase here.' in out
     nums = [int(m) for m in re.findall(r'(?m)^\[\^(\d+)\]:', out)]
     assert nums == [4, 1, 2]
+
+
+# ---------------------------------------------------------------------------
+# A page-bottom note the text layer glued to the END of another line, after the whitespace run that
+# stands in for the footnote rule. pypdf's content-stream order does this constantly, and the
+# line-anchored scan can never see it (5fc4aad4 note 11: "…out right-wing radio talk show host Rush
+# ␣␣␣11 Data source: https://www.alexa.com/siteinfo/breitbart.com, …").
+# ---------------------------------------------------------------------------
+def test_gap_glued_definition_is_extracted():
+    from ingestion.pdf.recovery import _GAP_DEF_RE
+    text = ('out right-wing radio talk show host Rush                     '
+            '11 Data source: https://www.alexa.com/siteinfo/breitbart.com, accessed 27 March 2020')
+    m = _GAP_DEF_RE.search(text)
+    assert m and int(m.group(1)) == 11
+    assert m.group(2).startswith('Data source:')
+
+
+def test_gap_glued_scan_ignores_a_short_table_value():
+    from ingestion.pdf.recovery import _GAP_DEF_RE, MIN_GAP_DEF_CHARS
+    text = 'Share of OA journals in the sample        12 Value'
+    m = _GAP_DEF_RE.search(text)
+    assert m is None or len(m.group(2).strip()) < MIN_GAP_DEF_CHARS
+
+
+def test_gap_glued_scan_needs_a_definition_opener():
+    from ingestion.pdf.recovery import _GAP_DEF_RE
+    # lowercase prose after the number is not a definition
+    assert _GAP_DEF_RE.search('continues the argument       12 and then the sentence goes on here') is None

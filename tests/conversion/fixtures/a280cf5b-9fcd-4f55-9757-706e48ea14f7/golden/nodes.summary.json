@@ -240,6 +240,7 @@
       "references": [
         "pelling2011",
         "ribot2014",
+        "st2013",
         "gillard2016"
       ],
       "type": "p"
@@ -401,6 +402,14 @@
         "pelling2015",
         "mapfumo2015",
         "godfreywood2016"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 148,
+      "references": [
+        "morchain2016"
       ],
       "type": "p"
     }

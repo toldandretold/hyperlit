@@ -8,9 +8,10 @@
     "pipeline": "full",
     "expected": {
         "references_count": 77,
-        "citations_linked": 85,
+        "citations_linked": 88,
         "citations_total": 107,
         "footnotes_count": 22,
-        "audit_gaps": 4
+        "audit_gaps": 4,
+        "antecedent_note": "Citations whose author is NOT adjacent to the year now resolve through the antecedent walk-back (a bare year + locator takes the nearest preceding name in the paragraph, and only links if THAT key exists in the bibliography)."
     }
 }

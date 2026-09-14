@@ -3,6 +3,8 @@ declare const deleteIndexedDBRecordWithRetry: any;
 declare const queueNodeForSave: any;
 import { queueForSync } from '../indexedDB/syncQueue/queue';
 import { confirmDialog } from '../components/dialog/dialog';
+import { findSpecialElementsInRange } from './selectionSpecialElements';
+import { handleCutEvent } from './cutHandler';
 
 
 export class SelectionDeletionHandler {
@@ -42,10 +44,18 @@ export class SelectionDeletionHandler {
     
     // Fallback with keyup
     this.editor.addEventListener('keyup', (e: any) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && 
+      if ((e.key === 'Delete' || e.key === 'Backspace') &&
           this.pendingDeletion) {
         this.handlePostDeletion();
       }
+    });
+
+    // Cut (Cmd/Ctrl+X, context-menu Cut) never fires the Delete/Backspace guard
+    // above, and the MutationObserver batch a cut lands in can be dropped by a
+    // concurrent paste/programmatic op — so hypercites in a cut selection are
+    // snapshotted synchronously HERE, before the browser mutates the DOM.
+    this.editor.addEventListener('cut', () => {
+      if ((window as any).isEditing) handleCutEvent();
     });
   }
   
@@ -140,50 +150,18 @@ export class SelectionDeletionHandler {
     if (selection.isCollapsed || selection.rangeCount === 0) return false;
 
     const range = selection.getRangeAt(0);
-    const root: any = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
-      ? range.commonAncestorContainer.parentElement
-      : range.commonAncestorContainer;
-    const searchRoot = root?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || root;
-    if (!searchRoot || !searchRoot.querySelectorAll) return false;
+    const found = findSpecialElementsInRange(range);
+    if (!found) return false;
 
-    // Find special elements that intersect the selection
-    const sourceHypercites: any[] = [];
-    for (const el of searchRoot.querySelectorAll('u[id^="hypercite_"]')) {
-      if (this._rangeIntersectsNode(range, el)) sourceHypercites.push(el);
-    }
-
-    const hyperciteLinks: any[] = [];
-    for (const el of searchRoot.querySelectorAll('a[href*="#hypercite_"]')) {
-      if (this._rangeIntersectsNode(range, el)) hyperciteLinks.push(el);
-    }
-
-    const footnotes: any[] = [];
-    for (const el of searchRoot.querySelectorAll('sup[fn-count-id]')) {
-      if (this._rangeIntersectsNode(range, el)) footnotes.push(el);
-    }
-
-    if (sourceHypercites.length === 0 && hyperciteLinks.length === 0 && footnotes.length === 0) {
+    const { sourceHypercites, hyperciteAnchors, footnotes } = found;
+    if (sourceHypercites.length === 0 && hyperciteAnchors.length === 0 && footnotes.length === 0) {
       return false;
     }
 
     // Special elements found — prevent default and handle asynchronously
     e.preventDefault();
-    this._handleSpecialElementDeletion(range, sourceHypercites, hyperciteLinks, footnotes);
+    this._handleSpecialElementDeletion(range, sourceHypercites, hyperciteAnchors, footnotes);
     return true;
-  }
-
-  /**
-   * Check if a Range intersects a given DOM node.
-   */
-  _rangeIntersectsNode(range: any, node: any) {
-    try {
-      const nodeRange = document.createRange();
-      nodeRange.selectNodeContents(node);
-      return range.compareBoundaryPoints(Range.END_TO_START, nodeRange) <= 0 &&
-             nodeRange.compareBoundaryPoints(Range.END_TO_START, range) <= 0;
-    } catch (err) {
-      return false;
-    }
   }
 
   /**

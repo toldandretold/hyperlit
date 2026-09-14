@@ -22,7 +22,12 @@ ALLOWED_TAGS = [
 ]
 
 ALLOWED_ATTRS = {
-    'a': ['href', 'title', 'target', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page'],
+    # data-resolved: provenance on an in-text citation whose author was INFERRED from the
+    # surrounding prose rather than read from the parentheses (the antecedent walk-back). It is what
+    # makes `citations:audit-antecedent` possible on a 900-article corpus, so it has to survive the
+    # sanitiser — an attribute allowlist silently drops anything it has not been told about.
+    'a': ['href', 'title', 'target', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page',
+          'data-resolved'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],

@@ -49,7 +49,8 @@ _CITATION_PLAIN = (
     "linked against an ordinal-numbered bibliography, and a numbered LIST in prose — \"(1) x, (2) y, "
     "(3) z\" — is recognised as an enumeration and left alone.")
 from shared.link_base import LinkRule, run_link_rules
-from shared.refkeys import HISTORICAL_YEAR_MIN, generate_ref_keys
+from shared.refkeys import (HISTORICAL_YEAR_MIN, _NAME_TOKEN_RE, _NON_SURNAME_WORDS,
+                           generate_ref_keys, trailing_author_candidates)
 
 
 class CitationLinkContext:
@@ -69,6 +70,8 @@ class CitationLinkContext:
         self.skip_citation_scan = False
         self.skip_reason = None
         self.enumerations_skipped = 0   # numbered groups left alone as prose lists, not citations
+        self.antecedent_links = 0       # linked only via the NON-ADJACENT author walk-back
+        self.antecedent_sample = []     # (citation, key) — the heuristic's own audit trail
         self.enum_cache = {}            # id(<p>) -> enumeration numbers (per-paragraph, computed once)
         self._bib_region = None         # lazy: id()s of <p> inside the reference list
 
@@ -98,6 +101,48 @@ class CitationLinkContext:
 # count as part of the reference list. Small on purpose — a long run of prose between two bib
 # anchors means the anchors are NOT one contiguous list, and nothing in between is a reference.
 _BIB_REGION_MAX_GAP = 3
+
+
+# A block that IS a bibliography entry the extractor never keyed ("Huntley, A. C. (1995). …",
+# "Shum, S. B. and Sumner, T. (2001). …"): author-first opener + its year in the first line. The
+# antecedent walk-back must not fire inside one — the "antecedent" is the entry's OWN author, so the
+# entry links to itself in the reference list (3f202e8f, whose reference paragraphs the
+# bibliography-region detector does not cover because the OCR glued several entries into one).
+_ENTRY_OPENER_RE = re.compile(r"^\s*([A-ZÀ-Þ][A-Za-zÀ-ÿ'\u2019-]+),\s*(?:[A-Z]\.|[A-Z][a-zà-ÿ]+)")
+_ENTRY_EARLY_YEAR_RE = re.compile(r"\(?(?:1[5-9]\d\d|20\d\d)[a-z]?\)?")
+
+
+# Words a bare-year CITATION may contain besides its locator numbers: scholarly apparatus, nothing
+# else. The walk-back resolves author-less parentheticals, and a PROSE parenthetical is exactly the
+# same shape to a year-matching regex — "(which he had founded in late 1985)" linked to Stallman's
+# 1985 entry because "Stallman" was the nearest name (f07b7fff). Any other word ⇒ it is prose, and
+# prose gets no link (a wrong link is worse than a missing one). Roman-numeral pages are locators.
+_CITE_LOCATOR_WORDS = frozenset("""
+see also cf eg ie and forthcoming press chapter chap ch p pp page pages vol vols no nos fig figs
+figure table tab section sec para paras passim emphasis added original mine trans transl repr orig
+ed eds esp quoted cited note notes n nd ff sq id ibid
+""".split())
+_ROMAN_ONLY_RE = re.compile(r'^[ivxlcdm]+$')
+
+
+def _is_locator_only(sub_cite):
+    words = re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.]*", sub_cite or '')
+    if len(words) > 4:
+        return False
+    for w in words:
+        key = w.lower().strip('.')
+        if key in _CITE_LOCATOR_WORDS or _ROMAN_ONLY_RE.match(key):
+            continue
+        return False
+    return True
+
+
+def _looks_like_a_reference_entry(block_text):
+    t = (block_text or '').strip()
+    m = _ENTRY_OPENER_RE.match(t)
+    if not m or m.group(1) in _NON_SURNAME_WORDS:
+        return False                    # "Similarly, Lévy anticipated…" is prose, not an entry
+    return _ENTRY_EARLY_YEAR_RE.search(t[:160]) is not None
 
 
 def _in_bibliography(ctx, text_node):
@@ -166,9 +211,62 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                     # way it is not for a long bibliography entry — see HISTORICAL_YEAR_MIN.
                     keys = generate_ref_keys(sub_cite, context_text=context_for_keys,
                                              min_year=HISTORICAL_YEAR_MIN)
+                    # LAST RESORT — the author is not adjacent to the year. Academic prose separates
+                    # them constantly: "Similarly, Lévy anticipated … 'quote' argues the philosopher
+                    # (2002: 33)", or the authors open the sentence with the quotation in between
+                    # ("Häyhtio and Rinne consider that '…' (2008: 26)"). Key generation can only see
+                    # the words immediately before the paren, so those citations produced no usable
+                    # key at all (46c0fbb5). Walk back through the paragraph for name-shaped tokens,
+                    # NEAREST first, and let the BIBLIOGRAPHY decide: a candidate is only tried as
+                    # <surname><year>, so a name that isn't a cited author resolves to nothing.
+                    # …but ONLY for a citation that names no author of its own. "(Vanobbergen, 2007)"
+                    # whose entry is missing must stay unlinked: walking back found "Castells" and
+                    # linked Vanobbergen's citation to Castells' entry — a confident wrong link, which
+                    # is worse than the miss. A bare year (optionally + page locator) is the only
+                    # shape whose author legitimately lives in the surrounding prose.
+                    # …and never inside a BIBLIOGRAPHY ENTRY: "Ostrom, E. (1990)." is the entry
+                    # itself, and walking back finds its own author, so the entry would link to
+                    # itself in the reference list.
+                    # The entry's id lives on an ANCHOR inside the paragraph
+                    # (`<p><a class="bib-entry" id="huntley1995"></a>Huntley, A. C. (1995)…`), so the
+                    # guard has to look at the block, not just at ancestors' classes.
+                    _blk = (text_node.find_parent(['p', 'li', 'div', 'td', 'section'])
+                            if getattr(text_node, 'find_parent', None) else None)
+                    _in_bib_entry = bool(
+                        _blk is not None
+                        and ('bib-entry' in (_blk.get('class') or [])
+                             or _blk.find(class_='bib-entry') is not None
+                             or _looks_like_a_reference_entry(_blk.get_text(' ', strip=True))))
+                    _antecedent_keys = set()
+                    if (not any(k in bibliography_map for k in keys)
+                            and not _NAME_TOKEN_RE.search(sub_cite)
+                            and _is_locator_only(sub_cite)
+                            and not _in_bib_entry):
+                        _year = re.search(r'(\d{4}[a-z]?)', sub_cite)
+                        if _year:
+                            _antecedent = [c + _year.group(1)
+                                           for c in trailing_author_candidates(context_for_keys)]
+                            _antecedent_keys = set(_antecedent)
+                            keys = keys + _antecedent
+                    # A SELF-LINK guard for the walk-back: the block this citation sits in may BE the
+                    # entry it would resolve to. Journal styles that print their references as
+                    # numbered notes (9bb2f3aa) put "Bell, S (2008), …" inside the note itself, and
+                    # the nearest antecedent name is then the entry's own author.
+                    _blk_ids = set()
+                    if _blk is not None and _antecedent_keys:
+                        if _blk.get('id'):
+                            _blk_ids.add(_blk.get('id'))
+                        _blk_ids.update(e.get('id') for e in _blk.find_all(attrs={'id': True}))
                     linked = False
                     for key in keys:
                         if key in bibliography_map:
+                            if key in _antecedent_keys and bibliography_map[key] in _blk_ids:
+                                continue            # would link this entry to itself
+                            if key in _antecedent_keys:
+                                ctx.antecedent_links += 1
+                                if len(ctx.antecedent_sample) < 8:
+                                    ctx.antecedent_sample.append(
+                                        {'citation': sub_cite[:60], 'key': key})
                             year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
                             if year_match:
                                 author_part = sub_cite[:year_match.start(0)]
@@ -178,6 +276,15 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                     new_content.append(NavigableString(author_part))
                                 a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
                                 a_tag['class'] = 'in-text-citation'
+                                if key in _antecedent_keys:
+                                    # PROVENANCE. This link is the one resolution in the pipeline that
+                                    # GUESSES: the author was not in the parentheses, so the nearest
+                                    # preceding name in the paragraph was used. Marking it in the
+                                    # stored HTML is what makes a corpus-scale audit possible later
+                                    # (`php artisan citations:audit-antecedent`) — the assessment's
+                                    # 8-entry sample only covers the book in front of you, and the
+                                    # artifact dir may be long gone.
+                                    a_tag['data-resolved'] = 'antecedent'
                                 a_tag.string = year_part
                                 new_content.append(a_tag)
                                 if trailing_part:
@@ -694,7 +801,9 @@ class AssessmentRecorder(LinkRule):
                           'unlinked': unlinked_n, 'anchor_converted': anchor_converted,
                           'bibliography_entries': bib_n, 'full_miss': full_miss,
                           'markup_cited': markup_cited, 'unlinked_sample': sample,
-                          'numbered_enumerations_skipped': ctx.enumerations_skipped},
+                          'numbered_enumerations_skipped': ctx.enumerations_skipped,
+                          'antecedent_author_links': ctx.antecedent_links,
+                          'antecedent_author_sample': ctx.antecedent_sample},
                 question='Did in-text citations link to the bibliography (and if not — real miss or prose-years)?',
                 considered=([{'option': 'link the remaining unmatched citations',
                               'rejected_because': 'their generated keys matched no bibliography entry '
