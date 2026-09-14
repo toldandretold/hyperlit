@@ -14,9 +14,15 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  *     removed this grows by one per navigation.)
  *
  *  2. CONTROL — a genuine edit from a *different* tab must still raise the
- *     overlay, so a regression that disables the feature is caught.
+ *     overlay when THIS tab is itself editing that book (both tabs have edits
+ *     at risk), so a regression that disables the feature is caught.
  *
- *  3. SUPPRESSION — an echo of an edit this tab made itself must NOT raise the
+ *  3. READ-ONLY GATE — a tab that is merely READING the book must NOT be
+ *     blocked (2026-09 stale-gate change): the book is marked stale for edit
+ *     (utilities/staleBookGate.ts) and the overlay is deferred to the write
+ *     entry points instead.
+ *
+ *  4. SUPPRESSION — an echo of an edit this tab made itself must NOT raise the
  *     overlay (saveQueue records it in window.__hyperlitLocalEdits before
  *     broadcasting, 10s TTL), so the editor is never blocked mid-keystroke.
  *
@@ -128,20 +134,48 @@ test.describe('Coordination-channel overlay (multi-tab warning)', () => {
     ).toBeLessThanOrEqual(1);
   });
 
-  test('a genuine edit from another tab raises the overlay (control)', async ({ page }) => {
+  test('a foreign edit while EDITING this book raises the overlay (control)', async ({ page }) => {
     await openReaderFullLoad(page);
     const book = await currentBookId(page);
     expect(book, 'reader must expose a book id').toBeTruthy();
+
+    // Only a tab that is itself editing has edits at risk — put this tab in
+    // edit state, exactly the flag BroadcastListener's BOOK_EDITED branch reads.
+    await page.evaluate(() => { window.isEditing = true; });
 
     await postForeignEdit(page, book);
 
     await expect(page.locator('#stale-tab-overlay')).toBeVisible({ timeout: 4000 });
   });
 
+  test('a foreign edit while merely READING marks the book stale instead of blocking', async ({ page }) => {
+    await openReaderFullLoad(page);
+    const book = await currentBookId(page);
+    expect(book, 'reader must expose a book id').toBeTruthy();
+
+    await postForeignEdit(page, book);
+
+    // The reading tab stays usable: no overlay, ever…
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#stale-tab-overlay')).toHaveCount(0);
+
+    // …but the book is marked stale so the write entry points (edit mode,
+    // highlight create/delete) force a refresh before saving from this DOM.
+    const staleMarked = await page.evaluate((book) => {
+      const root = String(book).split('/')[0];
+      return (window.__hyperlitStaleForEdit || {})[root] === true;
+    }, book);
+    expect(staleMarked, 'staleBookGate must mark the root stale for edit').toBe(true);
+  });
+
   test('an echo of this tab\'s own edit does NOT interrupt the editor', async ({ page }) => {
     await openReaderFullLoad(page);
     const book = await currentBookId(page);
     expect(book, 'reader must expose a book id').toBeTruthy();
+
+    // The echo case only has teeth for an EDITING tab — a reading tab never
+    // shows the overlay at all since the 2026-09 stale-gate change.
+    await page.evaluate(() => { window.isEditing = true; });
 
     // Simulate the save path having just recorded a local edit for this book,
     // exactly as saveQueue.markBookEditedLocally() does before broadcasting.

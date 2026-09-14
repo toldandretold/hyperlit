@@ -404,7 +404,33 @@ export function destroyHomepageDisplayUnit() {
   // Note: Homepage search cleanup is handled by ButtonRegistry
 }
 
-export async function transitionToBookContent(bookId: any, showLoader = true) {
+// Rapid arranger clicks used to OVERLAP here: the second call removed the
+// first's freshly-created container while its loadHyperText was still in
+// flight, so the stale load's lazy-loader init found no container (console
+// error), and whichever load FINISHED last owned window.nodes — not whichever
+// feed the user clicked last. Chain transitions so a swap only starts after
+// the previous one has settled — with two escape hatches:
+//   - the wait is CAPPED: a load orphaned by a full structure swap (home →
+//     user rips out its DOM under it) can settle slowly, and the incoming
+//     page's content must not hang behind it;
+//   - a transition superseded WHILE QUEUED is skipped outright, so burst
+//     clicks collapse to the newest target instead of replaying every stop.
+let transitionChain: Promise<void> = Promise.resolve();
+let transitionSeq = 0;
+
+export function transitionToBookContent(bookId: any, showLoader = true): Promise<void> {
+  const seq = ++transitionSeq;
+  const prev = transitionChain;
+  const run = (async () => {
+    await Promise.race([prev, new Promise((r) => setTimeout(r, 8000))]);
+    if (seq !== transitionSeq) return; // a newer transition queued behind us — it wins
+    await runBookContentTransition(bookId, showLoader);
+  })();
+  transitionChain = run.catch(() => {});
+  return run;
+}
+
+async function runBookContentTransition(bookId: any, showLoader: boolean) {
   try {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);
