@@ -47,6 +47,9 @@ class BookReconverter
 
     /**
      * @param  bool  $requireCachedSource  refuse a PDF book with no OCR cache rather than re-OCR it
+     * @param  bool  $interactive  an operator is watching THIS book — dispatch on the `imports`
+     *                             lane so it jumps mass backend work; bulk callers leave it false
+     *                             (their fan-out IS the mass backend work)
      * @return array{queued: bool, reason: ?string, source: ?string}
      */
     public function queue(
@@ -54,6 +57,7 @@ class BookReconverter
         ?int $userId,
         array $creatorInfo,
         bool $requireCachedSource = false,
+        bool $interactive = false,
     ): array {
         $path = resource_path("markdown/{$book}");
 
@@ -134,7 +138,7 @@ class BookReconverter
             $userId,
             [],   // no metadata changes on reconvert; the job only fills empty fields
             $creatorInfo,
-        );
+        )->onQueue($interactive ? ProcessDocumentImportJob::QUEUE_INTERACTIVE : 'default');
 
         Log::info('Reconvert job dispatched', ['book' => $book, 'sourceType' => $sourceType]);
 

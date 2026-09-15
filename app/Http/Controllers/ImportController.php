@@ -464,14 +464,15 @@ class ImportController extends Controller
             }
         }
 
-        // Dispatch the background job
+        // Dispatch the background job — on the interactive lane, so a user's
+        // upload jumps any mass backend backlog (reconvert-all etc) on `default`.
         ProcessDocumentImportJob::dispatch(
             $bookId,
             $extension,
             Auth::id(),
             $formData,
             $creatorInfo,
-        );
+        )->onQueue(ProcessDocumentImportJob::QUEUE_INTERACTIVE);
 
         // Batch import (the queue widget): link this upload to its pre-created
         // import_items row. RLS proves ownership — the update matches zero rows
@@ -838,8 +839,10 @@ class ImportController extends Controller
         // `requireCachedSource` is false here: one book at a time, an operator replacing or
         // re-OCR'ing a source is a deliberate act with visible feedback. The bulk callers pass
         // true, because the same surprise queued across a journal is a silent four-figure one.
+        // interactive: an operator pressed ⟲ on ONE book and is watching the progress
+        // bar — ride the `imports` lane past any bulk reconvert backlog on `default`.
         $result = app(\App\Services\Conversion\BookReconverter::class)
-            ->queue($book, Auth::id(), $creatorInfo, requireCachedSource: false);
+            ->queue($book, Auth::id(), $creatorInfo, requireCachedSource: false, interactive: true);
 
         if (! $result['queued']) {
             $noSource = str_starts_with((string) $result['reason'], 'no source file');

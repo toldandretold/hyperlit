@@ -276,6 +276,8 @@ class UrlImportController extends Controller
             'updated_at' => now()->toIso8601String(),
         ], JSON_PRETTY_PRINT));
 
+        // Interactive lane: a user is watching this import, so it must jump any
+        // mass backend backlog on `default`.
         ProcessDocumentImportJob::dispatch(
             $bookId,
             $fetch->extension,
@@ -287,7 +289,7 @@ class UrlImportController extends Controller
                 'url'    => $result->identifier->url(),
             ],
             $creatorInfo,
-        );
+        )->onQueue(ProcessDocumentImportJob::QUEUE_INTERACTIVE);
 
         Log::info('URL import dispatched', [
             'book'       => $bookId,

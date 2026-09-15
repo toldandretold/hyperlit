@@ -1,4 +1,9 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
+import {
+  authorAudioBook, routeAudioManifest, routeAudioFiles, unrouteAudio,
+  startListening, getTrace, waitForNodesStarted, attachTraceOnFailure,
+  SCROLLER, AUDIO_LAUNCH_ARGS,
+} from '../../helpers/audioHarness.js';
 
 /**
  * Audio player START POSITION — regression for "Listen jumps to the top".
@@ -13,34 +18,32 @@ import { test, expect } from '../../fixtures/navigation.fixture.js';
  * the reading-position system's proven `forceSaveScrollPosition()` synchronously
  * before choosing the start node, and findStartIndex() trusts that fresh anchor.
  *
- * Real TTS is external/expensive and there's no audio fixture, so the manifest
- * is mocked and <audio>.play() is stubbed — what we assert is the START-NODE
- * choice (the `audio-reading` highlight), not real MP3 playback. e2e is manual.
+ * HARNESS. This spec used to stub HTMLMediaElement.play() and point every node
+ * at a 404ing stub.mp3 — but the 404 fired a real media `error`, so
+ * recoverFrom() retried (600ms) and then SKIPPED to the next node, and the
+ * assertion raced that skip cascade (flaked as start+1, e.g. 2900 vs 2800).
+ * Now it serves the real silent MP3 per node (helpers/audioHarness.js) and
+ * asserts the START choice off the trace's FIRST `node-start`, which cannot be
+ * perturbed by playback advancing afterwards.
  */
 
-const SCROLLER = '.reader-content-wrapper';
 const NODE_SEL = 'p[id],h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]';
-const READING_CLASS = 'audio-reading';
 
-async function buildScrollableBook(page, spa) {
-  await page.setViewportSize({ width: 600, height: 500 });
-  await spa.createNewBook(page, spa);
+// serviceWorkers 'block': public/sw.js proxies non-/api/ GETs through its own
+// fetch(), and a service-worker fetch is invisible to page.route — so an MP3
+// route would silently never fire and every node would 404 from the real
+// server (the exact skip cascade this rewrite removes).
+test.use({
+  serviceWorkers: 'block',
+  // AUDIO_LAUNCH_ARGS also blocks host media events (media keys, AirPods,
+  // screen lock) from pausing the run through the mediaSession handler.
+  launchOptions: { args: AUDIO_LAUNCH_ARGS },
+});
 
-  await page.click('h1[id="100"]');
-  await page.keyboard.type('Audio Start Position');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(150);
-
-  for (let i = 0; i < 30; i++) {
-    await page.keyboard.type(`Paragraph ${i} — filler so the book overflows the viewport and the Listen press happens well below the fold.`);
-    await page.keyboard.press('Enter');
-  }
-  await page.waitForTimeout(300);
-
-  await page.evaluate(() => document.getElementById('editButton')?.click());
-  await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(500);
-}
+test.afterEach(async ({ page }, testInfo) => {
+  await attachTraceOnFailure(page, testInfo);
+  await unrouteAudio(page);
+});
 
 function nodeIds(page) {
   return page.evaluate(({ scroller, sel }) => {
@@ -66,6 +69,11 @@ function savedElementId(page, bookId) {
   }, bookId);
 }
 
+/** data-node-id of a node element, looked up by its DOM id (startLine). */
+function dataNodeIdOf(page, elementId) {
+  return page.evaluate((eid) => document.getElementById(eid)?.getAttribute('data-node-id') ?? null, elementId);
+}
+
 test.describe('audio start position', () => {
   test('Listen starts at the current reading position, not the top of the book', async ({ page, spa }) => {
     // scrollTop-based precondition ("reader is scrolled down") — the wrapper
@@ -75,8 +83,10 @@ test.describe('audio start position', () => {
     test.skip(process.env.E2E_READING_MODE === 'paginated', 'asserts scroll-mode scrollTop mechanics');
     test.setTimeout(120_000);
 
-    await buildScrollableBook(page, spa);
-    const bookId = await spa.getCurrentBookId(page);
+    await page.setViewportSize({ width: 600, height: 500 });
+    const { bookId } = await authorAudioBook(page, spa, {
+      paragraphs: 30, title: 'Audio Start Position',
+    });
 
     const ids = await nodeIds(page);
     expect(ids.length, 'precondition: many nodes').toBeGreaterThan(10);
@@ -91,49 +101,28 @@ test.describe('audio start position', () => {
     const scrollBeforePlay = await readerScrollTop(page);
     expect(scrollBeforePlay, 'precondition: reader is scrolled down').toBeGreaterThan(50);
 
-    // ── Mock the audio manifest to cover every node (all fresh) ──
-    const manifestNodes = await page.evaluate((scroller) => {
-      const root = document.querySelector(scroller);
-      const out = {};
-      root.querySelectorAll('[data-node-id]').forEach((el) => {
-        const nid = el.getAttribute('data-node-id');
-        if (nid) out[nid] = { filename: 'stub.mp3', duration_ms: 1000, stale: false };
-      });
-      return out;
-    }, SCROLLER);
-    expect(Object.keys(manifestNodes).length, 'nodes have data-node-id for the manifest').toBeGreaterThan(10);
+    // The trace records nodeIds (data-node-id); the anchor is a DOM id.
+    const savedNodeId = await dataNodeIdOf(page, savedDeep);
+    const firstNodeId = await dataNodeIdOf(page, firstId);
+    expect(savedNodeId, 'saved anchor node has a data-node-id').toBeTruthy();
 
-    await page.route('**/api/book-audio/*/manifest', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ voice: null, nodes: manifestNodes }),
-      });
-    });
-
-    // Stub <audio>.play() so a missing MP3 file (404) can't throw → skip-ahead
-    // past our target node. The gesture is real; only the media element is fake.
-    await page.evaluate(() => {
-      // eslint-disable-next-line no-undef
-      HTMLMediaElement.prototype.play = function () { return Promise.resolve(); };
-    });
+    // ── Real audio: manifest covers every node, each served a real MP3 ──
+    const order = await routeAudioManifest(page);
+    expect(order.length, 'nodes have data-node-id for the manifest').toBeGreaterThan(10);
+    await routeAudioFiles(page);
 
     // ── Press Listen (document-delegated handler → openAudioPlayer) ──
-    await page.evaluate(() => document.getElementById('audioListenButton')?.click());
+    await startListening(page);
+    await waitForNodesStarted(page, 1);
 
-    // Playback highlights the start node with READING_CLASS once it begins.
-    await page.waitForSelector(`.${READING_CLASS}`, { timeout: 10_000 });
-    await page.waitForTimeout(400);
-
-    const readingId = await page.evaluate((cls) => {
-      const el = document.querySelector(`.${cls}`);
-      return el ? el.id : null;
-    }, READING_CLASS);
-
-    // ── The fix: start node is the reader's saved position, NOT the top ──
-    expect(readingId, 'a node is highlighted as the reading start node').toBeTruthy();
-    expect(readingId, 'playback did NOT snap to the first node').not.toBe(firstId);
-    expect(readingId, 'playback started at the saved reading position').toBe(savedDeep);
+    // ── The fix: the FIRST node started is the reader's position, not the top.
+    // Asserted off the trace, not the live highlight — real playback advances
+    // (and used to skip on 404s), so "what is highlighted right now" races.
+    const trace = await getTrace(page);
+    const firstStart = trace.find((e) => e.event === 'node-start');
+    expect(firstStart, 'playback traced a start node').toBeTruthy();
+    expect(firstStart.nodeId, 'playback did NOT snap to the first node').not.toBe(firstNodeId);
+    expect(firstStart.nodeId, 'playback started at the saved reading position').toBe(savedNodeId);
 
     const scrollAfterPlay = await readerScrollTop(page);
     expect(

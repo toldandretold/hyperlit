@@ -72,6 +72,7 @@ class CitationLinkContext:
         self.enumerations_skipped = 0   # numbered groups left alone as prose lists, not citations
         self.antecedent_links = 0       # linked only via the NON-ADJACENT author walk-back
         self.antecedent_sample = []     # (citation, key) — the heuristic's own audit trail
+        self.ambiguous_links = 0        # walk-back links where >1 entry fit (data-candidates emitted)
         self.enum_cache = {}            # id(<p>) -> enumeration numbers (per-paragraph, computed once)
         self._bib_region = None         # lazy: id()s of <p> inside the reference list
 
@@ -238,30 +239,49 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                              or _blk.find(class_='bib-entry') is not None
                              or _looks_like_a_reference_entry(_blk.get_text(' ', strip=True))))
                     _antecedent_keys = set()
+                    _ambiguous_targets = []       # ≥2 distinct entries fit — emitted as evidence
                     if (not any(k in bibliography_map for k in keys)
                             and not _NAME_TOKEN_RE.search(sub_cite)
                             and _is_locator_only(sub_cite)
                             and not _in_bib_entry):
                         _year = re.search(r'(\d{4}[a-z]?)', sub_cite)
                         if _year:
-                            _antecedent = [c + _year.group(1)
-                                           for c in trailing_author_candidates(context_for_keys)]
-                            _antecedent_keys = set(_antecedent)
-                            keys = keys + _antecedent
-                    # A SELF-LINK guard for the walk-back: the block this citation sits in may BE the
-                    # entry it would resolve to. Journal styles that print their references as
-                    # numbered notes (9bb2f3aa) put "Bell, S (2008), …" inside the note itself, and
-                    # the nearest antecedent name is then the entry's own author.
-                    _blk_ids = set()
-                    if _blk is not None and _antecedent_keys:
-                        if _blk.get('id'):
-                            _blk_ids.add(_blk.get('id'))
-                        _blk_ids.update(e.get('id') for e in _blk.find_all(attrs={'id': True}))
+                            # A SELF-LINK guard for the walk-back: the block this citation sits in
+                            # may BE the entry it would resolve to. Journal styles that print their
+                            # references as numbered notes (9bb2f3aa) put "Bell, S (2008), …" inside
+                            # the note itself, and the nearest antecedent name is then the entry's
+                            # own author.
+                            _blk_ids = set()
+                            if _blk is not None:
+                                if _blk.get('id'):
+                                    _blk_ids.add(_blk.get('id'))
+                                _blk_ids.update(e.get('id') for e in _blk.find_all(attrs={'id': True}))
+                            # Every name the walk-back could mean, nearest first — including the
+                            # LETTER-SUFFIXED siblings of each candidate: a bare "(2009)" cannot
+                            # choose between infoadex2009a and infoadex2009b, so both are targets.
+                            _seen_targets = set()
+                            _yr = _year.group(1)
+                            _sfx = '' if _yr[-1].isalpha() else 'abcdef'
+                            for c in trailing_author_candidates(context_for_keys):
+                                for k in [c + _yr] + [c + _yr + x for x in _sfx]:
+                                    tgt = bibliography_map.get(k)
+                                    if tgt is None or tgt in _blk_ids or tgt in _seen_targets:
+                                        continue
+                                    _seen_targets.add(tgt)
+                                    _ambiguous_targets.append(tgt)
+                                    _antecedent_keys.add(k)
+                            # The GUESS the pipeline is allowed to act on is the nearest name; the
+                            # rest are not discarded — they ride along as data-candidates so a
+                            # human can be ASKED instead of silently overruled. Only the first key
+                            # joins the resolution list.
+                            if _ambiguous_targets:
+                                _first = next(k for k in _antecedent_keys
+                                              if bibliography_map[k] == _ambiguous_targets[0])
+                                keys = keys + [_first]
+                                _antecedent_keys = {_first}
                     linked = False
                     for key in keys:
                         if key in bibliography_map:
-                            if key in _antecedent_keys and bibliography_map[key] in _blk_ids:
-                                continue            # would link this entry to itself
                             if key in _antecedent_keys:
                                 ctx.antecedent_links += 1
                                 if len(ctx.antecedent_sample) < 8:
@@ -284,7 +304,19 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                     # (`php artisan citations:audit-antecedent`) — the assessment's
                                     # 8-entry sample only covers the book in front of you, and the
                                     # artifact dir may be long gone.
-                                    a_tag['data-resolved'] = 'antecedent'
+                                    #
+                                    # And when MORE THAN ONE entry fits, the guess is stored AS A
+                                    # QUESTION: data-resolved="ambiguous" + the ranked candidate ids
+                                    # in data-candidates. The link still points at the best one (a
+                                    # probably-right link beats a dead year), but downstream — the
+                                    # maintainer console, the reader — can present the alternatives
+                                    # and record a human answer instead of trusting the pick.
+                                    if len(_ambiguous_targets) > 1:
+                                        a_tag['data-resolved'] = 'ambiguous'
+                                        a_tag['data-candidates'] = '|'.join(_ambiguous_targets[:4])
+                                        ctx.ambiguous_links += 1
+                                    else:
+                                        a_tag['data-resolved'] = 'antecedent'
                                 a_tag.string = year_part
                                 new_content.append(a_tag)
                                 if trailing_part:
@@ -803,7 +835,8 @@ class AssessmentRecorder(LinkRule):
                           'markup_cited': markup_cited, 'unlinked_sample': sample,
                           'numbered_enumerations_skipped': ctx.enumerations_skipped,
                           'antecedent_author_links': ctx.antecedent_links,
-                          'antecedent_author_sample': ctx.antecedent_sample},
+                          'antecedent_author_sample': ctx.antecedent_sample,
+                          'ambiguous_candidate_links': ctx.ambiguous_links},
                 question='Did in-text citations link to the bibliography (and if not — real miss or prose-years)?',
                 considered=([{'option': 'link the remaining unmatched citations',
                               'rejected_because': 'their generated keys matched no bibliography entry '

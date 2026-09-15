@@ -117,6 +117,7 @@ class CitationAuditAntecedentCommand extends Command
         }
 
         $this->printSummary($books->count(), $perBook, $findings, $total);
+        $this->printLedger($db, $books->pluck('book'));
 
         if ($this->option('stats')) {
             return self::SUCCESS;
@@ -209,14 +210,19 @@ class CitationAuditAntecedentCommand extends Command
         $out = [];
         foreach ($nodes as $n) {
             $html = (string) $n->content;
-            if (!str_contains($html, 'data-resolved="antecedent"')) {
+            if (!str_contains($html, 'data-resolved="antecedent"')
+                    && !str_contains($html, 'data-resolved="ambiguous"')) {
                 continue;
             }
             $plain = trim(preg_replace('/\s+/', ' ', strip_tags($html)));
             $isEntryish = $this->looksLikeReferenceEntry($plain);
 
+            // Both provenance markers: single-candidate walk-backs ("antecedent") and the
+            // multi-candidate ones ("ambiguous", which additionally carry data-candidates and
+            // live in the citation_resolutions ledger for /maintainer/citations).
             preg_match_all(
-                '/<a class="in-text-citation" data-resolved="antecedent" href="#([^"]+)">([^<]*)<\/a>/',
+                '/<a class="in-text-citation"(?: data-candidates="[^"]*")? '
+                . 'data-resolved="(?:antecedent|ambiguous)" href="#([^"]+)">([^<]*)<\/a>/',
                 $html, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE
             );
             foreach ($matches as $m) {
@@ -312,6 +318,22 @@ class CitationAuditAntecedentCommand extends Command
                     mb_strimwidth($b['title'], 0, 64, '…')));
             }
         }
+    }
+
+    /** The maintainer-answer ledger's state for the audited scope. */
+    private function printLedger($db, $books): void
+    {
+        $counts = $db->table('citation_resolutions')
+            ->whereIn('book', $books)
+            ->selectRaw("status, count(*) as n")->groupBy('status')->pluck('n', 'status');
+        if ($counts->isEmpty()) {
+            return;
+        }
+        $this->newLine();
+        $this->line(sprintf(
+            'Ambiguity ledger for this scope: %d pending question(s), %d answered — review at /maintainer/citations',
+            (int) ($counts['pending'] ?? 0), (int) ($counts['resolved'] ?? 0),
+        ));
     }
 
     private function rankBlurb(string $rank): string

@@ -32,6 +32,17 @@ class ProcessDocumentImportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * The interactive lane. A user-initiated import (UI file upload, URL import,
+     * an operator's single-book reconvert) dispatches here; mass backend fan-outs
+     * (a journal console reconvert-all, ar5iv version minting) stay on `default`.
+     * The import worker listens `--queue=imports,default`, so a job on `imports`
+     * is always picked before anything on `default` — one reconvert-all press
+     * queues ~900 jobs, and without this lane a user's single upload sat behind
+     * all of them ("Waiting in queue — 902 ahead").
+     */
+    public const QUEUE_INTERACTIVE = 'imports';
+
     public $timeout = 900;
 
     // Retry transient failures (the big one: a Mistral OCR eventual-consistency 404
@@ -212,6 +223,24 @@ class ProcessDocumentImportJob implements ShouldQueue
                 }
             } catch (\Throwable $e) {
                 Log::warning('Citation resolution restore failed (import continues)', [
+                    'book' => $this->bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
+            // AMBIGUOUS citation resolutions: re-apply the answers maintainers already gave
+            // (they live in citation_resolutions, outside the node HTML, precisely so this
+            // rewrite can't destroy them) and register the still-open questions for
+            // /maintainer/citations. Runs right after the nodes land and before the timestamp
+            // bump, so clients invalidating on the timestamp pull the re-applied links.
+            // Best-effort — a failure costs pending rows going stale, never the import.
+            try {
+                $ambig = app(\App\Services\Citations\AmbiguousCitationRegistry::class)
+                    ->sync($this->bookId);
+                if (($ambig['ambiguous'] ?? 0) > 0 || ($ambig['stale_dropped'] ?? 0) > 0) {
+                    Log::info('Ambiguous citation sync', ['book' => $this->bookId] + $ambig);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Ambiguous citation sync failed (import continues)', [
                     'book' => $this->bookId, 'error' => $e->getMessage(),
                 ]);
             }

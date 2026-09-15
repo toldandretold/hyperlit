@@ -196,6 +196,13 @@ class JournalImportController extends Controller
 
         return response()->json([
             'active_run' => $activeRun,
+            // A reconvert_all run reports `completed` when it has finished QUEUEING —
+            // the conversions themselves drain through the import worker for hours
+            // afterwards, with every queued book sitting content-cleared ("no content"
+            // badges). With no signal here the console looked broken and got the
+            // button re-pressed over a 941-book corpus (2026-09-15). Non-zero means
+            // "still draining"; the page shows it and polls /reconvert-backlog.
+            'reconvert_backlog' => $this->pendingConversionJobs($journal->id),
             'journal' => [
                 'slug'               => $journal->slug,
                 'display_name'       => $journal->display_name,
@@ -216,6 +223,57 @@ class JournalImportController extends Controller
             'estimate' => $estimate,
             'articles' => $articles,
         ]);
+    }
+
+    /**
+     * GET /api/maintainer/journal-import/{slug}/reconvert-backlog — the drain poll.
+     *
+     * Deliberately tiny (one count) so the console can poll it every ~20s for the
+     * hours a 900-book reconvert_all takes to drain, without re-folding 950 articles
+     * per tick the way /articles does.
+     */
+    public function reconvertBacklog(Request $request, string $slug)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        return response()->json(['pending' => $this->pendingConversionJobs($journal->id)]);
+    }
+
+    /**
+     * How many queued ProcessDocumentImportJobs belong to this journal's lanes.
+     *
+     * Matched by extracting the book uuid from the job payload (journal lanes are
+     * always uuid-minted by AutoVersionCreator) — the same payload-inspection
+     * technique as ImportQueuePosition, kept set-based because a reconvert_all
+     * fan-out means ~900 rows. Counts BOTH import lanes: bulk fan-outs ride
+     * `default`, but a book the operator then reconverts by hand rides `imports`.
+     */
+    private function pendingConversionJobs(string $journalId): int
+    {
+        // EVERY uuid in the payload is tried against the journal's lanes, not just the
+        // first — a queue payload's first uuid is the JOB's own `uuid` field, and the
+        // book id (journal lanes are always uuid-minted by AutoVersionCreator) sits
+        // further in, inside the serialized command. The job uuid is random and matches
+        // no library row, so the join quietly ignores it.
+        $row = DB::connection('pgsql_admin')->selectOne(
+            "select count(*) as n
+             from jobs j
+             where j.queue in (?, 'default')
+               and j.payload like '%ProcessDocumentImportJob%'
+               and exists (
+                 select 1
+                 from regexp_matches(j.payload, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'g') m
+                 join library l on l.book = m[1]
+                 join canonical_source cs on cs.id = l.canonical_source_id
+                 where cs.journal_source_id = ?
+               )",
+            [\App\Jobs\ProcessDocumentImportJob::QUEUE_INTERACTIVE, $journalId],
+        );
+
+        return (int) ($row->n ?? 0);
     }
 
     /**

@@ -24,9 +24,10 @@ hw force-restart       # hard SIGTERM all — can WAIT on an in-flight job, avoi
 
 ## The queues
 
-### `default` → worker `hyperlit-worker`
+### `imports` + `default` → worker `hyperlit-worker` (`--queue=imports,default`)
 
-- Jobs: `ProcessDocumentImportJob` (imports/reconverts) **plus every job with no `onQueue()`** (see notes below).
+- `imports` is the PRIORITY lane: user-initiated `ProcessDocumentImportJob` dispatches (UI upload, URL import, an operator's single-book reconvert — see `ProcessDocumentImportJob::QUEUE_INTERACTIVE`). The worker drains it before touching `default`, so a user's upload jumps a mass reconvert-all backlog instead of waiting behind 900 jobs.
+- `default` carries the bulk `ProcessDocumentImportJob` fan-outs (journal reconvert-all, ar5iv minting) **plus every job with no `onQueue()`** (see notes below).
 - The user-facing baseline; `numprocs` is the concurrency lever (RAM-gated, see conf).
 
 ### `citation-pipeline` → worker `hyperlit-citation`

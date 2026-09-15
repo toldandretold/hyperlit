@@ -306,6 +306,11 @@ async function loadDetail(): Promise<void> {
   // and the console never mentioned it again. Absent on the shelf console, which has no bulk runs.
   if (data.active_run && resumeActiveRun) resumeActiveRun(data.active_run as RunState);
 
+  // A reconvert_all that finished QUEUEING but is still draining through the import
+  // worker (shelf payloads carry no count — this no-ops there). Skipped while a live
+  // run owns the panel; pollRun re-seeds it when the run settles.
+  if (!pollingRunId) renderReconvertBacklog(Number(data.reconvert_backlog ?? 0));
+
   const link = el<HTMLAnchorElement>('ji-public-link');
   if (data.shelf) {
     const s = data.shelf as {
@@ -921,6 +926,12 @@ async function pollRun(runId: string, setter: (text: string) => void, showPanel 
     // we started with, or a chain that handed off would leave its successor's claim behind.
     if (pollingRunId === currentId) pollingRunId = null;
     queuedSince = null;
+    // A reconvert_all that just reported `completed` has only finished QUEUEING —
+    // hand the panel to the drain poll (a no-op when nothing is queued). Deferred a
+    // beat so it reads the released pollingRunId, and from the FINALLY so every exit
+    // path (done, failed, lost) checks; a run that died mid-queue can still have
+    // hundreds of jobs draining behind it.
+    window.setTimeout(() => void pollReconvertBacklog(), 1000);
   }
 }
 
@@ -1476,6 +1487,78 @@ function renderStoppedEarly(run: RunState, terminal: boolean): void {
   // The chain is already doing what the button would do; offering it invites a second run that
   // the server would only refuse as already-running.
   el<HTMLButtonElement>('ji-run-continue-go').hidden = chaining;
+}
+
+/** Timer for the reconvert-drain poll, cleared on every repaint so pollers never stack. */
+let backlogTimer: number | undefined;
+
+/**
+ * The status for a DRAINING reconvert_all — the gap that got the button pressed twice.
+ *
+ * A reconvert_all run reports `completed` when it has finished QUEUEING its ~900
+ * ProcessDocumentImportJobs; the conversions then drain through the serial import worker for
+ * hours, with every still-queued book sitting content-cleared (the "no content" badges). The run
+ * poll ends at `completed`, so before this the console showed a gutted corpus and NO sign anything
+ * was still happening — indistinguishable from a broken import, which is exactly what it looked
+ * like (tripleC, 2026-09-15: 941 books re-pressed mid-drain).
+ *
+ * Paints the run panel with the queued count and keeps a light poll alive (a one-count endpoint,
+ * NOT /articles — folding 950 articles every 20s for hours is not a poll). On zero it repaints
+ * the corpus, whose lanes have their content back.
+ */
+function renderReconvertBacklog(pending: number): void {
+  const panel = document.getElementById('ji-run-panel');
+  if (!panel || pending <= 0) return;   // shelf console has no panel and no bulk runs
+
+  window.clearTimeout(backlogTimer);
+
+  panel.hidden = false;
+  panel.classList.remove('is-done', 'is-failed');
+  el<HTMLElement>('ji-run-title').textContent = 'reconversion draining';
+  const fill = el<HTMLElement>('ji-run-bar-fill');
+  fill.classList.add('is-indeterminate');
+  fill.style.width = '';
+  el<HTMLElement>('ji-run-count').textContent = String(pending);
+  el<HTMLElement>('ji-run-current').textContent =
+    `${pending} conversion${pending === 1 ? '' : 's'} still queued on the import worker — a book shows `
+    + `"no content" until its turn comes; do NOT press reconvert all again`;
+  el<HTMLElement>('ji-run-tallies').textContent = '';
+  el<HTMLElement>('ji-run-errors').hidden = true;
+  const banner = document.getElementById('ji-run-continue');
+  if (banner) banner.hidden = true;
+  el<HTMLButtonElement>('ji-run-close').hidden = true;
+
+  backlogTimer = window.setTimeout(() => void pollReconvertBacklog(), 20_000);
+}
+
+async function pollReconvertBacklog(): Promise<void> {
+  if (boot.shelfId || !document.getElementById('ji-run-panel')) return;
+  if (pollingRunId) return;   // a live run owns the panel; its completed branch re-seeds this
+
+  const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
+  if (!resp.ok) return;       // transient — the next loadDetail re-seeds the poll
+  const pending = Number(((await resp.json()) as { pending?: number }).pending ?? 0);
+
+  if (pending > 0) {
+    renderReconvertBacklog(pending);
+    return;
+  }
+
+  // Drained. Only replace a panel that was actually SHOWING the drain — a just-completed
+  // import_all also lands here (pollRun kicks this from its finally) and its "✓ done"
+  // summary must not be overwritten by a drain message about nothing.
+  const panel = document.getElementById('ji-run-panel');
+  const wasDraining = el<HTMLElement>('ji-run-title').textContent === 'reconversion draining';
+  if (panel && !panel.hidden && wasDraining) {
+    panel.classList.add('is-done');
+    el<HTMLElement>('ji-run-title').textContent = 'reconversion drained';
+    el<HTMLElement>('ji-run-count').textContent = '✓';
+    el<HTMLElement>('ji-run-current').textContent = 'all queued conversions have run';
+    el<HTMLElement>('ji-run-bar-fill').classList.remove('is-indeterminate');
+    el<HTMLButtonElement>('ji-run-close').hidden = false;
+    // Repaint the corpus — the lanes have their content back.
+    if (isDetail) void loadDetail();
+  }
 }
 
 /** Headline for the run panel: what was asked for, in the words of the controls that asked. */

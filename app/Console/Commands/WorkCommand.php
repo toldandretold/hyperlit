@@ -28,10 +28,10 @@ class WorkCommand extends Command
     public function handle(): int
     {
         $this->warn('Single SERIAL worker over all queues — long jobs block short ones.');
-        $this->info('Working queues: citation-pipeline > vibe > default > embeddings  (Ctrl+C to stop)');
+        $this->info('Working queues: imports > citation-pipeline > vibe > default > embeddings  (Ctrl+C to stop)');
 
         return $this->call('queue:work', [
-            '--queue'   => 'citation-pipeline,vibe,default,embeddings',
+            '--queue'   => 'imports,citation-pipeline,vibe,default,embeddings',
             '--timeout' => 7200, // jobs with their own $timeout still take precedence
         ]);
     }

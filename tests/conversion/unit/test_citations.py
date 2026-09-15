@@ -191,3 +191,57 @@ def test_the_walk_back_never_fires_inside_a_bibliography_entry(soup):
     s = _doc(soup, body)
     found, linked, unlinked = link_citations(s, {'ostrom1990': 'bib_ostrom_1990'})
     assert linked == 0
+
+
+# ---------------------------------------------------------------------------
+# AMBIGUOUS antecedent resolutions are stored AS A QUESTION, not silently decided: when more than
+# one bibliography entry fits a bare-year citation, the link points at the best candidate but the
+# ranked alternatives ride along in data-candidates, so the maintainer console (and later the
+# reader) can ask a human instead of trusting the guess. The tripleC audit found the wrong-winner
+# shape repeatedly: "…laundering on the Internet… she explains (2013)" linked to internet2013 (an
+# org/title-derived key) because "Internet" was nearer than "Christopher".
+# ---------------------------------------------------------------------------
+def test_two_fitting_entries_emit_candidates_and_the_ambiguous_marker(soup):
+    body = ('<p>Christopher discusses laundering on the Internet at length. Efforts, she explains '
+            '(2013: 5), are misguided.</p>'
+            '<p id="christopher2013" class="bib-entry">Christopher, A. (2013). Laundering.</p>'
+            '<p id="internet2013" class="bib-entry">Internet Society. (2013). Report.</p>')
+    s = _doc(soup, body)
+    link_citations(s, {'christopher2013': 'christopher2013', 'internet2013': 'internet2013'})
+    a = s.find('a', class_='in-text-citation')
+    assert a['data-resolved'] == 'ambiguous'
+    got = set(a['data-candidates'].split('|'))
+    assert got == {'christopher2013', 'internet2013'}
+    assert a['href'].lstrip('#') in got          # linked to ONE of them, never to nothing
+
+
+def test_letter_suffixed_siblings_are_both_candidates(soup):
+    # A bare "(2009)" genuinely cannot choose between infoadex2009a and infoadex2009b.
+    body = ('<p>Infoadex published its annual study of advertising spend that year (2009: 44).</p>'
+            '<p id="infoadex2009a" class="bib-entry">Infoadex (2009a). Study A.</p>'
+            '<p id="infoadex2009b" class="bib-entry">Infoadex (2009b). Study B.</p>')
+    s = _doc(soup, body)
+    link_citations(s, {'infoadex2009a': 'infoadex2009a', 'infoadex2009b': 'infoadex2009b'})
+    a = s.find('a', class_='in-text-citation')
+    assert a['data-resolved'] == 'ambiguous'
+    assert set(a['data-candidates'].split('|')) == {'infoadex2009a', 'infoadex2009b'}
+
+
+def test_a_single_fitting_entry_stays_a_plain_antecedent_link(soup):
+    body = ('<p>Similarly, Levy anticipated much. A quote follows, argues the philosopher '
+            '(2002: 33).</p>'
+            '<p id="levy2002" class="bib-entry">Levy, P. (2002). Cyberdemocratie.</p>')
+    s = _doc(soup, body)
+    link_citations(s, {'levy2002': 'levy2002'})
+    a = s.find('a', class_='in-text-citation')
+    assert a['data-resolved'] == 'antecedent'
+    assert not a.has_attr('data-candidates')
+
+
+def test_ambiguity_candidates_survive_the_sanitizer():
+    from shared.sanitize import sanitize_html
+    html = ('<a class="in-text-citation" data-resolved="ambiguous" '
+            'data-candidates="a2013|b2013" href="#a2013">2013</a>')
+    out = sanitize_html(html)
+    assert 'data-candidates="a2013|b2013"' in out
+    assert 'data-resolved="ambiguous"' in out

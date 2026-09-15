@@ -641,6 +641,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/journal-import/journals', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'journals']);
     Route::get('/maintainer/journal-import/{slug}/articles', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'articles'])
         ->where('slug', '[a-z0-9-]+');
+    // Lightweight drain poll: how many of this journal's queued conversion jobs
+    // (a reconvert_all fan-out) are still waiting on the import worker.
+    Route::get('/maintainer/journal-import/{slug}/reconvert-backlog', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'reconvertBacklog'])
+        ->where('slug', '[a-z0-9-]+');
     // Choose which imported lane is THE version (pointer + listing + shelf membership).
     // Article-scoped actions (import a lane / reconvert it from the stored page / re-fetch it) +
     // their status poll. Queued: see JournalImportActionJob.
@@ -685,6 +689,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // aggregates what the scope's books cite so `import-source` can pull the big external OA
     // works into the library. Shelf routes register BEFORE the {slug} routes — "shelf" itself
     // matches the slug pattern.
+    // Ambiguous-citation review queue (see Maintainer\CitationConsoleController): `pending`
+    // lists the converter's open which-entry-did-this-year-mean questions grouped by book;
+    // `resolve` records the human answer and patches the stored nodes immediately.
+    Route::get('/maintainer/citations/ambiguous', [\App\Http\Controllers\Maintainer\CitationConsoleController::class, 'pending']);
+    Route::post('/maintainer/citations/ambiguous/{id}/resolve', [\App\Http\Controllers\Maintainer\CitationConsoleController::class, 'resolve'])
+        ->where('id', '[0-9a-f-]{36}');
+
     Route::get('/maintainer/hypercites/journals', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'journals']);
     Route::get('/maintainer/hypercites/runs/{id}', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'runStatus'])
         ->where('id', '[0-9a-f-]{36}');

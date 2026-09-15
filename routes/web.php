@@ -104,6 +104,11 @@ Route::prefix('maintainer')->group(function () {
     // detected hypercite candidates, citing and cited books side by side;
     // approve mints the hypercite. The shelf route registers FIRST — "shelf"
     // itself matches the slug pattern.
+    // Ambiguous-citation review queue: the converter's "which entry did this bare year
+    // mean?" questions, answered once and re-applied across reconverts.
+    Route::get('/citations', [App\Http\Controllers\Maintainer\CitationConsoleController::class, 'index'])
+        ->name('maintainer.citations');
+
     Route::get('/hypercites', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'index'])
         ->name('maintainer.hypercites');
     Route::get('/hypercites/shelf/{id}', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'showShelf'])

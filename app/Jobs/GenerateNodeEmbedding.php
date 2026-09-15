@@ -22,10 +22,8 @@ class GenerateNodeEmbedding implements ShouldQueue
         private int $nodeId,
     ) {
         // Run on a dedicated queue so bulk embedding generation (one job per node —
-        // thousands for a large book) can never sit in front of interactive
-        // imports/reconverts on the 'default' queue. Workers process
-        // 'default,embeddings' in priority order, so conversions always run first
-        // and embeddings fill idle time. Mirrors the citation-pipeline jobs.
+        // thousands for a large book) can never sit in front of imports/reconverts
+        // on the 'imports'/'default' lanes. Mirrors the citation-pipeline jobs.
         $this->onQueue('embeddings');
     }
 

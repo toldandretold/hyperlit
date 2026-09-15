@@ -8,10 +8,11 @@
     "pipeline": "full",
     "expected": {
         "references_count": 65,
-        "citations_linked": 147,
+        "citations_linked": 146,
         "citations_total": 148,
         "footnotes_count": 0,
         "audit_gaps": 0,
-        "antecedent_note": "Citations whose author is NOT adjacent to the year now resolve through the antecedent walk-back (a bare year + locator takes the nearest preceding name in the paragraph, and only links if THAT key exists in the bibliography)."
+        "antecedent_note": "Citations whose author is NOT adjacent to the year now resolve through the antecedent walk-back (a bare year + locator takes the nearest preceding name in the paragraph, and only links if THAT key exists in the bibliography).",
+        "exact_candidate_note": "Walk-back candidates are now checked against the bibliography EXACTLY (no ±3yr fuzzy fallback on top of a guessed author — guess-squared minted wrong links: a Kropotkin quote's (1892/2012) linked to marx1894). The removed links were wrong links."
     }
 }

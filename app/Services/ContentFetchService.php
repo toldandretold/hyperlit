@@ -1962,6 +1962,22 @@ class ContentFetchService
                 ]);
             }
 
+            // 5b-iii. AMBIGUOUS citation resolutions: re-apply maintainer answers (the ledger
+            // lives outside the node HTML precisely so this rewrite can't destroy them) and
+            // register still-open questions for /maintainer/citations. This INLINE PDF path is
+            // the one `library:reconvert-system-version` actually takes — ProcessDocumentImportJob
+            // carries the same hook for every queued lane. Best-effort.
+            try {
+                $ambig = app(\App\Services\Citations\AmbiguousCitationRegistry::class)->sync($bookId);
+                if (($ambig['ambiguous'] ?? 0) > 0 || ($ambig['stale_dropped'] ?? 0) > 0) {
+                    Log::info('Ambiguous citation sync', ['book' => $bookId] + $ambig);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Ambiguous citation sync failed (import continues)', [
+                    'book' => $bookId, 'error' => $e->getMessage(),
+                ]);
+            }
+
             // 5c. Reconvert path: re-anchor hyperlights/hypercites onto the new
             // nodes from the pre-clear snapshot (written by
             // ReconvertSystemVersionCommand; fresh auto-version imports have no

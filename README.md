@@ -161,8 +161,9 @@ If you need more control:
 # Terminal 1: PHP server
 php artisan serve
 
-# Terminal 2: Queue worker
-php artisan queue:work
+# Terminal 2: Queue worker (imports first — a bare `queue:work` serves only
+# `default` and user imports would sit unprocessed; `php artisan work` covers all queues)
+php artisan queue:work --queue=imports,default
 
 # Terminal 3: Vite dev server
 npm run dev

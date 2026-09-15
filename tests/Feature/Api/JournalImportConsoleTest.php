@@ -31,8 +31,9 @@ function jconCleanup(): void
     )->delete();
     jconDb()->table('conversion_flags')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('canonical_source')->where('title', 'LIKE', 'JCon %')->delete();
-    jconDb()->table('library')->where('book', 'LIKE', 'book_jcon%')->delete();
+    jconDb()->table('library')->where('book', 'LIKE', 'book_jcon%')->orWhere('title', 'LIKE', 'JCon %')->delete();
     jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->delete();
+    jconDb()->table('jobs')->where('payload', 'LIKE', '%jcon-backlog-marker%')->delete();
 }
 
 beforeEach(fn () => jconCleanup());
@@ -220,6 +221,47 @@ test('open conversion flags are counted onto their lane', function () {
 });
 
 // ── Promotion endpoint ──
+
+test('a draining reconvert_all is countable: articles payload + the backlog poll', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $other   = jconSeedJournal(['display_name' => 'JCon Other Journal']);
+
+    // Journal lanes are uuid-minted by AutoVersionCreator, and the count matches
+    // payload uuids against library.book — so seed uuid-shaped lane ids.
+    $mine    = (string) Str::uuid();
+    $foreign = (string) Str::uuid();
+    jconSeedArticle($journal->id, ['title' => 'JCon Draining Work'], [
+        ['foundation_source' => 'journal_html', 'book' => $mine],
+    ]);
+    jconSeedArticle($other->id, ['title' => 'JCon Other Work'], [
+        ['foundation_source' => 'journal_html', 'book' => $foreign],
+    ]);
+
+    // Real payload shape matters: the job's OWN uuid comes first, and must not
+    // be mistaken for the book id (it matches no library row).
+    $payload = fn (string $book) => json_encode([
+        'uuid'        => (string) Str::uuid(),
+        'displayName' => 'App\\Jobs\\ProcessDocumentImportJob',
+        'marker'      => 'jcon-backlog-marker',
+        'data'        => ['command' => "O:8:\"stub\":1:{s:6:\"bookId\";s:36:\"{$book}\";}"],
+    ]);
+    $row = fn (string $queue, string $book) => [
+        'queue' => $queue, 'payload' => $payload($book),
+        'attempts' => 0, 'available_at' => time(), 'created_at' => time(),
+    ];
+    jconDb()->table('jobs')->insert([
+        $row('default', $mine),      // the bulk fan-out lane
+        $row('imports', $mine),      // a hand reconvert of the same journal's book
+        $row('default', $foreign),   // another journal's drain — not mine
+    ]);
+
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/reconvert-backlog")
+        ->assertOk()->assertJson(['pending' => 2]);
+
+    $body = $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")->assertOk()->json();
+    expect($body['reconvert_backlog'])->toBe(2);
+});
 
 test('promote makes the lane the version and reports what it unlisted', function () {
     $this->loginUser(['is_admin' => true]);

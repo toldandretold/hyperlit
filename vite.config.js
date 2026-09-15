@@ -169,6 +169,8 @@ export default defineConfig({
                 // Hypercite review console (standalone, non-SPA, admin-only — /maintainer/hypercites)
                 'resources/css/pages/maintainer-hypercites.css',
                 'resources/js/maintainerHypercites/main.ts',
+                'resources/css/pages/maintainer-citations.css',
+                'resources/js/maintainerCitations/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

@@ -5,7 +5,7 @@
 # There are SEVEN Supervisor programs, one per queue, and remembering their names
 # + the right supervisorctl/artisan incantations is the chore this wraps:
 #
-#   hyperlit-worker        → queue `default`           (imports/reconverts + light jobs)
+#   hyperlit-worker        → queues `imports,default`  (user imports jump bulk reconverts)
 #   hyperlit-citation      → queue `citation-pipeline` (CitationPipelineJob etc, up to 2 h)
 #   hyperlit-vibe          → queue `vibe`              (VibeConversionJob, up to ~30 min)
 #   hyperlit-audio         → queue `audio`             (GenerateBookAudioJob, TTS narration, up to 1 h)

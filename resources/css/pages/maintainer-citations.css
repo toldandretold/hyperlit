@@ -1,0 +1,188 @@
+/* Ambiguous-citation review queue — standalone non-SPA (maintainer-citations.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--color-background, #221f20);
+  color: var(--color-text, #cbcccc);
+  font-family: system-ui, sans-serif;
+}
+
+.mc-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  padding: 1rem 1.4rem 0.4rem;
+}
+
+.mc-header h1 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.mc-header-sub {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+.mc-header-link {
+  margin-left: auto;
+  color: var(--color-text, #cbcccc);
+  opacity: 0.6;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.mc-header-link + .mc-header-link {
+  margin-left: 0.8rem;
+}
+
+.mc-header-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.mc-intro {
+  max-width: 62rem;
+  margin: 0.2rem 1.4rem 1.2rem;
+  opacity: 0.75;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+#mc-list {
+  max-width: 62rem;
+  margin: 0 1.4rem 4rem;
+}
+
+.mc-empty {
+  opacity: 0.6;
+}
+
+.mc-book {
+  margin-bottom: 2rem;
+}
+
+.mc-book h2 {
+  font-size: 0.98rem;
+  margin: 0 0 0.5rem;
+}
+
+.mc-book h2 a {
+  color: var(--color-text, #cbcccc);
+}
+
+.mc-book-count {
+  font-size: 0.75rem;
+  opacity: 0.55;
+  font-weight: normal;
+}
+
+.mc-card {
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.mc-card.mc-busy {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.mc-card.mc-done {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.mc-sentence {
+  margin: 0 0 0.7rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.mc-year {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  color: inherit;
+  border-radius: 4px;
+  padding: 0 0.25em;
+}
+
+/* One candidate = one full-width button carrying its evidence. */
+.mc-candidate {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0.35rem 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.mc-candidate:hover,
+.mc-candidate:focus-visible {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.mc-candidate.mc-current {
+  border-left-width: 4px;
+}
+
+.mc-cand-head {
+  display: block;
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-bottom: 0.2rem;
+}
+
+.mc-cand-cited {
+  font-style: italic;
+}
+
+.mc-cand-entry {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.mc-not-citation {
+  margin-top: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px dashed color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.mc-not-citation:hover,
+.mc-not-citation:focus-visible {
+  opacity: 1;
+  border-style: solid;
+}
+
+.mc-done-line {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.mc-error {
+  color: #e06c6c;
+  font-size: 0.82rem;
+  margin: 0.4rem 0 0;
+}

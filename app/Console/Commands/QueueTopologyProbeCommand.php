@@ -20,16 +20,20 @@ use Symfony\Component\Process\Process;
  *
  * How: dispatches a synthetic sleep job (QueueProbeSleepJob — no real
  * imports/LLM calls) onto EVERY queue simultaneously, plus a second short job
- * on `default`, then measures via cache timestamps:
+ * on the `imports` lane (the user-facing priority lane the import worker
+ * serves ahead of `default` — see hyperlit-worker.conf), then measures via
+ * cache timestamps:
  *   1. each queue's blocker starts            → every queue has its own worker
  *   2. all blockers overlap in time           → queues run in PARALLEL
- *   3. the short default job starts while the
+ *   3. the short `imports` job starts while the
  *      default blocker is still sleeping      → standby import worker exists
+ *      (or, against a live default backlog, starts ahead of that backlog
+ *      → the priority lane is being served)
  *
- * By default it SPAWNS the dev worker topology itself (2x default, 1x each
- * other queue — mirroring package.json dev:all / deploy/supervisor), so it
- * tests the configured topology hermetically. Pass --use-running to instead
- * test whatever workers are already up (e.g. your live dev:all stack).
+ * By default it SPAWNS the dev worker topology itself (2x imports,default —
+ * mirroring package.json dev:all / deploy/supervisor — 1x each other queue),
+ * so it tests the configured topology hermetically. Pass --use-running to
+ * instead test whatever workers are already up (e.g. your live dev:all stack).
  *
  * Safe to run anywhere: synthetic jobs only sleep and write 2 cache keys; any
  * leftovers are deleted from the jobs table on teardown.
@@ -84,15 +88,17 @@ class QueueTopologyProbeCommand extends Command
             }
             $this->info('Dispatched a '.$blockerSecs."s blocker onto every queue: ".implode(', ', self::QUEUES));
 
-            // 1b. Dispatch the short default-queue probe NOW, while the default
+            // 1b. Dispatch the short import probe NOW, while the default
             //     blocker is guaranteed to still be sleeping. Dispatching it
             //     after the start-await loop (as this probe originally did) was
             //     a latent false negative: one backlogged queue burns the whole
             //     start deadline, by which time the default blocker has already
             //     finished and the standby comparison below can only fail.
-            $probeId = "{$runId}-probe-default";
+            //     It rides `imports` — the lane user uploads actually use — so
+            //     it also proves the priority lane is wired on the worker.
+            $probeId = "{$runId}-probe-imports";
             $probeDispatchedAt = microtime(true);
-            QueueProbeSleepJob::dispatch($probeId, $probeSecs)->onQueue('default');
+            QueueProbeSleepJob::dispatch($probeId, $probeSecs)->onQueue('imports');
 
             // 2. Every blocker must START (= the queue has a worker at all).
             //    Exception: a backlogged queue whose blocker never surfaces is
@@ -178,9 +184,14 @@ class QueueTopologyProbeCommand extends Command
                 $blockerStillRunning = $defaultBlockerFinished !== null
                     && $probeStarted < ((float) $defaultBlockerFinished - 0.5);
                 if ($blockerStillRunning) {
-                    $this->info('✓ Import (default) probe ran in '.round($wait, 1).'s while the first import worker AND every other queue were busy — standby import worker confirmed.');
+                    $this->info('✓ Import probe (imports lane) ran in '.round($wait, 1).'s while the first import worker AND every other queue were busy — standby import worker confirmed.');
+                } elseif ($defaultBlockerFinished === null && $backlogs['default'] > 0) {
+                    // The default blocker never ran because it sits at the BACK of a
+                    // live backlog — but the imports-lane probe started anyway, which
+                    // is the priority lane doing exactly its job.
+                    $this->info('✓ Import probe (imports lane) started in '.round($wait, 1)."s ahead of a {$backlogs['default']}-job default backlog — priority lane confirmed (standby capacity unverified; re-probe once the backlog drains).");
                 } else {
-                    $this->error('✗ Import probe waited '.round($wait, 1).'s — it queued behind the busy import worker (no standby worker on default).');
+                    $this->error('✗ Import probe waited '.round($wait, 1).'s — it queued behind the busy import worker (no standby worker on the imports,default lanes).');
                     $verdictOk = false;
                 }
             } else {
@@ -206,7 +217,7 @@ class QueueTopologyProbeCommand extends Command
     private function spawnTopology(): void
     {
         $spec = [
-            'default', 'default',   // IMP1 + IMP2 (standby)
+            'imports,default', 'imports,default',   // IMP1 + IMP2 (standby); user lane first
             'citation-pipeline',
             'vibe',
             'audio',
@@ -223,7 +234,7 @@ class QueueTopologyProbeCommand extends Command
             $p->start();
             $this->workers[] = $p;
         }
-        $this->info('Spawned reference topology: 2x default, 1x each of '.implode(', ', array_slice(self::QUEUES, 1)).'.');
+        $this->info('Spawned reference topology: 2x imports,default; 1x each of '.implode(', ', array_slice(self::QUEUES, 1)).'.');
         sleep(2); // let workers boot before dispatching
     }
 

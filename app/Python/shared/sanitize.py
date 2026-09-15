@@ -26,8 +26,10 @@ ALLOWED_ATTRS = {
     # surrounding prose rather than read from the parentheses (the antecedent walk-back). It is what
     # makes `citations:audit-antecedent` possible on a 900-article corpus, so it has to survive the
     # sanitiser — an attribute allowlist silently drops anything it has not been told about.
+    # data-candidates: the ranked alternative targets of an AMBIGUOUS antecedent resolution —
+    # the linker's evidence for the question a human answers in /maintainer/citations.
     'a': ['href', 'title', 'target', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page',
-          'data-resolved'],
+          'data-resolved', 'data-candidates'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
