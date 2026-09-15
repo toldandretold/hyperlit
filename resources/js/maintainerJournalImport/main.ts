@@ -1304,13 +1304,17 @@ interface RunFailure {
 
 /** The live beat a running job writes to `journal_import_runs.progress`, one write per work. */
 interface RunProgress {
-  phase: 'html' | 'pdf' | 'enumerate' | 'shelf' | null;
+  phase: 'html' | 'pdf' | 'enumerate' | 'shelf' | 'reconvert' | null;
   n: number;
   total: number;
   title: string | null;
   imported: number;
   already: number;
   failed: number;
+  // reconvert_all beats only: that loop QUEUES (conversions drain afterwards), so it reports
+  // queued/skipped and never touches the import-vocabulary fields above.
+  queued?: number;
+  skipped?: number;
   recent_failures: RunFailure[];
 }
 
@@ -1413,14 +1417,35 @@ function renderRunProgress(run: RunState, headline: string): void {
   }
 
   const tallies = el<HTMLElement>('ji-run-tallies');
-  tallies.textContent = p && (p.imported || p.already || p.failed)
-    ? [
-      `${p.imported} imported`,
-      p.already ? `${p.already} already there` : '',
-      p.failed ? `${p.failed} failed` : '',
-      p.phase ? `· ${p.phase} lane` : '',
-    ].filter(Boolean).join(' · ')
-    : '';
+  // reconvert_all beats carry `queued`/`skipped`, never `imported` — that loop only QUEUES,
+  // and saying "imported" here is how a mid-drain corpus got its button pressed twice. The
+  // conversions run CONCURRENTLY on the import worker from book #1, so this line also carries
+  // the live drain (converted so far / waiting), from the same one-count endpoint the
+  // post-completion drain panel polls. Keyed on the reconvert PHASE, not on the new beat keys,
+  // so a run started under pre-deploy backend code still gets the drain numbers.
+  const isReconvertRun = !!p && (p.phase === 'reconvert' || p.queued !== undefined);
+  if (isReconvertRun && !terminal) {
+    void refreshRunBacklog();
+    const queuedSoFar = p.queued ?? p.imported ?? 0;
+    const skipped = p.skipped ?? p.failed ?? 0;
+    const drain = runBacklogPending === null
+      ? 'conversions running in the background'
+      : `${Math.max(0, queuedSoFar - runBacklogPending)} converted so far · ${runBacklogPending} waiting`;
+    tallies.textContent = [
+      `${queuedSoFar} queued`,
+      drain,
+      skipped ? `${skipped} skipped (no cached source)` : '',
+    ].filter(Boolean).join(' · ');
+  } else {
+    tallies.textContent = p && (p.imported || p.already || p.failed)
+      ? [
+        `${p.imported} imported`,
+        p.already ? `${p.already} already there` : '',
+        p.failed ? `${p.failed} failed` : '',
+        p.phase ? `· ${p.phase} lane` : '',
+      ].filter(Boolean).join(' · ')
+      : '';
+  }
 
   // The running tail only. The grouped-by-cause panel that lands at completion is still where
   // triage happens — this is here so a run that dies at minute 40 has already said why.
@@ -1491,6 +1516,31 @@ function renderStoppedEarly(run: RunState, terminal: boolean): void {
 
 /** Timer for the reconvert-drain poll, cleared on every repaint so pollers never stack. */
 let backlogTimer: number | undefined;
+
+// Live drain numbers WHILE a reconvert_all is still queueing (the run panel's tallies line).
+// Conversions start draining the moment book #1 is queued — hiding that until queueing finished
+// made a working sweep indistinguishable from a dead one. Throttled to the drain panel's own
+// 20s cadence; one count query, never /articles.
+let runBacklogPending: number | null = null;
+let runBacklogAt = 0;
+let runBacklogInflight = false;
+
+async function refreshRunBacklog(): Promise<void> {
+  if (boot.shelfId) return;                       // backlog endpoint is journal-scoped
+  if (runBacklogInflight || Date.now() - runBacklogAt < 20_000) return;
+  runBacklogInflight = true;
+  try {
+    const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
+    if (resp.ok) {
+      runBacklogPending = Number(((await resp.json()) as { pending?: number }).pending ?? 0);
+      runBacklogAt = Date.now();
+    }
+  } catch {
+    /* transient — the next render retries after the throttle window */
+  } finally {
+    runBacklogInflight = false;
+  }
+}
 
 /**
  * The status for a DRAINING reconvert_all — the gap that got the button pressed twice.

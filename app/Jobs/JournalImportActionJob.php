@@ -597,7 +597,12 @@ class JournalImportActionJob implements ShouldQueue
                     [
                         'phase' => 'reconvert', 'n' => $i + 1, 'total' => $counts['total'],
                         'title' => mb_substr($lane->title ?? '', 0, 60),
-                        'imported' => $counts['queued'], 'already' => 0, 'failed' => $counts['skipped'],
+                        // Distinct keys, NOT 'imported'/'failed': this loop only QUEUES (the
+                        // conversions drain for hours afterwards), and a skip is a refusal to
+                        // re-OCR, not a failure. Reusing import_all's keys made the console
+                        // read "50 imported" while zero books had converted — the other half
+                        // of the double-press incident the drain panel already covers.
+                        'queued' => $counts['queued'], 'skipped' => $counts['skipped'],
                         'recent_failures' => array_slice(array_reverse($failures), 0, 5),
                     ],
                 );
