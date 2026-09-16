@@ -7,6 +7,7 @@
 
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
+import { drainResponse } from '../../utilities/drainResponse';
 import { confirmDialog, alertDialog } from '../dialog/dialog';
 import { fetchAudioProgress, fetchAudioStatus, type AudioProgress, type AudioStatus } from './manifest';
 
@@ -65,11 +66,11 @@ export async function requestGeneration(bookId: string): Promise<boolean> {
   const csrf = await ensureCsrfToken();
   let resp: Response | null = null;
   try {
-    resp = await fetch(`/api/book-audio/${bookId}/generate`, {
+    resp = await drainResponse(await fetch(`/api/book-audio/${bookId}/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf ?? '' },
       credentials: 'include',
-    });
+    }));
   } catch {
     resp = null;
   }

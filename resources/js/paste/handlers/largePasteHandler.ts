@@ -24,6 +24,7 @@ import { ProgressOverlayConductor } from '../../SPA/navigation/ProgressOverlayCo
 import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
+import { drainResponse } from '../../utilities/drainResponse';
 
 // Snapshot for undo support lives in the ../pasteSnapshot leaf (see clearPasteSnapshot importers).
 
@@ -461,7 +462,7 @@ export async function undoLastLargePaste() {
     const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/cloudRef/editIndicator');
     glowCloudOrange();
 
-    const response = await fetch('/api/db/nodes/upsert', {
+    const response = await drainResponse(await fetch('/api/db/nodes/upsert', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -469,7 +470,7 @@ export async function undoLastLargePaste() {
       },
       credentials: 'include',
       body: JSON.stringify({ book: bookId, data: allNodes })
-    });
+    }));
 
     if (response.ok) {
       glowCloudGreen();

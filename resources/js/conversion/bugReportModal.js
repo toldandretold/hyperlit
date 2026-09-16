@@ -8,6 +8,7 @@
  */
 
 import { getRecentLogs } from '../integrity/logCapture';
+import { drainResponse } from '../utilities/drainResponse';
 
 const MODAL_ID = 'import-failure-modal';
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB cap matches server-side max
@@ -330,12 +331,12 @@ async function sendReport({ bookId, errorMessage, status, source, comment, file 
   }
 
   try {
-    const res = await fetch('/api/integrity/import-failure', {
+    const res = await drainResponse(await fetch('/api/integrity/import-failure', {
       method: 'POST',
       credentials: 'include',
       headers,
       body,
-    });
+    }));
     if (res.status === 429) {
       return { ok: false, message: 'Throttled — try again in a minute.' };
     }

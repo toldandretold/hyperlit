@@ -18,6 +18,7 @@ import { handleLargePaste } from './largePasteHandler';
 import { getCurrentChunk } from '../../utilities/chunkState';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
 import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad/index';
+import { drainResponse } from '../../utilities/drainResponse';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
@@ -333,12 +334,12 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
       const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
       const allNodes = await getNodesFromIndexedDB(pasteBook);
 
-      const response = await fetch('/api/db/nodes/upsert', {
+      const response = await drainResponse(await fetch('/api/db/nodes/upsert', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
         credentials: 'include',
         body: JSON.stringify({ book: pasteBook, data: allNodes }),
-      });
+      }));
 
       if (response.ok) {
         glowCloudGreen();

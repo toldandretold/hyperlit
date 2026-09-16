@@ -10,6 +10,7 @@ import { book, bookSlug } from '../../app';
 import { isLoggedIn } from '../../utilities/auth/index';
 import { log } from '../../utilities/logger';
 import { trapModalFocus } from '../../utilities/modalFocusTrap';
+import { drainResponse } from '../../utilities/drainResponse';
 
 function rootBookId(): string {
   return String(book).split('/')[0] ?? String(book);
@@ -179,11 +180,11 @@ export function initReaderActions(self: any): void {
       const wasLiked = likeBtn.getAttribute('aria-pressed') === 'true';
       setLikedState(likeBtn, !wasLiked);
       try {
-        const resp = await fetch(`/api/books/${encodeURIComponent(rootBookId())}/like`, {
+        const resp = await drainResponse(await fetch(`/api/books/${encodeURIComponent(rootBookId())}/like`, {
           method: wasLiked ? 'DELETE' : 'POST',
           headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf() },
           credentials: 'include',
-        });
+        }));
         if (!resp.ok) throw new Error(`like toggle ${resp.status}`);
       } catch (err: any) {
         setLikedState(likeBtn, wasLiked);

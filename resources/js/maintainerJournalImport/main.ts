@@ -15,6 +15,7 @@ import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
 import { initShelfDrop } from './shelfDrop';
 import { hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision } from './articleFilters';
+import { drainResponse } from '../utilities/drainResponse';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
 } from '../utilities/sourceFrameTheme';
@@ -637,7 +638,7 @@ async function selectLane(lane: Lane): Promise<void> {
   el<HTMLElement>('ji-source-label').textContent = `source · ${sourceKindOf(lane)}`;
 
   try {
-    const probe = await fetch(sourceUrl, { method: 'HEAD', credentials: 'include' });
+    const probe = await drainResponse(await fetch(sourceUrl, { method: 'HEAD', credentials: 'include' }));
     if (selected?.book !== lane.book) return; // selection moved while probing
     if (probe.ok) {
       // Paint the fetched page in the operator's theme once it lands. A PDF can't be skinned, so

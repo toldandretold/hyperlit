@@ -16,6 +16,7 @@
 
 import { isWithinViewport } from '../lazyLoader/utilities/windowChunks';
 import { parseChunkId } from '../indexedDB/types';
+import { drainResponse } from '../utilities/drainResponse';
 
 const FLUSH_DEBOUNCE_MS = 15000;
 
@@ -131,7 +132,11 @@ export function flushReadingTelemetry(): void {
     credentials: 'include',
     keepalive: true,
     body: payload,
-  }).catch(() => {});
+  })
+    // Only reached when sendBeacon is unavailable/refused, but it is the same
+    // defect that hung every home-page load via pageViewTelemetry.
+    .then(drainResponse)
+    .catch(() => {});
 }
 
 function armFlushTimer(): void {

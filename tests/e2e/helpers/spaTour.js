@@ -304,13 +304,37 @@ export async function navigateBookToBook(page, spa, bookId) {
 
 /* ── History replay ────────────────────────────────────────────────────── */
 
+/**
+ * Wait for a popstate landing to SETTLE on the expected structure.
+ *
+ * `waitForTransition` returns when the nav overlay hides (+300ms), but that is
+ * only the FIRST reconcile pass: LinkNavigationHandler.handlePopstate runs a
+ * convergence loop (up to 3 more passes) whenever the rendered DOM doesn't
+ * match the live URL — the documented "burst back lands on home" desync. So
+ * sampling getStructure() at one instant races the convergence and reads the
+ * PREVIOUS page (observed: forward to "home → user" intermittently seeing
+ * "home", ~2 failures in 5 runs).
+ *
+ * Polling here does not weaken the assertion — it still fails if the DOM never
+ * reaches the expected page, which is exactly what a real desync looks like.
+ * It only stops the test from judging before the handler has finished.
+ */
+async function expectStructureSettles(page, spa, expected) {
+  await expect
+    .poll(() => spa.getStructure(page), {
+      timeout: 10_000,
+      message: `popstate landing never converged on "${expected}"`,
+    })
+    .toBe(expected);
+}
+
 export async function replayBackToStart(page, spa, history) {
   for (let i = history.length - 1; i >= 1; i--) {
     const target = history[i - 1];
     try {
       await page.goBack();
       await spa.waitForTransition(page);
-      expect(await spa.getStructure(page)).toBe(target.page);
+      await expectStructureSettles(page, spa, target.page);
       await pickVerifier(target.page)(page, spa);
       markCovered('popstate-back');
     } catch (err) {
@@ -327,7 +351,7 @@ export async function replayForwardToEnd(page, spa, history) {
     try {
       await page.goForward();
       await spa.waitForTransition(page);
-      expect(await spa.getStructure(page)).toBe(target.page);
+      await expectStructureSettles(page, spa, target.page);
       await pickVerifier(target.page)(page, spa);
       markCovered('popstate-forward');
     } catch (err) {

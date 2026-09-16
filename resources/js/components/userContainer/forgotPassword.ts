@@ -3,6 +3,7 @@
 // Takes the UserContainerManager as `self`.
 import { getForgotPasswordFormHTML, getForgotPasswordSentHTML } from './forms';
 import { ensureCsrfToken } from '../../utilities/auth/index';
+import { drainResponse } from '../../utilities/drainResponse';
 
 export function showForgotPasswordForm(self: any) {
   const container = document.querySelector(".custom-alert") || self.container;
@@ -36,7 +37,7 @@ export async function handleForgotPassword(self: any) {
       return;
     }
 
-    await fetch('/api/password/forgot', {
+    await drainResponse(await fetch('/api/password/forgot', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -46,7 +47,7 @@ export async function handleForgotPassword(self: any) {
       },
       credentials: 'include',
       body: JSON.stringify({ email }),
-    });
+    }));
 
     // Always show success (prevents email enumeration)
     const container = document.querySelector('.custom-alert') || self.container;

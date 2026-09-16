@@ -21,6 +21,7 @@ import {
   buildReadme,
 } from './emergencyBackup';
 import { isLoggedIn } from '../utilities/auth/index';
+import { drainResponse } from '../utilities/drainResponse';
 // Type-only import — verifier imports reporter dynamically, so this back-reference
 // is erased at runtime and introduces no static cycle.
 import type { NodeMismatch, MissingNode, DuplicateId } from './verifier';
@@ -821,14 +822,14 @@ function _pollForAuthAndClaim(backdrop: any, card: any) {
     // Claim premium
     try {
       const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
-      await fetch('/api/integrity/claim-premium', {
+      await drainResponse(await fetch('/api/integrity/claim-premium', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
         },
         credentials: 'include',
-      });
+      }));
     } catch (e) {
       console.warn('[integrity] Failed to claim premium:', e);
     }
@@ -853,14 +854,14 @@ function _pollForAuthAndClaim(backdrop: any, card: any) {
 async function _grantPremium() {
   try {
     const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
-    await fetch('/api/integrity/claim-premium', {
+    await drainResponse(await fetch('/api/integrity/claim-premium', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
       },
       credentials: 'include',
-    });
+    }));
   } catch (e) {
     // Silent — anonymous users won't have auth, that's fine
   }

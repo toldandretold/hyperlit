@@ -10,6 +10,7 @@
 
 import { clearPasteSnapshot } from '../pasteSnapshot';
 import { getRecentLogs, getPasteLogs } from '../../integrity/logCapture';
+import { drainResponse } from '../../utilities/drainResponse';
 
 const TOAST_ID = 'paste-undo-toast';
 
@@ -217,7 +218,7 @@ async function sendGlitchReport(toast: any, onUndo: any, cs: any, comment = '') 
   };
 
   try {
-    await fetch('/api/integrity/paste-glitch', {
+    await drainResponse(await fetch('/api/integrity/paste-glitch', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -225,7 +226,7 @@ async function sendGlitchReport(toast: any, onUndo: any, cs: any, comment = '') 
       },
       credentials: 'include',
       body: JSON.stringify(payload),
-    });
+    }));
   } catch (err: any) {
     console.warn('Failed to send paste glitch report:', err);
   }

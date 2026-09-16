@@ -16,6 +16,7 @@
 
 import { getRecentLogs } from '../integrity/logCapture';
 import { setVibeReviewMarker, clearVibeReviewMarker } from './vibeReviewMarker';
+import { drainResponse } from '../utilities/drainResponse';
 
 const TOAST_ID = 'conversion-feedback-toast';
 
@@ -273,7 +274,7 @@ async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comme
   };
 
   try {
-    await fetch('/api/integrity/conversion-feedback', {
+    await drainResponse(await fetch('/api/integrity/conversion-feedback', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -281,7 +282,7 @@ async function sendFeedback(toast, { bookId, stats, footnoteAudit, rating, comme
       },
       credentials: 'include',
       body: JSON.stringify(payload),
-    });
+    }));
   } catch (err) {
     console.warn('Failed to send conversion feedback:', err);
   }
@@ -387,7 +388,7 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
   // POST /start first; only show the working state once the job is queued.
   let startResp;
   try {
-    startResp = await fetch('/api/vibe-convert/start', {
+    startResp = await drainResponse(await fetch('/api/vibe-convert/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
       credentials: 'include',
@@ -396,7 +397,7 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
         note: note || null,
         issueTypes: (issueTypes && issueTypes.length) ? issueTypes : null,
       }),
-    });
+    }));
   } catch { startResp = null; }
   if (!startResp || !startResp.ok) {
     renderVibeEnd(toast, !startResp ? 'Could not start vibe conversion.'
@@ -407,7 +408,7 @@ async function startVibeConvert(toast, { bookId, note, issueTypes }) {
   const post = (url) => fetch(url, {
     method: 'POST', credentials: 'include',
     headers: { 'X-CSRF-TOKEN': csrfToken() },
-  }).catch(() => {});
+  }).then(drainResponse).catch(() => {});
 
   const status = renderVibeWorking(toast, {
     onCancel: () => { addLine('Cancelling…'); post(`/api/vibe-convert/cancel/${encodeURIComponent(book)}`); },
@@ -578,9 +579,9 @@ function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
   keepBtn.addEventListener('click', async () => {
     keepBtn.disabled = true;
     try {
-      await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/keep`, {
+      await drainResponse(await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/keep`, {
         method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
-      });
+      }));
     } catch {}
     clearVibeReviewMarker(bookId);
     hideConversionFeedbackToast();
@@ -593,9 +594,9 @@ function renderVibeReviewToast(toast, { bookId, tier, before, after, caveat }) {
     revertBtn.disabled = true;
     revertBtn.textContent = 'Reverting…';
     try {
-      const r = await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/reject`, {
+      const r = await drainResponse(await fetch(`/api/vibe-convert/review/${encodeURIComponent(bookId)}/reject`, {
         method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': csrfToken() },
-      });
+      }));
       if (r.ok) {
         clearVibeReviewMarker(bookId);
         renderVibeEnd(toast, 'Reverted to the original — reloading…');
@@ -691,12 +692,12 @@ function renderVibeResult(toast, { bookId, before, after, tier, caveat }) {
     useBtn.disabled = true;
     useBtn.textContent = 'Applying…';
     try {
-      const r = await fetch('/api/vibe-convert/accept', {
+      const r = await drainResponse(await fetch('/api/vibe-convert/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken() },
         credentials: 'include',
         body: JSON.stringify({ bookId }),
-      });
+      }));
       if (r.ok) {
         renderVibeEnd(toast, 'Applied! Reloading…');
         setTimeout(() => location.reload(), 800);

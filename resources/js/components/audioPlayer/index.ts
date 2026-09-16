@@ -13,6 +13,7 @@
 
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
+import { drainResponse } from '../../utilities/drainResponse';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 import { isBookEncrypted } from '../../e2ee/registry';
 import { isNativeShell } from '../../utilities/nativeBridge';
@@ -483,11 +484,11 @@ function watchGeneration(id: string, playWhenDone: boolean): void {
 async function cancelGeneration(id: string): Promise<void> {
   const csrf = await ensureCsrfToken();
   try {
-    await fetch(`/api/book-audio/${id}/cancel`, {
+    await drainResponse(await fetch(`/api/book-audio/${id}/cancel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf ?? '' },
       credentials: 'include',
-    });
+    }));
   } catch { /* the poll's terminal beat still closes the bar */ }
   bar?.setStatus('Cancelling…');
 }

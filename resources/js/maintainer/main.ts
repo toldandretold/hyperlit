@@ -7,6 +7,7 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
+import { drainResponse } from '../utilities/drainResponse';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
 } from '../utilities/sourceFrameTheme';
@@ -190,7 +191,7 @@ function select(entry: QueueEntry): void {
   const placeholder = el<HTMLParagraphElement>('mt-original-placeholder');
   frame.src = 'about:blank';
   placeholder.hidden = true;
-  void fetch(originalUrl, { method: 'HEAD', credentials: 'include' }).then((r) => {
+  void fetch(originalUrl, { method: 'HEAD', credentials: 'include' }).then(drainResponse).then((r) => {
     if (selected?.book !== entry.book) return; // superseded by a newer click
     if (r.ok) {
       // Same-origin, so the raw source document gets painted in the app's theme rather than

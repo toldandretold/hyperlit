@@ -82,6 +82,38 @@ async function dismissAllBatches(page) {
   });
 }
 
+/**
+ * Wait until this user has NO import still in flight.
+ *
+ * dismissAllBatches only dismisses the batch RECORDS — the conversion jobs
+ * behind them keep running server-side. That matters because the slow-import
+ * tests deliberately hold each import in 'processing' (X-Test-Slow-Import),
+ * so an earlier test's holds are still draining when the next one starts and
+ * land in ITS "N ahead" count. That is what made the multi-user test fail at
+ * its 300s budget in a full-file run while passing in 1.6m on its own.
+ *
+ * Polls before dismissal, since a dismissed batch stops being reported.
+ */
+async function waitForImportQueueIdle(page, timeoutMs = 180_000) {
+  const ACTIVE = ['pending_upload', 'queued', 'processing'];
+  await expect
+    .poll(
+      () => page.evaluate(async (active) => {
+        const resp = await fetch('/api/my-imports', {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+        if (!resp.ok) return 0;
+        const data = await resp.json();
+        return (data.batches || [])
+          .flatMap((b) => b.items || [])
+          .filter((i) => active.includes(i.status)).length;
+      }, ACTIVE),
+      { timeout: timeoutMs, message: 'earlier imports never drained' },
+    )
+    .toBe(0);
+}
+
 test.describe('Import batch queue (multi-file / vault UX)', () => {
   test('vault drop → widget progress → completion → shelf deep link → images in both books', async ({ page, spa }) => {
     test.setTimeout(420_000);
@@ -312,6 +344,15 @@ test.describe('Import batch queue (multi-file / vault UX)', () => {
 
   test('multiple users importing at once: your imports wait their turn behind others', async ({ page, spa, browser }) => {
     test.setTimeout(420_000);
+
+    // This test measures queue POSITION, so it needs a quiet queue to start
+    // from. The earlier slow-import test holds its imports in 'processing' on
+    // purpose and those holds outlive it — left to drain here they show up in
+    // this test's "N ahead" and eat the 300s completion budget (observed:
+    // stuck on "In queue — 7 ahead" in a full-file run, 1.6m and green alone).
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await waitForImportQueueIdle(page);
 
     // ──────────────────────────────────────────────────────────
     // User B — a STRANGER in a second browser context — registers a

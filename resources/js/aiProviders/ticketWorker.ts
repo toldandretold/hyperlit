@@ -13,6 +13,7 @@
 
 import { executeTicketRequest, type TicketRequest } from './execute';
 import { log, verbose } from '../utilities/logger';
+import { drainResponse } from '../utilities/drainResponse';
 
 const FILE = '/aiProviders/ticketWorker.ts';
 
@@ -65,7 +66,7 @@ async function claimTickets(opts: TicketWorkerOptions): Promise<ClaimedTicket[]>
 }
 
 async function completeTicket(id: string, body: Record<string, unknown>): Promise<void> {
-  await fetch(`/api/inference/${id}/complete`, {
+  await drainResponse(await fetch(`/api/inference/${id}/complete`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -74,7 +75,7 @@ async function completeTicket(id: string, body: Record<string, unknown>): Promis
     },
     credentials: 'same-origin',
     body: JSON.stringify(body),
-  });
+  }));
 }
 
 /** Run one claimed ticket; failures post {error} so the pipeline degrades fast. */

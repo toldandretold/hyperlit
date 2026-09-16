@@ -20,6 +20,7 @@
 import { log, verbose, isVerboseEnabled } from '../../utilities/logger';
 import { getNodesFromIndexedDB } from '../../indexedDB/nodes/read';
 import { asBookId } from '../../utilities/idHelpers';
+import { drainResponse } from '../../utilities/drainResponse';
 import { getFreshAnchor } from '../../scrolling/readingAnchor';
 import { navigateToInternalId } from '../../scrolling/internalNav';
 import { currentLazyLoader } from '../../pageLoad/currentLazyLoaderState';
@@ -918,7 +919,12 @@ export class PlaybackController {
       void this.resolveSrc(nextEntry.filename).catch(() => { /* best-effort */ });
       return;
     }
-    fetch(audioUrl(this.bookId, nextEntry.filename), { credentials: 'include' }).catch(() => { /* best-effort */ });
+    // drainResponse reads the body to completion, which is exactly what a cache
+    // warm needs — leaving it unread would both skip the caching and strand the
+    // connection (see utilities/drainResponse.ts).
+    fetch(audioUrl(this.bookId, nextEntry.filename), { credentials: 'include' })
+      .then(drainResponse)
+      .catch(() => { /* best-effort */ });
   }
 
   private updateMediaSession(): void {

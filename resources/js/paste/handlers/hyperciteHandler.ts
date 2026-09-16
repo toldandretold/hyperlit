@@ -29,6 +29,7 @@ import { queueNodeForSave } from '../../divEditor/index';
 import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 import { extractQuotedText } from '../../utilities/textExtraction';
 import { ensureSpaceAfterAnchor } from '../utils/anchorSpacing';
+import { drainResponse } from '../../utilities/drainResponse';
 
 /**
  * Extract quoted text before a hypercite link element
@@ -727,6 +728,8 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
 
           // ✅ NEW SYSTEM: Sync only hypercites (nodes are rebuilt from normalized tables)
           const hyperciteSyncPromises = Object.entries(hypercitesByBook).map(([book, hypercites]) =>
+            // .then(drainResponse) because the only thing read below is res.ok —
+            // the bodies would otherwise all stay unconsumed (drainResponse.ts).
             fetch("/api/db/hypercites/upsert", {
               method: "POST",
               headers: {
@@ -735,7 +738,7 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
               },
               credentials: "include",
               body: JSON.stringify({ book, data: hypercites }),
-            })
+            }).then(drainResponse)
           );
 
           // Wait for all hypercite sync operations to complete

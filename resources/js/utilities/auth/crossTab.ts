@@ -5,20 +5,21 @@
 import { clearDatabase } from '../../indexedDB/index';
 import { ensureAuthInitialized, refreshAuth, resetAuth, clearCurrentUser } from './session';
 import { log, verbose } from '../logger';
+import { drainResponse } from '../drainResponse';
 /**
  * Handles the full logout process.
  * Makes a POST request to the server's logout endpoint, then clears all local data.
  */
 export async function logout() {
   try {
-    const response = await fetch('/logout', {
+    const response = await drainResponse(await fetch('/logout', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRF-TOKEN': (window as any).csrfToken
       },
-    });
+    }));
     if (!response.ok) console.error('Logout request failed.', response);
   } catch (error) {
     log.error('Error during logout fetch:', '/utilities/auth/crossTab.ts', error);
@@ -95,9 +96,9 @@ export function initializeAuthStateListener() {
         const { book } = await import('../../app.js');
         if (book) {
           try {
-            const response = await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(book)}/library`, {
+            const response = await drainResponse(await fetch(`/api/database-to-indexeddb/books/${encodeURIComponent(book)}/library`, {
               credentials: 'include'
-            });
+            }));
             if (response.status === 404 || response.status === 403) {
               const { handlePrivateBookAccessDenied } = await import('../../pageLoad/index');
               handlePrivateBookAccessDenied(book);

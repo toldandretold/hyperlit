@@ -17,7 +17,15 @@ describe('legacy sync endpoints (characterization)', () => {
 
   beforeEach(() => {
     document.head.innerHTML = '<meta name="csrf-token" content="test-csrf">';
-    fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+    // A real Response always exposes text() — the success path now reads the
+    // body so it doesn't leave the request in-flight (utilities/drainResponse.ts),
+    // so a stand-in without text() is an incomplete mock, not a passing case.
+    fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+      text: async () => '{"success":true}',
+    });
     vi.stubGlobal('fetch', fetchMock);
   });
 

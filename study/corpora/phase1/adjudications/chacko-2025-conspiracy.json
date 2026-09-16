@@ -33,6 +33,28 @@
             "found_url": "https://pucl.org/wp-content/uploads/2023/05/PUCL-28.09.2022.pdf",
             "adjudicated_at": "2026-09-16T10:54:53+00:00",
             "adjudicated_by": "encryptER"
+        },
+        "chacko-2025-conspiracy/c176": {
+            "gt_id": "chacko-2025-conspiracy/c176",
+            "referenceId": "vd2024",
+            "run_id": "20260910_231037_80ccbdd2",
+            "label": "verified_intact",
+            "cause": null,
+            "note": "the url is to an archive type site that has a link to the pdf on it... that links to the pdf: https://library.bjp.org/jspui/bitstream/123456789/292/1/The%20Story%20of%20My%20Transportation%20for%20Life.pdf",
+            "found_url": "http://library.bjp.org/jspui/handle/123456789/292",
+            "adjudicated_at": "2026-09-16T11:00:30+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "chacko-2025-conspiracy/c60": {
+            "gt_id": "chacko-2025-conspiracy/c60",
+            "referenceId": "fineman2021",
+            "run_id": "20260910_231037_80ccbdd2",
+            "label": "verified_intact",
+            "cause": null,
+            "note": null,
+            "found_url": "https://www.latimes.com/archives/la-xpm-1991-06-11-wr-628-story.html",
+            "adjudicated_at": "2026-09-16T11:07:04+00:00",
+            "adjudicated_by": "encryptER"
         }
     }
 }

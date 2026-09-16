@@ -5,6 +5,7 @@
  */
 
 import { fixHeaderSpacing, transitionToBookContent } from '../homepage/homepageDisplayUnit';
+import { drainResponse } from '../../utilities/drainResponse';
 import DOMPurify from 'dompurify';
 
 let currentHeader: any = null;
@@ -245,7 +246,7 @@ export function showShelfHeader(opts: any) {
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
                         credentials: 'include',
                         body: JSON.stringify({ name: newName }),
-                    });
+                    }).then(drainResponse).catch(() => { /* rename is best-effort */ });
                 }, 1000);
             });
             // Prevent Enter from creating newlines
@@ -278,12 +279,12 @@ export function showShelfHeader(opts: any) {
                 if (!confirmed) return;
 
                 try {
-                    await fetch(`/api/shelves/${shelfId}`, {
+                    await drainResponse(await fetch(`/api/shelves/${shelfId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
                         credentials: 'include',
                         body: JSON.stringify({ visibility: newVis }),
-                    });
+                    }));
                     currentVisibility = newVis;
                     visIcon.innerHTML = newVis === 'public' ? GLOBE_SVG : LOCK_SVG;
                     visIcon.title = newVis === 'public' ? 'Public' : 'Private';
@@ -327,11 +328,11 @@ export function showShelfHeader(opts: any) {
                 if (!confirmed) return;
 
                 try {
-                    await fetch(`/api/shelves/${shelfId}`, {
+                    await drainResponse(await fetch(`/api/shelves/${shelfId}`, {
                         method: 'DELETE',
                         headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
                         credentials: 'include',
-                    });
+                    }));
 
                     // Invalidate shelf cache so picker refreshes
                     const { invalidateShelfCache, closeTab } = await import('./shelfTabs');
@@ -435,12 +436,12 @@ export function showShelfHeader(opts: any) {
         } else {
             // Custom shelf: update default_sort then re-render
             try {
-                await fetch(`/api/shelves/${shelfId}`, {
+                await drainResponse(await fetch(`/api/shelves/${shelfId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
                     credentials: 'include',
                     body: JSON.stringify({ default_sort: newSort }),
-                });
+                }));
                 // Re-render the shelf by calling openShelf
                 const { openShelf } = await import('./shelfTabs');
                 // Update the tab's sort data attribute

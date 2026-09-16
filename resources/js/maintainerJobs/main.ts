@@ -8,6 +8,7 @@
 
 import { log } from '../utilities/logger';
 import { ensureCsrfToken } from '../utilities/auth/csrf';
+import { drainResponse } from '../utilities/drainResponse';
 
 interface FailureGroup {
   key: string;
@@ -290,11 +291,11 @@ async function markSeen(): Promise<void> {
   const headers = await csrfHeaders();
   if (!headers) return;
 
-  const resp = await fetch('/api/maintainer/jobs/seen', {
+  const resp = await drainResponse(await fetch('/api/maintainer/jobs/seen', {
     method: 'POST',
     credentials: 'include',
     headers,
-  });
+  }));
   if (!resp.ok) {
     setStatus(`could not save (${resp.status})`);
     return;

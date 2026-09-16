@@ -38,10 +38,12 @@ export async function syncHyperlightToPostgreSQL(hyperlights: HyperlightRecord[]
     }),
   });
 
+  // Read the body unconditionally. It was only ever read on the throw path, so
+  // every SUCCESSFUL sync left an undrained response holding its connection
+  // open — see utilities/drainResponse.ts for why that is not free.
+  const resBody = await res.text().catch(() => '');
   if (!res.ok) {
-    throw new Error(
-      `Hyperlight sync failed (${res.status}): ${await res.text()}`
-    );
+    throw new Error(`Hyperlight sync failed (${res.status}): ${resBody}`);
   }
   console.log("✅ Hyperlights synced");
 }
@@ -77,8 +79,9 @@ export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights: De
       }),
     });
 
+    const deleteBody = await deleteRes.text().catch(() => '');
     if (!deleteRes.ok) {
-      throw new Error(`Hyperlight deletion sync failed (${deleteRes.status}): ${await deleteRes.text()}`);
+      throw new Error(`Hyperlight deletion sync failed (${deleteRes.status}): ${deleteBody}`);
     }
     console.log(`✅ ${deleteOperations.length} hyperlight deletions synced`);
   }
@@ -98,8 +101,9 @@ export async function syncHyperlightDeletionsToPostgreSQL(deletedHyperlights: De
       }),
     });
 
+    const hideBody = await hideRes.text().catch(() => '');
     if (!hideRes.ok) {
-      throw new Error(`Hyperlight hide sync failed (${hideRes.status}): ${await hideRes.text()}`);
+      throw new Error(`Hyperlight hide sync failed (${hideRes.status}): ${hideBody}`);
     }
     console.log(`✅ ${hideOperations.length} hyperlight hide operations synced`);
   }

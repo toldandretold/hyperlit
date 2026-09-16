@@ -11,6 +11,7 @@
 
 import { confirmDialog } from '../components/dialog/dialog';
 import { log } from '../utilities/logger';
+import { drainResponse } from '../utilities/drainResponse';
 import {
   api,
   type Adjudication,
@@ -554,7 +555,7 @@ function setupPdfPane(): void {
   if (original) {
     // HEAD-probe: a source book without original.pdf (web imports) keeps the
     // pane but disables the Original view instead of hiding everything.
-    void fetch(original, { method: 'HEAD', credentials: 'include' }).then((res) => {
+    void fetch(original, { method: 'HEAD', credentials: 'include' }).then(drainResponse).then((res) => {
       pdfAvailable = res.ok;
       if (!res.ok && paneView === 'pdf') setPaneView('hyperlit');
       else setPaneView(paneView);

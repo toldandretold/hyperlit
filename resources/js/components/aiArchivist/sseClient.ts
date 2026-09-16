@@ -8,6 +8,7 @@
 
 import { executeTicketRequest } from '../../aiProviders/execute';
 import { log } from '../../utilities/logger';
+import { drainResponse } from '../../utilities/drainResponse';
 
 /**
  * BYO-key leg: the server parked an LLM prompt as an inference ticket and pushed
@@ -31,7 +32,7 @@ export async function executeInferenceTicket(parsed: any, csrfToken: string): Pr
   }
 
   try {
-    await fetch(`/api/inference/${ticketId}/complete`, {
+    await drainResponse(await fetch(`/api/inference/${ticketId}/complete`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +41,7 @@ export async function executeInferenceTicket(parsed: any, csrfToken: string): Pr
       },
       credentials: 'same-origin',
       body: JSON.stringify(body),
-    });
+    }));
   } catch (e) {
     log.error('sseClient: failed to post inference completion', '/components/aiArchivist/sseClient.ts', e);
   }

@@ -10,6 +10,8 @@
  * Theme, vibe_css, and full_width are universal across devices.
  */
 
+import { drainResponse } from './drainResponse';
+
 const DEVICE_CLASS = window.innerWidth <= 500 ? 'mobile' : 'desktop';
 
 const UNIVERSAL_KEYS = {
@@ -197,6 +199,7 @@ function postPreferences(payload: any) {
     credentials: 'same-origin',
     body: JSON.stringify(payload),
   })
+    .then(drainResponse)
     .then(res => {
       if (!res.ok) {
         console.warn('[preferences] save failed:', res.status, res.statusText);

@@ -14,20 +14,26 @@
  */
 
 import { log } from '../utilities/logger';
+import { drainResponse } from '../utilities/drainResponse';
 
 /** SPA nav re-inits components; guard so one entry sends exactly one beacon. */
 let sentForThisEntry = false;
 
 async function post(page: string): Promise<void> {
   try {
-    await fetch('/api/database-to-indexeddb/page-view', {
+    // drainResponse is not optional here: this endpoint 401s BY DESIGN whenever
+    // there is no identity yet (no session and no anon_token cookie — a
+    // first-ever visit, or any load where the token mint hasn't landed), so the
+    // undrained path is the NORMAL one. Left undrained it held the request open
+    // and no home page ever reached network-idle, which hung ~30 e2e specs.
+    await drainResponse(await fetch('/api/database-to-indexeddb/page-view', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ page }),
       // Telemetry must never hold up or break the page it measures.
       keepalive: true,
-    });
+    }));
   } catch (error) {
     log.error('pageViewTelemetry: post failed', '/scrolling/pageViewTelemetry.ts', error);
   }

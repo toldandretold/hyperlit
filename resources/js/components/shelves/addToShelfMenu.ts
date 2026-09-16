@@ -5,6 +5,7 @@
 
 import { isLoggedIn } from '../../utilities/auth/index';
 import { trapModalFocus } from '../../utilities/modalFocusTrap';
+import { drainResponse } from '../../utilities/drainResponse';
 import type { Shelf, ShelfListResponse } from './types';
 
 async function getFloatingMenu() {
@@ -208,18 +209,18 @@ async function toggleShelfMembership(shelfId: any, bookId: any, shouldAdd: any) 
     const xsrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
     try {
         if (shouldAdd) {
-            await fetch(`/api/shelves/${shelfId}/items`, {
+            await drainResponse(await fetch(`/api/shelves/${shelfId}/items`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
                 credentials: 'include',
                 body: JSON.stringify({ book: bookId }),
-            });
+            }));
         } else {
-            await fetch(`/api/shelves/${shelfId}/items/${encodeURIComponent(bookId)}`, {
+            await drainResponse(await fetch(`/api/shelves/${shelfId}/items/${encodeURIComponent(bookId)}`, {
                 method: 'DELETE',
                 headers: { 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
                 credentials: 'include',
-            });
+            }));
         }
         await doInvalidateShelfCache();
     } catch (err) {
@@ -245,12 +246,12 @@ async function createShelfAndAdd(anchorEl: any, bookId: any) {
         const data = await resp.json();
         if (data.success && data.shelf) {
             // Add the book to the new shelf
-            await fetch(`/api/shelves/${data.shelf.id}/items`, {
+            await drainResponse(await fetch(`/api/shelves/${data.shelf.id}/items`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': xsrf },
                 credentials: 'include',
                 body: JSON.stringify({ book: bookId }),
-            });
+            }));
             await doInvalidateShelfCache();
         }
     } catch (err) {

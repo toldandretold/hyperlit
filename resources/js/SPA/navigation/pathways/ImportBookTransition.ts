@@ -28,6 +28,7 @@ import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { registerImportPoll, clearImportPoll } from '../../../utilities/importPollRegistry';
 import { IMPORT_STAGE_LABELS } from '../../../utilities/importStageLabels';
 import { claimCardBook, releaseCardBook } from '../../../components/importQueue/importQueuePoller';
+import { drainResponse } from '../../../utilities/drainResponse';
 import type { BookId } from '../../../utilities/idHelpers';
 
 export class ImportBookTransition {
@@ -926,7 +927,7 @@ export class ImportBookTransition {
               method: 'POST',
               headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
               credentials: 'include',
-            }).catch(() => { /* best-effort */ });
+            }).then(drainResponse).catch(() => { /* best-effort */ });
           }
 
           this.clearFormData();
@@ -1160,7 +1161,7 @@ export class ImportBookTransition {
 
       // Delete from server
       const csrfToken = (document.querySelector('meta[name="csrf-token"]') as any)?.content;
-      await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
+      await drainResponse(await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
         method: 'DELETE',
         headers: {
           'Accept': 'application/json',
@@ -1168,7 +1169,7 @@ export class ImportBookTransition {
           'X-CSRF-TOKEN': csrfToken,
         },
         credentials: 'include',
-      });
+      }));
     } catch (e) {
       // Non-fatal
     }

@@ -12,6 +12,7 @@
 
 import { verbose } from '../../utilities/logger';
 import { importStageLabel } from '../../utilities/importStageLabels';
+import { drainResponse } from '../../utilities/drainResponse';
 import {
   getImportQueueState,
   initImportQueuePollingFromHint,
@@ -44,11 +45,11 @@ function csrfToken(): string {
 
 async function postAction(url: string): Promise<boolean> {
   try {
-    const resp = await fetch(url, {
+    const resp = await drainResponse(await fetch(url, {
       method: 'POST',
       headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrfToken() },
       credentials: 'include',
-    });
+    }));
     return resp.ok;
   } catch {
     return false;

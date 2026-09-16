@@ -35,6 +35,7 @@ import { log, verbose } from '../../utilities/logger';
 import { createStepManager, brainLoaderSvg, type StepManager } from './stepManager';
 import { executeInferenceTicket, readSseStream } from './sseClient';
 import { initCiteGroupPopover, destroyCiteGroupPopover } from './citeGroupPopover';
+import { drainResponse } from '../../utilities/drainResponse';
 
 const BRAIN_BUTTON_ID = 'archivist-brain-button';
 const ASK_BUTTON_ID = 'archivist-ask-button';
@@ -715,11 +716,11 @@ function buildActionRow(bookId: string, shelfName?: string | null): HTMLElement 
         if (!ok) return;
         const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
         try {
-            const resp = await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
+            const resp = await drainResponse(await fetch(`/api/books/${encodeURIComponent(bookId)}`, {
                 method: 'DELETE',
                 headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
                 credentials: 'same-origin',
-            });
+            }));
             if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
             const ctx = pageContextId();
             if (ctx) {

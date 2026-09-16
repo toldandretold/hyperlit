@@ -8,6 +8,8 @@
 // the page's own boot fetches and gets aborted, so `t` is null, Laravel 419s,
 // and the login/register/etc. fails silently. See ensureCsrfToken below.
 
+import { drainResponse } from '../drainResponse';
+
 /** Reads the current XSRF-TOKEN cookie, or null if it isn't set. */
 export function getCsrfTokenFromCookie(): string | null {
   const value = `; ${document.cookie}`;
@@ -32,7 +34,7 @@ export async function ensureCsrfToken(): Promise<string | null> {
   if (token) return token;
 
   try {
-    const res = await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+    const res = await drainResponse(await fetch('/sanctum/csrf-cookie', { credentials: 'include' }));
     if (!res.ok) return null;
   } catch {
     return null;

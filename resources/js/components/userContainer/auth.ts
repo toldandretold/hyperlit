@@ -15,6 +15,7 @@ import {
 } from '../../utilities/auth/index';
 import { flushAllPendingEdits } from '../../indexedDB/serverSync/index';
 import { setPerimeterButtonsHidden } from '../../utilities/operationState';
+import { drainResponse } from '../../utilities/drainResponse';
 
 export function showLoginForm(self: any) {
   // Already authenticated? There's nothing to log into — fall back to the
@@ -273,7 +274,7 @@ export async function handleLogout(self: any) {
       return;
     }
 
-    const response = await fetch("/logout", {
+    const response = await drainResponse(await fetch("/logout", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -281,7 +282,7 @@ export async function handleLogout(self: any) {
         "X-XSRF-TOKEN": csrfToken,
       },
       credentials: "include",
-    });
+    }));
 
     if (response.ok) {
       broadcastAuthChange('logout');

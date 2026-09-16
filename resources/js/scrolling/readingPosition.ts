@@ -11,6 +11,7 @@ const DEBOUNCE_MS = 5000;
 // The branded chunk-id vocabulary (a number; `data-chunk-id` is its DOM serialization).
 // Replaces a former loose local `string | number | null | undefined` alias.
 import type { ChunkId } from '../indexedDB/types';
+import { drainResponse } from '../utilities/drainResponse';
 
 /**
  * The `user_reading_positions` wire contract — the per-book scroll bookmark.
@@ -80,7 +81,7 @@ async function saveToServer(bookId: string, elementId: string, chunkId: ChunkId)
             chunk_id: chunkId,
         };
 
-        await fetch(url, {
+        await drainResponse(await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -88,7 +89,7 @@ async function saveToServer(bookId: string, elementId: string, chunkId: ChunkId)
             },
             credentials: 'include',
             body: JSON.stringify(body),
-        });
+        }));
     } catch (error: any) {
         // Silently fail — position saving is best-effort
         console.debug('Reading position save failed:', error?.message);

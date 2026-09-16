@@ -11,6 +11,7 @@
 import { log, verbose } from '../../utilities/logger';
 import { generateBookIdFromMetadata, findAvailableBookId } from '../newbookContainer/citeForm/bookId';
 import { startImportQueuePolling } from './importQueuePoller';
+import { drainResponse } from '../../utilities/drainResponse';
 import type { ImportBundle, ManifestEntry } from './folderIngest';
 
 /**
@@ -174,7 +175,7 @@ export async function uploadBatch(
       const message = err instanceof Error ? err.message : String(err);
       log.error(`batchUploader: upload of "${bundle.filename}" failed — continuing with the rest`, '/components/importQueue/batchUploader.ts', message);
       try {
-        await fetch(`/api/import-batches/${batchId}/items/${book}`, {
+        await drainResponse(await fetch(`/api/import-batches/${batchId}/items/${book}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -183,7 +184,7 @@ export async function uploadBatch(
           },
           credentials: 'include',
           body: JSON.stringify({ status: 'upload_failed', error: message.slice(0, 2000) }),
-        });
+        }));
       } catch { /* the widget will just keep showing pending_upload */ }
     }
   }

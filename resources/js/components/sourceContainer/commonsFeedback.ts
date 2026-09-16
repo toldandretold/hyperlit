@@ -16,6 +16,7 @@ import { book } from '../../app';
 import { checklistDialog, alertDialog } from '../dialog/dialog';
 import { isCommonsBook } from './researchWorkflows';
 import { log } from '../../utilities/logger';
+import { drainResponse } from '../../utilities/drainResponse';
 
 const FILE = 'components/sourceContainer/commonsFeedback.ts';
 
@@ -56,7 +57,7 @@ export async function handleCommonsFeedback(): Promise<void> {
   if (result.selected.length === 0 && !result.comment.trim()) return; // nothing to send
 
   try {
-    const resp = await fetch('/api/integrity/conversion-feedback', {
+    const resp = await drainResponse(await fetch('/api/integrity/conversion-feedback', {
       method: 'POST',
       headers: postHeaders(),
       credentials: 'include',
@@ -67,7 +68,7 @@ export async function handleCommonsFeedback(): Promise<void> {
         comment: result.comment.trim() || null,
         timestamp: new Date().toISOString(),
       }),
-    });
+    }));
     await alertDialog({
       title: 'Thank you',
       message: resp.ok
