@@ -92,6 +92,8 @@ const ICON_KEY = profileIcon('<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0
 const ICON_LOGOUT = profileIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>');
 // Lucide "circle-dollar-sign" — the Money row (any-page account overlay)
 const ICON_MONEY = profileIcon('<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>');
+// Lucide "chart-column" — the Stats row (any-page reading-stats overlay)
+const ICON_STATS = profileIcon('<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>');
 
 export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
@@ -105,6 +107,10 @@ export function getProfileHTML(emailVerified = true): string {
         ${ICON_LIBRARY}
         My Library
       </button>${verifyBanner}
+      <button id="statsBtn" class="menu-row-btn">
+        ${ICON_STATS}
+        Stats
+      </button>
       <button id="moneyBtn" class="menu-row-btn">
         ${ICON_MONEY}
         Money

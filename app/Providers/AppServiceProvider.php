@@ -156,6 +156,14 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Reading-depth telemetry beacons (own bucket for the same reason):
+        // a reader flushes at most every 15s per book, so 30/min is generous
+        // while still bounding hostile clients.
+        \Illuminate\Support\Facades\RateLimiter::for('reading-telemetry', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(30)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

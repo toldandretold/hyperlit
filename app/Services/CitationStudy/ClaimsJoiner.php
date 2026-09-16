@@ -54,7 +54,12 @@ class ClaimsJoiner
             }
             $bookMeta = $this->bookMeta($manifest, $book, $bookState, count($claims));
 
-            [$bookRows, $bookDiag] = $this->joinBook($book, $claims, $groundTruth, $bookMeta);
+            // Human adjudications from the /maintainer/study workbench ride
+            // along as passthrough columns (human_label/cause/note), so
+            // failure-cause analysis is a pivot on dataset.csv.
+            $adjudications = (new AdjudicationStore())->load($manifest, $book)['adjudications'];
+
+            [$bookRows, $bookDiag] = $this->joinBook($book, $claims, $groundTruth, $bookMeta, $adjudications);
             $rows = array_merge($rows, $bookRows);
             $diagnostics['books'][$slug] = $bookDiag;
             $diagnostics['orphan_gt'] = array_merge($diagnostics['orphan_gt'], $bookDiag['orphan_gt']);
@@ -84,24 +89,12 @@ class ClaimsJoiner
         return null;
     }
 
-    private function joinBook(array $book, array $claims, array $groundTruth, array $bookMeta): array
+    private function joinBook(array $book, array $claims, array $groundTruth, array $bookMeta, array $adjudications = []): array
     {
         $slug = $book['slug'];
         $defaultLabel = $book['default_label'] ?? 'intact';
 
-        $bibLevel = [];   // referenceId => gt entry
-        $snippetLevel = []; // referenceId => [gt entries]
-        foreach ($groundTruth['entries'] as $entry) {
-            $ref = $entry['bound_reference_id'] ?? null;
-            if ($ref === null) {
-                continue;
-            }
-            if (($entry['claim_snippet'] ?? null) !== null) {
-                $snippetLevel[$ref][] = $entry;
-            } else {
-                $bibLevel[$ref] = $entry;
-            }
-        }
+        [$bibLevel, $snippetLevel] = self::indexGroundTruth($groundTruth);
 
         $rows = [];
         $matchedGtIds = [];
@@ -115,7 +108,7 @@ class ClaimsJoiner
             } else {
                 $defaultedClaims[] = "{$slug}:{$ref}";
             }
-            $rows[] = $this->row($bookMeta, $claim, $gt, $defaultLabel);
+            $rows[] = $this->row($bookMeta, $claim, $gt, $defaultLabel, $adjudications);
         }
 
         // Ground-truth entries that expected citation occurrences but matched
@@ -129,7 +122,7 @@ class ClaimsJoiner
                 continue; // never cited in text — legitimately absent from claims
             }
             $orphans[] = $entry['gt_id'];
-            $rows[] = $this->row($bookMeta, null, $entry, $defaultLabel);
+            $rows[] = $this->row($bookMeta, null, $entry, $defaultLabel, $adjudications);
         }
 
         return [$rows, [
@@ -139,8 +132,34 @@ class ClaimsJoiner
         ]];
     }
 
+    /**
+     * Index a ground-truth file's entries by bound_reference_id, split into
+     * bib-level (one entry per reference) and snippet-level (swap/distortion
+     * entries that must be matched by claim text). Shared with the study
+     * workbench, which joins the same way outside a full report run.
+     *
+     * @return array{0: array<string,array>, 1: array<string,array[]>}
+     */
+    public static function indexGroundTruth(array $groundTruth): array
+    {
+        $bibLevel = [];   // referenceId => gt entry
+        $snippetLevel = []; // referenceId => [gt entries]
+        foreach ($groundTruth['entries'] as $entry) {
+            $ref = $entry['bound_reference_id'] ?? null;
+            if ($ref === null) {
+                continue;
+            }
+            if (($entry['claim_snippet'] ?? null) !== null) {
+                $snippetLevel[$ref][] = $entry;
+            } else {
+                $bibLevel[$ref] = $entry;
+            }
+        }
+        return [$bibLevel, $snippetLevel];
+    }
+
     /** Snippet-level match first (swap/distortion), then bib-level. */
-    private function resolveLabel(array $claim, ?string $ref, array $bibLevel, array $snippetLevel): ?array
+    public function resolveLabel(array $claim, ?string $ref, array $bibLevel, array $snippetLevel): ?array
     {
         if ($ref === null) {
             return null;
@@ -168,8 +187,12 @@ class ClaimsJoiner
         return $bibLevel[$ref] ?? null;
     }
 
-    private function row(array $bookMeta, ?array $claim, ?array $gt, string $defaultLabel): array
+    private function row(array $bookMeta, ?array $claim, ?array $gt, string $defaultLabel, array $adjudications = []): array
     {
+        // Workbench adjudications key by gt_id when bound, "ref:{referenceId}" otherwise.
+        $adjKey = $gt['gt_id'] ?? ('ref:' . ($claim['referenceId'] ?? 'unknown'));
+        $adjudication = $adjudications[$adjKey] ?? null;
+
         $verdict = 'not_detected_missing';
         $preUpgrade = 'not_detected_missing';
         $wasUpgraded = false;
@@ -206,6 +229,10 @@ class ClaimsJoiner
             'source_material_chars' => isset($claim['source_material_sent']) ? mb_strlen((string) $claim['source_material_sent']) : null,
             'has_highlight' => $claim['has_highlight'] ?? null,
             'verdict_summary' => $claim['llm_verdict']['summary'] ?? null,
+            'human_label' => $adjudication['label'] ?? null,
+            'human_cause' => $adjudication['cause'] ?? null,
+            'human_note' => $adjudication['note'] ?? null,
+            'human_found_url' => $adjudication['found_url'] ?? null,
         ]);
     }
 

@@ -100,6 +100,7 @@ class PgLibrary extends Model
         'total_views' => 'integer',
         'total_citations' => 'integer',
         'total_highlights' => 'integer',
+        'total_likes' => 'integer',
         'hypercite_connections' => 'integer',
         'reference_connections' => 'integer',
         'gate_defaults' => 'array',

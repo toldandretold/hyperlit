@@ -155,3 +155,29 @@ test('source-not-found and upgrade recovery land in the dataset row', function (
         ->and($rows['g/dist']['verdict_pre_upgrade'])->toBe('rejected')
         ->and($rows['g/dist']['was_upgraded'])->toBeTrue();
 });
+
+test('workbench adjudications ride along as human_* passthrough columns', function () {
+    [$manifest, $state] = joinerCorpus(
+        [joinerGt('g/one', 'intact', 'alder2010')],
+        [joinerClaim('alder2010', 'insufficient', ['source_book_id' => null])]
+    );
+
+    // No adjudications file → nulls, not errors.
+    $rows = (new ClaimsJoiner())->join($manifest, $state)['rows'];
+    expect($rows[0]['human_label'])->toBeNull()
+        ->and($rows[0]['human_cause'])->toBeNull();
+
+    // Record one via the store (keyed by gt_id, as the workbench does).
+    (new \App\Services\CitationStudy\AdjudicationStore())->put(
+        $manifest, $manifest->book('fixture'),
+        'g/one', 'unverifiable', 'grey_literature', 'Hansard, unindexed', 'alder2010', 'run1', 'sam'
+    );
+
+    $rows = (new ClaimsJoiner())->join($manifest, $state)['rows'];
+    expect($rows[0]['human_label'])->toBe('unverifiable')
+        ->and($rows[0]['human_cause'])->toBe('grey_literature')
+        ->and($rows[0]['human_note'])->toBe('Hansard, unindexed')
+        // The AI's own columns are untouched — human_* is passthrough, not override.
+        ->and($rows[0]['gt_label'])->toBe('intact')
+        ->and($rows[0]['verdict'])->toBe('source_not_found');
+});

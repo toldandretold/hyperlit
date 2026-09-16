@@ -190,3 +190,32 @@ def test_trailing_author_candidates_are_bounded():
     from shared.refkeys import trailing_author_candidates
     ctx = ' '.join(f'Name{i}' for i in range(40)) + ' '
     assert len(trailing_author_candidates(ctx)) <= 8
+
+
+# ---------------------------------------------------------------------------
+# SLASH-PAIR years: "1845/46" (The German Ideology), "1857/1858" (Grundrisse), "1892/2012" (a
+# reprint). One work, two years, and citations use EITHER — so the entry must be reachable by
+# both. Before this, a pre-1900 slash pair produced NO KEYS AT ALL (both years under the modern
+# floor, and the historical fallback demanded [.,)\s] after the year — '/' killed it), so The
+# German Ideology was dropped as unkeyable and unreachable by every citation in the corpus.
+# ---------------------------------------------------------------------------
+def test_slash_pair_entry_keys_on_both_years():
+    keys = generate_ref_keys('Marx, Karl and Friedrich Engels. 1845/46. The German Ideology. '
+                             'In MECW Volume 5, 19-539. London: Lawrence & Wishart.')
+    assert keys[0] == 'marx1845'
+    assert 'marx1846' in keys
+
+
+def test_four_digit_slash_pair_keys_on_both_years():
+    keys = generate_ref_keys('Marx, Karl. 1857/1858. Grundrisse. London: Penguin.')
+    assert 'marx1857' in keys and 'marx1858' in keys
+
+
+def test_reprint_slash_pair_reaches_the_original_year():
+    keys = generate_ref_keys('Kropotkin, Peter. 1892/2012. The Conquest of Bread. London: Penguin.')
+    assert 'kropotkin2012' in keys and 'kropotkin1892' in keys
+
+
+def test_ordinary_single_year_entries_gain_no_phantom_variants():
+    keys = generate_ref_keys('Smith, Jane. 2019. Ordinary entry. Journal 4: 1-20.')
+    assert all(k.endswith('2019') for k in keys)

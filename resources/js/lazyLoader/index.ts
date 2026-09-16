@@ -384,6 +384,14 @@ export function createLazyLoader(config: any) {
       }
     }
 
+    // Reading-depth telemetry: union the chunks currently on screen into the
+    // per-book cumulative set. Deliberately OUTSIDE the position-identity gate
+    // below — that gate suppresses no-movement ticks and would drop the
+    // initial landing chunk (the reader who opens and never scrolls).
+    import('../scrolling/readingTelemetry').then(({ recordVisibleChunks }) => {
+      recordVisibleChunks(instance.bookId, instance.container, instance.scrollableParent);
+    }).catch(() => {}); // Best-effort
+
     if (topVisible) {
       // Cache anchor for resize handler
       instance._scrollAnchor = {
@@ -792,6 +800,15 @@ export function createLazyLoader(config: any) {
       window.removeEventListener('beforeunload', instance._beforeUnloadHandler);
       instance._beforeUnloadHandler = null;
     }
+
+    // Flush accumulated reading-depth telemetry — SPA nav to a non-reader page
+    // (home/user) tears the loader down without a book switch, and this is the
+    // only hook that fires there. Book-to-book nav is also covered by the
+    // module's own book-switch flush; double flushes are harmless (idempotent
+    // server merge, dirty-flag no-op).
+    import('../scrolling/readingTelemetry').then(({ flushReadingTelemetry }) => {
+      flushReadingTelemetry();
+    }).catch(() => {}); // Best-effort
   };
 
   instance.repositionSentinels = () =>

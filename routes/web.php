@@ -83,6 +83,10 @@ Route::prefix('maintainer')->group(function () {
     Route::get('/storage', [App\Http\Controllers\Maintainer\StorageController::class, 'show'])
         ->name('maintainer.storage');
 
+    // Site-wide reading analytics: views, likes, depth over the corpus.
+    Route::get('/stats', [App\Http\Controllers\Maintainer\StatsController::class, 'show'])
+        ->name('maintainer.stats');
+
     // Journal pipeline console: pick a journal, then import + compare its lanes.
     Route::get('/journal-import', [App\Http\Controllers\Maintainer\JournalImportController::class, 'index'])
         ->name('maintainer.journal-import');
@@ -117,6 +121,14 @@ Route::prefix('maintainer')->group(function () {
     Route::get('/hypercites/{slug}', [App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'show'])
         ->where('slug', '[a-z0-9-]+')
         ->name('maintainer.hypercites.show');
+
+    // Citation-study reviewer-review workbench: the human adjudicates the AI
+    // citation review per corpus book (study/corpora/{corpus}).
+    Route::get('/study', [App\Http\Controllers\Maintainer\StudyConsoleController::class, 'index'])
+        ->name('maintainer.study');
+    Route::get('/study/{slug}', [App\Http\Controllers\Maintainer\StudyConsoleController::class, 'show'])
+        ->where('slug', '[a-zA-Z0-9_-]+')
+        ->name('maintainer.study.show');
 });
 
 // Public journal pages (diamond-OA registry) — PREFIXED like /maintainer

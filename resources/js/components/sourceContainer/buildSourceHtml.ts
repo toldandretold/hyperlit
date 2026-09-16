@@ -11,7 +11,7 @@ import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index'
 import { getRecord, isSyntheticBook } from './helpers';
 import { sourceStatusSectionHtml, isCitationLinked } from './checkSource';
 import { autoMetaIconHtml, proposalMountHtml } from './autoMetadata/card';
-import { buildVisibilityControlHtml } from './visibilityControl';
+import { buildVisibilityControlHtml, CHECK_SVG } from './visibilityControl';
 import { researchWorkflowsSectionHtml } from './researchWorkflows';
 import { licenseInfoFor } from './licenseInfo';
 import type { LibraryRecord } from '../../indexedDB/types';
@@ -109,20 +109,88 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
 
   // Only show edit button if user can edit AND we have access to the record
   const editButtonHtml = (canEdit && !accessDenied && record) ? `
-    <!-- Edit Button in bottom right corner -->
-    <button id="edit-source" style="position: absolute; bottom: 10px; right: 10px; z-index: 1002;">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        style="pointer-events: none;"
-      >
-        <path d="M12 20h9" stroke="var(--icon-stroke-primary)" />
-        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="var(--icon-stroke-primary)" />
-      </svg>
-    </button>` : '';
+      <button id="edit-source" aria-label="Edit library card" title="Edit library card">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="pointer-events: none;"
+        >
+          <path d="M12 20h9" stroke="var(--icon-stroke-primary)" />
+          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="var(--icon-stroke-primary)" />
+        </svg>
+      </button>` : '';
+
+  // Like + add-to-shelf pair in the bottom-LEFT corner — mirrors #edit-source
+  // bottom-right. Shown to everyone including visitors (a logged-out click is
+  // the login funnel: like prompts login, add-to-shelf already does); hidden
+  // only for synthetic books (feeds/renders — nothing real to like) and
+  // inaccessible private ones. Wired by readerActions.ts.
+  // Reader actions for a real (non-synthetic, accessible) book: like, add to
+  // shelf, and share (link / citation, behind one trigger). They live in the
+  // action bar below.
+  const readerActionsHtml = (!isSyntheticBook(book) && !accessDenied) ? `
+      <button type="button" id="like-book" aria-pressed="false" aria-label="Like this book" title="Like">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+        </svg>
+      </button>
+      <button type="button" id="shelf-book" aria-label="Add to shelf" title="Add to shelf">
+        <!-- The My Library shelf-of-books glyph + a plus, so "add to shelf"
+             reads as the same vocabulary as the library menu row. -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+          <path d="M4 4v16" />
+          <path d="M8 8v12" />
+          <path d="M12 6v14" />
+          <path d="M18 14v7" />
+          <path d="M14.5 17.5h7" />
+        </svg>
+      </button>
+      <div id="share-control" class="share-control">
+        <button type="button" id="share-book" aria-haspopup="true" aria-expanded="false" aria-label="Share this book" title="Share">
+          <!-- The box-and-arrow share glyph (iOS's), not the three-node graph:
+               it's the one people actually read as "share" at 20px. -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+            <polyline points="16 6 12 2 8 6" />
+            <line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </button>
+        <div class="share-panel" style="display: none;">
+          <button type="button" class="share-option" data-share="link">
+            <span class="share-option-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            </span>
+            <span class="share-option-label">Link</span>
+            <span class="share-option-check">${CHECK_SVG}</span>
+          </button>
+          <button type="button" class="share-option" data-share="citation">
+            <span class="share-option-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 17h3l2-4V7H5v6h3z" />
+                <path d="M15 17h3l2-4V7h-6v6h3z" />
+              </svg>
+            </span>
+            <span class="share-option-label">Citation</span>
+            <span class="share-option-check">${CHECK_SVG}</span>
+          </button>
+        </div>
+      </div>` : '';
+
+  // The action bar: one glass strip pinned to the bottom of the panel, content
+  // scrolling UNDER it (both scrollers carry a matching padding-bottom). Reader
+  // actions left, edit right. Omitted entirely when it would be empty — a
+  // synthetic book with no edit rights has nothing to put in it.
+  const actionBarHtml = (readerActionsHtml || editButtonHtml) ? `
+    <div id="source-action-bar">
+      <div class="source-action-group">${readerActionsHtml}</div>
+      <div class="source-action-group">${editButtonHtml}</div>
+    </div>` : '';
 
   // Unified visibility control (Public / Private / Encrypted) in the top-right
   // corner — one button showing the current state, expanding to a glass popover.
@@ -312,7 +380,7 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     </div>
 
     ${visibilityControlHtml}
-    ${editButtonHtml}
+    ${actionBarHtml}
 
     <!-- Edit Form (initially hidden) -->
     <div id="edit-form-container" class="hidden" style="display: none;">

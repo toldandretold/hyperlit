@@ -108,6 +108,36 @@ _GAP_DEF_RE = re.compile(
     re.MULTILINE)
 
 
+# A page of prose is ~14-17% spaces (measured across the corpus books whose text
+# layer works). Some PDFs encode no space glyphs at all, so pypdf returns one
+# run-together word per line — soviet_marxism measures 0.000, and its "defs" are
+# junk like "PoliticalTenetsworldcouldbestabilizedandhierarcbically". Such a page
+# cannot witness anything: not which notes exist, not what they say.
+_MIN_SPACE_RATIO = 0.04
+
+
+def pypdf_text_is_usable(text):
+    """False when a pypdf page text has no word separation to offer.
+
+    Guards every consumer of the text layer: def extraction (which otherwise
+    pattern-matches run-together prose as a definition), marker resurrection,
+    and the definition-text repair — a witness with no spaces would be aligned
+    against good OCR and "repaired" into nonsense.
+
+    Judged at EVERY length, deliberately. An earlier version exempted pages
+    under 200 characters as "too short to judge", which let soviet_marxism's
+    front matter through as defs 1, 7, 23 and 201
+    ("SovietMarxismACRITICALANALYSISByHerbertMarcuse", "PARTl:POLITICALTENETS").
+    A page holding only run-together text has nothing to witness whatever its
+    length, and refusing a short page costs nothing — there are no definitions
+    on it to recover. (Consequence to know: a page whose text is one long URL,
+    or a script that does not separate words, is refused on the same rule.)
+    """
+    if not text:
+        return False
+    return (text.count(' ') / len(text)) >= _MIN_SPACE_RATIO
+
+
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     """Extract per-page footnote definitions from PDF using pypdf.
 
@@ -128,6 +158,8 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     for page_idx in range(len(reader.pages)):
         text = reader.pages[page_idx].extract_text()
         if not text:
+            continue
+        if not pypdf_text_is_usable(text):
             continue
 
         # Strip copyright boilerplate
@@ -239,7 +271,7 @@ def extract_pypdf_page_texts(pdf_path):
     out = {}
     for i in range(len(reader.pages)):
         text = reader.pages[i].extract_text()
-        if text:
+        if text and pypdf_text_is_usable(text):
             out[i] = text
     return out
 
@@ -372,6 +404,255 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 seen.add(shifted_num)
                 recovered.append((shifted_num, split_text))
     return recovered
+
+
+# Markdown emphasis the OCR adds around titles. The PDF text layer never
+# contains it, so it is held aside while aligning and left in place afterwards.
+# Asterisk ONLY. Underscore is NOT treated as emphasis here: held aside, it is
+# stripped from the alignment stream and so deleted from any substituted token —
+# which silently destroys URLs, the one place underscores carry meaning
+# ("…/Parliamentary_Business/…/Education_and_Employment/…" came back as
+# "…/ParliamentaryBusiness/…/EducationandEmployment/…", a dead link). The
+# converter's own emphasis is asterisk-based, so nothing is lost by excluding it.
+_MARKUP_CHARS = frozenset('*')
+
+# Below this character-level agreement the pypdf def is a DIFFERENT note (or
+# extractor noise), and substituting from it would corrupt a good definition.
+_REPAIR_MIN_SIMILARITY = 0.85
+
+_DASHES = '-‐‑‒–—'
+
+
+def _strip_tokens(text):
+    """Whitespace-free character stream plus a map back to the original tokens.
+
+    Returns (chars, tokens) where each token is
+    (orig_start, orig_end, strip_start, strip_end): a maximal run of non-space
+    characters in `text`, and the span it occupies in `chars`. Markup characters
+    are excluded from `chars` (the text layer has none) but stay inside the
+    token's original span so emphasis survives untouched.
+    """
+    chars = []
+    tokens = []
+    orig_start = None
+    strip_start = None
+    for idx, ch in enumerate(text):
+        if ch.isspace():
+            if orig_start is not None:
+                tokens.append((orig_start, idx, strip_start, len(chars)))
+                orig_start = None
+            continue
+        if orig_start is None:
+            orig_start = idx
+            strip_start = len(chars)
+        if ch not in _MARKUP_CHARS:
+            chars.append(ch)
+    if orig_start is not None:
+        tokens.append((orig_start, len(text), strip_start, len(chars)))
+    return ''.join(chars), tokens
+
+
+def _comparable(s):
+    """Fold a token to what a SUBSTANTIVE difference would show up in.
+
+    Drops case, whitespace and punctuation, so a repair is never triggered by
+    the text layer's own artifacts:
+      - quote glyph direction — pypdf reads German „…“ as „…”, and OCR is the
+        better witness for directional quotes;
+      - line-break hyphenation — justified PDF text carries the hyphen from the
+        wrap ("anderer-seits", "Blu-men") which the OCR correctly joined up.
+    A hyphen BETWEEN DIGITS is kept, because there it is meaningful: a pinpoint
+    range ("7-9") that OCR flattened to "79" is a real error worth fixing.
+
+    Accents are folded to ASCII rather than dropped, so that the SAME letter
+    written two ways compares equal: pypdf and OCR disagree on Unicode
+    composition ("Pedro-Carañana" precomposed U+00F1 vs decomposed n + U+0303),
+    which is not a spelling difference. Dropping the accent glyph instead left
+    "caranana" against "carana" and substituted one encoding for the other —
+    invisible in the text, but it broke a citation anchor (fixture a7fc96d5,
+    citations_linked 86 -> 85).
+    """
+    import unicodedata
+    # Dashes are folded to ASCII '-' FIRST: the ascii('ignore') step below drops
+    # an en dash entirely, which would erase the very hyphen the digit rule then
+    # looks for ("7–9" reduced to "79" and compared equal to the OCR's "79").
+    folded = s
+    for dash in _DASHES[1:]:
+        folded = folded.replace(dash, '-')
+    folded = unicodedata.normalize('NFKD', folded).encode('ascii', 'ignore').decode('ascii').lower()
+    folded = re.sub(r'(?<![0-9])-|-(?![0-9])', '', folded)
+    return re.sub(r'[^a-z0-9-]+', '', folded)
+
+
+def _plausible_substitution(candidate, token_len):
+    """A word-level OCR error is roughly length-preserving ("Gentelink" ->
+    "Centrelink", "Gumknow" -> "Gummow", "TUV/W" -> "1UNSW").
+
+    The check exists for the LAST token of a definition: the alignment pins the
+    end of the OCR stream to the end of the pypdf stream, so any trailing text
+    the extractor glued on gets absorbed into that final token —
+    "2003a" became "2003a)(c)ViennaUniversityofTechnology2003." (fixture
+    7fa30289). A candidate wildly longer than what it replaces is swallowing its
+    neighbours, not correcting a word.
+
+    The tolerance SCALES, and deliberately has a tight floor: a flat allowance of
+    4 characters is nothing next to a long title but is most of a pinpoint, which
+    let "510-13." become "510-13.7268" — digits from the page furniture appended
+    to a citation, i.e. an invented page range. Short tokens get the least slack
+    because that is where a few stray characters change the meaning.
+    """
+    return abs(len(candidate) - token_len) <= max(2, token_len // 3)
+
+
+def _char_index_map(a, b):
+    """Map every index of `a` (including len(a)) onto an index of `b`.
+
+    Equal runs map one-to-one; inside a replaced run the position is scaled, so
+    a token's span lands in the right neighbourhood even where the two streams
+    disagree on length ("TUV/W" vs "1UNSW").
+    """
+    import difflib
+    mapping = {}
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        span_a = i2 - i1
+        span_b = j2 - j1
+        for k in range(span_a):
+            if tag == 'equal':
+                mapping[i1 + k] = j1 + k
+            else:
+                scaled = int(round(k * span_b / span_a)) if span_a else 0
+                mapping[i1 + k] = j1 + min(span_b, scaled)
+    mapping[len(a)] = len(b)
+    return mapping
+
+
+def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARITY):
+    """Substitute the words the OCR got wrong, using the PDF's own text layer.
+
+    The two witnesses fail in opposite directions, which is what makes this
+    possible. The embedded text layer is not recognised, so its LETTERS are
+    exact — but PDF text is positioned glyph by glyph, so its spacing is junk
+    ("John Braithw aite", "Commo nwealth", "Algo rith mic"). OCR reads the page
+    as an image, so it gets word boundaries right and invents letters
+    ("Breithwaite", "Gentelink", "Rigorthmic", "Respondility").
+
+    So the comparison runs on the whitespace-STRIPPED streams (pypdf's spacing
+    never enters), and the output is built from the OCR's OWN tokens with only
+    the ones that disagree substituted. Rebuilding the whole definition from the
+    text layer instead — an earlier version of this — imported every pypdf
+    artifact along with the fix: line-break hyphens inside words
+    ("anderer-seits"), flipped quote glyphs, and trailing page chrome glued on
+    by the extractor (")(c)ViennaUniversityofTechnology2003"). Iterating the
+    OCR's tokens makes all three impossible: nothing outside a substituted token
+    can change, and no token can be appended.
+
+    Returns (repaired_text, ratio), or (None, ratio) when no repair applies.
+    """
+    import difflib
+    ocr_chars, tokens = _strip_tokens(ocr_text)
+    pdf_chars, _pdf_tokens = _strip_tokens(pdf_text)
+    if not ocr_chars or not pdf_chars:
+        return None, 0.0
+    if ocr_chars == pdf_chars:
+        return None, 1.0
+
+    ratio = difflib.SequenceMatcher(
+        None, ocr_chars.lower(), pdf_chars.lower(), autojunk=False
+    ).ratio()
+    if ratio < min_similarity:
+        return None, ratio
+
+    mapping = _char_index_map(ocr_chars, pdf_chars)
+
+    out = []
+    cursor = 0
+    changed = False
+    for orig_start, orig_end, strip_start, strip_end in tokens:
+        token = ocr_text[orig_start:orig_end]
+        j1 = mapping.get(strip_start)
+        j2 = mapping.get(strip_end)
+        if j1 is None or j2 is None or j2 < j1:
+            continue
+        candidate = pdf_chars[j1:j2]
+        if not candidate or _comparable(candidate) == _comparable(token):
+            continue
+        if not _plausible_substitution(candidate, strip_end - strip_start):
+            continue
+
+        # Keep the token's emphasis, replace only its body.
+        prefix = token[:len(token) - len(token.lstrip(''.join(_MARKUP_CHARS)))]
+        suffix = token[len(token.rstrip(''.join(_MARKUP_CHARS))):]
+        # NFC so a repair never injects decomposed combining marks.
+        import unicodedata
+        out.append(ocr_text[cursor:orig_start])
+        out.append(prefix + unicodedata.normalize('NFC', candidate) + suffix)
+        cursor = orig_end
+        changed = True
+
+    if not changed:
+        return None, ratio
+    out.append(ocr_text[cursor:])
+    repaired = re.sub(r'[ \t]+', ' ', ''.join(out)).strip()
+    return (repaired or None), ratio
+
+
+def repair_def_text_from_pypdf(combined, pypdf_defs_by_page, page_offsets=None,
+                               min_similarity=_REPAIR_MIN_SIMILARITY):
+    """Repair footnote-definition TEXT that OCR garbled, against the PDF's own
+    embedded text layer.
+
+    The existing pypdf passes treat the text layer as a witness for which notes
+    and MARKERS exist; this one uses it for what a note SAYS. A note whose text
+    OCR mangled is otherwise kept verbatim and reads as the author's own words:
+    deloitte2025independent shipped "Gentelink's Automated Debt Raising" for
+    Centrelink's, "Minelle Hildebrandt"/"Rigorthmic Regulation" for Mireille
+    Hildebrandt's 'Algorithmic Regulation', "No TUV/W Law Journal" for
+    (2018) No 1 UNSW Law Journal — 55 of 136 notes damaged, every one of them
+    clean in the PDF's own text layer, and citation resolution cannot match any
+    of them.
+
+    Only definitions whose two renderings clearly describe the SAME note are
+    touched (see _respace_from_pypdf), and only the first line of a definition
+    is considered.
+
+    Returns (combined, repairs) where each repair records number/ratio/
+    before/after for telemetry.
+    """
+    if not pypdf_defs_by_page:
+        return combined, []
+
+    page_offsets = page_offsets or {}
+    by_num = {}
+    for page_idx in sorted(pypdf_defs_by_page.keys()):
+        offset = page_offsets.get(page_idx, 0)
+        for fn_num, fn_text in pypdf_defs_by_page[page_idx]:
+            for split_num, split_text in split_run_on_numbered_def(fn_num, fn_text):
+                by_num.setdefault(split_num + offset, split_text)
+    if not by_num:
+        return combined, []
+
+    repairs = []
+
+    def _repair_line(match):
+        num = int(match.group(1))
+        ocr_text = match.group(2)
+        pdf_text = by_num.get(num)
+        if not pdf_text:
+            return match.group(0)
+        repaired, ratio = _respace_from_pypdf(ocr_text, pdf_text, min_similarity)
+        if repaired is None or repaired == ocr_text.strip():
+            return match.group(0)
+        repairs.append({
+            'number': num,
+            'ratio': round(ratio, 3),
+            'before': ocr_text.strip(),
+            'after': repaired,
+        })
+        return '[^' + str(num) + ']: ' + repaired
+
+    combined = re.sub(r'^\[\^(\d+)\]:[ \t]*(.+)$', _repair_line, combined,
+                      flags=re.MULTILINE)
+    return combined, repairs
 
 
 def _norm_chunk(t):

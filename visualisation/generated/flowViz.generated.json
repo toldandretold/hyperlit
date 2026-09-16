@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1904,
-    "moduleCount": 404,
+    "fnCount": 1910,
+    "moduleCount": 407,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3916,
+    "edgeCount": 3930,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2134,6 +2134,14 @@
       ]
     },
     {
+      "id": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "label": "showLoginPromptMenu",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/addToShelfMenu",
+      "leaf": false
+    },
+    {
       "id": "components/shelves/shelfHeader:removeShelfHeader",
       "label": "removeShelfHeader",
       "kind": "fn",
@@ -3521,6 +3529,14 @@
       "stage": "components",
       "module": "components/sourceContainer/licenseInfo",
       "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/readerActions:initReaderActions",
+      "label": "initReaderActions",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/readerActions",
+      "leaf": false
     },
     {
       "id": "components/sourceContainer/researchWorkflows:isCommonsBook",
@@ -5978,7 +5994,6 @@
         "timestamp",
         "title",
         "total_highlights",
-        "total_views",
         "type",
         "updated_at",
         "url",
@@ -14519,6 +14534,22 @@
       "leaf": false
     },
     {
+      "id": "scrolling/pageViewTelemetry:destroyPageViewTelemetry",
+      "label": "destroyPageViewTelemetry",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/pageViewTelemetry",
+      "leaf": true
+    },
+    {
+      "id": "scrolling/pageViewTelemetry:initPageViewTelemetry",
+      "label": "initPageViewTelemetry",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/pageViewTelemetry",
+      "leaf": false
+    },
+    {
       "id": "scrolling/paginatedSelectionBand:destroyPaginatedSelectionBand",
       "label": "destroyPaginatedSelectionBand",
       "kind": "fn",
@@ -14704,6 +14735,22 @@
       "types": [
         "ReadingPosition"
       ]
+    },
+    {
+      "id": "scrolling/readingTelemetry:flushReadingTelemetry",
+      "label": "flushReadingTelemetry",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingTelemetry",
+      "leaf": false
+    },
+    {
+      "id": "scrolling/readingTelemetry:recordVisibleChunks",
+      "label": "recordVisibleChunks",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/readingTelemetry",
+      "leaf": false
     },
     {
       "id": "scrolling/restore:restoreScrollPosition",
@@ -17852,7 +17899,8 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
-        "components/shelves/addToShelfMenu:showAddToShelfMenu"
+        "components/shelves/addToShelfMenu:showAddToShelfMenu",
+        "components/shelves/addToShelfMenu:showLoginPromptMenu"
       ]
     },
     {
@@ -18267,6 +18315,15 @@
       "band": "components",
       "fnIds": [
         "components/sourceContainer/licenseInfo:licenseInfoFor"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/readerActions",
+      "label": "components/sourceContainer/readerActions",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/readerActions:initReaderActions"
       ]
     },
     {
@@ -21571,6 +21628,16 @@
       ]
     },
     {
+      "id": "scrolling/pageViewTelemetry",
+      "label": "scrolling/pageViewTelemetry",
+      "stage": "scrolling",
+      "band": "sync",
+      "fnIds": [
+        "scrolling/pageViewTelemetry:destroyPageViewTelemetry",
+        "scrolling/pageViewTelemetry:initPageViewTelemetry"
+      ]
+    },
+    {
       "id": "scrolling/paginatedSelectionBand",
       "label": "scrolling/paginatedSelectionBand",
       "stage": "scrolling",
@@ -21623,6 +21690,16 @@
       "fnIds": [
         "scrolling/readingPosition:debouncedServerSave",
         "scrolling/readingPosition:sendBeaconSave"
+      ]
+    },
+    {
+      "id": "scrolling/readingTelemetry",
+      "label": "scrolling/readingTelemetry",
+      "stage": "scrolling",
+      "band": "sync",
+      "fnIds": [
+        "scrolling/readingTelemetry:flushReadingTelemetry",
+        "scrolling/readingTelemetry:recordVisibleChunks"
       ]
     },
     {
@@ -24503,14 +24580,26 @@
       "rel": "domwrite"
     },
     {
-      "id": "components/shelves/addToShelfMenu:showAddToShelfMenu__call__components/userButton/userButton:initializeUserContainer",
+      "id": "components/shelves/addToShelfMenu:showAddToShelfMenu__call__components/shelves/addToShelfMenu:showLoginPromptMenu",
       "source": "components/shelves/addToShelfMenu:showAddToShelfMenu",
-      "target": "components/userButton/userButton:initializeUserContainer",
+      "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
       "rel": "call"
     },
     {
       "id": "components/shelves/addToShelfMenu:showAddToShelfMenu__domwrite__dom",
       "source": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/addToShelfMenu:showLoginPromptMenu__call__components/userButton/userButton:initializeUserContainer",
+      "source": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "target": "components/userButton/userButton:initializeUserContainer",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/addToShelfMenu:showLoginPromptMenu__domwrite__dom",
+      "source": "components/shelves/addToShelfMenu:showLoginPromptMenu",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -25767,6 +25856,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/readerActions:initReaderActions",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/readerActions:initReaderActions",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/visibilityControl:attachVisibilityControlListeners",
@@ -26102,6 +26198,31 @@
       "source": "components/sourceContainer/index:SourceContainerManager.validateUrl",
       "target": "components/sourceContainer/editForm:validateUrl",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/readerActions:initReaderActions__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/readerActions:initReaderActions__call__components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/readerActions:initReaderActions__call__components/shelves/shelfTabs:invalidateShelfCache",
+      "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "components/shelves/shelfTabs:invalidateShelfCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/readerActions:initReaderActions__domwrite__dom",
+      "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml__call__components/sourceContainer/aiReview/section:aiReviewSectionHtml",
@@ -29272,6 +29393,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "source": "dom",
+      "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/shelves/shelfHeader:removeShelfHeader",
       "source": "dom",
       "target": "components/shelves/shelfHeader:removeShelfHeader",
@@ -29623,6 +29750,12 @@
       "id": "dom__domread__components/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/readerActions:initReaderActions",
+      "source": "dom",
+      "target": "components/sourceContainer/readerActions:initReaderActions",
       "rel": "domread"
     },
     {
@@ -32386,6 +32519,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__scrolling/pageViewTelemetry:initPageViewTelemetry",
+      "source": "dom",
+      "target": "scrolling/pageViewTelemetry:initPageViewTelemetry",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__scrolling/paginator:disengageSilently",
       "source": "dom",
       "target": "scrolling/paginator:disengageSilently",
@@ -32449,6 +32588,12 @@
       "id": "dom__domread__scrolling/readingPosition:debouncedServerSave",
       "source": "dom",
       "target": "scrolling/readingPosition:debouncedServerSave",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__scrolling/readingTelemetry:recordVisibleChunks",
+      "source": "dom",
+      "target": "scrolling/readingTelemetry:recordVisibleChunks",
       "rel": "domread"
     },
     {
@@ -43524,6 +43669,25 @@
       "label": "/api/database-to-indexeddb/books/{}/reading-position"
     },
     {
+      "id": "scrolling/readingTelemetry:recordVisibleChunks__call__indexedDB/types:parseChunkId",
+      "source": "scrolling/readingTelemetry:recordVisibleChunks",
+      "target": "indexedDB/types:parseChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/readingTelemetry:recordVisibleChunks__call__lazyLoader/utilities/windowChunks:isWithinViewport",
+      "source": "scrolling/readingTelemetry:recordVisibleChunks",
+      "target": "lazyLoader/utilities/windowChunks:isWithinViewport",
+      "rel": "call"
+    },
+    {
+      "id": "scrolling/readingTelemetry:recordVisibleChunks__call__scrolling/readingTelemetry:flushReadingTelemetry",
+      "source": "scrolling/readingTelemetry:recordVisibleChunks",
+      "target": "scrolling/readingTelemetry:flushReadingTelemetry",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "scrolling/restore:restoreScrollPosition__call__indexedDB/core/utilities:getLocalStorageKey",
       "source": "scrolling/restore:restoreScrollPosition",
       "target": "indexedDB/core/utilities:getLocalStorageKey",
@@ -48412,6 +48576,11 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/readerActions",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/researchWorkflows",
       "kind": "static"
     },
@@ -48424,6 +48593,16 @@
       "source": "components/sourceContainer/index",
       "target": "components/utilities/containerManager",
       "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/readerActions",
+      "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/sourceContainer/readerActions",
+      "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
     },
     {
       "source": "components/sourceContainer/researchWorkflows",
@@ -48858,6 +49037,11 @@
     {
       "source": "components/utilities/registerComponents",
       "target": "hyperlitContainer/hyperlightVisibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
+      "target": "scrolling/pageViewTelemetry",
       "kind": "static"
     },
     {
@@ -51586,6 +51770,11 @@
       "kind": "lazy"
     },
     {
+      "source": "lazyLoader/index",
+      "target": "scrolling/readingTelemetry",
+      "kind": "lazy"
+    },
+    {
       "source": "lazyLoader/utilities/fillViewport",
       "target": "indexedDB/types",
       "kind": "static"
@@ -52671,6 +52860,16 @@
       "kind": "static"
     },
     {
+      "source": "scrolling/readingTelemetry",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "scrolling/readingTelemetry",
+      "target": "lazyLoader/utilities/windowChunks",
+      "kind": "static"
+    },
+    {
       "source": "scrolling/restore",
       "target": "SPA/navigation/RevealGate",
       "kind": "static"
@@ -52830,6 +53029,6 @@
       ]
     ],
     "breakerCount": 6,
-    "lazyCount": 295
+    "lazyCount": 298
   }
 }

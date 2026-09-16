@@ -114,6 +114,14 @@ import {
   destroyMoneyOverlay
 } from '../moneyOverlay/moneyOverlay';
 import {
+  initStatsOverlay,
+  destroyStatsOverlay
+} from '../statsOverlay/statsOverlay';
+import {
+  initPageViewTelemetry,
+  destroyPageViewTelemetry,
+} from '../../scrolling/pageViewTelemetry';
+import {
   initAiArchivist,
   destroyAiArchivist,
 } from '../aiArchivist/archivistPanel';
@@ -501,6 +509,29 @@ export function registerAllComponents() {
     initFn: initMoneyOverlay,
     destroyFn: destroyMoneyOverlay,
     pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Stats overlay (creator reading stats from the userButton flyout). Same
+  // lifecycle rationale as the Money overlay above.
+  buttonRegistry.register({
+    name: 'statsOverlay',
+    initFn: initStatsOverlay,
+    destroyFn: destroyStatsOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Homepage view counting. Registry-managed on purpose: reading telemetry
+  // covers reader pages only, and a @vite side-effect here would count the
+  // first full load and never an in-SPA return to home.
+  buttonRegistry.register({
+    name: 'pageViewTelemetry',
+    initFn: initPageViewTelemetry,
+    destroyFn: destroyPageViewTelemetry,
+    pages: ['home'],
     dependencies: [],
     required: false
   });

@@ -22,6 +22,7 @@
         <h1>Journal import</h1>
         <span class="ji-header-sub" id="ji-summary">loading…</span>
         <nav class="ji-header-nav">
+            <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
             <a href="/maintainer/jobs">jobs →</a>
             <a href="/maintainer/storage">storage →</a>

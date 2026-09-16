@@ -5,8 +5,15 @@
   z-index: 10000;
   background: transparent;
 }
+/* The shelf list is unbounded — a user with 20 shelves used to render a menu
+   taller than the viewport, whose bottom rows were simply unreachable (the
+   wheel didn't save it either: `.add-to-shelf-menu` is in the wheel
+   forwarder's SCROLLABLE_OVERLAY_SEL, which exempts it from page-forwarding on
+   the assumption it scrolls itself — it didn't). Cap it and let it scroll. */
 .add-to-shelf-menu {
   min-width: 180px;
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
 }
 .add-shelf-checkbox-item {
   cursor: pointer;

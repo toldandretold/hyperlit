@@ -43,6 +43,7 @@
             <a href="/maintainer/shelf-import">&larr; all shelves</a>
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>
             <a href="/maintainer/hypercites/shelf/{{ $shelfId }}">hypercites →</a>
+            <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
             <button type="button" id="ji-archive-toggle" aria-expanded="false" aria-controls="ji-archive-panel" title="This shelf's public archive page (/a/{slug})">archive page</button>
         </nav>
@@ -183,6 +184,7 @@
         <nav class="ji-header-nav">
             <a href="/maintainer/journal-import">journals →</a>
             <a href="/maintainer/hypercites">hypercites →</a>
+            <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>

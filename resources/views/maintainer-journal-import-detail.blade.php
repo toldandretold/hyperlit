@@ -96,6 +96,7 @@
         <nav class="ji-header-nav">
             <a href="/maintainer/journal-import">&larr; all journals</a>
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>
+            <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
         </nav>
         <button type="button" id="ji-help-toggle" aria-expanded="false" aria-controls="ji-help-panel" title="How this works">?</button>

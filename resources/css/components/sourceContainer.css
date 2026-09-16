@@ -36,7 +36,13 @@
   backdrop-filter: var(--container-glass-blur);
   z-index: 1001;
   overflow: hidden;
-  padding-left: 1em;
+  /* Symmetric gutters. Each side is the SUM of this padding and #source-content's
+     own: left 1.5 + 1.5 = 3em, right 2 + 1 = 3em. Left used to be 1em (2.5em
+     total), which both read as lopsided and left the bottom-left button stack
+     crowding the text. NB these are em against --sc-14, so the gutter SHRINKS
+     with the reader's font-size setting while the buttons stay a fixed 28px —
+     that scaling mismatch is why the squeeze only showed at small type. */
+  padding-left: 1.5em;
   padding-right: 2em;
   border-radius: 1em;
   word-wrap: break-word;
@@ -120,6 +126,15 @@
   border-radius: 1em;
 }
 
+/* Content scrolls UNDER the action bar, so the last of it must be able to
+   clear the strip (44px) plus a little breathing room. Scoped with :has() —
+   a panel with no bar (synthetic book, no edit rights) keeps its normal end
+   padding, and #archive-content never has a bar at all. */
+#source-container:has(#source-action-bar) #source-content,
+#source-container:has(#source-action-bar) #edit-form-container .scroller {
+  padding-bottom: 56px;
+}
+
 /* Edit form fills the fixed-size container (JS sets explicit width/height on #source-container) */
 #source-container #edit-form-container {
   position: absolute;
@@ -141,26 +156,267 @@
   border-radius: 1em;
 }
 
-/* Glass circle backdrop for source-container corner buttons
-   Matches perimeter buttons: transparent bg + blur = invisible on solid,
-   frosted glass when text scrolls behind */
-#source-container #edit-source {
+/* #edit-source lives IN the action bar now, so it no longer floats in the
+   corner and no longer needs its own glass pill — the bar is the glass. The
+   old `position:absolute` + `::before` backdrop were removed with the move;
+   editToolbar.css still supplies its size/stroke/inverted-state styling. */
+
+/* ── Action bar ────────────────────────────────────────────────────────────
+   One glass strip pinned across the bottom of the panel: reader actions
+   (like / add to shelf / share) on the left, edit on the right. Content
+   scrolls UNDER it — both scrollers carry a padding-bottom of the bar's
+   height, and #source-container's overflow:hidden clips the strip to the
+   panel's rounded bottom corners.
+
+   Glass = the SHARED tokens (--container-glass-bg + --container-glass-blur),
+   the same pair the panel itself, .visibility-panel and the
+   .visibility-trigger::before pill all use. Do NOT re-derive a bespoke recipe
+   here. The bar originally copied the logo-nav flyout's literal values (a 45%
+   --color-background tint over blur(8px)) on the theory that it would then
+   read as the same material — it does not, and can't: that recipe only looks
+   like glass because #logoNavWrapper blurs the PAGE, whereas this strip lives
+   inside #source-container's own backdrop-filter, i.e. inside a backdrop
+   ROOT. A nested backdrop-filter samples an already-flattened layer (the same
+   trap documented on the visibility popover below), so blur(8px) bought a
+   faint smear rather than a blur, and the 45% tint was too thin to occlude —
+   text scrolling under the strip stayed legible through it. The 0.75-alpha
+   shared token covers properly and matches the app's other floating surfaces.
+
+   No border-top: the strip is the same material as the panel it sits in, so a
+   hairline rule just cuts the surface in half. */
+#source-container #source-action-bar {
   position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1002;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background-color: var(--container-glass-bg);
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
 }
 
-#source-container #edit-source::before {
-  content: '';
+#source-container .source-action-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The bar's icon buttons are 28px discs. `:not(.share-option)` throughout this
+   block (and the svg/hover rules below): the share popover's labelled rows are
+   BUTTONS nested inside the bar, and without the guard they inherit the disc
+   sizing and collapse into circles with their labels clipped. */
+#source-container #source-action-bar button:not(.share-option) {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: transparent;
+  border-radius: 50%;
+}
+
+/* !important, reluctantly: editToolbar.css sizes #edit-source's icon at
+   `width: 90% !important` from its corner-button era, which would make the
+   edit glyph noticeably larger than its four neighbours in the bar. Two IDs
+   here outweigh that rule's one, so every icon in the strip matches. */
+#source-container #source-action-bar button:not(.share-option) svg {
+  width: 20px !important;
+  height: 20px !important;
+  pointer-events: none;
+}
+
+/* Copy feedback: the button flashes the accent for ~1.5s (the .copied class
+   the shelf header's share button already uses). */
+#source-container #source-action-bar button.copied svg,
+#source-container #source-action-bar button.copied svg path {
+  stroke: var(--hyperlit-aqua, #4eacae);
+}
+
+/* Hover INVERTS (filled disc + flipped stroke), the same paired-variable
+   contract #editButton uses. Both halves are required: --icon-stroke-primary
+   and --icon-hover-background are the SAME colour in every theme, so setting
+   the background alone paints the glyph out and leaves a solid blob.
+
+   `:not(.inverted)` mirrors editToolbar's own guard: while the edit form is
+   open #edit-source wears .inverted (its own filled state), and a hover
+   restyle on top of that would fight it.
+
+   The stroke half needs !important because editToolbar.css pins
+   `#edit-source path { stroke: var(--icon-stroke-primary) !important }`.
+   Without it the edit button alone would hover to a solid blob — the same
+   paint-the-glyph-out failure, one rule deeper. */
+#source-container #source-action-bar button:hover:not(.inverted):not(.share-option),
+#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) {
+  background-color: var(--icon-hover-background);
+  border-radius: 50%;
+}
+
+#source-container #source-action-bar button:hover:not(.inverted):not(.share-option) svg,
+#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg,
+#source-container #source-action-bar button:hover:not(.inverted):not(.share-option) svg path,
+#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg path {
+  stroke: var(--icon-hover-stroke) !important;
+}
+
+/* A liked heart is FILLED, so its fill must invert on hover too — otherwise
+   the aqua fill sits on the inverted disc and swallows the outline. */
+#source-container #like-book.liked:hover svg,
+#source-container #like-book.liked:focus-visible svg {
+  fill: var(--icon-hover-stroke);
+}
+
+/* Liked state: filled heart in the brand aqua */
+#source-container #like-book.liked svg {
+  fill: var(--hyperlit-aqua);
+  stroke: var(--hyperlit-aqua);
+}
+
+/* ── Share control (Link / Citation) ───────────────────────────────────────
+   One share button in the action bar that expands into a labelled popover, the
+   same shape as the visibility control below (trigger + glass panel + rows).
+   Replaces the two bare chain/quote icons, which gave no clue what they'd copy.
+
+   It opens UPWARD (bottom: 100%) because the bar is pinned to the panel's
+   bottom edge — and that direction is load-bearing, not cosmetic:
+   #source-container is overflow:hidden, so a downward panel would be clipped
+   away entirely. Growing up into the content area keeps it inside the clip. */
+#source-container #share-control {
+  position: relative;
+  display: inline-flex;
+}
+
+/* THE thing that makes a glass popover read as solid rather than as cling film:
+   while it is open, blur the container's CONTENT with a real `filter` — exactly
+   what the visibility control does below, and for the same reason. Without it
+   the panel's 0.75 tint sits over razor-sharp body text, which the eye reads as
+   a washed-out translucent smear no matter how the panel itself is styled. The
+   bar and its popover are SIBLINGS of #source-content, so they stay sharp.
+   NB: do NOT transition the blur radius — see the visibility note below. */
+#source-container:has(.share-control.share-open) #source-content {
+  filter: blur(5px);
+}
+
+/* Transparent click-catcher over the blurred content, mirroring
+   .visibility-overlay: above #source-content, below the bar (1002) and panel
+   (1003), so a click lands here and closes instead of hitting a link beneath. */
+.share-overlay {
   position: absolute;
-  top: -4px;
+  inset: 0;
+  z-index: 1000;
+  cursor: pointer;
+}
+
+/* ── Add-to-shelf, panel-local variant ─────────────────────────────────────
+   The same popover contract as share/visibility, applied to the shelf menu
+   when its trigger is the action bar's #shelf-book (addToShelfMenu.ts mounts
+   it into #source-container and sets .shelf-panel-open on the host). It rises
+   from the bar and spans the panel's width, because shelf names ("Case
+   import: 2026-09-14 12:52") are far too long for a trigger-width column. */
+#source-container.shelf-panel-open #source-content {
+  filter: blur(5px);
+}
+
+#source-container .add-to-shelf-backdrop--in-panel {
+  position: absolute;
+  z-index: 1000;
+}
+
+#source-container .add-to-shelf-menu--in-panel {
+  position: absolute;
+  bottom: 52px; /* 44px bar + 8px gap */
+  left: 8px;
+  right: 8px;
+  min-width: 0; /* defeat the base menu's 180px floor — the panel is 300px wide */
+  /* Clipped to the panel, so a long shelf list scrolls in place instead of
+     running off the screen. 52px bar+gap, 8px top breathing room. */
+  max-height: calc(100% - 68px);
+  overflow-y: auto;
+  z-index: 1003;
+}
+
+#source-container .share-panel {
+  position: absolute;
+  bottom: calc(100% + 8px);
   left: -4px;
-  right: -4px;
-  bottom: -4px;
+  width: 150px;
+  max-width: none; /* defeat the global `* { max-width: 100% }` clamp (foundation.css) */
+  padding: 4px;
   border-radius: 10px;
   background-color: var(--container-glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: -1;
-  pointer-events: none;
+  -webkit-backdrop-filter: var(--container-glass-blur);
+  backdrop-filter: var(--container-glass-blur);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 1003;
+}
+
+#source-container .share-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--sc-13);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+#source-container .share-option:hover,
+#source-container .share-option:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: var(--color-text);
+}
+
+#source-container .share-option-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+#source-container .share-option-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+#source-container .share-option-label {
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Copy confirmation: the row's tick fades in for ~1.5s. Same `.copied` class
+   the bar's buttons used to flash with — the row IS the confirmation, so there
+   is still no toast for a copy this small. */
+#source-container .share-option-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--hyperlit-aqua);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+#source-container .share-option.copied .share-option-check {
+  opacity: 1;
+}
+
+#source-container .share-option.copied {
+  color: var(--color-text);
 }
 
 /* ── Visibility control (Public / Private / Encrypted) ─────────────────────

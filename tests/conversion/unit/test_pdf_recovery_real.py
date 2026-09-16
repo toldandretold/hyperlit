@@ -69,16 +69,44 @@ def test_recovery_never_loses_definitions(name, ocr, pdf):
     assert real >= blind, f"{name}: real-PDF harvest {real} < blind {blind} (recovery LOST defs)"
 
 
-def test_recovery_demonstrably_works_on_a_known_book():
-    """Concrete regression guard: soviet_marxism is known to gain real definitions from pypdf (the
-    replay harness drops them). If this stops recovering, the pypdf path has silently broken."""
+def test_a_text_layer_with_no_spaces_is_refused_as_a_witness():
+    """soviet_marxism's PDF encodes NO space glyphs — pypdf returns one run-together word per line
+    (space ratio 0.000, against 0.14-0.15 for the books whose text layer works). It used to be this
+    file's "recovery demonstrably works" exemplar, but the blind OCR path later learned to keep those
+    notes itself (the glued line-start def fix), so the pypdf delta went to zero — and what pypdf DID
+    still contribute was junk: it pattern-matched run-together prose as a definition
+    ("PoliticalTenetsworldcouldbestabilizedandhierarcbicallyintegrated" as def 34), saved from
+    injection only by the page_bottom number translation refusing to pair it.
+
+    So the invariant worth pinning is the opposite of the old one: a text layer with no word
+    separation must be refused outright. It cannot witness which notes exist, and it must never reach
+    the definition-text repair, which would align it against good OCR and rewrite from it."""
     hit = [b for b in _books_with_pdfs() if b[0].startswith('soviet_marxism')]
     if not hit:
         pytest.skip("soviet_marxism corpus book not present")
-    name, ocr, pdf = hit[0]
-    blind = _harvested(_assemble(ocr, None)[1])
-    real = _harvested(_assemble(ocr, pdf)[1])
-    assert real > blind, f"{name}: expected pypdf to recover defs, got blind={blind} real={real}"
+    _name, _ocr, pdf = hit[0]
+    from ingestion.pdf.recovery import (
+        extract_pypdf_footnote_defs, extract_pypdf_page_texts, pypdf_text_is_usable,
+    )
+    assert extract_pypdf_footnote_defs(Path(pdf)) == {}
+    assert extract_pypdf_page_texts(Path(pdf)) == {}
+    # The predicate itself, judged at every length — a SHORT run-together page is
+    # refused too (soviet_marxism's front matter came through as defs 1/7/23/201
+    # while short pages were exempted as "too short to judge").
+    assert pypdf_text_is_usable('to(touseToynbee' + "'" + 'sterms)aninternalandexternal' * 12) is False
+    assert pypdf_text_is_usable('PARTl:POLITICALTENETS') is False
+    assert pypdf_text_is_usable('The quick brown fox jumps over the lazy dog. ' * 12) is True
+    assert pypdf_text_is_usable('Chapter 3') is True
+
+
+def test_recovery_never_injects_defs_the_blind_path_already_has():
+    """The corpus books that ship a PDF all harvest the same count blind and real — pypdf is a SAFETY
+    NET, not a contributor, once the OCR path handles a document. Pinned as equality-or-better so a
+    change that starts injecting duplicates (or losing defs) is caught either way."""
+    for name, ocr, pdf in _books_with_pdfs():
+        blind = _harvested(_assemble(ocr, None)[1])
+        real = _harvested(_assemble(ocr, pdf)[1])
+        assert real >= blind, f"{name}: real-PDF harvest {real} < blind {blind}"
 
 
 def test_fidelity_record_is_pypdf_aware_with_real_pdf():

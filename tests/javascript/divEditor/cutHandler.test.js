@@ -4,8 +4,9 @@
  * browser mutates the DOM, then a post-move-window finalize that delinks
  * absent citing anchors and tombstones+ghosts absent cited sources.
  *
- * Real timers — the 60ms finalize delay (just past handleHyperciteRemoval's
- * 50ms verify window) is part of the behavior.
+ * The 60ms finalize delay (just past handleHyperciteRemoval's 50ms verify
+ * window) is part of the behaviour, so the end-to-end block drives it with
+ * fake timers rather than sleeping against a wall clock — see the note there.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -147,6 +148,27 @@ describe('finalizeCut', () => {
   });
 });
 
+/**
+ * Real timers (the 60ms finalize delay IS the behaviour under test), but these
+ * two wait on the CONDITION rather than on a fixed sleep. They used to sleep a
+ * flat 120ms against that 60ms delay — 60ms of slack, which the full suite's
+ * parallel workers can eat, so the assertions ran before finalizeCut's awaited
+ * promises had settled and the run went red at random while passing in
+ * isolation. Polling can only be slower under load, never wrong; the negative
+ * case still burns a full settle window before asserting nothing happened.
+ *
+ * (Fake timers are NOT the fix here — finalizeCut's own await chain doesn't
+ * unwind under advanceTimersByTimeAsync, which silently inverts both results.)
+ */
+async function waitFor(condition, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (condition()) return true;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  return false;
+}
+
 describe('handleCutEvent (end-to-end timing)', () => {
   it('delinks after the finalize delay when the cut element stays gone', async () => {
     buildEditor();
@@ -158,9 +180,10 @@ describe('handleCutEvent (end-to-end timing)', () => {
     document.getElementById('hypercite_s1').remove();
     getHyperciteById.mockResolvedValue({ book: 'bookA', hyperciteId: 'hypercite_s1', citedIN: ['/bookb#x'] });
 
-    await new Promise((r) => setTimeout(r, 120));
+    await waitFor(() => delinkHypercite.mock.calls.length > 0);
 
     expect(delinkHypercite).toHaveBeenCalledWith('hypercite_c1', '/booka#hypercite_s9');
+    await waitFor(() => document.getElementById('hypercite_s1')?.classList.contains('hypercite-tombstone'));
     expect(document.getElementById('hypercite_s1')?.classList.contains('hypercite-tombstone')).toBe(true);
   });
 
@@ -174,7 +197,9 @@ describe('handleCutEvent (end-to-end timing)', () => {
     anchor.remove();
     setTimeout(() => parent.appendChild(anchor), 10); // pasted back within the window
 
-    await new Promise((r) => setTimeout(r, 120));
+    // Negative case: nothing to poll FOR, so give the finalize a generous
+    // window to misfire in before asserting it didn't.
+    await new Promise((r) => setTimeout(r, 300));
 
     expect(delinkHypercite).not.toHaveBeenCalled();
   });

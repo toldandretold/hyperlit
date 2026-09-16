@@ -165,6 +165,24 @@ trait InteractsWithApi
                 // column/table absent in this schema state — ignore
             }
         }
+        // Reading/like analytics rows for test books (book_reads is un-RLS'd;
+        // book_likes rows a controller wrote via the default connection roll
+        // back, but rows tests seed via pgsql_admin commit).
+        foreach (['book_reads', 'book_likes'] as $table) {
+            try {
+                $admin->table($table)->where('book', 'like', 'apitest\_%')->delete();
+            } catch (\Throwable $e) {
+                // table absent in this schema state — ignore
+            }
+        }
+        // page_views has no `book` to key on (a page view isn't about a book —
+        // that's the point of the separate table), so it is cleaned by the
+        // test-user identity instead.
+        try {
+            $admin->table('page_views')->where('user_name', 'like', 'api\_test\_%')->delete();
+        } catch (\Throwable $e) {
+            // table absent in this schema state — ignore
+        }
         $admin->table('library')->where('book', 'like', 'apitest\_%')->delete();
         $admin->table('users')->where('email', 'like', 'api\_%@test.local')->delete();
     }

@@ -13,6 +13,14 @@ export interface Shelf {
   description: string | null;
   visibility: 'private' | 'public' | string;
   default_sort: string;
+  /**
+   * `'user'` for a hand-made shelf, `'likes'` for the one system shelf that
+   * mirrors the owner's likes. A likes shelf is a normal shelf in every
+   * presentational respect (rename, visibility, sort, show on profile) — only
+   * its MEMBERSHIP is special: it comes from liking, so the add-to-shelf menu
+   * hides it and the server refuses manual adds.
+   */
+  kind: 'user' | 'likes' | string;
   created_at: string;
   updated_at: string;
   item_count: number;

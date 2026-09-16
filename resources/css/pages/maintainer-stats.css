@@ -1,0 +1,242 @@
+/* Site-wide reading stats page — standalone non-SPA (maintainer-stats.blade.php).
+   Entry-only file: @vite'd by the blade, never an @import target (cssStructure gate 3).
+   Theme parity with the reader via the shared variable/theme files, same as the
+   sibling maintainer pages. */
+
+@import url('../theme/variables.css');
+@import url('../theme/light-theme.css');
+@import url('../theme/sepia-theme.css');
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mst-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+  flex-wrap: wrap;
+}
+
+.mst-header h1 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.mst-header-sub {
+  opacity: 0.65;
+  font-size: 0.9em;
+}
+
+.mst-header-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  font-size: 0.85em;
+}
+
+.mst-header-nav a {
+  color: var(--hyperlit-aqua, #4eacae);
+  text-decoration: none;
+}
+
+.mst-header-nav a:hover {
+  text-decoration: underline;
+}
+
+#mst-help-toggle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--color-text) 35%, transparent);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.mst-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.mst-section h2 {
+  margin: 0 0 12px;
+  font-size: 1em;
+  opacity: 0.85;
+}
+
+/* Totals tiles */
+.mst-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.mst-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  border-radius: 8px;
+}
+
+.mst-tile-val {
+  font-size: 1.5em;
+  font-weight: 600;
+}
+
+.mst-tile-label {
+  font-size: 0.78em;
+  opacity: 0.65;
+}
+
+/* Daily strip: 90 columns, stacked views (aqua) + likes (orange) */
+.mst-daily {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 120px;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 15%, transparent);
+}
+
+.mst-day {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mst-day-views {
+  background: var(--hyperlit-aqua, #4eacae);
+  min-height: 0;
+}
+
+.mst-day-likes {
+  background: var(--hyperlit-orange, #ef8d34);
+  min-height: 0;
+}
+
+/* Home views — a muted third band, deliberately not one of the two brand
+   colours: homepage traffic is context for the reading numbers, not a peer of
+   them, and it will usually be the tallest segment. */
+.mst-day-home {
+  background: color-mix(in srgb, var(--color-text) 38%, transparent);
+  min-height: 0;
+}
+
+.mst-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 0.8em;
+  opacity: 0.75;
+}
+
+.mst-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mst-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.mst-swatch-views { background: var(--hyperlit-aqua, #4eacae); }
+.mst-swatch-likes { background: var(--hyperlit-orange, #ef8d34); }
+.mst-swatch-home { background: color-mix(in srgb, var(--color-text) 38%, transparent); }
+
+/* Most-read ranked list */
+.mst-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mst-top-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 240px) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.88em;
+}
+
+.mst-top-title {
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mst-top-title:hover {
+  text-decoration: underline;
+}
+
+.mst-top-bar-track {
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  border-radius: 3px;
+  height: 10px;
+}
+
+.mst-top-bar {
+  background: var(--hyperlit-aqua, #4eacae);
+  border-radius: 3px;
+  height: 100%;
+}
+
+.mst-top-nums {
+  opacity: 0.7;
+  white-space: nowrap;
+  font-size: 0.9em;
+}
+
+.mst-empty {
+  opacity: 0.6;
+}
+
+/* Help panel */
+.mst-help-panel {
+  position: fixed;
+  right: 16px;
+  top: 60px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 14px 18px;
+  background: var(--color-background);
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  font-size: 0.88em;
+}
+
+.mst-help-panel h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 8px;
+  font-size: 1em;
+}
+
+.mst-help-panel button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}

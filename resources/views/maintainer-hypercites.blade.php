@@ -49,6 +49,7 @@
             @endif
             @else
             <a href="/maintainer/journal-import">journal import →</a>
+            <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
             @endif
         </nav>

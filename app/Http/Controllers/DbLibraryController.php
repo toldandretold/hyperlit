@@ -426,7 +426,7 @@ class DbLibraryController extends Controller
      *     pages:?string, url:?string, note:?string, school:?string, volume:?string, issue:?string,
      *     booktitle:?string, chapter:?string, editor:?string, fileName:?string, fileType:?string,
      *     visibility:string, license:string, custom_license_text:?string, annotations_updated_at:int,
-     *     gate_defaults:?array, recent:?int, total_views:int, total_highlights:int,
+     *     gate_defaults:?array, recent:?int, total_highlights:int,
      *     raw_json:string, created_at:mixed, updated_at:mixed }
      *
      * NOTE: `creator`/`creator_token` are server-determined here (getCreatorInfo), not taken from the
@@ -494,8 +494,14 @@ class DbLibraryController extends Controller
                         'annotations_updated_at' => $item['annotations_updated_at'] ?? 0,
                         'gate_defaults' => array_key_exists('gate_defaults', $item) ? $item['gate_defaults'] : null,
                         'recent' => $item['recent'] ?? null,
-                        'total_views' => $item['total_views'] ?? 0,
                         'total_highlights' => $item['total_highlights'] ?? 0,
+                        // No client-supplied view count: total_views is derived
+                        // server-side by ReadStatsCounter from book_reads (one row
+                        // per reader per day). Accepting it from the payload let a
+                        // client seed its own count — and because this is an
+                        // updateOrCreate, writing ANY value here (even 0) would
+                        // clobber the recomputed count on every library sync, so
+                        // the key is omitted entirely (NULL = never computed).
                         // No client-supplied connection count: hypercite_connections /
                         // reference_connections are derived server-side by
                         // ConnectionCountQuery. Accepting them from the payload would

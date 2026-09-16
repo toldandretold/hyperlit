@@ -18,6 +18,7 @@ import {
   syncLibraryRecordToBackend, collectFormData, refreshCitationDisplay,
 } from "./editForm";
 import { attachVisibilityControlListeners } from "./visibilityControl";
+import { initReaderActions } from "./readerActions";
 import { loadCreatorTools } from "./creatorTools/index";
 import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
@@ -114,6 +115,9 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
     // Unified visibility control (Public / Private / Encrypted)
     attachVisibilityControlListeners(this);
+
+    // Like + add-to-shelf pair (bottom-left corner)
+    initReaderActions(this);
 
     // Creator tools toggle (lazy-load on first expand)
     // Guard against duplicate listeners from hideEditForm → attachInternalListeners

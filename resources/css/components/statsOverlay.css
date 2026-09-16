@@ -1,0 +1,259 @@
+/* ---------- Stats overlay (any-page creator reading stats) ----------
+   Opened from the userButton flyout's "Stats" row
+   (components/statsOverlay/statsOverlay.ts). Same shell recipe as the Money
+   overlay (accountPage.css): fixed dimmed backdrop, centered panel, header
+   with a round close button, scrolling body. Imported by the four page
+   bundles alongside accountPage.css. */
+
+#stats-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stats-overlay .stats-panel {
+  width: min(560px, calc(100vw - 32px));
+  /* FIXED height, not max-height. Sized to content, the panel resized on every
+     keystroke in the search box — filter to two results and the whole dialog
+     collapsed around them, so the controls you were typing into jumped up the
+     screen. A stable box that is sometimes part-empty is the better trade. */
+  height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background, #1a1a1a);
+  color: var(--color-text, #eee);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#stats-overlay .stats-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+#stats-overlay .stats-panel-title {
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+#stats-overlay .stats-panel-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#stats-overlay .stats-panel-close:hover {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+/* Sort + search, the same vocabulary as the shelf header's controls
+   (.shelf-sort-select / .shelf-search-input in shelves.css). Sits OUTSIDE
+   .stats-panel-body so it stays put while the list scrolls under it — a
+   creator with thousands of books shouldn't have to scroll back to the top to
+   change the sort. */
+#stats-overlay .stats-panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  flex-shrink: 0;
+}
+
+#stats-overlay .stats-sort-select {
+  background: var(--container-solid-bg);
+  border: 1px solid var(--resize-edge-tint);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  padding: 4px 8px;
+  font-size: 0.85em;
+  font-family: inherit;
+}
+
+#stats-overlay .stats-search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--container-solid-bg);
+  border: 1px solid var(--resize-edge-tint);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  padding: 4px 8px;
+  font-size: 0.85em;
+  font-family: inherit;
+}
+
+/* Takes all the space the fixed-height panel has left over. `min-height: 0` is
+   required, not decorative: a flex child defaults to min-height:auto, which
+   refuses to shrink below its content, so the body would overflow the panel
+   instead of scrolling inside it. */
+#stats-overlay .stats-panel-body {
+  padding: 14px 18px 18px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Paging footer. The count is never omitted — "100 of 6722" is the whole
+   point, since the panel used to cap silently at 500 and say nothing. */
+#stats-overlay .stats-load-more-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+#stats-overlay .stats-load-more {
+  background: var(--container-solid-bg);
+  border: 1px solid var(--resize-edge-tint);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  padding: 5px 14px;
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#stats-overlay .stats-load-more:hover {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+#stats-overlay .stats-load-more-count {
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+
+/* Author rides under the title in the same ellipsised column — present so the
+   author sort/search has something visible to act on. */
+#stats-overlay .stats-book-author {
+  display: block;
+  opacity: 0.6;
+  font-size: 0.85em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#stats-overlay .stats-panel-empty {
+  opacity: 0.7;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* One line per book: an expand button (title + counts) plus an "open book"
+   arrow link beside it — the arrow is a sibling, never nested in the button. */
+#stats-overlay .stats-book-line {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+#stats-overlay .stats-book-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+#stats-overlay .stats-book-row:hover {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+#stats-overlay .stats-book-link {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: var(--hyperlit-aqua, #4eacae);
+  opacity: 0.75;
+  text-decoration: none;
+}
+
+#stats-overlay .stats-book-link:hover {
+  opacity: 1;
+  background: rgba(128, 128, 128, 0.12);
+}
+
+#stats-overlay .stats-book-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#stats-overlay .stats-book-numbers {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+  opacity: 0.75;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+#stats-overlay .stats-book-detail {
+  padding: 10px 8px 16px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+#stats-overlay .stats-funnel-caption {
+  margin: 0 0 10px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* 10 columns, one per decile of the book; bar height = % of views reaching it */
+#stats-overlay .stats-funnel {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 110px;
+}
+
+#stats-overlay .stats-funnel-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+#stats-overlay .stats-funnel-bar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--hyperlit-aqua, #4eacae);
+}
+
+#stats-overlay .stats-funnel-label {
+  font-size: 0.65em;
+  opacity: 0.6;
+}

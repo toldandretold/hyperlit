@@ -28,4 +28,7 @@ return [
 
     // Root of corpora + results, relative to base_path().
     'root' => 'study',
+
+    // Corpus the /maintainer/study workbench opens by default (?corpus= overrides).
+    'default_corpus' => env('STUDY_DEFAULT_CORPUS', 'phase1'),
 ];

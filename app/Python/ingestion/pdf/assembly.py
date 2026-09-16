@@ -19,6 +19,7 @@ from ingestion.pdf.pdf_shared import (  # noqa: F401
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
     extract_pypdf_page_texts, resurrect_glued_markers_from_pypdf,
+    repair_def_text_from_pypdf,
 )
 
 # A footer line that opens a footnote DEFINITION, restricted to the marker shapes the shared
@@ -2677,7 +2678,12 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # was empty and every note was silently dropped). Look for the run whenever the assembled
         # doc is footnote-poor; _pypdf_footnote_run below decides whether what pypdf found is a
         # real continuous run or noise, and the marker rescue then hunts each note's seam.
-        if missing or len(ocr_def_nums) < 3:
+        # Preparation below (mojibake filter + page_bottom number translation)
+        # feeds TWO passes: recovering defs the OCR lost, and repairing the text
+        # of defs it kept but garbled. The repair applies to a document with
+        # nothing missing at all, so the preparation cannot sit behind the
+        # missing-def gate — only the recovery itself does.
+        if missing or len(ocr_def_nums) < 3 or ctx.pypdf_page_defs:
             max_ref = max(ref_nums) if ref_nums else 0
             if ctx.pypdf_page_defs is not None:
                 pypdf_defs = ctx.pypdf_page_defs     # extracted once before the page loop
@@ -2728,6 +2734,24 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                         translated[page_idx] = kept
                 clean_pypdf_defs = translated
                 page_offsets_map = {}
+
+            # Repair the text of defs the OCR DID produce but garbled. Runs
+            # before recovery so that recovery's ocr_def_nums bookkeeping is
+            # untouched: this pass rewrites definition text in place and never
+            # adds or removes a definition.
+            combined, text_repairs = repair_def_text_from_pypdf(
+                combined, clean_pypdf_defs, page_offsets=page_offsets_map,
+            )
+            if text_repairs:
+                print(f"  pypdf fallback: repaired OCR-garbled text in {len(text_repairs)} "
+                      f"footnote definition(s) from the PDF's own text layer")
+                for repair in text_repairs[:5]:
+                    print(f"    [^{repair['number']}] {repair['before'][:70]}")
+                    print(f"      -> {repair['after'][:70]}")
+
+            if not (missing or len(ocr_def_nums) < 3):
+                # Nothing lost — the repair above was the only work to do here.
+                clean_pypdf_defs = {}
 
             # The recovery ceiling is normally the highest SURVIVING ref — but that ceiling is
             # exactly what a dropped superscript layer destroys, and a too-low ceiling silently

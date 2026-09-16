@@ -11,6 +11,8 @@ use App\Services\EmbeddingService;
 use App\Services\LibraryCardGenerator;
 use App\Services\SearchService;
 use App\Services\ShelfCacheInvalidator;
+use App\Services\Shelves\LikesShelf;
+use App\Services\Stats\ReadStatsCounter;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
@@ -63,6 +65,11 @@ class ShelfController extends Controller
             'shelves.description',
             'shelves.visibility',
             'shelves.default_sort',
+            // 'user' | 'likes'. Shipped in the list so the client can tell the
+            // system shelf apart — the add-to-shelf menu hides it (its
+            // membership comes from liking, not from a checkbox) while the
+            // profile/tabs treat it as any other shelf.
+            'shelves.kind',
             'shelves.created_at',
             'shelves.updated_at',
             // item_count used by the AI Brain shelf picker to refuse submit on empty shelves
@@ -205,6 +212,15 @@ class ShelfController extends Controller
             return response()->json(['error' => 'Shelf not found'], 404);
         }
 
+        // The Likes shelf is derived from book_likes, so deleting it is
+        // incoherent rather than destructive: the likes survive, and the next
+        // like rebuilds the shelf empty. Refuse instead of half-doing it.
+        if (LikesShelf::isLikesShelf($shelf)) {
+            return response()->json([
+                'error' => 'The Likes shelf can\'t be deleted — it follows what you\'ve liked. Unlike books to empty it, or make it private.',
+            ], 422);
+        }
+
         // Flush cached synthetic books before deleting
         (new ShelfCacheInvalidator())->flush($id);
 
@@ -231,6 +247,15 @@ class ShelfController extends Controller
         $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
         if (!$shelf) {
             return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        // Membership of the Likes shelf comes from liking, full stop — letting
+        // a book in here would be the drift this design exists to prevent
+        // (LikesShelf is the single writer).
+        if (LikesShelf::isLikesShelf($shelf)) {
+            return response()->json([
+                'error' => 'Books join the Likes shelf by being liked, not by being added.',
+            ], 422);
         }
 
         // Upsert (ignore if already exists)
@@ -260,6 +285,31 @@ class ShelfController extends Controller
         $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
         if (!$shelf) {
             return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        // Removing from the Likes shelf IS unliking — otherwise the row comes
+        // straight back on the next sync and the gesture looks broken. Drop the
+        // like and let LikesShelf mirror it, so book_likes stays the truth.
+        if (LikesShelf::isLikesShelf($shelf)) {
+            DB::table('book_likes')
+                ->where('book', $book)
+                ->where('creator', $user->name)
+                ->delete();
+
+            LikesShelf::sync($user->name, $book, false);
+
+            DB::afterCommit(function () use ($book) {
+                try {
+                    (new ReadStatsCounter())->recomputeLikes([$book]);
+                } catch (\Throwable $e) {
+                    Log::warning('total_likes recompute failed (non-fatal)', [
+                        'book' => $book,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            });
+
+            return response()->json(['success' => true, 'unliked' => true]);
         }
 
         DB::connection('pgsql_admin')->table('shelf_items')

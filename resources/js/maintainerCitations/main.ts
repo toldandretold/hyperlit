@@ -125,7 +125,7 @@ function itemCard(item: PendingItem): HTMLElement {
   const notCitation = document.createElement('button');
   notCitation.type = 'button';
   notCitation.className = 'mc-not-citation';
-  notCitation.textContent = 'Not a citation — unlink it';
+  notCitation.textContent = 'None of these / not a citation — leave as plain text';
   notCitation.addEventListener('click', () => answer(null));
   card.append(notCitation);
 

@@ -162,6 +162,10 @@ export default defineConfig({
                 'resources/css/pages/maintainer-storage.css',
                 'resources/js/maintainerStorage/main.ts',
 
+                // Site-wide reading stats page (standalone, non-SPA, admin-only — /maintainer/stats)
+                'resources/css/pages/maintainer-stats.css',
+                'resources/js/maintainerStats/main.ts',
+
                 // Journal import console (standalone, non-SPA, admin-only — /maintainer/journal-import)
                 'resources/css/pages/maintainer-journal-import.css',
                 'resources/js/maintainerJournalImport/main.ts',
@@ -171,6 +175,10 @@ export default defineConfig({
                 'resources/js/maintainerHypercites/main.ts',
                 'resources/css/pages/maintainer-citations.css',
                 'resources/js/maintainerCitations/main.ts',
+
+                // Citation-study review workbench (standalone, non-SPA, admin-only — /maintainer/study)
+                'resources/css/pages/maintainer-study.css',
+                'resources/js/maintainerStudy/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

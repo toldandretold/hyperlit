@@ -24,25 +24,43 @@ async function doInvalidateShelfCache() {
 function buildMenuShell(anchorEl: any) {
     const isMobile = window.innerWidth < 768;
 
+    // When the trigger lives in the source container's action bar, the menu is
+    // a PANEL-LOCAL popover instead of a body-mounted one: it mounts INSIDE
+    // #source-container, blurs that panel's content behind it, and is clipped
+    // to it — the same treatment as the share and visibility popovers, so the
+    // three surfaces in that bar behave as one system. Body-mounting from there
+    // anchored a full shelf list (unbounded, viewport-tall) to a 28px button in
+    // a 300px panel, so it sprawled across the page next to the card it belongs
+    // to. Mobile keeps the bottom-sheet presentation either way.
+    const host: HTMLElement | null = anchorEl?.closest?.('#source-container') ?? null;
+    const inPanel = !!host && !isMobile;
+
     const backdrop = document.createElement('div');
-    backdrop.className = 'add-to-shelf-backdrop';
+    backdrop.className = 'add-to-shelf-backdrop' + (inPanel ? ' add-to-shelf-backdrop--in-panel' : '');
 
     const menu = document.createElement('div');
-    menu.className = 'floating-action-menu add-to-shelf-menu' + (isMobile ? ' floating-action-menu--mobile' : '');
-    menu.style.zIndex = '10001';
-    if (!isMobile) {
+    menu.className = 'floating-action-menu add-to-shelf-menu'
+        + (isMobile ? ' floating-action-menu--mobile' : '')
+        + (inPanel ? ' add-to-shelf-menu--in-panel' : '');
+    // In-panel sits in #source-container's own stacking order (above the 1002
+    // action bar); body-mounted keeps its viewport-level z-index.
+    if (!inPanel) menu.style.zIndex = '10001';
+    if (!isMobile && !inPanel) {
         menu.style.position = 'absolute';
     }
 
-    document.body.appendChild(backdrop);
-    document.body.appendChild(menu);
-    if (!isMobile) positionMenu(menu, anchorEl);
+    const mount = inPanel ? host! : document.body;
+    mount.appendChild(backdrop);
+    mount.appendChild(menu);
+    if (inPanel) host!.classList.add('shelf-panel-open');
+    else if (!isMobile) positionMenu(menu, anchorEl);
 
     let closed = false;
     const close = () => {
         if (closed) return;
         closed = true;
         releaseTrap(); // restores focus to the anchor
+        if (inPanel) host!.classList.remove('shelf-panel-open');
         backdrop.remove();
         menu.remove();
         document.removeEventListener('click', dismiss);
@@ -64,6 +82,48 @@ function buildMenuShell(anchorEl: any) {
 }
 
 /**
+ * Anchored login/register prompt — the auth gate shown when a logged-out user
+ * clicks a members-only action (add to shelf, like). Reuses the add-to-shelf
+ * menu shell so the overlay classes (already in the overlay inventory) and
+ * focus-trap wiring stay singular.
+ */
+export function showLoginPromptMenu(anchorEl: any, message: string) {
+    const { menu, close } = buildMenuShell(anchorEl);
+
+    const msg = document.createElement('div');
+    msg.className = 'floating-action-menu-item';
+    msg.style.flexDirection = 'column';
+    msg.style.gap = '8px';
+    const span = document.createElement('span');
+    span.textContent = message;
+    msg.appendChild(span);
+
+    const loginBtn = document.createElement('button');
+    loginBtn.className = 'floating-action-menu-item';
+    loginBtn.textContent = 'Log in';
+    loginBtn.addEventListener('click', async () => {
+        close();
+        const { initializeUserContainer } = await import('../userButton/userButton');
+        const mgr = initializeUserContainer();
+        if (mgr) mgr.showLoginForm();
+    });
+
+    const registerBtn = document.createElement('button');
+    registerBtn.className = 'floating-action-menu-item';
+    registerBtn.textContent = 'Register';
+    registerBtn.addEventListener('click', async () => {
+        close();
+        const { initializeUserContainer } = await import('../userButton/userButton');
+        const mgr = initializeUserContainer();
+        if (mgr) mgr.showRegisterForm();
+    });
+
+    menu.appendChild(msg);
+    menu.appendChild(loginBtn);
+    menu.appendChild(registerBtn);
+}
+
+/**
  * Show the "Add to shelf" submenu for a given book.
  * @param {HTMLElement} anchorEl - Position anchor
  * @param {string} bookId - The book to add/remove
@@ -75,37 +135,7 @@ export async function showAddToShelfMenu(anchorEl: any, bookId: any) {
     // Auth gate — prompt login/register for unauthenticated users
     const loggedIn = await isLoggedIn();
     if (!loggedIn) {
-        const { menu, close } = buildMenuShell(anchorEl);
-
-        const msg = document.createElement('div');
-        msg.className = 'floating-action-menu-item';
-        msg.style.flexDirection = 'column';
-        msg.style.gap = '8px';
-        msg.innerHTML = '<span>Log in to add books to shelves</span>';
-
-        const loginBtn = document.createElement('button');
-        loginBtn.className = 'floating-action-menu-item';
-        loginBtn.textContent = 'Log in';
-        loginBtn.addEventListener('click', async () => {
-            close();
-            const { initializeUserContainer } = await import('../userButton/userButton');
-            const mgr = initializeUserContainer();
-            if (mgr) mgr.showLoginForm();
-        });
-
-        const registerBtn = document.createElement('button');
-        registerBtn.className = 'floating-action-menu-item';
-        registerBtn.textContent = 'Register';
-        registerBtn.addEventListener('click', async () => {
-            close();
-            const { initializeUserContainer } = await import('../userButton/userButton');
-            const mgr = initializeUserContainer();
-            if (mgr) mgr.showRegisterForm();
-        });
-
-        menu.appendChild(msg);
-        menu.appendChild(loginBtn);
-        menu.appendChild(registerBtn);
+        showLoginPromptMenu(anchorEl, 'Log in to add books to shelves');
         return;
     }
 
@@ -158,7 +188,13 @@ async function fetchShelvesWithMembership(bookId: any) {
         });
         const data: ShelfListResponse = await resp.json();
         const shelves: Shelf[] = data.shelves || [];
-        return shelves.map(s => ({ ...s, isMember: !!s.is_member }));
+        // The Likes shelf is deliberately absent: you join it by liking the
+        // book (the heart in the same action bar), not by ticking a box, and
+        // the server refuses a manual add anyway. Showing an unticked box that
+        // 422s would read as broken.
+        return shelves
+            .filter(s => s.kind !== 'likes')
+            .map(s => ({ ...s, isMember: !!s.is_member }));
     } catch (err) {
         console.error('Failed to fetch shelves for add-to-shelf:', err);
         return [];

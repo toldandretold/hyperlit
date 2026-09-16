@@ -55,6 +55,18 @@ export function attachProfileButtonListeners(self: any) {
     // transparent-until-hover row as the rest of the profile menu.
   }
 
+  // Stats: the any-page creator reading-stats overlay (views, likes, depth).
+  const statsBtn = self.container.querySelector('#statsBtn');
+  if (statsBtn) {
+    statsBtn.addEventListener('click', async (e: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+      self.closeContainer?.();
+      const { openStatsOverlay } = await import('../statsOverlay/statsOverlay');
+      void openStatsOverlay();
+    });
+  }
+
   // Money: the any-page account/billing overlay (balance, tier, top-up, ledger).
   const moneyBtn = self.container.querySelector('#moneyBtn');
   if (moneyBtn) {

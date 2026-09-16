@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1904 functions in 404 modules · 10 object stores · 10 PG tables · 3916 edges
+**MarkdownDB** schema v28 · 1910 functions in 407 modules · 10 object stores · 10 PG tables · 3930 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -255,6 +255,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `removeVibeCSS` | `components/settingsContainer/vibeCSS/storage` | — | — | read/write | — |
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
 | `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
+| `showLoginPromptMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | — |
 | `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
 | `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` | read/write | `↓route:/api/shelves` |
 | `hideShelfPreview` | `components/shelves/shelfPreview` | — | — | write | — |
@@ -421,6 +422,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `licenseInfoFor` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `initReaderActions` | `components/sourceContainer/readerActions` | — | — | read/write | — |
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
 | `researchWorkflowsSectionHtml` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
@@ -1602,6 +1604,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showNavigationLoading` | `scrolling/navOverlay` | — | — | — | — |
 | `getNavigatedAt` | `scrolling/navStamp` | `localStorage` | — | — | — |
 | `recordNavigatedAt` | `scrolling/navStamp` | `localStorage` | `localStorage` | — | — |
+| `destroyPageViewTelemetry` | `scrolling/pageViewTelemetry` | — | — | — | — |
+| `initPageViewTelemetry` | `scrolling/pageViewTelemetry` | — | — | read | — |
 | `destroyPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
 | `initPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
 | `disengageSilently` | `scrolling/paginator` | — | — | read | — |
@@ -1625,6 +1629,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getSavedAnchor` | `scrolling/readingAnchor` | — | — | — | — |
 | `debouncedServerSave` | `scrolling/readingPosition` | — | — | read | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
 | `sendBeaconSave` | `scrolling/readingPosition` | — | — | — | `↑route:/api/database-to-indexeddb/books/{}/reading-position` |
+| `flushReadingTelemetry` | `scrolling/readingTelemetry` | — | — | — | — |
+| `recordVisibleChunks` | `scrolling/readingTelemetry` | — | — | read | — |
 | `restoreScrollPosition` | `scrolling/restore` | `localStorage` `sessionStorage` | — | read/write | — |
 | `isValidContentElement` | `scrolling/scrollHelpers` | — | — | — | — |
 | `lockScrollToTarget` | `scrolling/scrollHelpers` | — | — | — | — |
@@ -1917,7 +1923,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 295
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 298
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2018,6 +2024,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
 - `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
 - `components/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
+- `components/sourceContainer/readerActions` → `components/shelves/addToShelfMenu`
+- `components/sourceContainer/readerActions` → `components/shelves/shelfTabs`
 - `components/tocContainer/index` → `components/tocContainer/hyperlightsTab`
 - `components/tocContainer/index` → `hyperlitContainer/highlightNav`
 - `components/tocContainer/index` → `pageLoad/currentLazyLoaderState`
@@ -2158,6 +2166,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `lazyLoader/index` → `indexedDB/hydration/rebuild`
 - `lazyLoader/index` → `lazyLoader/chunkFetcher`
 - `lazyLoader/index` → `scrolling/readingPosition`
+- `lazyLoader/index` → `scrolling/readingTelemetry`
 - `lazyLoader/utilities/windowChunks` → `divEditor/index`
 - `pageLoad/accessGuards` → `components/userButton/userButton`
 - `pageLoad/containerChain` → `hypercites/animations`

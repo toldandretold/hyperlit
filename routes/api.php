@@ -4,7 +4,9 @@ use App\Http\Controllers\AiBrainController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BeaconSyncController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\BookLikeController;
 use App\Http\Controllers\CitationScannerController;
+use App\Http\Controllers\CreatorStatsController;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Http\Controllers\DbFootnoteController;
 use App\Http\Controllers\DbHyperciteController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\NodeHistoryController;
 use App\Http\Controllers\OpenAlexController;
 use App\Http\Controllers\PasskeyController;
+use App\Http\Controllers\ReadingTelemetryController;
 use App\Http\Controllers\ScrapeController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ShelfController;
@@ -194,7 +197,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/{id}/render', [ShelfController::class, 'render']);
         Route::get('/{id}/search', [ShelfController::class, 'search']);
     });
+
+    // Likes — logged-in only; one per (book, user), rolled up to the root book
+    Route::post('/books/{book}/like', [BookLikeController::class, 'like']);
+    Route::delete('/books/{book}/like', [BookLikeController::class, 'unlike']);
+
+    // Creator reading stats (Stats overlay) — aggregates only, own books only
+    Route::get('/creator/stats', [CreatorStatsController::class, 'index']);
+    Route::get('/creator/stats/{book}', [CreatorStatsController::class, 'show']);
 });
+
+// Public like count (+ requester's own liked state when authed) — no auth, throttled
+Route::get('/books/{book}/likes', [BookLikeController::class, 'show'])
+    ->middleware('throttle:60,1');
 
 // Public shelf endpoints — no auth, throttled
 Route::prefix('public/shelves')->middleware('throttle:60,1')->whereUuid('id')->group(function () {
@@ -610,6 +625,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('key', '[a-f0-9]{12}')
         ->middleware('throttle:10,1');
 
+    // Site-wide reading analytics (/maintainer/stats): corpus totals, the
+    // daily series, and the most-read books. Aggregates only.
+    Route::get('/maintainer/stats/summary', [\App\Http\Controllers\Maintainer\StatsController::class, 'summary']);
+    Route::get('/maintainer/stats/daily', [\App\Http\Controllers\Maintainer\StatsController::class, 'daily']);
+    Route::get('/maintainer/stats/top-books', [\App\Http\Controllers\Maintainer\StatsController::class, 'topBooks']);
+
     // Storage analysis: the latest snapshot, the per-category drill-down, and a
     // manual rescan (throttled — it walks ~70k files).
     Route::get('/maintainer/storage/summary', [\App\Http\Controllers\Maintainer\StorageController::class, 'summary']);
@@ -695,6 +716,24 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/citations/ambiguous', [\App\Http\Controllers\Maintainer\CitationConsoleController::class, 'pending']);
     Route::post('/maintainer/citations/ambiguous/{id}/resolve', [\App\Http\Controllers\Maintainer\CitationConsoleController::class, 'resolve'])
         ->where('id', '[0-9a-f-]{36}');
+
+    // Citation-study workbench (see Maintainer\StudyConsoleController): the human
+    // adjudicates the AI citation review; `apply` folds labels into ground_truth.json.
+    Route::get('/maintainer/study/books', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'books']);
+    Route::get('/maintainer/study/books/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'claims'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::post('/maintainer/study/books/{slug}/adjudicate', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'adjudicate'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::post('/maintainer/study/books/{slug}/retract', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'retract'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::post('/maintainer/study/books/{slug}/apply', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'apply'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::get('/maintainer/study/pdf-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'pdfSearch'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::get('/maintainer/study/render/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'render'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::get('/maintainer/study/node-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'nodeSearch'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
 
     Route::get('/maintainer/hypercites/journals', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'journals']);
     Route::get('/maintainer/hypercites/runs/{id}', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'runStatus'])
@@ -797,6 +836,21 @@ Route::prefix('database-to-indexeddb')->group(function () {
         ->name('api.database-to-indexeddb.save-reading-position');
     Route::get('books/{bookId}/reading-position', [DatabaseToIndexedDBController::class, 'getReadingPosition'])
         ->name('api.database-to-indexeddb.get-reading-position');
+
+    // Reading-depth telemetry (views + chunks-on-screen). Lives in this group
+    // because the whole prefix is CSRF-exempt — the client flushes via
+    // sendBeacon. Named limiter: inline throttle:X,1 shares one bucket.
+    Route::post('books/{bookId}/read-telemetry', [ReadingTelemetryController::class, 'record'])
+        ->middleware('throttle:reading-telemetry')
+        ->name('api.database-to-indexeddb.read-telemetry');
+
+    // Page views for the non-reader surfaces (home). Sits beside the reading
+    // telemetry above for the same two reasons: the prefix is CSRF-exempt, and
+    // it shares that named limiter's bucket — both are anonymous-writable
+    // telemetry from the same client.
+    Route::post('page-view', [\App\Http\Controllers\PageViewController::class, 'record'])
+        ->middleware('throttle:reading-telemetry')
+        ->name('api.database-to-indexeddb.page-view');
 
     // Get full book data for IndexedDB import
     Route::get('books/{bookId}/data', [DatabaseToIndexedDBController::class, 'getBookData'])

@@ -157,7 +157,11 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
         if not plausible_years:
             lead = re.match(
                 r"^\s*(?:<[^>]+>\s*)*[^\d()\[\]]{3,120}?[.,]\s*\(?"
-                r"(1[5-8]\d{2}[a-rt-z]?)\)?(?=[.,)\s])", processed_text)
+                # `/` in the lookahead: composition-span years ("1845/46. The German Ideology",
+                # "1857/1858. Grundrisse") are the NORMAL citation form for these works, and
+                # without it the entry produced no keys at all and was dropped as unkeyable —
+                # unreachable by every citation in the corpus.
+                r"(1[5-8]\d{2}[a-rt-z]?)\)?(?=[.,)\s/])", processed_text)
             if lead:
                 plausible_years = [lead]
         # A LETTER-SUFFIXED year ("2015b") is a disambiguation marker — it IS the publication year a
@@ -258,6 +262,21 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     acronyms = re.findall(r'\b[A-Z]{2,}\b', author_source)
     for acronym in acronyms: _add(acronym.lower() + year)
     if "United Nations General Assembly" in text: _add("un" + year)
+    # A SLASH-PAIR year ("1845/46", "1845/1846", "1857/1858") names ONE work written across two
+    # years, and citations use EITHER year ("Marx and Engels 1845/1846" but also a bare "(1845)").
+    # Whichever year the rules above chose, add every key's other-year variant as a MATCH key, so
+    # both citation forms reach the same entry. keys[0] (the canonical id) is untouched.
+    _pair = re.search(r'(?<!\d)(1[5-9]\d\d|20\d\d)\s*/\s*(\d{2}|\d{4})(?!\d)', processed_text)
+    if _pair and keys:
+        _y1 = _pair.group(1)
+        _y2 = _pair.group(2) if len(_pair.group(2)) == 4 else _pair.group(1)[:2] + _pair.group(2)
+        _bare_year = re.match(r'\d{4}', year).group(0)
+        _alt = _y2 if _bare_year == _y1 else (_y1 if _bare_year == _y2 else None)
+        if _alt and _alt != _bare_year:
+            for k in list(keys):
+                if k.endswith(year):
+                    _add(k[: -len(year)] + _alt + year[4:])
+
     return keys
 
 

@@ -1,0 +1,38 @@
+{
+    "book": "chacko-2025-conspiracy",
+    "adjudications": {
+        "chacko-2025-conspiracy/c206": {
+            "gt_id": "chacko-2025-conspiracy/c206",
+            "referenceId": "tu2021",
+            "run_id": "20260910_231037_80ccbdd2",
+            "label": "verified_intact",
+            "cause": null,
+            "note": null,
+            "found_url": "https://doi.org/10.1146/annurev-soc-092820-094345",
+            "adjudicated_at": "2026-09-16T10:48:01+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "chacko-2025-conspiracy/c219": {
+            "gt_id": "chacko-2025-conspiracy/c219",
+            "referenceId": "widmalm2025b",
+            "run_id": "20260910_231037_80ccbdd2",
+            "label": "verified_intact",
+            "cause": null,
+            "note": "the more explicit parts of the truth claim are mentioned in the source 2019a, which is part one of this being part 2... that's why hard to prove this one.. the keywords not there.. that said, it says source not found... i think the site is full of junk so hard to extract good text from it maybe",
+            "found_url": "https://thewire.in/politics/india-democracy-modi-government",
+            "adjudicated_at": "2026-09-16T10:53:26+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "chacko-2025-conspiracy/c195": {
+            "gt_id": "chacko-2025-conspiracy/c195",
+            "referenceId": "suresh2024",
+            "run_id": "20260910_231037_80ccbdd2",
+            "label": "verified_intact",
+            "cause": null,
+            "note": null,
+            "found_url": "https://pucl.org/wp-content/uploads/2023/05/PUCL-28.09.2022.pdf",
+            "adjudicated_at": "2026-09-16T10:54:53+00:00",
+            "adjudicated_by": "encryptER"
+        }
+    }
+}

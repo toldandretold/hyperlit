@@ -3,6 +3,7 @@
   "surfaces": {
     "user-overlay": { "module": "resources/js/components/userContainer/index.ts", "wiring": "containerManager" },
     "money-overlay": { "module": "resources/js/components/moneyOverlay/moneyOverlay.ts", "wiring": "trapModalFocus" },
+    "stats-overlay": { "module": "resources/js/components/statsOverlay/statsOverlay.ts", "wiring": "trapModalFocus" },
     "settings-overlay": { "module": "resources/js/components/settingsContainer/index.ts", "wiring": "containerManager" },
     "source-overlay": { "module": "resources/js/components/sourceContainer/index.ts + newbookContainer (shared overlay)", "wiring": "containerManager" },
     "toc-overlay": { "module": "resources/js/components/tocContainer/index.ts", "wiring": "containerManager" },
@@ -18,6 +19,7 @@
     "integrity-failure-backdrop": { "module": "resources/js/integrity/reporter.ts", "wiring": "trapModalFocus:no-escape" },
     "integrity-overlay": { "module": "resources/js/integrity/reporter.ts (backdrop class)", "wiring": "trapModalFocus:no-escape" },
     "visibility-overlay": { "module": "resources/js/components/sourceContainer/visibilityControl.ts", "wiring": "trapModalFocus" },
+    "share-overlay": { "module": "resources/js/components/sourceContainer/readerActions.ts", "wiring": "trapModalFocus" },
     "logo-nav-menu": { "module": "resources/js/components/logoNav/logoNav.ts", "wiring": "non-modal:escape-closes+focus-restore (nav dropdown of plain tabbables)" },
     "openbook-sheet": { "module": "resources/js/components/openbookContainer/index.ts (mobile presentation class of #openbook-container)", "wiring": "containerManager" },
     "ref-overlay": { "module": "resources/js/hyperlitContainer/ (base container overlay)", "wiring": "deferred:history-driven-close + edit-mode keyboard semantics need own design" },
