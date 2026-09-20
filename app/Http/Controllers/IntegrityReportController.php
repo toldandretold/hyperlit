@@ -49,6 +49,15 @@ class IntegrityReportController extends Controller
             'orphanedNodes.*.assignedId' => 'nullable|string|max:50',
             'orphanedNodes.*.healFailed' => 'nullable|boolean',
             'orphanedNodes.*.error' => 'nullable|string|max:500',
+            // Node ORDER, not node content: ids that no longer sort the way the DOM
+            // reads. validate() drops unlisted keys, so without these rules the
+            // category would be silently stripped out of the report email.
+            'outOfOrderNodes' => 'nullable|array|max:50',
+            'outOfOrderNodes.*.id' => 'nullable|string|max:50',
+            'outOfOrderNodes.*.previousId' => 'nullable|string|max:50',
+            'outOfOrderNodes.*.tag' => 'nullable|string|max:20',
+            'outOfOrderNodes.*.nodeId' => 'nullable|string|max:500',
+            'outOfOrderNodes.*.textSnippet' => 'nullable|string|max:500',
             'recentLogs' => 'nullable|array|max:50',
             'recentLogs.*.level' => 'nullable|string|max:10',
             'recentLogs.*.ts' => 'nullable|numeric',

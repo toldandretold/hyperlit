@@ -56,7 +56,12 @@ class QueueBookEmbeddings implements ShouldQueue
         ]);
 
         foreach ($nodeIds as $nodeId) {
-            GenerateNodeEmbedding::dispatch($nodeId);
+            // skipIfPresent: this is a BACKFILL of nodes that had no embedding
+            // at fan-out time. If another writer lands a vector before the
+            // embeddings lane drains (PassageSearcher inline-embeds small web
+            // sources mid-review), the job becomes a no-op instead of a
+            // duplicate API call per node.
+            GenerateNodeEmbedding::dispatch($nodeId, skipIfPresent: true);
         }
     }
 }

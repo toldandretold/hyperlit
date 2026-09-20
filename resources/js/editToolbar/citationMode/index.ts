@@ -213,6 +213,21 @@ export class CitationMode {
   }
 
   close() {
+    // Cancel pending work FIRST, above the already-closed guard: a queued debounce fires
+    // performSearch → fetch 300ms later, and an external retry does the same 2.5s later. Neither
+    // is conditional on `isOpen`, so bailing before this left close() with a request still on its
+    // way — harmless-looking in the app, and in the suite a fetch that lands in a later test
+    // against whatever stub is current by then. Clearing a null timer is free.
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    this.clearExternalRetry();
+
     // Early return if already closed
     if (!this.isOpen) return;
 
@@ -244,20 +259,7 @@ export class CitationMode {
       this.lockedScrollPosition = null;
     }
 
-    // Cancel any pending search
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
-
-    // Clear debounce timer
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-
-    // Clear any pending external-ingest follow-up query
-    this.clearExternalRetry();
+    // (the pending search / debounce / external retry were already cancelled at the top)
 
     // Tear down scope chip handlers
     this._destroyScopeChips();

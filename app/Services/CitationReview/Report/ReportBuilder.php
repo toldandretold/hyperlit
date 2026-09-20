@@ -22,7 +22,7 @@ final class ReportBuilder
         private AppendixBuilder $appendix,
     ) {}
 
-    public function buildMarkdownReport(array $claims, string $bookId, string $bookTitle, array $stats = []): string
+    public function buildMarkdownReport(array $claims, string $bookId, string $bookTitle, array $stats = [], array $unmatched = []): string
     {
         $md = "# AI Citation Review\n\n";
 
@@ -101,6 +101,8 @@ final class ReportBuilder
         $md .= "> Citations are matched against: [OpenAlex](https://openalex.org), [Open Library](https://openlibrary.org), [Semantic Scholar](https://www.semanticscholar.org), and [Brave Search](https://search.brave.com). Unmatched citations may be legit sources, but are worth reviewing.\n\n";
 
         $md .= "> **Canonical-verified** sources are matched to a canonical work identity (external identifiers like DOI / OpenAlex). Where a claim was checked against full text, the *content from* note says which version supplied it — an **auto version** is the work's own PDF fetched and OCR'd by the system, untampered by construction.\n\n";
+
+        $md .= $this->reviewCoverageSection($stats, $unmatched);
 
         $md .= "## Results\n\n";
 
@@ -251,6 +253,60 @@ final class ReportBuilder
         }
 
         $md .= $this->appendix->buildAppendixMd($claims, $bookId, $stats, $db);
+
+        return $md;
+    }
+
+    /**
+     * How much of the book this review actually examined — and which citations it did NOT.
+     *
+     * This section exists because the failure it reports is otherwise INVISIBLE. Every other number
+     * in the report is computed from the claims that exist; a citation that produced no claim has no
+     * row, no verdict and no entry anywhere, so a reader counting verdicts would silently treat it
+     * as absent from the book rather than absent from the review. Reporting "we examined 226 of 230"
+     * is a statement about the reliability of this system, not about the author's citations, and it
+     * belongs beside the verdicts rather than in a log nobody reads.
+     */
+    private function reviewCoverageSection(array $stats, array $unmatched): string
+    {
+        $instances = $stats['citation_instances'] ?? null;
+        if ($instances === null || $instances <= 0) {
+            return '';
+        }
+
+        $matched = $stats['citations_matched'] ?? 0;
+        $missing = $stats['citations_unmatched'] ?? max(0, $instances - $matched);
+        $pct = $instances > 0 ? round($matched / $instances * 100, 1) : 100.0;
+
+        $md = "## Review Coverage\n\n";
+        $md .= "This review examined **{$matched} of {$instances}** citation instances in the text (**{$pct}%**).\n\n";
+
+        if ($missing === 0) {
+            $md .= "> Every citation found in the text was matched to a truth claim and reviewed below.\n\n";
+
+            return $md;
+        }
+
+        $md .= '<table data-chart="review-coverage"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
+        $md .= '<tr><td>Reviewed</td><td>' . $matched . '</td></tr>';
+        $md .= '<tr><td>Not matched to a claim</td><td>' . $missing . '</td></tr>';
+        $md .= "</tbody></table>\n\n";
+
+        $md .= "> **{$missing} citation(s) were NOT reviewed.** Our system could not match them to a truth claim in the surrounding text, so they carry no verdict below — this is a limitation of this tool, NOT a judgement about those citations. They are listed here so the gap is visible rather than silent, and they are highlighted in the text of the book itself.\n\n";
+
+        if (! empty($unmatched)) {
+            $md .= "### Citations we could not match to a claim\n\n";
+            foreach ($unmatched as $u) {
+                $ref = $u['referenceId'] ?? '(unknown)';
+                $sentence = trim((string) ($u['sentence'] ?? ''));
+                $md .= "- **{$ref}**";
+                if ($sentence !== '') {
+                    $md .= ' — near: "' . \Illuminate\Support\Str::limit($sentence, 240) . '"';
+                }
+                $md .= "\n";
+            }
+            $md .= "\n";
+        }
 
         return $md;
     }

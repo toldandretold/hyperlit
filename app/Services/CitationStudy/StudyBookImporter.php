@@ -20,6 +20,33 @@ use RuntimeException;
  */
 class StudyBookImporter
 {
+    /**
+     * Study-file extension → the extension ProcessDocumentImportJob routes on.
+     * This used to be a binary ".html else md" check, which silently fed a
+     * .pdf/.docx corpus source to the MARKDOWN processor — the whole
+     * multi-pathway corpus hinged on this map existing.
+     */
+    private const PIPELINE_EXTENSIONS = [
+        'pdf' => 'pdf',
+        'html' => 'html', 'htm' => 'html',
+        'md' => 'md', 'markdown' => 'md',
+        'docx' => 'docx', 'doc' => 'doc', 'odt' => 'odt', 'rtf' => 'rtf',
+        'epub' => 'epub',
+    ];
+
+    /** The pipeline extension for a corpus study file — loud on the unknown. */
+    public static function pipelineExtension(string $studyFile): string
+    {
+        $ext = strtolower(pathinfo($studyFile, PATHINFO_EXTENSION));
+        if (!isset(self::PIPELINE_EXTENSIONS[$ext])) {
+            throw new RuntimeException(
+                "Unsupported study-file extension '.{$ext}' ({$studyFile}) — "
+                . 'supported: ' . implode(', ', array_keys(self::PIPELINE_EXTENSIONS)) . '.'
+            );
+        }
+        return self::PIPELINE_EXTENSIONS[$ext];
+    }
+
     public function studyUser(): User
     {
         $name = config('study.user_name');
@@ -74,32 +101,51 @@ class StudyBookImporter
             ]
         );
 
-        // HTML sources are adopted for numbered/Vancouver books whose
-        // pre-linked citation anchors a markdown round-trip would destroy.
-        $extension = str_ends_with(strtolower($studyFile), '.html') ? 'html' : 'md';
         $path = resource_path("markdown/{$bookId}");
         File::ensureDirectoryExists($path);
-        File::copy($studyFile, "{$path}/original.{$extension}");
 
-        $formData = [
-            'title' => $provenance['title'] ?? $slug,
-            'author' => $provenance['author'] ?? null,
-            'year' => $provenance['year'] ?? null,
-            'type' => 'article',
-        ];
-        $creatorInfo = ['creator' => $user->name, 'creator_token' => null, 'valid' => true];
+        if ($manifest->pathwayFor($book) === 'paste') {
+            // The PASTE pathway: the source file is a captured clipboard
+            // payload (resources/paste-capture.html). Run it through the SAME
+            // engine a publisher-page paste uses (scripts/paste-convert.mjs
+            // via ContentFetchService), which persists nodes + bibliography +
+            // footnotes itself. Stored as fetched_page.html — the file
+            // reconvertHtmlLaneFromStoredPage reads.
+            File::copy($studyFile, "{$path}/fetched_page.html");
+            $record = $db->table('library')->where('book', $bookId)->first();
+            $result = app(\App\Services\ContentFetchService::class)
+                ->reconvertHtmlLaneFromStoredPage($record);
+            // Success is 'imported' ('partial' = degraded fallback conversion —
+            // a legitimate pathway outcome, kept and visible in the results).
+            if (($result['status'] ?? null) === 'failed') {
+                throw new RuntimeException(
+                    "'{$slug}': paste-engine import failed — " . ($result['reason'] ?? 'unknown')
+                );
+            }
+        } else {
+            $extension = self::pipelineExtension($studyFile);
+            File::copy($studyFile, "{$path}/original.{$extension}");
 
-        // Run the import in-process (same pattern as CitationScanBibliographyCommand):
-        // the job's handle() has typed processor dependencies, so let the
-        // container inject them.
-        $job = new ProcessDocumentImportJob($bookId, $extension, $user->id, $formData, $creatorInfo);
-        app()->call([$job, 'handle']);
+            $formData = [
+                'title' => $provenance['title'] ?? $slug,
+                'author' => $provenance['author'] ?? null,
+                'year' => $provenance['year'] ?? null,
+                'type' => 'article',
+            ];
+            $creatorInfo = ['creator' => $user->name, 'creator_token' => null, 'valid' => true];
 
-        // The job writes progress.json; a failed import leaves status=failed.
-        $progressFile = "{$path}/progress.json";
-        $progress = is_file($progressFile) ? json_decode((string) file_get_contents($progressFile), true) : null;
-        if (($progress['status'] ?? null) === 'failed') {
-            throw new RuntimeException("'{$slug}': import failed — {$progress['detail']}");
+            // Run the import in-process (same pattern as CitationScanBibliographyCommand):
+            // the job's handle() has typed processor dependencies, so let the
+            // container inject them.
+            $job = new ProcessDocumentImportJob($bookId, $extension, $user->id, $formData, $creatorInfo);
+            app()->call([$job, 'handle']);
+
+            // The job writes progress.json; a failed import leaves status=failed.
+            $progressFile = "{$path}/progress.json";
+            $progress = is_file($progressFile) ? json_decode((string) file_get_contents($progressFile), true) : null;
+            if (($progress['status'] ?? null) === 'failed') {
+                throw new RuntimeException("'{$slug}': import failed — {$progress['detail']}");
+            }
         }
 
         $this->assertNoCanonicalIdentifiers($bookId);

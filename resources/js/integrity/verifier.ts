@@ -11,7 +11,7 @@
 
 import { openDatabase } from '../indexedDB/core/connection';
 import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS, isImageNodeElement } from '../utilities/blockElements';
-import { asLineId, isDuplicateId, getNextDecimalForBase, generateDataNodeId, generateUniqueId, type LineId, type BookId } from '../utilities/idHelpers';
+import { asLineId, isDuplicateId, getNextDecimalForBase, generateDataNodeId, generateUniqueId, compareDecimalStrings, type LineId, type BookId } from '../utilities/idHelpers';
 
 /** First-difference descriptor between DOM text and stored IDB text. */
 export interface TextDiff {
@@ -522,6 +522,60 @@ export function findOrphanedNodes(bookId: any) : any {
 }
 
 /**
+ * Find nodes whose id sorts BEFORE the sibling they follow in the DOM.
+ *
+ * A node's id (LineId / `NodeRecord.startLine`) is the book's order, not a label:
+ * `getAllNodesForBook` sorts by startLine and the renderer replays the book in that
+ * order, so a node minted with an id that doesn't sort where it sits reads correctly
+ * until the next reload and then silently moves — taking the audiobook manifest, which
+ * walks the same records, with it.
+ *
+ * The per-node DOM↔IDB comparison above cannot see this. In a reorder every node still
+ * matches its own record byte for byte; it is the SEQUENCE that is wrong, and nothing
+ * was comparing sequences. That is why the 2026-09-18 list-escape reorder reached prod
+ * with a clean integrity sweep behind it.
+ *
+ * Scoped exactly like findOrphanedNodes — direct children of each chunk wrapper (else
+ * the container) — so nested sub-books, whose ids legitimately restart at 1, are a
+ * different parent and never compared against their host.
+ *
+ * Detection only: renumbering a live book is destructive, so this reports and lets the
+ * user decide. Ids go through compareDecimalStrings — the comparator the generator
+ * itself uses — which pads the shorter decimal with TRAILING zeros and so agrees with
+ * the numeric sort the renderer actually applies ("100.10" == 100.1, before "100.9").
+ * A plain string compare would order those the other way and miss the reorder.
+ *
+ * @param {Element} containerEl - the DOM root to scan
+ * @returns {Array<{id, previousId, tag, nodeId, textSnippet}>} one entry per offending node
+ */
+export function findOutOfOrderNodes(containerEl: any): any[] {
+  if (!containerEl) return [];
+
+  const chunks = containerEl.querySelectorAll('[data-chunk-id]');
+  const parents = chunks.length > 0 ? Array.from(chunks) : [containerEl];
+  const outOfOrder: any[] = [];
+
+  for (const parent of parents as any[]) {
+    let previous: any = null;
+    for (const child of parent.children) {
+      if (!child.id || !/^\d+(\.\d+)*$/.test(child.id)) continue;
+      if (previous && compareDecimalStrings(previous.id, child.id) >= 0) {
+        outOfOrder.push({
+          id: asLineId(child.id),
+          previousId: asLineId(previous.id),
+          tag: child.tagName,
+          nodeId: child.getAttribute('data-node-id') || null,
+          textSnippet: (child.textContent || '').substring(0, 200),
+        });
+      }
+      previous = child;
+    }
+  }
+
+  return outOfOrder;
+}
+
+/**
  * Run the full integrity-sweep pipeline against a single book's DOM:
  *   1. heal verbatim DOM duplicates first (data-safe drop of identical
  *      data-node-id + identical innerHTML pairs)
@@ -568,11 +622,15 @@ export async function runIntegritySweep(bookId: any, containerEl: any, trigger =
   const result: any = await verifyNodesIntegrity(bookId, nodeIds);
   // 4. Orphans
   const orphans = findOrphanedNodes(bookId);
+  // 5. Order — the per-node comparison above is blind to it (every node matches its
+  //    own record; only the sequence is wrong), so it needs its own pass.
+  const outOfOrder = findOutOfOrderNodes(containerEl);
 
   const hasIssue = result.mismatches.length > 0
     || result.missingFromIDB.length > 0
     || result.duplicateIds.length > 0
-    || orphans.length > 0;
+    || orphans.length > 0
+    || outOfOrder.length > 0;
 
   if (hasIssue) {
     try {
@@ -583,6 +641,7 @@ export async function runIntegritySweep(bookId: any, containerEl: any, trigger =
         missingFromIDB: result.missingFromIDB,
         duplicateIds: result.duplicateIds,
         orphanedNodes: orphans,
+        outOfOrderNodes: outOfOrder,
         trigger,
         selfHealed: healedIds.length > 0,
         selfHealedNodeIds: healedIds,
@@ -598,6 +657,7 @@ export async function runIntegritySweep(bookId: any, containerEl: any, trigger =
     missingFromIDB: result.missingFromIDB,
     duplicateIds: result.duplicateIds,
     orphans,
+    outOfOrder,
     healedIds,
   };
 }

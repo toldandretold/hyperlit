@@ -47,7 +47,9 @@ _CITATION_PLAIN = (
     "Both (Author YEAR) parentheses AND [Author YEAR] square brackets are recognised; numeric [N] STEM "
     "cites are handled separately in the PDF path (wrap_stem_citations). Numbered (N)/[N] cites are only "
     "linked against an ordinal-numbered bibliography, and a numbered LIST in prose — \"(1) x, (2) y, "
-    "(3) z\" — is recognised as an enumeration and left alone.")
+    "(3) z\" — is recognised as an enumeration and left alone. A parenthesised YEAR RANGE — \"(2014-2019)\", "
+    "\"(1646–1716)\" — is a date span, not a citation, and is left alone too. Where one author is cited "
+    "for several works at once — \"(Modi, 2019, 2023)\" — each year resolves to its OWN entry.")
 from shared.link_base import LinkRule, run_link_rules
 from shared.refkeys import (HISTORICAL_YEAR_MIN, _NAME_TOKEN_RE, _NON_SURNAME_WORDS,
                            generate_ref_keys, trailing_author_candidates)
@@ -70,6 +72,7 @@ class CitationLinkContext:
         self.skip_citation_scan = False
         self.skip_reason = None
         self.enumerations_skipped = 0   # numbered groups left alone as prose lists, not citations
+        self.year_ranges_skipped = 0    # "(2014-2019)" date spans left alone, not citations
         self.antecedent_links = 0       # linked only via the NON-ADJACENT author walk-back
         self.antecedent_sample = []     # (citation, key) — the heuristic's own audit trail
         self.ambiguous_links = 0        # walk-back links where >1 entry fit (data-candidates emitted)
@@ -126,6 +129,69 @@ ed eds esp quoted cited note notes n nd ff sq id ibid
 _ROMAN_ONLY_RE = re.compile(r'^[ivxlcdm]+$')
 
 
+# ---------------------------------------------------------------------------------------------
+# YEAR RANGES are date spans, not citations.
+# ---------------------------------------------------------------------------------------------
+# "in Modi's first term (2014-2019), it intensified in its second term (2019-2024)" carries no
+# citation at all — but to a year-matching regex each parenthesis is a perfect "(…YYYY…)" candidate,
+# and the author's name sits right in front of it ("Modi's"), so key generation happily keyed
+# modi2019 and minted TWO phantom links (book_1789025680384, found while human-adjudicating the
+# citation-review study). A phantom link is the expensive kind of wrong: the citation review then
+# pairs a claim with a source the author never cited (study claim chacko-2025-conspiracy/c130 was
+# reviewed against Modi's Swachh Bharat speech purely via one of these anchors) and the hypercite
+# graph grows an edge that does not exist.
+#
+# The tell is positional, not lexical: a year that has ANOTHER year and a dash on one side of it is
+# one endpoint of a span. That is true whichever side it sits on, for hyphen / en dash / em dash /
+# minus, and for the abbreviated tail form ("2014-19"). A LETTER-SUFFIXED year ("2024a") is a
+# disambiguation marker and can never be a range endpoint, so it is exempt — which is what keeps
+# "(Modi, 2024a, 2024b)" linking.
+#
+# A page or locator range is unaffected because BOTH endpoints must be year-shaped: "(Nord et al.,
+# 2024: 24–25)" and "(Anderson and Clibbens, 2018: 1761–1764)" still link on their real year.
+# The possessive ("Modi's") is deliberately NOT disqualified as an antecedent author — "Chacko's
+# (2018) argument" is an ordinary narrative citation and killing the possessive would cost those.
+_RANGE_DASH = r'[-‐‑‒–—―−]'
+_YEAR_SHAPE = r'(?:1[5-9]\d\d|20\d\d)'
+_YEAR_TOKEN_RE = re.compile(r'\d{4}[a-z]?')
+_BARE_YEAR_RE = re.compile(r'\d{4}')
+_RANGE_LEFT_RE = re.compile(r'(?<!\d)' + _YEAR_SHAPE + r'\s*' + _RANGE_DASH + r'\s*$')
+_RANGE_RIGHT_RE = re.compile(r'^\s*' + _RANGE_DASH + r'\s*(?:' + _YEAR_SHAPE + r'|\d{2})(?!\d)')
+
+# "Modi, 2019, 2023" — ONE author, several years, each naming a different work. `generate_ref_keys`
+# reads such a citation as a single reference and takes its LAST plausible year (2023), while the
+# linker paints the anchor over the FIRST one (2019) — so BOTH years pointed at the 2023 entry and
+# the genuine Modi 2019 citation was never reviewed. Key generation must therefore see only the
+# citation up TO the year being linked; the trailing years are already re-keyed one at a time by the
+# extra-year loop below. Matches only a year directly followed by a comma and another year, so
+# "(Author, 2018: 1761–1764)" and "(Marx [1867] 1976)" are untouched.
+# (no `^`: this is used as `Pattern.match(text, pos)`, which anchors at `pos` — `^` would not.)
+_MULTI_YEAR_TAIL_RE = re.compile(r'\s*,\s*' + _YEAR_SHAPE + r'[a-z]?(?![\w-])')
+
+
+def _is_year_range_half(text, match):
+    """True when the year token at `match` is one endpoint of a YEAR–YEAR span rather than a
+    citation year."""
+    token = match.group(0)
+    if not token.isdigit():
+        return False
+    if not 1500 <= int(token) <= 2099:
+        return False
+    if _RANGE_LEFT_RE.search(text[:match.start()]):
+        return True
+    return bool(_RANGE_RIGHT_RE.match(text[match.end():]))
+
+
+def _linkable_year(sub_cite):
+    """The year token this sub-citation should resolve and anchor on — the first one that is not
+    half of a year range. `None` when the sub-citation has no year, or when every year in it is a
+    range endpoint (i.e. it is a date span, not a citation)."""
+    for m in _YEAR_TOKEN_RE.finditer(sub_cite):
+        if not _is_year_range_half(sub_cite, m):
+            return m
+    return None
+
+
 def _is_locator_only(sub_cite):
     words = re.findall(r"[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'’.]*", sub_cite or '')
     if len(words) > 4:
@@ -168,6 +234,48 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
         if matches:
             new_content = []
             last_index = 0
+
+            def _emit_trailing_years(remaining, author_part, preceding_text):
+                """Comma-separated additional years after the one already emitted ("2010a, 2010b",
+                "Merton 1968, 1988"). Each names a DIFFERENT work by the same author, so each is
+                re-keyed on its own — and this runs whether or not the FIRST year resolved: an
+                unlinkable 1968 must not take the linkable 1988 down with it (it used to, because
+                this loop lived inside the first year's success branch — so the only reason the
+                1988 link existed was the wrong 1968 one carrying it)."""
+                while remaining:
+                    extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
+                    if not extra_year:
+                        new_content.append(NavigableString(remaining))
+                        return
+                    separator = extra_year.group(1)
+                    extra_year_str = extra_year.group(2)
+                    rest = remaining[extra_year.end(0):]
+                    # …but not the opening half of a span: "(Smith, 2001, 1990-1994)". (The closing
+                    # half is unreachable here — the separator class holds no dash.)
+                    if _RANGE_RIGHT_RE.match(rest):
+                        ctx.year_ranges_skipped += 1
+                        new_content.append(NavigableString(separator + extra_year_str))
+                        remaining = rest
+                        continue
+                    extra_keys = generate_ref_keys(author_part + extra_year_str,
+                                                   context_text=preceding_text,
+                                                   min_year=HISTORICAL_YEAR_MIN)
+                    extra_linked = False
+                    for ek in extra_keys:
+                        if ek in bibliography_map:
+                            new_content.append(NavigableString(separator))
+                            ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
+                            ea_tag['class'] = 'in-text-citation'
+                            ea_tag.string = extra_year_str
+                            new_content.append(ea_tag)
+                            extra_linked = True
+                            ctx.citations_found += 1
+                            ctx.citations_linked += 1
+                            break
+                    if not extra_linked:
+                        new_content.append(NavigableString(separator + extra_year_str))
+                    remaining = rest
+
             for match in matches:
                 preceding_text = text[last_index : match.start()]
                 new_content.append(NavigableString(preceding_text))
@@ -191,6 +299,15 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                 for i, sub_cite_raw in enumerate(sub_citations):
                     sub_cite = sub_cite_raw.strip()
                     if not sub_cite: continue
+                    # A DATE SPAN is not a citation candidate at all. Every year in "(2014-2019)" is
+                    # a range endpoint, so there is nothing here to resolve — leave the text alone
+                    # and do not count it (same contract as the numbered-enumeration guard).
+                    link_year = _linkable_year(sub_cite)
+                    if link_year is None and _YEAR_TOKEN_RE.search(sub_cite):
+                        ctx.year_ranges_skipped += 1
+                        new_content.append(NavigableString(sub_cite))
+                        if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
+                        continue
                     # Count every "(…YYYY…)" candidate: some are author-year, some bare year, some
                     # STEM/journal refs — all technically citations, all kept and link-attempted. We do NOT
                     # classify which "really" are citations; the assessment reports raw facts and raises a
@@ -210,7 +327,21 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                             context_for_keys = ''.join(reversed(sibling_texts)) + preceding_text
                     # An in-text citation is a few words long, so the historical floor is safe here in a
                     # way it is not for a long bibliography entry — see HISTORICAL_YEAR_MIN.
-                    keys = generate_ref_keys(sub_cite, context_text=context_for_keys,
+                    # A MULTI-YEAR list ("Modi, 2019, 2023") is keyed on the year being anchored, not
+                    # on the last year in the group — see _MULTI_YEAR_TAIL_RE.
+                    _is_year_list = bool(link_year is not None
+                                         and _MULTI_YEAR_TAIL_RE.match(sub_cite, link_year.end()))
+                    # Key generation takes the LAST plausible year it can see, so anything
+                    # year-shaped sitting after the real one steals the key. Cut the citation at
+                    # the year actually being anchored when what follows is either another work's
+                    # year (the list above) or a SPAN — "(Smith, 2001: 1990-1994)" is a page range,
+                    # and keying it smith1994 lost the link entirely.
+                    _trailing_span = bool(link_year is not None and any(
+                        _is_year_range_half(sub_cite, m)
+                        for m in _YEAR_TOKEN_RE.finditer(sub_cite, link_year.end())))
+                    keys_text = (sub_cite[:link_year.end()]
+                                 if (_is_year_list or _trailing_span) else sub_cite)
+                    keys = generate_ref_keys(keys_text, context_text=context_for_keys,
                                              min_year=HISTORICAL_YEAR_MIN)
                     # LAST RESORT — the author is not adjacent to the year. Academic prose separates
                     # them constantly: "Similarly, Lévy anticipated … 'quote' argues the philosopher
@@ -244,7 +375,7 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                             and not _NAME_TOKEN_RE.search(sub_cite)
                             and _is_locator_only(sub_cite)
                             and not _in_bib_entry):
-                        _year = re.search(r'(\d{4}[a-z]?)', sub_cite)
+                        _year = link_year
                         if _year:
                             # A SELF-LINK guard for the walk-back: the block this citation sits in
                             # may BE the entry it would resolve to. Journal styles that print their
@@ -260,7 +391,7 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                             # LETTER-SUFFIXED siblings of each candidate: a bare "(2009)" cannot
                             # choose between infoadex2009a and infoadex2009b, so both are targets.
                             _seen_targets = set()
-                            _yr = _year.group(1)
+                            _yr = _year.group(0)
                             _sfx = '' if _yr[-1].isalpha() else 'abcdef'
                             for c in trailing_author_candidates(context_for_keys):
                                 for k in [c + _yr] + [c + _yr + x for x in _sfx]:
@@ -287,7 +418,7 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                 if len(ctx.antecedent_sample) < 8:
                                     ctx.antecedent_sample.append(
                                         {'citation': sub_cite[:60], 'key': key})
-                            year_match = re.search(r'(\d{4}[a-z]?)', sub_cite)
+                            year_match = link_year
                             if year_match:
                                 author_part = sub_cite[:year_match.start(0)]
                                 year_part = year_match.group(0)
@@ -320,34 +451,7 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                 a_tag.string = year_part
                                 new_content.append(a_tag)
                                 if trailing_part:
-                                    # Check for comma-separated additional years e.g. "2010a, 2010b"
-                                    remaining = trailing_part
-                                    while remaining:
-                                        extra_year = re.match(r'([\s,]+)(\d{4}[a-z]?)', remaining)
-                                        if extra_year:
-                                            separator = extra_year.group(1)
-                                            extra_year_str = extra_year.group(2)
-                                            extra_keys = generate_ref_keys(author_part + extra_year_str,
-                                                           context_text=preceding_text,
-                                                           min_year=HISTORICAL_YEAR_MIN)
-                                            extra_linked = False
-                                            for ek in extra_keys:
-                                                if ek in bibliography_map:
-                                                    new_content.append(NavigableString(separator))
-                                                    ea_tag = soup.new_tag("a", href=f"#{bibliography_map[ek]}")
-                                                    ea_tag['class'] = 'in-text-citation'
-                                                    ea_tag.string = extra_year_str
-                                                    new_content.append(ea_tag)
-                                                    extra_linked = True
-                                                    ctx.citations_found += 1
-                                                    ctx.citations_linked += 1
-                                                    break
-                                            if not extra_linked:
-                                                new_content.append(NavigableString(separator + extra_year_str))
-                                            remaining = remaining[extra_year.end(0):]
-                                        else:
-                                            new_content.append(NavigableString(remaining))
-                                            break
+                                    _emit_trailing_years(trailing_part, author_part, preceding_text)
                             else:
                                 a_tag = soup.new_tag("a", href=f"#{bibliography_map[key]}")
                                 a_tag['class'] = 'in-text-citation'
@@ -359,9 +463,12 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                             break
                     # Fuzzy year fallback: try ±1, ±2, ±3 year variants for OCR year errors
                     if not linked and keys:
-                        year_in_cite = re.search(r'(\d{4})', sub_cite)
+                        # Anchored at the year the resolution used, so the fallback can never paint
+                        # a link over a range endpoint the guard above just refused.
+                        year_in_cite = (_BARE_YEAR_RE.match(sub_cite, link_year.start())
+                                        if link_year is not None else None)
                         if year_in_cite:
-                            orig_year = year_in_cite.group(1)
+                            orig_year = year_in_cite.group(0)
                             for offset in [1, -1, 2, -2, 3, -3]:
                                 if linked: break
                                 alt_year = str(int(orig_year) + offset)
@@ -378,12 +485,21 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
                                         a_tag.string = year_part
                                         new_content.append(a_tag)
                                         if trailing_part:
-                                            new_content.append(NavigableString(trailing_part))
+                                            _emit_trailing_years(trailing_part, author_part,
+                                                                 preceding_text)
                                         linked = True
                                         ctx.citations_linked += 1
                                         break
                     if not linked:
-                        new_content.append(NavigableString(sub_cite))
+                        if _is_year_list:
+                            # Only the FIRST year failed; the rest of the list still gets its own
+                            # shot ("(Merton 1968, 1988)" — no merton1968 entry, but merton1988 is
+                            # right there).
+                            new_content.append(NavigableString(sub_cite[:link_year.end()]))
+                            _emit_trailing_years(sub_cite[link_year.end():],
+                                                 sub_cite[:link_year.start()], preceding_text)
+                        else:
+                            new_content.append(NavigableString(sub_cite))
                         ctx.citations_unlinked.append({"citation": sub_cite, "generated_keys": keys})
                     if i < len(sub_citations) - 1: new_content.append(NavigableString("; "))
                 new_content.append(NavigableString(close_delim))
@@ -392,26 +508,119 @@ def _link_citations_in_text_node(ctx, text_node, pattern, open_delim, close_deli
             text_node.replace_with(*new_content)
 
 
+# Elements that can BE a single bibliography entry (the thing a publisher's biblioref points at).
+_ENTRY_TAGS = ('p', 'li', 'dd', 'div')
+
+
+def _entry_id_for_dom_anchor(id_index, anchor_id):
+    """Resolve a publisher's in-text anchor (`href="#index_CIT0061"`) to OUR bibliography entry id,
+    by asking the DOM what that id actually points at.
+
+    Takes a PREBUILT `{id: element}` index, not the soup: one real book carries 84,499 internal
+    anchors over a 245,329-element tree, and a `soup.find(id=…)` per anchor is a full document walk
+    each time — that alone blew the conversion's 300s budget.
+
+    A real publisher EPUB/HTML arrives already linked — every citation is an
+    `<a epub:type="biblioref" href="#index_CIT0061">1974a</a>` aimed at `<p id="index_CIT0061">` in
+    the reference list. That is the strongest citation evidence there is (the publisher's own
+    typesetting, immune to every author-year ambiguity our key generator has to guess at), and it
+    was thrown away: the converter only looked the href up in `bibliography_map`, which is keyed by
+    GENERATED author-year keys, so a publisher id matched nothing. PASS 1A has already stamped
+    `<a class="bib-entry" id="unga1974a">` into that very paragraph, so the mapping is sitting in
+    the DOM — read it instead of demanding the publisher had guessed our key scheme.
+
+    Deliberately narrow: the id must land ON a bibliography entry (or on a marker inside one),
+    NOT on a section wrapper — otherwise a link to "#references" would resolve to whichever entry
+    happened to be first. Returns None when the target is not a reference entry, which leaves the
+    anchor untouched and counted as unmatched.
+    """
+    el = id_index.get(anchor_id)
+    if el is None or not getattr(el, 'name', None):
+        return None
+    if el.name == 'a' and 'bib-entry' in (el.get('class') or []):
+        return el.get('id')
+    # The id sits on the entry itself, or on an empty marker anchor just inside it. Climb at most
+    # two levels so a container further up can never stand in for one of its entries.
+    candidates = [el] + [p for p in el.parents if getattr(p, 'name', None) in _ENTRY_TAGS][:2]
+    for cand in candidates:
+        if cand.name not in _ENTRY_TAGS:
+            continue
+        bib = cand.find('a', class_='bib-entry')
+        if bib is not None and bib.get('id'):
+            return bib.get('id')
+    return None
+
+
 class PreLinkedAnchorConverter(LinkRule):
-    """2A-pre: convert existing `<a href="#id">` links that point at a bibliography entry into
-    in-text citations (skipping anchors already classed citation/bib-entry/footnote, external links,
-    and anchors inside bibliography paragraphs)."""
+    """2A-pre: convert existing links that point at a bibliography entry into in-text citations
+    (skipping anchors already classed citation/bib-entry/footnote, hrefs that name no fragment, and
+    anchors inside bibliography paragraphs). The href is matched against the generated key map
+    FIRST, then resolved through the DOM — see `_entry_id_for_dom_anchor` for why the second lookup
+    is the one that matters on a publisher's own file.
+
+    A fragment counts whether it arrives bare (`#bib24`) or inside a self-referential absolute URL
+    (`https://elifesciences.org/articles/60080#bib24`) — see `_target_fragment`. Both are the
+    publisher's own typesetting and are the strongest citation evidence available; the resolution
+    step, not the URL's shape, is what keeps genuine outbound links out."""
 
     name = 'pre_linked_anchor_converter'
     description = 'Convert existing #id anchors into in-text-citation links.'
+
+    @staticmethod
+    def _target_fragment(href):
+        """The in-document id an href targets, or None if it does not name one.
+
+        Accepts a bare `#id` and a fully-qualified URL carrying a fragment (`https://host/path#id`),
+        because a publisher's own page routinely links its citations back into itself absolutely.
+        Returns None for an href with no fragment, an empty fragment, or a fragment that cannot be
+        an id — those are ordinary navigation and must be left alone.
+
+        This only narrows the CANDIDATE set; whether the id really names a reference entry is
+        decided afterwards by `bibliography_map` / `_entry_id_for_dom_anchor`, which is what keeps a
+        coincidental outbound `…#bib24` from being captured.
+        """
+        if not href or '#' not in href:
+            return None
+        fragment = href.split('#', 1)[1].strip()
+        # A second '#' or whitespace means this is not a plain id reference.
+        if not fragment or '#' in fragment or any(c.isspace() for c in fragment):
+            return None
+
+        return fragment
 
     def apply(self, ctx, log=None):
         soup = ctx.soup
         bibliography_map = ctx.bibliography_map
         anchor_converted = 0
         anchor_unmatched = 0
-        # ids this document actually carries — an already-classed citation is left alone only when
-        # its target EXISTS (see below). Built once, lazily.
-        live_ids = None
+        # {id: element} for every id this document carries. Serves both lookups below — "does this
+        # target exist at all" and "what entry does it name" — and is built ONCE: a per-anchor
+        # `soup.find(id=…)` is a full document walk, and one real book has 84,499 internal anchors
+        # over 245,329 elements, which on its own exhausted the 300s conversion budget.
+        id_index = None
         for a_tag in soup.find_all('a', href=True):
             href = a_tag.get('href', '')
-            # Skip if already a citation, bib-entry, footnote, or external link
-            if not href.startswith('#'):
+            # Reduce the href to the fragment it targets, accepting a SELF-REFERENTIAL ABSOLUTE
+            # URL as well as a bare `#id`.
+            #
+            # A publisher's own page frequently writes its in-text citations as fully-qualified
+            # links back into itself — eLife emits
+            # `<a href="https://elifesciences.org/articles/60080#bib24">Sword, 2012</a>`, which is
+            # functionally identical to `#bib24`. Requiring `startswith('#')` discarded all 32 of
+            # barnett-2020's citations as "external", and because they were ALREADY anchors the
+            # plain-text author-year linkers would not touch them either: the citations fell
+            # between the two rules and the book converted with ZERO linked citations while its
+            # PDF twin linked 39. That book then failed its whole citation review ("no claims
+            # were extracted") even though the reference list had parsed perfectly.
+            #
+            # What makes this safe is NOT the URL's shape — we cannot know the document's own
+            # address, since a pasted fragment carries no <head> or canonical link. It is that the
+            # fragment must resolve onto a BIBLIOGRAPHY ENTRY IN THIS DOCUMENT, which is the same
+            # gate `_entry_id_for_dom_anchor` already applies to relative anchors. An ordinary
+            # outbound link cannot pass it: its fragment either names nothing here or names
+            # something that is not a reference entry, and it is left completely untouched.
+            anchor_id = self._target_fragment(href)
+            if anchor_id is None:
                 continue
             if 'in-text-citation' in a_tag.get('class', []):
                 # Already classed — normally our own output, so leave it. BUT when the SOURCE is
@@ -421,9 +630,9 @@ class PreLinkedAnchorConverter(LinkRule):
                 # no longer mints. Skipping them unconditionally left 33 permanently dead links
                 # even though the map still knew where 15 of them belonged. So: skip only while
                 # the target resolves; a STALE one falls through and is re-pointed below.
-                if live_ids is None:
-                    live_ids = {t['id'] for t in soup.find_all(attrs={'id': True})}
-                if href.lstrip('#') in live_ids:
+                if id_index is None:
+                    id_index = {t['id']: t for t in soup.find_all(attrs={'id': True})}
+                if anchor_id in id_index:
                     continue
             if 'bib-entry' in a_tag.get('class', []):
                 continue
@@ -434,9 +643,12 @@ class PreLinkedAnchorConverter(LinkRule):
             if parent_p and parent_p.find('a', class_='bib-entry'):
                 continue
 
-            anchor_id = href.lstrip('#')
-            if anchor_id in bibliography_map:
-                primary_id = bibliography_map[anchor_id]
+            primary_id = bibliography_map.get(anchor_id)
+            if not primary_id:
+                if id_index is None:
+                    id_index = {t['id']: t for t in soup.find_all(attrs={'id': True})}
+                primary_id = _entry_id_for_dom_anchor(id_index, anchor_id)
+            if primary_id:
                 a_tag['href'] = f'#{primary_id}'
                 classes = a_tag.get('class', [])
                 if 'in-text-citation' not in classes:        # a re-pointed stale one already has it
@@ -834,6 +1046,7 @@ class AssessmentRecorder(LinkRule):
                           'bibliography_entries': bib_n, 'full_miss': full_miss,
                           'markup_cited': markup_cited, 'unlinked_sample': sample,
                           'numbered_enumerations_skipped': ctx.enumerations_skipped,
+                          'year_ranges_skipped': ctx.year_ranges_skipped,
                           'antecedent_author_links': ctx.antecedent_links,
                           'antecedent_author_sample': ctx.antecedent_sample,
                           'ambiguous_candidate_links': ctx.ambiguous_links},
@@ -863,9 +1076,13 @@ CITATION_LINK_RULES = [
 ]
 
 
-def link_citations_rules(soup, bibliography_map, emit_progress=None):
+def link_citations_rules(soup, bibliography_map, emit_progress=None, stats=None):
     """Entry point: build a `CitationLinkContext`, run `CITATION_LINK_RULES`, return the
-    (found, linked, unlinked) tuple `link_citations` has always returned."""
+    (found, linked, unlinked) tuple `link_citations` has always returned. An optional `stats` dict
+    is filled with the markup-wired counts, which the tuple has no room for."""
     ctx = CitationLinkContext(soup, bibliography_map, emit_progress)
     run_link_rules(CITATION_LINK_RULES, ctx)
+    if stats is not None:
+        stats['anchor_converted'] = ctx.anchor_converted
+        stats['anchor_unmatched'] = ctx.anchor_unmatched
     return ctx.citations_found, ctx.citations_linked, ctx.citations_unlinked

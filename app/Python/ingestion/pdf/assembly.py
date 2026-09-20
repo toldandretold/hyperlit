@@ -19,6 +19,8 @@ from ingestion.pdf.pdf_shared import (  # noqa: F401
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
     extract_pypdf_page_texts, resurrect_glued_markers_from_pypdf,
+    derive_pua_digit_map, extract_pua_marker_seams, filter_ascending_marker_chain,
+    resurrect_pua_markers,
     repair_def_text_from_pypdf,
 )
 
@@ -2281,6 +2283,25 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         except Exception as e:
             print(f"  pypdf pre-extraction skipped (cannot read PDF: {e.__class__.__name__})")
 
+    # Markers the OCR could not see AT ALL because the PDF encodes its digits in the Unicode
+    # Private Use Area (see derive_pua_digit_map). Not gated on classification: the file that
+    # exposed this is an ENDNOTES article, and the page_bottom-only gate above is exactly why its
+    # 26 lost markers were never even looked for. Costs one pypdf pass and returns nothing unless
+    # the document really does carry a ten-glyph PUA digit subset.
+    ctx.pua_marker_seams = None
+    if pdf_path:
+        try:
+            digit_map = derive_pua_digit_map(pdf_path)
+            if digit_map:
+                seams = extract_pua_marker_seams(pdf_path, digit_map)
+                # Generous cap: contiguity is the real filter, and the definition count is not
+                # known this early (defs are parsed per page / post-combine).
+                ctx.pua_marker_seams = filter_ascending_marker_chain(seams, 999)
+                found = sum(len(v) for v in (ctx.pua_marker_seams or {}).values())
+                print(f"  PDF encodes digits in the Private Use Area — recovered {found} footnote marker(s) from the text layer")
+        except Exception as e:
+            print(f"  PUA marker pre-extraction skipped ({e.__class__.__name__})")
+
     # Sticky notes section tracking: once we enter "Notes" at the end of the
     # book, stay in notes mode until we hit Acknowledgements/Bibliography/etc.
     if footnote_meta:
@@ -2543,6 +2564,18 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             footer_defs = _footer_footnote_defs(page.get("footer") or "")
             if footer_defs and assembler is not _DEFAULT_ASSEMBLER:
                 md = f"{md}\n\n{footer_defs}" if md_stripped else footer_defs
+                md_stripped = md.strip()
+
+        # Markers the OCR never saw, because the PDF encodes its digits in the Private Use Area
+        # (see derive_pua_digit_map). Runs in the SHARED SPINE, before the layout assembler, for
+        # two reasons: the encoding is a property of the FILE and has nothing to do with where its
+        # notes sit, and the document that exposed this classifies as 'unknown' — so a hook on any
+        # one assembler would have missed it. Restoring the markers here means every downstream
+        # stage (conversion to [^N], renumbering, linking, the audit) sees an ordinary document.
+        pua_seams = (getattr(ctx, 'pua_marker_seams', None) or {}).get(i)
+        if pua_seams:
+            md, _n_pua = resurrect_pua_markers(md, pua_seams, f' (page {i})')
+            if _n_pua:
                 md_stripped = md.strip()
 
         # Per-classification per-page footnote handling (renumber / convert / offset + append).

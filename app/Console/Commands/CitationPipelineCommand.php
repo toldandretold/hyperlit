@@ -16,7 +16,8 @@ class CitationPipelineCommand extends Command
                             {--force : Re-resolve all bibliography entries from scratch (ignore existing source links)}
                             {--resume : Resume from the last completed step (skip already-finished steps)}
                             {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}
-                            {--user-id= : User ID for billing}';
+                            {--user-id= : User ID for billing}
+                            {--refetch-walled : Re-attempt web sources whose verification already failed (default: leave them alone for services.source_fetch.web_verify_retry_hours)}';
 
     protected $description = 'Run the full citation pipeline: bibliography scan → content scan → vacuum → OCR → review';
 
@@ -60,6 +61,17 @@ class CitationPipelineCommand extends Command
         $this->newLine();
 
         $summary = [];
+
+        // Brave web-search requests are BILLABLE ($5/1k, like OCR pages). The
+        // requests happen inside the scan's wave 8 and the charge is assembled
+        // later in CitationReviewCommand::billReview, so the count is zeroed
+        // here and read at the end of this command. BraveSearchService is a
+        // container singleton for exactly this reason (AppServiceProvider).
+        app(\App\Services\BraveSearchService::class)->resetRequestCount();
+
+        // Same deal for browser escalations — a headless browser plus
+        // residential proxy per page the cheap fetch could not read.
+        app(\App\Services\WebContent\WebTextAcquirer::class)->resetBrowserFetchCount();
 
         // Step 1: Scan bibliography + footnotes + in-text citation positions.
         // (The in-text scan was its own pipeline stage; it is fast and
@@ -226,15 +238,56 @@ class CitationPipelineCommand extends Command
                 // (they already have HTTP-scraped nodes + only a url, no doi/oa_url).
                 // Verify them HERE — the slow browser-fetch belongs in this stage, not
                 // the bibliography scan. Only those not already verified.
+                //
+                // A stub that already FAILED verification is left alone for a
+                // while. importWebSource writes its reason to `pdf_url_status`
+                // but leaves `conversion_method` NULL, and this query selects
+                // on NULL — so without the window below, every walled page was
+                // re-fetched with a browser on every single run, forever.
+                // Measured on chacko: 36 of 52 unverified stubs carried a
+                // recorded wall (13 Cloudflare, 7 Akamai, 5 reCAPTCHA, 1
+                // PerimeterX, plus body-absent pages). A failure status is any
+                // value that is not 'downloaded' or 'imported' — the same
+                // convention CitationOcrCommand's survey uses.
+                $retryHours = (int) config('services.source_fetch.web_verify_retry_hours', 168);
+                $refetchWalled = (bool) $this->option('refetch-walled');
+
                 $webSources = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
                     ->where('b.book', $bookId)
                     ->where('l.type', 'web_source')
                     ->whereNull('l.conversion_method')
                     ->whereNotNull('l.url')->where('l.url', '!=', '')
+                    ->when(! $refetchWalled && $retryHours > 0, function ($q) use ($retryHours) {
+                        $q->where(function ($w) use ($retryHours) {
+                            $w->whereNull('l.pdf_url_status')
+                                ->orWhereIn('l.pdf_url_status', ['downloaded', 'imported'])
+                                ->orWhere('l.updated_at', '<=', now()->subHours($retryHours));
+                        });
+                    })
                     ->select(['l.book', 'l.title', 'l.url'])
                     ->distinct()
                     ->get();
+
+                if ($refetchWalled) {
+                    $this->line('  --refetch-walled: ignoring previously recorded verification failures.');
+                }
+
+                $skippedWalled = $db->table('bibliography as b')
+                    ->join('library as l', 'l.book', '=', 'b.foundation_source')
+                    ->where('b.book', $bookId)->where('l.type', 'web_source')
+                    ->whereNull('l.conversion_method')->whereNotNull('l.pdf_url_status')
+                    ->whereNotIn('l.pdf_url_status', ['downloaded', 'imported'])
+                    ->where('l.updated_at', '>', now()->subHours(max(1, $retryHours)))
+                    ->distinct()->count('l.book');
+
+                if ($skippedWalled > 0 && ! $refetchWalled) {
+                    // Never silent: a skipped source is a source the review will
+                    // not see, and that has to be visible rather than inferred
+                    // from a suspiciously fast stage.
+                    $this->line("  {$skippedWalled} web source(s) skipped — verification already failed within {$retryHours}h (--refetch-walled to retry).");
+                    $this->telemetry?->emit('vacuum', 'progress', "{$skippedWalled} walled web source(s) skipped");
+                }
 
                 if ($webSources->isNotEmpty()) {
                     $this->line("  {$webSources->count()} web source(s) to verify.");
@@ -344,6 +397,46 @@ class CitationPipelineCommand extends Command
                 }
             }
             $this->newLine();
+        }
+
+        // Billable Brave web-search requests for this run, recorded next to OCR
+        // pages so billReview prices both from the same place (step_timings).
+        // Written BEFORE the review step, because that step is what bills.
+        $braveRequests = app(\App\Services\BraveSearchService::class)->requestCount();
+        $acquirer = app(\App\Services\WebContent\WebTextAcquirer::class);
+        $browserFetches = $acquirer->browserFetchCount();
+        $unblockerFetches = $acquirer->unblockerFetchCount();
+        if ($unblockerFetches > 0) {
+            // Managed-unblocker retrievals, billed per SUCCESS.
+            $this->stepTimings['unblocker_fetch'] = ['fetches' => $unblockerFetches];
+        }
+        if ($browserFetches > 0) {
+            // Browser escalations spent recovering pages the cheap fetch could
+            // not read. Recorded alongside OCR pages and Brave requests so
+            // billReview prices every non-token cost from the same place.
+            $this->stepTimings['browser_fetch'] = ['fetches' => $browserFetches];
+        }
+        if ($braveRequests > 0 || $browserFetches > 0 || $unblockerFetches > 0) {
+            if ($braveRequests > 0) {
+                $this->stepTimings['web_search'] = [
+                    'requests' => $braveRequests,
+                    'provider' => 'brave',
+                ];
+            }
+            // Persist immediately: billReview reads step_timings from the DB,
+            // and the review sub-command runs BEFORE finalizeStepTimings().
+            if ($pipelineIdForTimings = $this->option('pipeline-id')) {
+                DB::connection('pgsql_admin')
+                    ->table('citation_pipelines')
+                    ->where('id', $pipelineIdForTimings)
+                    ->update([
+                        'step_timings' => json_encode($this->stepTimings),
+                        'updated_at' => now(),
+                    ]);
+            }
+            $this->telemetry?->emit('bibliography', 'progress', 'Web search requests', [
+                'requests' => $braveRequests,
+            ]);
         }
 
         // Step 5: Review

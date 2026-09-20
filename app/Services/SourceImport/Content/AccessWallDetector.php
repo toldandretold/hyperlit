@@ -107,8 +107,13 @@ class AccessWallDetector
         // characters of the actual article. An interstitial is a few hundred characters of "prove
         // you are human"; a paper is tens of thousands. Requiring both closes the hole without
         // weakening the vocabulary for its other consumers.
+        // isWallPhrase, NOT isBlockPhrase: the block vocabulary also contains
+        // the NOT-FOUND wordings, and a 404 page is not an interstitial. Firing
+        // on those reported a rotted citation URL as "blocked by a bot check" —
+        // a live source we were refused — which is the opposite conclusion about
+        // the citation. Dead links are recognised by WebTextAcquirer instead.
         $title = $this->title($html);
-        if ($title !== '' && $this->garbage->isBlockPhrase($title)
+        if ($title !== '' && $this->garbage->isWallPhrase($title)
             && $this->visibleTextLength($html) < self::INTERSTITIAL_TEXT_CEILING) {
             return sprintf('the page served was an interstitial, not the article (title: "%s")', $title);
         }

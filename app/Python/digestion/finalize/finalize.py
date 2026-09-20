@@ -39,6 +39,104 @@ def _latex_to_readable(payload):
     return re.sub(r'\s+([,.;:])', r'\1', t).strip()
 
 
+# Elements that exist to GROUP block content rather than to be content themselves. A node is a
+# paragraph / heading / list / quote / figure — never the wrapper that holds a hundred of them.
+_GROUPING_WRAPPERS = {'article', 'section', 'main', 'div', 'header', 'footer', 'body'}
+# Seeing one of these as a direct child is the proof that the wrapper is grouping rather than
+# being a content unit of its own — `<div class="license"><a><img/></a></div>` has no block child
+# and stays ONE node, which is right.
+# `img` is here because in this node model a standalone image IS a block: the PDF lane emits
+# top-level <img> nodes, and folding them into a <p> would retype every one of them for no gain.
+# `li`/`dt`/`dd` likewise — the footnote pass lifts `<li>` definitions OUT of their list to sit at
+# the root as nodes of their own ("Unwrapping N traditional footnote items"), and treating those
+# as loose inline content merged a document's two footnotes into a single paragraph.
+_BLOCK_CHILDREN = {'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'dl', 'blockquote',
+                   'pre', 'table', 'figure', 'figcaption', 'hr', 'aside', 'nav', 'img',
+                   'li', 'dt', 'dd'} | _GROUPING_WRAPPERS
+
+
+def _wrap_loose_inline_runs(el, soup):
+    """Give every RUN of loose inline content inside `el` a `<p>` of its own.
+
+    Runs, not individual nodes: a wrapper holding `…text… <a>1982</a> , 436). …text…` is ONE
+    sentence, and wrapping each text node separately would leave the anchors as bare siblings —
+    which then become their own nodes, tearing a paragraph into `<p>He as…` / `<a>1982</a>` /
+    `<p>, 436)…` and stripping the citation's class on the way (the node loop deletes `class` from
+    the node it is building). Whitespace-only runs are left alone rather than wrapped, or the
+    newlines between blocks become empty nodes.
+    """
+    run = []
+
+    def flush():
+        if not run:
+            return
+        # A run with no text is whitespace or a stray <br> — leave it where it is rather than
+        # minting an empty node. (A bare `<a id="x"></a>` link target is likewise left alone; it
+        # is already its own node today and moving it would break the anchor.)
+        text = ''.join(n.get_text() if hasattr(n, 'get_text') else str(n) for n in run)
+        if text.strip():
+            holder = soup.new_tag('p')
+            run[0].insert_before(holder)
+            for n in run:
+                holder.append(n.extract())
+        run.clear()
+
+    for child in list(el.children):
+        if getattr(child, 'name', None) in _BLOCK_CHILDREN:
+            flush()
+        else:
+            run.append(child)
+    flush()
+
+
+def flatten_grouping_wrappers(content_root, soup, max_depth=12):
+    """Promote block content out of structural wrappers so each block becomes its own node.
+
+    Node generation takes the DIRECT CHILDREN of the content root, one node each. Every lane that
+    produces flat HTML (markdown, PDF-via-markdown, pandoc) satisfies that; a real publisher file
+    does not. A Taylor & Francis EPUB is `<article><section id="bodymatter">…100 paragraphs…`, so
+    the whole book arrived as TWO nodes of ~60k chars each — and it failed silently, because the
+    references still extracted (that scan is recursive) so the import looked healthy. Any
+    `<article>`-wrapped HTML import had the same collapse; this is not an EPUB-only bug.
+
+    A wrapper is unwrapped only when it DIRECTLY contains block-level content, so a wrapper that is
+    genuinely one unit survives (`<div class="license"><a><img/></a></div>` stays one node). Loose
+    inline content is re-homed into paragraphs first — `find_all(recursive=False)` returns Tags
+    only, so bare text promoted to the root would be dropped on the floor entirely.
+    """
+    wrapper_names = sorted(_GROUPING_WRAPPERS)
+    unwrapped = 0
+    # The root needs the same treatment as any wrapper, and it needed it BEFORE this function
+    # existed: `find_all(recursive=False)` returns Tags only, so loose text at the root was
+    # silently DROPPED, while a loose `<a>` became a node of its own — 5,654 of them in one real
+    # EPUB, each an in-text citation torn out of its sentence and stripped of its class by the
+    # node loop. Run it first (for what is already loose) and again after unwrapping.
+    _wrap_loose_inline_runs(content_root, soup)
+    for _ in range(max_depth):
+        targets = [el for el in content_root.find_all(wrapper_names, recursive=False)
+                   if any(getattr(c, 'name', None) in _BLOCK_CHILDREN for c in el.children)]
+        if not targets:
+            break
+        for el in targets:
+            _wrap_loose_inline_runs(el, soup)
+            # The wrapper's own id is a live link target (an EPUB nav points at
+            # `#index_bodymatter`) — re-home it INSIDE the first block it contained, the same
+            # trick the node loop below uses to preserve a heading's original id. Inserting it at
+            # the wrapper's position instead would mint an empty node.
+            wrapper_id = el.get('id')
+            first_block = next((c for c in el.children
+                                if getattr(c, 'name', None) in _BLOCK_CHILDREN), None)
+            if wrapper_id and not str(wrapper_id).isdigit() and first_block is not None:
+                first_block.insert(0, soup.new_tag('a', id=wrapper_id))
+            el.unwrap()
+            unwrapped += 1
+        # Unwrapping just promoted that wrapper's own loose runs to the root.
+        _wrap_loose_inline_runs(content_root, soup)
+    if unwrapped:
+        print(f"  \U0001F4D0 Flattened {unwrapped} grouping wrapper(s) so block content becomes nodes")
+    return unwrapped
+
+
 def node_plain_text(node):
     """The node's text as a reader would say it — the basis of `plainText`.
 
@@ -259,6 +357,9 @@ class GenerateNodeChunks(DocPass):
         start_line_counter = 0
         CHUNK_SIZE = 50
         content_root = soup.body if soup.body else soup
+
+        # One node per direct child — so the block content has to BE a direct child.
+        flatten_grouping_wrappers(content_root, soup)
 
         # Rewrite bare image src to servable route path: img-1.jpeg → /{book_id}/media/img-1.jpeg
         # Also inject width/height from file on disk to prevent layout shift

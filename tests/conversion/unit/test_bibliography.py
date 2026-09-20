@@ -170,6 +170,26 @@ def test_reverse_scan_keeps_a_real_headingless_bibliography_run(soup):
     assert not any('concluding body text' in c for c in collected)
 
 
+def test_reverse_scan_does_not_mine_the_footnote_section(soup):
+    """Pandoc parks its notes in a trailing <section id="footnotes" role="doc-endnotes">, which
+    is exactly where the reverse scan STARTS. A note is prose about a work and routinely carries
+    an author and a year, so the last one was collected as a phantom bibliography entry — its
+    text duplicated into references while the footnote system still owned it (nicholls-nieo-docx:
+    an "An exception is Caroline Thomas … (1985, 156)" note became reference thomas1985b)."""
+    s = _doc(soup,
+             '<p>Ostrom, E. (1990). Governing the Commons. CUP.</p>'
+             '<p>Hardin, G. (1968). The Tragedy of the Commons. Science.</p>'
+             '<p>Olson, M. (1965). The Logic of Collective Action. Harvard.</p>'
+             '<section id="footnotes" class="footnotes" role="doc-endnotes"><hr/><ol>'
+             '<li id="fn1"><p>An exception is Caroline Thomas, who argued the opposite '
+             '(1985, 156).</p></li></ol></section>')
+    tags, used_reverse = _find_reference_paragraphs(s)
+    collected = [t.get_text(' ', strip=True) for t in tags]
+    assert used_reverse is True
+    assert len(collected) == 3
+    assert not any('Caroline Thomas' in c for c in collected)
+
+
 def test_headingless_footnote_paper_yields_no_bibliography(soup):
     # End-to-end: extract_bibliography on such a doc returns an EMPTY reference set (no junk entry).
     s = _doc(soup,
@@ -244,3 +264,37 @@ def test_reference_header_key_does_not_widen_the_match():
     from digestion.bibliographyExtraction.bibliography import reference_header_key, REFERENCE_HEADERS
     for raw in ('Sources of Error', 'Reference frame', 'Bibliographic essay'):
         assert reference_header_key(raw) not in REFERENCE_HEADERS, raw
+
+
+# ---------------------------------------------------------------------------
+# The OCR-error ALT-YEAR alias is a guess, and it used to be written with the same authority as an
+# entry's printed year. Two consequences, both live on chacko-2025-conspiracy: every web-cited
+# entry aliased itself onto its ACCESS DATE, and the last one to do so took `news2024` away from
+# "News18 (2024)" — so the article's only News18 citation resolved to an Al Jazeera piece.
+# ---------------------------------------------------------------------------
+def test_access_date_is_not_an_alternative_publication_year(soup):
+    s = _doc(soup, _refs_section(
+        "News Agencies (2023) India warns citizens on Canada travel. Al Jazeera, 23 September. "
+        "Available at: https://example.org/x (accessed 1 July 2024)."))
+    bib_map, _ = extract_bibliography(s)
+    assert bib_map.get('agencies2023') == 'agencies2023'
+    assert not [k for k in bib_map if k.endswith('2024')], bib_map
+
+
+def test_an_alias_never_takes_a_key_an_entry_actually_prints(soup):
+    # News18 is keyed news2024 from its OWN year; the later entry may only alias into free keys.
+    s = _doc(soup, _refs_section(
+        "News18 (2024) Whatever I'm doing is inspired by a divine power. 29 April.",
+        "News Agencies (2023) India warns citizens on Canada travel. Al Jazeera, 23 September, 2024."))
+    bib_map, _ = extract_bibliography(s)
+    assert bib_map['news2024'] == 'news2024'
+    assert bib_map['agencies2023'] == 'agencies2023'
+
+
+def test_an_alias_still_fills_a_key_nobody_claims(soup):
+    # The rule earns its keep when the printed year IS an OCR error — the alias remains reachable.
+    s = _doc(soup, _refs_section(
+        "Spencer, Herbert (1884) The Man Versus The State. Indianapolis. Liberty Fund. 1992."))
+    bib_map, refs = extract_bibliography(s)
+    assert refs[0]['referenceId'] == 'spencer1884'      # the PRINTED year stays canonical
+    assert bib_map['spencer1992'] == 'spencer1884'      # …and the alias still resolves

@@ -196,6 +196,7 @@ class CitationReviewCommand extends Command
         $result = $reviewService->review($bookId, $onProgress);
         $claims = $result['claims'];
         $stats = $result['stats'];
+        $unmatched = $result['unmatched_citations'] ?? [];
 
         // Capture LLM usage and pipeline ID for the appendix
         $stats['llm_usage'] = $reviewService->getLlm()->getUsageStats();
@@ -210,6 +211,26 @@ class CitationReviewCommand extends Command
             // update is guarded), and the notifier emails user + maintainer —
             // never again the silent "completed, no report, no email" black hole.
             $this->warn('No claims were extracted.');
+            // Say HOW MUCH was missed, and keep the evidence. "No claims" on a book whose citations
+            // all linked correctly is a total coverage failure, and the bare warning gave no way to
+            // tell that from a book that genuinely has no citations.
+            if (($stats['citation_instances'] ?? 0) > 0) {
+                $this->line(sprintf(
+                    '  Coverage: 0/%d citation instances reviewed — every citation in this book went unexamined.',
+                    $stats['citation_instances'],
+                ));
+                Storage::put(
+                    'citation-review_' . $bookId . '_' . now()->format('Y-m-d_His') . '.coverage.json',
+                    json_encode([
+                        'book' => $bookId,
+                        'citation_instances' => $stats['citation_instances'],
+                        'citations_matched' => 0,
+                        'citations_unmatched' => $stats['citations_unmatched'] ?? $stats['citation_instances'],
+                        'coverage_rate' => 0.0,
+                        'unmatched_citations' => $unmatched,
+                    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                );
+            }
             $this->failPipelineRun('Citation review extracted no claims — likely a citation-parsing bug on our side rather than a problem with your book.');
             return 0;
         }
@@ -250,15 +271,48 @@ class CitationReviewCommand extends Command
         $this->line("  <fg=#a3d977>Likely:</>          {$likelyCount}");
         $this->line("  <fg=green>Confirmed:</>       {$confirmedCount}");
 
+        // Coverage is a statement about THIS TOOL, so it is reported next to the verdicts rather
+        // than buried: an unmatched citation carries no verdict at all, and silence reads as
+        // approval unless it is named.
+        if (($stats['citation_instances'] ?? 0) > 0) {
+            $unmatchedCount = $stats['citations_unmatched'] ?? 0;
+            $this->newLine();
+            $this->line(sprintf(
+                '  Coverage:         %d/%d citation instances reviewed (%.1f%%)',
+                $stats['citations_matched'] ?? 0,
+                $stats['citation_instances'],
+                ($stats['coverage_rate'] ?? 1) * 100,
+            ));
+            if ($unmatchedCount > 0) {
+                $this->line("  <fg=yellow>Not matched:</>      {$unmatchedCount} citation(s) produced no truth claim — NOT reviewed");
+            }
+        }
+
         // Save reports
         $timestamp = now()->format('Y-m-d_His');
 
         $jsonFilename = "citation-review_{$bookId}_{$timestamp}.json";
         Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
+        // Coverage lands in a SIDECAR, not inside the claims file: that file is a flat array of
+        // claims and several consumers (the study runner, the bench, the workbench) parse it as
+        // exactly that. Coverage is a fact about the claims that are MISSING, so it cannot live in
+        // the list of the ones present.
+        Storage::put(
+            "citation-review_{$bookId}_{$timestamp}.coverage.json",
+            json_encode([
+                'book' => $bookId,
+                'citation_instances' => $stats['citation_instances'] ?? null,
+                'citations_matched' => $stats['citations_matched'] ?? null,
+                'citations_unmatched' => $stats['citations_unmatched'] ?? null,
+                'coverage_rate' => $stats['coverage_rate'] ?? null,
+                'unmatched_citations' => $unmatched,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+        );
+
         $mdFilename = "citation-review_{$bookId}_{$timestamp}.md";
         $onProgress('report', 'Building markdown report...');
-        $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId, $stats);
+        $md = $reviewService->buildMarkdownReport($claims, $bookId, $book->title ?? $bookId, $stats, $unmatched);
         $onProgress('report', 'Built markdown report (' . strlen($md) . ' bytes)');
         Storage::put($mdFilename, $md);
 
@@ -395,6 +449,70 @@ class CitationReviewCommand extends Command
                         'unit'      => 'pages',
                         'unit_cost' => $ocrPerK / 1000,
                         'amount'    => round($ocrCost, 4),
+                    ];
+                }
+            }
+
+            // Web-search line item — Brave requests issued during the scan's
+            // resolution waves, counted by BraveSearchService and recorded into
+            // step_timings by CitationPipelineCommand. Billed like OCR and NOT
+            // waived under BYO: inference tickets cover the user's own LLM
+            // tokens, but every Brave request ran on OUR subscription key
+            // regardless of inference mode.
+            $webRequests = (int) ($stepTimings['web_search']['requests'] ?? 0);
+            if ($webRequests > 0) {
+                $webCost = \App\Services\BraveSearchService::costForRequests($webRequests);
+                if ($webCost > 0) {
+                    $totalCost += $webCost;
+                    $lineItems[] = [
+                        'label'     => "Web search ({$webRequests} requests)",
+                        'category'  => 'web_search',
+                        'quantity'  => $webRequests,
+                        'unit'      => 'requests',
+                        'unit_cost' => round($webCost / $webRequests, 8),
+                        'amount'    => round($webCost, 4),
+                        'meta'      => ['provider' => $stepTimings['web_search']['provider'] ?? 'brave'],
+                    ];
+                }
+            }
+
+            // Browser-escalation line item — one per page the cheap fetch could
+            // not read, where we spent a headless browser and residential-proxy
+            // bandwidth to recover it. NOT waived under BYO for the same reason
+            // as web search: inference tickets cover the user's LLM tokens, the
+            // proxy subscription is ours in every mode.
+            $browserFetches = (int) ($stepTimings['browser_fetch']['fetches'] ?? 0);
+            if ($browserFetches > 0) {
+                $browserCost = \App\Services\WebContent\WebTextAcquirer::costForBrowserFetches($browserFetches);
+                if ($browserCost > 0) {
+                    $totalCost += $browserCost;
+                    $lineItems[] = [
+                        'label'     => "Browser page fetches ({$browserFetches})",
+                        'category'  => 'browser_fetch',
+                        'quantity'  => $browserFetches,
+                        'unit'      => 'fetches',
+                        'unit_cost' => round($browserCost / $browserFetches, 8),
+                        'amount'    => round($browserCost, 4),
+                    ];
+                }
+            }
+
+            // Managed-unblocker line item — one per SUCCESSFUL retrieval of a
+            // page our own browser could not clear. Billed per success (these
+            // services do not charge for failures), and not waived under BYO
+            // for the same reason as web search: the subscription is ours.
+            $unblockerFetches = (int) ($stepTimings['unblocker_fetch']['fetches'] ?? 0);
+            if ($unblockerFetches > 0) {
+                $unblockerCost = \App\Services\WebContent\WebTextAcquirer::costForUnblockerFetches($unblockerFetches);
+                if ($unblockerCost > 0) {
+                    $totalCost += $unblockerCost;
+                    $lineItems[] = [
+                        'label'     => "Unblocked page fetches ({$unblockerFetches})",
+                        'category'  => 'unblocker_fetch',
+                        'quantity'  => $unblockerFetches,
+                        'unit'      => 'fetches',
+                        'unit_cost' => round($unblockerCost / $unblockerFetches, 8),
+                        'amount'    => round($unblockerCost, 4),
                     ];
                 }
             }

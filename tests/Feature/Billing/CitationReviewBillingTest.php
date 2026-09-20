@@ -172,3 +172,126 @@ it('charges nothing when the review produced no billable usage', function () {
     expect(DB::table('billing_ledger')->where('user_id', $user->id)->count())->toBe(0);
     expect((float) User::find($user->id)->debits)->toEqualWithDelta(0.0, 0.0001);
 });
+
+it('bills Brave web-search requests as their own line item', function () {
+    // Brave charges per REQUEST ($5/1k) and the cost scales with how many
+    // references a document has — it used to be absorbed entirely by us
+    // (~$0.65 per review, invisible in the ledger).
+    $user = $this->seedUser(['status' => 'budget', 'credits' => 50]);
+    DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+    DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+
+    $pipelineId = (string) Str::uuid();
+    DB::connection('pgsql_admin')->table('citation_pipelines')->insert([
+        'id' => $pipelineId,
+        'book' => 'book_cite_billing_web',
+        'status' => 'completed',
+        'step_timings' => json_encode([
+            'web_search' => ['requests' => 130, 'provider' => 'brave'],
+        ]),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    try {
+        citationBillReview($user, 'book_cite_billing_web', ['pipeline_id' => $pipelineId]);
+
+        // 130/1000 × $5.00 = $0.65 raw → × budget 1.5 = $0.975
+        $rows = DB::table('billing_ledger')
+            ->where('user_id', $user->id)->where('category', 'ai_review')->get();
+        expect($rows)->toHaveCount(1);
+        expect((float) $rows[0]->amount)->toEqualWithDelta(0.65 * 1.5, 0.0001);
+
+        $lineItems = json_decode($rows[0]->line_items, true);
+        expect($lineItems)->toHaveCount(1);
+        expect($lineItems[0]['category'])->toBe('web_search');
+        expect($lineItems[0]['quantity'])->toBe(130);
+        expect($lineItems[0]['unit'])->toBe('requests');
+        expect($lineItems[0]['meta']['provider'])->toBe('brave');
+        expect((float) $lineItems[0]['amount'])->toEqualWithDelta(0.65, 0.0001);
+    } finally {
+        DB::connection('pgsql_admin')->table('citation_pipelines')->where('id', $pipelineId)->delete();
+    }
+});
+
+it('bills web search even under BYO — the Brave key is OURS in every inference mode', function () {
+    // Deliberate asymmetry vs LLM tokens: inference tickets mean the user's own
+    // key paid their LLM provider, but every Brave request still ran on our
+    // subscription, so waiving it would hand away a real cost.
+    $user = $this->seedUser(['status' => 'budget', 'credits' => 50]);
+    DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+    DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
+
+    $pipelineId = (string) Str::uuid();
+    DB::connection('pgsql_admin')->table('citation_pipelines')->insert([
+        'id' => $pipelineId,
+        'book' => 'book_cite_billing_web_byo',
+        'status' => 'completed',
+        'inference_mode' => 'client',
+        'step_timings' => json_encode([
+            'web_search' => ['requests' => 200, 'provider' => 'brave'],
+        ]),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    try {
+        citationBillReview($user, 'book_cite_billing_web_byo', [
+            'pipeline_id' => $pipelineId,
+            'llm_usage' => ['by_model' => [
+                'accounts/fireworks/models/deepseek-v4-pro' => [
+                    'prompt_tokens' => 1_000_000, 'completion_tokens' => 1_000_000,
+                ],
+            ]],
+        ]);
+
+        $rows = DB::table('billing_ledger')
+            ->where('user_id', $user->id)->where('category', 'ai_review')->get();
+        expect($rows)->toHaveCount(1);
+        // ONLY the web search: 200/1000 × $5 = $1.00 × 1.5. LLM waived.
+        expect((float) $rows[0]->amount)->toEqualWithDelta(1.00 * 1.5, 0.0001);
+        $lineItems = json_decode($rows[0]->line_items, true);
+        expect(array_column($lineItems, 'category'))->toBe(['web_search']);
+    } finally {
+        DB::connection('pgsql_admin')->table('citation_pipelines')->where('id', $pipelineId)->delete();
+    }
+});
+
+it('prices requests from config so a Brave rate change is one edit', function () {
+    expect(\App\Services\BraveSearchService::costForRequests(1000))->toEqualWithDelta(5.00, 0.0001);
+    expect(\App\Services\BraveSearchService::costForRequests(130))->toEqualWithDelta(0.65, 0.0001);
+    expect(\App\Services\BraveSearchService::costForRequests(0))->toBe(0.0);
+    config(['services.brave_search.price_per_1k_requests' => 8.00]);
+    expect(\App\Services\BraveSearchService::costForRequests(1000))->toEqualWithDelta(8.00, 0.0001);
+});
+
+it('counts every issued request, including ones that resolve nothing', function () {
+    // Brave bills on issue, so a 402 or a no-useful-results response is still
+    // a charge — the counter must not be inferred from resolutions.
+    \Illuminate\Support\Facades\Http::fake([
+        'api.search.brave.com/*' => \Illuminate\Support\Facades\Http::response(
+            ['type' => 'ErrorResponse', 'error' => ['status' => 402]], 402),
+    ]);
+    config(['services.brave_search.api_key' => 'test-key']);
+
+    $brave = app(\App\Services\BraveSearchService::class);
+    $brave->resetRequestCount();
+    expect($brave->requestCount())->toBe(0);
+
+    $brave->searchAndFetch('A Title', 'Author', 2020, DB::connection('pgsql_admin'));
+    expect($brave->requestCount())->toBe(1);
+
+    // The batch path counts its whole chunk.
+    $brave->searchAndFetchBatch([
+        'r1' => ['title' => 'One', 'author' => null, 'year' => null],
+        'r2' => ['title' => 'Two', 'author' => null, 'year' => null],
+    ], DB::connection('pgsql_admin'));
+    expect($brave->requestCount())->toBe(3);
+});
+
+it('shares one BraveSearchService instance so the scan count survives to billing', function () {
+    // The LlmService lesson: with a fresh instance per resolve, the count read
+    // at billing time is 0 and every web search is free for the user.
+    expect(app(\App\Services\BraveSearchService::class))
+        ->toBe(app(\App\Services\BraveSearchService::class));
+});

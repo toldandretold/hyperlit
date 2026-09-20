@@ -18,9 +18,27 @@ class GenerateNodeEmbedding implements ShouldQueue
     public int $tries = 3;
     public int $backoff = 30;
 
+    /**
+     * Skip when the node ALREADY has an embedding by the time the job runs.
+     * Declared with a default (not just a constructor default) so payloads
+     * queued before this property existed unserialize to false, keeping the
+     * old overwrite behaviour.
+     *
+     * Two dispatchers, opposite needs: QueueBookEmbeddings backfills nodes
+     * that had NO embedding at fan-out time — but another writer can beat the
+     * queue to it (PassageSearcher inline-embeds small web sources mid-review
+     * because this lane drains on its own schedule), and re-embedding then is
+     * one wasted API call per node. The PgNode::saved hook, by contrast,
+     * fires because plainText CHANGED — the existing vector is STALE and must
+     * be overwritten, so it dispatches without the flag.
+     */
+    private bool $skipIfPresent = false;
+
     public function __construct(
         private int $nodeId,
+        bool $skipIfPresent = false,
     ) {
+        $this->skipIfPresent = $skipIfPresent;
         // Run on a dedicated queue so bulk embedding generation (one job per node —
         // thousands for a large book) can never sit in front of imports/reconverts
         // on the 'imports'/'default' lanes. Mirrors the citation-pipeline jobs.
@@ -40,6 +58,10 @@ class GenerateNodeEmbedding implements ShouldQueue
 
         if (!$node || empty($node->plainText)) {
             return;
+        }
+
+        if ($this->skipIfPresent && $node->embedding !== null) {
+            return; // someone (inline embed, an earlier run) got here first
         }
 
         // Skip very short text (not useful for embedding)

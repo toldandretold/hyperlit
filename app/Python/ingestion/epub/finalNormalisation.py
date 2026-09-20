@@ -123,3 +123,72 @@ class DeadInternalLinkUnwrapper(EpubTransform):
 
         log(f"  Removed {removed} dead links, kept {kept_external} external, {kept_valid} valid internal")
         return {'removed': removed, 'kept_external': kept_external, 'kept_valid': kept_valid}
+
+
+class TypographicUrlRepairer(EpubTransform):
+    """Delete the sub-space characters a typesetter puts INSIDE a URL so a long link can wrap.
+
+    Taylor & Francis percent-encodes thin spaces into the href on its EPUBs
+    ("?ln%E2%80%89=%E2%80%89en") and prints them literally (U+2009) in the visible text. Either way
+    the stored link is not a URL the server ever indexed, so the citation resolver cannot fetch the
+    source and falls back to matching bibliographic metadata — which means the reviewer is handed a
+    TITLE where the full text was freely available. Measured on the paste twin of the same article:
+    22 of 34 reference URLs unusable, and Nkrumah's "Neo-Colonialism" judged on its title alone
+    while the full text sat on marxists.org.
+
+    Safe to delete rather than truncate at: a thin/hair/zero-width space is never valid inside a
+    URL, so its presence is always this artifact. An ORDINARY space still ends a URL and is left
+    alone. Prose typography elsewhere is untouched — only runs that are URLs are considered.
+    """
+
+    name = "TypographicUrlRepairer"
+    description = "Strip thin/zero-width spaces from URLs (href and plain text)"
+
+    # U+2008..U+200D, U+202F narrow no-break, U+2060 word joiner, U+FEFF ZWNBSP.
+    _LITERAL_RE = re.compile('[\u2008-\u200d\u202f\u2060\ufeff]')
+    _ENCODED_RE = re.compile('%E2%80%(?:8[89ABCD]|AF)|%E2%81%A0|%EF%BB%BF', re.I)
+    # A URL run that CONTAINS at least one such character — so ordinary prose never matches.
+    # ONE character class, no nested quantifier: the obvious form
+    #   https?://[^\s<>"']*(?:[gap][^\s<>"']*)+
+    # backtracks catastrophically on long text (it hung the JS twin's test worker). \s MATCHES a
+    # thin space, so excluding only ASCII whitespace lets the run continue THROUGH the gaps in one
+    # linear pass.
+    _TEXT_URL_RE = re.compile(r'https?://[^ \t\r\n<>"\']*')
+
+    def _clean(self, value):
+        return self._ENCODED_RE.sub('', self._LITERAL_RE.sub('', value))
+
+    def detect(self, soup) -> bool:
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '')
+            if self._LITERAL_RE.search(href) or self._ENCODED_RE.search(href):
+                return True
+        text = soup.get_text()
+        return bool('http' in text and self._TEXT_URL_RE.search(text))
+
+    def transform(self, soup, log=print) -> dict:
+        fixed = 0
+
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '')
+            cleaned = self._clean(href)
+            if cleaned != href:
+                a_tag['href'] = cleaned
+                fixed += 1
+
+        # Plain-text URLs too: a bibliography often prints the link with no <a> at all, and the
+        # spaces then sit in visible text where no href repair can reach them.
+        for node in list(soup.find_all(string=True)):
+            value = str(node)
+            if 'http' not in value:
+                continue
+            if not (self._LITERAL_RE.search(value) or self._ENCODED_RE.search(value)):
+                continue
+            repaired = self._TEXT_URL_RE.sub(lambda m: self._clean(m.group(0)), value)
+            if repaired != value:
+                node.replace_with(repaired)
+                fixed += 1
+
+        if fixed:
+            log(f"  Repaired {fixed} URL(s) containing typographic spaces")
+        return {'repaired': fixed}

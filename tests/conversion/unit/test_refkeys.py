@@ -219,3 +219,26 @@ def test_reprint_slash_pair_reaches_the_original_year():
 def test_ordinary_single_year_entries_gain_no_phantom_variants():
     keys = generate_ref_keys('Smith, Jane. 2019. Ordinary entry. Journal 4: 1-20.')
     assert all(k.endswith('2019') for k in keys)
+
+
+# ---------------------------------------------------------------------------
+# A four-digit ISSUE number in parentheses is not a year.
+#
+# The parenthesized-year branch used to take the first "(NNNN)" outright, skipping the
+# is_plausible_year filtering the bare-year branch applies — so "Science 162 (3859)" keyed
+# hardin3859 and no "(Hardin 1968)" in the body could ever reach it. Science and Nature both
+# number their issues in four digits, so this is an ordinary citation shape.
+# ---------------------------------------------------------------------------
+def test_four_digit_journal_issue_number_does_not_become_the_year():
+    keys = generate_ref_keys('Hardin, Garrett. 1968. "The Tragedy of the Commons." '
+                             'Science 162 (3859): 1243-1248.')
+    assert keys[0] == 'hardin1968'
+    assert not any('3859' in k for k in keys)
+
+
+def test_a_pre_1900_parenthesized_year_is_still_the_canonical_one():
+    # Only the CEILING screens the parenthesized branch. Applying the modern 1900 floor here
+    # would drop this entry through to the bare-year rule and key it on the 1992 reprint.
+    keys = generate_ref_keys('Spencer, Herbert (1884) The Man Versus The State. '
+                             'Indianapolis. Liberty Fund. 1992.')
+    assert keys[0] == 'spencer1884'

@@ -58,7 +58,7 @@ flowchart TD
       direction TB
       EXT -->|.epub| EPUB["epub_normalizer.py<br/>footnote SCHEME · TRANSFORM_PIPELINE → FOOTNOTE_LINK_RULES<br/>→ main-text.html"]
       EXT -->|".html / .htm"| HTMLP["ar5iv_preprocessor.py<br/>arXiv only; else raw HTML"]
-      EXT -->|".docx / .doc"| DOCXP["strip_docx_metadata.py + pandoc"]
+      EXT -->|".docx / .doc"| DOCXP["strip_docx_metadata.py + normalize_docx_headings.py + pandoc"]
       EXT -->|".md / .zip"| MDIN(["markdown input"])
 
       EXT -->|.pdf| OCR["mistral_ocr.py · Mistral OCR → ocr_response.json"]
@@ -151,7 +151,8 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  │     [tests: test_footnote_recovery.py · test_pdf_recovery_real.py(opt-in) · test_harvest_fidelity.py]
 │  ├─ MD    simple_md_to_html.py → intermediate.html
 │  ├─ HTML  ar5iv_preprocessor.py (arXiv only, else raw) → html
-│  └─ DOCX  strip_docx_metadata.py + pandoc → html
+│  └─ DOCX  strip_docx_metadata.py · normalize_docx_headings.py (outlineLvl → "heading N",
+│           else pandoc emits NO headings at all) + pandoc --wrap=none → html
 └─ BACKEND  process_document.py (DOC_PASSES, the orchestrator) · _doc_shared.py (shared helpers)  GOAL → nodes + footnotes + references + audit + assessment
    ├─ LOAD     load.py — LoadDocument(+footnote_meta→is_stem) · SafariRtlFix · SplitBibliographyParagraphs · [STEM wackSTEM branch]
    ├─ EXTRACT  bibliography.py(extract_bibliography) · grobid_client.py (opt-in GROBID reference
@@ -162,22 +163,27 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
    │           · _footnote_numbering_is_linkable  [GUARD → extract-but-DON'T-link ∅]
    │           [DocPasses: bib_passes.py · strategy_pass.py · footnote_passes.py]
    ├─ LINK     citations.py→CITATION_LINK_RULES · footnotes.py→MARKER_LINK_RULES
+   │           PreLinkedAnchorConverter runs FIRST and is the whole story for a publisher file:
+   │             a real EPUB/HTML arrives already cited (<a epub:type=biblioref href=#CIT0061>),
+   │             resolved to our entry ids THROUGH THE DOM (the href is the publisher's id, never
+   │             one of our generated keys) — counted into citations_total/linked via `stats`
    │           [DocPasses: citation_pass.py · footnote_link_pass.py]
    ├─ AUDIT    audit.py(compute_footnote_audit → verdict)  [DocPass: audit_pass.py]
    └─ FINAL    finalize.py — structural_coverage (flag) · strip_styling_spans (no spans in DB) ·
-               GenerateNodeChunks · sanitize.py → *.jsonl / references.json
+               GenerateNodeChunks (flatten_grouping_wrappers FIRST: one node per direct child, so
+                 <article>/<section> wrappers are unwrapped and loose inline runs get a <p> —
+                 without it a publisher EPUB is 2 nodes of ~60k chars) ·
+               sanitize.py → *.jsonl / references.json
 ```
 
 ## Per-pathway goal (what each frontend produces, and the type it detects)
 
-| filetype | frontend script | invoked by | intermediate goal | type detected |
-|---|---|---|---|---|
-| **epub** | `epub_normalizer.py` | `EpubProcessor.php:173` | `main-text.html` | footnote **scheme** (`TRANSFORM_PIPELINE`) |
-| **pdf** | `mistral_ocr.py` → `simple_md_to_html.py` | `PdfProcessor.php:61` | `main-text.md` → html | footnote **layout** (`PDF_CLASSIFIERS`) |
-| **md / zip** | `simple_md_to_html.py` | `MarkdownProcessor.php:95` | `intermediate.html` | (markers → sequential strategy) |
-| **html** | `ar5iv_preprocessor.py` (cond.) | `HtmlProcessor.php:75` | normalised html | ar5iv/LaTeXML vs raw |
-| **docx** | `strip_docx_metadata.py` + pandoc | `PandocConversionJob.php:45` | html | — |
-| **(all)** | `process_document.py` | 4 processors | nodes/footnotes/references | **strategy** (`STRATEGY_RULES`) |
+- **epub** — `epub_normalizer.py`, invoked by `EpubProcessor.php:173` → `main-text.html`; detects footnote **scheme** (`TRANSFORM_PIPELINE`).
+- **pdf** — `mistral_ocr.py` → `simple_md_to_html.py`, invoked by `PdfProcessor.php:61` → `main-text.md` → html; detects footnote **layout** (`PDF_CLASSIFIERS`).
+- **md / zip** — `simple_md_to_html.py`, invoked by `MarkdownProcessor.php:95` → `intermediate.html`; its markers select the sequential strategy.
+- **html** — `ar5iv_preprocessor.py` (conditional), invoked by `HtmlProcessor.php:75` → normalised html; distinguishes ar5iv/LaTeXML from raw.
+- **docx** — `strip_docx_metadata.py` + `normalize_docx_headings.py` + `pandoc --wrap=none`, invoked by `PandocConversionJob.php:45` → html; detects no type of its own. Both python steps are non-fatal repairs of what pandoc cannot see: `w:outlineLvl` heading levels (pandoc reads the style NAME only) and pandoc's own ~72-column hard wrap (which made one reference entry look like a crammed multi-entry `<p>`).
+- **(all)** — `process_document.py`, invoked by the 4 processors → nodes/footnotes/references; selects the **strategy** (`STRATEGY_RULES`).
 
 ## Decision registries (the open/closed extension points — `op:register` targets)
 

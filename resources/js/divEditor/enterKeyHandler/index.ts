@@ -672,6 +672,14 @@ export class EnterKeyHandler {
             queueNodeForSave(newParagraph.id, 'add');
           } else {
             // Was in the middle - split the list!
+            // Both new nodes land in the gap between this list and whatever follows it,
+            // so the id bound is the list's CURRENT next sibling — captured before either
+            // insertion moves it. Passing null here means "append at the end of the book"
+            // (generateIdBetween returns floor(before) + 100), which sorted the escaped
+            // paragraph ~100 nodes downstream of where it visibly sits: the DOM looked
+            // right until the next render replayed the book in startLine order.
+            const afterListId = findNextElementId(parentList);
+
             // 1. Create a new list for items after
             const newList = document.createElement(parentList.tagName);
 
@@ -679,11 +687,11 @@ export class EnterKeyHandler {
             itemsAfter.forEach(item => newList.appendChild(item));
 
             // 3. Insert paragraph after original list
-            setElementIds(newParagraph, parentList.id, null, book);
+            setElementIds(newParagraph, parentList.id, afterListId, book);
             parentList.after(newParagraph);
 
             // 4. Insert new list after paragraph
-            setElementIds(newList, newParagraph.id, findNextElementId(newParagraph), book);
+            setElementIds(newList, newParagraph.id, afterListId, book);
             newParagraph.after(newList);
 
             moveCaretTo(newParagraph, 0);

@@ -5,17 +5,29 @@
 // Clears Cloudflare via patchright + sticky IP + headed (scripts/lib/cfBrowser.mjs),
 // returns the fully-rendered article DOM for the paste engine.
 //
-// Stdin protocol (JSON):  { url, proxy? }
+// Stdin protocol (JSON):  { url, proxy?, direct? }
 // Stdout protocol (JSON): { ok: true, html, finalUrl, title, httpStatus, channel }
 //                      or { ok: false, reason, detail?, httpStatus?, finalUrl? }
+// Env: FETCH_HTML_BUDGET_MS caps the whole attempt (see below). It is an env
+//      var rather than a stdin field because the timeouts are armed before
+//      stdin has been read.
 
 import {
     proxyFromInput, launchStealthContext, cleanupContext, waitOutCloudflare,
 } from './lib/cfBrowser.mjs';
 
-const HARD_TIMEOUT_MS = 62_000; // under the PHP process cap (70s)
-const NAV_TIMEOUT_MS = 30_000;
-const MAX_ATTEMPTS = 2; // Cloudflare 403s are intermittent — a fresh attempt often clears.
+// Defaults suit HARVEST, where one article is worth a minute: a Cloudflare
+// managed challenge can genuinely take ~25s to clear and the work is queued.
+// CITATION resolution is the opposite trade — it runs dozens of URLs inside a
+// single review, so a hard-walled page burning the full 62s is 62s of nothing
+// (measured: thewalrus.ca and fbi.gov each cost 62.5s to learn "blocked"). Pass
+// budgetMs to buy a smaller share of the same ladder; both timeouts scale from
+// it, and MAX_ATTEMPTS drops to 1 when there is no room for a second pass.
+const DEFAULT_BUDGET_MS = 62_000; // under the PHP process cap (70s)
+const requestedBudget = Number(process.env.FETCH_HTML_BUDGET_MS) || 0;
+const HARD_TIMEOUT_MS = Math.max(8_000, requestedBudget || DEFAULT_BUDGET_MS);
+const NAV_TIMEOUT_MS = Math.min(30_000, Math.round(HARD_TIMEOUT_MS * 0.5));
+const MAX_ATTEMPTS = HARD_TIMEOUT_MS >= 40_000 ? 2 : 1; // CF 403s are intermittent — a fresh attempt often clears.
 
 let finished = false;
 function output(payload, code) {

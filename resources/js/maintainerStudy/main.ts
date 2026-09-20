@@ -37,6 +37,8 @@ const LABELS: Array<{ value: string; text: string; desc: string }> = [
     desc: "Something is off but you can't pin it down. NOT scored — excluded from the confusion matrix." },
   { value: 'unverifiable', text: 'unverifiable',
     desc: 'Cannot be checked either way (grey literature, "copy on file with author"). NOT scored.' },
+  { value: 'not_a_citation', text: 'not a citation',
+    desc: "The reviewed pairing doesn't exist in the author's text — a phantom/mislinked anchor or a non-citation footnote. Nothing to verify, so nothing to score. NOT scored; pairs with the citation-mislink cause." },
 ];
 
 // Axis 2 — your verdict on the AI'S FLAG: whose failure was it? Feeds system
@@ -48,11 +50,101 @@ const CAUSES: Array<{ value: string; text: string; desc: string }> = [
     desc: 'The source is real and findable; our resolver failed to find it. Fixable on our side.' },
   { value: 'conversion_mangled', text: 'conversion mangled — our OCR',
     desc: 'Our PDF conversion corrupted the citation text before the AI ever saw it. Check the Conversion check block.' },
+  { value: 'claim_scoping', text: 'claim scoping — wrong sentence/slice attributed',
+    desc: 'Our extractor attributed text this citation was never meant to support: a slice of a grouped citation (A; B; C), or an adjacent UNCITED sentence grabbed instead of the cited one. The citation is fine; the verifier honestly reported the mismatch. Usually pairs with verified intact.' },
+  { value: 'citation_mislink', text: 'citation mislink — our linker minted/misdirected the anchor',
+    desc: "The author never made this claim-source pairing: our in-text linker turned a bare year (or year range) into a citation, or pointed a real citation at the wrong entry. The AI honestly reviewed a pairing that doesn't exist. Usually pairs with verified intact." },
+  { value: 'evidence_truncated', text: 'evidence truncated — our snapshot clipped it',
+    desc: 'The source was correctly resolved, but the supporting text lies beyond what we stored (e.g. the web-fetch character cap). You found the evidence in the full source; the AI never saw it. Usually pairs with verified intact.' },
   { value: 'grey_literature', text: 'grey literature — legitimately unindexed',
     desc: "A real source that no index carries (internal reports, Hansard, legislation). Nobody's failure." },
+  { value: 'citation_typo', text: 'citation typo — minor error defeated matching',
+    desc: 'The citation is real and supports the claim, but a small error (missing/wrong word in the title, off-by-one year or page) likely broke exact matching. Pair with verified intact — the typo is not an integrity issue; put the exact discrepancy in the note.' },
+  { value: 'access_blocked', text: 'access blocked — paywall / bot wall',
+    desc: 'The cited URL exists but refused our fetcher (401/403/429, or a subscribe-wall). NOT a dead link — verify the article in your browser; if it checks out, the label is about the content, this cause records why our system could not see it.' },
+  { value: 'dead_link', text: 'dead link — cited URL rotted',
+    desc: 'The URL the author printed is genuinely gone (404/410, or a soft-404 page served as 200) — use Check link to confirm. The work may exist elsewhere; if you find a live copy, put it in the found-URL field.' },
   { value: 'other', text: 'other (note)',
     desc: 'None of the above — explain in the note.' },
 ];
+
+/**
+ * The causes that are POSSIBLE for this claim, given what actually happened to it.
+ *
+ * All eleven chips were shown on every claim, so most were nonsense for the one in front of you:
+ * "access blocked" and "dead link" on a claim whose source we resolved and read; "resolver gap" on
+ * a claim we resolved; "evidence truncated" on a claim where no evidence was retrieved at all.
+ * Choosing a cause that contradicts the record is not a harmless slip — the cause column is what
+ * separates "the AI was right" from "our pipeline failed", which is the study's main result.
+ *
+ * NOT a hard filter: the rest stay available behind a toggle, because a reviewer who has actually
+ * read the source can know something the record does not show. Narrowing the default is the point;
+ * forbidding the unusual answer would be worse than the wall of chips.
+ */
+function relevantCauses(claim: ClaimRow): Set<string> {
+  const resolved = claim.source?.found === true;
+  const evidence = claim.source?.evidence_type ?? 'none';
+  const hadEvidence = resolved && evidence !== 'none';
+  const support = claim.llm_verdict?.support ?? null;
+  const flagged = support === 'unlikely' || support === 'rejected';
+
+  // Always available: our linker can mint a pairing the author never made, our conversion can
+  // mangle the text, and "other" is the escape hatch — none of those depend on resolution.
+  const causes = new Set(['citation_mislink', 'conversion_mangled', 'other']);
+
+  if (!resolved) {
+    // Nothing was found. The question is WHY not — that is a resolution story, never a
+    // judgement about whether the source supports the claim.
+    ['resolver_gap', 'grey_literature', 'dead_link', 'access_blocked', 'citation_typo', 'correct_flag']
+      .forEach((c) => causes.add(c));
+    return causes;
+  }
+
+  // Resolved: "we could not find it" causes are off the table.
+  if (hadEvidence) {
+    causes.add('evidence_truncated'); // we had SOME evidence, so it can have been clipped
+    causes.add('claim_scoping');      // and the claim we judged it against can be mis-scoped
+  } else {
+    // Resolved but nothing readable came back — that is an access story.
+    causes.add('access_blocked');
+    causes.add('evidence_truncated');
+  }
+  if (flagged) {
+    causes.add('correct_flag');       // only meaningful when the AI actually flagged something
+    causes.add('claim_scoping');
+  }
+  return causes;
+}
+
+/**
+ * WHAT the citation actually supports — the third ground-truth axis.
+ *
+ * The support scale has no fixed DENOMINATOR, so a verdict alone is ambiguous: "unlikely" means
+ * both "supports none of this" and "supports exactly the part it was cited for, and nothing else".
+ * Recording which makes the ground truth independent of the verify prompt a run used, so the SAME
+ * labels score both variants (services.citation_review.verify_scope). A fragment_only claim SHOULD
+ * read unsupported under the strict prompt and supported under the fragment prompt — both correct.
+ *
+ * Distinct from the claim_scoping CAUSE: that is OUR extractor grabbing the wrong text; this is the
+ * extraction being right and the citation simply backing one part of it.
+ */
+const SUPPORTED_SCOPES: Array<{ value: string; text: string; desc: string }> = [
+  { value: 'whole_claim', text: 'supports the whole claim',
+    desc: 'The source supports the claim sentence as a whole — no scope caveat.' },
+  { value: 'fragment_only', text: 'supports PART of the claim',
+    desc: 'The source supports one component of the sentence but not the rest, and was cited for that component. Say WHICH part in the note — that is the ground truth. Example: "…a Special Issue commemorating the fiftieth anniversary of the campaign for a NIEO (UN 1974a)" — the 1974 Declaration evidences the campaign, not the Special Issue.' },
+  { value: 'none', text: 'supports none of it',
+    desc: 'The source supports no part of the claim.' },
+  { value: 'undetermined', text: "can't tell without the source",
+    desc: 'Blocked, dead or not retrieved — you could not read enough to judge scope.' },
+];
+
+/** A workbench URL that SURVIVES a refresh — the corpus must ride in the query string. */
+function studyUrl(slug: string | null, corpus?: string): string {
+  const c = corpus ?? state.corpus;
+  const base = slug ? `/maintainer/study/${encodeURIComponent(slug)}` : '/maintainer/study';
+  return `${base}?corpus=${encodeURIComponent(c)}`;
+}
 
 interface State {
   corpus: string;
@@ -132,13 +224,19 @@ function bookRow(book: BookSummary): HTMLElement {
     el(
       'span',
       'st-book-meta',
-      `${book.arm} · ${book.run_status === 'completed' ? `${book.counts.flagged}/${book.counts.total} flagged · ${book.counts.adjudicated} done` : book.run_status}`,
+      // PATHWAY first: in a multi-pathway corpus the same work appears four times under an
+      // identical title and every one is arm 'control', so the arm alone made the rows
+      // indistinguishable. Show the arm only when it says something (a corrupted/retracted arm).
+      `${book.pathway ? book.pathway.toUpperCase() : (book.arm ?? '')}${book.arm && book.arm !== 'control' ? ` · ${book.arm}` : ''} · ${book.run_status === 'completed' ? `${book.counts.flagged}/${book.counts.total} flagged · ${book.counts.adjudicated} done` : book.run_status}`,
     ),
   );
   row.addEventListener('click', () => {
     state.slug = book.slug;
     state.selectedKey = null;
-    history.replaceState(null, '', `/maintainer/study/${encodeURIComponent(book.slug)}`);
+    // KEEP the corpus in the URL. Dropping it meant every refresh fell back to
+    // config('study.default_corpus') — phase1 — so working in phase2 and reloading silently threw
+    // you into a different corpus, with Back unable to undo it because this is a replaceState.
+    history.replaceState(null, '', studyUrl(book.slug));
     void loadBook();
     void loadBooks();
   });
@@ -208,6 +306,7 @@ function claimRow(claim: ClaimRow): HTMLElement {
   if (triage && triage !== 'clean' && triage !== 'no_witness') {
     head.append(el('span', `st-badge st-triage-${triage}`, triage.replace(/_/g, ' ')));
   }
+  if (claim.anchor_warning) head.append(el('span', 'st-badge st-triage-ocr_garbled', 'anchor ⚠'));
   if (claim.adjudication) head.append(el('span', 'st-badge st-done', '✓ ' + claim.adjudication.label));
   row.append(head, el('span', 'st-claim-text', (claim.truth_claim ?? '').slice(0, 140)));
 
@@ -237,6 +336,14 @@ function renderDetail(claim: ClaimRow): void {
 
   const marker = claim.gt?.footnote_marker ? `Footnote ${claim.gt.footnote_marker}` : (claim.key);
   frag.append(el('h2', 'st-detail-title', marker));
+  frag.append(bookContextLine());
+
+  // The citation's OWN anchor looks wrong → the pairing under review may not
+  // be one the author made. Shown FIRST: judging the citation is pointless
+  // until you know the claim/source pairing is real.
+  if (claim.anchor_warning) {
+    frag.append(el('p', 'st-anchor-warning', `⚠ ${claim.anchor_warning}`));
+  }
 
   // The citation as printed.
   if (claim.bib_citation) {
@@ -278,6 +385,18 @@ function renderDetail(claim: ClaimRow): void {
         `match: ${claim.source.match_method ?? '?'}${claim.source.match_score != null ? ` (${claim.source.match_score})` : ''} · evidence: ${claim.source.evidence_type ?? 'none'} · tier: ${claim.source.verification_tier ?? '?'}`,
       ),
     );
+    // Identity certain, YEAR divergent — the match was accepted, but the divergence is a fact
+    // about the citation the reviewer must see: a different edition/printing of the same work, or
+    // the author's printed details are wrong. Pairs naturally with the "citation typo" cause.
+    if (claim.source.edition_mismatch) {
+      const em = claim.source.edition_mismatch;
+      srcSec.append(el(
+        'p',
+        'st-conv-warn',
+        `⚠ Year mismatch on an otherwise-exact match: printed ${em.printed_year ?? '?'}, record ${em.record_year}. `
+        + 'Same work, divergent details — likely another edition/printing, or the citation year is wrong. Judge which.',
+      ));
+    }
     if (claim.source.url || claim.source.doi) {
       const p = el('p');
       const a = el('a', undefined, claim.source.url ?? `doi:${claim.source.doi}`);
@@ -287,8 +406,44 @@ function renderDetail(claim: ClaimRow): void {
       p.append(a);
       srcSec.append(p);
     }
+    // What we actually READ, as distinct from what we found. An
+    // `article_extract` is not the work — page furniture was stripped and some
+    // article text may have gone with it, so a claim missing from it is
+    // inconclusive rather than refuted.
+    if (claim.source.content_grade_note) {
+      srcSec.append(el('p', 'st-muted', `content: ${claim.source.content_grade_note}`));
+    }
+    if (claim.source.web_status === 'rejected') {
+      srcSec.append(
+        el(
+          'p',
+          'st-warn',
+          'The page at this URL does NOT match the cited title — it hosts a different article. Treat its text as untrusted evidence about this citation.',
+        ),
+      );
+    }
   } else {
     srcSec.append(el('p', 'st-muted', 'No source found by the resolver.'));
+    // WHY it found nothing. This is the difference between a fabricated
+    // reference and a live source we were bot-blocked from, which decides
+    // whether the verdict is a correct_flag or a resolver_gap.
+    const f = claim.source.fetch_outcome;
+    if (f) {
+      const status = f.http_status ? ` (HTTP ${f.http_status})` : '';
+      const via = f.channel && f.channel !== 'none' ? ` · tried via ${f.channel}` : '';
+      srcSec.append(el('p', `st-badge st-fetch-${f.outcome}`, f.outcome.replace(/_/g, ' ')));
+      srcSec.append(el('p', 'st-muted', `${f.reason ?? ''}${status}${via}`));
+    }
+  }
+  // The URL as PRINTED in the citation (llm_metadata) — checkable even (and
+  // especially) when the resolver found nothing: dead-link is a
+  // source_not_found subcategory the reviewer shouldn't diagnose by hand.
+  const citedUrl =
+    (typeof (claim.llm_metadata as { url?: unknown } | null)?.url === 'string'
+      ? ((claim.llm_metadata as { url: string }).url)
+      : null) ?? claim.source.url;
+  if (citedUrl && /^https?:\/\//i.test(citedUrl)) {
+    srcSec.append(checkLinkButton(citedUrl, claim));
   }
   frag.append(srcSec);
 
@@ -309,6 +464,7 @@ function renderDetail(claim: ClaimRow): void {
   } else {
     convSec.append(el('p', 'st-muted', 'No triage data — run citation:study:triage --write.'));
   }
+  convSec.append(flagConversionButton(claim));
   frag.append(convSec);
 
   // What the verifier saw.
@@ -323,6 +479,234 @@ function renderDetail(claim: ClaimRow): void {
   pane.replaceChildren(frag);
 
   prefillPdfSearch(claim);
+}
+
+/**
+ * Live-probe the cited URL: HTTP status + soft-404 sniff, rendered inline.
+ * A DEAD result closes its own loop — one click saves the adjudication
+ * (unverifiable + dead_link, note carrying the probe evidence) instead of
+ * sending the reviewer back to the chips.
+ */
+function checkLinkButton(url: string, claim: ClaimRow): HTMLElement {
+  const wrap = el('div', 'st-checklink');
+  const btn = el('button', 'st-undo', 'Check link');
+  btn.type = 'button';
+  btn.title = url;
+  // The cited URL itself, always clickable — "open it and judge" is useless
+  // if the reviewer has to fish the URL out of a tooltip.
+  const open = el('a', 'st-open-link');
+  open.textContent = `open ↗ ${new URL(url).hostname}`;
+  open.setAttribute('href', url);
+  open.setAttribute('target', '_blank');
+  open.setAttribute('rel', 'noopener');
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    const { status, data } = await api.checkLink(url);
+    btn.disabled = false;
+    btn.textContent = 'Check link';
+    const line = el('p');
+    let deadSummary: string | null = null;
+    // A repaired URL changes what the result MEANS: the source may be perfectly alive while the
+    // link we stored was broken — which is a conversion defect worth recording separately.
+    const repairedNote = data.repaired && data.checked_url
+      ? ` (our stored link was malformed — checked the repaired URL ${data.checked_url})`
+      : '';
+    if (status !== 200 || !data.ok) {
+      // OUR failure, and it must not read as a finding about the citation. A bare "Check failed
+      // (422)" is our own validator refusing a malformed stored URL — the reviewer saw that and
+      // reasonably read it as the link being broken.
+      line.className = 'st-conv-warn';
+      line.textContent =
+        `⚠ OUR check could not run (${data.error ?? status}) — this says nothing about the citation. `
+        + 'Open the link yourself to judge.';
+    } else if (data.unparsable) {
+      // The stored link text is not a URL at all — a conversion defect, not link rot.
+      line.className = 'st-conv-warn';
+      line.textContent =
+        `⚠ ${data.error ?? 'We could not parse a URL out of this reference.'} `
+        + 'Our stored link is mangled — judge the citation from the reference text, and consider the '
+        + '"conversion mangled" cause.';
+    } else if (!data.reachable) {
+      // Connection-level failure: could be a dead domain OR aggressive bot
+      // blocking — too ambiguous for a one-click verdict. Human checks.
+      line.className = 'st-conv-warn';
+      line.textContent = `⚠ Unreachable from the server (${data.error ?? 'connection failed'}) — could be dead OR blocking bots. Open it in your browser to judge.`;
+    } else if (data.category === 'blocked') {
+      // Access denied ≠ gone. A paywalled Reuters article 401s our fetcher
+      // and renders fine in a browser — never call this dead.
+      line.className = 'st-conv-warn';
+      // Name the challenge when the server gave one: a WAF challenge served as 2xx is the case
+      // that used to render as a green ✓, telling the reviewer the source was fine when our
+      // system had not read a word of it.
+      line.textContent = data.challenge
+        ? `⚠ HTTP ${data.status} but this is a BOT CHALLENGE (${data.challenge}) — the link is REAL and alive, but our system was never given the page. Open it in your browser to judge; cause chip: "access blocked".`
+        : `⚠ HTTP ${data.status} — access blocked (paywall / bot wall). The link likely WORKS in a browser — open it and judge; cause chip: "access blocked".`;
+    } else if (data.category === 'server_error') {
+      line.className = 'st-conv-warn';
+      line.textContent = `⚠ HTTP ${data.status} — server error. Inconclusive; retry later.`;
+    } else if (data.dead) {
+      line.className = 'st-conv-bad';
+      deadSummary = data.soft404
+        ? `soft-404: HTTP ${data.status}, page says "${data.matched_phrase}"`
+        : `HTTP ${data.status}`;
+      line.textContent = data.soft404
+        ? `✗ Soft-404 — HTTP ${data.status} but the page says "${data.matched_phrase}"${data.title ? ` (title: ${data.title})` : ''}. Dead link.`
+        : `✗ HTTP ${data.status} — dead link (gone).`;
+    } else {
+      line.className = 'st-muted';
+      line.textContent = `✓ HTTP ${data.status}${data.title ? ` — "${data.title}"` : ''}${data.paywalled ? ' — paywalled preview' : ''}${data.final_url && data.final_url !== url ? ` (redirected)` : ''}`;
+    }
+    // Append the repair note to whatever verdict we reached: a "dead link" on a URL WE mangled is
+    // a different finding from a dead link the author printed, and the reviewer must be able to
+    // tell them apart before recording a cause.
+    if (repairedNote && line.textContent) {
+      line.textContent += repairedNote;
+    }
+    wrap.querySelectorAll('p, .st-save').forEach((n) => n.remove());
+    wrap.append(line);
+
+    if (deadSummary) {
+      wrap.append(quickSaveButton(claim, wrap, {
+        text: 'Save verdict: unverifiable · dead link',
+        label: 'unverifiable',
+        cause: 'dead_link',
+        note: `Check link: ${deadSummary} — ${url}`,
+      }));
+    } else if (data.ok && data.reachable && data.category === 'blocked') {
+      // The three outcomes of the browser check, each one click. Verification
+      // is TWO-LEVEL and a paywall splits them: the work's EXISTENCE (title/
+      // author visible behind most paywalls) vs claim SUPPORT (needs the
+      // body). reference_exists carries the first; the label carries the
+      // second — an unverifiable row with reference_exists=true still counts
+      // as a fabrication-negative in analysis.
+      wrap.append(
+        quickSaveButton(claim, wrap, {
+          text: 'Read the body, supports the claim → verified intact',
+          label: 'verified_intact',
+          cause: 'access_blocked',
+          referenceExists: true,
+          note: `Check link: HTTP ${data.status} blocked our fetcher; read in browser, claim supported — ${url}`,
+        }),
+        quickSaveButton(claim, wrap, {
+          text: "Title/author match through the paywall, body unreadable → unverifiable (work exists)",
+          label: 'unverifiable',
+          cause: 'access_blocked',
+          referenceExists: true,
+          note: `Check link: HTTP ${data.status} blocked our fetcher; work confirmed real through paywall, claim support unverifiable — ${url}`,
+        }),
+        quickSaveButton(claim, wrap, {
+          text: "Couldn't even confirm the work → unverifiable",
+          label: 'unverifiable',
+          cause: 'access_blocked',
+          referenceExists: false,
+          note: `Check link: HTTP ${data.status} blocked our fetcher; could not confirm the work exists — ${url}`,
+        }),
+      );
+    }
+  });
+  wrap.append(btn, open);
+  return wrap;
+}
+
+/** One-click adjudication button used by the link-check verdict shortcuts. */
+function quickSaveButton(
+  claim: ClaimRow,
+  wrap: HTMLElement,
+  opts: { text: string; label: string; cause: string; note: string; referenceExists?: boolean },
+): HTMLButtonElement {
+  const save = el('button', 'st-save', opts.text);
+  save.type = 'button';
+  save.title = 'One-click adjudication — Undo on the saved verdict if you change your mind.';
+  save.addEventListener('click', async () => {
+    if (!state.slug) return;
+    save.disabled = true;
+    const { status: st, data: res } = await api.adjudicate(state.corpus, state.slug, {
+      key: claim.key,
+      label: opts.label,
+      cause: opts.cause,
+      note: opts.note.slice(0, 1900),
+      found_url: null,
+      reference_exists: opts.referenceExists ?? null,
+      referenceId: claim.referenceId,
+      run_id: state.payload?.run_id ?? null,
+    });
+    save.disabled = false;
+    if (st !== 200 || !res.ok || !res.adjudication) {
+      flash(wrap, res.error ?? `Save failed (${st})`);
+      return;
+    }
+    claim.adjudication = res.adjudication;
+    bumpAdjudicatedCount(1);
+    renderList();
+    renderApplyBar();
+    renderDetail(claim); // re-render: shows the ✓ verdict + Undo
+  });
+  return save;
+}
+
+/**
+ * File the SOURCE book into the bad-conversion queue (/maintainer/conversion)
+ * with a reason pre-filled from this claim — the workbench keeps surfacing
+ * conversion-caused defects (OCR-garbled footnotes, phantom year-range
+ * citation links) that deserve a reconvert-queue item, not just a note.
+ */
+function flagConversionButton(claim: ClaimRow): HTMLElement {
+  const wrap = el('div', 'st-flagconv');
+  const btn = el('button', 'st-undo', 'Flag conversion issue');
+  btn.type = 'button';
+  btn.addEventListener('click', async () => {
+    if (!state.slug) return;
+    const marker = claim.gt?.footnote_marker ? `fn${claim.gt.footnote_marker}` : claim.key;
+    const triageBits = claim.triage
+      ? ` triage=${claim.triage.status}${claim.triage.invented_tokens ? ` invented:${claim.triage.invented_tokens}` : ''}`
+      : '';
+    const reason = `study workbench (${state.corpus}/${state.slug} ${marker}): verdict=${claim.verdict};${triageBits}`.slice(0, 490);
+    const ok = await confirmDialog({
+      title: 'Flag conversion issue',
+      message: `File the source book into the bad-conversion queue (/maintainer/conversion)?\n\n${reason}`,
+      confirmLabel: 'Flag it',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    const { status, data } = await api.flagConversion(state.corpus, state.slug, reason, claim.key);
+    btn.disabled = false;
+    if (status !== 200 || !data.ok) {
+      flash(wrap, data.error ?? `Flag failed (${status})`);
+      return;
+    }
+    const done = el('p', 'st-muted');
+    const a = el('a', undefined, '/maintainer/conversion');
+    a.setAttribute('href', '/maintainer/conversion');
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener');
+    done.append(data.updated ? '✓ Added to the existing open flag — see ' : '✓ Flagged — see ', a);
+    btn.replaceWith(done);
+  });
+  wrap.append(btn);
+  return wrap;
+}
+
+/**
+ * How this corpus copy came to exist — the reviewer's context. A book built
+ * by the legacy export-and-reimport round-trip has citation anchors that were
+ * RE-DERIVED from plain text, not the ones the product produced, so a mislink
+ * there may be an artifact of the round-trip rather than a product defect.
+ */
+function bookContextLine(): HTMLElement {
+  const p = state.payload;
+  const wrap = el('p', 'st-bookcontext');
+  if (!p) return wrap;
+  wrap.append(el('span', 'st-badge st-pathway', `pathway: ${p.pathway}`));
+  const built = p.source_markdown ?? 'unknown';
+  const roundTripped = built.startsWith('exported-from-nodes') && !built.includes('anchors preserved');
+  wrap.append(
+    el('span', roundTripped ? 'st-conv-warn' : 'st-muted',
+      roundTripped
+        ? ` corpus copy: ${built} — anchors were RE-DERIVED from plain text, not the live book's`
+        : ` corpus copy: ${built}`),
+  );
+  return wrap;
 }
 
 function section(title: string, body: string): HTMLElement {
@@ -371,6 +755,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
 
   let chosenLabel: string | null = null;
   let chosenCause: string | null = null;
+  let chosenScope: string | null = null;
 
   const labelRow = el('div', 'st-btnrow');
   const labelButtons = LABELS.map((l) => {
@@ -381,6 +766,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
       chosenLabel = l.value;
       labelButtons.forEach((x) => x.classList.toggle('st-choice-on', x === b));
       causeRow.classList.remove('st-disabled');
+      scopeRow.classList.remove('st-disabled');
       saveBtn.disabled = false;
     });
     return b;
@@ -388,10 +774,16 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
   labelRow.append(...labelButtons);
 
   const causeRow = el('div', 'st-btnrow st-disabled');
+  // Only the causes that can actually apply to THIS claim — see relevantCauses.
+  const relevant = relevantCauses(claim);
   const causeButtons = CAUSES.map((c) => {
     const b = el('button', 'st-choice st-choice-cause', c.text);
     b.type = 'button';
     b.title = c.desc;
+    if (!relevant.has(c.value)) {
+      b.classList.add('st-choice-offtopic');
+      b.hidden = true;
+    }
     b.addEventListener('click', () => {
       chosenCause = chosenCause === c.value ? null : c.value;
       causeButtons.forEach((x) => x.classList.toggle('st-choice-on', x.textContent === c.text && chosenCause === c.value));
@@ -399,6 +791,46 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     return b;
   });
   causeRow.append(...causeButtons);
+
+  // The escape hatch. A reviewer who has READ the source can know something the record does not
+  // show, so the narrowed set must never be a cage — just a sane default.
+  const hiddenCount = causeButtons.filter((b) => b.hidden).length;
+  if (hiddenCount > 0) {
+    const more = el('button', 'st-choice st-choice-more', `+${hiddenCount} other causes`);
+    more.type = 'button';
+    more.title = 'Causes that do not fit what the record says happened to this claim — available if you know better.';
+    more.addEventListener('click', () => {
+      const nowHidden = causeButtons.some((b) => b.hidden);
+      causeButtons.forEach((b) => {
+        if (b.classList.contains('st-choice-offtopic')) b.hidden = !nowHidden;
+      });
+      more.textContent = nowHidden ? 'show fewer causes' : `+${hiddenCount} other causes`;
+    });
+    causeRow.append(more);
+  }
+
+  // Third axis: WHAT the citation supports. Enabled with the cause row, optional like the cause —
+  // but it is the axis that lets one set of labels score BOTH verify-prompt denominators, so it is
+  // worth filling on every scope-sensitive claim.
+  const scopeRow = el('div', 'st-btnrow st-disabled');
+  const scopeButtons = SUPPORTED_SCOPES.map((sc) => {
+    const b = el('button', 'st-choice st-choice-scope', sc.text);
+    b.type = 'button';
+    b.title = sc.desc;
+    b.addEventListener('click', () => {
+      chosenScope = chosenScope === sc.value ? null : sc.value;
+      scopeButtons.forEach((x) => x.classList.toggle('st-choice-on', x.textContent === sc.text && chosenScope === sc.value));
+    });
+    return b;
+  });
+  scopeRow.append(...scopeButtons);
+
+  // Reference-level fact, orthogonal to the (claim-level) label: a paywall
+  // lets you confirm the WORK is real without reading the body.
+  const refExistsWrap = el('label', 'st-refexists');
+  const refExists = el('input') as HTMLInputElement;
+  refExists.type = 'checkbox';
+  refExistsWrap.append(refExists, ' work exists — title/author verified (even if claim support is not)');
 
   const foundUrl = el('input', 'st-note st-found-url') as HTMLInputElement;
   foundUrl.type = 'url';
@@ -419,8 +851,10 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
       key: claim.key,
       label: chosenLabel,
       cause: chosenCause,
+      supported_scope: chosenScope,
       note: note.value.trim() || null,
       found_url: foundUrl.value.trim() || null,
+      reference_exists: refExists.checked ? true : null,
       referenceId: claim.referenceId,
       run_id: state.payload?.run_id ?? null,
     });
@@ -442,6 +876,9 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     labelRow,
     el('p', 'st-axis-label', "Cause — was the AI's flag right? If not, whose failure? (optional):"),
     causeRow,
+    el('p', 'st-axis-label', 'Scope — WHAT does the citation support? (scores both verify prompts):'),
+    scopeRow,
+    refExistsWrap,
     foundUrl,
     note,
     saveBtn,
@@ -451,7 +888,17 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
 
 function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
   const wrap = el('div', 'st-current');
-  const line = `${adj.label}${adj.cause ? ` · ${adj.cause.replace(/_/g, ' ')}` : ''} — ${adj.adjudicated_by}`;
+  const refBit = adj.reference_exists === true ? ' · work exists ✓' : adj.reference_exists === false ? ' · work unconfirmed ✗' : '';
+  // Surface the scope axis on the saved verdict — an invisible field does not get filled in.
+  const scopeBit = adj.supported_scope
+    ? ' · scope: ' + (SUPPORTED_SCOPES.find((s) => s.value === adj.supported_scope)?.text ?? adj.supported_scope)
+    : '';
+  // A verdict recorded against an OLDER run than the book's current one —
+  // fine for citation-truth verdicts, but a stale citation_mislink describes
+  // anchors that a reimport likely fixed.
+  const stale = adj.run_id && state.payload?.run_id && adj.run_id !== state.payload.run_id;
+  const staleBit = stale ? (adj.cause === 'citation_mislink' ? ' · ⚠ OLDER RUN — re-check' : ' · (older run)') : '';
+  const line = `${adj.label}${adj.cause ? ` · ${adj.cause.replace(/_/g, ' ')}` : ''}${refBit}${scopeBit}${staleBit} — ${adj.adjudicated_by}`;
   wrap.append(el('p', 'st-badge st-done', `✓ ${line}`));
   if (adj.found_url) {
     const p = el('p', 'st-muted');
@@ -515,8 +962,12 @@ function renderApplyBar(): void {
       flash(bar, data.error === 'corpus_frozen' ? 'Corpus is frozen.' : (data.error ?? `Apply failed (${status})`));
       return;
     }
+    const stale = data.stale_mislinks ?? [];
     byId<HTMLSpanElement>('st-apply-summary').textContent =
-      `Applied ${data.applied} label(s) to ground truth — re-run citation:study:report ${state.corpus}.`;
+      `Applied ${data.applied} label(s) to ground truth — re-run citation:study:report ${state.corpus}.`
+      + (stale.length
+        ? ` ⚠ ${stale.length} citation-mislink verdict(s) from an OLDER run NOT applied (the phantom anchors were likely fixed by reimport — re-check): ${stale.join(', ')}`
+        : '');
   };
 }
 

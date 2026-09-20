@@ -209,11 +209,15 @@ describe('RevealGate resume-curtain hold', () => {
     expect(RevealGate.state).toBe('idle');
     expect(userScrollState.lastGestureScrollTime).toBeGreaterThanOrEqual(gestureBefore);
     expect(userScrollState.isNavigating).toBe(false);
-    // Dynamic imports + the 300ms save defer.
-    await new Promise((r) => setTimeout(r, 450));
-    expect(navigateToInternalId).toHaveBeenCalledWith('100.5', loader, false, 0);
+    // goToTop() chains three dynamic imports, then the navigation, then a 300ms save defer.
+    // A fixed 450ms sleep leaves almost no headroom for the imports, so on a loaded machine the
+    // save timer landed just after the window and the whole suite went red on a real behaviour
+    // that had simply not finished yet. Wait for the OUTCOME instead of guessing a duration.
+    await vi.waitFor(() => {
+      expect(navigateToInternalId).toHaveBeenCalledWith('100.5', loader, false, 0);
+      expect(saveScrollPosition).toHaveBeenCalled();
+    }, { timeout: 5000, interval: 25 });
     expect(scroller.scrollTo).not.toHaveBeenCalled();
-    expect(saveScrollPosition).toHaveBeenCalled();
   }, 10000);
 
   it('goToTop(): with no node map falls back to a plain scroll to 0', async () => {
@@ -227,9 +231,11 @@ describe('RevealGate resume-curtain hold', () => {
     });
     RevealGate.arm('book_1');
     RevealGate.goToTop();
-    await new Promise((r) => setTimeout(r, 450));
+    // Same reason as above — wait on the outcome, not on a guessed duration.
+    await vi.waitFor(() => {
+      expect(scroller.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
+      expect(saveScrollPosition).toHaveBeenCalled();
+    }, { timeout: 5000, interval: 25 });
     expect(navigateToInternalId).not.toHaveBeenCalled();
-    expect(scroller.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'auto' });
-    expect(saveScrollPosition).toHaveBeenCalled();
   }, 10000);
 });

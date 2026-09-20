@@ -12,7 +12,11 @@ import {
   removeStaticContentElements,
   cloneAndClean,
   addUniqueReference,
-  cleanTFFootnoteContent
+  cleanTFFootnoteContent,
+  tfCitationLinks,
+  tfReferenceItems,
+  tfNormalizeRid,
+  tfStripCitationWord
 } from '../utils/transform-helpers';
 import { createFootnoteSupElement } from '../utils/footnote-linker';
 
@@ -226,11 +230,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
   async extractReferences(dom: any, bookId: any) {
     const references: any[] = [];
 
-    // Direct search for CIT list items (primary T&F pattern)
-    const citItems = dom.querySelectorAll('li[id^="CIT"]');
+    // Direct search for CIT list items (primary T&F pattern).
+    // Case-insensitive: the 2026 tandfonline markup lowercased these ids.
+    const citItems = tfReferenceItems(dom);
     if (citItems.length > 0) {
-      citItems.forEach((item: any) => {
-        const citId = item.id; // e.g., "CIT0038"
+      citItems.forEach((item) => {
+        const citId = item.id; // e.g., "CIT0038" / "cit0038"
 
         // Clone and clean the item
         const clone = cloneAndClean(item, ['.extra-links']);
@@ -247,8 +252,10 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
           };
           references.push(reference);
 
-          // Map CIT ID to reference for later citation linking
-          this.citIdToRefMap.set(citId, reference);
+          // Map CIT ID to reference for later citation linking.
+          // Keyed case-insensitively so a `cit0038` anchor finds a `CIT0038`
+          // entry (and vice versa) if a page ever mixes the two generations.
+          this.citIdToRefMap.set(tfNormalizeRid(citId), reference);
         }
       });
     }
@@ -308,14 +315,15 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     super.linkCitations(dom, references);
 
     // Now convert T&F citation links from data-rid to href
-    const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
+    const citationLinks = tfCitationLinks(dom);
     let convertedCount = 0;
+    let unwrappedCount = 0;
 
-    citationLinks.forEach((link: any) => {
-      const citId = link.getAttribute('data-rid'); // e.g., "CIT0038"
+    citationLinks.forEach((link) => {
+      const citId = link.getAttribute('data-rid'); // e.g., "CIT0038" / "cit0038"
 
       // Look up the reference for this CIT ID
-      const reference = this.citIdToRefMap.get(citId);
+      const reference = this.citIdToRefMap.get(tfNormalizeRid(citId));
 
       if (reference && reference.referenceId) {
         // Convert to proper reference link
@@ -331,11 +339,23 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
         convertedCount++;
       } else {
-        console.warn(`⚠️ T&F: Could not find reference for ${citId}`);
+        // No reference to point at — a partial selection that left the
+        // bibliography behind, or a rid with no matching entry. Leaving the
+        // anchor as-is shipped a live tandfonline.com link plus a pile of
+        // data-* attributes into the book. Unwrap it to the bare year so the
+        // prose reads "(Ma, 2023)" and the author-year matcher can still find
+        // it later (an in-text-citation can be minted downstream; a mangled
+        // "Citation2023" can never be).
+        tfStripCitationWord(link);
+        unwrap(link);
+        unwrappedCount++;
       }
     });
 
     console.log(`  - Converted ${convertedCount} T&F citation links`);
+    if (unwrappedCount > 0) {
+      console.log(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`);
+    }
   }
 
   /**
@@ -418,16 +438,12 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
     // Must happen BEFORE unwrapping divs/spans
     dom.querySelectorAll('.extra-links').forEach((el: any) => el.remove());
 
-    // 2. T&F-specific: Clean up citation link TEXT but KEEP the links
-    // Remove "Citation" text from the link content, but preserve <a> tags for later conversion
-    const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
-    citationLinks.forEach((link: any) => {
-      // Get the text content (e.g., "Citation1984a" or just "1984a")
-      const textContent = link.textContent;
-      // Remove "Citation" prefix but keep the year
-      const cleanText = textContent.replace(/^Citation/i, '');
-      // Update the link's text content
-      link.textContent = cleanText;
+    // 2. T&F-specific: Clean up citation link TEXT but KEEP the links.
+    // "Citation1984a" / <span class="off-screen">Citation</span>1984a → "1984a".
+    // This runs BEFORE linkCitations, so the base author-year text matcher sees
+    // "(Ma, 2023)" — with the word still glued on it matches nothing.
+    tfCitationLinks(dom).forEach((link) => {
+      tfStripCitationWord(link);
       // Keep the link element for later conversion in linkCitations()
     });
 

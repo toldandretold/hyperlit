@@ -402,7 +402,7 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
 
     // Verify all saved nodes made it to IDB before leaving edit mode
     try {
-      const { verifyNodesIntegrity, findOrphanedNodes, healVerbatimDuplicates } = await import('../../integrity/verifier');
+      const { verifyNodesIntegrity, findOrphanedNodes, findOutOfOrderNodes, healVerbatimDuplicates } = await import('../../integrity/verifier');
       const container = document.getElementById(book);
       if (container) {
         // Auto-heal verbatim DOM duplicates BEFORE counting nodes so the
@@ -418,7 +418,11 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
         if (nodeIds.length > 0) {
           const result = await verifyNodesIntegrity(book, nodeIds);
           const orphans = findOrphanedNodes(book);
-          if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0 || orphans.length > 0) {
+          // Node ORDER is a separate question from node CONTENT: in a reorder every
+          // node still matches its own IDB record, so the comparison above is silent
+          // and the book only visibly scrambles on the next render.
+          const outOfOrder = findOutOfOrderNodes(container);
+          if (result.mismatches.length > 0 || result.missingFromIDB.length > 0 || result.duplicateIds.length > 0 || orphans.length > 0 || outOfOrder.length > 0) {
             const { reportIntegrityFailure } = await import('../../integrity/reporter');
             reportIntegrityFailure({
               bookId: book,
@@ -426,6 +430,7 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
               missingFromIDB: result.missingFromIDB,
               duplicateIds: result.duplicateIds,
               orphanedNodes: orphans,
+              outOfOrderNodes: outOfOrder,
               trigger: 'edit-mode-exit',
               selfHealed: healedIds.length > 0,
               selfHealedNodeIds: healedIds,

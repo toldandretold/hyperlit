@@ -299,6 +299,53 @@ export function reformatCitationLink(link: any, { author = '', year = '', isNarr
 }
 
 /**
+ * Taylor & Francis (Atypon) reference ids.
+ *
+ * Older tandfonline pages emit `CIT0087`; the 2026 platform refresh emits
+ * `cit0087` for the SAME thing. A CSS attribute selector compares the VALUE
+ * case-sensitively, so every `[data-rid^="CIT"]` / `li[id^="CIT"]` in this
+ * engine silently matched nothing on the new markup — references extracted as
+ * 0, no citation link formed, and the raw anchor survived into the book still
+ * reading "Citation2023" (T&F prints the literal word "Citation" before the
+ * year; on old pages it sat in a screen-reader-only `span.off-screen`, on new
+ * ones it is a plain text node glued to the year). Prose that says
+ * "(Ma, Citation2023)" also defeats the author-year text matcher, so ONE case
+ * difference broke citation linking twice over.
+ *
+ * Match the id in JS instead of in the selector, and compare rids
+ * case-insensitively on both sides of the anchor→reference map.
+ */
+const TF_CIT_RID = /^cit\d/i;
+
+/** Normalise a T&F rid for map keys — `cit0087` and `CIT0087` are one id. */
+export function tfNormalizeRid(rid: string | null | undefined): string {
+  return String(rid || '').toUpperCase();
+}
+
+/** Every T&F in-text citation anchor, whatever the case of its rid. */
+export function tfCitationLinks(root: ParentNode): HTMLAnchorElement[] {
+  return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[data-rid]'))
+    .filter((link) => TF_CIT_RID.test(link.getAttribute('data-rid') || ''));
+}
+
+/** Every T&F bibliography `<li>`, whatever the case of its id. */
+export function tfReferenceItems(root: ParentNode): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('li[id]'))
+    .filter((item) => TF_CIT_RID.test(item.id || ''));
+}
+
+/**
+ * Strip T&F's "Citation" prefix from an in-text citation anchor, leaving the
+ * bare year. Handles both markup generations: the `span.off-screen` wrapper
+ * (old) and a plain "Citation2023" text node (new).
+ */
+export function tfStripCitationWord(link: Element): void {
+  link.querySelectorAll('span.off-screen').forEach((s) => s.remove());
+  const cleaned = (link.textContent || '').replace(/^\s*Citation\s*/i, '');
+  if (cleaned !== link.textContent) link.textContent = cleaned;
+}
+
+/**
  * Clean Taylor & Francis footnote content by removing wrapper spans and cleaning citation attributes
  * This pattern is repeated multiple times in taylor-francis-processor.js
  *
@@ -318,9 +365,9 @@ export function cleanTFFootnoteContent(htmlContent: any) {
   });
 
   // Clean citation links - keep data-rid for T&F linkCitations() to process
-  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach((link: any) => {
-    // Remove off-screen spans
-    link.querySelectorAll('span.off-screen').forEach((s: any) => s.remove());
+  tfCitationLinks(tempDiv).forEach((link) => {
+    // Drop the off-screen / inline "Citation" word, keep the year
+    tfStripCitationWord(link);
 
     // Remove problematic attributes but KEEP data-rid
     link.removeAttribute('data-behaviour');

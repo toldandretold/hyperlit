@@ -1,0 +1,396 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 4,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 6,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0003",
+          "marker": "4"
+        },
+        {
+          "id": "FN0004",
+          "marker": "5"
+        }
+      ],
+      "i": 17,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0005",
+          "marker": "6"
+        }
+      ],
+      "i": 18,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0006",
+          "marker": "7"
+        },
+        {
+          "id": "FN0007",
+          "marker": "8"
+        }
+      ],
+      "i": 21,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0008",
+          "marker": "9"
+        },
+        {
+          "id": "FN0009",
+          "marker": "10"
+        },
+        {
+          "id": "FN0010",
+          "marker": "11"
+        }
+      ],
+      "i": 23,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0011",
+          "marker": "12"
+        },
+        {
+          "id": "FN0012",
+          "marker": "13"
+        },
+        {
+          "id": "FN0013",
+          "marker": "14"
+        }
+      ],
+      "i": 24,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0014",
+          "marker": "16"
+        }
+      ],
+      "i": 26,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0015",
+          "marker": "17"
+        },
+        {
+          "id": "FN0016",
+          "marker": "18"
+        }
+      ],
+      "i": 30,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0017",
+          "marker": "19"
+        }
+      ],
+      "i": 32,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0018",
+          "marker": "20"
+        }
+      ],
+      "i": 33,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0019",
+          "marker": "21"
+        }
+      ],
+      "i": 35,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0020",
+          "marker": "22"
+        }
+      ],
+      "i": 38,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0021",
+          "marker": "23"
+        }
+      ],
+      "i": 39,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0022",
+          "marker": "24"
+        },
+        {
+          "id": "FN0023",
+          "marker": "25"
+        }
+      ],
+      "i": 40,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0024",
+          "marker": "26"
+        },
+        {
+          "id": "FN0025",
+          "marker": "27"
+        },
+        {
+          "id": "FN0026",
+          "marker": "28"
+        },
+        {
+          "id": "FN0026",
+          "marker": "28"
+        }
+      ],
+      "i": 42,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0027",
+          "marker": "29"
+        },
+        {
+          "id": "FN0027",
+          "marker": "29"
+        }
+      ],
+      "i": 43,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0028",
+          "marker": "30"
+        },
+        {
+          "id": "FN0028",
+          "marker": "30"
+        }
+      ],
+      "i": 45,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0029",
+          "marker": "31"
+        },
+        {
+          "id": "FN0030",
+          "marker": "32"
+        },
+        {
+          "id": "FN0031",
+          "marker": "33"
+        }
+      ],
+      "i": 50,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0032",
+          "marker": "34"
+        }
+      ],
+      "i": 51,
+      "references": [],
+      "type": "p"
+    }
+  ],
+  "node_count": 95,
+  "text_hashes": [
+    "386b0ffc97",
+    "57e9014f6c",
+    "59b2ab4ccd",
+    "781668cf7d",
+    "e14963baa6",
+    "4cccf13c85",
+    "9bf7c42ca4",
+    "3258302c94",
+    "e4c245d6a3",
+    "95f80dd856",
+    "746f36a03a",
+    "9946f4d5b0",
+    "76e865b3f6",
+    "5c89500be6",
+    "31d919bc49",
+    "cdd18d848b",
+    "da89bc895f",
+    "521866c01b",
+    "4e5e33d573",
+    "8cb6737283",
+    "a38b4983ca",
+    "7df3aaca50",
+    "f62868245f",
+    "e7292aa936",
+    "05e3d19213",
+    "98138e9f46",
+    "ed4c221afc",
+    "26ccd6123e",
+    "028ae90410",
+    "126d07d6e6",
+    "5dff6adee1",
+    "1883780c33",
+    "2135dbc02a",
+    "91d40af71f",
+    "cc106f44ae",
+    "6681e5c36d",
+    "516f0cde8f",
+    "a0c3a02ad4",
+    "885ad36c59",
+    "efee92ee0d",
+    "20fe4942f2",
+    "0c3f3fa3b5",
+    "a90907849b",
+    "e57ca9c399",
+    "10cd63ee5f",
+    "502c406e39",
+    "a176fe3333",
+    "275995d936",
+    "5f017deb99",
+    "223bfa7117",
+    "be296a4dec",
+    "e39262defe",
+    "ee7d8de9d9",
+    "b537a4c556",
+    "e69fc18a69",
+    "8949547274",
+    "0924d8a5f4",
+    "74e7e52a0e",
+    "ec0c3b7663",
+    "cdc13d7bd1",
+    "5714261554",
+    "5250089682",
+    "a9226fd64a",
+    "cf94a4f7f3",
+    "27292be60e",
+    "3f9c8b41f6",
+    "922ee463e1",
+    "7a2c57dcff",
+    "ade0c5b6a5",
+    "2330013a47",
+    "541c2e9c2d",
+    "8729dfef15",
+    "3744874426",
+    "78837dabbc",
+    "180b8e31a2",
+    "d14f31f1e8",
+    "f98bd2f4a7",
+    "2a5008bf1e",
+    "ddf526052f",
+    "065add754a",
+    "fba6f73198",
+    "4218f90265",
+    "9c242c23d2",
+    "e43b2ba96e",
+    "86df596671",
+    "f64af4a8cf",
+    "551ed55667",
+    "6fceab7fd0",
+    "bc9ce9638c",
+    "125c39fdb5",
+    "a067749f4b",
+    "fb55c8efff",
+    "d025e34d61",
+    "23420d63eb",
+    "838541d3fd"
+  ],
+  "type_histogram": {
+    "a": 4,
+    "h1": 3,
+    "h2": 4,
+    "p": 84
+  }
+}

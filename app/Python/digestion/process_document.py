@@ -64,9 +64,11 @@ class DocContext:
         self.footnote_sections = []
         self.footnote_map = {}
         # PASS 2 outputs
-        self.citations_found = 0
+        self.citations_found = 0      # from the text "(Author Year)" scan only
         self.citations_linked = 0
         self.citations_unlinked = []
+        self.anchor_converted = 0     # citations already wired in the source markup (EPUB biblioref)
+        self.anchor_unmatched = 0
         # AUDIT
         self.audit_data = None
         # PASS 3

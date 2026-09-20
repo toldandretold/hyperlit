@@ -1,0 +1,25 @@
+{
+    "name": "synthetic",
+    "description": "Synthetic EPUB in the shape a real publisher ships (Taylor & Francis / Routledge): the whole article wrapped in <article><section id=...>, and every in-text citation already wired as <a epub:type=biblioref href=#CIT000N>. Both halves were blind spots — the existing epub fixtures are flat bodies with unlinked prose, so a book collapsing to 2 nodes and 0 converted anchors passed the whole suite. Guards: node_count proves the wrappers were flattened (a real T&F EPUB produced 2 nodes of ~60k chars), citation_links proves the publisher's own anchors were re-pointed at our entry ids, and node 8 proves a loose inline run outside any <p> becomes ONE paragraph rather than a node per fragment.",
+    "book_id": "publisher_biblioref",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "epub",
+    "expected": {
+        "references_count": 3,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes",
+        "citation_style": "author-year-bracket",
+        "citation_links": [
+            {
+                "node_contains": "tragedy framing",
+                "anchors": [["1968", "hardin1968"], ["1990", "ostrom1990"]]
+            },
+            {
+                "node_contains": "Loose prose the publisher left outside",
+                "anchors": [["1965", "olson1965"]]
+            }
+        ]
+    }
+}

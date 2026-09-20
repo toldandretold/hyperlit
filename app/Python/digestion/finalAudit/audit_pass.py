@@ -72,8 +72,17 @@ class AuditPass(DocPass):
         print(f"Successfully created {os.path.join(output_dir, 'audit.json')}")
 
         # Write conversion_stats.json (standard path)
+        # A citation reaches the reader either way: found by the text "(Author Year)" scan, or
+        # already wired in the source markup and re-pointed at our entry ids by
+        # PreLinkedAnchorConverter. Both are citations and both are linked, so both are counted —
+        # a publisher EPUB is cited ENTIRELY through markup, and counting only the text scan
+        # reported `citations_total: 3, citations_linked: 0` for a book carrying 170 working
+        # links, which reads as a converter failure to every consumer of this file.
+        citations_total = ctx.citations_found + ctx.anchor_converted
+        citations_linked = ctx.citations_linked + ctx.anchor_converted
+
         # Determine citation style from what was detected
-        if len(ctx.references_data) > 0 and ctx.citations_found > 0:
+        if len(ctx.references_data) > 0 and citations_total > 0:
             citation_style = 'author-year-bracket'
         elif len(ctx.references_data) > 0:
             citation_style = 'bibliography-only'
@@ -82,8 +91,8 @@ class AuditPass(DocPass):
 
         conversion_stats = {
             'references_found': len(ctx.references_data),
-            'citations_total': ctx.citations_found,
-            'citations_linked': ctx.citations_linked,
+            'citations_total': citations_total,
+            'citations_linked': citations_linked,
             'footnotes_matched': len(ctx.all_footnotes_data),
             'footnote_strategy': ctx.strategy,
             'citation_style': citation_style,

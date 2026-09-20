@@ -34,6 +34,7 @@ class MetricsCalculator
             'detection_channels' => $this->detectionChannels($rows),
             'breakdowns' => [
                 'arm' => $this->breakdown($rows, 'arm'),
+                'pathway' => $this->breakdown($rows, 'pathway'),
                 'corruption_type' => $this->breakdown($rows, 'corruption_type'),
                 'evidence_type' => $this->breakdown($rows, 'evidence_type'),
                 'match_method' => $this->breakdown($rows, 'match_method'),

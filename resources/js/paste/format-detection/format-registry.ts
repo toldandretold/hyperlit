@@ -183,6 +183,15 @@ export const FORMAT_REGISTRY: Record<string, FormatConfig> = {
       '.NLM_sec',
       '.hlFld-Abstract',
       'li[id^="CIT"]',
+      // Both id generations: tandfonline emitted `CIT0087` until the 2026
+      // platform refresh lowercased it to `cit0087`. Attribute selectors compare
+      // the value case-sensitively, so `li[id^="CIT"]` alone stopped matching and
+      // new T&F pages fell through to the domain-only rung. The lowercase twin is
+      // matched on the ANCHOR, not the <li>: `li[id^="cit"]` also matches
+      // MediaWiki's `cite_note-N`, which hijacked the Wikipedia fixture. The
+      // data-rid + bibr pair is T&F-only across the whole fixture corpus.
+      'a[data-rid^="cit"][data-ref-type="bibr"]',
+      'a[data-rid^="CIT"][data-ref-type="bibr"]',
     ],
     domain: ['a[href*="tandfonline.com"]'],
     processor: TaylorFrancisProcessor,

@@ -1363,8 +1363,26 @@ class CitationScanBibliographyJob implements ShouldQueue
                 if (!empty($urlItems)) {
                     Log::info('Wave 6: Web fetch', ['count' => count($urlItems)]);
                     $fetchResults = $webFetch->fetchAndValidateBatch($urlItems);
-                    foreach ($fetchResults as $refId => $text) {
-                        if (!$text || !isset($pool[$refId])) {
+                    foreach ($fetchResults as $refId => $fetched) {
+                        if (!isset($pool[$refId])) {
+                            continue;
+                        }
+                        $text = $fetched['text'] ?? null;
+                        $staged = ($fetched['grade'] ?? null) === \App\Services\WebContent\WebTextAcquirer::GRADE_PDF_STAGED;
+                        if (!$text && !$staged) {
+                            // Record WHY, in the same wave_results structure the
+                            // other waves use, so it reaches match_diagnostics.
+                            // Wave 6 was the ONLY wave that recorded nothing on
+                            // failure, which is how a reference with a live URL
+                            // ended up diagnosed `no_candidates_all_waves` —
+                            // indistinguishable from a fabricated reference.
+                            $waveResults[$refId]['web_fetch'] = [
+                                'url'         => $urlItems[$refId]['url'],
+                                'outcome'     => $fetched['grade'] ?? 'unknown',
+                                'reason'      => $fetched['reason'] ?? null,
+                                'http_status' => $fetched['http_status'] ?? null,
+                                'channel'     => $fetched['channel'] ?? null,
+                            ];
                             continue;
                         }
                         $item = $pool[$refId];
@@ -1373,12 +1391,27 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $stubYear   = $item['llmMetadata']['year'] ?? null;
                         $url        = $urlItems[$refId]['url'];
 
-                        // NB: web-source browser-fetch + verification is NOT done here —
-                        // it's slow (a browser launch per source) and would stall the
-                        // bibliography scan. It runs in the VACUUM stage instead, where
-                        // slowness is expected and shown in the live viz. This wave just
-                        // creates the fast HTTP-scraped stub so the citation resolves.
-                        $stubBookId = $webFetch->createWebStubWithNodes($db, $stubTitle, $stubAuthor, $stubYear, $text, $url);
+                        // NB: full web-source VERIFICATION (identity check against the
+                        // cited title, canonical eligibility) still runs in the VACUUM
+                        // stage via importWebSource. What this wave now does do is
+                        // ESCALATE an unreadable page to the browser — because vacuum
+                        // only ever re-fetched sources that already had a stub, so a URL
+                        // whose cheap fetch failed here never got a browser at all and
+                        // resolved as "source not found" however alive it was.
+                        // A cited PDF goes down the REAL conversion lane: the file is
+                        // staged and the pipeline's OCR step (3/4) converts it with
+                        // footnotes and headings intact. Writing plain text here
+                        // instead would bypass the pipeline the whole app is built
+                        // around, and the row would be invisible to that step.
+                        $stubBookId = $staged
+                            ? $webFetch->createPdfSourceStub(
+                                $db, $stubTitle, $stubAuthor, $stubYear,
+                                (string) $fetched['staged_path'], $url, (int) ($fetched['prose_blocks'] ?? 0),
+                            )
+                            : $webFetch->createWebStubWithNodes(
+                                $db, $stubTitle, $stubAuthor, $stubYear, $text, $url,
+                                $fetched['grade'] ?? null, $fetched['staged_page'] ?? null,
+                            );
                         if ($stubBookId) {
                             $result = $this->resolveWithStub($item, $stubBookId, 'web_fetch', $db);
                             $result['url'] = $url;
@@ -1391,6 +1424,33 @@ class CitationScanBibliographyJob implements ShouldQueue
                             };
                             $this->removeRelatedPoolEntries($pool, $refId, $db, $stubBookId);
                         }
+                    }
+                }
+            }
+
+            // ── Deferred-metadata fallback: the printed URL has now been ASSESSED (Wave 6). ──
+            // A ref still in the pool here means its URL did not yield the source (dead, blocked,
+            // different work) — apply the parked title-search match, so URL-first never LOSES a
+            // resolution, it only orders content ahead of a content-free stub. Runs before Brave
+            // so no search money is spent on refs that already hold a corroborated match.
+            if (!empty($this->urlDeferredMatches)) {
+                foreach ($this->urlDeferredMatches as $refId => $stash) {
+                    if (!isset($pool[$refId])) {
+                        continue; // the URL fetch won — the stub carries actual content
+                    }
+                    $result = $this->resolveWithNormalised(
+                        $pool[$refId], $stash['normalised'], $stash['matchMethod'], $stash['score'],
+                        $openAlex, $db, $stash['diagnostics'], allowUrlDeferral: false,
+                    );
+                    if ($result) {
+                        $waveResults[$refId]['url_first'] = 'url_unusable_fell_back_to_' . $stash['matchMethod'];
+                        $results[] = $result;
+                        match ($result['status']) {
+                            'newly_resolved' => $newlyResolved++,
+                            'enriched'       => $enrichedExisting++,
+                            default          => $failedToResolve++,
+                        };
+                        $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
                     }
                 }
             }
@@ -1530,10 +1590,74 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Resolve a pool entry using a normalised work (OpenAlex/OL/SS shape).
      * Creates or finds a library stub, updates bibliography, returns result array.
      */
-    private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db, ?array $matchDiagnostics = null): ?array
+    /**
+     * Title-search matches parked because the citation PRINTS a URL that has not been fetched yet.
+     *
+     * A printed URL is itself a claim the author makes — "this source exists, here" — and
+     * assessing it is part of what a citation review verifies. Before 2026-09-20 a title-search
+     * match consumed the ref immediately, so the URL was never fetched: nkrumah1965 printed the
+     * full text's address on marxists.org, matched an Open Library record for a DIFFERENT book
+     * ("The spark on neo-colonialism", a Spark-newspaper collection, year NULL) at 0.678, and the
+     * reviewer judged the wrong work on its title alone.
+     *
+     * Shape: refId => [normalised, matchMethod, score, diagnostics]. Consumed after Wave 6: if the
+     * URL yielded the source, the stub (which carries CONTENT) wins and the stash is dropped; if
+     * the URL failed, the stashed metadata match is applied — so deferral can only ever add
+     * information, never lose the match.
+     */
+    private array $urlDeferredMatches = [];
+
+    private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db, ?array $matchDiagnostics = null, bool $allowUrlDeferral = true): ?array
     {
         $refId    = $poolItem['referenceId'];
         $isLinked = $poolItem['isLinked'];
+
+        // Centralised gates for TITLE-SEARCH matches (identifier matches — DOI, existing ids —
+        // skip both; an identifier is itself the corroboration).
+        if (in_array($matchMethod, self::TITLE_SEARCH_METHODS, true)) {
+            // (a) CORROBORATION: title similarity + author agreement alone can score 0.678 while
+            // naming a different book by the same author (nkrumah1965). A year that agrees is the
+            // cheapest independent witness; a year that DISAGREES means either our match is wrong
+            // or the printed details are — both findings, neither a silent resolution. The reject
+            // lands in the wave's near-miss capture, so it reaches match_diagnostics and the
+            // workbench rather than disappearing.
+            if (! $this->hasYearCorroboration($poolItem['llmMetadata'] ?? null, $normalised, $matchDiagnostics)) {
+                // Edition-mismatch tier: identity certain, year divergent — accept WITH the flag
+                // so the divergence reaches the reviewer instead of being resolved in silence.
+                $editionFlag = $this->editionMismatchTier($poolItem['llmMetadata'] ?? null, $normalised, $matchDiagnostics);
+                if ($editionFlag !== null) {
+                    $matchDiagnostics = ($matchDiagnostics ?? []) + ['edition_mismatch' => $editionFlag];
+                    Log::info('Title-search match accepted with edition-mismatch flag', [
+                        'refId' => $refId, 'method' => $matchMethod, 'flag' => $editionFlag,
+                    ]);
+                } else {
+                    Log::info('Title-search match rejected: uncorroborated', [
+                        'refId' => $refId, 'method' => $matchMethod, 'score' => $score,
+                        'candidate_title' => $normalised['title'] ?? null,
+                        'candidate_year' => $normalised['year'] ?? null,
+                    ]);
+                    return null;
+                }
+            }
+
+            // (b) URL-FIRST: the citation prints a URL the author vouches for. Park the metadata
+            // match and let Wave 6 fetch the URL — content beats a content-free stub, and a URL
+            // hosting a DIFFERENT work is a finding in its own right.
+            if ($allowUrlDeferral) {
+                $printedUrl = app(WebFetchService::class)->extractUrl($poolItem['content'] ?? '')
+                    ?: ($poolItem['llmMetadata']['url'] ?? null);
+                if ($printedUrl) {
+                    $this->urlDeferredMatches[$refId] ??= [
+                        'normalised' => $normalised, 'matchMethod' => $matchMethod,
+                        'score' => $score, 'diagnostics' => $matchDiagnostics,
+                    ];
+                    Log::info('Title-search match deferred for printed URL', [
+                        'refId' => $refId, 'method' => $matchMethod, 'score' => $score, 'url' => $printedUrl,
+                    ]);
+                    return null;
+                }
+            }
+        }
 
         $stubBookId = $openAlex->createOrFindStub($normalised);
         if (!$stubBookId) {
@@ -2433,6 +2557,83 @@ class CitationScanBibliographyJob implements ShouldQueue
      *
      * Returns true if the match should be REJECTED.
      */
+    /** The match methods that rest on fuzzy title similarity rather than an identifier. */
+    private const TITLE_SEARCH_METHODS = ['openalex', 'open_library', 'semantic_scholar', 'openalex_referenced'];
+
+    /**
+     * Does anything INDEPENDENT of the title vouch for this candidate being the cited work?
+     *
+     * The predecessor (hasYearMismatchRejection) treated absence as innocence: a candidate with NO
+     * year could not be year-rejected, and anything scoring >= 0.6 passed unexamined — which is
+     * exactly how "Neo-Colonialism: The Last Stage of Imperialism" (1965, Thomas Nelson) matched
+     * "The spark on neo-colonialism - the last stage of imperialism" (a Spark-newspaper
+     * collection, year NULL) at 0.678. Same author, overlapping title words, zero corroboration.
+     *
+     * Rules:
+     *  - both sides carry a year (incl. original_year for reprints): within ±1 corroborates;
+     *    a LARGER gap refuses — if the match is right the printed details are wrong, and either
+     *    way that is a finding for the near-miss record, not a silent resolution;
+     *  - a year missing on either side corroborates NOTHING — only a near-exact title
+     *    (titleScore >= 0.9) may stand alone then, because at that similarity the title itself is
+     *    the identifier (undated reports, working papers).
+     */
+    /**
+     * The EDITION-MISMATCH tier: a match so exact on title AND author that the work's identity is
+     * not in doubt, whose year nonetheless diverges from the printed one.
+     *
+     * Refusing these (as plain corroboration does) throws away right-work matches: prebisch1964
+     * printed "1964", and Semantic Scholar's record of the SAME UNCTAD report carries 2016 — a
+     * digitised reissue. titleScore 1.0, authorScore 1.0. That is not a wrong match; it is a
+     * right match with divergent details, which is exactly the thing a human reviewer should SEE:
+     * either a different edition/printing, or the author's citation details are wrong. Both are
+     * findings.
+     *
+     * So: accept, and return the flag payload that rides match_diagnostics to the workbench.
+     * Deliberately tight — title >= 0.95 and author >= 0.9 — so the Nkrumah class (titleScore
+     * 0.78, same author, no year) stays firmly refused. This tier exists BECAUSE the base title
+     * threshold is low (0.3-0.5); certainty this high is the only thing allowed to overrule a
+     * divergent year.
+     *
+     * @return array{printed_year: ?int, record_year: int, title_score: float, author_score: float}|null
+     */
+    private function editionMismatchTier(?array $llmMeta, array $candidate, ?array $diagnostics): ?array
+    {
+        $titleScore = (float) ($diagnostics['titleScore'] ?? 0);
+        $authorScore = (float) ($diagnostics['authorScore'] ?? 0);
+        if ($titleScore < 0.95 || $authorScore < 0.9) {
+            return null;
+        }
+
+        $candidateYear = isset($candidate['year']) && $candidate['year'] !== null ? (int) $candidate['year'] : null;
+        if ($candidateYear === null) {
+            return null; // nothing to diverge FROM — the near-exact-title rule already covers this
+        }
+
+        return [
+            'printed_year' => isset($llmMeta['year']) ? (int) $llmMeta['year'] : null,
+            'record_year'  => $candidateYear,
+            'title_score'  => round($titleScore, 3),
+            'author_score' => round($authorScore, 3),
+        ];
+    }
+
+    private function hasYearCorroboration(?array $llmMeta, array $candidate, ?array $diagnostics): bool
+    {
+        $candidateYear = isset($candidate['year']) && $candidate['year'] !== null ? (int) $candidate['year'] : null;
+        $llmYears = array_values(array_filter([
+            isset($llmMeta['year']) ? (int) $llmMeta['year'] : null,
+            isset($llmMeta['original_year']) ? (int) $llmMeta['original_year'] : null,
+        ], fn ($y) => $y !== null && $y > 0));
+
+        if ($candidateYear !== null && $llmYears !== []) {
+            $gap = min(array_map(fn ($y) => abs($y - $candidateYear), $llmYears));
+
+            return $gap <= 1;
+        }
+
+        return (float) ($diagnostics['titleScore'] ?? 0) >= 0.9;
+    }
+
     private function hasYearMismatchRejection(?array $llmMeta, array $candidate, float $score): bool
     {
         if (!$llmMeta || $score >= 0.6) {

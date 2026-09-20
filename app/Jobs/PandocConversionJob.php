@@ -43,6 +43,7 @@ class PandocConversionJob implements ShouldQueue
         $htmlOutputPath = "{$basePath}/intermediate.html";
         $pythonScriptPath = base_path('app/Python/process_document.py');
         $metadataStripScript = base_path('app/Python/strip_docx_metadata.py');
+        $headingNormalizeScript = base_path('app/Python/ingestion/word/normalize_docx_headings.py');
 
         Log::info("PandocConversionJob started for citation_id: {$this->citation_id}");
 
@@ -60,6 +61,12 @@ class PandocConversionJob implements ShouldQueue
             // Step 0b: Strip metadata from DOCX for privacy/security
             if ($inputExtension === 'docx') {
                 $this->stripDocxMetadata($metadataStripScript, $this->inputFilePath);
+                // Step 0c: Give pandoc the headings the document already declares. Pandoc reads
+                // heading level off the style NAME ("heading 1".."heading 9") and ignores
+                // <w:outlineLvl>, which is what OOXML actually defines the level with — so a
+                // journal template's own style called "Heading" converts to plain <p>. See the
+                // script for what that costs downstream (bibliography, strategy, chapters).
+                $this->normalizeDocxHeadings($headingNormalizeScript, $this->inputFilePath);
             }
 
             // Step 1: Convert DOCX to HTML using Pandoc
@@ -74,6 +81,14 @@ class PandocConversionJob implements ShouldQueue
                 '-o',
                 $htmlOutputPath,
                 '--track-changes=accept', // Accept all track changes for clean output
+                // Pandoc's default --wrap=auto hard-wraps the HTML source at ~72 columns, so a
+                // single <p> arrives at digestion carrying newlines. That is INDISTINGUISHABLE
+                // from the newline-crammed multi-entry bibliography <p> that
+                // SplitBibliographyParagraphs exists to split, and it shredded one reference
+                // entry into ~3 paragraphs — which then failed is_likely_reference, so the whole
+                // reference list went missing (refs=0, citation_style=none on every docx).
+                // The wrapping is purely cosmetic in HTML; turn it off at the source.
+                '--wrap=none',
                 '--extract-media=' . $basePath // Extracts images to the folder
             ]);
             $pandocProcess->setTimeout(300); // 5 minutes timeout
@@ -254,6 +269,35 @@ class PandocConversionJob implements ShouldQueue
             Log::warning("Failed to strip DOCX metadata, continuing anyway", [
                 'error' => $process->getErrorOutput(),
                 'output' => $process->getOutput()
+            ]);
+        }
+    }
+
+    /**
+     * Rewrite outline-level paragraph styles to the builtin "heading N" names pandoc reads.
+     * Best-effort like the metadata strip: a document we cannot improve converts exactly as
+     * it did before, so a failure here is logged and never fails the import.
+     */
+    private function normalizeDocxHeadings(string $scriptPath, string $docxPath): void
+    {
+        $pythonBin = env('PYTHON_PATH', 'python3');
+
+        $process = new Process([
+            $pythonBin,
+            $scriptPath,
+            $docxPath, // Rewrites the file in place
+        ]);
+        $process->setTimeout(60);
+        $process->run();
+
+        if ($process->isSuccessful()) {
+            Log::info('DOCX heading styles normalized for pandoc', [
+                'output' => trim($process->getOutput()),
+            ]);
+        } else {
+            Log::warning('Failed to normalize DOCX heading styles, continuing anyway', [
+                'error' => $process->getErrorOutput(),
+                'output' => $process->getOutput(),
             ]);
         }
     }

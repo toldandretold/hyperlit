@@ -1,0 +1,48 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 3,
+      "references": [
+        "serrano2024a",
+        "serrano2024b",
+        "okonjo2024",
+        "baptiste2024",
+        "serrano2019",
+        "serrano2023"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 4,
+      "references": [
+        "halloran1988",
+        "okonjo2018"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 14,
+  "text_hashes": [
+    "9e7161f74c",
+    "74f85f23cd",
+    "b9c7a1fec8",
+    "b277b25b4a",
+    "5d20d0fee3",
+    "e08197efd2",
+    "00bb28e732",
+    "d0311d0209",
+    "a92923488d",
+    "5f8a46dbf8",
+    "a5ed64af70",
+    "fbcb6b9b23",
+    "906788645e",
+    "dbde2c1492"
+  ],
+  "type_histogram": {
+    "h1": 1,
+    "h2": 1,
+    "p": 12
+  }
+}

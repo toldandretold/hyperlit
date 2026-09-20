@@ -332,10 +332,13 @@ class CitationCorruptor
         if (!is_file($sourcePath)) {
             throw new RuntimeException("Study file missing for '{$slug}': {$sourcePath}");
         }
-        if (str_ends_with(strtolower($sourcePath), '.html')) {
-            // HTML sources (numbered/Vancouver books) get their skeleton from
-            // the IMPORTED rows instead — parsing HTML for a reference list
-            // would just re-derive, less reliably, what the import produced.
+        $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['md', 'markdown'], true)) {
+            // Non-markdown sources (html, pdf, docx, epub, paste captures)
+            // get their skeleton from the IMPORTED rows instead — the study
+            // runs the real conversion pipeline on them, and parsing the raw
+            // source for a reference list would just re-derive, less
+            // reliably, what the import produced.
             return $this->skeletonFromImportedRows($manifest, $book, $dryRun);
         }
         $markdown = (string) file_get_contents($sourcePath);

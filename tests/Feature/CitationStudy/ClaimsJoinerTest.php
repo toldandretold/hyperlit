@@ -181,3 +181,14 @@ test('workbench adjudications ride along as human_* passthrough columns', functi
         ->and($rows[0]['gt_label'])->toBe('intact')
         ->and($rows[0]['verdict'])->toBe('source_not_found');
 });
+
+test('every dataset row carries the import pathway it came through', function () {
+    // The citation review is downstream of conversion, so a result is only
+    // interpretable alongside the pathway that produced its text.
+    [$manifest, $state] = joinerCorpus(
+        [joinerGt('g/one', 'intact', 'alder2010')],
+        [joinerClaim('alder2010', 'likely')]
+    );
+    $rows = (new ClaimsJoiner())->join($manifest, $state)['rows'];
+    expect($rows[0]['pathway'])->toBe('markdown'); // derived from original.md
+});

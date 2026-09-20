@@ -196,6 +196,14 @@ class StudyRunner
             if (is_file($mdTwin)) {
                 copy($mdTwin, "{$runDir}/{$slug}.report.md");
             }
+            // Review COVERAGE — how many of the book's citations this run actually examined. Kept
+            // with the run because it cannot be recovered from the claims file afterwards: an
+            // unmatched citation leaves no row there, so a later reader counting verdicts would
+            // treat "never examined" as "absent from the book".
+            $coverageTwin = preg_replace('/\.json$/', '.coverage.json', $claimsFile);
+            if (is_file($coverageTwin)) {
+                copy($coverageTwin, "{$runDir}/{$slug}.coverage.json");
+            }
             $contamination = $this->contaminationAudit($copiedClaims, $groundTruth);
             foreach ($contamination as $flag) {
                 $say("  CONTAMINATION {$slug}: {$flag}");

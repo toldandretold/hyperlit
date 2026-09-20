@@ -60,6 +60,7 @@ publisher redesigns their site, and tests run instantly with no network.
 - OUP: https://academic.oup.com/cje/article/44/2/319/5550923
 - Cambridge: https://www.cambridge.org/core/journals/historical-journal/article/contemporary-parliamentary-history-and-petitioners-in-the-long-parliament-c-16401642/59059B25E4588F8B53A17DC847F69B39
 - Taylor & Francis: https://www.tandfonline.com/doi/full/10.1080/09614524.2024.2400160
+- Taylor & Francis (2026 markup, lowercase CIT ids): https://www.tandfonline.com/doi/full/10.1080/0960085X.2026.2642660 — a mid-paragraph selection, deliberately: `tandf-2026-lowercase-cit-fragment.html` is a PARTIAL capture whose whole point is that there is no bibliography to link against. tandfonline emitted `data-rid="CIT0087"` until the 2026 platform refresh lowercased it to `cit0087`, and CSS attribute selectors compare the value case-sensitively — so the engine's `[data-rid^="CIT"]` / `li[id^="CIT"]` matched nothing and the paste landed reading "(Ma, Citation2023)" with the raw publisher anchor still in it. Contract lives in `tests/paste/format-processors/taylorFrancis.lowercaseCit.test.js`.
 - ScienceDirect: https://www.sciencedirect.com/science/article/pii/S0962629825001209
 - Sage: https://journals.sagepub.com/doi/10.1177/00323292251375901
 - Sage: https://journals.sagepub.com/doi/10.1177/02633957251384867

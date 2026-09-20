@@ -26,6 +26,7 @@ Mapping (per changed file):
     simple_md_to_html.py .................... test_simple_md_to_html + md/ + pdf/ fixtures
     ar5iv_preprocessor.py ................... test_ar5iv + html/ar5iv fixtures
     strip_docx_metadata.py .................. test_strip_docx_metadata + docx/ fixtures
+    normalize_docx_headings.py .............. test_docx_heading_normalization + docx/ fixtures
     a unit test file ........................ run just that test file
     a fixture file .......................... run just that fixture case
     the harness (run_regression/conftest/...) ALL
@@ -54,6 +55,8 @@ RULES = {
     'app/Python/digestion/footnoteExtraction/footnotes.py':           (['test_footnote_extraction.py', 'test_linking.py'], [ALL]),
     'app/Python/digestion/footnoteLinking/footnote_link_rules.py':    (['test_footnote_link_rules.py', 'test_marker_link_rules.py'], [ALL]),
     'app/Python/digestion/finalAudit/audit.py':                       (['test_audit.py'], [ALL]),
+    # Node generation is shared by EVERY lane — a change to what counts as a node changes them all.
+    'app/Python/digestion/finalize/finalize.py':                      (['test_node_flattening.py', 'test_node_plain_text.py'], [ALL]),
     'app/Python/digestion/citationLinking/citations.py':              (['test_citations.py'], ['author_year', 'bibliography']),
     'app/Python/digestion/citationLinking/citation_link_rules.py':    (['test_citation_link_rules.py'], ['author_year', 'bibliography']),
     'app/Python/digestion/bibliographyExtraction/bibliography.py':    (['test_bibliography.py'], ['bibliography', 'author_year']),
@@ -65,6 +68,7 @@ RULES = {
     'app/Python/ingestion/markdown_and_pdf_to_html/simple_md_to_html.py': (['test_simple_md_to_html.py'], ['md/', 'pdf/']),
     'app/Python/ingestion/html/ar5iv_preprocessor.py':                (['test_ar5iv.py'], ['html/ar5iv']),
     'app/Python/ingestion/word/strip_docx_metadata.py':               (['test_strip_docx_metadata.py'], ['docx/']),
+    'app/Python/ingestion/word/normalize_docx_headings.py':           (['test_docx_heading_normalization.py'], ['docx/']),
 }
 
 # Touch any of these and correctness of the whole harness is in question -> run everything.

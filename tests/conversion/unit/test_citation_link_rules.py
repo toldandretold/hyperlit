@@ -44,6 +44,117 @@ def test_pre_linked_anchor_converter_skips_bib_and_unmatched(soup):
 
 
 # ---------------------------------------------------------------------------
+# PreLinkedAnchorConverter — a PUBLISHER's anchor resolved through the DOM
+#
+# A real EPUB/HTML arrives already cited: every year is an
+# `<a epub:type="biblioref" href="#index_CIT0061">1974a</a>` aimed at the reference paragraph's
+# own id. That id is the publisher's, not one of our generated author-year keys, so the
+# bibliography_map lookup missed EVERY one of them — nicholls-nieo-epub: 171 anchors, 0 converted,
+# and the fallback text scan then found 3 citations because the years now live inside <a> tags.
+# PASS 1A has already stamped `<a class="bib-entry">` into the target paragraph, so the answer is
+# in the DOM.
+# ---------------------------------------------------------------------------
+def test_publisher_anchor_resolves_through_the_reference_paragraph(soup):
+    s = soup('<body><p>as argued (UNGA <a href="#index_CIT0061">1974a</a>).</p>'
+             '<p id="index_CIT0061"><a class="bib-entry" id="unga1974a"></a>'
+             'United Nations General Assembly. 1974a. Declaration.</p></body>')
+    ctx = CitationLinkContext(s, {})          # deliberately EMPTY — the key map cannot help here
+    PreLinkedAnchorConverter().apply(ctx)
+    a = s.find('a', href=True)
+    assert a['href'] == '#unga1974a'
+    assert 'in-text-citation' in a.get('class', [])
+    assert (ctx.anchor_converted, ctx.anchor_unmatched) == (1, 0)
+
+
+def test_publisher_anchor_resolves_when_the_id_is_on_a_marker_inside_the_entry(soup):
+    # Some publishers put the target id on an empty anchor at the head of the entry rather than
+    # on the <p> itself.
+    s = soup('<body><p>see (Ostrom <a href="#cit7">1990</a>).</p>'
+             '<p><a id="cit7"></a><a class="bib-entry" id="ostrom1990"></a>'
+             'Ostrom, E. 1990. Governing the Commons.</p></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    assert s.find('a', href=True)['href'] == '#ostrom1990'
+    assert ctx.anchor_converted == 1
+
+
+def test_anchor_to_a_section_wrapper_is_not_resolved_to_its_first_entry(soup):
+    # "#references" names the SECTION, not a work. Resolving it to whichever entry came first
+    # would be a confident wrong link — leave it alone and count it unmatched.
+    s = soup('<body><p>see the <a href="#references">reference list</a>.</p>'
+             '<section id="references">'
+             '<p><a class="bib-entry" id="ostrom1990"></a>Ostrom, E. 1990. Governing.</p>'
+             '</section></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    assert s.find('a', href=True)['href'] == '#references'   # untouched
+    assert (ctx.anchor_converted, ctx.anchor_unmatched) == (0, 1)
+
+
+def test_anchor_to_a_non_bibliography_target_is_left_alone(soup):
+    s = soup('<body><p>see <a href="#fig1">Figure 1</a>.</p>'
+             '<figure id="fig1"><img src="x.png"/></figure></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    assert s.find('a', href=True)['href'] == '#fig1'
+    assert (ctx.anchor_converted, ctx.anchor_unmatched) == (0, 1)
+
+
+def test_publisher_anchor_resolves_from_a_SELF_REFERENTIAL_ABSOLUTE_url(soup):
+    # eLife cites itself absolutely: `https://elifesciences.org/articles/60080#bib24`, never a bare
+    # `#bib24`. Requiring startswith('#') threw all 32 of barnett-2020's citations away as
+    # "external", and since they were already <a> tags the text scan would not touch them either —
+    # the book converted with ZERO linked citations and its review extracted no claims at all.
+    # The URL's shape cannot be the test (a pasted fragment has no <head> to compare against);
+    # landing on a bibliography entry in THIS document is.
+    s = soup('<body><p>acronyms hinder reading '
+             '(<a href="https://elifesciences.org/articles/60080#bib24">Sword, 2012</a>).</p>'
+             '<p id="bib24"><a class="bib-entry" id="sword2012"></a>'
+             'Sword, H. 2012. Stylish Academic Writing.</p></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    a = s.find('a', href=True)
+    assert a['href'] == '#sword2012'
+    assert 'in-text-citation' in a.get('class', [])
+    assert (ctx.anchor_converted, ctx.anchor_unmatched) == (1, 0)
+
+
+def test_absolute_url_whose_fragment_is_not_a_reference_is_left_untouched(soup):
+    # The safety property: an ordinary outbound link is not captured just because it carries a
+    # fragment. Its target names nothing here, so it stays exactly as the author wrote it.
+    s = soup('<body><p>see the <a href="https://example.com/guide#section-3">style guide</a>.</p>'
+             '<p><a class="bib-entry" id="sword2012"></a>Sword, H. 2012. Stylish.</p></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    assert s.find('a', href=True)['href'] == 'https://example.com/guide#section-3'
+    assert ctx.anchor_converted == 0
+
+
+def test_absolute_url_with_no_fragment_is_never_a_candidate(soup):
+    # No fragment at all means there is nothing to resolve; it must not even be counted as an
+    # unmatched citation anchor, or every outbound link in a book would inflate that number.
+    s = soup('<body><p>see <a href="https://example.com/paper">the paper</a>.</p>'
+             '<p><a class="bib-entry" id="sword2012"></a>Sword, H. 2012. Stylish.</p></body>')
+    ctx = CitationLinkContext(s, {})
+    PreLinkedAnchorConverter().apply(ctx)
+    assert s.find('a', href=True)['href'] == 'https://example.com/paper'
+    assert (ctx.anchor_converted, ctx.anchor_unmatched) == (0, 0)
+
+
+def test_markup_wired_counts_reach_the_caller_through_stats(soup):
+    # The (found, linked, unlinked) tuple counts the TEXT scan only. A publisher EPUB is cited
+    # entirely through markup, so without this the book reported citations_linked: 0 while
+    # carrying 170 working links.
+    s = soup('<body><p>as argued (UNGA <a href="#c1">1974a</a>).</p>'
+             '<p id="c1"><a class="bib-entry" id="unga1974a"></a>UNGA. 1974a. Declaration.</p>'
+             '</body>')
+    stats = {}
+    link_citations_rules(s, {}, None, stats)
+    assert stats['anchor_converted'] == 1
+    assert stats['anchor_unmatched'] == 0
+
+
+# ---------------------------------------------------------------------------
 # CitationPatternGate — skip reasons + the (Author YEAR) / [Author YEAR] pre-check
 # ---------------------------------------------------------------------------
 def test_gate_skips_when_no_bibliography(soup):
@@ -394,3 +505,127 @@ def test_a_resolving_citation_is_never_touched_twice(soup):
     before = str(s)
     link_citations_rules(s, {'smith2019': 'smith2019'})
     assert str(s) == before
+
+
+# ---------------------------------------------------------------------------
+# Year RANGES are date spans, not citations (the chacko-2025-conspiracy bug class).
+# "in Modi's first term (2014-2019), it intensified in its second term (2019-2024)" minted two
+# phantom links, because the paren is a perfect "(…YYYY…)" candidate and the author's name sits
+# right in front of it. A phantom link then feeds the citation review a claim-source pairing the
+# author never made.
+# ---------------------------------------------------------------------------
+def test_year_range_after_a_possessive_author_is_not_linked(soup):
+    s = soup("<body><p>Rhetoric in Modi's first term (2014-2019) intensified later.</p>"
+             '<p><a class="bib-entry" id="modi2014"></a>Modi, N. (2014). Address.</p>'
+             '<p><a class="bib-entry" id="modi2019"></a>Modi, N. (2019). Speech.</p></body>')
+    ctx = CitationLinkContext(s, {'modi2014': 'modi2014', 'modi2019': 'modi2019'})
+    ParenthesizedCitationLinker().apply(ctx)
+    assert s.find('a', class_='in-text-citation') is None
+    assert "(2014-2019)" in s.find('p').get_text()
+    # not a citation candidate at all — counted as a skipped span, never as an unlinked citation
+    assert ctx.year_ranges_skipped == 1
+    assert (ctx.citations_found, ctx.citations_unlinked) == (0, [])
+
+
+def test_year_range_without_any_author_in_front_is_not_linked(soup):
+    # The walk-back arm of the same bug: a BARE parenthesised span whose author lives in the prose.
+    s = soup('<body><p>The UPA governed (2009-2014) amid crisis, Chacko notes.</p>'
+             '<p><a class="bib-entry" id="chacko2009"></a>Chacko, P. (2009). Book.</p></body>')
+    ctx = CitationLinkContext(s, {'chacko2009': 'chacko2009'})
+    ParenthesizedCitationLinker().apply(ctx)
+    assert s.find('a', class_='in-text-citation') is None
+    assert ctx.year_ranges_skipped == 1
+
+
+def test_year_range_punctuation_variants_are_all_spans(soup):
+    # hyphen, en dash, em dash, and the abbreviated tail form "(1623–62)" — every one is a span.
+    for span in ('1646-1716', '1646–1716', '1646—1716', '1623–62', '1550 - 1617'):
+        s = soup(f'<body><p>Leibniz ({span}) was a polymath.</p></body>')
+        ctx = CitationLinkContext(s, {'leibniz1646': 'b1', 'leibniz1716': 'b2',
+                                      'leibniz1623': 'b3', 'leibniz1550': 'b4'})
+        ParenthesizedCitationLinker().apply(ctx)
+        assert s.find('a', class_='in-text-citation') is None, span
+        assert ctx.year_ranges_skipped == 1, span
+
+
+def test_a_genuine_adjacent_citation_still_links(soup):
+    # The guard must not cost the ordinary narrative form the possessive introduces.
+    s = soup("<body><p>Modi's speech (Modi, 2019) and Chacko's (2018) argument.</p></body>")
+    ctx = CitationLinkContext(s, {'modi2019': 'modi2019', 'chacko2018': 'chacko2018'})
+    ParenthesizedCitationLinker().apply(ctx)
+    hrefs = [a['href'] for a in s.find_all('a', class_='in-text-citation')]
+    assert hrefs == ['#modi2019', '#chacko2018']
+    assert ctx.year_ranges_skipped == 0
+
+
+def test_page_range_that_looks_like_years_does_not_steal_the_citation_key(soup):
+    """A page range whose endpoints are year-shaped: the citation year is not one of them, and
+    key generation (which takes the LAST plausible year it can see) must not key on 1994 —
+    that lost the link outright."""
+    s = soup('<body><p>As shown (Smith, 2001: 1990-1994).</p></body>')
+    ctx = CitationLinkContext(s, {'smith2001': 'smith2001', 'smith1990': 'smith1990'})
+    ParenthesizedCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [(a.get_text(), a['href']) for a in anchors] == [('2001', '#smith2001')]
+    assert '1990-1994' in s.find('p').get_text()
+
+
+# ---------------------------------------------------------------------------
+# Multi-year lists — "one author, several works" resolves per YEAR.
+# `generate_ref_keys` reads "(Modi, 2019, 2023)" as ONE reference and takes its LAST year, while
+# the linker anchors the FIRST — so both years pointed at the 2023 entry and the genuine Modi 2019
+# citation was never reviewed (study_phase1_chacko-2025-conspiracy).
+# ---------------------------------------------------------------------------
+def test_multi_year_list_resolves_each_year_to_its_own_entry(soup):
+    s = soup('<body><p>He fashioned himself thus (Modi, 2019, 2023).</p></body>')
+    ctx = CitationLinkContext(s, {'modi2019': 'modi2019', 'modi2023': 'modi2023'})
+    ParenthesizedCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [(a.get_text(), a['href']) for a in anchors] == [('2019', '#modi2019'),
+                                                            ('2023', '#modi2023')]
+
+
+def test_multi_year_list_survives_an_unresolvable_first_year(soup):
+    """(Merton 1968, 1988) with only a 1988 entry: the 1968 link was a confident-wrong one AND the
+    only reason 1988 linked at all (the trailing-year loop lived inside the first year's success
+    branch). Dropping the phantom must not drop the real one."""
+    s = soup('<body><p>The Matthew effect (Merton 1968, 1988) compounds.</p></body>')
+    ctx = CitationLinkContext(s, {'merton1988': 'merton1988'})
+    ParenthesizedCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [(a.get_text(), a['href']) for a in anchors] == [('1988', '#merton1988')]
+    assert '1968' in s.find('p').get_text()
+
+
+def test_multi_year_list_keeps_letter_suffixed_years_apart(soup):
+    s = soup('<body><p>As claimed (Modi, 2024a, 2024b).</p></body>')
+    ctx = CitationLinkContext(s, {'modi2024a': 'modi2024a', 'modi2024b': 'modi2024b'})
+    ParenthesizedCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [a['href'] for a in anchors] == ['#modi2024a', '#modi2024b']
+
+
+def test_locator_after_the_year_is_not_read_as_a_second_work(soup):
+    # "2018: 1761–1764" is a page range, so the citation stays ONE reference keyed on 2018.
+    s = soup('<body><p>Long-standing (Anderson and Clibbens, 2018: 1761-1764).</p></body>')
+    ctx = CitationLinkContext(s, {'anderson2018': 'anderson2018'})
+    ParenthesizedCitationLinker().apply(ctx)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [(a.get_text(), a['href']) for a in anchors] == [('2018', '#anderson2018')]
+
+
+def test_chacko_paragraph_end_to_end(soup):
+    """The live paragraph both bugs were found in (book_1789025680384 node 2700)."""
+    ids = ('modi2019', 'modi2023', 'modi2024a', 'modi2024b', 'shah2024', 'news2024')
+    bib = {k: k for k in ids}
+    entries = ''.join(f'<p><a class="bib-entry" id="{k}"></a>Entry {k}.</p>' for k in ids)
+    s = soup("<body><p>While this rhetoric mostly took 'dog whistle' forms in Modi's first term "
+             "(2014-2019), it intensified in its second term (2019-2024), spurred by crises "
+             "(Modi, 2024a, 2024b; Shah, 2024). Modi fashioned himself as a representative of God "
+             "(News18, 2024; Modi, 2019, 2023).</p>" + entries + "</body>")
+    link_citations_rules(s, bib)
+    anchors = s.find_all('a', class_='in-text-citation')
+    assert [(a.get_text(), a['href']) for a in anchors] == [
+        ('2024a', '#modi2024a'), ('2024b', '#modi2024b'), ('2024', '#shah2024'),
+        ('2024', '#news2024'), ('2019', '#modi2019'), ('2023', '#modi2023')]
+    assert '(2014-2019)' in s.get_text() and '(2019-2024)' in s.get_text()

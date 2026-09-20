@@ -117,9 +117,27 @@ final class ClaimVerifier
                     : "ABSTRACT (summary only — does NOT represent the full text)";
                 $sourceMaterial .= "{$abstractLabel}:\n{$claim['abstract']}\n\n";
             }
+            // HOW the source text was obtained, before any of it is shown.
+            //
+            // This block exists because the reviewer used to be handed every
+            // kind of text under one flat header, "PASSAGES FROM SOURCE TEXT",
+            // and would then reason as though it had read the work. A web page
+            // reduced by strip_tags could be a navigation rail; a stub found by
+            // searching the web for the title is a guess at the source's
+            // identity; and web_status 'rejected' means we already established
+            // the URL hosts a DIFFERENT article. All three were computed and
+            // none of them reached the model — only the human report saw them.
+            $provenance = $this->describeProvenance($claim);
+            if ($provenance !== []) {
+                $sourceMaterial .= "HOW THIS SOURCE TEXT WAS OBTAINED:\n- " . implode("\n- ", $provenance) . "\n\n";
+            }
+
             if ($hasPassages) {
                 $count = count($claim['source_passages']);
-                $sourceMaterial .= "PASSAGES FROM SOURCE TEXT ({$count} excerpts found by search — the source contains far more text than shown here):\n";
+                $label = $isWebSource
+                    ? "PASSAGES FROM THE WEB PAGE ({$count} excerpts found by search over the extracted text)"
+                    : "PASSAGES FROM SOURCE TEXT ({$count} excerpts found by search — the source contains far more text than shown here)";
+                $sourceMaterial .= "{$label}:\n";
                 foreach ($claim['source_passages'] as $j => $p) {
                     $sourceMaterial .= "--- Passage " . ($j + 1) . " ---\n{$p['text']}\n\n";
                 }
@@ -135,6 +153,13 @@ final class ClaimVerifier
                     ? 'WARNING: The text above is only a PARTIAL copy of the source (e.g. a single chapter, excerpt, or front-matter — not the whole work). If the claim is NOT found here, that is INCONCLUSIVE, not a refutation — it may appear in the parts of the work not available. Do NOT mark the claim rejected on absence alone.'
                     : 'NOTE: It is unverified whether the text above is the COMPLETE work. If the claim is not found, treat that as inconclusive rather than a refutation.';
                 $sourceMaterial .= "{$note}\n\n";
+            }
+
+            if (($claim['web_status'] ?? null) === 'rejected') {
+                $sourceMaterial .= "DO NOT TRUST THE TEXT ABOVE AS THIS SOURCE: we checked the page at the cited URL "
+                    . "against the cited work's title and they do not match — the URL hosts a DIFFERENT article. "
+                    . "Whatever the text says, it is not evidence about this citation. The cited work may still be "
+                    . "entirely genuine, so do NOT mark the claim rejected on the strength of this page.\n\n";
             }
 
             $claim['source_material_sent'] = trim($sourceMaterial) ?: null;
@@ -228,5 +253,44 @@ final class ClaimVerifier
             }
         }
 
+    }
+
+    /**
+     * Plain-English provenance lines for the verify prompt: where this source
+     * text came from, how it was matched to the citation, and how complete it
+     * is. Every fact here was already computed and stored on the claim — the
+     * only thing missing was telling the model.
+     *
+     * Kept deliberately short. The point is not to lecture the model but to
+     * stop it mistaking an automated extract for the work, or a title-similarity
+     * web-search hit for a positive identification.
+     *
+     * @param  array<string, mixed>  $claim
+     * @return list<string>
+     */
+    private function describeProvenance(array $claim): array
+    {
+        $lines = [];
+
+        $reason = trim((string) ($claim['source_completeness_reason'] ?? ''));
+        if ($reason !== '') {
+            // For web stubs this is WebTextAcquirer::describeGrade() — it names
+            // the extraction and says what may be missing from it.
+            $lines[] = 'The source text is ' . rtrim($reason, '.') . '.';
+        }
+
+        // Values written by CitationScanBibliographyJob / MetadataEnricher.
+        $lines[] = match ($claim['match_method'] ?? null) {
+            'brave_search' => 'This source was identified by SEARCHING THE WEB for the citation\'s title and taking the best-matching result. The identification is a GUESS, not a confirmed match — the page may be a different work with a similar title.',
+            'web_fetch' => 'This source is the page at the URL printed in the citation itself.',
+            'doi', 'local_doi' => 'This source was matched to the citation by DOI, so its identity is reliable.',
+            'exact' => 'This source was matched to the citation by an exact metadata match, so its identity is reliable.',
+            'library' => 'This source was matched to a copy already in the library by title and author similarity.',
+            'short_form_antecedent' => 'The citation is a short form (ibid./op. cit./author-only) and this source was inherited from the nearest preceding full citation.',
+            'bibliography_pointer' => 'The citation points at a bibliography entry which resolved to this source.',
+            default => null,
+        };
+
+        return array_values(array_filter($lines));
     }
 }

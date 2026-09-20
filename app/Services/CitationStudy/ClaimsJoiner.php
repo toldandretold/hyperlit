@@ -233,6 +233,7 @@ class ClaimsJoiner
             'human_cause' => $adjudication['cause'] ?? null,
             'human_note' => $adjudication['note'] ?? null,
             'human_found_url' => $adjudication['found_url'] ?? null,
+            'human_reference_exists' => $adjudication['reference_exists'] ?? null,
         ]);
     }
 
@@ -255,6 +256,10 @@ class ClaimsJoiner
             'book_id' => $bookState['book_id'],
             'slug' => $book['slug'],
             'arm' => $book['arm'],
+            // The import pathway this book's text came through (pdf/markdown/
+            // html/docx/epub/paste). The citation review is downstream of
+            // conversion, so every metric must be cuttable by it.
+            'pathway' => $manifest->pathwayFor($book),
             'pipeline_id' => $pipelineId,
             'claims_in_book' => $claimCount,
             'book_review_seconds' => $timings['steps']['review']['duration_seconds'] ?? null,

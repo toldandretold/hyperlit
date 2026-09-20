@@ -23,16 +23,18 @@
       "type": "p"
     }
   ],
-  "node_count": 4,
+  "node_count": 5,
   "text_hashes": [
     "c56fd60167",
     "bc13bad7e5",
     "f837dae32b",
-    "70440046a3"
+    "70440046a3",
+    "103f8038cb"
   ],
   "type_histogram": {
     "h1": 1,
-    "p": 2,
-    "section": 1
+    "h2": 1,
+    "ol": 1,
+    "p": 2
   }
 }

@@ -270,6 +270,41 @@ function generateReferenceKeys(text, contextText = "", formatType = "general") {
 }
 
 // resources/js/paste/utils/citation-linker.ts
+var YEAR_TOKEN_RE = /\d{4}[a-z]?/;
+var RANGE_LEFT_RE = /(?:^|\D)(?:1[5-9]\d\d|20\d\d)\s*[-‐‑‒–—―−]\s*$/;
+var RANGE_RIGHT_RE = /^\s*[-‐‑‒–—―−]\s*(?:(?:1[5-9]\d\d|20\d\d)|\d{2})(?!\d)/;
+var TRAILING_YEAR_RE = /^([\s,]+)(\d{4}[a-z]?)/;
+function isYearRangeHalf(text, token, index) {
+  if (!/^\d{4}$/.test(token)) return false;
+  const value = parseInt(token, 10);
+  if (value < 1500 || value > 2099) return false;
+  return RANGE_LEFT_RE.test(text.slice(0, index)) || RANGE_RIGHT_RE.test(text.slice(index + token.length));
+}
+function linkableYear(subCite) {
+  const first = subCite.match(YEAR_TOKEN_RE);
+  if (!first || first.index === void 0) return null;
+  return isYearRangeHalf(subCite, first[0], first.index) ? null : { token: first[0], index: first.index };
+}
+function linkTrailingYears(trailingPart, authorPart, contextBefore, referenceMappings, formatType) {
+  let remaining = trailingPart;
+  let out = "";
+  while (remaining) {
+    const extra = remaining.match(TRAILING_YEAR_RE);
+    if (!extra) return out + remaining;
+    const [, separator = "", yearToken = ""] = extra;
+    const rest = remaining.slice(extra[0].length);
+    if (RANGE_RIGHT_RE.test(rest)) {
+      out += separator + yearToken;
+      remaining = rest;
+      continue;
+    }
+    const keys = generateReferenceKeys(authorPart + yearToken, contextBefore, formatType);
+    const hit = keys.find((key) => referenceMappings.has(key));
+    out += hit ? `${separator}<a href="#${referenceMappings.get(hit)}" class="in-text-citation">${yearToken}</a>` : separator + yearToken;
+    remaining = rest;
+  }
+  return out;
+}
 function processInTextCitations(htmlContent, referenceMappings, allReferences = [], formatType = "general") {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = htmlContent;
@@ -324,6 +359,11 @@ function processInTextCitations(htmlContent, referenceMappings, allReferences = 
       subCitations.forEach((subCite, index) => {
         const trimmed = subCite.trim();
         if (!trimmed) return;
+        if (linkableYear(trimmed) === null && YEAR_TOKEN_RE.test(trimmed)) {
+          linkedParts.push(trimmed);
+          if (index < subCitations.length - 1) linkedParts.push("; ");
+          return;
+        }
         let processedCite = trimmed;
         const prefixes = ["Cited in ", "Quoted in ", "see ", "e.g., ", "cf. "];
         for (const prefix of prefixes) {
@@ -371,7 +411,13 @@ function processInTextCitations(htmlContent, referenceMappings, allReferences = 
             linkedParts.push(
               originalPrefix + authorPart,
               `<a href="#${referenceId}" class="in-text-citation">${yearPart}</a>`,
-              trailingPart
+              linkTrailingYears(
+                trailingPart,
+                authorPart,
+                text.substring(0, match.index),
+                referenceMappings,
+                formatType
+              )
             );
           } else {
             linkedParts.push(`<a href="#${referenceId}" class="in-text-citation">${trimmed}</a>`);
@@ -828,8 +874,78 @@ var BaseFormatProcessor = class {
    * @param {HTMLElement} dom - DOM to normalize
    */
   normalize(dom) {
-    const normalizedHtml = normalizeContent(dom.innerHTML, true);
+    this.stripVisuallyHidden(dom);
+    const normalizedHtml = this.repairTypographicUrls(normalizeContent(dom.innerHTML, true));
     dom.innerHTML = normalizedHtml;
+  }
+  /**
+   * Delete the sub-space characters a typesetter puts INSIDE a URL so a long link can wrap.
+   *
+   * Taylor & Francis renders "…/696640?ln<U+2009>=<U+2009>en&v<U+2009>=<U+2009>pdf" and
+   * percent-encodes the same thing into EPUB hrefs (%E2%80%89). Either way the stored link is not
+   * a URL the server ever indexed, so the citation resolver cannot fetch the source and falls back
+   * to matching bibliographic metadata — the reviewer is then handed a TITLE where the full text
+   * was freely available. Measured on nicholls-nieo-paste: 22 of 34 reference URLs unusable, and
+   * Nkrumah's "Neo-Colonialism" judged on its title alone while the full text sat on marxists.org.
+   *
+   * Operates on the HTML STRING, not the DOM. A TreeWalker collecting every text node was tried
+   * first and CRASHED the paste test worker on a real clipboard fixture; one linear pass over the
+   * markup covers href attributes and plain-text URLs alike (a bibliography often prints the link
+   * with no <a> at all, which is how all three survivors in nicholls-nieo-paste were shaped).
+   *
+   * Safe to delete rather than truncate at: a thin/hair/zero-width space is never valid inside a
+   * URL, so its presence is always this artifact. An ORDINARY space still ends a URL — which is
+   * why the run excludes only ASCII whitespace, letting the match continue THROUGH the gaps.
+   */
+  repairTypographicUrls(html) {
+    const LITERAL = /[\u2008-\u200D\u202F\u2060\uFEFF]/g;
+    const ENCODED = /%E2%80%(?:8[89ABCD]|AF)|%E2%81%A0|%EF%BB%BF/gi;
+    if (!/[\u2008-\u200D\u202F\u2060\uFEFF]/.test(html) && !/%E2%80%8/i.test(html)) {
+      return html;
+    }
+    let fixed = 0;
+    const out = html.replace(/https?:\/\/[^ \t\r\n<>"']*/g, (run) => {
+      const clean = run.replace(LITERAL, "").replace(ENCODED, "");
+      if (clean !== run) {
+        fixed++;
+      }
+      return clean;
+    });
+    if (fixed > 0) {
+      console.log(`  - Repaired ${fixed} URL(s) containing typographic spaces`);
+    }
+    return out;
+  }
+  /**
+   * Remove elements that are hidden from sighted readers — by CLASS or by off-screen style.
+   *
+   * Both signals are needed: publishers name the class differently (off-screen, sr-only,
+   * visually-hidden, screen-reader-text …) and some ship no class at all, only the inline
+   * clip/off-screen style. An element the reader cannot see is not part of the document's text,
+   * and carrying it forward corrupts URLs, prose and reference strings alike.
+   */
+  stripVisuallyHidden(dom) {
+    const CLASS_SEL = [
+      ".off-screen",
+      ".offscreen",
+      ".sr-only",
+      ".visually-hidden",
+      ".visuallyhidden",
+      ".screen-reader-text",
+      ".screen-reader-only",
+      ".a11y-hidden",
+      ".accessibility-hidden",
+      ".hidden-visually",
+      ".show-for-sr"
+    ].join(", ");
+    let removed = 0;
+    dom.querySelectorAll(CLASS_SEL).forEach((el) => {
+      el.remove();
+      removed++;
+    });
+    if (removed > 0) {
+      console.log(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`);
+    }
   }
   /**
    * Link in-text citations to references
@@ -1209,6 +1325,21 @@ function reformatCitationLink(link, { author = "", year = "", isNarrative = fals
     }
   }
 }
+var TF_CIT_RID = /^cit\d/i;
+function tfNormalizeRid(rid) {
+  return String(rid || "").toUpperCase();
+}
+function tfCitationLinks(root) {
+  return Array.from(root.querySelectorAll("a[data-rid]")).filter((link) => TF_CIT_RID.test(link.getAttribute("data-rid") || ""));
+}
+function tfReferenceItems(root) {
+  return Array.from(root.querySelectorAll("li[id]")).filter((item) => TF_CIT_RID.test(item.id || ""));
+}
+function tfStripCitationWord(link) {
+  link.querySelectorAll("span.off-screen").forEach((s) => s.remove());
+  const cleaned = (link.textContent || "").replace(/^\s*Citation\s*/i, "");
+  if (cleaned !== link.textContent) link.textContent = cleaned;
+}
 function cleanTFFootnoteContent(htmlContent) {
   const tempDiv = document.createElement("div");
   tempDiv.innerHTML = htmlContent;
@@ -1218,8 +1349,8 @@ function cleanTFFootnoteContent(htmlContent) {
     }
     span.remove();
   });
-  tempDiv.querySelectorAll('a[data-rid^="CIT"]').forEach((link) => {
-    link.querySelectorAll("span.off-screen").forEach((s) => s.remove());
+  tfCitationLinks(tempDiv).forEach((link) => {
+    tfStripCitationWord(link);
     link.removeAttribute("data-behaviour");
     link.removeAttribute("data-ref-type");
     link.removeAttribute("data-label");
@@ -2051,8 +2182,9 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       );
       return references;
     }
+    const citedFragments = this.collectCitedFragments(dom);
     accepted.forEach((el) => {
-      references.push(...this.buildReferencesFromBlock(el));
+      references.push(...this.buildReferencesFromBlock(el, citedFragments));
       el.remove();
     });
     if (referenceHeading && references.length > 0) referenceHeading.remove();
@@ -2123,7 +2255,71 @@ var GeneralProcessor = class extends BaseFormatProcessor {
    * Only splits when EVERY part reads as an entry, so a stray <br> inside a
    * single reference cannot shred it.
    */
-  buildReferencesFromBlock(el) {
+  /**
+   * Does this link's visible text read as a citation marker?
+   *
+   * Necessary because "a link that points into the reference list" is NOT the same as "a citation",
+   * and the difference produced a real false positive: the ACM Xanadu page links the words
+   * "permissions statement" to `#permissions-statement`, an anchor that happens to sit inside a
+   * block the cohort detector accepted as reference-like. Claiming that id turned an ordinary
+   * cross-reference into a citation pointing at a bibliography entry.
+   *
+   * A citation marker is an author-year (contains a 4-digit year) or a numeric/bracketed marker
+   * (`[1]`, `12`) — the same two shapes the citation linkers themselves recognise. Prose link text
+   * matches neither.
+   */
+  looksLikeCitationMarker(text) {
+    const trimmed = (text || "").trim();
+    if (!trimmed || trimmed.length > 200) return false;
+    return /\b(?:1[5-9]\d{2}|20\d{2})\b/.test(trimmed) || /^\[?\s*\d{1,3}\s*\]?$/.test(trimmed);
+  }
+  /**
+   * Every fragment id this document's own CITATIONS point at, e.g. `#bib24` and
+   * `https://elifesciences.org/articles/60080#bib24` both contribute `bib24`.
+   *
+   * This is the evidence that lets buildReferencesFromBlock recover a reference entry's PUBLISHER
+   * id without guessing at naming conventions: an id is only claimed when a citation in the body
+   * actually targets it. Two constraints, and both were needed in practice — the fragment regex
+   * deliberately matches the one in `paste/utils/citation-linker.ts` (the two must agree on what
+   * counts as a fragment, or an id captured here would be looked up under a different spelling
+   * there), and the link text must read as a citation marker rather than prose.
+   */
+  collectCitedFragments(dom) {
+    const cited = /* @__PURE__ */ new Set();
+    Array.from(dom.querySelectorAll("a[href]")).forEach((a) => {
+      const match = (a.getAttribute("href") || "").match(/#([a-zA-Z][\w-]*)$/);
+      if (match && this.looksLikeCitationMarker(a.textContent || "")) cited.add(match[1]);
+    });
+    return cited;
+  }
+  /**
+   * The id a reference entry is CITED BY, or null.
+   *
+   * A publisher's reference list carries its own identity, and in-text citations link to it — but
+   * that id is frequently not on the block we accepted as the entry. eLife nests it one level in:
+   * `<li class="reference-list__item"><div class="reference" id="bib24">`, so reading the `<li>`'s
+   * own id finds nothing and all 32 of barnett-2020's citations were dropped as unmappable.
+   *
+   * Only ids that a body citation actually points at are eligible, which is what makes this safe:
+   * a reference entry also contains Google Scholar, DOI and PubMed links that may carry ids of
+   * their own, and none of those are ever cited. An entry offering two cited ids is AMBIGUOUS and
+   * returns null rather than guessing — one wrong mapping silently attributes a claim to the wrong
+   * work, which is worse than leaving the citation unlinked and visibly unresolved.
+   */
+  citedIdForBlock(el, citedFragments) {
+    if (citedFragments.size === 0) return null;
+    const found = [];
+    const consider = (id) => {
+      if (id && citedFragments.has(id) && !found.includes(id)) found.push(id);
+    };
+    consider(el.getAttribute("id"));
+    Array.from(el.querySelectorAll("[id], a[name]")).forEach((child) => {
+      consider(child.getAttribute("id"));
+      consider(child.getAttribute("name"));
+    });
+    return found.length === 1 ? found[0] : null;
+  }
+  buildReferencesFromBlock(el, citedFragments = /* @__PURE__ */ new Set()) {
     const html = el.innerHTML;
     if (/<br\b[^>]*>/i.test(html)) {
       const parts = html.split(/<br\b[^>]*>/i).map((s) => s.trim()).filter((s) => s);
@@ -2143,12 +2339,15 @@ var GeneralProcessor = class extends BaseFormatProcessor {
         }
       }
     }
-    return [{
+    const entry = {
       content: html,
       originalText: (el.textContent || "").trim(),
       type: "html-paragraph",
       needsKeyGeneration: true
-    }];
+    };
+    const citedId = this.citedIdForBlock(el, citedFragments);
+    if (citedId) entry.originalAnchorId = citedId;
+    return [entry];
   }
   /**
    * Transform structure: wrap loose nodes and unwrap unnecessary containers
@@ -2556,7 +2755,7 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
    */
   async extractReferences(dom, bookId) {
     const references = [];
-    const citItems = dom.querySelectorAll('li[id^="CIT"]');
+    const citItems = tfReferenceItems(dom);
     if (citItems.length > 0) {
       citItems.forEach((item) => {
         const citId = item.id;
@@ -2572,7 +2771,7 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
             // Store the CIT ID for linking
           };
           references.push(reference);
-          this.citIdToRefMap.set(citId, reference);
+          this.citIdToRefMap.set(tfNormalizeRid(citId), reference);
         }
       });
     }
@@ -2615,11 +2814,12 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
    */
   linkCitations(dom, references) {
     super.linkCitations(dom, references);
-    const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
+    const citationLinks = tfCitationLinks(dom);
     let convertedCount = 0;
+    let unwrappedCount = 0;
     citationLinks.forEach((link) => {
       const citId = link.getAttribute("data-rid");
-      const reference = this.citIdToRefMap.get(citId);
+      const reference = this.citIdToRefMap.get(tfNormalizeRid(citId));
       if (reference && reference.referenceId) {
         link.setAttribute("href", `#${reference.referenceId}`);
         link.setAttribute("class", "in-text-citation");
@@ -2630,10 +2830,15 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
         link.removeAttribute("data-registered");
         convertedCount++;
       } else {
-        console.warn(`\u26A0\uFE0F T&F: Could not find reference for ${citId}`);
+        tfStripCitationWord(link);
+        unwrap(link);
+        unwrappedCount++;
       }
     });
     console.log(`  - Converted ${convertedCount} T&F citation links`);
+    if (unwrappedCount > 0) {
+      console.log(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`);
+    }
   }
   /**
    * Override linkFootnotes to handle T&F-specific data-rid footnote links
@@ -2684,11 +2889,8 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
    */
   async transformStructure(dom, bookId) {
     dom.querySelectorAll(".extra-links").forEach((el) => el.remove());
-    const citationLinks = dom.querySelectorAll('a[data-rid^="CIT"]');
-    citationLinks.forEach((link) => {
-      const textContent = link.textContent;
-      const cleanText = textContent.replace(/^Citation/i, "");
-      link.textContent = cleanText;
+    tfCitationLinks(dom).forEach((link) => {
+      tfStripCitationWord(link);
     });
     const removedSections = removeSectionsByHeading(dom, isReferenceSectionHeading);
     const removedStatic = removeStaticContentElements(dom);
@@ -4845,7 +5047,16 @@ var FORMAT_REGISTRY = {
       ".ref-lnk.lazy-ref.bibr",
       ".NLM_sec",
       ".hlFld-Abstract",
-      'li[id^="CIT"]'
+      'li[id^="CIT"]',
+      // Both id generations: tandfonline emitted `CIT0087` until the 2026
+      // platform refresh lowercased it to `cit0087`. Attribute selectors compare
+      // the value case-sensitively, so `li[id^="CIT"]` alone stopped matching and
+      // new T&F pages fell through to the domain-only rung. The lowercase twin is
+      // matched on the ANCHOR, not the <li>: `li[id^="cit"]` also matches
+      // MediaWiki's `cite_note-N`, which hijacked the Wikipedia fixture. The
+      // data-rid + bibr pair is T&F-only across the whole fixture corpus.
+      'a[data-rid^="cit"][data-ref-type="bibr"]',
+      'a[data-rid^="CIT"][data-ref-type="bibr"]'
     ],
     domain: ['a[href*="tandfonline.com"]'],
     processor: TaylorFrancisProcessor,

@@ -76,6 +76,7 @@ def _run_chain(pipeline, book_dir, tmp_dir, book_id):
         work = os.path.join(tmp_dir, 'input.docx')
         shutil.copy2(src, work)
         rr._run([sys.executable, rr.STRIP_DOCX_SCRIPT, work], timeout=60)
+        rr._run([sys.executable, rr.NORMALIZE_DOCX_HEADINGS_SCRIPT, work], timeout=60)
         html = os.path.join(tmp_dir, 'intermediate.html')
         r = rr._run(['pandoc', work, '-o', html, *rr.PANDOC_BASE_FLAGS, f'--extract-media={os.path.join(tmp_dir, "media")}'])
         if r.returncode != 0:

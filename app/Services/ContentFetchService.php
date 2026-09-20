@@ -72,6 +72,24 @@ class ContentFetchService
     private ?string $lastPlainWall = null;
 
     /**
+     * HTTP status of the last plain GET, kept so acquirePageHtml() can tell a
+     * DEAD page (404/410) from a BLOCKED one (401/403/429) from an unreachable
+     * host. fetchHtmlPlain collapses all of them to null, which is fine for the
+     * harvest ladder (it just falls through) but is exactly the distinction a
+     * citation reviewer needs — "this reference rotted" and "we were bot-blocked
+     * from a live source" are opposite conclusions about the same null.
+     */
+    private ?int $lastPlainStatus = null;
+
+    /**
+     * Content-Type of the last plain GET. Surfaced so a caller can tell "this
+     * was not HTML" from "this was broken HTML" — a citation URL pointing
+     * straight at a PDF report is a source we CAN read, just not down the HTML
+     * path (see App\Services\WebContent\PdfSourceReader).
+     */
+    private ?string $lastPlainContentType = null;
+
+    /**
      * Pause between an article's image downloads. The journal sweep already waits 2s between
      * ARTICLES, but that was set when an article was a single request — a figure-heavy page now
      * fires a dozen image requests inside that gap, which is the burst a publisher actually
@@ -707,7 +725,7 @@ class ContentFetchService
      * Cloudflare-aware). Returns the HTML string, or null on any failure (caller
      * falls through). Acquisition only — conversion happens in the paste engine.
      */
-    private function fetchHtmlViaBrowser(string $url): ?string
+    private function fetchHtmlViaBrowser(string $url, ?int $budgetMs = null): ?string
     {
         // Optional host capability (see config/services.php). Absent, the plain rung is the whole
         // ladder rather than a 70s wait for a process that was never going to work.
@@ -716,11 +734,21 @@ class ContentFetchService
         }
 
         try {
-            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path());
-            $proc->setInput(json_encode(['url' => $url, 'proxy' => $this->sessionProxyUrl()]));
-            // Must exceed the script's HARD_TIMEOUT — patchright's headed CF
-            // solve can take ~25s; give generous headroom.
-            $proc->setTimeout(70);
+            $env = $budgetMs !== null ? ['FETCH_HTML_BUDGET_MS' => (string) $budgetMs] : [];
+            $proc = new \Symfony\Component\Process\Process(['node', base_path('scripts/fetch-html.mjs')], base_path(), $env);
+            $sessionProxy = $this->sessionProxyUrl();
+            // `direct` is explicit so cfBrowser's env-proxy fallback does not
+            // override ProxyPolicy's verdict — a null proxy here MEANS direct.
+            $proc->setInput(json_encode([
+                'url'    => $url,
+                'proxy'  => $sessionProxy,
+                'direct' => $sessionProxy === null,
+            ]));
+            // Must exceed the script's own budget so the script reports a named
+            // failure instead of being killed mid-answer. Harvest's default 70s
+            // is generous on purpose — patchright's headed CF solve can take
+            // ~25s and one article is worth the wait.
+            $proc->setTimeout($budgetMs !== null ? (int) ceil($budgetMs / 1000) + 8 : 70);
             $proc->run();
         } catch (\Throwable $e) {
             Log::warning('Browser HTML fetch unavailable', ['url' => $url, 'error' => $e->getMessage()]);
@@ -738,6 +766,25 @@ class ContentFetchService
             'url' => $url, 'reason' => self::describeBrowserFailure($r),
         ]);
         return null;
+    }
+
+    /**
+     * The ground-truth page already on disk for this book, if any.
+     *
+     * Written either by a previous conversion (persistFetchedPage) or, now, by
+     * the resolver at stub-creation time. Empty or unreadable is treated as
+     * absent rather than as an error — a live fetch is always the fallback.
+     */
+    private function storedPageFor(string $bookId): ?string
+    {
+        $path = resource_path("markdown/{$bookId}/fetched_page.html");
+        if (! is_file($path)) {
+            return null;
+        }
+
+        $html = @file_get_contents($path);
+
+        return is_string($html) && strlen($html) >= 500 ? $html : null;
     }
 
     /**
@@ -760,6 +807,204 @@ class ContentFetchService
     }
 
     /**
+     * Acquire a page's HTML, escalating to the browser — and NOTHING else.
+     *
+     * The browser-escalating sibling of fetchPageForMetadata(): no gates, no
+     * import, no content written anywhere — but it WILL spend the Playwright
+     * rung when the cheap one comes back with nothing, and it records a walled
+     * host in `fetch_host_policy` (the one write, and the system's per-host
+     * learning) so the next citation naming that host goes straight to the
+     * residential proxy. It exists because CITATION
+     * resolution had no access to this ladder at all — WebFetchService did one
+     * bare 15s Http::get with no retry and no browser, so a JS-rendered news
+     * page (thewire.in: 11KB of shell reducing to 126 chars) or a Cloudflare
+     * interstitial (theprint.in, indiankanoon.org) resolved as "source not
+     * found" for references whose URLs were perfectly alive.
+     *
+     * Escalation policy mirrors importHtmlPage's, which learned it the hard way:
+     * a wall the SERVER declared (the x-amzn-waf-action header) is final and we
+     * do not spend 70s rendering a CAPTCHA, whereas a wall recognised from
+     * page MARKUP (a Cloudflare challenge document) is exactly what the headed
+     * browser's waitOutCloudflare can clear, so that one escalates.
+     *
+     * @return array{html: ?string, final_url: ?string, channel: string, wall: ?string, reason: ?string, status: ?int, browser_attempted: bool, content_type: ?string, wall_html?: ?string}
+     *         `wall_html` is the page a WALL was detected in — kept rather than
+     *         discarded, because a paywall or bot interstitial still carries the
+     *         publisher's declared headline (og:title / JSON-LD). Matching that
+     *         against a citation proves the cited work EXISTS even when its body
+     *         is unreadable, which is a far more useful answer than "blocked".
+     *         channel is 'plain' | 'browser' | 'none'; status is the plain GET's
+     *         HTTP code when there was one, so a caller can tell 404 from 403.
+     *
+     * $browserBudgetMs caps the escalation. It defaults to the CITATION budget
+     * (services.source_fetch.citation_browser_budget_ms) rather than harvest's
+     * 62s, because a review runs dozens of URLs and a hard-walled page spending
+     * the full minute to report "blocked" is a minute of nothing — measured at
+     * 62.5s each for thewalrus.ca and fbi.gov across one chacko bench.
+     */
+    public function acquirePageHtml(string $url, bool $allowBrowser = true, ?int $browserBudgetMs = null): array
+    {
+        // The URL comes from a bibliography we did not write, so it is hostile
+        // input. fetchHtmlPlain has no guard of its own (harvest feeds it URLs
+        // that came from OpenAlex/Crossref); this seam must add one.
+        if (! \App\Services\Security\UrlGuard::isSafeFetchUrl($url)) {
+            return ['html' => null, 'final_url' => null, 'channel' => 'none', 'wall' => null, 'reason' => 'blocked as unsafe to fetch', 'status' => null, 'browser_attempted' => false, 'content_type' => $this->lastPlainContentType];
+        }
+
+        $this->currentSession = Str::random(12);
+        $this->setPolicyHost($url);
+        $this->lastFinalUrl = null;
+        $this->lastPlainWall = null;
+
+        $detector = app(AccessWallDetector::class);
+
+        $plain = $this->fetchHtmlPlain($url);
+        $this->notePolicyLanding($this->lastFinalUrl);
+        $knownWall = null;
+
+        if ($plain !== null) {
+            $wall = $detector->detect($plain);
+            if ($wall === null) {
+                return ['html' => $plain, 'final_url' => $this->lastFinalUrl ?: $url, 'channel' => 'plain', 'wall' => null, 'reason' => null, 'status' => $this->lastPlainStatus, 'browser_attempted' => false, 'content_type' => $this->lastPlainContentType];
+            }
+            // Markup-declared wall: the browser is the tool for this.
+            if (! $allowBrowser || ! config('services.source_fetch.browser', true)) {
+                return ['html' => null, 'final_url' => $this->lastFinalUrl, 'channel' => 'plain', 'wall' => $wall, 'reason' => $wall, 'status' => $this->lastPlainStatus, 'browser_attempted' => false, 'content_type' => $this->lastPlainContentType, 'wall_html' => $plain];
+            }
+            // Remember it: if the browser then fails, "blocked by a Cloudflare
+            // challenge" is the honest answer, not "unreachable". Losing this
+            // turns a live bot-walled source into an apparently dead link.
+            $knownWall = $wall;
+        } else {
+            // No page. Is there evidence this is about US rather than the page?
+            // A server-declared WAF header, or a status that means "we know who
+            // you are and no" — 401/403/429 and friends.
+            $knownWall = $this->lastPlainWall ?? self::statusWall($this->lastPlainStatus);
+        }
+
+        if (! $allowBrowser) {
+            return ['html' => null, 'final_url' => $this->lastFinalUrl, 'channel' => 'plain', 'wall' => $knownWall, 'reason' => $knownWall ?? 'plain fetch yielded no page', 'status' => $this->lastPlainStatus, 'browser_attempted' => false, 'content_type' => $this->lastPlainContentType, 'wall_html' => $plain];
+        }
+
+        // Wall evidence means the refusal is about our ADDRESS, not the
+        // document, so the obvious move is to ratchet the host onto the
+        // residential proxy and render from there — what harvest does in
+        // retryOnFreshSession, minus the wasted direct attempt because here we
+        // already hold the evidence.
+        //
+        // OFF BY DEFAULT, because it was measured and it does not work. Over
+        // chacko's 59 unresolved citation URLs, a live residential IP recovered
+        // ZERO pages the datacenter IP could not get (24/59 usable direct,
+        // 23/59 through the proxy — the one difference was a host that also
+        // failed direct on retry, i.e. flaky, not IP-related). The 21 remaining
+        // blocks are managed challenges that patchright loses regardless of
+        // exit IP, headed or headless. Meanwhile forcing the proxy would spend
+        // ~4MB of metered residential bandwidth per blocked page (~84MB per
+        // heavily-cited review) to learn nothing, and marking the host would
+        // push HARVEST onto the proxy for it too.
+        //
+        // Harvest's own escalation is untouched: it fetches publisher PDFs
+        // behind real paywalls, where the residential IP is proven. This flag
+        // exists so the citation path can be switched on in one env var if a
+        // future corpus behaves differently — measure before flipping it.
+        if ($knownWall !== null
+            && ! $this->forceProxyThisWork
+            && config('services.source_fetch.citation_proxy_escalation', false)
+        ) {
+            if ($this->currentPolicyHost !== null) {
+                app(ProxyPolicy::class)->markWalled($this->currentPolicyHost, $knownWall);
+            }
+            $this->forceProxyThisWork = true;
+        }
+
+        // 0 (or an unset config) means "use harvest's default budget", so it
+        // must reach fetchHtmlViaBrowser as null — passing 0 through would set
+        // an 8s process timeout and kill the script mid-answer.
+        $budget = $browserBudgetMs ?? (int) config('services.source_fetch.citation_browser_budget_ms', 20000);
+        $rendered = $this->fetchHtmlViaBrowser($url, $budget > 0 ? $budget : null);
+        if ($rendered === null) {
+            return [
+                'html'      => null,
+                'final_url' => $this->lastFinalUrl,
+                'channel'   => 'none',
+                'wall'      => $knownWall,
+                'reason'    => $knownWall !== null
+                    ? "{$knownWall} (the browser could not clear it)"
+                    : 'no page from either the plain or browser channel',
+                'status'    => $this->lastPlainStatus,
+                'browser_attempted' => true,
+                'content_type' => $this->lastPlainContentType,
+            ];
+        }
+
+        $wall = $detector->detect($rendered);
+        if ($wall !== null) {
+            return ['html' => null, 'final_url' => $this->lastFinalUrl, 'channel' => 'browser', 'wall' => $wall, 'reason' => $wall, 'status' => $this->lastPlainStatus, 'browser_attempted' => true, 'content_type' => $this->lastPlainContentType, 'wall_html' => $rendered];
+        }
+
+        return ['html' => $rendered, 'final_url' => $this->lastFinalUrl ?: $url, 'channel' => 'browser', 'wall' => null, 'reason' => null, 'status' => $this->lastPlainStatus, 'browser_attempted' => true, 'content_type' => $this->lastPlainContentType];
+    }
+
+    /**
+     * Render a page in the browser, skipping the plain rung entirely.
+     *
+     * For the case where the cheap GET SUCCEEDED — 200, real HTML — but the
+     * document turned out to be an app shell with no article in it. That is the
+     * commonest thing a headless browser is for, and the escalation in
+     * acquirePageHtml cannot see it: the decision needs the extraction result,
+     * which lives a layer up in WebTextAcquirer. So the caller re-enters here
+     * once it knows the plain page was empty (real case: mea.gov.in press
+     * releases serve a JS portal and were graded metadata_only without anyone
+     * ever rendering them).
+     *
+     * @return array{html: ?string, final_url: ?string, channel: string, wall: ?string, reason: ?string, status: ?int, browser_attempted: bool}
+     */
+    public function renderPageHtml(string $url, ?int $browserBudgetMs = null): array
+    {
+        $miss = ['html' => null, 'final_url' => null, 'channel' => 'none', 'wall' => null, 'status' => null, 'browser_attempted' => false];
+
+        if (! \App\Services\Security\UrlGuard::isSafeFetchUrl($url)) {
+            return $miss + ['reason' => 'blocked as unsafe to fetch'];
+        }
+        if (! config('services.source_fetch.browser', true)) {
+            return $miss + ['reason' => 'browser rung disabled'];
+        }
+
+        $this->currentSession ??= Str::random(12);
+        $this->setPolicyHost($url);
+
+        $budget = $browserBudgetMs ?? (int) config('services.source_fetch.citation_browser_budget_ms', 20000);
+        $rendered = $this->fetchHtmlViaBrowser($url, $budget > 0 ? $budget : null);
+
+        if ($rendered === null) {
+            return ['html' => null, 'final_url' => $this->lastFinalUrl, 'channel' => 'none', 'wall' => null, 'reason' => 'the browser returned no page', 'status' => null, 'browser_attempted' => true];
+        }
+
+        $wall = app(AccessWallDetector::class)->detect($rendered);
+        if ($wall !== null) {
+            return ['html' => null, 'final_url' => $this->lastFinalUrl, 'channel' => 'browser', 'wall' => $wall, 'reason' => $wall, 'status' => null, 'browser_attempted' => true];
+        }
+
+        return ['html' => $rendered, 'final_url' => $this->lastFinalUrl ?: $url, 'channel' => 'browser', 'wall' => null, 'reason' => null, 'status' => null, 'browser_attempted' => true];
+    }
+
+    /**
+     * A status that means "we know what you are, and no" — as opposed to a
+     * status about the document. These are the codes worth spending a
+     * residential IP on; a 404 or a 500 would be identical from anywhere.
+     */
+    private static function statusWall(?int $status): ?string
+    {
+        if ($status === null) {
+            return null;
+        }
+
+        return in_array($status, [401, 402, 403, 407, 429, 451], true)
+            ? "refused with HTTP {$status} (bot block, paywall, or rate limit)"
+            : null;
+    }
+
+    /**
      * Plain proxied GET of an article page — the cheap rung below the browser.
      * Null on any non-200 / non-HTML / tiny response; the caller falls through
      * to the browser, and everything still passes the wall/identity/body gates
@@ -768,6 +1013,9 @@ class ContentFetchService
      */
     private function fetchHtmlPlain(string $url): ?string
     {
+        $this->lastPlainStatus = null;
+        $this->lastPlainContentType = null;
+
         try {
             $response = Http::withHeaders(self::browserHeaders())
                 ->withOptions(array_merge(
@@ -779,6 +1027,9 @@ class ContentFetchService
         } catch (\Throwable $e) {
             return null;
         }
+
+        $this->lastPlainStatus = $response->status();
+        $this->lastPlainContentType = $response->header('Content-Type') ?: null;
 
         // The server SAYS it challenged us. Believe it: this is cheaper and far more reliable than
         // recognising the rendered puzzle later, and it is the difference between "blocked by a
@@ -2186,15 +2437,88 @@ class ContentFetchService
      */
     public function importWebSource(string $url, string $citationTitle, string $bookId): array
     {
-        $html = $this->fetchHtmlViaBrowser($url);
+        // Reuse the page the RESOLVER already fetched, if it left one.
+        //
+        // Everything below — the wall check, the identity verdict, the
+        // paste-engine conversion, the body gate — still runs; only the
+        // download is skipped. That download was the single biggest cost of a
+        // citation review once resolution improved: chacko went from 35 web
+        // sources to 94, each re-fetched here with a browser at roughly a
+        // minute apiece, so over half the run was spent downloading pages we
+        // already had in hand.
+        //
+        // `fetched_page.html` is the same ground-truth file this method writes
+        // at the end (persistFetchedPage) and that reconvertHtmlLaneFromStoredPage
+        // reads, so nothing new is invented — the resolver simply fills it in
+        // earlier.
+        $html = $this->storedPageFor($bookId);
+        $reusedStoredPage = $html !== null;
+
+        // Share what the RESOLVER already learned about this host. FetchHostHealth
+        // gates WebTextAcquirer, but this stage calls fetchHtmlViaBrowser
+        // directly, so without this check the resolver skips economist.com in
+        // 0.0s while the vacuum stage still spends a full browser fetch on it —
+        // the same knowledge, ignored by half the pipeline.
         if ($html === null) {
+            $health = app(\App\Services\WebContent\FetchHostHealth::class);
+            $host = \App\Services\WebContent\FetchHostHealth::hostOf($url);
+            if ($health->isCoolingOff($host)) {
+                $known = $health->verdict($host);
+                $reason = sprintf(
+                    '%s (known from %d previous attempt(s) on %s)',
+                    $known['reason'] ?? 'this host has refused every channel we have',
+                    $known['consecutive_failures'] ?? 1,
+                    (string) $host,
+                );
+                $this->setPdfUrlStatus($bookId, $reason);
+
+                return ['status' => 'failed', 'reason' => $reason];
+            }
+        }
+
+        if ($html === null) {
+            $html = $this->fetchHtmlViaBrowser($url);
+        }
+
+        if ($html === null) {
+            // Feed the failure back, so the resolver inherits it too. Knowledge
+            // has to travel in both directions or each stage keeps paying to
+            // learn what the other already knows.
+            app(\App\Services\WebContent\FetchHostHealth::class)->recordFailure(
+                \App\Services\WebContent\FetchHostHealth::hostOf($url),
+                \App\Services\WebContent\WebTextAcquirer::GRADE_UNREACHABLE,
+                'the browser returned no page during web-source verification',
+                null,
+                ['browser'],
+            );
+
             return ['status' => 'failed', 'reason' => 'Could not fetch the web page'];
         }
 
         // Bot-wall interstitial — same deterministic check the academic lane runs.
         if ($wall = app(AccessWallDetector::class)->detect($html)) {
-            $this->setPdfUrlStatus($bookId, $wall);
-            return ['status' => 'failed', 'reason' => $wall];
+            // A STORED page that turns out to be a wall is not a verdict about
+            // the URL: the resolver may have saved a weaker channel's copy.
+            // Spend one live browser fetch before condemning it, so reusing the
+            // page can only ever save time, never change an outcome.
+            if ($reusedStoredPage) {
+                $fresh = $this->fetchHtmlViaBrowser($url);
+                if ($fresh !== null && app(AccessWallDetector::class)->detect($fresh) === null) {
+                    $html = $fresh;
+                    $reusedStoredPage = false;
+                    // Drop the stale copy, or persistFetchedPage's
+                    // never-overwrite rule would keep the wall page on disk
+                    // forever and every future run would pay the fallback
+                    // fetch again.
+                    @unlink(resource_path("markdown/{$bookId}/fetched_page.html"));
+                } else {
+                    $this->setPdfUrlStatus($bookId, $wall);
+                    return ['status' => 'failed', 'reason' => $wall];
+                }
+            } else {
+                $this->setPdfUrlStatus($bookId, $wall);
+                return ['status' => 'failed', 'reason' => $wall];
+            }
         }
 
         // Identity verdict (the honest URL-content match).
@@ -2326,9 +2650,15 @@ class ContentFetchService
      * cut the signal number off the end and left "signalled with signal" as the entire diagnosis.
      * `pdf_url_status` is a text column, so the truncation bought nothing.
      *
+     * PUBLIC because it is the app's only html-to-clean-article conversion and
+     * citation resolution needs it too (App\Services\WebContent\WebTextAcquirer
+     * uses it for publisher pages, where a real processor beats any generic
+     * readability pass). Safe to expose: it takes no $bookId, touches no DB and
+     * writes no files — it was already written as a pure function.
+     *
      * @return array{engine: ?array, reason: ?string}
      */
-    private function runPasteEngine(string $html): array
+    public function runPasteEngine(string $html): array
     {
         $bytes = number_format(strlen($html) / 1024, 0) . 'KB';
 

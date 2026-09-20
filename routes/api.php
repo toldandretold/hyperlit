@@ -734,6 +734,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::get('/maintainer/study/node-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'nodeSearch'])
         ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::post('/maintainer/study/books/{slug}/flag-conversion', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'flagConversion'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::get('/maintainer/study/check-link', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'checkLink'])
+        ->middleware('throttle:30,1');
 
     Route::get('/maintainer/hypercites/journals', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'journals']);
     Route::get('/maintainer/hypercites/runs/{id}', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'runStatus'])

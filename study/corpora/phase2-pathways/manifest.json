@@ -1,0 +1,308 @@
+{
+    "corpus": "phase2-pathways",
+    "description": "Phase 2: PATHWAY corpus. Each book is adopted from a REAL source file and tagged with the import pathway it came through, so citation-review results can be cut by pathway. Books sharing a provenance.document_group are the SAME document through different pathways (an A/B that isolates conversion fidelity from document difficulty).",
+    "created": "2026-09-17",
+    "frozen": false,
+    "books": [
+        {
+            "slug": "chacko-2025-paste",
+            "arm": "control",
+            "source_file": "sources/chacko-2025-paste/original.html",
+            "ground_truth": "sources/chacko-2025-paste/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Conspiracy theories and India's transnational authoritarian populism",
+                "author": "Priya Chacko",
+                "year": 2025,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "chacko-2025-conspiracy-theories-and-india-s-transnational-authoritarian-populism-ngos-khalistanis-and-soros.html",
+                "adopted_at": "2026-09-17",
+                "document_group": "chacko-2025-conspiracy"
+            },
+            "pathway": "paste"
+        },
+        {
+            "slug": "chacko-2025-pdf",
+            "arm": "control",
+            "source_file": "sources/chacko-2025-pdf/original.pdf",
+            "ground_truth": "sources/chacko-2025-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Conspiracy theories and India's transnational authoritarian populism",
+                "author": "Priya Chacko",
+                "year": 2025,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "chacko-2025-conspiracy-theories-and-india-s-transnational-authoritarian-populism-ngos-khalistanis-and-soros.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "chacko-2025-conspiracy"
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "chacko-2025-epub",
+            "arm": "control",
+            "source_file": "sources/chacko-2025-epub/original.epub",
+            "ground_truth": "sources/chacko-2025-epub/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Conspiracy theories and India's transnational authoritarian populism",
+                "author": "Priya Chacko",
+                "year": 2025,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "chacko-2025-conspiracy-theories-and-india-s-transnational-authoritarian-populism-ngos-khalistanis-and-soros.epub",
+                "adopted_at": "2026-09-17",
+                "document_group": "chacko-2025-conspiracy"
+            },
+            "pathway": "epub"
+        },
+        {
+            "slug": "nicholls-nieo-paste",
+            "arm": "control",
+            "source_file": "sources/nicholls-nieo-paste/original.html",
+            "ground_truth": "sources/nicholls-nieo-paste/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Non-aligned common front: strategic imaginaries of the New International Economic Order (NIEO)",
+                "author": "Samuel Nicholls",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "nicholls_strategic-imaginaries.html",
+                "adopted_at": "2026-09-17",
+                "document_group": "nicholls-nieo"
+            },
+            "pathway": "paste"
+        },
+        {
+            "slug": "nicholls-nieo-pdf",
+            "arm": "control",
+            "source_file": "sources/nicholls-nieo-pdf/original.pdf",
+            "ground_truth": "sources/nicholls-nieo-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Non-aligned common front: strategic imaginaries of the New International Economic Order (NIEO)",
+                "author": "Samuel Nicholls",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "nicholls_strategic-imaginaries.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "nicholls-nieo"
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "nicholls-nieo-docx",
+            "arm": "control",
+            "source_file": "sources/nicholls-nieo-docx/original.docx",
+            "ground_truth": "sources/nicholls-nieo-docx/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Non-aligned common front: strategic imaginaries of the New International Economic Order (NIEO)",
+                "author": "Samuel Nicholls",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "nicholls_strategic-imaginaries.docx",
+                "adopted_at": "2026-09-17",
+                "document_group": "nicholls-nieo"
+            },
+            "pathway": "docx"
+        },
+        {
+            "slug": "nicholls-nieo-epub",
+            "arm": "control",
+            "source_file": "sources/nicholls-nieo-epub/original.epub",
+            "ground_truth": "sources/nicholls-nieo-epub/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Non-aligned common front: strategic imaginaries of the New International Economic Order (NIEO)",
+                "author": "Samuel Nicholls",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "Non-aligned common front  strategic imaginaries of the New International Economic Order  NIEO .epub",
+                "adopted_at": "2026-09-17",
+                "document_group": "nicholls-nieo"
+            },
+            "pathway": "epub"
+        },
+        {
+            "slug": "mittelstadt-2016-paste",
+            "arm": "control",
+            "source_file": "sources/mittelstadt-2016-paste/original.html",
+            "ground_truth": "sources/mittelstadt-2016-paste/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The ethics of algorithms: Mapping the debate",
+                "author": "Brent Mittelstadt; Patrick Allo; Mariarosaria Taddeo",
+                "year": 2016,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": " Mittelstadt-sage-the-ethics-of-algorithms-mapping-the-debate.html",
+                "adopted_at": "2026-09-17",
+                "document_group": "mittelstadt-2016-ethics"
+            },
+            "pathway": "paste"
+        },
+        {
+            "slug": "peer-review-2027-pdf",
+            "arm": "control",
+            "source_file": "sources/peer-review-2027-pdf/original.pdf",
+            "ground_truth": "sources/peer-review-2027-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Peer Review 2027: Scenarios for Academic Publishing in the Age of AI",
+                "author": "pleaseplease",
+                "year": 2026,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "peer-review-2021_Academic_Publishing_in_LLM_Age.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "peer-review-2027"
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "barnett-2020-paste",
+            "arm": "control",
+            "source_file": "sources/barnett-2020-paste/original.html",
+            "ground_truth": "sources/barnett-2020-paste/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The growth of acronyms in the scientific literature",
+                "author": "Adrian Barnett; Zoe A. Doubleday",
+                "year": 2020,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "Barnett-Doubleday_web-meta-research-the-growth-of-acronyms-in-the-scientific-liter.html",
+                "adopted_at": "2026-09-17",
+                "document_group": "barnett-2020-acronyms",
+                "note": "eLife has no dedicated paste processor — the engine fell back to \"general\", extracting 26 references but ZERO in-text citation anchors. Kept deliberately: an unrecognised publisher is a real user scenario, and this book measures what the citation review can do when the pathway links nothing."
+            },
+            "pathway": "paste"
+        },
+        {
+            "slug": "barnett-2020-pdf",
+            "arm": "control",
+            "source_file": "sources/barnett-2020-pdf/original.pdf",
+            "ground_truth": "sources/barnett-2020-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The growth of acronyms in the scientific literature",
+                "author": "Adrian Barnett; Zoe A. Doubleday",
+                "year": 2020,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "original.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "barnett-2020-acronyms"
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "underwood-2016-pdf",
+            "arm": "control",
+            "source_file": "sources/underwood-2016-pdf/original.pdf",
+            "ground_truth": "sources/underwood-2016-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "The Life Cycles of Genres",
+                "author": "Ted Underwood",
+                "year": 2016,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "original.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "underwood-2016-genres"
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "deloitte-2025-pdf",
+            "arm": "retracted",
+            "source_file": "sources/deloitte-2025-pdf/original.pdf",
+            "ground_truth": "sources/deloitte-2025-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Independent Review of the TCF - Final Report - July 2025",
+                "author": "Deloitte",
+                "year": 2025,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "original.pdf",
+                "adopted_at": "2026-09-17",
+                "document_group": "deloitte-2025-tcf",
+                "note": "The SAME PDF phase1 measured OCR damage on: 55/136 footnote citations carried OCR-invented words while the PDF text layer was clean. Re-adopted as a raw-file pdf pathway book so the post-repair conversion (repair_def_text_from_pypdf) is measured end to end."
+            },
+            "pathway": "pdf"
+        },
+        {
+            "slug": "cambridge-voluntariness-paste",
+            "arm": "control",
+            "source_file": "sources/cambridge-voluntariness-paste/original.html",
+            "ground_truth": "sources/cambridge-voluntariness-paste/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Voluntariness and Migration: A Restatement",
+                "author": "Unknown",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "cambridge-voluntariness-and-migration-a-restatement.html",
+                "adopted_at": "2026-09-18"
+            },
+            "pathway": "paste"
+        },
+        {
+            "slug": "cambridge-voluntariness-pdf",
+            "arm": "control",
+            "source_file": "sources/cambridge-voluntariness-pdf/original.pdf",
+            "ground_truth": "sources/cambridge-voluntariness-pdf/ground_truth.json",
+            "default_label": "intact",
+            "provenance": {
+                "title": "Voluntariness and Migration: A Restatement",
+                "author": "Unknown",
+                "year": 2024,
+                "doi": null,
+                "url": null,
+                "source_book_id": null,
+                "source_markdown": "raw-file",
+                "original_file": "voluntariness-and-migration-a-restatement.pdf",
+                "adopted_at": "2026-09-18"
+            },
+            "pathway": "pdf"
+        }
+    ]
+}

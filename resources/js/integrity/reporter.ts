@@ -35,6 +35,15 @@ export interface OrphanNode {
   error?: string;
 }
 
+/** A node whose id sorts before the sibling it follows in the DOM. */
+export interface OutOfOrderNode {
+  id: string;
+  previousId: string;
+  tag: string;
+  nodeId?: string | null;
+  textSnippet?: string;
+}
+
 /** The payload reportIntegrityFailure accepts (all collections optional). */
 export interface IntegrityFailureReport {
   bookId: string;
@@ -44,6 +53,10 @@ export interface IntegrityFailureReport {
   missingFromIDB?: Array<MissingNode | string>;
   duplicateIds?: DuplicateId[];
   orphanedNodes?: OrphanNode[];
+  // Node ORDER, not node content: ids that no longer sort the way the DOM reads. The
+  // per-node DOM↔IDB comparison can't surface these — every node matches its own
+  // record — so they arrive as their own category.
+  outOfOrderNodes?: OutOfOrderNode[];
   trigger?: string;
   selfHealed?: boolean;
   selfHealedNodeIds?: Array<string | number>;
@@ -64,9 +77,20 @@ let _releaseModalTrap: (() => void) | null = null;
  * @param {string[]} opts.missingFromIDB - Node IDs present in DOM but absent from IDB
  * @param {string}   opts.trigger      - What triggered the check ("save" | "paste" | "manual")
  */
-export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }: IntegrityFailureReport) : Promise<void> {
+export async function reportIntegrityFailure({ bookId, mismatches = [], missingFromIDB = [], duplicateIds = [], orphanedNodes = [], outOfOrderNodes = [], trigger = 'unknown', selfHealed = false, selfHealedNodeIds = [] }: IntegrityFailureReport) : Promise<void> {
   // Always log
-  console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, orphanedNodes, trigger });
+  console.warn('[integrity] MISMATCH DETECTED', { bookId, mismatches, missingFromIDB, duplicateIds, orphanedNodes, outOfOrderNodes, trigger });
+
+  if (outOfOrderNodes.length > 0) {
+    // One summary line, not one per node: the whole list rides along as structured
+    // detail, and a per-entry loop in a failure path is exactly the console spam the
+    // logging rules exist to prevent.
+    log.error(
+      `[integrity] ${outOfOrderNodes.length} node(s) sort before the node they follow — the book reads correctly NOW but will reorder on the next render`,
+      'integrity/reporter.ts',
+      outOfOrderNodes.map((n) => `<${n.tag}> ${n.id} after ${n.previousId}: "${n.textSnippet?.substring(0, 80)}"`),
+    );
+  }
 
   if (orphanedNodes.length > 0) {
     console.warn(`[integrity] Orphaned nodes (${orphanedNodes.length}):`);
@@ -177,6 +201,13 @@ export async function reportIntegrityFailure({ bookId, mismatches = [], missingF
       assignedId: o.assignedId || null,
       healFailed: o.healFailed || false,
       error: o.error || null,
+    })),
+    outOfOrderNodes: outOfOrderNodes.map((n: any) => ({
+      id: n.id,
+      previousId: n.previousId,
+      tag: n.tag || null,
+      nodeId: n.nodeId || null,
+      textSnippet: (n.textSnippet || '').substring(0, 500),
     })),
     trigger,
     selfHealed,
@@ -387,6 +418,7 @@ async function _doSend(payload: any) {
         missingFromIDB:    payload.missingFromIDB?.length    ?? 0,
         duplicateIds:      payload.duplicateIds?.length      ?? 0,
         orphanedNodes:     payload.orphanedNodes?.length     ?? 0,
+        outOfOrderNodes:   payload.outOfOrderNodes?.length   ?? 0,
         selfHealedNodeIds: payload.selfHealedNodeIds?.length ?? 0,
         recentLogs:        payload.recentLogs?.length        ?? 0,
         payloadBytes:      JSON.stringify(payload).length,

@@ -61,8 +61,17 @@ class BodyPresenceAssessor
         self::PROFILE_WEB       => ['blocks' => 2, 'chars' => 1500],
     ];
 
-    /** Block-level elements whose text is a candidate body paragraph. */
-    private const BLOCK_TAGS = ['p', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'td', 'dd', 'pre', 'div', 'section', 'article'];
+    /**
+     * The block walk and the two non-prose filters live in ProseBlockExtractor
+     * so the citation resolver's main-content extraction reuses this exact
+     * notion of "a body paragraph". The THRESHOLDS and the verdict stay here.
+     */
+    private ProseBlockExtractor $blocks;
+
+    public function __construct(?ProseBlockExtractor $blocks = null)
+    {
+        $this->blocks = $blocks ?? new ProseBlockExtractor();
+    }
 
     /**
      * Assess a body-HTML string (the paste engine's `html` output).
@@ -71,7 +80,11 @@ class BodyPresenceAssessor
      */
     public function assess(string $html, string $profile = self::PROFILE_SCHOLARLY): array
     {
-        return $this->assessBlocks($this->blockTexts($html), $profile);
+        // stripNonContent: FALSE deliberately. This path is fed the paste
+        // engine's already-cleaned body HTML, and its calibration (26-85 prose
+        // blocks for a real article) was measured with leaked <style>/<script>
+        // text arriving as blocks and being dropped by isCodeLike.
+        return $this->assessBlocks($this->blocks->leafBlocks($html), $profile);
     }
 
     /**
@@ -91,10 +104,10 @@ class BodyPresenceAssessor
         $proseChars  = 0;
 
         foreach ($texts as $raw) {
-            $text = trim(preg_replace('/\s+/u', ' ', (string) $raw));
+            $text = $this->blocks->normalise((string) $raw);
             $len  = mb_strlen($text);
 
-            if ($len < self::PROSE_CHAR_FLOOR || $this->isCodeLike($text) || $this->isReferenceLike($text)) {
+            if ($len < self::PROSE_CHAR_FLOOR || $this->blocks->isCodeLike($text) || $this->blocks->isReferenceLike($text)) {
                 continue;
             }
 
@@ -117,63 +130,4 @@ class BodyPresenceAssessor
         ];
     }
 
-    /**
-     * Leaf block-level elements' text. "Leaf" (a block containing no other
-     * block) is what stops a wrapping <div>/<section> from being counted again
-     * on top of the paragraphs inside it.
-     *
-     * @return list<string>
-     */
-    private function blockTexts(string $html): array
-    {
-        if (trim($html) === '') {
-            return [];
-        }
-
-        $doc  = new \DOMDocument();
-        $prev = libxml_use_internal_errors(true);
-        $doc->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_NOERROR | LIBXML_NOWARNING);
-        libxml_clear_errors();
-        libxml_use_internal_errors($prev);
-
-        $self  = implode(' or ', array_map(fn ($t) => "self::{$t}", self::BLOCK_TAGS));
-        $xpath = new \DOMXPath($doc);
-        $nodes = $xpath->query("//*[{$self}][not(.//*[{$self}])]");
-        if (!$nodes) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($nodes as $node) {
-            $out[] = $node->textContent;
-        }
-
-        return $out;
-    }
-
-    /**
-     * Leaked stylesheet / script payload. The paste engine emits <style> and
-     * <script> contents of some publisher templates as body blocks (Springer's
-     * buybox CSS alone is ~2k chars, twice), so without this filter a landing
-     * page's boilerplate would read as prose.
-     */
-    private function isCodeLike(string $text): bool
-    {
-        return (bool) preg_match(
-            '/(\{[^}]*[\w-]+\s*:\s*[^};]+;)|(\bfunction\s*\()|(\bwindow\.)|(\bdocument\.)|(\bvar\s+\w+\s*=)|(dataLayer)|(@media\b)|(!important)/i',
-            $text,
-        );
-    }
-
-    /**
-     * A bibliography entry rather than body prose. Publisher landing pages
-     * ship the FULL reference list — it is the single biggest chunk of text on
-     * the page and would otherwise pass for an article body.
-     */
-    private function isReferenceLike(string $text): bool
-    {
-        return (bool) preg_match('/^\s*\[?\d{0,3}\]?\s*[A-Z][A-Za-z\'’-]+,\s+[A-Z]\./u', $text)
-            || (bool) preg_match('/\bdoi:\s*10\.|https?:\/\/doi\.org\/10\./i', $text)
-            || (bool) preg_match('/\bRetrieved from\s+https?:/i', $text);
-    }
 }

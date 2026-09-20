@@ -223,6 +223,7 @@ from ingestion.epub.bibliographyDetection import (  # noqa: E402,F401
 from ingestion.epub.finalNormalisation import (  # noqa: E402,F401
     HeadingNormalizer,
     DeadInternalLinkUnwrapper,
+    TypographicUrlRepairer,
 )
 
 
@@ -274,6 +275,9 @@ TRANSFORM_PIPELINE = [
     # Phase 4: Final normalization
     HeadingNormalizer(),
     DeadInternalLinkUnwrapper(),        # Remove dead internal links (runs AFTER footnote conversion)
+    TypographicUrlRepairer(),           # Strip thin/zero-width spaces the typesetter put INSIDE URLs —
+                                        # they make a link unfetchable, so the citation resolver falls
+                                        # back to metadata and the reviewer judges on a TITLE
 ]
 
 
@@ -443,7 +447,15 @@ class EpubNormalizer:
                 # Step 4: Sanitize for security
                 self._log("\n--- Sanitizing HTML ---")
                 self._progress(40, "epub_sanitize", "Sanitizing HTML")
-                final_html = str(self.combined_soup)
+                # Serialize the BODY's contents, not the whole document. The scaffold this soup
+                # was built from carries `<title>Combined EPUB</title>`, and the sanitizer strips
+                # disallowed TAGS while keeping their TEXT — so main-text.html opened with the
+                # literal string "Combined EPUB". It was invisible only because root-level loose
+                # text used to be dropped by node generation; now that such text is preserved, the
+                # leak would become the first node of every EPUB book.
+                body = self.combined_soup.body
+                final_html = (''.join(str(c) for c in body.children) if body
+                              else str(self.combined_soup))
                 sanitized_html = sanitize_html(final_html)
                 self._log(f"Sanitized: {len(final_html)} -> {len(sanitized_html)} chars")
 

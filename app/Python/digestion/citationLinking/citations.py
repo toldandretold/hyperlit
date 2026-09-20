@@ -11,9 +11,14 @@ absorbed by ADDING a rule, not editing the scan. See `conversion/citation_link_r
 from digestion.citationLinking.citation_link_rules import link_citations_rules
 
 
-def link_citations(soup, bibliography_map, emit_progress=None):
+def link_citations(soup, bibliography_map, emit_progress=None, stats=None):
     """Thin shell — delegates to the `CITATION_LINK_RULES` registry. Same signature and
     `(found, linked, unlinked)` return; behaviour is golden-identical (guarded by the regression
     suite). The rule sequence (anchor-convert → pattern gate → paren scan → bracket scan →
-    assessment) lives in `conversion/citation_link_rules.py`."""
-    return link_citations_rules(soup, bibliography_map, emit_progress)
+    assessment) lives in `conversion/citation_link_rules.py`.
+
+    The 3-tuple counts ONLY the text "(Author Year)" scan. Pass a dict as `stats` to also receive
+    `anchor_converted` / `anchor_unmatched` — the citations that were already wired in the source
+    markup. On a publisher EPUB that is the ENTIRE citation stream, and leaving it out of the tuple
+    is why such a book reported `citations_linked: 0` while carrying 170 working links."""
+    return link_citations_rules(soup, bibliography_map, emit_progress, stats)

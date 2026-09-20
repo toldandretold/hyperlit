@@ -16,6 +16,7 @@
     "epub/no_footnotes",
     "epub/notes_class",
     "epub/pandoc",
+    "epub/publisher_biblioref",
     "epub/table",
     "html/ar5iv",
     "html/author_year_bracket",

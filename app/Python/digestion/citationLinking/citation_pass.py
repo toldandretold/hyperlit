@@ -22,14 +22,22 @@ class LinkCitationsPass(DocPass):
         print("\n--- PASS 2: Linking All In-Text Markers ---")
 
         # --- 2A: Link References → conversion/citations.py ---
+        # `stats` carries the citations that were already wired in the source markup, which the
+        # (found, linked, unlinked) tuple has no room for. They are REAL citations — on a
+        # publisher EPUB they are the only ones — so the audit must count them.
+        link_stats = {}
         ctx.citations_found, ctx.citations_linked, ctx.citations_unlinked = link_citations(
-            ctx.soup, ctx.bibliography_map, emit_progress)
+            ctx.soup, ctx.bibliography_map, emit_progress, stats=link_stats)
+        ctx.anchor_converted = link_stats.get('anchor_converted', 0)
+        ctx.anchor_unmatched = link_stats.get('anchor_unmatched', 0)
 
         # Citation linking summary
         emit_progress(75, "doc_linking", f"Linked {ctx.citations_linked} of {ctx.citations_found} citations")
         print(f"\n📖 Citation linking summary:")
         print(f"  - Total in-text citations found: {ctx.citations_found}")
         print(f"  - Successfully linked: {ctx.citations_linked}")
+        if ctx.anchor_converted:
+            print(f"  - Plus {ctx.anchor_converted} citation(s) already wired in the source markup")
         print(f"  - Unlinked: {ctx.citations_found - ctx.citations_linked}")
         if ctx.citations_unlinked:
             print(f"  - All unlinked citations ({len(ctx.citations_unlinked)}):")

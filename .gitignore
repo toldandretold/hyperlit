@@ -10,6 +10,12 @@
 .env.backup
 .env.production
 .env.testing
+# Backups/copies of env files — an editor or script that snapshots ".env.testing" as
+# ".env.testing.bak-<ts>" slips past the exact-name rules above; one such backup carrying LIVE
+# API keys reached a commit on 2026-09-20 and was stopped only by GitHub push protection.
+.env*.bak*
+.env.*.local
+*.env.bak
 .phpactor.json
 .phpunit.result.cache
 Homestead.json

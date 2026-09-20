@@ -341,3 +341,312 @@ test('node-search finds text in the study copy nodes with node_id anchors', func
         $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
     }
 });
+
+test('flag-conversion files the SOURCE book into conversion_flags, upserting the open flag', function () {
+    sconCorpus();
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('conversion_flags')->where('book', 'sconsourcebook')->delete();
+
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $this->postJson('/api/maintainer/study/books/fixture/flag-conversion?corpus=contest', [
+            'reason' => 'study workbench: phantom year-range citation link',
+            'key' => 'fixture/c01',
+        ])->assertOk()->assertJsonPath('updated', false);
+
+        // Second flag from another claim UPSERTS the one open row.
+        $this->postJson('/api/maintainer/study/books/fixture/flag-conversion?corpus=contest', [
+            'reason' => 'study workbench: another claim, same book',
+            'key' => 'fixture/c02',
+        ])->assertOk()->assertJsonPath('updated', true);
+
+        $rows = $db->table('conversion_flags')
+            ->where('book', 'sconsourcebook')->where('status', 'open')->get();
+        expect($rows)->toHaveCount(1);
+        $details = json_decode($rows[0]->details, true);
+        expect($rows[0]->source)->toBe('study_workbench')
+            ->and($details['report_count'])->toBe(2)
+            ->and($details['claims'])->toBe(['fixture/c01', 'fixture/c02']);
+    } finally {
+        $db->table('conversion_flags')->where('book', 'sconsourcebook')->delete();
+    }
+});
+
+test('check-link distinguishes dead, blocked (paywall/bot wall), soft-404, and healthy', function () {
+    sconCorpus();
+    \Illuminate\Support\Facades\Http::fake([
+        'dead.example/*' => \Illuminate\Support\Facades\Http::response('gone', 404),
+        'soft.example/*' => \Illuminate\Support\Facades\Http::response(
+            '<html><head><title>Oops! That page can’t be found.</title></head><body>Nothing here</body></html>', 200),
+        // The Reuters case: a perfectly good article behind a paywall 401s the
+        // fetcher — this must NEVER be classified dead (real misfire 2026-09-17).
+        'paywalled.example/*' => \Illuminate\Support\Facades\Http::response('unauthorized', 401),
+        'botwall.example/*' => \Illuminate\Support\Facades\Http::response('denied', 403),
+        'flaky.example/*' => \Illuminate\Support\Facades\Http::response('oops', 503),
+        'softwall.example/*' => \Illuminate\Support\Facades\Http::response(
+            '<html><head><title>An Article</title></head><body>Subscribe to continue reading this story.</body></html>', 200),
+        'alive.example/*' => \Illuminate\Support\Facades\Http::response(
+            '<html><head><title>A Real Article</title></head><body>' . str_repeat('content ', 100) . '</body></html>', 200),
+    ]);
+    $this->loginUser(['is_admin' => true]);
+    $check = fn (string $host) => $this->getJson(
+        '/api/maintainer/study/check-link?url=' . urlencode("https://{$host}/x")
+    )->assertOk()->json();
+
+    $dead = $check('dead.example');
+    expect($dead['category'])->toBe('dead')->and($dead['dead'])->toBeTrue()->and($dead['status'])->toBe(404);
+
+    $soft = $check('soft.example');
+    expect($soft['category'])->toBe('dead')->and($soft['soft404'])->toBeTrue()->and($soft['status'])->toBe(200);
+
+    $paywalled = $check('paywalled.example');
+    expect($paywalled['category'])->toBe('blocked')->and($paywalled['dead'])->toBeFalse();
+
+    $botwall = $check('botwall.example');
+    expect($botwall['category'])->toBe('blocked')->and($botwall['dead'])->toBeFalse();
+
+    $flaky = $check('flaky.example');
+    expect($flaky['category'])->toBe('server_error')->and($flaky['dead'])->toBeFalse();
+
+    $softwall = $check('softwall.example');
+    expect($softwall['category'])->toBe('ok')->and($softwall['paywalled'])->toBeTrue()->and($softwall['dead'])->toBeFalse();
+
+    $alive = $check('alive.example');
+    expect($alive['category'])->toBe('ok')->and($alive['dead'])->toBeFalse()->and($alive['title'])->toBe('A Real Article');
+
+    // Gated like its siblings.
+    $this->loginUser();
+    $this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://alive.example/x'))->assertStatus(403);
+});
+
+test('the payload carries pathway context and flags a mislinked anchor', function () {
+    // The reviewer must see (a) how this corpus copy was built and (b) that a
+    // citation's own anchor disagrees with the entry it points at — BEFORE
+    // judging the citation, since a mislinked anchor means the claim/source
+    // pairing was never one the author made (chacko c187).
+    sconCorpus();
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+    $db->table('bibliography')->where('book', 'study_contest_fixture')->delete();
+    $db->table('nodes')->insert([
+        'book' => 'study_contest_fixture', 'node_id' => 'node1',
+        'startLine' => 100, 'chunk_id' => 1,
+        // Displays 2025, points at a 2024 entry — the c187 shape. Attribute
+        // order deliberately class-then-href (study copies write it this way).
+        'content' => '<p id="100">Claimed (Singh, <a class="in-text-citation" href="#ref_abc">2025</a>).</p>',
+        'plainText' => 'Claimed (Singh, 2025).', 'type' => 'p',
+    ]);
+    $db->table('bibliography')->insert([
+        'book' => 'study_contest_fixture', 'referenceId' => 'ref_abc',
+        'content' => '<p>Singh S (2024) A Walrus piece.</p>',
+        'llm_metadata' => json_encode(['year' => 2024, 'title' => 'A Walrus piece']),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $payload = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')->assertOk()->json();
+
+        expect($payload['pathway'])->toBe('markdown')   // derived from original.md
+            ->and($payload['source_markdown'])->toBeNull(); // fixture has no provenance label
+        $claim = $payload['claims'][0];
+        expect($claim['anchor_warning'])->toContain('displays 2025')
+            ->and($claim['anchor_warning'])->toContain('ref_abc');
+    } finally {
+        $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+        $db->table('bibliography')->where('book', 'study_contest_fixture')->delete();
+    }
+});
+
+test('a matching anchor produces no warning', function () {
+    sconCorpus();
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+    $db->table('bibliography')->where('book', 'study_contest_fixture')->delete();
+    $db->table('nodes')->insert([
+        'book' => 'study_contest_fixture', 'node_id' => 'node1',
+        'startLine' => 100, 'chunk_id' => 1,
+        'content' => '<p id="100">Claimed (Singh, <a href="#ref_abc" class="in-text-citation">2024</a>).</p>',
+        'plainText' => 'Claimed (Singh, 2024).', 'type' => 'p',
+    ]);
+    $db->table('bibliography')->insert([
+        'book' => 'study_contest_fixture', 'referenceId' => 'ref_abc',
+        'content' => '<p>Singh S (2024) A Walrus piece.</p>',
+        'llm_metadata' => json_encode(['year' => 2024]),
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $payload = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')->assertOk()->json();
+        expect($payload['claims'][0]['anchor_warning'])->toBeNull();
+    } finally {
+        $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+        $db->table('bibliography')->where('book', 'study_contest_fixture')->delete();
+    }
+});
+
+/**
+ * The SCOPE axis — what the citation actually supports.
+ *
+ * Added 2026-09-19 because the support scale has no fixed denominator: "unlikely" conflated "the
+ * source supports none of this" with "the source supports exactly the part it was cited for and
+ * nothing else". Recording which makes the ground truth independent of the verify prompt a run
+ * used, so ONE set of labels scores both variants of
+ * `services.citation_review.verify_scope` — a fragment_only claim SHOULD read unsupported under
+ * the strict prompt and supported under the fragment prompt, and both are correct.
+ */
+test('adjudicate records the supported_scope axis and returns it in the payload', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'intact',
+        'cause' => 'claim_scoping',
+        'supported_scope' => 'fragment_only',
+        'note' => 'Evidences that the NIEO campaign occurred; silent on the Special Issue.',
+    ])->assertOk()->assertJsonPath('adjudication.supported_scope', 'fragment_only');
+
+    $payload = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')->json();
+    expect($payload['claims'][0]['adjudication']['supported_scope'])->toBe('fragment_only');
+});
+
+test('supported_scope is OPTIONAL, so existing labelling keeps working', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'intact',
+    ])->assertOk()->assertJsonPath('adjudication.supported_scope', null);
+});
+
+test('an unknown supported_scope is REFUSED rather than stored as free text', function () {
+    // The axis is only useful for scoring if its vocabulary is closed — a typo silently stored
+    // would quietly drop that claim out of every comparison it was meant to inform.
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'intact',
+        'supported_scope' => 'sort-of-supports-it',
+    ])->assertStatus(422);
+});
+
+/**
+ * check-link must not report OUR parse failure as the citation's failure.
+ *
+ * Publishers typeset long URLs with thin spaces (U+2009) around "=" so the line can wrap, and
+ * append "(open in a new window)" as screen-reader text. The stored href is then not a valid URL,
+ * Laravel's `url` rule 422s, and the reviewer was shown a bare "Check failed (422)" — which reads
+ * as "this link is broken" when the source may be perfectly alive.
+ */
+test('check-link REPAIRS a typographically mangled URL instead of 422ing on it', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    \Illuminate\Support\Facades\Http::fake([
+        '*' => \Illuminate\Support\Facades\Http::response('<html><title>Record</title>body</html>', 200),
+    ]);
+
+    $mangled = "https://example.com/record/218451?ln\u{2009}=\u{2009}en(open in a new window)";
+    $res = $this->getJson('/api/maintainer/study/check-link?url=' . urlencode($mangled))->assertOk();
+
+    expect($res->json('repaired'))->toBeTrue()
+        ->and($res->json('checked_url'))->toBe('https://example.com/record/218451?ln=en')
+        ->and($res->json('reachable'))->toBeTrue();
+});
+
+test('check-link says WE could not parse it rather than blaming the link', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $res = $this->getJson('/api/maintainer/study/check-link?url=' . urlencode('not a url at all'))->assertOk();
+
+    expect($res->json('unparsable'))->toBeTrue()
+        ->and($res->json('reachable'))->toBeNull()
+        ->and($res->json('error'))->toContain('our problem');
+});
+
+test('an already-clean URL is not reported as repaired', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response('<html>ok</html>', 200)]);
+
+    $res = $this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://example.com/a?b=c'))->assertOk();
+
+    expect($res->json('repaired'))->toBeFalse()
+        ->and($res->json('checked_url'))->toBe('https://example.com/a?b=c');
+});
+
+/**
+ * The corpus must survive a refresh.
+ *
+ * The console rewrote the URL to /maintainer/study/{slug} on every book click, dropping the
+ * ?corpus= query string — so a reload fell back to config('study.default_corpus') and silently
+ * moved the reviewer into a DIFFERENT corpus. Back could not undo it either, because the rewrite
+ * was a replaceState. Labelling the wrong dataset is invisible until the numbers are wrong.
+ */
+test('the book page keeps the requested corpus and offers a switcher', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->get('/maintainer/study/fixture?corpus=contest')
+        ->assertOk()
+        ->assertViewHas('corpus', 'contest')
+        // The switcher needs the list, or the only way to change corpus is hand-editing the URL.
+        ->assertViewHas('corpora', fn ($corpora) => in_array('contest', $corpora, true));
+});
+
+test('an unknown corpus falls back rather than 500ing', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->get('/maintainer/study?corpus=../../etc')->assertOk()->assertViewHas('corpus', 'phase1');
+});
+
+/**
+ * A BOT CHALLENGE can arrive as a 2xx, and must never read as a healthy link.
+ *
+ * digitallibrary.un.org answers "202 Accepted, Server: awselb/2.0, x-amzn-waf-action: challenge"
+ * with an EMPTY body. Categorised on status alone that scored as ✓ ok — telling the reviewer the
+ * source checked out when our system had not been given a single word of the record.
+ */
+test('a WAF challenge served as HTTP 202 is BLOCKED, not ok', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    \Illuminate\Support\Facades\Http::fake([
+        '*' => \Illuminate\Support\Facades\Http::response('', 202, ['x-amzn-waf-action' => 'challenge']),
+    ]);
+
+    $res = $this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://example.com/record/1'))
+        ->assertOk();
+
+    expect($res->json('category'))->toBe('blocked')
+        ->and($res->json('dead'))->toBeFalse()
+        ->and($res->json('challenge'))->toBe('challenge');
+});
+
+test('a 202 with an empty body is blocked even without a challenge header', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    \Illuminate\Support\Facades\Http::fake(['*' => \Illuminate\Support\Facades\Http::response('   ', 202)]);
+
+    expect($this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://example.com/r'))
+        ->assertOk()->json('category'))->toBe('blocked');
+});
+
+test('a genuine 200 with content is still ok', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    \Illuminate\Support\Facades\Http::fake([
+        '*' => \Illuminate\Support\Facades\Http::response('<html><title>Real</title><p>'
+            . str_repeat('actual article prose ', 20) . '</p></html>', 200),
+    ]);
+
+    expect($this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://example.com/r'))
+        ->assertOk()->json('category'))->toBe('ok');
+});

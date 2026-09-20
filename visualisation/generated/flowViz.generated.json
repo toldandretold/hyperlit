@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1910,
+    "fnCount": 1917,
     "moduleCount": 407,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3930,
+    "edgeCount": 3946,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -13039,8 +13039,24 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.citedIdForBlock",
+      "label": "GeneralProcessor.citedIdForBlock",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
       "label": "GeneralProcessor.collectCandidateBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.collectCitedFragments",
+      "label": "GeneralProcessor.collectCitedFragments",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/general-processor",
@@ -13097,6 +13113,14 @@
     {
       "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
       "label": "GeneralProcessor.looksLikeArtifactHeading",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/general-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/general-processor:GeneralProcessor.looksLikeCitationMarker",
+      "label": "GeneralProcessor.looksLikeCitationMarker",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/general-processor",
@@ -14169,6 +14193,38 @@
     {
       "id": "paste/utils/transform-helpers:removeStaticContentElements",
       "label": "removeStaticContentElements",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:tfCitationLinks",
+      "label": "tfCitationLinks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:tfNormalizeRid",
+      "label": "tfNormalizeRid",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/transform-helpers:tfReferenceItems",
+      "label": "tfReferenceItems",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/transform-helpers",
+      "leaf": false
+    },
+    {
+      "id": "paste/utils/transform-helpers:tfStripCitationWord",
+      "label": "tfStripCitationWord",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/utils/transform-helpers",
@@ -21122,7 +21178,9 @@
       "band": "capture",
       "fnIds": [
         "paste/format-processors/general-processor:GeneralProcessor.buildReferencesFromBlock",
+        "paste/format-processors/general-processor:GeneralProcessor.citedIdForBlock",
         "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+        "paste/format-processors/general-processor:GeneralProcessor.collectCitedFragments",
         "paste/format-processors/general-processor:GeneralProcessor.collectSectionBlocks",
         "paste/format-processors/general-processor:GeneralProcessor.constructor",
         "paste/format-processors/general-processor:GeneralProcessor.extractFootnotes",
@@ -21130,6 +21188,7 @@
         "paste/format-processors/general-processor:GeneralProcessor.findReferenceSectionHeading",
         "paste/format-processors/general-processor:GeneralProcessor.hasReferenceSectionHeading",
         "paste/format-processors/general-processor:GeneralProcessor.looksLikeArtifactHeading",
+        "paste/format-processors/general-processor:GeneralProcessor.looksLikeCitationMarker",
         "paste/format-processors/general-processor:GeneralProcessor.normalize",
         "paste/format-processors/general-processor:GeneralProcessor.stripLeadingBracketNumber",
         "paste/format-processors/general-processor:GeneralProcessor.transformStructure"
@@ -21560,6 +21619,10 @@
         "paste/utils/transform-helpers:reformatCitationLink",
         "paste/utils/transform-helpers:removeSectionsByHeading",
         "paste/utils/transform-helpers:removeStaticContentElements",
+        "paste/utils/transform-helpers:tfCitationLinks",
+        "paste/utils/transform-helpers:tfNormalizeRid",
+        "paste/utils/transform-helpers:tfReferenceItems",
+        "paste/utils/transform-helpers:tfStripCitationWord",
         "paste/utils/transform-helpers:unwrapContainers",
         "paste/utils/transform-helpers:unwrapLayoutTables"
       ]
@@ -32045,9 +32108,21 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.citedIdForBlock",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.citedIdForBlock",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
       "source": "dom",
       "target": "paste/format-processors/general-processor:GeneralProcessor.collectCandidateBlocks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/general-processor:GeneralProcessor.collectCitedFragments",
+      "source": "dom",
+      "target": "paste/format-processors/general-processor:GeneralProcessor.collectCitedFragments",
       "rel": "domread"
     },
     {
@@ -32474,6 +32549,24 @@
       "id": "dom__domread__paste/utils/transform-helpers:removeStaticContentElements",
       "source": "dom",
       "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:tfCitationLinks",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:tfCitationLinks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:tfReferenceItems",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:tfReferenceItems",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/utils/transform-helpers:tfStripCitationWord",
+      "source": "dom",
+      "target": "paste/utils/transform-helpers:tfStripCitationWord",
       "rel": "domread"
     },
     {
@@ -41821,6 +41914,42 @@
       "rel": "call"
     },
     {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/transform-helpers:tfNormalizeRid",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:tfNormalizeRid",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences__call__paste/utils/transform-helpers:tfReferenceItems",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.extractReferences",
+      "target": "paste/utils/transform-helpers:tfReferenceItems",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__call__paste/utils/dom-utils:unwrap",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "target": "paste/utils/dom-utils:unwrap",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__call__paste/utils/transform-helpers:tfCitationLinks",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:tfCitationLinks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__call__paste/utils/transform-helpers:tfNormalizeRid",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:tfNormalizeRid",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__call__paste/utils/transform-helpers:tfStripCitationWord",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
+      "target": "paste/utils/transform-helpers:tfStripCitationWord",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations__domwrite__dom",
       "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.linkCitations",
       "target": "dom",
@@ -41854,6 +41983,18 @@
       "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:removeStaticContentElements",
       "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
       "target": "paste/utils/transform-helpers:removeStaticContentElements",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:tfCitationLinks",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:tfCitationLinks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure__call__paste/utils/transform-helpers:tfStripCitationWord",
+      "source": "paste/format-processors/taylor-francis-processor:TaylorFrancisProcessor.transformStructure",
+      "target": "paste/utils/transform-helpers:tfStripCitationWord",
       "rel": "call"
     },
     {
@@ -42636,6 +42777,18 @@
       "rel": "call"
     },
     {
+      "id": "paste/utils/transform-helpers:cleanTFFootnoteContent__call__paste/utils/transform-helpers:tfCitationLinks",
+      "source": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "target": "paste/utils/transform-helpers:tfCitationLinks",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/transform-helpers:cleanTFFootnoteContent__call__paste/utils/transform-helpers:tfStripCitationWord",
+      "source": "paste/utils/transform-helpers:cleanTFFootnoteContent",
+      "target": "paste/utils/transform-helpers:tfStripCitationWord",
+      "rel": "call"
+    },
+    {
       "id": "paste/utils/transform-helpers:cleanTFFootnoteContent__domwrite__dom",
       "source": "paste/utils/transform-helpers:cleanTFFootnoteContent",
       "target": "dom",
@@ -42662,6 +42815,12 @@
     {
       "id": "paste/utils/transform-helpers:removeStaticContentElements__domwrite__dom",
       "source": "paste/utils/transform-helpers:removeStaticContentElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/transform-helpers:tfStripCitationWord__domwrite__dom",
+      "source": "paste/utils/transform-helpers:tfStripCitationWord",
       "target": "dom",
       "rel": "domwrite"
     },

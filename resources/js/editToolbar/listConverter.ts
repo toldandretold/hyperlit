@@ -13,7 +13,6 @@ import {
 } from "./toolbarDOMUtils";
 import {
   setElementIds,
-  findPreviousElementId,
   findNextElementId,
   asLineId,
   type BookId,
@@ -85,7 +84,12 @@ export class ListConverter {
       newBlock.innerHTML = content;
     }
 
-    const beforeId = findPreviousElementId(listWithId);
+    // The block is inserted AFTER the list (splitListAndInsertBlock below), so its id
+    // must sort after the list's own — bounding it by the list's PREVIOUS sibling let
+    // the generator mint an id below `listWithId.id` (any gap midpoint under it), and a
+    // node whose id sorts before the node it visibly follows is relocated on the next
+    // render. The lower bound is the list itself; the upper bound is what follows it.
+    const beforeId = listWithId.id;
     const afterId = findNextElementId(listWithId);
     setElementIds(newBlock, beforeId, afterId, this.currentBookId);
 
@@ -168,10 +172,16 @@ export class ListConverter {
       const topLevelIndex = rootItems.indexOf(topLevelItem);
 
       if (topLevelIndex !== -1) {
-        const insertAfter: any = rootItems[topLevelIndex];
+        // The block is a SIBLING of the root list, so it goes after the root list — the
+        // same placement as the simple case. The reference node used to be the top-level
+        // <li>'s next sibling, which is a child of the root LIST, not of its parent:
+        // insertBefore threw NotFoundError every time the converted item wasn't under the
+        // LAST top-level bullet, and because targetItem.remove() runs first, the throw
+        // took the item's content with it — nested list → blockquote/code silently ate
+        // the bullet. Order stays right because newBlock's id is bounded by the list.
         rootListWithId.parentNode.insertBefore(
           newBlock,
-          insertAfter.nextSibling
+          rootListWithId.nextSibling
         );
 
         if (itemsAfter.length > 0) {

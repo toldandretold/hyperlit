@@ -866,6 +866,90 @@ PROMPT;
     }
 
     /**
+     * Resolve a claim sentence into a self-contained assertion — contextualisation ONLY.
+     *
+     * The narrow companion to extractTruthClaimsBatch. When the model fails to echo back the
+     * sentence we computed, TruthClaimExtractor substitutes our own span, which rescues a citation
+     * that would otherwise go unreviewed but carries no contextualised_claim — so "The same argument
+     * is made by X" reaches verification without stating the argument. This asks for the one missing
+     * field, for the claims AnaphoraDetector says actually need it.
+     *
+     * Deliberately not a re-run of extraction: no citation markers, no grouping, no claim selection.
+     * Those are the parts that were unreliable, and re-running them is what this whole repair exists
+     * to avoid. Here the claim text is FIXED and the model may only rewrite it.
+     *
+     * @param  list<array{0: string, 1: string, 2: string}>  $items  [claim, precedingContext, nodeText]
+     * @return array<int, ?string> contextualised claim per key; null where the call failed
+     */
+    public function contextualiseClaimsBatch(array $items): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $requests = [];
+        foreach ($items as $key => [$claim, $precedingContext, $nodeText]) {
+            $user = '';
+            if (trim($precedingContext) !== '') {
+                $user .= "PRECEDING CONTEXT:\n{$precedingContext}\n\n";
+            }
+            $user .= "PARAGRAPH:\n{$nodeText}\n\nCLAIM TO REWRITE:\n{$claim}";
+
+            $requests[$key] = [
+                'system'      => $this->contextualiseClaimSystemPrompt(),
+                'user'        => $user,
+                'model'       => $this->extractionModel,
+                'max_tokens'  => 1024,
+                'temperature' => 0.0,
+            ];
+        }
+
+        $results = [];
+        foreach ($this->chatBatch($requests, 120) as $key => $raw) {
+            $results[$key] = $this->parseContextualisedClaim($raw);
+        }
+
+        return $results;
+    }
+
+    private function contextualiseClaimSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+You rewrite one sentence so it can be fact-checked on its own, using ONLY the surrounding text supplied.
+
+Return ONLY valid JSON: {"contextualised_claim": "..."}
+
+RULES:
+- Resolve every reference that points outside the sentence: pronouns ("this", "these", "it", "they"), demonstratives ("the former", "such conditions"), and comparative phrases ("a similar argument", "the same conclusion", "likewise"). State the substance explicitly.
+- Do NOT include author names or attribution phrases ("X argues", "according to Y"). State only the factual assertion — the verification step already knows which source is being checked.
+- Use ONLY the PRECEDING CONTEXT and PARAGRAPH to resolve references. Do NOT use your own knowledge to infer what is meant. The result must reflect what the AUTHOR OF THE TEXT is asserting, not what you believe the cited source says.
+- Do not add, strengthen, weaken or qualify the assertion. If the sentence is already self-contained, return it unchanged.
+- If the surrounding text does not let you resolve a reference, leave that part as it stands rather than guessing.
+PROMPT;
+    }
+
+    private function parseContextualisedClaim(?string $raw): ?string
+    {
+        if ($raw === null || trim($raw) === '') {
+            return null;
+        }
+
+        // Straight decode first; fall back to the same salvage the extraction parser uses, so a
+        // response wrapped in prose or fenced in markdown is not thrown away.
+        $decoded = json_decode(trim($raw), true);
+        $candidates = is_array($decoded) ? [$decoded] : $this->salvageTruncatedJsonObjects($raw);
+
+        foreach ($candidates as $obj) {
+            $value = is_array($obj) ? ($obj['contextualised_claim'] ?? null) : null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Assess whether HTML from a publisher page contains real article content.
      * Returns {has_article_content, content_selector, abstract, is_blocked} or null on failure.
      */
@@ -997,6 +1081,14 @@ PROMPT;
     /**
      * Screen fetched web content for relevance to a cited work's title.
      * Returns true if content is substantive and related, false for junk pages.
+     *
+     * FAILS OPEN on infrastructure error. A dead API key, five exhausted
+     * retries or a truncated completion used to return the same `false` as "this
+     * is a cookie wall", so an LLM outage silently reported every web source in
+     * a review as irrelevant and the citations resolved as source-not-found.
+     * This screen is a filter on text we ALREADY have; when it cannot run, the
+     * honest fallback is to keep the text and let the graded provenance that now
+     * accompanies it inform the reviewer.
      */
     public function validateWebContent(string $text, string $title): bool
     {
@@ -1008,15 +1100,23 @@ PROMPT;
 Is this text actual content from a web page about the cited work?
 Return ONLY valid JSON: {"relevant": true} if it contains substantive article, report, or institutional content related to the title.
 Return {"relevant": false} if it is: a cookie/consent wall, 404 error page, login/paywall page, CAPTCHA challenge, navigation menu only, or content clearly unrelated to the title.
+Judge RELATEDNESS generously: the page is relevant if it is the cited work or reports the same event, even if the wording differs from the title. Only say false when the subject is plainly a different one.
 PROMPT;
 
-        // Pass first ~1500 chars to keep token cost low
-        $snippet = Str::limit($text, 1500, '...');
-        $userMessage = "TITLE: {$title}\n\nTEXT:\n{$snippet}";
+        // Sample the HEAD and the MIDDLE, not just the head. A single leading
+        // window is the wrong evidence for this question: page furniture
+        // clusters at the top, so a real article behind a consent banner or
+        // under a "related stories" rail read as a cookie wall. Measured on one
+        // chacko run, this screen rejected 32 pages while only 14 resolved.
+        $userMessage = "TITLE: {$title}\n\nTEXT:\n" . $this->sampleForScreening($text);
         $result = $this->chat($systemPrompt, $userMessage, 0.0, 50);
 
         if (!$result) {
-            return false;
+            Log::info('LlmService: web content screen unavailable, keeping the text', [
+                'title' => Str::limit($title, 80),
+            ]);
+
+            return true;
         }
 
         $result = trim($result);
@@ -1025,7 +1125,34 @@ PROMPT;
 
         $parsed = json_decode($result, true);
 
-        return is_array($parsed) && !empty($parsed['relevant']);
+        if (!is_array($parsed) || !array_key_exists('relevant', $parsed)) {
+            // Unparseable answer is our problem, not the page's.
+            Log::info('LlmService: web content screen returned no verdict, keeping the text', [
+                'title' => Str::limit($title, 80),
+                'raw' => Str::limit($result, 120),
+            ]);
+
+            return true;
+        }
+
+        return (bool) $parsed['relevant'];
+    }
+
+    /**
+     * Two windows over the extracted text — the opening and a slice from the
+     * middle — so the screen sees body prose even when the top of the page is
+     * furniture. Budget stays close to the old single 1,500-char window.
+     */
+    private function sampleForScreening(string $text): string
+    {
+        $head = 1500;
+        if (mb_strlen($text) <= $head + 600) {
+            return $text;
+        }
+
+        $middle = mb_substr($text, (int) (mb_strlen($text) / 2), 800);
+
+        return mb_substr($text, 0, $head) . "\n\n[…]\n\n" . $middle;
     }
 
     /**
@@ -1033,7 +1160,22 @@ PROMPT;
      */
     private function verifyCitationSystemPrompt(): string
     {
-        return <<<'PROMPT'
+        // Which DENOMINATOR the support scale is measured against — the open methodological
+        // question of the 2026-09 study, kept as a switch so both can be RUN and compared rather
+        // than argued about. See scopeDenominatorClause().
+        //
+        //   'strict'   (default, historical): the verdict answers "does the source support this
+        //              CLAIM SENTENCE", and the component rule applies only to multi-source
+        //              citations.
+        //   'fragment': the verdict answers "does the source support the COMPONENT this citation
+        //              was attached to", for single and multi-source citations alike.
+        //
+        // This is not a tuning knob: it changes what a verdict MEANS, so a corpus must be labelled
+        // and scored with the variant recorded. `unlikely` under 'strict' and `likely` under
+        // 'fragment' can both be correct about the same citation.
+        $scopeClause = $this->scopeDenominatorClause();
+
+        return <<<PROMPT
 You are verifying an academic citation. Does the source material support the truth claim?
 
 Be accurate — I want truth, not caution. Read the evidence carefully before judging.
@@ -1052,7 +1194,7 @@ plausibly have been cited for?" A news article inside a composite claim may exis
 clause (one event, one quote, one rhetorical example). Judge the source on the component it supplies:
 clearly supplies it → "confirmed"/"likely"; could supply it → "plausible". It is WRONG to reject a
 source for not covering the claim's other components.
-
+{$scopeClause}
 Return ONLY valid JSON:
 {"support": "confirmed|likely|plausible|unlikely|rejected", "summary": "...", "reasoning": "...", "cited_passages": [1, 3]}
 
@@ -1087,6 +1229,49 @@ about the same entity/person/event discussed in the claim, there is ALWAYS a pla
 
 IMPORTANT: Keep your reasoning brief (under 200 words in your thinking). Budget most of your output tokens for the JSON response.
 PROMPT;
+    }
+
+    /**
+     * The clause that fixes what the support scale is measured AGAINST.
+     *
+     * The prompt already tells the model that a MULTI-SOURCE citation shares the burden — each
+     * source supplies one component — but says nothing about a SINGLE citation attached to part of
+     * a sentence. That silence is the defect the 2026-09 study surfaced: an author writes "This
+     * article is part of a Special Issue commemorating the fiftieth anniversary of the campaign for
+     * a NIEO (UN 1974a, 1974b)", and the 1974 Declaration is direct evidence that the campaign
+     * happened — while supporting nothing about the Special Issue. Judged against the whole
+     * sentence it reads "unlikely"; judged against the component it was cited for it is confirmed.
+     * Both verdicts are defensible, which means the scale had no defined denominator.
+     *
+     * So the denominator is made explicit and switchable, because it is a methodological choice to
+     * be MEASURED rather than assumed. Ground truth is recorded as what the citation actually
+     * supports (see the study workbench's `supported_scope`), which is denominator-independent —
+     * so the same labels score both variants.
+     *
+     * Observed instability that motivates running both: the claim above returned unlikely →
+     * plausible → unlikely across three runs of the SAME prompt at temperature 0.
+     */
+    private function scopeDenominatorClause(): string
+    {
+        $variant = (string) config('services.citation_review.verify_scope', 'strict');
+
+        if ($variant !== 'fragment') {
+            return '';
+        }
+
+        return <<<'CLAUSE'
+
+IMPORTANT — A SINGLE CITATION MAY ALSO SUPPORT ONLY PART OF THE SENTENCE. The rule above is not
+limited to multi-source citations. A sentence routinely bundles several assertions, and the citation
+is attached to ONE of them. Before judging, ask: "which assertion in this sentence was THIS citation
+offered for?" Judge the source against THAT assertion, and say in your summary which part it supports
+and which parts it does not. A source that clearly establishes the component it was cited for is
+"confirmed"/"likely" EVEN IF the rest of the sentence is about something else entirely.
+Example: "This article is part of a Special Issue commemorating the fiftieth anniversary of the
+campaign for a NIEO (UN 1974a)" — the cited 1974 Declaration is direct evidence that the campaign
+occurred, and is silent about the Special Issue. That is "confirmed" for the component it supplies,
+NOT "unlikely" for failing to mention a journal issue published fifty years later.
+CLAUSE;
     }
 
     /**

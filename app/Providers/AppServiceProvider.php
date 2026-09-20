@@ -44,6 +44,21 @@ class AppServiceProvider extends ServiceProvider
         // Without this, each phase gets its own instance and billing reads $0.
         $this->app->singleton(\App\Services\LlmService::class);
 
+        // Same reason, same shape: BraveSearchService counts BILLABLE web-search
+        // requests ($5/1k, charged like OCR pages). The requests are issued deep
+        // in CitationScanBibliographyJob's wave 8 while the charge is assembled
+        // later in CitationReviewCommand::billReview — with a fresh instance per
+        // resolve, the billing read would be 0 and every web search would be on us.
+        $this->app->singleton(\App\Services\BraveSearchService::class);
+
+        // Third instance of the same pattern: WebTextAcquirer counts BILLABLE
+        // browser escalations (a headless browser + residential proxy per
+        // unreadable page). The escalations happen inside the bibliography
+        // scan's fetch waves; the charge is assembled later in
+        // CitationReviewCommand::billReview. Per-resolve instances would each
+        // report 0 and every escalation would be on us.
+        $this->app->singleton(\App\Services\WebContent\WebTextAcquirer::class);
+
         // TTS provider seam — config-selected so a self-hosted Kokoro service
         // can swap in without touching GenerateBookAudioJob.
         $this->app->bind(\App\Services\Tts\TtsProviderInterface::class, function () {

@@ -263,8 +263,40 @@ return [
         ],
     ],
 
+    /*
+     * Citation review — truth-claim extraction.
+     *
+     * span_backfill: use OUR deterministic sentence span (CitationParser's sentenceAtPosition /
+     * precedingClauseSpan) when the LLM fails to echo it back, and create a claim for any citation
+     * the model omitted entirely. Off reproduces the historical behaviour, in which such a citation
+     * is silently dropped and never reviewed — measured at 0-9% of a book's linked citations on the
+     * 2026-09-18 phase2 run. Subject of the 2026-09-19 A/B; see docs/prompts and the study notes.
+     */
+    'citation_review' => [
+        'span_backfill' => (bool) env('CITATION_CLAIM_SPAN_BACKFILL', false),
+
+        /*
+         * What the support scale is measured AGAINST — the study's open methodological question,
+         * switchable so both can be RUN and compared rather than argued about.
+         *
+         *   'strict'   (default, historical): does the source support the whole CLAIM SENTENCE.
+         *   'fragment': does the source support the COMPONENT this citation was attached to.
+         *
+         * Changing this changes what a verdict MEANS, so record it with any run: `unlikely` under
+         * strict and `likely` under fragment can both be correct about the same citation. Ground
+         * truth is labelled as what the citation actually supports, which scores either variant.
+         */
+        'verify_scope' => env('CITATION_VERIFY_SCOPE', 'strict'),
+    ],
+
     'brave_search' => [
         'api_key' => env('BRAVE_SEARCH_API_KEY'),
+        // Brave's "Search" plan list price, USD per 1,000 requests. Billed to
+        // the user like OCR pages and LLM tokens (see docs/billing.md) — it is
+        // a real per-citation cost that scales with how many references a
+        // document has. The free $5/month credit is deliberately NOT modelled:
+        // the charge is the marginal list price, and the credit is ours.
+        'price_per_1k_requests' => (float) env('BRAVE_SEARCH_PRICE_PER_1K', 5.00),
     ],
 
     'semantic_scholar' => [
@@ -313,6 +345,82 @@ return [
         // subprocess, so an unstubbed browser rung turns a gate test into a
         // multi-minute hang.
         'browser' => env('SOURCE_FETCH_BROWSER', true),
+        // Budget (ms) for ONE browser escalation during CITATION resolution.
+        // Harvest gives the browser ~62s because a single article is worth the
+        // wait; a citation review runs dozens of URLs in one pass, so a
+        // hard-walled page spending a full minute to conclude "blocked" is a
+        // minute of nothing (measured at 62.5s each for thewalrus.ca and
+        // fbi.gov in one chacko bench). 20s still clears a plain JS render and
+        // most intermittent Cloudflare 403s. Set 0 to use harvest's default.
+        'citation_browser_budget_ms' => (int) env('CITATION_BROWSER_BUDGET_MS', 20000),
+        // Let CITATION resolution ratchet a walled host onto the residential
+        // proxy (harvest always does; this is the citation path only). Default
+        // OFF on measured evidence: over chacko's 59 unresolved URLs a live
+        // residential IP recovered ZERO pages the datacenter IP could not get,
+        // while costing ~4MB of metered bandwidth per blocked page. The blocks
+        // that remain are managed challenges patchright loses whatever the exit
+        // IP. Measure with `citation:web:bench` before turning this on.
+        'citation_proxy_escalation' => (bool) env('CITATION_PROXY_ESCALATION', false),
+        // How long a FAILED web-source verification is believed before the
+        // vacuum stage will spend another browser fetch on that URL.
+        //
+        // Measured on chacko: 36 of 52 unverified stubs carried a recorded wall
+        // (13 Cloudflare, 7 Akamai, 5 reCAPTCHA, 1 PerimeterX, plus body-absent
+        // pages) — and because importWebSource writes the reason to
+        // `pdf_url_status` while leaving `conversion_method` NULL, and the
+        // vacuum query selects on `conversion_method IS NULL`, every one of
+        // them was re-fetched on EVERY run, forever. A week, because bot walls
+        // are rate-based and do occasionally lift, but not within a rerun.
+        // `citation:pipeline --refetch-walled` overrides it.
+        'web_verify_retry_hours' => (int) env('WEB_VERIFY_RETRY_HOURS', 168),
+        // USD charged per browser escalation during a citation review. The real
+        // marginal cost is residential-proxy bandwidth (a rendered article page
+        // pulls a few MB at single-digit dollars per GB) plus the browser
+        // process itself. Deliberately a flat per-fetch rate rather than
+        // metered bytes: we cannot see the proxy's accounting, and a stable
+        // number the user can predict beats a precise one they cannot. Set 0 to
+        // absorb the cost.
+        'browser_fetch_price' => (float) env('BROWSER_FETCH_PRICE', 0.01),
+    ],
+
+    /**
+     * Managed unblocking endpoint — the vendor runs the browser and the
+     * anti-bot fingerprinting; we send a URL and get HTML. Dormant until
+     * UNBLOCKER_URL is set, exactly like FlareSolverr above it.
+     *
+     * The rung it serves: ~21 of chacko's 59 unresolved citation URLs are
+     * managed Cloudflare/PerimeterX challenges our own patchright stack loses
+     * whatever the exit IP (a live residential proxy recovered ZERO of them —
+     * measured 24/59 direct vs 23/59 proxied). These services bill per
+     * SUCCESSFUL retrieval, so failures are free and the whole blocked set
+     * costs roughly a penny.
+     *
+     * `mode`: 'proxy' for endpoints that ARE an HTTP proxy (IPRoyal Web
+     * Unblocker, Bright Data), 'api' for ones that take the URL as JSON.
+     */
+    'unblocker' => [
+        'url' => env('UNBLOCKER_URL'),
+        'mode' => env('UNBLOCKER_MODE', 'proxy'),
+        'username' => env('UNBLOCKER_USERNAME'),
+        'password' => env('UNBLOCKER_PASSWORD'),
+        'token' => env('UNBLOCKER_TOKEN'),
+        // JS RENDERING. By default the unblocker does a plain HTTP request and
+        // returns whatever came back — which for a client-rendered site is an
+        // empty app shell at HTTP 200 (measured: thewire.in came back
+        // byte-identical to a direct fetch, 11,192 bytes of shell). Rendering
+        // is opt-in per request, and IPRoyal signals it by a SUFFIX ON THE
+        // PASSWORD, the same mechanism as the residential sticky-session
+        // suffix above. Default ON: this rung only fires when the cheap path
+        // already failed, so there is nothing to save by asking for less.
+        'render' => (bool) env('UNBLOCKER_RENDER', true),
+        'render_suffix' => env('UNBLOCKER_RENDER_SUFFIX', '_render-1'),
+        'timeout' => (int) env('UNBLOCKER_TIMEOUT', 90),
+        // These endpoints terminate TLS themselves — that IS the mechanism —
+        // so their certificate is not the target's.
+        'verify_tls' => (bool) env('UNBLOCKER_VERIFY_TLS', false),
+        // USD per successful retrieval, billed like the Brave and browser
+        // line items. 0 absorbs it.
+        'price_per_fetch' => (float) env('UNBLOCKER_PRICE_PER_FETCH', 0.0007),
         // Heap ceiling (MB) for the paste-engine Node subprocess. EXPLICIT on purpose: Node
         // derives its default from total system RAM, so the same article converts on a dev
         // machine (4GB ceiling) and aborts on a 2GB droplet — with nothing in dmesg, because

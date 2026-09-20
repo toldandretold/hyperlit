@@ -170,3 +170,44 @@ test('found_url is stored when valid and refused when not http(s)', function () 
         null, 'ref_def', 'run1', 'sam', 'javascript:alert(1)'))
         ->toThrow(RuntimeException::class, 'found_url');
 });
+
+test('reference_exists rides the record as a tri-state', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $confirmed = $store->put($manifest, $book, 'fixture/c01', 'unverifiable', 'access_blocked',
+        null, 'ref_abc', 'run1', 'sam', null, true);
+    expect($confirmed['reference_exists'])->toBeTrue();
+
+    $unassessed = $store->put($manifest, $book, 'fixture/c02', 'verified_intact', null,
+        null, 'ref_def', 'run1', 'sam');
+    expect($unassessed['reference_exists'])->toBeNull();
+});
+
+test('stale citation_mislink verdicts are listed, not applied, after a new run', function () {
+    // A mislink verdict describes phantom anchors in the copy it was recorded
+    // against; after reimport + a new run those anchors usually link correctly,
+    // so blind-applying (e.g. not_a_citation) would unscore genuine pairings.
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $store->put($manifest, $book, 'fixture/c01', 'not_a_citation', 'citation_mislink',
+        'phantom year-range anchor', 'ref_abc', 'OLD_RUN', 'sam');
+    $store->put($manifest, $book, 'fixture/c02', 'verified_intact', 'citation_typo',
+        null, 'ref_def', 'OLD_RUN', 'sam');
+
+    // Same run id → both apply (mislink verdicts are valid for their own run).
+    $sameRun = $store->applyToGroundTruth($manifest, $book, 'OLD_RUN');
+    expect($sameRun['applied'])->toBe(2)->and($sameRun['stale_mislinks'])->toBe([]);
+
+    // Newer run → the mislink one is parked; the citation-truth one applies.
+    $newRun = $store->applyToGroundTruth($manifest, $book, 'NEW_RUN');
+    expect($newRun['stale_mislinks'])->toBe(['fixture/c01'])
+        ->and($newRun['applied'])->toBe(1);
+
+    // No run id supplied (legacy caller) → old behaviour, everything applies.
+    $legacy = $store->applyToGroundTruth($manifest, $book, null);
+    expect($legacy['applied'])->toBe(2)->and($legacy['stale_mislinks'])->toBe([]);
+});

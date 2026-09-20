@@ -27,8 +27,13 @@ Each reader also DETECTS a format-specific "type" on the way, which drives downs
   don't apply; the *structure* (per-chapter vs one list) is inferred later by digestion's strategy step.
 - **`html/` is mostly a pass-through** — only arXiv/ar5iv HTML needs translation to Hyperlit
   conventions; ordinary HTML goes straight to digestion.
-- **`word/` delegates to pandoc** — `strip_docx_metadata.py` only cleans the `.docx`; pandoc does the
-  actual `.docx → HTML`. (Word's page-bottom vs endnote distinction is lost in that conversion.)
+- **`word/` delegates to pandoc, and repairs what pandoc cannot see** — `strip_docx_metadata.py` cleans
+  the `.docx`, `normalize_docx_headings.py` rewrites outline-level paragraph styles to the builtin
+  `heading N` names (pandoc reads heading level off the style NAME and ignores `<w:outlineLvl>`, so a
+  journal template's own style called "Heading" converts to a plain `<p>` and the document arrives with
+  no headings at all), and pandoc — run with `--wrap=none`, since its default ~72-column hard wrap made
+  a single reference entry look like a newline-crammed multi-entry `<p>` — does the actual
+  `.docx → HTML`. (Word's page-bottom vs endnote distinction is lost in that conversion.)
 - **`markdown_and_pdf_to_html/` is a CONVERGENCE** — both the Markdown pathway *and* the PDF pathway
   (after OCR → markdown) funnel through `simple_md_to_html.py` to become the common HTML. It is not
   "markdown's" — it's the shared on-ramp for the two markdown-producing formats.

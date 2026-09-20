@@ -19,8 +19,17 @@ import { join } from 'node:path';
 // The sticky proxy is computed by PHP (ContentFetchService::stickyProxy) and
 // passed in the stdin payload so the browser solve and any Guzzle follow-up
 // share ONE IP. Fall back to the raw env proxy (rotating) when absent.
+//
+// `direct: true` suppresses that fallback, and callers that consult ProxyPolicy
+// MUST send it: a null `proxy` from PHP means "policy says this host is direct",
+// not "PHP forgot". Without the flag the env fallback silently proxied every
+// browser fetch, which defeats the per-host opt-in (ProxyPolicy exists so we do
+// not burn residential bandwidth on hosts that never needed it) and made a dead
+// proxy subscription break browser fetches for hosts that work fine direct —
+// observed 2026-09-17 as net::ERR_TUNNEL_CONNECTION_FAILED against thewire.in,
+// a host with no policy row at all.
 export function proxyFromInput(input) {
-    const raw = input?.proxy || process.env.SOURCE_FETCH_PROXY;
+    const raw = input?.proxy || (input?.direct === true ? null : process.env.SOURCE_FETCH_PROXY);
     if (!raw) return undefined;
     try {
         const u = new URL(raw);

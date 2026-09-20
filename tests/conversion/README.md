@@ -174,8 +174,18 @@ python3 tests/conversion/run_regression.py --update-golden --fixture <case>
   `input.md` → md, `input.html` → html.
 - **Assertions** (manifest `expected{}`): counts, `footnote_strategy`/`citation_style`,
   **`footnote_links: [{marker, content_contains}]`** (a marker opens the *correct* note —
-  catches confident-wrong-link bugs that count-only checks miss), `suppressed_footnotes`,
+  catches confident-wrong-link bugs that count-only checks miss),
+  **`citation_links: [{node_contains, anchors}]`** (the citation twin — the exact ordered
+  (anchor text → entry id) pairings inside one paragraph), `suppressed_footnotes`,
   `detectors_fired`, plus golden byte-compare.
+- **Synthetic does not mean simplified.** A fixture has to carry the *shape* real input has, or
+  the suite certifies nothing. Two 2026-09-18 defects lived behind exactly this gap: every docx
+  fixture was too short to hit pandoc's ~72-column hard wrap, and every epub fixture was a flat
+  `<body>` of `<p>`s with unlinked prose — so a docx losing its entire reference list and an epub
+  collapsing a whole book to 2 nodes with 0 of 171 publisher citations converted both passed the
+  full suite. `epub/publisher_biblioref` is the answer to the second: synthetic text in a real
+  publisher's structure (`<article><section id=…>`, `<a epub:type="biblioref">`, and a loose
+  inline run outside any `<p>`).
 - **Determinism:** subprocesses run with `PYTHONHASHSEED=0`; random `Fn…` ids are normalised to
   `FN0001…` in first-appearance order before any golden diff.
 - **Committed fixtures are 100% synthetic** (no copyrighted content). Real harvested books live

@@ -361,6 +361,11 @@ window.PIPELINE_MAP = {
           "description": "Remove dead internal links, keep external URLs",
           "file": "finalNormalisation.py",
           "name": "DeadInternalLinkUnwrapper"
+        },
+        {
+          "description": "Strip thin/zero-width spaces from URLs (href and plain text)",
+          "file": "finalNormalisation.py",
+          "name": "TypographicUrlRepairer"
         }
       ]
     },

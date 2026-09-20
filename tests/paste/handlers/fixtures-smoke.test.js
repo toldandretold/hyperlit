@@ -19,7 +19,14 @@
  * the fix and the assertion to be updated together.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+// These suites parse REAL ~100KB clipboard documents through the whole processor chain: ~0.5-1.3s
+// per test on an idle machine. The suite runs 15 workers in parallel, and under that contention
+// the 5s default left no headroom — the failures were "test timed out", never a wrong assertion.
+// The work is genuinely this expensive, so state a budget that matches it rather than assume an
+// idle box. Kept file-scoped: a global bump would hide a genuinely hung test elsewhere.
+vi.setConfig({ testTimeout: 30_000 });
+
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -110,6 +117,23 @@ const BASELINES = [
     references: 66, // matches the 66 li[id^="CIT"] items exactly
     inTextCitations: 171,
     footnoteMarkers: 1,
+  },
+  {
+    // Real capture, prod paste (EJIS, doi 10.1080/0960085X.2026.2642660): the
+    // 2026 tandfonline markup lowercased the CIT ids (`data-rid="cit0087"`),
+    // and every `[data-rid^="CIT"]` in the engine compared the value
+    // case-sensitively. A MID-PARAGRAPH selection, so there is no bibliography
+    // to link against — the contract here is that the leftover anchors are
+    // unwrapped to clean prose ("(Ma, 2023)") instead of being shipped as live
+    // tandfonline links reading "Citation2023". The linked-output contract for
+    // the same markup WITH a bibliography lives in
+    // format-processors/taylorFrancis.lowercaseCit.test.js.
+    file: 'tandf-2026-lowercase-cit-fragment.html',
+    format: 'taylor-francis',
+    footnotes: 0,
+    references: 0, // partial selection: the References section was not copied
+    inTextCitations: 0,
+    footnoteMarkers: 0,
   },
   {
     file: 'MITpress.html',
@@ -223,11 +247,17 @@ const BASELINES = [
     // NEGATIVE: numeric [N] citations linking into a References section. This
     // has exactly the tier-2 shape, and it belongs to the REFERENCE extractor —
     // so footnotes must stay 0 while the four entries land as references.
+    //
+    // inTextCitations was 0 here until 2026-09-18 and that zero was the BUG, not the
+    // spec: `<a href="#ref-1">[1]</a>` aimed at `<p id="ref-1">` is a citation the
+    // publisher already wired, and Strategy 2 was discarding each entry's id so
+    // nothing could map the two together. Same defect, differently dressed, lost every
+    // citation in barnett-2020 (eLife) and failed its review outright.
     file: 'generic-anchor-numeric-citations.html',
     format: 'general',
     footnotes: 0,
     references: 4,
-    inTextCitations: 0,
+    inTextCitations: 4,
     footnoteMarkers: 0,
   },
   {

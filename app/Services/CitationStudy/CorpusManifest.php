@@ -17,10 +17,34 @@ class CorpusManifest
 {
     public const ARMS = ['synthetic', 'retracted', 'control'];
 
+    /**
+     * Import pathways a corpus book can arrive through — the SAME routes a
+     * real user's document takes. The citation review is downstream of
+     * conversion, so results are only interpretable when tagged with the
+     * pathway that produced the text ("scores X via HTML, Y via markdown").
+     * 'paste' = a captured clipboard payload run through the paste engine
+     * (scripts/paste-convert.mjs), the path publisher-page pastes take.
+     */
+    public const PATHWAYS = ['pdf', 'markdown', 'html', 'docx', 'epub', 'paste'];
+
+    /** source_file extension → default pathway (explicit `pathway` key wins). */
+    private const EXT_PATHWAYS = [
+        'pdf' => 'pdf',
+        'html' => 'html', 'htm' => 'html',
+        'md' => 'markdown', 'markdown' => 'markdown',
+        'docx' => 'docx', 'doc' => 'docx', 'odt' => 'docx', 'rtf' => 'docx',
+        'epub' => 'epub',
+    ];
+
     public const LABELS = [
         'intact', 'verified_intact',
         'fabricated_reference', 'source_swap', 'claim_distortion',
-        'suspect', 'unverifiable',
+        // Non-scored (outside POSITIVE/NEGATIVE → descriptive only):
+        // 'not_a_citation' = the reviewed pairing does not exist in the
+        // author's text — a phantom/mislinked anchor (chacko c130: a year
+        // range minted into a citation) or a non-citation footnote. There is
+        // nothing to verify, so neither an AI flag nor a pass can be scored.
+        'suspect', 'unverifiable', 'not_a_citation',
     ];
 
     // Ground-truth labels counted as positives (should be flagged by the tool).
@@ -85,7 +109,27 @@ class CorpusManifest
             if ($arm === 'synthetic' && empty($book['corruption_spec'])) {
                 throw new RuntimeException("Corpus '{$this->corpus}': synthetic book '{$slug}' needs a corruption_spec.");
             }
+            if (isset($book['pathway']) && !in_array($book['pathway'], self::PATHWAYS, true)) {
+                throw new RuntimeException(
+                    "Corpus '{$this->corpus}': book '{$slug}' has invalid pathway '{$book['pathway']}' "
+                    . '(one of: ' . implode(', ', self::PATHWAYS) . ').'
+                );
+            }
         }
+    }
+
+    /**
+     * The import pathway for a book: the explicit `pathway` key, else derived
+     * from the source_file extension. Books predating pathway tagging derive
+     * cleanly (they are all .md/.html).
+     */
+    public function pathwayFor(array $book): string
+    {
+        if (isset($book['pathway'])) {
+            return $book['pathway'];
+        }
+        $ext = strtolower(pathinfo($book['source_file'] ?? '', PATHINFO_EXTENSION));
+        return self::EXT_PATHWAYS[$ext] ?? 'markdown';
     }
 
     /** @return array[] raw book entries from the manifest */

@@ -181,6 +181,15 @@
         "produces": "cleaned docx -> pandoc -> HTML",
         "goal": "strip Word metadata before pandoc (.docx only; optional, failures non-fatal)",
         "external": "pandoc (PandocConversionJob.php:62) does the docx->html conversion"
+      },
+      {
+        "id": "frontend.docx.headings",
+        "filetype": "docx",
+        "file": "ingestion/word/normalize_docx_headings.py",
+        "invoked_by": "PandocConversionJob.php:68",
+        "produces": "docx whose heading styles carry pandoc-readable builtin names (in place)",
+        "goal": "rename outline-level paragraph styles to 'heading N' — pandoc reads heading level off the style NAME and ignores <w:outlineLvl>, so a template's own 'Heading' style converts to a plain <p> and the document arrives with NO headings at all",
+        "conditional": "no-op when the docx already uses builtin heading styles; failures non-fatal"
       }
     ]
   },
@@ -460,6 +469,11 @@
       "conditional": true
     },
     "ingestion/word/strip_docx_metadata.py": {
+      "band": "frontend",
+      "filetype": "docx",
+      "optional": true
+    },
+    "ingestion/word/normalize_docx_headings.py": {
       "band": "frontend",
       "filetype": "docx",
       "optional": true

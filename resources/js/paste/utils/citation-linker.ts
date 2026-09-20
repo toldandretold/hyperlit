@@ -13,6 +13,91 @@
 
 import { generateReferenceKeys } from './reference-key-generator';
 
+// ---------------------------------------------------------------------------------------------
+// YEAR RANGES are date spans, not citations.
+// ---------------------------------------------------------------------------------------------
+// "in Modi's first term (2014-2019), it intensified in its second term (2019-2024)" cites nothing —
+// but each parenthesis is a perfect "(…YYYY…)" candidate and the author's name sits right in front
+// of it, so the key generator resolved modi2014 / modi2019 and this linker minted two anchors to
+// speeches the author never cited (live: book_1789025680384, pasted from Sage). A phantom link is
+// the expensive kind of wrong — the citation review then pairs a claim with a source that was never
+// cited, and the hypercite graph grows an edge that does not exist.
+//
+// This is the SAME rule the server-side linker enforces (app/Python/digestion/citationLinking/
+// citation_link_rules.py); the paste path is a second, independent implementation of the scan, so
+// it needs its own copy. The tell is positional: a year with another year and a dash on one side of
+// it is one endpoint of a span — either side, any dash, including the abbreviated tail ("2014-19").
+// A letter-suffixed year ("2024a") is a disambiguation marker and can never be an endpoint, which
+// is what keeps "(Modi, 2024a, 2024b)" linking. Page ranges are untouched because BOTH endpoints
+// must be year-shaped: "(Nord et al., 2024: 24–25)" still links on 2024.
+// `(?:^|\D)` rather than a `(?<!\d)` lookbehind: Safari only gained lookbehind in 16.4, and this
+// runs in the reader.
+const YEAR_TOKEN_RE = /\d{4}[a-z]?/;
+const RANGE_LEFT_RE = /(?:^|\D)(?:1[5-9]\d\d|20\d\d)\s*[-‐‑‒–—―−]\s*$/;
+const RANGE_RIGHT_RE = /^\s*[-‐‑‒–—―−]\s*(?:(?:1[5-9]\d\d|20\d\d)|\d{2})(?!\d)/;
+const TRAILING_YEAR_RE = /^([\s,]+)(\d{4}[a-z]?)/;
+
+function isYearRangeHalf(text: string, token: string, index: number): boolean {
+  if (!/^\d{4}$/.test(token)) return false;          // "2024a" is a suffix, never an endpoint
+  const value = parseInt(token, 10);
+  if (value < 1500 || value > 2099) return false;
+  return RANGE_LEFT_RE.test(text.slice(0, index))
+    || RANGE_RIGHT_RE.test(text.slice(index + token.length));
+}
+
+/** The year this citation resolves and anchors on, or `null` when it is a date span rather than a
+ *  citation. Always the FIRST year, because that is the one `generateReferenceKeys` keys on — so a
+ *  first year that is a range endpoint cannot produce a correct link, only a confident wrong one. */
+function linkableYear(subCite: string): { token: string; index: number } | null {
+  const first = subCite.match(YEAR_TOKEN_RE);
+  if (!first || first.index === undefined) return null;
+  return isYearRangeHalf(subCite, first[0], first.index)
+    ? null
+    : { token: first[0], index: first.index };
+}
+
+/**
+ * "Modi, 2019, 2023" is ONE author citing SEVERAL works, and each year names a different entry.
+ * Only the first was ever resolved — the rest of the citation was emitted as plain text, so half
+ * of every multi-year citation silently lost its link (invisible on a publisher page that anchors
+ * each year itself, which is why the Sage-pasted book looked fine). Each trailing year is re-keyed
+ * on its own against `author + year`.
+ *
+ * A year that opens a span is skipped for the same reason the first one is: "(Smith, 2001,
+ * 1990-1994)" is a page range, not a second work. (The CLOSING half is unreachable here — the
+ * separator class holds no dash.)
+ */
+function linkTrailingYears(
+  trailingPart: string,
+  authorPart: string,
+  contextBefore: string,
+  referenceMappings: Map<string, string>,
+  formatType: string,
+): string {
+  let remaining = trailingPart;
+  let out = '';
+  while (remaining) {
+    const extra = remaining.match(TRAILING_YEAR_RE);
+    if (!extra) return out + remaining;
+    // Defaults are unreachable — both groups are mandatory in TRAILING_YEAR_RE —
+    // but they keep `tsc --noEmit` clean under noUncheckedIndexedAccess.
+    const [, separator = '', yearToken = ''] = extra;
+    const rest = remaining.slice(extra[0].length);
+    if (RANGE_RIGHT_RE.test(rest)) {
+      out += separator + yearToken;
+      remaining = rest;
+      continue;
+    }
+    const keys = generateReferenceKeys(authorPart + yearToken, contextBefore, formatType);
+    const hit = keys.find((key: string) => referenceMappings.has(key));
+    out += hit
+      ? `${separator}<a href="#${referenceMappings.get(hit)}" class="in-text-citation">${yearToken}</a>`
+      : separator + yearToken;
+    remaining = rest;
+  }
+  return out;
+}
+
 /**
  * Process and link in-text citations in pasted content
  * @param {string} htmlContent - HTML content containing citations
@@ -101,6 +186,15 @@ export function processInTextCitations(htmlContent: any, referenceMappings: any,
         const trimmed = subCite.trim();
         if (!trimmed) return;
 
+        // A DATE SPAN is not a citation — "(2014-2019)" has nothing to resolve, so leave the text
+        // exactly as it is. (Emitted before the prefix stripping below: the separator bookkeeping
+        // at the end of this callback still has to run.)
+        if (linkableYear(trimmed) === null && YEAR_TOKEN_RE.test(trimmed)) {
+          linkedParts.push(trimmed);
+          if (index < subCitations.length - 1) linkedParts.push('; ');
+          return;
+        }
+
         // Handle indirect citations like (Cited in Smith, 2020)
         let processedCite = trimmed;
         const prefixes = ['Cited in ', 'Quoted in ', 'see ', 'e.g., ', 'cf. '];
@@ -160,7 +254,8 @@ export function processInTextCitations(htmlContent: any, referenceMappings: any,
               linkedParts.push(
                 originalPrefix + authorPart,
                 `<a href="#${referenceId}" class="in-text-citation">${yearPart}</a>`,
-                trailingPart
+                linkTrailingYears(trailingPart, authorPart, text.substring(0, match.index),
+                                  referenceMappings, formatType)
               );
             } else {
               linkedParts.push(`<a href="#${referenceId}" class="in-text-citation">${trimmed}</a>`);

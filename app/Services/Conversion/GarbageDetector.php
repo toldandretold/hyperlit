@@ -19,17 +19,52 @@ use Illuminate\Support\Collection;
 class GarbageDetector
 {
     /**
-     * Block/error-shell phrases. Superset of the old
-     * WebArticleVerifier::looksLikeBlockPage list + the wordings found in
-     * actual prod garbage books (JSTOR access check, Cloudflare).
+     * "This page is GONE" — as distinct from "we were refused".
+     *
+     * Kept separate from the wall phrases below because the two lead to
+     * opposite conclusions about a citation: a dead link is evidence the
+     * reference rotted, while a bot wall says nothing at all about the source,
+     * which may be perfectly genuine. AccessWallDetector deliberately does NOT
+     * fire on these (it would report a rotted URL as "blocked"), while the
+     * combined BLOCK_PHRASES below still covers both, because for harvest's
+     * garbage detection either one means "not a book".
+     *
+     * Soft 404s phrase it in prose rather than as a code, so they slip past
+     * "page not found" and "\b404\b" — a justice.gov press-release URL returned
+     * HTTP 200 with "the page you’re looking for can’t be found" and was graded
+     * as real source text. Two things spelled out rather than approximated: the
+     * apostrophe may be the curly U+2019 (a character class cannot express it
+     * here — this pattern is matched without /u, so a 3-byte codepoint inside
+     * [..] matches only ONE of its bytes), and the connecting words are
+     * ENUMERATED rather than a loose `.{0,40}` gap, which false-positived on
+     * ordinary prose ("…the page turned on land reform and could not be found
+     * wanting").
      */
-    private const BLOCK_PHRASES =
+    private const NOT_FOUND_PHRASES =
+        'page not found|\b404\b|'
+        . '(page|article|document|content) '
+        . '(you are looking for |you\'re looking for |you’re looking for |you requested |)'
+        . '(can not be found|cannot be found|cant be found|can\'t be found|can’t be found'
+        . '|could not be found|is no longer available|no longer exists)';
+
+    /**
+     * Refusal / interstitial phrases: we reached something, and it would not
+     * show us the content.
+     */
+    private const WALL_PHRASES =
         'just a moment|attention required|access denied|are you a robot|robot check|captcha|'
-        . 'page not found|\b404\b|\b403\b|server error|subscribe to (read|continue)|'
+        . '\b403\b|server error|subscribe to (read|continue)|'
         . 'sign in to|log ?in required|cookie consent|before you continue|'
         . 'search results|results for|'
         . 'access check|unusual traffic|verify (that )?you are (human|not a robot)|'
         . 'enable javascript and cookies|checking your browser';
+
+    /**
+     * Block/error-shell phrases. Superset of the old
+     * WebArticleVerifier::looksLikeBlockPage list + the wordings found in
+     * actual prod garbage books (JSTOR access check, Cloudflare).
+     */
+    private const BLOCK_PHRASES = self::NOT_FOUND_PHRASES . '|' . self::WALL_PHRASES;
 
     private const MIN_NODES = 5;
     private const MIN_TOTAL_CHARS = 2000;
@@ -42,6 +77,22 @@ class GarbageDetector
     public function isBlockPhrase(string $text): bool
     {
         return (bool) preg_match('/' . self::BLOCK_PHRASES . '/i', $text);
+    }
+
+    /**
+     * Specifically "this page is gone" — a DEAD link, not a refusal. Callers
+     * that have to tell a rotted citation URL from a bot-walled live source
+     * (WebTextAcquirer, AccessWallDetector) need this narrower question.
+     */
+    public function isNotFoundPhrase(string $text): bool
+    {
+        return (bool) preg_match('/' . self::NOT_FOUND_PHRASES . '/i', $text);
+    }
+
+    /** A refusal or interstitial, excluding not-found wordings. */
+    public function isWallPhrase(string $text): bool
+    {
+        return (bool) preg_match('/' . self::WALL_PHRASES . '/i', $text);
     }
 
     /**

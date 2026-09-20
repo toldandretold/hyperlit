@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1910 functions in 407 modules · 10 object stores · 10 PG tables · 3930 edges
+**MarkdownDB** schema v28 · 1917 functions in 407 modules · 10 object stores · 10 PG tables · 3946 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1445,7 +1445,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `CambridgeProcessor.linkFootnotes` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
 | `CambridgeProcessor.transformStructure` | `paste/format-processors/cambridge-processor` | — | — | read/write | — |
 | `GeneralProcessor.buildReferencesFromBlock` | `paste/format-processors/general-processor` | — | — | write | — |
+| `GeneralProcessor.citedIdForBlock` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.collectCandidateBlocks` | `paste/format-processors/general-processor` | — | — | read | — |
+| `GeneralProcessor.collectCitedFragments` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.collectSectionBlocks` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.constructor` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.extractFootnotes` | `paste/format-processors/general-processor` | — | — | read/write | — |
@@ -1453,6 +1455,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `GeneralProcessor.findReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | read | — |
 | `GeneralProcessor.hasReferenceSectionHeading` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.looksLikeArtifactHeading` | `paste/format-processors/general-processor` | — | — | — | — |
+| `GeneralProcessor.looksLikeCitationMarker` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.normalize` | `paste/format-processors/general-processor` | — | — | — | — |
 | `GeneralProcessor.stripLeadingBracketNumber` | `paste/format-processors/general-processor` | — | — | read/write | — |
 | `GeneralProcessor.transformStructure` | `paste/format-processors/general-processor` | — | — | read | — |
@@ -1587,6 +1590,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `reformatCitationLink` | `paste/utils/transform-helpers` | — | — | write | — |
 | `removeSectionsByHeading` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `removeStaticContentElements` | `paste/utils/transform-helpers` | — | — | read/write | — |
+| `tfCitationLinks` | `paste/utils/transform-helpers` | — | — | read | — |
+| `tfNormalizeRid` | `paste/utils/transform-helpers` | — | — | — | — |
+| `tfReferenceItems` | `paste/utils/transform-helpers` | — | — | read | — |
+| `tfStripCitationWord` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `unwrapContainers` | `paste/utils/transform-helpers` | — | — | read | — |
 | `unwrapLayoutTables` | `paste/utils/transform-helpers` | — | — | read/write | — |
 | `detectAndConvertUrls` | `paste/utils/url-detector` | — | — | — | — |

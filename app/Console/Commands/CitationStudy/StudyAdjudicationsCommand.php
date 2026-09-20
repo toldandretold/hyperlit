@@ -55,13 +55,20 @@ class StudyAdjudicationsCommand extends Command
 
             if ($this->option('apply')) {
                 try {
-                    $result = $store->applyToGroundTruth($manifest, $book);
+                    $state = app(\App\Services\CitationStudy\StudyRunner::class)->loadState($manifest);
+                    $currentRunId = $state['books'][$slug]['run_id'] ?? null;
+                    $result = $store->applyToGroundTruth($manifest, $book, $currentRunId);
                 } catch (RuntimeException $e) {
                     $this->error("  apply refused: {$e->getMessage()}");
                     return 1;
                 }
                 $this->info("  applied {$result['applied']} label(s) to ground truth"
                     . ($result['skipped'] !== [] ? ' (skipped unbound: ' . implode(', ', $result['skipped']) . ')' : ''));
+                if (($result['stale_mislinks'] ?? []) !== []) {
+                    $this->warn('  NOT applied — citation_mislink verdicts from an OLDER run (the phantom '
+                        . 'anchors they describe were likely fixed by reimport; re-check in the workbench): '
+                        . implode(', ', $result['stale_mislinks']));
+                }
                 $anyApplied = $anyApplied || $result['applied'] > 0;
             }
         }

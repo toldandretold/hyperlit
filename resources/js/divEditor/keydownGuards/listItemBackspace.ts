@@ -115,14 +115,20 @@ export function handleListItemBackspace(
     queueNodeForSave(parentList.id, 'update');
     queueNodeForSave(newParagraph.id, 'add');
   } else {
-    // Was in the middle - split the list
+    // Was in the middle - split the list. Both new nodes belong in the gap between this
+    // list and its next sibling, so bound them by that sibling's id — captured BEFORE
+    // either insertion moves it. A null bound means "append at the end of the book"
+    // (floor(before) + 100), which is how an outdented bullet ended up sorting ~100
+    // nodes downstream of where it sits. See the Enter-key twin in enterKeyHandler.
+    const afterListId = findNextElementId(parentList);
+
     const newList = document.createElement(parentList.tagName);
     itemsAfter.forEach(item => newList.appendChild(item));
 
-    setElementIds(newParagraph, parentList.id, null, book);
+    setElementIds(newParagraph, parentList.id, afterListId, book);
     parentList.after(newParagraph);
 
-    setElementIds(newList, newParagraph.id, findNextElementId(newParagraph), book);
+    setElementIds(newList, newParagraph.id, afterListId, book);
     newParagraph.after(newList);
 
     queueNodeForSave(parentList.id, 'update');

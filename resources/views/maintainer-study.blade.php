@@ -25,6 +25,15 @@
 
     <header class="st-header">
         <h1>Citation study review</h1>
+        {{-- Corpus switcher. The corpus used to live ONLY in a query string that the app dropped
+             on navigation, so switching meant hand-editing the URL and a refresh silently sent you
+             back to the default. Plain links: they survive refresh and Back by construction. --}}
+        <span class="st-corpus-switch">
+            @foreach (($corpora ?? []) as $c)
+                <a class="st-header-link @if ($c === $corpus) st-corpus-on @endif"
+                   href="{{ $slug ? '/maintainer/study?corpus=' . urlencode($c) : '/maintainer/study?corpus=' . urlencode($c) }}">{{ $c }}</a>
+            @endforeach
+        </span>
         <span class="st-header-sub" id="st-counts"></span>
         <button type="button" class="st-header-link" id="st-help-toggle" aria-expanded="false">?</button>
         <a class="st-header-link" href="/maintainer/citations">citations</a>
@@ -40,6 +49,14 @@
         whether OUR OCR mangled the citation before blaming the author. Verdicts save
         instantly to the corpus adjudications file; <em>Apply</em> folds labels into
         ground_truth.json; then re-run <code>citation:study:report</code>.</p>
+        <p><strong>Context before you judge:</strong> each claim shows the book's <em>pathway</em>
+        (how the document was imported — pdf / markdown / html / docx / paste) and how the corpus
+        copy was built. A copy labelled <em>exported-from-nodes</em> had its citation anchors
+        RE-DERIVED from plain text rather than inherited from the live book, so a mislink there
+        may be an artifact of that round-trip. An amber <em>anchor ⚠</em> means this citation's
+        own in-text anchor displays a different year from the entry it points at — the pairing
+        may never have been made by the author, so settle that before judging the citation.</p>
+
         <p>The source pane has two views. <em>Original PDF</em> streams the source document —
         search it server-side, click a hit to jump the viewer to that page (the viewer's own
         find bar works too once focused). <em>Hyperlit</em> shows the study copy exactly as

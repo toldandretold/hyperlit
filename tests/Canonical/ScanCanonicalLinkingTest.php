@@ -36,7 +36,15 @@ function canonvResolveWithNormalised(string $book, array $poolItem, array $norma
     $ref = new ReflectionMethod($job, 'resolveWithNormalised');
     $ref->setAccessible(true);
 
-    return $ref->invoke($job, $poolItem, $normalised, $method, 0.9, app(OpenAlexService::class), DB::connection('pgsql_admin'));
+    // Since 2026-09-20 a TITLE-SEARCH match must be corroborated (hasYearCorroboration): with no
+    // year on the citation side, only a near-exact title stands alone. Production always passes
+    // the wave's score diagnostics; these fixtures model that with a perfect title score — the
+    // corroboration contract itself is pinned separately in YearCorroborationTest.
+    return $ref->invoke(
+        $job, $poolItem, $normalised, $method, 0.9,
+        app(OpenAlexService::class), DB::connection('pgsql_admin'),
+        ['titleScore' => 1.0, 'authorScore' => 1.0],
+    );
 }
 
 test('an identifier-backed resolution creates a canonical and links stub + bibliography', function () {

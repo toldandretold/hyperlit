@@ -56,6 +56,52 @@ def test_split_leaves_single_line_paragraph_untouched(tmp_path):
     assert len(ctx.soup.find_all('p')) == 1
 
 
+def test_split_leaves_a_hard_wrapped_entry_whole(tmp_path):
+    """THE DOCX BUG (phase2-pathways, 2026-09-18). Pandoc hard-wrapped its HTML at ~72 columns,
+    so ONE reference entry arrived as a <p> carrying newlines. The old gate counted any line
+    that began with a capital and held four digits ANYWHERE — and the digits inside the entry's
+    own DOI supplied the second "reference line" — so the entry was shredded into 3 paragraphs,
+    each of which then failed is_likely_reference. Result: the whole reference list vanished
+    and every docx import reported refs=0 / citation_style=none."""
+    html = ('<body><p>Amin, Samir. 1982. "After the New International Economic Order: The\n'
+            'Future of International Economic Relations," <em>Journal of Contemporary\n'
+            'Asia</em> 12 (4). https://doi.org/10.1080/00472338285390361.</p></body>')
+    ctx = _ctx(tmp_path, html)
+    P.SplitBibliographyParagraphs().apply(ctx)
+    ps = ctx.soup.find_all('p')
+    assert len(ps) == 1
+    # and the entry is still intact end to end
+    text = ps[0].get_text(' ', strip=True)
+    assert text.startswith('Amin, Samir. 1982.') and text.endswith('00472338285390361.')
+
+
+def test_split_ignores_an_institution_shaped_continuation_line(tmp_path):
+    """A wrapped entry's SECOND line routinely reads like an institutional author with a year
+    ("Progressive International. May 5, 2024.") — which is why the opener test is structural
+    only. Accepting that shape put the split back."""
+    html = ('<body><p>Galant, Michael. 2024. "Southern Unity for a new NIEO."\n'
+            'Progressive International. May 5, 2024.\n'
+            'https://progressive.international/blueprint/03f89d15</p></body>')
+    ctx = _ctx(tmp_path, html)
+    P.SplitBibliographyParagraphs().apply(ctx)
+    assert len(ctx.soup.find_all('p')) == 1
+
+
+def test_split_keeps_each_entry_whole_when_the_crammed_entries_also_wrap(tmp_path):
+    """A genuinely crammed block is split at the ENTRY BOUNDARIES, not at every newline — so a
+    crammed block whose own entries are wrapped yields whole entries, not line fragments."""
+    html = ('<body><p>Marcuse, H. 1964. One-Dimensional Man: Studies in the Ideology\n'
+            'of Advanced Industrial Society. Beacon Press.\n'
+            'Amin, S. 1974. Accumulation on a World Scale: A Critique of the\n'
+            'Theory of Underdevelopment. Monthly Review Press.</p></body>')
+    ctx = _ctx(tmp_path, html)
+    P.SplitBibliographyParagraphs().apply(ctx)
+    ps = ctx.soup.find_all('p')
+    assert len(ps) == 2
+    assert 'Beacon Press.' in ps[0].get_text(' ', strip=True)
+    assert ps[1].get_text(' ', strip=True).startswith('Amin, S. 1974.')
+
+
 # ---------------------------------------------------------------------------
 # StemBibliography — guarded; converts wackSTEM markers + writes audit/stats
 # ---------------------------------------------------------------------------

@@ -19,9 +19,39 @@ class BraveSearchService
         'nytimes.com',
     ];
 
+    /**
+     * Billable requests issued since the last reset. Brave charges per
+     * REQUEST — including ones that return nothing useful, which is why the
+     * counter lives here (at the call site) rather than being inferred from
+     * how many citations resolved. Callers that bill (the citation pipeline,
+     * source harvest) reset it at the start of a run and read it at the end;
+     * the service is resolved from the container per process, so a run's
+     * count is self-contained.
+     */
+    private int $requestCount = 0;
+
     public function __construct(WebFetchService $webFetch)
     {
         $this->webFetch = $webFetch;
+    }
+
+    /** Zero the billable-request counter at the start of a run. */
+    public function resetRequestCount(): void
+    {
+        $this->requestCount = 0;
+    }
+
+    /** Billable Brave requests issued since the last reset. */
+    public function requestCount(): int
+    {
+        return $this->requestCount;
+    }
+
+    /** USD cost of a given number of Brave requests at the configured list price. */
+    public static function costForRequests(int $requests): float
+    {
+        $perK = (float) config('services.brave_search.price_per_1k_requests', 5.00);
+        return $requests / 1000 * $perK;
     }
 
     /**
@@ -42,6 +72,7 @@ class BraveSearchService
         $query = $this->buildQuery($title, $author, $year);
 
         try {
+            $this->requestCount++; // billable on issue — Brave charges per request
             $response = Http::withHeaders([
                 'Accept'               => 'application/json',
                 'Accept-Encoding'      => 'gzip',
@@ -52,6 +83,10 @@ class BraveSearchService
             ]);
 
             if (!$response->successful()) {
+                if ($response->status() === 402) {
+                    Log::error('Brave Search USAGE LIMIT EXCEEDED (HTTP 402) — web-search '
+                        . 'resolution is dark until the balance is topped up.');
+                }
                 Log::warning('Brave Search API returned ' . $response->status());
                 return null;
             }
@@ -102,7 +137,8 @@ class BraveSearchService
 
                 $tried++;
 
-                $text = $this->webFetch->fetchAndValidate($url, $title);
+                $assessed = $this->webFetch->fetchAndAssess($url, $title);
+                $text = $assessed['text'];
 
                 if ($text) {
                     $stubBookId = $this->webFetch->createWebStubWithNodes(
@@ -111,7 +147,9 @@ class BraveSearchService
                         $author,
                         $year,
                         $text,
-                        $url
+                        $url,
+                        $assessed['grade'],
+                        $assessed['staged_page'] ?? null,
                     );
 
                     if ($stubBookId) {
@@ -151,6 +189,7 @@ class BraveSearchService
 
         foreach ($chunks as $chunkIndex => $chunkKeys) {
             try {
+                $this->requestCount += count($chunkKeys); // billable on issue
                 $responses = Http::pool(function (Pool $pool) use ($queries, $chunkKeys, $apiKey) {
                     foreach ($chunkKeys as $key) {
                         $q = $queries[$key];
@@ -183,9 +222,19 @@ class BraveSearchService
 
         // Step 2: Pick best URL for each entry
         $urlsToFetch = [];
+        $failedStatuses = [];
         foreach ($queries as $key => $q) {
             $response = $allSearchResponses[$key] ?? null;
-            if (!$response || !$response->successful()) {
+            // Http::pool does not THROW connection-level failures — it puts the exception OBJECT
+            // in the results array, and ->successful() on a ConnectionException is a fatal Error
+            // that killed a whole book's scan (peer-review-2027-pdf, 2026-09-20; same taxonomy as
+            // the TooManyRedirectsException crash fixed in WebFetchService's pool). One dead Brave
+            // request must cost one reference, never the run.
+            if (! $response instanceof \Illuminate\Http\Client\Response || ! $response->successful()) {
+                $status = $response instanceof \Illuminate\Http\Client\Response
+                    ? $response->status()
+                    : ($response instanceof \Throwable ? class_basename($response) : 'no-response');
+                $failedStatuses[$status] = ($failedStatuses[$status] ?? 0) + 1;
                 continue;
             }
 
@@ -216,6 +265,23 @@ class BraveSearchService
             }
         }
 
+        // A failing SEARCH must never masquerade as "source not found". The
+        // quiet version of this shipped: Brave's monthly quota ran out (HTTP
+        // 402 on all 129 queries of a citation-study run), every result
+        // silently skipped, and the run's source_not_found rate DOUBLED with
+        // nothing in the logs — the study nearly recorded a resolver
+        // regression that was actually a billing ceiling.
+        if ($failedStatuses !== []) {
+            $failed = array_sum($failedStatuses);
+            Log::warning('Brave Search batch: ' . $failed . ' of ' . count($queries)
+                . ' queries failed', ['statuses' => $failedStatuses]);
+            if (isset($failedStatuses[402])) {
+                Log::error('Brave Search USAGE LIMIT EXCEEDED (HTTP 402) — web-search '
+                    . 'resolution is dark until the monthly quota resets or the cap is raised. '
+                    . 'Citation-review runs made now will under-resolve web sources.');
+            }
+        }
+
         if (empty($urlsToFetch)) {
             return [];
         }
@@ -229,20 +295,35 @@ class BraveSearchService
 
         // Step 4: Create stubs for successful fetches
         $stubResults = [];
-        foreach ($fetchResults as $key => $text) {
-            if (!$text) {
+        $fetchOutcomes = [];
+        foreach ($fetchResults as $key => $fetched) {
+            $text = $fetched['text'] ?? null;
+            $staged = ($fetched['grade'] ?? null) === \App\Services\WebContent\WebTextAcquirer::GRADE_PDF_STAGED;
+            if (!$text && !$staged) {
+                // A search HIT whose page we could not read is a different
+                // fact from "the search found nothing", and both used to
+                // vanish into the same absent key. Counted so the log says
+                // which one happened.
+                $fetchOutcomes[$fetched['grade'] ?? 'unknown'] = ($fetchOutcomes[$fetched['grade'] ?? 'unknown'] ?? 0) + 1;
                 continue;
             }
 
             $q = $queries[$key];
-            $stubBookId = $this->webFetch->createWebStubWithNodes(
-                $db,
-                $q['title'],
-                $q['author'] ?? null,
-                $q['year'] ?? null,
-                $text,
-                $urlsToFetch[$key]
-            );
+            $stubBookId = $staged
+                ? $this->webFetch->createPdfSourceStub(
+                    $db, $q['title'], $q['author'] ?? null, $q['year'] ?? null,
+                    (string) $fetched['staged_path'], $urlsToFetch[$key], (int) ($fetched['prose_blocks'] ?? 0),
+                )
+                : $this->webFetch->createWebStubWithNodes(
+                    $db,
+                    $q['title'],
+                    $q['author'] ?? null,
+                    $q['year'] ?? null,
+                    $text,
+                    $urlsToFetch[$key],
+                    $fetched['grade'] ?? null,
+                    $fetched['staged_page'] ?? null,
+                );
 
             if ($stubBookId) {
                 Log::info('BraveSearchService batch resolved citation', [
@@ -251,6 +332,13 @@ class BraveSearchService
                 ]);
                 $stubResults[$key] = $stubBookId;
             }
+        }
+
+        if ($fetchOutcomes !== []) {
+            Log::info('BraveSearchService batch: search hits we could not read', [
+                'resolved'  => count($stubResults),
+                'by_outcome' => $fetchOutcomes,
+            ]);
         }
 
         return $stubResults;

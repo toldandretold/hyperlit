@@ -9,6 +9,8 @@ import { ensureCsrfToken } from '../utilities/auth/csrf';
 export interface BookSummary {
   slug: string;
   arm: 'synthetic' | 'retracted' | 'control';
+  /** paste | pdf | epub | docx — what distinguishes rows of the same work in a pathway corpus. */
+  pathway?: string | null;
   title: string;
   run_id: string | null;
   run_status: string;
@@ -35,8 +37,11 @@ export interface Adjudication {
   cause: string | null;
   note: string | null;
   found_url?: string | null;
+  reference_exists?: boolean | null;
   adjudicated_at: string;
   adjudicated_by: string;
+  /** What the citation actually supports — makes ground truth denominator-independent. */
+  supported_scope?: string | null;
 }
 
 export interface ClaimSource {
@@ -49,9 +54,25 @@ export interface ClaimSource {
   doi: string | null;
   match_method: string | null;
   match_score: string | number | null;
+  /** Identity-certain match whose YEAR diverges from the printed one — edition/reprint or wrong printed details. */
+  edition_mismatch?: { printed_year?: number | null; record_year?: number } | null;
   verification_tier: string | null;
   evidence_type: string | null;
   passages: unknown[];
+  /** library.completeness for the resolved source (verified_full/partial/unverified). */
+  content_grade: string | null;
+  /** Plain-English "what the source text actually is" — WebTextAcquirer::describeGrade. */
+  content_grade_note: string | null;
+  /** 'rejected' means the URL hosts a DIFFERENT article than the one cited. */
+  web_status: string | null;
+  /** Why the resolver could not read the citation's URL, when it could not. */
+  fetch_outcome: {
+    outcome: string;
+    reason: string | null;
+    http_status: number | null;
+    channel: string | null;
+    url: string | null;
+  } | null;
 }
 
 export interface ClaimRow {
@@ -75,6 +96,7 @@ export interface ClaimRow {
   } | null;
   triage: TriageInfo | null;
   adjudication: Adjudication | null;
+  anchor_warning: string | null;
 }
 
 export interface BookPayload {
@@ -82,6 +104,9 @@ export interface BookPayload {
   frozen: boolean;
   slug: string;
   arm: string;
+  pathway: string;
+  source_markdown: string | null;
+  source_file: string | null;
   provenance: Record<string, unknown>;
   source_book_id: string | null;
   run_id: string | null;
@@ -161,8 +186,11 @@ export const api = {
       key: string;
       label: string;
       cause: string | null;
+      /** What the citation actually supports — see AdjudicationStore::SUPPORTED_SCOPES. */
+      supported_scope?: string | null;
       note: string | null;
       found_url: string | null;
+      reference_exists?: boolean | null;
       referenceId: string | null;
       run_id: string | null;
     },
@@ -178,8 +206,46 @@ export const api = {
       { key },
     ),
 
+  checkLink: async (
+    url: string,
+  ): Promise<{
+    status: number;
+    data: {
+      ok?: boolean;
+      reachable?: boolean;
+      /** The stored link text was not a URL at all — a conversion defect, not link rot. */
+      unparsable?: boolean;
+      /** We repaired a malformed stored URL before checking; `checked_url` is what was probed. */
+      repaired?: boolean;
+      checked_url?: string;
+      status?: number;
+      category?: 'ok' | 'dead' | 'blocked' | 'server_error';
+      dead?: boolean;
+      soft404?: boolean;
+      paywalled?: boolean;
+      /** Named bot-challenge header when the host served one (can arrive on a 2xx). */
+      challenge?: string | null;
+      matched_phrase?: string | null;
+      title?: string | null;
+      final_url?: string | null;
+      error?: string;
+    };
+  }> => {
+    const res = await fetch(`/api/maintainer/study/check-link?url=${encodeURIComponent(url)}`, {
+      credentials: 'include',
+    });
+    const data = (await res.json().catch(() => ({}))) as never;
+    return { status: res.status, data };
+  },
+
+  flagConversion: (corpus: string, slug: string, reason: string, key: string | null) =>
+    postJson<{ ok?: boolean; flag_id?: number; updated?: boolean; error?: string }>(
+      `/api/maintainer/study/books/${encodeURIComponent(slug)}/flag-conversion${corpusQs(corpus)}`,
+      { reason, key },
+    ),
+
   apply: (corpus: string, slug: string) =>
-    postJson<{ ok?: boolean; applied?: number; skipped?: string[]; error?: string }>(
+    postJson<{ ok?: boolean; applied?: number; skipped?: string[]; stale_mislinks?: string[]; error?: string }>(
       `/api/maintainer/study/books/${encodeURIComponent(slug)}/apply${corpusQs(corpus)}`,
       {},
     ),

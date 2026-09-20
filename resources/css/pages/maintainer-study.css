@@ -250,6 +250,49 @@ body {
   background: color-mix(in srgb, #3fa66a 30%, transparent);
 }
 
+/* Why the resolver could not read a citation's URL. Colour carries the
+   distinction that matters to the reviewer: red = the reference itself is
+   suspect (the page is gone), amber = a LIVE source we were refused or could
+   not extract, which is our gap and not the author's fault. */
+.st-fetch-dead {
+  background: color-mix(in srgb, #d73a49 32%, transparent);
+}
+
+.st-fetch-blocked,
+.st-fetch-metadata_only,
+.st-fetch-thin_extract,
+.st-fetch-unreachable,
+.st-fetch-irrelevant,
+/* The source exists and is readable BY SOMEONE — just not by us, because the
+   only translation on offer is machine-made. Amber like the other "our gap,
+   not the author's fault" outcomes, never red. */
+.st-fetch-foreign_language,
+/* The reference is REAL — we confirmed the work exists at this URL from the
+   publisher's own declared title — we just cannot read the body. Amber, not
+   red: this says nothing against the citation. */
+.st-fetch-paywalled,
+/* Resolved, converting: content arrives when the OCR step runs. */
+.st-fetch-pdf_staged {
+  background: color-mix(in srgb, #e5a53a 28%, transparent);
+}
+
+/* We DID read it. Green, but its own colour: a transcript's wording is
+   approximate and a PDF's is not. */
+.st-fetch-transcript,
+.st-fetch-full_text,
+.st-fetch-article_extract {
+  background: color-mix(in srgb, #3fa66a 26%, transparent);
+}
+
+/* An assertion about the source that should stop the reviewer, not a hint. */
+.st-warn {
+  margin-top: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-left: 3px solid #e5a53a;
+  background: color-mix(in srgb, #e5a53a 12%, transparent);
+  font-size: 0.85rem;
+}
+
 /* ------------------------------------------------------------ detail pane */
 
 .st-detail-pane {
@@ -288,6 +331,40 @@ body {
 .st-conv-bad {
   color: #e5766a;
   font-weight: 600;
+}
+
+.st-conv-warn {
+  color: #e5a53a;
+}
+
+.st-checklink {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.st-checklink p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.st-checklink .st-save {
+  flex-basis: 100%;
+  align-self: flex-start;
+  width: fit-content;
+  font-size: 0.8rem;
+}
+
+.st-open-link {
+  color: var(--hyperlit-aqua, #4eacae);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.st-open-link:hover {
+  text-decoration: underline;
 }
 
 .st-conv-diff {
@@ -597,3 +674,53 @@ body {
   opacity: 0.6;
   font-size: 0.85rem;
 }
+
+.st-refexists {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.st-bookcontext {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.st-pathway {
+  background: color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 22%, transparent);
+  font-weight: 600;
+}
+
+.st-anchor-warning {
+  margin: 0.3rem 0 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-left: 3px solid #e5a53a;
+  background: color-mix(in srgb, #e5a53a 12%, transparent);
+  color: #e5a53a;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+/* Corpus switcher — the active corpus must be unmistakable, because working in the wrong one
+   silently labels a different dataset. */
+.st-corpus-switch { display: inline-flex; gap: 0.35rem; align-items: center; }
+.st-corpus-switch .st-header-link { opacity: 0.55; }
+.st-corpus-switch .st-corpus-on {
+  opacity: 1;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Causes that do not fit what the record says happened to this claim — revealed on demand, and
+   visibly secondary so an off-record choice is a deliberate act. */
+.st-choice-offtopic { opacity: 0.55; border-style: dashed; }
+.st-choice-more { opacity: 0.7; font-style: italic; }

@@ -1,0 +1,24 @@
+{
+    "name": "year_ranges_and_year_lists",
+    "description": "Synthetic reconstruction of the chacko-2025-conspiracy paragraph shape: parenthesised YEAR RANGES that are date spans, not citations, and MULTI-YEAR lists after one author. Pins that (2014-2019)/(2019-2024)/(2009-2014) mint no anchor at all, that each year of 'Serrano, 2019, 2023' resolves to its OWN entry (both used to point at the last one), and that an unresolvable first year (Halloran 1968, no entry) no longer takes the resolvable 1988 down with it.",
+    "book_id": "html_year_ranges_and_year_lists",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 9,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes",
+        "citation_style": "author-year-bracket",
+        "citation_links": [
+            {"node_contains": "first term", "anchors": []},
+            {"node_contains": "defended repeatedly",
+             "anchors": [["2024a", "serrano2024a"], ["2024b", "serrano2024b"],
+                         ["2024", "okonjo2024"], ["2024", "baptiste2024"],
+                         ["2019", "serrano2019"], ["2023", "serrano2023"]]},
+            {"node_contains": "cumulative-advantage",
+             "anchors": [["1988", "halloran1988"], ["2018", "okonjo2018"]]}
+        ]
+    }
+}

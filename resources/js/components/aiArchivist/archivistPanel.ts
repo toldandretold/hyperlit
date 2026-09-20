@@ -43,6 +43,27 @@ const ASK_BUTTON_ID = 'archivist-ask-button';
 let abortController: AbortController | null = null;
 let closeClickHandler: ((e: MouseEvent) => void) | null = null;
 let modeChangeHandler: ((e: Event) => void) | null = null;
+// The header re-pin has to fire AFTER the 0.6s dock transition settles, so it is a deferred
+// global `resize` dispatch — and it must not outlive the panel that scheduled it. Left queued
+// through an SPA nav (or destroyAiArchivist) it fires a resize at a page that no longer has an
+// archivist panel; in the test environment it lands after teardown and is reported as an
+// unhandled error against whichever file is running.
+let headerRepinTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleHeaderRepin(): void {
+    cancelHeaderRepin();
+    headerRepinTimer = setTimeout(() => {
+        headerRepinTimer = null;
+        window.dispatchEvent(new Event('resize'));
+    }, 700);
+}
+
+function cancelHeaderRepin(): void {
+    if (headerRepinTimer) {
+        clearTimeout(headerRepinTimer);
+        headerRepinTimer = null;
+    }
+}
 // True while WE are programmatically closing the panel (a HIDE, not a user
 // dismissal) — the capture-phase dismissal handler must not tombstone then.
 let suppressDismissal = false;
@@ -66,6 +87,7 @@ export function initAiArchivist(): void {
 export function destroyAiArchivist(): void {
     if (abortController) abortController.abort();
     abortController = null;
+    cancelHeaderRepin();
     if (closeClickHandler) {
         document.removeEventListener('click', closeClickHandler, true);
         closeClickHandler = null;
@@ -335,7 +357,7 @@ async function mountAnswerBook(bookId: string, shelfName?: string | null): Promi
     // Re-pin the header spacing after the 0.6s dock transition settles —
     // transitionToBookContent's own resize dispatch measures mid-transition,
     // which left a hero-header-sized gap above the answer until first scroll.
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 700);
+    scheduleHeaderRepin();
 
     await armAnnotationStack(bookId);
 }
@@ -455,7 +477,7 @@ function createPanel(): HTMLElement | null {
     // the panel starts ~10cm down the page. Fired twice — now, and after the
     // 0.6s dock transition so the final (small) header height is measured.
     window.dispatchEvent(new Event('resize'));
-    setTimeout(() => window.dispatchEvent(new Event('resize')), 700);
+    scheduleHeaderRepin();
 
     return panel;
 }

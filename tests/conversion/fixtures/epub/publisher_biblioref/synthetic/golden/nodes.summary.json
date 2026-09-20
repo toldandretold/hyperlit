@@ -1,0 +1,60 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 4,
+      "references": [
+        "hardin1968",
+        "ostrom1990"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 5,
+      "references": [
+        "olson1965",
+        "ostrom1990"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 7,
+      "references": [
+        "hardin1968"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 8,
+      "references": [
+        "olson1965"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 13,
+  "text_hashes": [
+    "9811afeb50",
+    "31fb5bc1be",
+    "2473e96bc6",
+    "ae962ab368",
+    "eed17150cb",
+    "8fb937b602",
+    "60819ff91c",
+    "020496c7d8",
+    "b2f4d477ae",
+    "5d20d0fee3",
+    "4d56e94974",
+    "d5a115b12f",
+    "60aa31f395"
+  ],
+  "type_histogram": {
+    "blockquote": 1,
+    "h1": 1,
+    "h2": 3,
+    "p": 8
+  }
+}

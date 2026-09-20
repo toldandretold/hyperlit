@@ -1,0 +1,18 @@
+{
+    "book": "nicholls-nieo-paste",
+    "adjudications": {
+        "nicholls-nieo-paste/c11": {
+            "gt_id": "nicholls-nieo-paste/c11",
+            "referenceId": "unga1974b",
+            "run_id": "20260919_080515_1a7e9767",
+            "label": "verified_intact",
+            "cause": "access_blocked",
+            "supported_scope": null,
+            "note": "Check link: HTTP 202 blocked our fetcher; read in browser, claim supported — https://digitallibrary.un.org/record/218451?ln = en(open in a new window)",
+            "found_url": null,
+            "reference_exists": true,
+            "adjudicated_at": "2026-09-19T22:30:57+00:00",
+            "adjudicated_by": "encryptER"
+        }
+    }
+}

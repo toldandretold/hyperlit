@@ -317,6 +317,205 @@ def resurrect_glued_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_label=
     return ocr_md, count
 
 
+# A PDF whose DIGITS are mapped into the Unicode Private Use Area. Subset fonts from some
+# typesetters (Advanced Typesetting's "AdvOT*", used across Cambridge journals) ship no usable
+# ToUnicode CMap: the glyph shapes are digits but the file declares them as U+F6xx, and the
+# /Differences array names them "/uniF646" — restating the PUA codepoint rather than the digit.
+# Nothing in the PDF says these are numbers.
+#
+# Consequence, measured on cambridge-voluntariness (2026-09-19): Mistral OCR emitted only 8 of the
+# article's 34 footnote markers, so 26 citations were never linked and the citation review produced
+# 7 claims where the paste twin produced 29. The superscripts are plainly visible on the page.
+_PUA_RANGE = (0xE000, 0xF8FF)
+
+
+def derive_pua_digit_map(pdf_path):
+    """{codepoint: digit} for a PDF whose digits live in the Private Use Area, else None.
+
+    Derived, never hardcoded: collect every PUA codepoint the document uses and accept the mapping
+    ONLY when there are exactly ten forming a consecutive run — which is what a ten-glyph digit
+    subset looks like, and what almost nothing else does. Ascending codepoint order is ascending
+    digit order (verified against this file's own DOI, which renders as U+F644 U+F643 '.' … for
+    "10.1017/…", giving U+F643='0').
+
+    Returning None on anything ambiguous is the point: a wrong digit map would invent footnote
+    numbers, and a wrong marker is worse than a missing one.
+    """
+    try:
+        reader = PdfReader(pdf_path)
+    except Exception:
+        return None
+
+    seen = set()
+    for page in reader.pages:
+        try:
+            text = page.extract_text() or ''
+        except Exception:
+            continue
+        for ch in text:
+            if _PUA_RANGE[0] <= ord(ch) <= _PUA_RANGE[1]:
+                seen.add(ord(ch))
+                if len(seen) > 10:
+                    return None          # more than a digit set — not ours to interpret
+    if len(seen) != 10:
+        return None
+
+    codes = sorted(seen)
+    if codes != list(range(codes[0], codes[0] + 10)):
+        return None                       # not one contiguous subset — refuse to guess
+
+    return {code: str(i) for i, code in enumerate(codes)}
+
+
+def _pua_only(fragment, digit_map):
+    """The digits of a fragment made up ENTIRELY of PUA digits (and space), else None.
+
+    A marker arrives as its own text-show operation because it is set in a different font, so the
+    pypdf visitor hands it over isolated — "topic," then " \uf646" then " we identified". That
+    isolation IS the superscript signal; a PUA digit embedded in a longer fragment is ordinary
+    body text (a year, a page number) and is left alone.
+    """
+    stripped = fragment.strip()
+    if not stripped or len(stripped) > 3:
+        return None
+    digits = ''
+    for ch in stripped:
+        d = digit_map.get(ord(ch))
+        if d is None:
+            return None
+        digits += d
+    return digits or None
+
+
+def extract_pua_marker_seams(pdf_path, digit_map, context_chars=60):
+    """Per page, the footnote markers the PDF draws as PUA superscripts: {page: [(num, seam)]}.
+
+    `seam` is the body text immediately BEFORE the marker, which is what locates it in the OCR
+    markdown — the marker itself is exactly what the OCR lost, so it cannot be searched for.
+    """
+    try:
+        reader = PdfReader(pdf_path)
+    except Exception:
+        return {}
+
+    out = {}
+    for i, page in enumerate(reader.pages):
+        frags = []
+        page.extract_text(visitor_text=lambda t, cm, tm, fd, fs: frags.append(t))
+
+        buf = ''
+        found = []
+        for frag in frags:
+            num = _pua_only(frag, digit_map)
+            if num is not None and buf.strip():
+                found.append((num, buf[-context_chars:]))
+                continue
+            buf += frag
+        if found:
+            out[i] = found
+    return out
+
+
+def filter_ascending_marker_chain(seams, max_number):
+    """Keep only the PUA candidates that behave like a document's footnote markers.
+
+    Raw extraction is deliberately permissive and therefore noisy: on cambridge-voluntariness it
+    offered 200 candidates, because the endnote pages set their page numbers and years in the SAME
+    PUA font, isolated in their own fragments ("406", "426", "783"). Two constraints, both facts
+    about what a marker IS rather than guesses about what these glyphs mean:
+
+      - it is numbered within the document's definition range (1..max_number); and
+      - markers are CONTIGUOUS through the document — 1, 2, 3, … — which is what
+        `footnote_strategy: sequential` means, and the same invariant
+        _repair_sequential_ref_misreads relies on.
+
+    Contiguity rather than mere ascent, because ascent alone is too weak to survive the noise: the
+    title page offers "4" and "10" (volume and issue numbers in the same font) which an ascending
+    filter accepts, and those then lock out the genuine 3..9 that follow on page 3. Requiring
+    last+1 rejects both, and the real chain resumes intact.
+
+    The cost is deliberate: a marker genuinely absent from the text layer stalls the chain and
+    everything after it is skipped. That is the safe direction — under-recovering leaves citations
+    unlinked and visible in the audit, while a mis-numbered marker silently attributes a claim to
+    the wrong work.
+
+    On the measured file this reduces 200 candidates to the true chain 1..34 and drops every
+    endnote-page page number, because those come after marker 34 and cannot extend the chain.
+
+    @param seams {page_index: [(number_str, seam_text)]}
+    @return the same shape, filtered
+    """
+    out = {}
+    last = 0
+    for page in sorted(seams):
+        kept = []
+        for num, seam in seams[page]:
+            try:
+                value = int(num)
+            except ValueError:
+                continue
+            if value != last + 1 or value > max_number:
+                continue
+            kept.append((num, seam))
+            last = value
+        if kept:
+            out[page] = kept
+    return out
+
+
+def resurrect_pua_markers(ocr_md, seams, page_label=''):
+    """Re-inject markers the OCR dropped because the PDF encodes its digits in the PUA.
+
+    Same contract as resurrect_glued_markers_from_pypdf, and the same refusal to guess: the number
+    must not already be present, and the seam must locate EXACTLY ONE place in the page's markdown.
+    Anything absent (OCR reworded the sentence) or ambiguous is skipped.
+
+    Matching is done on a folded copy — ligatures, case, whitespace and punctuation removed, since
+    pypdf and Mistral disagree about all four ("identi" + "\ufb01" + "ed" vs "identified") — and the
+    insertion point is mapped back through _char_index_map, so the markdown itself is untouched
+    apart from the inserted marker.
+
+    Returns (updated_md, count).
+    """
+    if not seams:
+        return ocr_md, 0
+
+    existing = set(re.findall(r'\[\^(\d{1,3})\]', ocr_md))
+    count = 0
+
+    for num, seam in seams:
+        if num in existing:
+            continue
+
+        folded_seam = _comparable(seam)
+        if len(folded_seam) < 12:
+            continue                      # too little context to place safely
+
+        folded_md = _comparable(ocr_md)
+        hits = [m.start() for m in re.finditer(re.escape(folded_seam), folded_md)]
+        if len(hits) != 1:
+            continue                      # absent or ambiguous — never guess
+
+        index_map = _char_index_map(folded_md, ocr_md)
+        insert_at = index_map.get(hits[0] + len(folded_seam))
+        if insert_at is None:
+            continue
+
+        # Attach the marker TIGHT to the text it belongs to. The fold drops whitespace, so mapping
+        # back can land just past a space ("needs, [^4]where"), which reads as though the note
+        # belongs to the following word. A superscript sits against the word before it.
+        while insert_at > 0 and ocr_md[insert_at - 1].isspace():
+            insert_at -= 1
+
+        ocr_md = ocr_md[:insert_at] + f'[^{num}]' + ocr_md[insert_at:]
+        existing.add(num)
+        count += 1
+
+    if count:
+        print(f"  PUA marker resurrection: re-injected {count} dropped in-text marker(s){page_label}")
+    return ocr_md, count
+
+
 def split_run_on_numbered_def(num, text):
     """A pypdf 'def' that is really a RUN-ON of consecutively numbered items on one text
     block — the affiliation-footer shape (a280cf5b: "1 School of International Development…,

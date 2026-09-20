@@ -428,8 +428,13 @@ export class GeneralProcessor extends BaseFormatProcessor {
       return references;
     }
 
+    // The fragment ids the body's own citation links point at. Collected BEFORE the accepted
+    // blocks are removed from the DOM, and used to recover each entry's publisher id — see
+    // buildReferencesFromBlock.
+    const citedFragments = this.collectCitedFragments(dom);
+
     accepted.forEach((el: Element) => {
-      references.push(...this.buildReferencesFromBlock(el));
+      references.push(...this.buildReferencesFromBlock(el, citedFragments));
       // MOVE into the static section. Leaving the source in place is what
       // produced the duplicated body paragraphs.
       el.remove();
@@ -516,7 +521,79 @@ export class GeneralProcessor extends BaseFormatProcessor {
    * Only splits when EVERY part reads as an entry, so a stray <br> inside a
    * single reference cannot shred it.
    */
-  buildReferencesFromBlock(el: Element): any[] {
+  /**
+   * Does this link's visible text read as a citation marker?
+   *
+   * Necessary because "a link that points into the reference list" is NOT the same as "a citation",
+   * and the difference produced a real false positive: the ACM Xanadu page links the words
+   * "permissions statement" to `#permissions-statement`, an anchor that happens to sit inside a
+   * block the cohort detector accepted as reference-like. Claiming that id turned an ordinary
+   * cross-reference into a citation pointing at a bibliography entry.
+   *
+   * A citation marker is an author-year (contains a 4-digit year) or a numeric/bracketed marker
+   * (`[1]`, `12`) — the same two shapes the citation linkers themselves recognise. Prose link text
+   * matches neither.
+   */
+  looksLikeCitationMarker(text: string): boolean {
+    const trimmed = (text || '').trim();
+    if (!trimmed || trimmed.length > 200) return false;
+
+    return /\b(?:1[5-9]\d{2}|20\d{2})\b/.test(trimmed) || /^\[?\s*\d{1,3}\s*\]?$/.test(trimmed);
+  }
+
+  /**
+   * Every fragment id this document's own CITATIONS point at, e.g. `#bib24` and
+   * `https://elifesciences.org/articles/60080#bib24` both contribute `bib24`.
+   *
+   * This is the evidence that lets buildReferencesFromBlock recover a reference entry's PUBLISHER
+   * id without guessing at naming conventions: an id is only claimed when a citation in the body
+   * actually targets it. Two constraints, and both were needed in practice — the fragment regex
+   * deliberately matches the one in `paste/utils/citation-linker.ts` (the two must agree on what
+   * counts as a fragment, or an id captured here would be looked up under a different spelling
+   * there), and the link text must read as a citation marker rather than prose.
+   */
+  collectCitedFragments(dom: Element): Set<string> {
+    const cited = new Set<string>();
+    Array.from<Element>(dom.querySelectorAll('a[href]')).forEach((a: Element) => {
+      const match = (a.getAttribute('href') || '').match(/#([a-zA-Z][\w-]*)$/);
+      if (match && this.looksLikeCitationMarker(a.textContent || '')) cited.add(match[1]);
+    });
+
+    return cited;
+  }
+
+  /**
+   * The id a reference entry is CITED BY, or null.
+   *
+   * A publisher's reference list carries its own identity, and in-text citations link to it — but
+   * that id is frequently not on the block we accepted as the entry. eLife nests it one level in:
+   * `<li class="reference-list__item"><div class="reference" id="bib24">`, so reading the `<li>`'s
+   * own id finds nothing and all 32 of barnett-2020's citations were dropped as unmappable.
+   *
+   * Only ids that a body citation actually points at are eligible, which is what makes this safe:
+   * a reference entry also contains Google Scholar, DOI and PubMed links that may carry ids of
+   * their own, and none of those are ever cited. An entry offering two cited ids is AMBIGUOUS and
+   * returns null rather than guessing — one wrong mapping silently attributes a claim to the wrong
+   * work, which is worse than leaving the citation unlinked and visibly unresolved.
+   */
+  citedIdForBlock(el: Element, citedFragments: Set<string>): string | null {
+    if (citedFragments.size === 0) return null;
+
+    const found: string[] = [];
+    const consider = (id: string | null) => {
+      if (id && citedFragments.has(id) && !found.includes(id)) found.push(id);
+    };
+
+    consider(el.getAttribute('id'));
+    Array.from<Element>(el.querySelectorAll('[id], a[name]')).forEach((child: Element) => {
+      consider(child.getAttribute('id'));
+      consider(child.getAttribute('name'));
+    });
+
+    return found.length === 1 ? found[0] : null;
+  }
+
+  buildReferencesFromBlock(el: Element, citedFragments: Set<string> = new Set<string>()): any[] {
     const html = el.innerHTML;
 
     if (/<br\b[^>]*>/i.test(html)) {
@@ -529,6 +606,11 @@ export class GeneralProcessor extends BaseFormatProcessor {
         });
 
         if (texts.every((text: string) => isReferenceShaped(text))) {
+          // No originalAnchorId here on purpose: one block carrying an id has become SEVERAL
+          // entries, and there is no way to tell which of them the id belongs to. Attaching it to
+          // each would map one publisher id onto every part, and the last write would win — a
+          // citation pointed confidently at the wrong reference. These fall back to generated
+          // author-year keys like any unlinked entry.
           return parts.map((part: string, i: number) => ({
             content: part,
             originalText: texts[i],
@@ -539,12 +621,26 @@ export class GeneralProcessor extends BaseFormatProcessor {
       }
     }
 
-    return [{
+    const entry: {
+      content: string;
+      originalText: string;
+      type: string;
+      needsKeyGeneration: boolean;
+      originalAnchorId?: string;
+    } = {
       content: html,
       originalText: (el.textContent || '').trim(),
       type: 'html-paragraph',
       needsKeyGeneration: true,
-    }];
+    };
+
+    // The publisher's own id for this entry, when a body citation names it. base-processor maps
+    // originalAnchorId -> our generated referenceId, which is what lets processInTextCitations
+    // convert `<a href="…#bib24">` into a real in-text citation.
+    const citedId = this.citedIdForBlock(el, citedFragments);
+    if (citedId) entry.originalAnchorId = citedId;
+
+    return [entry];
   }
 
   /**

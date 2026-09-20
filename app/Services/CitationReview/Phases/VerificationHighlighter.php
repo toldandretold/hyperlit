@@ -277,6 +277,109 @@ final class VerificationHighlighter
     }
 
     /**
+     * Mark, in the text itself, every citation this review could NOT match to a truth claim.
+     *
+     * The gap these highlights close: a citation that produced no claim produced no highlight
+     * either, so the reader saw clean unmarked prose and had no way to distinguish "checked and
+     * fine" from "never examined". That is the most misleading state the review can be in, because
+     * silence reads as approval. Measured on the 2026-09-18 phase2 run, up to 9% of a book's
+     * correctly-linked citations were in exactly that state.
+     *
+     * Deliberately worded as OUR failure, not a finding about the citation — the honest claim is
+     * "we could not match this", and nothing about the cited work is implied. Runs AFTER
+     * createVerificationHighlights so its `deleteHighlightsByCreator('AIreview:')` sweep does not
+     * remove these; it shares the creator prefix so the NEXT run still clears them.
+     *
+     * @param  list<array{node_id: string, referenceId: string, charStart: ?int, charEnd: ?int, sentence: ?string}>  $unmatched
+     */
+    public function createUnmatchedCitationHighlights(array $unmatched, string $bookId): int
+    {
+        if ($unmatched === []) {
+            return 0;
+        }
+
+        $rawModel = config('services.llm.verification_model') ?: config('services.llm.model', 'unknown');
+        $creator = 'AIreview:' . basename($rawModel);
+
+        // One query for every reference named, rather than per highlight.
+        $refIds = array_values(array_unique(array_column($unmatched, 'referenceId')));
+        $bibByRef = DB::connection('pgsql_admin')->table('bibliography')
+            ->where('book', $bookId)
+            ->whereIn('referenceId', $refIds)
+            ->pluck('content', 'referenceId')
+            ->all();
+
+        $count = 0;
+
+        foreach ($unmatched as $u) {
+            $charStart = $u['charStart'] ?? null;
+            $charEnd = $u['charEnd'] ?? null;
+            $sentence = trim((string) ($u['sentence'] ?? ''));
+
+            // A zero-width or absent span has nothing to attach to. Skipped rather than
+            // highlighted at an invented position — the report still lists it.
+            if ($charStart === null || $charEnd === null || $charEnd <= $charStart || $sentence === '') {
+                continue;
+            }
+
+            $refId = (string) $u['referenceId'];
+            $bibText = strip_tags((string) ($bibByRef[$refId] ?? '(no bibliography entry)'));
+
+            $content = [
+                [
+                    'type'      => 'p',
+                    'content'   => '<p><strong>Not reviewed — we could not match this citation to a truth claim</strong></p>',
+                    'plainText' => 'Not reviewed — we could not match this citation to a truth claim',
+                ],
+                [
+                    'type'      => 'p',
+                    'content'   => '<p><strong>Cited work:</strong> ' . e($bibText) . '</p>',
+                    'plainText' => 'Cited work: ' . $bibText,
+                ],
+                [
+                    'type'      => 'p',
+                    'content'   => '<p><em>This is a limitation of our system, not a judgement about this citation.'
+                        . ' The citation was found and linked correctly, but automated extraction did not produce a'
+                        . ' checkable claim for it, so it carries no verdict. Nothing about the cited work is implied.</em></p>',
+                    'plainText' => 'This is a limitation of our system, not a judgement about this citation.'
+                        . ' The citation was found and linked correctly, but automated extraction did not produce a'
+                        . ' checkable claim for it, so it carries no verdict. Nothing about the cited work is implied.',
+                ],
+            ];
+
+            foreach ($content as &$node) {
+                $node['content'] = str_replace('<strong>', '<strong style="color:#7f8c8d">', $node['content']);
+            }
+            unset($node);
+
+            $result = $this->highlights->createHighlight([
+                'bookId'         => $bookId,
+                'nodeId'         => $u['node_id'],
+                'text'           => $sentence,
+                // Distinct from the claim highlights' id (crc32 of node+ref) so an unmatched
+                // citation can never collide with a reviewed one for the same reference.
+                'highlightId'    => 'HLU_' . abs(crc32($u['node_id'] . $refId)),
+                'creator'        => $creator,
+                'annotation'     => 'Not reviewed (unmatched citation) — ' . mb_substr($bibText, 0, 120),
+                'subBookContent' => $content,
+                'subBookTitle'   => 'AI Review: Citation Not Matched',
+                'charStart'      => $charStart,
+                'charEnd'        => $charEnd,
+            ]);
+
+            if ($result !== null) {
+                $count++;
+            }
+        }
+
+        if ($count > 0) {
+            $this->revealAiHighlightsByDefault($bookId);
+        }
+
+        return $count;
+    }
+
+    /**
      * Flip this book's gate default so the AI review highlights are NOT hidden.
      *
      * The global default hides AI highlights (sensible for books nobody asked to have

@@ -55,9 +55,18 @@ function buildMarkup() {
   `;
 }
 
+// Every mode built by a test, so afterEach can shut it down. `handleSearchInput` schedules a
+// 300ms debounce that calls performSearch → the GLOBAL fetch; the tests that type never close
+// their mode, so on a loaded machine those real timers land inside a LATER test and add a phantom
+// call to that test's stub. That is how "stops polling as soon as external results land" saw 3
+// fetches instead of 2 in a full-suite run while passing every time in isolation. `close()`
+// already clears the debounce, the abort controller and the external retry — the tests just never
+// called it.
+const liveModes = [];
+
 function makeMode() {
   buildMarkup();
-  return new CitationMode({
+  const mode = new CitationMode({
     toolbar: document.getElementById('edit-toolbar'),
     citationButton: document.getElementById('citation-button'),
     citationContainer: document.getElementById('citation-mode-container'),
@@ -66,6 +75,8 @@ function makeMode() {
     allButtons: [],
     closeHeadingSubmenuCallback: () => {},
   });
+  liveModes.push(mode);
+  return mode;
 }
 
 beforeEach(() => {
@@ -83,6 +94,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Shut every mode down BEFORE the stubs go away, so no debounce/retry timer outlives the test
+  // that created it (see `liveModes`). close() is defensive about a torn-down DOM, but a test may
+  // have left the instance mid-flight, so failures here must not mask the real assertion.
+  while (liveModes.length) {
+    try { liveModes.pop().close(); } catch { /* already closed / DOM gone */ }
+  }
   document.body.innerHTML = '';
   vi.unstubAllGlobals();
   // The client-side search cache is module-level state — clear it so a cached

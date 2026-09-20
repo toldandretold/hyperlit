@@ -34,7 +34,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "agence2025"
+            "bound_reference_id": "francepresse2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c04",
@@ -67,7 +67,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "andersonclibbens2018"
+            "bound_reference_id": "anderson2018"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c07",
@@ -155,7 +155,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bennett2024"
+            "bound_reference_id": "bennett2017"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c15",
@@ -166,7 +166,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bharti2023"
+            "bound_reference_id": "nk2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c16",
@@ -177,7 +177,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bhattacharya2024"
+            "bound_reference_id": "bhattacharya2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c17",
@@ -232,7 +232,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bjp2024"
+            "bound_reference_id": "bjp2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c22",
@@ -309,7 +309,7 @@
             "cited_occurrences": 0,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "cbc2025"
+            "bound_reference_id": "cbc2024b"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c29",
@@ -408,7 +408,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "cooper2025"
+            "bound_reference_id": "cooper2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c38",
@@ -573,7 +573,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "economist2024"
+            "bound_reference_id": "economist2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c53",
@@ -584,7 +584,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "ecosoc2025"
+            "bound_reference_id": "ecosoc2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c54",
@@ -661,7 +661,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "fineman2021"
+            "bound_reference_id": "fineman1991"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c61",
@@ -672,7 +672,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "firstpost2024"
+            "bound_reference_id": "firstpost2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c62",
@@ -694,7 +694,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "garcha2024"
+            "bound_reference_id": "garcha2020"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c64",
@@ -705,7 +705,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "gentilekragh2022"
+            "bound_reference_id": "gentile2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c65",
@@ -760,7 +760,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "goi2024"
+            "bound_reference_id": "goi2011"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c70",
@@ -771,7 +771,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "goi2016"
+            "bound_reference_id": "goi2015"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c71",
@@ -859,7 +859,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "happymogha2025"
+            "bound_reference_id": "happy2025"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c79",
@@ -903,7 +903,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "hindenburg2023"
+            "bound_reference_id": "research2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c83",
@@ -914,7 +914,7 @@
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "hrr2024"
+            "bound_reference_id": "hrrstrafrecht2016"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c84",
@@ -936,7 +936,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "indian2020"
+            "bound_reference_id": "express2020"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c86",
@@ -947,7 +947,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "indian2024"
+            "bound_reference_id": "express2021"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c87",
@@ -969,7 +969,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "intelligence2014"
+            "bound_reference_id": "bureau2014"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c89",
@@ -1090,7 +1090,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "kaur2023"
+            "bound_reference_id": "kaur2021"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c100",
@@ -1167,7 +1167,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "kumar2024"
+            "bound_reference_id": "kumar2024a"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c107",
@@ -1211,7 +1211,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "legal2014"
+            "bound_reference_id": "online2014"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c111",
@@ -1310,7 +1310,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "majumdar2024"
+            "bound_reference_id": "majumdar2018"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c120",
@@ -1321,7 +1321,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mangnale2025"
+            "bound_reference_id": "mangnale2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c121",
@@ -1332,7 +1332,7 @@
             "cited_occurrences": 2,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mccrum2025"
+            "bound_reference_id": "mccrum2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c122",
@@ -1365,7 +1365,7 @@
             "cited_occurrences": 2,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mehrotramenn2023"
+            "bound_reference_id": "mehrotra2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c125",
@@ -1409,7 +1409,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024a"
+            "bound_reference_id": "modi2014"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c129",
@@ -1420,7 +1420,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024b"
+            "bound_reference_id": "modi2018"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c130",
@@ -1442,7 +1442,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024c"
+            "bound_reference_id": "modi2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c132",
@@ -1453,7 +1453,7 @@
             "cited_occurrences": 0,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024d"
+            "bound_reference_id": "modi2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c133",
@@ -1464,7 +1464,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024e"
+            "bound_reference_id": "modi2024a"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c134",
@@ -1475,7 +1475,7 @@
             "cited_occurrences": 0,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024f"
+            "bound_reference_id": "modi2024b"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c135",
@@ -1486,7 +1486,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2024g"
+            "bound_reference_id": "modi2024c"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c136",
@@ -1508,7 +1508,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mogul2023"
+            "bound_reference_id": "mogul2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c138",
@@ -1519,7 +1519,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mohanty2024"
+            "bound_reference_id": "mohanty2016"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c139",
@@ -1574,7 +1574,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "nakashima2024"
+            "bound_reference_id": "nakashima2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c144",
@@ -1629,7 +1629,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "agenciesnews2023"
+            "bound_reference_id": "agencies2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c149",
@@ -1662,7 +1662,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "nilsen2018"
+            "bound_reference_id": "ag2018"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c152",
@@ -1706,7 +1706,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "federalofficeprosecutor2024"
+            "bound_reference_id": "prosecutor2019"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c156",
@@ -1816,7 +1816,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "raghavan2025"
+            "bound_reference_id": "tcas2025"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c166",
@@ -1871,7 +1871,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "mishrarakesh2016"
+            "bound_reference_id": "rakesh2016"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c171",
@@ -1937,7 +1937,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "vd2024"
+            "bound_reference_id": "vd2016"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c177",
@@ -1992,7 +1992,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "sharma2024a"
+            "bound_reference_id": "sharma2021"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c182",
@@ -2003,7 +2003,7 @@
             "cited_occurrences": 2,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "sharma2024b"
+            "bound_reference_id": "sharma2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c183",
@@ -2014,7 +2014,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "ce2023"
+            "bound_reference_id": "shih2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c184",
@@ -2047,7 +2047,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "singh2024a"
+            "bound_reference_id": "singh2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c187",
@@ -2058,7 +2058,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "singh2024b"
+            "bound_reference_id": "singh2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c188",
@@ -2146,7 +2146,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "suresh2024"
+            "bound_reference_id": "suresh2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c196",
@@ -2179,7 +2179,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "swart2024"
+            "bound_reference_id": "swart2020"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c199",
@@ -2201,7 +2201,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "tapasya2024"
+            "bound_reference_id": "tapasya2022"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c201",
@@ -2223,7 +2223,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "tnn2024"
+            "bound_reference_id": "tnn2020"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c203",
@@ -2311,7 +2311,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "jktur2020"
+            "bound_reference_id": "jk2020"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c211",
@@ -2399,7 +2399,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "widmalm2025a"
+            "bound_reference_id": "widmalm2019a"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c219",
@@ -2410,7 +2410,7 @@
             "cited_occurrences": 0,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "widmalm2025b"
+            "bound_reference_id": "widmalm2019b"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c220",
@@ -2432,7 +2432,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "wire2024a"
+            "bound_reference_id": "wire2021"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c222",
@@ -2443,7 +2443,7 @@
             "cited_occurrences": 2,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "wire2024b"
+            "bound_reference_id": "wire2024"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c223",
@@ -2487,7 +2487,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bankworld2025a"
+            "bound_reference_id": "bank2025a"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c227",
@@ -2498,7 +2498,7 @@
             "cited_occurrences": 0,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "bankworld2025b"
+            "bound_reference_id": "bank2025b"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c228",
@@ -2509,7 +2509,7 @@
             "cited_occurrences": 1,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "jpyadav2024"
+            "bound_reference_id": "jp2023"
         },
         {
             "gt_id": "chacko-2025-conspiracy/c229",
@@ -2535,7 +2535,7 @@
         }
     ],
     "binding": {
-        "bound_at": "2026-09-10T13:36:13+00:00",
+        "bound_at": "2026-09-17T03:59:10+00:00",
         "book_id": "study_phase1_chacko-2025-conspiracy",
         "unmatched": [],
         "unlabelled_reference_ids": []

@@ -8,7 +8,14 @@
  * the first format with >=1 match on >=1 selector won outright.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+// These suites parse REAL ~100KB clipboard documents through the whole processor chain: ~0.5-1.3s
+// per test on an idle machine. The suite runs 15 workers in parallel, and under that contention
+// the 5s default left no headroom — the failures were "test timed out", never a wrong assertion.
+// The work is genuinely this expensive, so state a budget that matches it rather than assume an
+// idle box. Kept file-scoped: a global bump would hide a genuinely hung test elsewhere.
+vi.setConfig({ testTimeout: 30_000 });
+
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

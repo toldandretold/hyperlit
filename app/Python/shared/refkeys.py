@@ -115,6 +115,18 @@ def is_plausible_year(token, min_year=MODERN_YEAR_MIN):
     return bool(m) and min_year <= int(m.group()) <= PLAUSIBLE_YEAR_MAX
 
 
+def strip_access_clause(text):
+    """Remove "(accessed 8 September 2013)" / ", retrieved 2019-03-02" tails.
+
+    Public because `generate_ref_keys` is not the only place that reads a year out of an entry:
+    the bibliography's OCR-error ALT-YEAR alias re-scans the raw entry for a second year, and
+    without this it keyed a whole corpus of web-cited entries on their access date — every
+    "News Agencies (2023) … (accessed 1 July 2024)" minted a `news2024` alias that then stole the
+    key belonging to "News18 (2024)".
+    """
+    return _ACCESS_CLAUSE_RE.sub(' ', text or '')
+
+
 def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     # Normalize curly apostrophes to straight for consistent matching
     text = text.replace('’', "'").replace('‘', "'").replace('ʼ', "'")
@@ -127,8 +139,21 @@ def generate_ref_keys(text, context_text="", min_year=MODERN_YEAR_MIN):
     # nothing (ffbb3ac7 mis-keyed its European Commission, Bergstrom 2002 and Thomson Reuters 2008
     # entries this way; any web-cited entry with an access date is exposed).
     processed_text = _ACCESS_CLAUSE_RE.sub(' ', processed_text)
-    # Prefer parenthesized year (common in bibliography: "Author (2022). Title...")
-    paren_year = re.search(r'\((\d{4}[a-z]?)\)', processed_text)
+    # Prefer parenthesized year (common in bibliography: "Author (2022). Title...") — but it has
+    # to be a plausible YEAR. This branch used to take the first parenthesised 4-digit token
+    # outright, with none of the is_plausible_year filtering the bare-year branch below applies,
+    # so a journal's 4-digit ISSUE number won: "Hardin, Garrett. 1968. 'The Tragedy of the
+    # Commons.' Science 162 (3859)" keyed hardin3859, which no "(Hardin 1968)" in the body can
+    # ever match. Science and Nature both number issues in four digits, so this is a normal
+    # citation shape, not an exotic one. An implausible token falls through to the last-plausible
+    # -year rule, which finds the 1968.
+    #
+    # Only the CEILING does the work here. The MODERN_YEAR_MIN floor belongs to the bare-year
+    # scan, where any 4-digit number in a long entry is a candidate; inside parentheses right
+    # after an author, a 4-digit token is a year, and "Spencer, Herbert (1884) The Man Versus The
+    # State … 1992." must keep keying spencer1884 rather than falling through to the reprint year.
+    paren_year = next((m for m in re.finditer(r'\((\d{4}[a-z]?)\)', processed_text)
+                       if is_plausible_year(m.group(1), HISTORICAL_YEAR_MIN)), None)
     if paren_year:
         year_match = paren_year
     else:

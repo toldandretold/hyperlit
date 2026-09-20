@@ -18,6 +18,24 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class)->in('Feature');
 
+/*
+ * `fetch_host_reachability` is written on the **pgsql_admin** connection, which
+ * escapes RefreshDatabase's transaction rollback — so a host that one test
+ * marks as blocked stays blocked for every test after it, and they start
+ * getting `channel=cooldown` instead of the grade they set up. That bit seven
+ * tests the moment host memory landed: each passed alone and failed in the
+ * suite, all of them sharing `example.com`.
+ *
+ * Cleared for the whole Feature suite rather than per file, because the trap is
+ * invisible (a test that never mentions FetchHostHealth can still be its
+ * victim) and any future test using a shared hostname would hit it.
+ */
+uses()->beforeEach(function () {
+    \Illuminate\Support\Facades\DB::connection('pgsql_admin')
+        ->table('fetch_host_reachability')
+        ->delete();
+})->in('Feature', 'Canonical');
+
 // Canonical version-control suite (tests/Canonical): same Laravel TestCase
 // binding as Feature, kept as its own top-level testsuite so it can run alone
 // via `php artisan test --testsuite=Canonical`.

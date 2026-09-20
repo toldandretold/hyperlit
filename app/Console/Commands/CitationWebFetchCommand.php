@@ -70,14 +70,16 @@ class CitationWebFetchCommand extends Command
             $this->line("  <fg=cyan>[" . ($i + 1) . "/{$withUrls->count()}] {$shortTitle}</>");
             $this->line("    URL: {$url}");
 
-            $text = $webFetch->fetchAndValidate($url, $title ?: 'Web Source');
+            $result = $webFetch->fetchAndAssess($url, $title ?: 'Web Source');
+            $text = $result['text'];
 
             if ($text) {
-                $this->line("    <fg=green>Fetched: " . strlen($text) . " chars (validated)</>");
+                $this->line("    <fg=green>Fetched: " . strlen($text) . " chars — {$result['grade']}"
+                    . " (via {$result['channel']}, {$result['extraction']})</>");
 
                 $stubAuthor = !empty($llmMetadata['authors']) ? implode('; ', $llmMetadata['authors']) : null;
                 $stubYear   = $llmMetadata['year'] ?? null;
-                $stubBookId = $webFetch->createWebStubWithNodes($db, $title, $stubAuthor, $stubYear, $text, $url);
+                $stubBookId = $webFetch->createWebStubWithNodes($db, $title, $stubAuthor, $stubYear, $text, $url, $result['grade']);
 
                 if ($stubBookId) {
                     $db->table('bibliography')
@@ -92,7 +94,11 @@ class CitationWebFetchCommand extends Command
                     $failed++;
                 }
             } else {
-                $this->line("    <fg=yellow>Fetch failed, too short, or content rejected</>");
+                // Named outcome, not the old "failed, too short, or rejected"
+                // — a dead link, a bot wall and a page about something else
+                // are three different conclusions about the citation.
+                $status = $result['http_status'] ? " HTTP {$result['http_status']}" : '';
+                $this->line("    <fg=yellow>{$result['grade']}{$status}: {$result['reason']}</>");
                 $failed++;
             }
 

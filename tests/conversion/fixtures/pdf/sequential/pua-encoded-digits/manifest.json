@@ -1,0 +1,17 @@
+{
+    "name": "pua-encoded-digits",
+    "description": "Ottonelli & Torresi, 'Voluntariness and Migration: A Restatement' (Ethics & International Affairs 37:4). A publisher PDF whose DIGIT glyphs are mapped into the Unicode Private Use Area by an Advanced Typesetting subset font with no usable ToUnicode CMap — the /Differences array names them /uniF646, restating the codepoint rather than the digit, so nothing in the file says they are numbers. Mistral OCR therefore emitted only 8 of the article's 34 footnote markers and 26 citations were never linked; the superscripts are plainly visible on the page. Locks the PUA marker recovery (derive_pua_digit_map -> extract_pua_marker_seams -> filter_ascending_marker_chain -> resurrect_pua_markers), which reads the PDF's TEXT LAYER and is therefore invisible without stage_pdf.",
+    "license": "is_oa=true oa_status=gold work_license=cc-by — Creative Commons Attribution 4.0, 'permits unrestricted re-use, distribution and reproduction, provided the original article is properly cited' -> committable",
+    "book_id": "pdf_sequential_pua_digits",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "pdf",
+    "stage_pdf": true,
+    "expected": {
+        "references_count": 0,
+        "footnotes_count": 34,
+        "footnote_strategy": "sequential",
+        "audit_note": "max_unmatched_defs=2 is a DECLARED residual, not a pass: marker 3's seam is corrupted by an OCR artifact ('vilariavajda' spliced into the sentence) and marker 13's context is ambiguous, so resurrect_pua_markers refuses to place them rather than guess — a wrong marker attributes a claim to the wrong work. Before the PUA recovery this fixture had 26 unmatched defs and 25 audit gaps; the ceiling exists to catch a REGRESSION back toward that, so raising it is a reviewed decision.",
+        "max_unmatched_defs": 2
+    }
+}

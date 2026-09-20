@@ -137,9 +137,92 @@ export class BaseFormatProcessor {
    * @param {HTMLElement} dom - DOM to normalize
    */
   normalize(dom: any) {
+    // Screen-reader-only text is INVISIBLE on the page and must not become content.
+    // Runs FIRST, before any extraction, because the damage is not cosmetic: Taylor & Francis
+    // renders every outbound link as
+    //   <a href="https://www.marxists.org/…/neo-colonialism/"><span class="off-screen"
+    //      style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden">(open in a
+    //      new window)</span></a>
+    // and flattening that glues "(open in a new window)" onto the href. Measured on
+    // nicholls-nieo-paste: 22 of 34 reference URLs were unusable, so the resolver could not fetch
+    // them and fell back to metadata matching — Nkrumah's "Neo-Colonialism", whose full text is
+    // free on marxists.org, was matched to an OpenLibrary record and judged on its TITLE ALONE.
+    // The reviewer then reasoned "the title does not suggest support for free trade" about a book
+    // we could have read in full.
+    this.stripVisuallyHidden(dom);
+
     // Normalize HTML content
-    const normalizedHtml = normalizeContent(dom.innerHTML, true);
+    const normalizedHtml = this.repairTypographicUrls(normalizeContent(dom.innerHTML, true));
     dom.innerHTML = normalizedHtml;
+  }
+
+  /**
+   * Delete the sub-space characters a typesetter puts INSIDE a URL so a long link can wrap.
+   *
+   * Taylor & Francis renders "…/696640?ln<U+2009>=<U+2009>en&v<U+2009>=<U+2009>pdf" and
+   * percent-encodes the same thing into EPUB hrefs (%E2%80%89). Either way the stored link is not
+   * a URL the server ever indexed, so the citation resolver cannot fetch the source and falls back
+   * to matching bibliographic metadata — the reviewer is then handed a TITLE where the full text
+   * was freely available. Measured on nicholls-nieo-paste: 22 of 34 reference URLs unusable, and
+   * Nkrumah's "Neo-Colonialism" judged on its title alone while the full text sat on marxists.org.
+   *
+   * Operates on the HTML STRING, not the DOM. A TreeWalker collecting every text node was tried
+   * first and CRASHED the paste test worker on a real clipboard fixture; one linear pass over the
+   * markup covers href attributes and plain-text URLs alike (a bibliography often prints the link
+   * with no <a> at all, which is how all three survivors in nicholls-nieo-paste were shaped).
+   *
+   * Safe to delete rather than truncate at: a thin/hair/zero-width space is never valid inside a
+   * URL, so its presence is always this artifact. An ORDINARY space still ends a URL — which is
+   * why the run excludes only ASCII whitespace, letting the match continue THROUGH the gaps.
+   */
+  repairTypographicUrls(html: string): string {
+    const LITERAL = /[\u2008-\u200D\u202F\u2060\uFEFF]/g;
+    const ENCODED = /%E2%80%(?:8[89ABCD]|AF)|%E2%81%A0|%EF%BB%BF/gi;
+    if (!/[\u2008-\u200D\u202F\u2060\uFEFF]/.test(html) && !/%E2%80%8/i.test(html)) {
+      return html;
+    }
+
+    // ONE character class, no nested quantifier — the obvious form
+    // /https?:\/\/[^\s<>"']*(?:[gap][^\s<>"']*)+/ backtracks catastrophically.
+    let fixed = 0;
+    const out = html.replace(/https?:\/\/[^ \t\r\n<>"']*/g, (run) => {
+      const clean = run.replace(LITERAL, '').replace(ENCODED, '');
+      if (clean !== run) { fixed++; }
+      return clean;
+    });
+
+    if (fixed > 0) {
+      console.log(`  - Repaired ${fixed} URL(s) containing typographic spaces`);
+    }
+    return out;
+  }
+
+  /**
+   * Remove elements that are hidden from sighted readers — by CLASS or by off-screen style.
+   *
+   * Both signals are needed: publishers name the class differently (off-screen, sr-only,
+   * visually-hidden, screen-reader-text …) and some ship no class at all, only the inline
+   * clip/off-screen style. An element the reader cannot see is not part of the document's text,
+   * and carrying it forward corrupts URLs, prose and reference strings alike.
+   */
+  stripVisuallyHidden(dom: any) {
+    const CLASS_SEL = [
+      '.off-screen', '.offscreen', '.sr-only', '.visually-hidden', '.visuallyhidden',
+      '.screen-reader-text', '.screen-reader-only', '.a11y-hidden', '.accessibility-hidden',
+      '.hidden-visually', '.show-for-sr',
+    ].join(', ');
+
+    // CLASS-BASED ONLY, deliberately. A style-attribute sweep (`[style]` + an off-canvas /
+    // clipped-to-1px test) was tried first and CRASHED the paste test worker on a real clipboard
+    // fixture — pasted publisher HTML carries an inline style on nearly every element, so the scan
+    // walks tens of thousands of nodes and removes from inside that walk. The class signal is what
+    // actually identifies screen-reader text in practice, and it costs one selector.
+    let removed = 0;
+    dom.querySelectorAll(CLASS_SEL).forEach((el: Element) => { el.remove(); removed++; });
+
+    if (removed > 0) {
+      console.log(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`);
+    }
   }
 
   /**

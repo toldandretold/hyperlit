@@ -77,3 +77,36 @@ test('QueueBookEmbeddings dispatches jobs for a PRIVATE book from a worker conte
 
     Queue::assertPushed(GenerateNodeEmbedding::class, 1);
 });
+
+test('skipIfPresent makes a backfill job a no-op when a vector already landed', function () {
+    // The backfill fan-out (QueueBookEmbeddings) targets nodes that had NO
+    // embedding at dispatch time — but PassageSearcher inline-embeds small web
+    // sources mid-review, beating the embeddings lane. The queued job must
+    // then be a no-op (no provider call), while the PgNode saved-hook path
+    // (plainText CHANGED — vector stale) keeps overwriting.
+    config(['services.llm.api_key' => 'test-key', 'services.llm.base_url' => 'https://llm.fake/v1']);
+    Http::fake([
+        'llm.fake/*' => Http::response(['data' => [['index' => 0, 'embedding' => array_fill(0, 768, 0.25)]]]),
+    ]);
+
+    [$book, $nodeId] = makePrivateBookWithNode();
+    $admin = DB::connection('pgsql_admin');
+    $preset = '[' . implode(',', array_fill(0, 768, 0.9)) . ']';
+    $admin->table('nodes')->where('id', $nodeId)
+        ->update(['embedding' => DB::raw("'{$preset}'::halfvec")]);
+
+    // halfvec is fp16 — 0.9 stores as ~0.8999, so compare with tolerance.
+    $firstComponent = function () use ($admin, $nodeId): float {
+        $text = $admin->table('nodes')->where('id', $nodeId)->selectRaw('embedding::text AS e')->value('e');
+        return (float) explode(',', trim($text, '[]'))[0];
+    };
+
+    // Backfill flavour: skips — no HTTP, vector untouched.
+    (new GenerateNodeEmbedding($nodeId, skipIfPresent: true))->handle(app(EmbeddingService::class));
+    Http::assertNothingSent();
+    expect(abs($firstComponent() - 0.9))->toBeLessThan(0.01);
+
+    // Re-embed flavour (default): overwrites the stale vector.
+    (new GenerateNodeEmbedding($nodeId))->handle(app(EmbeddingService::class));
+    expect(abs($firstComponent() - 0.25))->toBeLessThan(0.01);
+});

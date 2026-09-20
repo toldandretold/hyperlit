@@ -38,7 +38,7 @@ final class MetadataEnricher
         $bibEntries = $db->table('bibliography')
             ->where('book', $bookId)
             ->whereIn('referenceId', $allRefIds)
-            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'canonical_source_id'])
+            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', 'canonical_source_id'])
             ->get()
             ->keyBy('referenceId');
 
@@ -50,7 +50,7 @@ final class MetadataEnricher
             $fnEntries = $db->table('footnotes')
                 ->where('book', $bookId)
                 ->whereIn('footnoteId', $missingIds)
-                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', $db->raw('NULL as canonical_source_id')])
+                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', $db->raw('NULL as canonical_source_id')])
                 ->get()
                 ->keyBy('referenceId');
             $footnoteRefIds = $fnEntries->keys()->flip()->toArray();
@@ -186,6 +186,13 @@ final class MetadataEnricher
                 'llm_metadata'        => is_string($bib->llm_metadata ?? null) ? json_decode($bib->llm_metadata, true) : null,
                 'match_method'        => $bib->match_method ?? null,
                 'match_score'         => $bib->match_score ?? null,
+                // Carried so the study workbench can say WHY a reference went
+                // unresolved (dead link / bot wall / no article body) instead
+                // of only that it did. The scan writes the web-fetch outcome
+                // into wave_results here.
+                'match_diagnostics'   => is_string($bib->match_diagnostics ?? null)
+                    ? json_decode($bib->match_diagnostics, true)
+                    : ($bib->match_diagnostics ?? null),
                 'canonical_source_id' => $canonicalId,
                 'canonical_signals'   => $canonicalSignals,
                 'verification_tier'   => $tier,

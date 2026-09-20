@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Just a moment…</title>
+<style>
+body{margin:0;display:flex;justify-content:center;align-items:center;
+  min-height:100vh;background:#f7f8fa;
+  font-family:-apple-system,system-ui,sans-serif;color:#333}
+.c{text-align:center;padding:2.5em;background:#fff;border-radius:10px;
+  box-shadow:0 2px 12px rgba(0,0,0,.08);max-width:420px}
+.s{border:4px solid #eee;border-top-color:#555;border-radius:50%;
+  width:36px;height:36px;margin:0 auto 1.2em;animation:r .8s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+p{margin:.6em 0;line-height:1.5}
+.logo{display:block;margin:0 auto 1.5em;max-width:180px;max-height:60px}
+.err{display:none;color:#b00}
+</style></head><body>
+<div class="c">
+  <img class="logo" src="https://staticprintenglish.theprint.in/wp-content/uploads/2022/01/logo_800x149_transp-11.png" alt="">
+  <div class="s" id="sp"></div>
+  <p><strong>Checking your browser</strong></p>
+  <p>This is a one-time security check.</p>
+  <p class="err" id="err"></p>
+  <noscript><style>.s{display:none}.err{display:block!important}</style>
+  <p class="err" style="display:block">JavaScript is required. Please enable JavaScript and <a href="">reload</a>.</p>
+  </noscript>
+</div>
+<script>
+(function(){
+  var n="__lc_ch",v="1821173742:7535e3be515689252e2adefb890799df";
+  document.cookie=n+"="+v+";path=/;max-age=31536000;SameSite=Lax;Secure";
+  setTimeout(function(){
+    if(document.cookie.indexOf(n+"=")!==-1){
+      location.reload();
+    } else {
+      document.getElementById("sp").style.display="none";
+      var e=document.getElementById("err");
+      e.style.display="block";
+      e.textContent="Cookies are required. Please enable cookies and reload.";
+    }
+  },1200);
+})();
+</script>
+</body></html>

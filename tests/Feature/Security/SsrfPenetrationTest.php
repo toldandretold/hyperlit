@@ -19,6 +19,7 @@
 use App\Services\SourceImport\Content\OpenAccessPdfFetcher;
 use App\Services\SourceImport\Identifier\Doi;
 use App\Services\SourceImport\Metadata\SourceMetadata;
+use App\Services\WebContent\WebTextAcquirer;
 use App\Services\WebFetchService;
 use Illuminate\Support\Facades\Http;
 
@@ -67,25 +68,34 @@ test('WebFetchService.extractUrl extracts localhost URLs from plain text', funct
     expect($url)->toBe('http://localhost:6379');
 });
 
-test('WebFetchService.fetchWebPage blocks internal URLs via UrlGuard', function (string $internalUrl) {
-    // No Http::fake needed — the guard should block BEFORE any HTTP call.
-    // If the guard fails, the Http call to an internal URL would throw in the
-    // test environment (no fake to catch it), which is also a valid failure signal.
+test('WebFetchService web fetch blocks internal URLs via UrlGuard', function (string $internalUrl) {
+    // Asserted through the PUBLIC seam. The old version reflected into a
+    // private fetchWebPage(); that method is gone — the fetch now goes through
+    // ContentFetchService::acquirePageHtml, which carries its own UrlGuard
+    // precisely because it is fed URLs out of bibliographies we did not write.
+    Http::fake();
 
-    $service = app(WebFetchService::class);
+    $result = app(WebFetchService::class)->fetchAndAssess($internalUrl, 'Some Cited Work');
 
-    // Use reflection to call the private fetchWebPage method directly.
-    $ref = new ReflectionClass($service);
-    $method = $ref->getMethod('fetchWebPage');
-    $method->setAccessible(true);
+    expect($result['text'])->toBeNull()
+        ->and($result['grade'])->toBe(WebTextAcquirer::GRADE_UNREACHABLE)
+        ->and($result['reason'])->toContain('unsafe');
 
-    // UrlGuard now blocks internal URLs — fetchWebPage returns null without
-    // making the HTTP request. The Http::fake would fail if the request WAS
-    // made (the expect($request->url()) assertion inside the fake callback).
-    $result = $method->invoke($service, $internalUrl);
-
-    expect($result)->toBeNull();
+    // The guard must fire BEFORE any request leaves.
+    Http::assertNothingSent();
 })->with('ssrf_internal_targets');
+
+test('a graded web fetch never escalates an unsafe URL to the browser', function () {
+    // Escalation spends a headless browser and residential proxy bandwidth.
+    // An SSRF target must be refused at the guard, not handed to Playwright.
+    Http::fake();
+
+    $result = app(WebFetchService::class)->fetchAndAssess('http://169.254.169.254/latest/meta-data', 'Cloud metadata');
+
+    expect($result['channel'])->toBe('none')
+        ->and($result['text'])->toBeNull();
+    Http::assertNothingSent();
+});
 
 // =============================================================================
 // 2. OpenAccessPdfFetcher — fetches OpenAlex-sourced pdf_url without host allowlist

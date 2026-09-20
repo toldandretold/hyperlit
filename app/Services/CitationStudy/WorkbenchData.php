@@ -2,6 +2,8 @@
 
 namespace App\Services\CitationStudy;
 
+use Illuminate\Support\Facades\DB;
+
 /**
  * Read-side of the /maintainer/study workbench: composes everything the human
  * reviewer needs per citation into one payload — the AI's claim + verdict, the
@@ -44,6 +46,10 @@ class WorkbenchData
             $books[] = [
                 'slug' => $slug,
                 'arm' => $book['arm'],
+                // The PATHWAY is what distinguishes rows in a multi-pathway corpus: the same work
+                // appears four times with an identical title, and every one of them is 'control',
+                // so the arm alone leaves them indistinguishable in the list.
+                'pathway' => $book['pathway'] ?? null,
                 'title' => $book['provenance']['title'] ?? $slug,
                 'run_id' => $bookState['run_id'] ?? null,
                 'run_status' => $bookState['status'] ?? 'not_run',
@@ -72,6 +78,16 @@ class WorkbenchData
             'frozen' => $manifest->isFrozen(),
             'slug' => $slug,
             'arm' => $book['arm'],
+            'pathway' => $manifest->pathwayFor($book),
+            // How this corpus copy was BUILT. 'raw-file' = the real source
+            // document (what a user would import). 'exported-from-nodes' =
+            // the legacy round-trip: an already-converted book exported to
+            // plain text and re-imported, which DESTROYS the original
+            // citation anchors and re-derives them — the reviewer must know,
+            // because a mislink in such a book may be an artifact of that
+            // round-trip rather than a defect the product would produce.
+            'source_markdown' => $book['provenance']['source_markdown'] ?? null,
+            'source_file' => $book['source_file'] ?? null,
             'provenance' => $book['provenance'] ?? [],
             'source_book_id' => $book['provenance']['source_book_id'] ?? null,
             'run_id' => $bookState['run_id'] ?? null,
@@ -95,6 +111,8 @@ class WorkbenchData
         [$bibLevel, $snippetLevel] = ClaimsJoiner::indexGroundTruth($groundTruth);
         $triage = $this->loadTriage($manifest, $slug);
         $adjudications = $this->adjudications->load($manifest, $book)['adjudications'];
+        $anchorYears = $this->anchorYearsByReference($manifest->bookIdFor($slug));
+        $entryYears = $this->entryYearsByReference($manifest->bookIdFor($slug));
 
         $rows = [];
         $flagged = 0;
@@ -127,9 +145,22 @@ class WorkbenchData
                     'doi' => $claim['source_doi'] ?? null,
                     'match_method' => $claim['match_method'] ?? null,
                     'match_score' => $claim['match_score'] ?? null,
+                    // Identity certain, YEAR divergent (edition/reprint, or the author's details
+                    // are wrong). Surfaced so the reviewer sees "printed 1964, record 2016" as a
+                    // fact about the citation instead of a silently-resolved match.
+                    'edition_mismatch' => $claim['match_diagnostics']['edition_mismatch'] ?? null,
                     'verification_tier' => $claim['verification_tier'] ?? null,
                     'evidence_type' => $claim['evidence_type'] ?? null,
                     'passages' => $claim['source_passages'] ?? [],
+                    // What the resolver actually managed to read, and why it
+                    // failed when it did. Before this the reviewer had to click
+                    // "Check link" by hand to tell a rotted URL from a paywall
+                    // from our own extraction giving up — the run recorded only
+                    // an absence.
+                    'content_grade' => $claim['source_completeness'] ?? null,
+                    'content_grade_note' => $claim['source_completeness_reason'] ?? null,
+                    'web_status' => $claim['web_status'] ?? null,
+                    'fetch_outcome' => $this->fetchOutcome($claim),
                 ],
                 'source_material_sent' => $claim['source_material_sent'] ?? null,
                 'gt' => $gt === null ? null : [
@@ -140,6 +171,7 @@ class WorkbenchData
                 ],
                 'triage' => $gt !== null ? ($triage[$gt['gt_id']] ?? null) : null,
                 'adjudication' => $adjudications[$key] ?? null,
+                'anchor_warning' => $this->anchorWarning($ref, $anchorYears, $entryYears, $claim),
             ];
         }
 
@@ -150,6 +182,164 @@ class WorkbenchData
             'adjudicated' => count($adjudications),
         ];
         return $base;
+    }
+
+    /**
+     * The YEARS displayed by in-text anchors, keyed "{node_id}|{referenceId}".
+     * `(Singh, 2025)` rendered as `<a href="#singh2024b">2025</a>` displays
+     * 2025 while targeting a 2024 entry — the shape of a mislinked citation.
+     *
+     * Keyed per NODE, not per reference: a work cited several times can be
+     * linked correctly in one paragraph and wrongly in another (chacko's
+     * savera2024 carries a 2022 anchor and a 2024 one), so a
+     * reference-wide check lets the good anchor mask the bad one. The claim
+     * being reviewed belongs to ONE node — that is the anchor to judge.
+     *
+     * Attribute order is NOT fixed (the live paste-imported books write
+     * `href` first, re-converted study copies write `class` first), so the
+     * pattern must accept either.
+     *
+     * @return array<string, string[]> "{node_id}|{referenceId}" => displayed years
+     */
+    private function anchorYearsByReference(string $bookId): array
+    {
+        $out = [];
+        try {
+            $rows = DB::connection('pgsql_admin')->table('nodes')
+                ->where('book', $bookId)
+                ->where('content', 'LIKE', '%in-text-citation%')
+                ->get(['node_id', 'content']);
+        } catch (\Throwable) {
+            return [];
+        }
+        foreach ($rows as $row) {
+            preg_match_all(
+                '~<a[^>]*(?:href="#([^"]+)"[^>]*class="[^"]*in-text-citation|class="[^"]*in-text-citation[^"]*"[^>]*href="#([^"]+)")[^>]*>([^<]*)</a>~i',
+                (string) $row->content,
+                $matches,
+                PREG_SET_ORDER
+            );
+            foreach ($matches as $m) {
+                $target = $m[1] !== '' ? $m[1] : $m[2];
+                if (preg_match('/(?:19|20)\d{2}/', $m[3], $year)) {
+                    $out["{$row->node_id}|{$target}"][] = $year[0];
+                }
+            }
+        }
+        foreach ($out as $key => $years) {
+            $out[$key] = array_values(array_unique($years));
+        }
+        return $out;
+    }
+
+    /**
+     * The year each bibliography ENTRY actually carries, from the pipeline's
+     * own extracted metadata (llm_metadata.year), falling back to the digits
+     * in its referenceId key.
+     *
+     * @return array<string, string>
+     */
+    private function entryYearsByReference(string $bookId): array
+    {
+        $out = [];
+        try {
+            $rows = DB::connection('pgsql_admin')->table('bibliography')
+                ->where('book', $bookId)
+                ->get(['referenceId', 'llm_metadata']);
+        } catch (\Throwable) {
+            return [];
+        }
+        foreach ($rows as $row) {
+            $meta = json_decode((string) ($row->llm_metadata ?? ''), true);
+            $year = is_array($meta) && !empty($meta['year']) ? (string) $meta['year'] : null;
+            if ($year === null && preg_match('/(?:19|20)\d{2}/', (string) $row->referenceId, $m)) {
+                $year = $m[0];
+            }
+            if ($year !== null) {
+                $out[$row->referenceId] = $year;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * One line saying what the resolver got from the citation's URL — so the
+     * human reviewer can separate "this reference is bogus" from "our resolver
+     * could not read a live page", which is the distinction that decides
+     * whether a flagged claim is a `correct_flag` or a `resolver_gap`.
+     *
+     * Reads the outcome the scan recorded in match_diagnostics. Null for
+     * references that resolved, or ones scanned before outcomes were recorded.
+     *
+     * @param  array<string, mixed>  $claim
+     */
+    private function fetchOutcome(array $claim): ?array
+    {
+        // The scan stores the near-miss envelope, so the outcome sits at
+        // diagnostics.wave_results.web_fetch (see CitationScanBibliographyJob).
+        $diag = $claim['match_diagnostics'] ?? null;
+        $wave = $diag['diagnostics']['wave_results']['web_fetch']
+            ?? $diag['wave_results']['web_fetch']
+            ?? null;
+
+        if (! is_array($wave) || empty($wave['outcome'])) {
+            return null;
+        }
+
+        return [
+            'outcome' => $wave['outcome'],
+            'reason' => $wave['reason'] ?? null,
+            'http_status' => $wave['http_status'] ?? null,
+            'channel' => $wave['channel'] ?? null,
+            'url' => $wave['url'] ?? null,
+        ];
+    }
+
+    /**
+     * "This citation's own anchor looks wrong" — surfaced BEFORE the reviewer
+     * judges the citation, because a mislinked anchor means the claim/source
+     * pairing under review was never made by the author (chacko c187:
+     * `(Singh, 2025)` pointing at a 2024 Walrus article, which cost a manual
+     * SQL dig to discover). Null when the anchor and the entry agree, or when
+     * there is nothing to compare.
+     *
+     * @param array<string, string[]> $anchorYears
+     * @param array<string, string> $entryYears
+     */
+    private function anchorWarning(?string $ref, array $anchorYears, array $entryYears, array $claim): ?string
+    {
+        $nodeId = $claim['node_id'] ?? null;
+        if ($ref === null || $nodeId === null) {
+            return null;
+        }
+        // The anchor in THIS claim's own paragraph (see anchorYearsByReference).
+        $displayed = $anchorYears["{$nodeId}|{$ref}"] ?? [];
+        if ($displayed === []) {
+            return null;
+        }
+        $entryYear = $entryYears[$ref] ?? null;
+        if ($entryYear === null) {
+            return null;
+        }
+        // ANY disagreeing anchor is worth flagging, not only a wholly
+        // disagreeing set: a bibliography entry carries ONE year, so an
+        // anchor showing a different one is either a mislink or an author
+        // inconsistency. Requiring every anchor to disagree let a correct
+        // second citation in the same paragraph mask the wrong one (chacko's
+        // savera2024: "Savera, 2022" and "Savera, 2024" both target the 2024
+        // entry, in one paragraph).
+        $mismatched = array_values(array_filter($displayed, fn ($y) => $y !== $entryYear));
+        if ($mismatched === []) {
+            return null;
+        }
+        $title = $claim['llm_metadata']['title'] ?? null;
+        return sprintf(
+            'In-text anchor displays %s but points at %s (%s%s) — check the pairing before judging the citation.',
+            implode('/', $mismatched),
+            $ref,
+            $entryYear,
+            $title ? ': ' . mb_strimwidth((string) $title, 0, 60, '…') : ''
+        );
     }
 
     /** Same derivation as ClaimsJoiner::row — no source resolved means the verdict IS "source not found". */

@@ -29,6 +29,7 @@ pdf/
   quote_geometry.py — GEOMETRIC blockquote detection from the source PDF — the layout truth Mistral throws away
   recovery.py — Phase ③ — footnote RECOVERY + fidelity: resurrect mangled/missed notes from the PDF byte…
 word/
+  normalize_docx_headings.py — Give pandoc the headings a DOCX already declares
   strip_docx_metadata.py — Strip metadata from DOCX files for privacy and security
 ```
 

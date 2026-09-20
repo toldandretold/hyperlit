@@ -72,6 +72,69 @@ class EmbeddingService
     }
 
     /**
+     * Run several embedding BATCH requests CONCURRENTLY (Http::pool — the
+     * provider does the parallel work, PHP just holds the sockets). Each
+     * batch is one request; texts must already carry their prefix.
+     *
+     * Built for PassageSearcher's two-pass flow: all needy-source document
+     * chunks plus all query texts fly in one pooled round instead of
+     * serially. No retries — callers there treat a failed batch as "no
+     * semantic for those items" and the queue backfill self-heals later.
+     *
+     * @param array<string, string[]> $batches key => texts
+     * @return array<string, array<int, array|null>> key => vectors (null per failed text)
+     */
+    public function poolEmbedBatches(array $batches): array
+    {
+        $out = [];
+        if (empty($batches)) {
+            return $out;
+        }
+        if (!$this->apiKey || !$this->baseUrl) {
+            foreach ($batches as $key => $texts) {
+                $out[$key] = array_fill(0, count($texts), null);
+            }
+            return $out;
+        }
+
+        $responses = Http::pool(function ($pool) use ($batches) {
+            $requests = [];
+            foreach ($batches as $key => $texts) {
+                $requests[] = $pool->as((string) $key)
+                    ->withHeaders(['Authorization' => 'Bearer ' . $this->apiKey])
+                    ->timeout(60)
+                    ->post($this->baseUrl . '/embeddings', [
+                        'model' => $this->model,
+                        'input' => array_values($texts),
+                    ]);
+            }
+            return $requests;
+        });
+
+        foreach ($batches as $key => $texts) {
+            $vectors = array_fill(0, count($texts), null);
+            $response = $responses[(string) $key] ?? null;
+            // A connection failure arrives as a Throwable in the pool array,
+            // not a Response — treat anything non-successful as all-null.
+            if ($response instanceof \Illuminate\Http\Client\Response && $response->successful()) {
+                foreach ($response->json('data', []) as $item) {
+                    $idx = $item['index'] ?? null;
+                    if ($idx !== null && isset($item['embedding'])) {
+                        $vectors[$idx] = $item['embedding'];
+                    }
+                }
+            } else {
+                Log::warning('poolEmbedBatches: batch failed', [
+                    'key' => $key,
+                    'status' => $response instanceof \Illuminate\Http\Client\Response ? $response->status() : get_debug_type($response),
+                ]);
+            }
+            $out[$key] = $vectors;
+        }
+        return $out;
+    }
+
+    /**
      * Embed multiple texts in a single API call.
      * Texts should already include their prefix.
      * @return array Array of embedding vectors (null entries for failures)

@@ -10,7 +10,7 @@ import re
 
 from shared.assessment import ASSESSMENT
 from shared.refkeys import (generate_ref_keys, is_likely_reference, is_plausible_year,
-                            normalize_unicode_name)
+                            normalize_unicode_name, strip_access_clause)
 
 
 # Per-entry key/collision chatter (one 🔑 line per reference, plus 🔀 collision
@@ -77,8 +77,31 @@ _REF_STRUCTURE_START_RE = re.compile(
     re.IGNORECASE)
 
 
-def _has_reference_structure(text):
+def has_reference_structure(text):
+    """Does this text OPEN like a reference entry? Public because the load-phase
+    multi-entry splitter (digestion/load/load.py) asks the same question of each line of a
+    newline-carrying <p> — one definition of "opens like a reference", not two."""
     return bool(_REF_STRUCTURE_RE.match(text) or _REF_STRUCTURE_START_RE.match(text))
+
+
+def _in_footnote_container(tag):
+    """Is this <p> inside an already-marked-up footnote/endnote block (pandoc's
+    <section id="footnotes" class="footnotes" role="doc-endnotes">, and the EPUB/HTML
+    equivalents)? Those paragraphs belong to the footnote system and must not be mined for
+    references: a note is prose ABOUT a work and routinely carries an author and a year, so the
+    reverse scan — which starts at the END of the document, exactly where pandoc puts the notes
+    — swallowed the last note as a phantom bibliography entry AND duplicated its text."""
+    for parent in tag.parents:
+        if getattr(parent, 'name', None) not in ('section', 'div', 'aside', 'ol', 'ul', 'li'):
+            continue
+        classes = ' '.join(parent.get('class') or []).lower()
+        if 'footnote' in classes or 'endnote' in classes:
+            return True
+        if (parent.get('id') or '').lower() in ('footnotes', 'endnotes'):
+            return True
+        if (parent.get('role') or '').lower() in ('doc-endnotes', 'doc-footnotes'):
+            return True
+    return False
 
 
 def _find_reference_paragraphs(soup):
@@ -88,7 +111,7 @@ def _find_reference_paragraphs(soup):
     Returns (reference_p_tags, used_reverse_scan)."""
     reference_p_tags = []
     used_reverse_scan = False
-    all_paragraphs = soup.find_all('p')
+    all_paragraphs = [p for p in soup.find_all('p') if not _in_footnote_container(p)]
 
     print(f"\U0001F4DA Scanning {len(all_paragraphs)} paragraphs for reference section...")
 
@@ -164,7 +187,7 @@ def _find_reference_paragraphs(soup):
                     break
                 text = p.get_text(" ", strip=True)
                 if (pending_miss is None and len(text) < 500
-                        and (_MISS_AUTHOR_SHAPE_RE.match(text) or _has_reference_structure(text))):
+                        and (_MISS_AUTHOR_SHAPE_RE.match(text) or has_reference_structure(text))):
                     pending_miss = p
                     continue
                 break
@@ -176,7 +199,7 @@ def _find_reference_paragraphs(soup):
         # count. A real header at the top of the run is always trusted.
         found_header = bool(reference_p_tags) and \
             reference_header_key(reference_p_tags[0].get_text(strip=True)) in REFERENCE_HEADERS
-        structured = any(_has_reference_structure(p.get_text(" ", strip=True)) for p in reference_p_tags)
+        structured = any(has_reference_structure(p.get_text(" ", strip=True)) for p in reference_p_tags)
         if not found_header and not structured and 0 < len(reference_p_tags) < _MIN_REVERSE_SCAN_ENTRIES:
             print(f"  🚫 Discarding {len(reference_p_tags)} reverse-scan paragraph(s) — short and "
                   f"unstructured (looks like body prose, not a heading-less bibliography)")
@@ -433,6 +456,28 @@ def extract_bibliography_via_grobid(soup, pdf_path, base_url, min_entries=3):
     return bibliography_map, references_data
 
 
+def _register_keys(bibliography_map, alias_owned, keys, alias_keys, entry_id):
+    """Claim this entry's match keys, keeping the two kinds of claim apart.
+
+    A CANONICAL key comes from the year the entry actually prints; an ALIAS is the OCR-error
+    guess ("maybe the printed year is wrong and the body's year is right"). Both used to be written
+    with a plain `map[key] = entry_id`, so whichever entry happened to come later won — and an
+    alias could therefore overwrite a real one. It did: every web-cited entry carrying "(accessed …
+    2024)" aliased itself onto that year, and the last such entry in the list took `news2024` away
+    from "News18 (2024)", pointing the article's only News18 citation at an Al Jazeera piece.
+
+    So: canonical keys claim outright (and evict an alias squatting there); an alias only fills a
+    key nobody has claimed at all.
+    """
+    for key in keys:
+        bibliography_map[key] = entry_id
+        alias_owned.discard(key)
+    for key in alias_keys:
+        if key not in bibliography_map:
+            bibliography_map[key] = entry_id
+            alias_owned.add(key)
+
+
 def extract_bibliography(soup):
     # --- 1A: Process Bibliography / References ---
     bibliography_map = {}
@@ -455,10 +500,16 @@ def extract_bibliography(soup):
     _dups_skipped = 0     # true duplicates collapsed onto an existing entry
     _collisions = 0       # distinct works sharing author+year, disambiguated by a/b suffix
 
+    # Keys currently held in the map by a SPECULATIVE alias (the OCR-error alt-year guess below)
+    # rather than by an entry's own printed year. An alias may fill a gap, but it must never
+    # displace — nor be allowed to squat on — a key some entry states outright.
+    alias_owned = set()
+
     for p in reference_p_tags:
         text = p.get_text(" ", strip=True)
         if strip_list_marker:
             text = re.sub(r'^\s*[-*]\s+', '', text)
+        alias_keys = []
 
         # Handle em-dash repeat-author entries (e.g. "—. 2014. Title...")
         # Common academic convention: — means "same author as previous entry"
@@ -482,7 +533,13 @@ def extract_bibliography(soup):
                 paren_yr = re.search(r'\((\d{4}[a-z]?)\)', text)
                 if paren_yr:
                     prefix_yr = paren_yr.group(1)
-                    body_text = text[paren_yr.end():]
+                    # An ACCESS DATE is not a publication year — `generate_ref_keys` strips the
+                    # clause for exactly this reason, and this rescan has to do the same or every
+                    # web-cited entry grows an alias keyed on the day someone opened the URL.
+                    # "News Agencies (2023) … (accessed 1 July 2024)" minted news2024, which then
+                    # overwrote the key of the real "News18 (2024)" entry, so the article's
+                    # (News18, 2024) citation pointed at an unrelated Al Jazeera piece.
+                    body_text = strip_access_clause(text[paren_yr.end():])
                     body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', body_text))
                     body_years = [m for m in body_years if is_plausible_year(m.group(1)) and m.group(1) != prefix_yr]
                     if body_years:
@@ -495,8 +552,9 @@ def extract_bibliography(soup):
                         # pointed at the old one. Production does not pin PYTHONHASHSEED (the
                         # regression harness does, which is why the goldens never caught it).
                         # The PRINTED year stays canonical; the body year is a match-only alias
-                        # (Spencer 1884 … reprinted 1992 → anchor herbertspencer1884).
-                        keys = _ordered_unique(keys + alt_keys)
+                        # (Spencer 1884 … reprinted 1992 → anchor herbertspencer1884) — and an
+                        # alias is a GUESS, so it is registered only into a key nobody claims.
+                        alias_keys = _ordered_unique([k for k in alt_keys if k not in keys])
 
         if not keys:
             # Fallback: for entries with garbled prefix initials like "K. E. (2005) Daniel Kennefick..."
@@ -513,15 +571,17 @@ def extract_bibliography(soup):
                 else:
                     author_text = remainder.split('.')[0] + " " + prefix_year
                 keys = generate_ref_keys(author_text)
-                # Also generate keys with alternative years from body text
-                body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', remainder))
+                # Also generate keys with alternative years from body text — same alias contract
+                # as above: an access date is not a publication year, and a guess never displaces
+                # an entry's own printed key.
+                body_years = list(re.finditer(r'(?<!\d)(\d{4})(?!\d)', strip_access_clause(remainder)))
                 body_years = [m for m in body_years if is_plausible_year(m.group(1)) and m.group(1) != prefix_year]
                 if body_years:
                     alt_year = body_years[-1].group(1)
                     alt_keys = generate_ref_keys(author_text.replace(prefix_year, alt_year))
-                    keys = _ordered_unique(keys + alt_keys)   # see above — never set()
+                    alias_keys = _ordered_unique([k for k in alt_keys if k not in keys])
                 if keys:
-                    _vprint(f"  🔄 Fallback keys from post-prefix text: {keys}")
+                    _vprint(f"  🔄 Fallback keys from post-prefix text: {keys} (aliases: {alias_keys})")
 
         if not keys:
             print(f"  ⚠️ No keys generated for: {text[:60]}...")
@@ -552,8 +612,8 @@ def extract_bibliography(soup):
             normalize = lambda t: re.sub(r'[^a-z0-9]', '', t.lower())[:60]
             if normalize(prev["text"]) == normalize(text):
                 # True duplicate — skip DOM/data, but still add keys
-                for key in keys:
-                    bibliography_map[key] = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
+                _dup_id = base_entry_id if prev["suffix_count"] == 0 else base_entry_id + "a"
+                _register_keys(bibliography_map, alias_owned, keys, alias_keys, _dup_id)
                 _vprint(f"  ⏭️ Duplicate reference skipped (keys still added): {base_entry_id}")
                 _dups_skipped += 1
                 continue
@@ -602,13 +662,12 @@ def extract_bibliography(soup):
         used_ids.add(entry_id)
 
         # Add keys to bibliography_map
-        for key in keys:
-            bibliography_map[key] = entry_id
+        _register_keys(bibliography_map, alias_owned, keys, alias_keys, entry_id)
         # Add DOM anchor + references_data entry
         anchor_tag = soup.new_tag("a", attrs={"class": "bib-entry", "id": entry_id})
         p.insert(0, anchor_tag)
         references_data.append({"referenceId": entry_id, "content": str(p)})
-        _vprint(f"  🔑 Generated keys for reference: {keys} → {entry_id}")
+        _vprint(f"  🔑 Generated keys for reference: {keys} (aliases: {alias_keys}) → {entry_id}")
 
     print(f"📚 Bibliography map has {len(bibliography_map)} entries: {list(bibliography_map.keys())[:10]}{'...' if len(bibliography_map) > 10 else ''}")
     print(f"Found and processed {len(references_data)} reference entries (kept in DOM): "

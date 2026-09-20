@@ -212,3 +212,217 @@ describe('GeneralProcessor.process — end to end', () => {
     });
   });
 });
+
+/**
+ * Regression: barnett-2020 (eLife) converted with ZERO linked citations while its PDF twin linked
+ * 39, and the book then failed its whole citation review with "no claims were extracted".
+ *
+ * eLife writes in-text citations as fully-qualified links back into its own page
+ * (`https://elifesciences.org/articles/60080#bib24`) and puts the matching id one level INSIDE the
+ * list item: `<li class="reference-list__item"><div class="reference" id="bib24">`. Strategy 2
+ * (shape/cohort) found the reference entries correctly but discarded that id, so nothing could map
+ * the body's anchors onto them — and because those citations were already <a> tags, the plain-text
+ * author-year linker would not touch them either. The citations fell between the two rules.
+ */
+describe('GeneralProcessor publisher citation ids', () => {
+  const eLifeShaped = (citationHref) => `
+    <div><div>
+      <p>Acronyms hinder comprehension (<a href="${citationHref}" data-behaviour-initialised="true">Sword, 2012</a>).</p>
+      <h2>References</h2>
+      <ul>
+        <li class="reference-list__item"><div class="reference" id="bib24">
+          Sword H. 2012. <i>Stylish Academic Writing</i>. Harvard University Press.
+        </div></li>
+        <li class="reference-list__item"><div class="reference" id="bib20">
+          Pinker S. 2015. <i>The Sense of Style</i>. Penguin.
+        </div></li>
+      </ul>
+    </div></div>
+  `;
+
+  it('recovers the entry id from a nested element when an ABSOLUTE self-referential link cites it', async () => {
+    const dom = document.createElement('div');
+    dom.innerHTML = eLifeShaped('https://elifesciences.org/articles/60080#bib24');
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    expect(references).toHaveLength(2);
+    // Only bib24 is cited in the body, so only it is claimed. An uncited entry keeps the
+    // generated-key path rather than inventing a mapping.
+    expect(references.find((r) => /Sword/.test(r.originalText)).originalAnchorId).toBe('bib24');
+    expect(references.find((r) => /Pinker/.test(r.originalText)).originalAnchorId).toBeUndefined();
+  });
+
+  it('recovers it for a BARE fragment too (the same rule serves both href shapes)', async () => {
+    const dom = document.createElement('div');
+    dom.innerHTML = eLifeShaped('#bib24');
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    expect(references.find((r) => /Sword/.test(r.originalText)).originalAnchorId).toBe('bib24');
+  });
+
+  it('claims NOTHING when the cited id is not a reference target', async () => {
+    // A link out to another site that happens to carry a fragment must never be read as a
+    // citation mapping, and an id nothing cites must not be claimed.
+    const dom = document.createElement('div');
+    dom.innerHTML = `
+      <div><div>
+        <p>See the <a href="https://example.com/guide#section-3">style guide</a>.</p>
+        <h2>References</h2>
+        <ul>
+          <li class="reference-list__item"><div class="reference" id="bib24">
+            Sword H. 2012. <i>Stylish Academic Writing</i>. Harvard University Press.
+          </div></li>
+          <li class="reference-list__item"><div class="reference" id="bib20">
+            Pinker S. 2015. <i>The Sense of Style</i>. Penguin.
+          </div></li>
+        </ul>
+      </div></div>
+    `;
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    expect(references).toHaveLength(2);
+    references.forEach((r) => expect(r.originalAnchorId).toBeUndefined());
+  });
+
+  it('does NOT claim an id whose link text is PROSE, not a citation marker', async () => {
+    // Regression, caught by the web-xanadu-layout-table fixture rather than by reasoning: the ACM
+    // Xanadu page links the words "permissions statement" to `#permissions-statement`, whose anchor
+    // sits inside a block the cohort detector accepts as reference-like. "A link into the reference
+    // list" is NOT the same as "a citation" — claiming it turned an ordinary cross-reference into a
+    // citation pointing at a bibliography entry.
+    const dom = document.createElement('div');
+    dom.innerHTML = `
+      <div><div>
+        <p>Reproduced under the <a href="https://cs.brown.edu/papers/60.html#permissions-statement">permissions statement</a>.</p>
+        <h2>References</h2>
+        <ul>
+          <li class="reference-list__item"><div class="reference" id="permissions-statement">
+            Nelson T. 1997. <i>Xanadu Permissions</i>. Keio University Press.
+          </div></li>
+          <li class="reference-list__item"><div class="reference" id="bib20">
+            Pinker S. 2015. <i>The Sense of Style</i>. Penguin.
+          </div></li>
+        </ul>
+      </div></div>
+    `;
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    references.forEach((r) => expect(r.originalAnchorId).toBeUndefined());
+  });
+
+  it('accepts a BARE NUMERIC marker, which is a citation shape', async () => {
+    const dom = document.createElement('div');
+    dom.innerHTML = `
+      <div><div>
+        <p>Comparisons are strained <a href="#ref-1">[1]</a>.</p>
+        <h2>References</h2>
+        <p id="ref-1">Charmes, Jacques. "The Informal Economy Worldwide." Margin 6, no. 2 (2012): 103-132.</p>
+        <p id="ref-2">Hussmanns, Ralf. Measuring the Informal Economy. Geneva: ILO, 2004.</p>
+      </div></div>
+    `;
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    expect(references.find((r) => /Charmes/.test(r.originalText)).originalAnchorId).toBe('ref-1');
+    expect(references.find((r) => /Hussmanns/.test(r.originalText)).originalAnchorId).toBeUndefined();
+  });
+
+  it('refuses an AMBIGUOUS entry offering two cited ids rather than guessing', async () => {
+    // One wrong mapping attributes a claim to the wrong work — worse than an unlinked citation,
+    // because it looks resolved.
+    const dom = document.createElement('div');
+    dom.innerHTML = `
+      <div><div>
+        <p>Both (<a href="#bib24">Sword, 2012</a>; <a href="#bib25">Sword, 2013</a>).</p>
+        <h2>References</h2>
+        <ul>
+          <li class="reference-list__item">
+            <div class="reference" id="bib24">Sword H. 2012. <i>Stylish Academic Writing</i>. Harvard University Press.</div>
+            <div class="reference" id="bib25">Sword H. 2013. <i>Air &amp; Light &amp; Time</i>. Harvard University Press.</div>
+          </li>
+          <li class="reference-list__item"><div class="reference" id="bib20">
+            Pinker S. 2015. <i>The Sense of Style</i>. Penguin.
+          </div></li>
+        </ul>
+      </div></div>
+    `;
+
+    const references = await new GeneralProcessor().extractReferences(dom, 'testBook');
+
+    const merged = references.find((r) => /Sword/.test(r.originalText));
+    expect(merged).toBeDefined();
+    expect(merged.originalAnchorId).toBeUndefined();
+  });
+});
+
+/**
+ * Screen-reader-only text must never become content — and a URL is where it does real damage.
+ *
+ * Taylor & Francis wraps every outbound link in
+ *   <span class="off-screen" style="position:absolute;left:-9999px">(open in a new window)</span>
+ * which is invisible on the page and gets glued onto the href when flattened. Measured on
+ * nicholls-nieo-paste (2026-09-20): 22 of 34 reference URLs unusable, so the citation resolver
+ * could not FETCH those sources and fell back to matching bibliographic metadata — Nkrumah's
+ * "Neo-Colonialism", whose full text is free on marxists.org, was matched to an OpenLibrary record
+ * and judged on its TITLE ALONE ("the title does not suggest support for free trade").
+ */
+describe('GeneralProcessor hidden text and mangled URLs', () => {
+  it('strips screen-reader-only text so it cannot glue onto a URL', async () => {
+    const dom = document.createElement('div');
+    dom.innerHTML =
+      '<p>Nkrumah, Kwame. 1965. <i>Neo-Colonialism</i>. '
+      + '<a href="https://www.marxists.org/nkrumah/neo-colonialism/">'
+      + 'https://www.marxists.org/nkrumah/neo-colonialism/'
+      + '<span class="off-screen">(open in a new window)</span></a>.</p>';
+
+    new GeneralProcessor().normalize(dom);
+
+    expect(dom.textContent).not.toContain('open in a new window');
+    expect(dom.textContent).toContain('https://www.marxists.org/nkrumah/neo-colonialism/');
+  });
+
+  it('strips the other common names for visually-hidden text', async () => {
+    const dom = document.createElement('div');
+    dom.innerHTML =
+      '<p>A<span class="sr-only">SR</span>'
+      + '<span class="visually-hidden">VH</span>'
+      + '<span class="screen-reader-text">SRT</span>B</p>';
+
+    new GeneralProcessor().normalize(dom);
+
+    expect(dom.textContent.replace(/\s+/g, '')).toBe('AB');
+  });
+
+  it('removes thin spaces a typesetter put INSIDE a URL, in href and plain text', () => {
+    const p = new GeneralProcessor();
+    const html =
+      '<a href="https://digitallibrary.un.org/record/696640?ln = en">x</a>'
+      + ' and plain https://digitallibrary.un.org/record/218451?ln = en.';
+
+    const out = p.repairTypographicUrls(html);
+
+    expect(out).toContain('record/696640?ln=en');
+    expect(out).toContain('record/218451?ln=en');
+    expect(out).not.toMatch(/[ -‍ ⁠﻿]/);
+  });
+
+  it('removes PERCENT-ENCODED thin spaces too (the EPUB spelling)', () => {
+    const out = new GeneralProcessor()
+      .repairTypographicUrls('<a href="https://un.org/r/1?ln%E2%80%89=%E2%80%89en">x</a>');
+
+    expect(out).toContain('https://un.org/r/1?ln=en');
+  });
+
+  it('leaves an ORDINARY space as a URL boundary, and clean markup untouched', () => {
+    // The distinction the repair rests on: a normal space really does end a URL, so swallowing it
+    // would drag the next words of the bibliography entry into the link.
+    const p = new GeneralProcessor();
+    const html = '<p>See https://example.com/a?b=c then more words here.</p>';
+
+    expect(p.repairTypographicUrls(html)).toBe(html);
+  });
+});

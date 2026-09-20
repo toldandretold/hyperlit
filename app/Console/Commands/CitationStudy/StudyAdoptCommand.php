@@ -20,20 +20,34 @@ class StudyAdoptCommand extends Command
 {
     protected $signature = 'citation:study:adopt
         {corpus : Corpus name (created if it does not exist)}
-        {bookId : Library book to adopt}
+        {bookId? : Library book to adopt (omit when using --file)}
         {--arm=control : synthetic | retracted | control}
-        {--slug= : Corpus slug (default: derived from the book title)}
-        {--seed=424242 : Corruption seed (synthetic arm)}';
+        {--slug= : Corpus slug (default: derived from the book title / file name)}
+        {--seed=424242 : Corruption seed (synthetic arm)}
+        {--file= : Adopt a RAW source file (pdf/html/md/docx/epub, or a paste-capture .html) instead of a library book}
+        {--pathway= : Import pathway (pdf|markdown|html|docx|epub|paste); required for paste, else derived from the extension}
+        {--title= : Title for --file adoption}
+        {--author= : Author for --file adoption}
+        {--year= : Year for --file adoption}';
 
-    protected $description = 'Snapshot an already-imported book into a study corpus (copies its markdown + provenance into study/corpora/{corpus})';
+    protected $description = 'Snapshot an already-imported book — or a RAW source file — into a study corpus (study/corpora/{corpus})';
 
     public function handle(): int
     {
         $corpus = $this->argument('corpus');
-        $bookId = $this->argument('bookId');
         $arm = $this->option('arm');
         if (!in_array($arm, CorpusManifest::ARMS, true)) {
             $this->error("Invalid --arm '{$arm}' (synthetic | retracted | control).");
+            return 1;
+        }
+
+        if ($this->option('file')) {
+            return $this->adoptRawFile($corpus, $arm);
+        }
+
+        $bookId = $this->argument('bookId');
+        if (!$bookId) {
+            $this->error('Pass a bookId, or --file=/path/to/source for a raw source file.');
             return 1;
         }
 
@@ -230,5 +244,114 @@ class StudyAdoptCommand extends Command
             ->pluck('content');
 
         return "<html><body>\n" . $nodes->filter()->implode("\n") . "\n</body></html>\n";
+    }
+
+    /**
+     * Adopt a RAW source file — the document as a user would actually import
+     * it (PDF, markdown, docx, epub, an HTML page, or a paste-capture
+     * clipboard payload). This is the pathway-honest adoption route: the
+     * study import then runs the REAL processor for that format, so the
+     * study measures the app's actual conversion, not a re-export round-trip.
+     */
+    private function adoptRawFile(string $corpus, string $arm): int
+    {
+        $file = $this->option('file');
+        if (!is_file($file)) {
+            $this->error("File not found: {$file}");
+            return 1;
+        }
+
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        $pathway = $this->option('pathway');
+        if ($pathway !== null && !in_array($pathway, CorpusManifest::PATHWAYS, true)) {
+            $this->error("Invalid --pathway '{$pathway}' (one of: " . implode(', ', CorpusManifest::PATHWAYS) . ').');
+            return 1;
+        }
+        if ($pathway === 'paste' && !in_array($ext, ['html', 'htm'], true)) {
+            $this->error('The paste pathway takes a captured clipboard .html (resources/paste-capture.html).');
+            return 1;
+        }
+        if ($arm === 'synthetic' && !in_array($ext, ['md', 'markdown'], true)) {
+            $this->error('The synthetic arm needs a markdown source — the corruptor edits text.');
+            return 1;
+        }
+        try {
+            \App\Services\CitationStudy\StudyBookImporter::pipelineExtension($file);
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+            return 1;
+        }
+
+        $slug = $this->option('slug')
+            ?: rtrim(Str::slug(Str::limit(pathinfo($file, PATHINFO_FILENAME), 40, '')), '-');
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $slug)) {
+            $this->error("Derived slug '{$slug}' is invalid — pass --slug explicitly.");
+            return 1;
+        }
+
+        $corpusDir = base_path(config('study.root', 'study') . "/corpora/{$corpus}");
+        $manifestPath = "{$corpusDir}/manifest.json";
+        $manifest = is_file($manifestPath)
+            ? json_decode((string) file_get_contents($manifestPath), true)
+            : ['corpus' => $corpus, 'description' => '', 'created' => now()->toDateString(), 'frozen' => false, 'books' => []];
+        if (!is_array($manifest)) {
+            $this->error("Existing manifest is not valid JSON: {$manifestPath}");
+            return 1;
+        }
+        if ($manifest['frozen'] ?? false) {
+            $this->error("Corpus '{$corpus}' is frozen — adopting into it would invalidate the lock.");
+            return 1;
+        }
+        foreach ($manifest['books'] ?? [] as $existing) {
+            if (($existing['slug'] ?? null) === $slug) {
+                $this->error("Corpus '{$corpus}' already has slug '{$slug}'.");
+                return 1;
+            }
+        }
+
+        $sourceDir = "{$corpusDir}/sources/{$slug}";
+        File::ensureDirectoryExists($sourceDir);
+        $sourceName = "original.{$ext}";
+        File::copy($file, "{$sourceDir}/{$sourceName}");
+
+        $entry = [
+            'slug' => $slug,
+            'arm' => $arm,
+            'source_file' => "sources/{$slug}/{$sourceName}",
+            'ground_truth' => "sources/{$slug}/ground_truth.json",
+            'default_label' => 'intact',
+            'provenance' => [
+                'title' => $this->option('title') ?: pathinfo($file, PATHINFO_FILENAME),
+                'author' => $this->option('author'),
+                'year' => $this->option('year') ? (int) $this->option('year') : null,
+                'doi' => null,
+                'url' => null,
+                'source_book_id' => null,
+                'source_markdown' => 'raw-file',
+                'original_file' => basename($file),
+                'adopted_at' => now()->toDateString(),
+            ],
+        ];
+        if ($pathway !== null) {
+            $entry['pathway'] = $pathway;
+        }
+        if ($arm === 'synthetic') {
+            $entry['study_file'] = "sources/{$slug}/corrupted.md";
+            $entry['corruption_spec'] = "sources/{$slug}/corruption.json";
+            if (!is_file("{$sourceDir}/corruption.json")) {
+                File::put("{$sourceDir}/corruption.json", json_encode([
+                    'seed' => (int) $this->option('seed'),
+                    'counts' => ['fabrication' => 2, 'source_swap' => 1, 'claim_distortion' => 1],
+                ], JSON_PRETTY_PRINT) . "\n");
+            }
+        }
+
+        $manifest['books'][] = $entry;
+        File::put($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+        $loaded = CorpusManifest::load($corpus);
+
+        $this->info("Adopted raw file as '{$slug}' (pathway: {$loaded->pathwayFor($entry)}, arm: {$arm}).");
+        $this->line("Next: citation:study:corrupt {$corpus} --book={$slug} && citation:study:import {$corpus} --book={$slug}");
+        return 0;
     }
 }

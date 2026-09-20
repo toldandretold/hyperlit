@@ -8,7 +8,7 @@ the fixture contains) and compares outputs to golden files + manifest expectatio
 Pipelines (auto-detected per fixture by input file present):
     ocr_response.json   -> pdf   : mistral_ocr.py(cache) -> simple_md_to_html.py -> process_document.py
     epub_original/ |.epub-> epub  : epub_normalizer.py -> process_document.py(main-text.html)
-    input.docx          -> docx  : strip_docx_metadata.py -> pandoc -> process_document.py
+    input.docx          -> docx  : strip_docx_metadata.py -> normalize_docx_headings.py -> pandoc -> process_document.py
     input.md            -> md    : simple_md_to_html.py -> process_document.py
     input.html          -> html  : [ar5iv_preprocessor.py] -> process_document.py
 
@@ -60,9 +60,12 @@ MD_TO_HTML_SCRIPT = os.path.join(PY_DIR, 'simple_md_to_html.py')
 EPUB_NORMALIZER_SCRIPT = os.path.join(PY_DIR, 'epub_normalizer.py')
 AR5IV_SCRIPT = os.path.join(PY_DIR, 'ar5iv_preprocessor.py')
 STRIP_DOCX_SCRIPT = os.path.join(PY_DIR, 'strip_docx_metadata.py')
+NORMALIZE_DOCX_HEADINGS_SCRIPT = os.path.join(PY_DIR, 'ingestion', 'word', 'normalize_docx_headings.py')
 
 # Exact flags the Swift PandocConversionJob uses (keep in sync).
-PANDOC_BASE_FLAGS = ['--track-changes=accept']
+# --wrap=none: pandoc's default hard-wraps the HTML at ~72 cols, which makes an ordinary
+# reference entry look like a newline-crammed multi-entry <p> to SplitBibliographyParagraphs.
+PANDOC_BASE_FLAGS = ['--track-changes=accept', '--wrap=none']
 
 # Matches the generated footnote ids: Fn<digits> optionally _<alnum> (and seq/s prefixes).
 GENERATED_ID_RE = re.compile(r'(?:s(?:eq)?\d+_)?Fn\d+(?:_[A-Za-z0-9]+)?')
@@ -285,7 +288,8 @@ def run_epub_pipeline(fixture, tmp_dir):
 
 
 def run_docx_pipeline(fixture, tmp_dir):
-    """input.docx -> strip_docx_metadata -> pandoc -> process_document. Skips if no pandoc."""
+    """input.docx -> strip_docx_metadata -> normalize_docx_headings -> pandoc ->
+    process_document. Skips if no pandoc."""
     if not shutil.which('pandoc'):
         return 'skipped'
     book_id = fixture['manifest'].get('book_id', fixture['name'])
@@ -293,6 +297,7 @@ def run_docx_pipeline(fixture, tmp_dir):
     shutil.copy2(os.path.join(fixture['dir'], 'input.docx'), work_docx)
 
     _run([sys.executable, STRIP_DOCX_SCRIPT, work_docx], timeout=60)  # non-fatal
+    _run([sys.executable, NORMALIZE_DOCX_HEADINGS_SCRIPT, work_docx], timeout=60)  # non-fatal
 
     html_path = os.path.join(tmp_dir, 'intermediate.html')
     media = os.path.join(tmp_dir, 'media')
@@ -573,6 +578,45 @@ def compare_detectors(fixture, tmp_dir):
     return True, f'{len(want)} detector(s) fired'
 
 
+def compare_citation_links(fixture, tmp_dir):
+    """The citation twin of `footnote_links`: verify SPECIFIC in-text-year -> entry pairings.
+
+    `citation_anchors` below only asks whether an href resolves to SOME anchor, and the goldens
+    only freeze whatever the converter last emitted — neither can see a CONFIDENT WRONG link, which
+    is the expensive failure here: "(Modi, 2019, 2023)" pointed both years at the 2023 entry, and
+    "(2014-2019)" — a date span, not a citation at all — minted an anchor to Modi's 2019 speech.
+    A phantom or misrouted pairing then feeds the citation review a claim-source pair the author
+    never made. So declare them: for the paragraph containing `node_contains`, the ordered
+    (anchor text, target id) pairs must be exactly `anchors`.
+
+        "citation_links": [{"node_contains": "dog whistle",
+                            "anchors": [["2024a", "modi2024a"], ["2019", "modi2019"]]}]
+    """
+    expected = fixture['manifest'].get('expected', {}).get('citation_links')
+    if not expected:
+        return None
+    nodes = _read_jsonl(os.path.join(tmp_dir, 'nodes.jsonl'))
+    failures = []
+    for want in expected:
+        needle = want['node_contains']
+        hits = [n for n in nodes if needle in re.sub(r'<[^>]+>', '', n.get('content') or '')]
+        if not hits:
+            failures.append(f'no node contains {needle!r}')
+            continue
+        # Attribute ORDER is not fixed (the live book writes href first, a re-converted study copy
+        # writes class first), so match both and normalise — a class-before-id assumption hid half
+        # the evidence once already while this very bug was being diagnosed.
+        got = [[m.group(2) or m.group(4), m.group(1) or m.group(3)] for m in re.finditer(
+            r'<a[^>]*class="in-text-citation"[^>]*href="#([^"]+)"[^>]*>([^<]*)</a>'
+            r'|<a[^>]*href="#([^"]+)"[^>]*class="in-text-citation"[^>]*>([^<]*)</a>',
+            hits[0].get('content') or '')]
+        if got != [list(p) for p in want['anchors']]:
+            failures.append(f'{needle!r}: want {want["anchors"]}, got {got}')
+    if failures:
+        return False, '; '.join(failures)
+    return True, f'{sum(len(w["anchors"]) for w in expected)} citation pairing(s) correct'
+
+
 def compare_citation_anchors(fixture, tmp_dir):
     """Semantic correctness gate: every in-text citation must point at an anchor that EXISTS in the
     same document. A golden suite freezes whatever ids the converter emitted, so it certifies a
@@ -647,6 +691,7 @@ COMPARATORS = [
     ('orphans', compare_orphans),
     ('strategy', compare_strategy),
     ('footnote_links', compare_footnote_links),
+    ('citation_links', compare_citation_links),
     ('citation_anchors', compare_citation_anchors),
     ('detectors', compare_detectors),
     ('golden', compare_golden_files),
