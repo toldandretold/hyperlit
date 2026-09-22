@@ -58,7 +58,9 @@ export async function findAvailableBookId(baseId: string): Promise<string> {
       body: JSON.stringify({ book: candidate })
     });
     const data = await resp.json();
-    return data.success && !data.exists;
+    // Reject a reserved word (admin, root, …) as well as a taken id, so
+    // auto-generated candidates never land on one.
+    return data.success && !data.exists && !data.reserved;
   };
 
   // Phase 1: baseId, then _v2 through _v5

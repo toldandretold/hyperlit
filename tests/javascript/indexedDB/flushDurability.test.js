@@ -164,6 +164,80 @@ describe('flushAllPendingEdits — durability verdict', () => {
     expect(retryFailedBatches).toHaveBeenCalledTimes(1); // the app's own replay got its one turn
   });
 
+  it('DRAINS an edit that lands mid-flush instead of reporting it as unsent (phantom data-loss verdict)', async () => {
+    // The nested-hypercite-chain e2e failure (2026-09-23): the flush observed a
+    // clean instant and took the early-break exit, then the final re-check's
+    // async IDB read overlapped a fresh paste — queueForSync put new items in
+    // pendingSyncs (3s debounce armed, nothing stuck) and the verdict came back
+    // `synced:false, 0 batches, 5 queued`, which syncAnnotationsOnly logs as a
+    // data-loss ERROR and logout would surface as a scary confirm. Work that
+    // becomes drainable while the flush still has budget must be drained, not
+    // reported as loss.
+    //
+    // Deterministic re-creation of the race: a parked batch routes the loop
+    // through the replay → early-break path, and the replay hook (a) clears the
+    // parked batch like the real retryFailedBatches would and (b) queues a
+    // fresh edit — so by the time the final re-check runs, historyLog is clean
+    // but pendingSyncs is not.
+    await seedStore('nodes', [makeNode('bookA', 100, 'n-100', '<h1>mid-flush edit</h1>')]);
+    await seedStore('historyLog', [{
+      timestamp: Date.now(), bookId: 'bookA', status: 'pending',
+      payload: { book: 'bookA', updates: { nodes: [] }, deletions: { nodes: [] } },
+    }]);
+
+    // POSTs must succeed on their own — the resumed drain is what the flush awaits.
+    fetchMock.mockImplementation(async () => ({ ok: true, status: 200, json: async () => ({ success: true }) }));
+
+    vi.mocked(retryFailedBatches).mockImplementationOnce(async () => {
+      const rows = await readAll('historyLog');
+      await seedStore('historyLog', rows.map((row) => ({ ...row, status: 'synced' })));
+      queueForSync('nodes', 100, 'update',
+        makeNode('bookA', 100, 'n-100', '<h1>mid-flush edit</h1>'),
+        makeNode('bookA', 100, 'n-100', '<h1></h1>'));
+    });
+
+    const result = await flushAllPendingEdits({ budgetMs: 10_000 });
+
+    expect(result).toEqual({ synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false });
+    expect(pendingSyncs.size).toBe(0);            // the mid-flush edit was drained…
+    expect(fetchMock).toHaveBeenCalled();         // …by an actual POST, not dropped
+  });
+
+  it('still reports NOT synced when the mid-flush edit\'s push FAILS — the resume path verifies, it never assumes', async () => {
+    // Companion to the test above, guarding its other half: resuming the drain
+    // must not become "assume it will save later". Same setup, but the resumed
+    // drain's POST gets a 500 — the batch parks as 'failed' in historyLog and
+    // the verdict MUST come back unsynced. If this test ever fails, the resume
+    // path has started swallowing a failed push, and logout's confirm dialog
+    // would wipe an edit the server never took.
+    await seedStore('nodes', [makeNode('bookA', 100, 'n-100', '<h1>mid-flush edit</h1>')]);
+    await seedStore('historyLog', [{
+      timestamp: Date.now(), bookId: 'bookA', status: 'pending',
+      payload: { book: 'bookA', updates: { nodes: [] }, deletions: { nodes: [] } },
+    }]);
+
+    // The resumed drain's POST fails outright.
+    fetchMock.mockImplementation(async () => ({
+      ok: false, status: 500, statusText: 'Server Error',
+      json: async () => ({ success: false }), text: async () => 'boom',
+    }));
+
+    vi.mocked(retryFailedBatches).mockImplementationOnce(async () => {
+      const rows = await readAll('historyLog');
+      await seedStore('historyLog', rows.map((row) => ({ ...row, status: 'synced' })));
+      queueForSync('nodes', 100, 'update',
+        makeNode('bookA', 100, 'n-100', '<h1>mid-flush edit</h1>'),
+        makeNode('bookA', 100, 'n-100', '<h1></h1>'));
+    });
+
+    const result = await flushAllPendingEdits({ budgetMs: 10_000 });
+
+    expect(result.synced).toBe(false);
+    expect(result.pendingBatches).toBe(1);        // the failed push is visible, not swallowed
+    const parked = (await readAll('historyLog')).filter((e) => e.status === 'failed');
+    expect(parked).toHaveLength(1);               // …and parked for retryFailedBatches to replay
+  });
+
   it('ignores a 409-parked (stale) batch — it never replays, so it must not nag forever', async () => {
     await seedStore('historyLog', [{
       timestamp: Date.now(), bookId: 'bookA', status: 'stale',

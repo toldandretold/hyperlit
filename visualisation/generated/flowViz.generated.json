@@ -6199,6 +6199,7 @@
         "book_url",
         "exists",
         "message",
+        "reserved",
         "success"
       ]
     },

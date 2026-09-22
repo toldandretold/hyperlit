@@ -562,6 +562,18 @@ class DbLibraryController extends Controller
 
                     $item = $this->sanitizeMetadata((array) $data['data']);
 
+                    // Reserved book id backstop. The create form catches this live
+                    // via /api/validate-book-id, but a direct POST bypasses it — a
+                    // book id'd `admin` would own the /admin page. Refuse it; a book
+                    // that was never allowed to exist has nothing to keep syncing,
+                    // so a hard 422 here is safe (no save-queue-wedge risk).
+                    if ($this->isReservedIdentifier($item['book'] ?? null)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'This book id is reserved and cannot be used',
+                        ], 422);
+                    }
+
                     // Truncate title to approximately 15 words
                     $title = $item['title'] ?? null;
                     if ($title) {
@@ -989,6 +1001,34 @@ class DbLibraryController extends Controller
     // in ConnectionCountQuery — do not reinstate a local copy.
 
     /**
+     * Is this book id an impersonation risk? A book is reachable at /{book} via
+     * the catch-all (routes/web.php), so a book id'd `admin` owns the /admin
+     * page — the same risk we block for usernames and vanity slugs. Book ids are
+     * user-chosen plain words (the cite-form mints e.g. `nkrumah1965`), so this
+     * checks the FIRST path segment of the id (before any `/`) against the two
+     * reserved lists, case-insensitively.
+     *
+     * First-segment logic: blocks `admin` and `admin/Fn1` (a sub-book claiming a
+     * reserved parent) while leaving every legitimate id alone — `nkrumah1965`,
+     * `book_<ts>`, and sub-books `book_<parent>/Fn<id>` never match a bare
+     * reserved word. Do NOT apply a slug format regex here; the `_`/`/` shapes
+     * are legitimate and format is already enforced client-side.
+     */
+    private function isReservedIdentifier(?string $bookId): bool
+    {
+        if ($bookId === null || $bookId === '') {
+            return false;
+        }
+        $firstSegment = strtolower(explode('/', $bookId)[0]);
+        $reserved = array_merge(
+            (array) config('reserved-routes'),
+            (array) config('reserved-usernames'),
+        );
+
+        return in_array($firstSegment, $reserved, true);
+    }
+
+    /**
      * Check if a book ID already exists in the database
      * The 'book' column is the primary key
      */
@@ -1020,6 +1060,7 @@ class DbLibraryController extends Controller
                 return response()->json([
                     'success' => true,
                     'exists' => true,
+                    'reserved' => $this->isReservedIdentifier($bookId),
                     'message' => 'Book ID is already taken',
                     'book_url' => $visibleRecord ? url('/').'/'.$bookId : null,
                     'book_title' => $visibleRecord?->title,
@@ -1027,9 +1068,13 @@ class DbLibraryController extends Controller
                 ]);
             }
 
+            // A free-but-reserved id (e.g. `admin`) must still be refused — it is
+            // not "taken", but it would own the /admin page. The client treats
+            // `reserved` like `exists`: valid:false, "pick another".
             return response()->json([
                 'success' => true,
                 'exists' => false,
+                'reserved' => $this->isReservedIdentifier($bookId),
                 'message' => 'Book ID is available',
             ]);
 

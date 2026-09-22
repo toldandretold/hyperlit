@@ -141,7 +141,10 @@ export function setupFormSubmission() {
           body: JSON.stringify({ book: idVal })
         });
         const data = await resp.json();
-        if (data.success && data.exists) {
+        // A taken id OR a reserved word (admin, root, …) gets a random suffix to
+        // escape it — `admin` → `admin1234`, whose first segment is no longer a
+        // reserved word. The server backstops anything that still slips through.
+        if (data.success && (data.exists || data.reserved)) {
           idVal += randomSuffix();
         }
       } catch (e) {

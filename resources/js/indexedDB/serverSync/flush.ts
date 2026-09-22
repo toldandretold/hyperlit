@@ -110,29 +110,36 @@ export async function flushAllPendingEdits(
 
   verbose.content('Flushing all pending edits before clear+redownload', 'serverSync/flush');
 
-  // 1. Flush footnote annotation debounces
-  try {
-    const { flushPendingFootnoteSaves } = await import('../../footnotes/footnoteAnnotations');
-    flushPendingFootnoteSaves();
-  } catch (e) {
-    verbose.content(`Footnote flush skipped: ${(e as Error).message}`, 'serverSync/flush');
-  }
+  // Steps 1-3: pull everything upstream of the sync queue down into it. Runs
+  // before the drain loop, and AGAIN whenever the loop resumes after finding
+  // fresh mid-flush work — an edit typed while we were draining must ride this
+  // same flush, not sit in a 200ms/1.5s editor debounce while the caller wipes.
+  const flushEditorPipeline = async (): Promise<void> => {
+    // 1. Flush footnote annotation debounces
+    try {
+      const { flushPendingFootnoteSaves } = await import('../../footnotes/footnoteAnnotations');
+      flushPendingFootnoteSaves();
+    } catch (e) {
+      verbose.content(`Footnote flush skipped: ${(e as Error).message}`, 'serverSync/flush');
+    }
 
-  // 2. Flush input debounce (200ms timer)
-  try {
-    const { flushInputDebounce } = await import('../../divEditor/index');
-    flushInputDebounce();
-  } catch (e) {
-    verbose.content(`Input debounce flush skipped: ${(e as Error).message}`, 'serverSync/flush');
-  }
+    // 2. Flush input debounce (200ms timer)
+    try {
+      const { flushInputDebounce } = await import('../../divEditor/index');
+      flushInputDebounce();
+    } catch (e) {
+      verbose.content(`Input debounce flush skipped: ${(e as Error).message}`, 'serverSync/flush');
+    }
 
-  // 3. Flush SaveQueue → IndexedDB (1.5s timer)
-  try {
-    const { flushAllPendingSaves } = await import('../../divEditor/index');
-    await flushAllPendingSaves();
-  } catch (e) {
-    verbose.content(`SaveQueue flush skipped: ${(e as Error).message}`, 'serverSync/flush');
-  }
+    // 3. Flush SaveQueue → IndexedDB (1.5s timer)
+    try {
+      const { flushAllPendingSaves } = await import('../../divEditor/index');
+      await flushAllPendingSaves();
+    } catch (e) {
+      verbose.content(`SaveQueue flush skipped: ${(e as Error).message}`, 'serverSync/flush');
+    }
+  };
+  await flushEditorPipeline();
 
   // 4. Drive masterSync → server until nothing is unsent (or the budget ends).
   //    Each pass: fire the pending timer, await the RUNNING drain, then re-read
@@ -140,61 +147,77 @@ export async function flushAllPendingEdits(
   //    landing mid-flush), hence the loop rather than a single await.
   let pendingBatches = await countUnsentBatches();
   let retriedParked = false;
-  while (Date.now() < deadline) {
-    try {
-      const { debouncedMasterSync } = await import('../syncQueue/master');
-      await debouncedMasterSync.flush();          // runs the timer if one is pending
-      await getMasterSyncInFlight();              // awaits the round trip if one is running
-    } catch (e) {
-      verbose.content(`masterSync flush failed: ${(e as Error).message}`, 'serverSync/flush');
+  for (;;) {
+    while (Date.now() < deadline) {
+      try {
+        const { debouncedMasterSync } = await import('../syncQueue/master');
+        await debouncedMasterSync.flush();          // runs the timer if one is pending
+        await getMasterSyncInFlight();              // awaits the round trip if one is running
+      } catch (e) {
+        verbose.content(`masterSync flush failed: ${(e as Error).message}`, 'serverSync/flush');
+      }
+
+      pendingBatches = await countUnsentBatches();
+      const stillQueued = await queuedCount();
+      if (pendingBatches === 0 && stillQueued === 0 && !getMasterSyncInFlight()) {
+        verbose.content('Pending edits flushed', 'serverSync/flush');
+        return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
+      }
+
+      // Rows parked by an earlier failure are masterSync's blind spot — it only
+      // pushes the CURRENT queue. Replaying them is the app's own recovery path,
+      // so give it exactly one go before declaring the work unsent.
+      if (!retriedParked && pendingBatches > 0 && stillQueued === 0) {
+        retriedParked = true;
+        try {
+          const { retryFailedBatches } = await import('../../pageLoad/onlineRetry');
+          await retryFailedBatches();
+        } catch (e) {
+          verbose.content(`Parked-batch retry skipped: ${(e as Error).message}`, 'serverSync/flush');
+        }
+        pendingBatches = await countUnsentBatches();
+        if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
+          return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
+        }
+      }
+
+      // Nothing queued, nothing in flight, and the replay has had its turn: more
+      // waiting cannot change the answer. Report now instead of burning the whole
+      // budget — this path runs on every clear+redownload, not just on logout.
+      if (retriedParked && stillQueued === 0 && !getMasterSyncInFlight()) {
+        break;
+      }
+
+      await new Promise<void>((resolve) => setTimeout(resolve, 250));
     }
 
+    // Final authoritative re-check before declaring failure. The loop can exit
+    // through the early break with STALE reads: the parked-batch replay drives
+    // pendingBatches to 0, the mid-loop success check sees a drain still
+    // settling and fails, and the break then fires once that drain has
+    // settled — reporting `synced: false` with 0 batches unsent, a false
+    // negative that logout turns into a scary "unsynced edits" confirm and
+    // syncAnnotationsOnly logs as a data-loss ERROR. If nothing is unsent NOW,
+    // the flush succeeded, whatever the intermediate reads said.
     pendingBatches = await countUnsentBatches();
-    const stillQueued = await queuedCount();
-    if (pendingBatches === 0 && stillQueued === 0 && !getMasterSyncInFlight()) {
-      verbose.content('Pending edits flushed', 'serverSync/flush');
+    if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
+      verbose.content('Pending edits flushed (confirmed on final re-check)', 'serverSync/flush');
       return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
     }
 
-    // Rows parked by an earlier failure are masterSync's blind spot — it only
-    // pushes the CURRENT queue. Replaying them is the app's own recovery path,
-    // so give it exactly one go before declaring the work unsent.
-    if (!retriedParked && pendingBatches > 0 && stillQueued === 0) {
-      retriedParked = true;
-      try {
-        const { retryFailedBatches } = await import('../../pageLoad/onlineRetry');
-        await retryFailedBatches();
-      } catch (e) {
-        verbose.content(`Parked-batch retry skipped: ${(e as Error).message}`, 'serverSync/flush');
-      }
-      pendingBatches = await countUnsentBatches();
-      if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
-        return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
-      }
+    // No parked batches, budget left, but the queue/drain is live again: an
+    // edit landed WHILE we were re-checking (its 3s debounce timer is armed,
+    // nothing is stuck). The break's premise — "no progress possible" — no
+    // longer holds, so keep draining rather than reporting the new work as
+    // unsent. Counting it produced phantom "N queued item(s) unsent" data-loss
+    // errors on a routine annotations resync while the user was mid-paste
+    // (nested-hypercite-chain e2e, 2026-09-23) — the same lie logout would
+    // show in its confirm dialog.
+    if (pendingBatches === 0 && Date.now() < deadline) {
+      await flushEditorPipeline(); // the new work may have siblings still in the editor debounces
+      continue;
     }
-
-    // Nothing queued, nothing in flight, and the replay has had its turn: more
-    // waiting cannot change the answer. Report now instead of burning the whole
-    // budget — this path runs on every clear+redownload, not just on logout.
-    if (retriedParked && stillQueued === 0 && !getMasterSyncInFlight()) {
-      break;
-    }
-
-    await new Promise<void>((resolve) => setTimeout(resolve, 250));
-  }
-
-  // Final authoritative re-check before declaring failure. The loop can exit
-  // through the early break with STALE reads: the parked-batch replay drives
-  // pendingBatches to 0, the mid-loop success check (line ~163) sees a drain
-  // still settling and fails, and the break then fires once that drain has
-  // settled — reporting `synced: false` with 0 batches unsent, a false
-  // negative that logout turns into a scary "unsynced edits" confirm and
-  // syncAnnotationsOnly logs as a data-loss ERROR. If nothing is unsent NOW,
-  // the flush succeeded, whatever the intermediate reads said.
-  pendingBatches = await countUnsentBatches();
-  if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
-    verbose.content('Pending edits flushed (confirmed on final re-check)', 'serverSync/flush');
-    return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
+    break;
   }
 
   const queuedItems = await queuedCount();

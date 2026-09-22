@@ -48,6 +48,17 @@ export function setupRealTimeValidation() {
           return { valid: true, message: '' };
         }
 
+        // A reserved word (admin, root, …) is refused even when it's free: a
+        // book id'd `admin` would own the /admin page. Same "pick another" UX as
+        // a taken id. The server backstops this in bulkCreate regardless.
+        if (data.reserved) {
+          return {
+            valid: false,
+            message: `Citation ID "${value}" is a reserved word — pick another.`,
+            isHtml: false
+          };
+        }
+
         if (data.exists) {
           // book_title/book_url are null when the taken id belongs to a book
           // the caller can't see (another user's private book) — say "taken"
