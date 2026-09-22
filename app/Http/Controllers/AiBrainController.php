@@ -933,20 +933,31 @@ class AiBrainController extends Controller
                 // editable/deletable library row owned by the asker. Private ⇒
                 // sanitizeCitedInForViewer hides its citedIN entries from everyone
                 // else, and no docuverse connection edge is created.
+                $libraryValues = [
+                    'creator'       => $user->name,
+                    'creator_token' => null,
+                    'visibility'    => 'private',
+                    'listed'        => false,
+                    'title'         => $title,
+                    'author'        => 'AI Archivist',
+                    'type'          => 'book',
+                    'has_nodes'     => true,
+                    'raw_json'      => json_encode([]),
+                    'timestamp'     => $nowMs,
+                    'updated_at'    => now(),
+                ];
+                // The query builder doesn't fill Eloquent timestamps, and the
+                // 'recent' feed sorts on created_at — a NULL pins the book to
+                // the top of "Recently Added" forever (Postgres DESC = NULLS
+                // FIRST). Set it once; never overwrite on a re-run.
+                $existingCreatedAt = DB::connection('pgsql_admin')->table('library')
+                    ->where('book', $answerBookId)->value('created_at');
+                if ($existingCreatedAt === null) {
+                    $libraryValues['created_at'] = now();
+                }
                 DB::connection('pgsql_admin')->table('library')->updateOrInsert(
                     ['book' => $answerBookId],
-                    [
-                        'creator'       => $user->name,
-                        'creator_token' => null,
-                        'visibility'    => 'private',
-                        'listed'        => false,
-                        'title'         => $title,
-                        'author'        => 'AI Archivist',
-                        'type'          => 'book',
-                        'has_nodes'     => true,
-                        'raw_json'      => json_encode([]),
-                        'timestamp'     => $nowMs,
-                    ]
+                    $libraryValues
                 );
 
                 $questionNode = '<p><b>Prompt</b>: "' . e(Str::limit($question, 1000)) . '"</p>';
@@ -1141,19 +1152,28 @@ PROMPT;
 
         // Library upsert
         $sendEvent('status', ['message' => 'Saving to your library']);
+        $subBookValues = [
+            'creator'       => $user->name,
+            'creator_token' => null,
+            'visibility'    => 'public',
+            'listed'        => false,
+            'title'         => 'AI: ' . Str::limit($question, 80),
+            'type'          => 'sub_book',
+            'has_nodes'     => true,
+            'raw_json'      => json_encode([]),
+            'timestamp'     => 0,
+            'updated_at'    => now(),
+        ];
+        // Query-builder upsert skips Eloquent timestamps — set created_at once
+        // (the row may pre-exist, synced from highlight creation).
+        $existingSubCreatedAt = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $subBookId)->value('created_at');
+        if ($existingSubCreatedAt === null) {
+            $subBookValues['created_at'] = now();
+        }
         DB::connection('pgsql_admin')->table('library')->updateOrInsert(
             ['book' => $subBookId],
-            [
-                'creator'       => $user->name,
-                'creator_token' => null,
-                'visibility'    => 'public',
-                'listed'        => false,
-                'title'         => 'AI: ' . Str::limit($question, 80),
-                'type'          => 'sub_book',
-                'has_nodes'     => true,
-                'raw_json'      => json_encode([]),
-                'timestamp'     => 0,
-            ]
+            $subBookValues
         );
 
         // Clear existing nodes for this sub-book (synced from highlight creation) and render

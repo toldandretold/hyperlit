@@ -479,7 +479,9 @@ class UserHomeServerController extends Controller
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
             ->whereIn('visibility', ['public', 'private'])
-            ->orderByDesc('created_at')
+            // NULLS LAST: Postgres DESC defaults to NULLS FIRST, so a row a raw
+            // insert path forgot to stamp would pin to the top of the feed.
+            ->orderByRaw('created_at DESC NULLS LAST')
             ->get();
 
         // Home book timestamp must be >= the newest book it incorporates, so the
@@ -696,7 +698,9 @@ class UserHomeServerController extends Controller
             ->where('book', 'NOT LIKE', '%/%')
             ->where('book', 'NOT LIKE', 'shelf_%')
             ->where('visibility', $visibility)
-            ->orderByDesc('created_at')
+            // NULLS LAST: Postgres DESC defaults to NULLS FIRST, so a row a raw
+            // insert path forgot to stamp would pin to the top of the feed.
+            ->orderByRaw('created_at DESC NULLS LAST')
             ->get();
 
         // (Highlights/cites are now in normalized tables, not preserved from old
