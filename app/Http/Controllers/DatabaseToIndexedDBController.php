@@ -720,7 +720,19 @@ class DatabaseToIndexedDBController extends Controller
 
         // Filter out highlights whose sub-book is private and doesn't belong to the current user.
         // Use admin connection to bypass RLS so we can actually see private library records.
-        $subBookIds = $rows->pluck('sub_book_id')->filter()->unique()->values()->toArray();
+        //
+        // ⚠️ FAIL-CLOSED on missing linkage: a row whose sub_book_id column is
+        // NULL still gets checked against the DERIVED id ({book}/{hyperlight_id})
+        // — the id every writer of the annotation library row computes. The old
+        // `if (!$h->sub_book_id) return true` fail-open is exactly how a private
+        // highlight leaked to the book owner (2026-09-21): setVisibility's grace
+        // path writes the library row without stamping hyperlights.sub_book_id,
+        // so the privacy pass never saw it.
+        $effectiveSubBookId = function ($h) {
+            return $h->sub_book_id
+                ?: \App\Helpers\SubBookIdHelper::build($h->book, $h->hyperlight_id);
+        };
+        $subBookIds = $rows->map($effectiveSubBookId)->filter()->unique()->values()->toArray();
         $privateSubBookInfo = []; // sub_book_id => ['creator' => ..., 'creator_token' => ...]
         if (!empty($subBookIds)) {
             $privateRows = DB::connection('pgsql_admin')->table('library')
@@ -735,18 +747,18 @@ class DatabaseToIndexedDBController extends Controller
             }
         }
 
-        $rows = $rows->filter(function ($h) use ($user, $anonymousToken, $privateSubBookInfo) {
-            if (!$h->sub_book_id) return true;
-            if (!array_key_exists($h->sub_book_id, $privateSubBookInfo)) return true; // not private
+        $rows = $rows->filter(function ($h) use ($user, $anonymousToken, $privateSubBookInfo, $effectiveSubBookId) {
+            $subBookId = $effectiveSubBookId($h);
+            if (!array_key_exists($subBookId, $privateSubBookInfo)) return true; // not private
             // Private sub-book — only include if current user is the creator
-            $info = $privateSubBookInfo[$h->sub_book_id];
+            $info = $privateSubBookInfo[$subBookId];
             if ($user && $info['creator'] === $user->name) return true;
             if ($anonymousToken && $info['creator_token'] && $info['creator_token'] === $anonymousToken) return true;
             return false;
         });
 
         $hyperlights = $rows
-            ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId, $privateSubBookInfo) {
+            ->map(function ($hyperlight) use ($user, $anonymousToken, $bookId, $privateSubBookInfo, $effectiveSubBookId) {
                 // Determine if this highlight belongs to the current user
                 // Prioritized auth: if highlight has username (creator), ONLY use username-based auth
                 $isUserHighlight = false;
@@ -807,7 +819,7 @@ class DatabaseToIndexedDBController extends Controller
                     'is_user_highlight' => $isUserHighlight,
                     'creator' => $hyperlight->creator,
                     // creator_token intentionally omitted - security sensitive
-                    'sub_book_visibility' => ($hyperlight->sub_book_id && array_key_exists($hyperlight->sub_book_id, $privateSubBookInfo))
+                    'sub_book_visibility' => array_key_exists($effectiveSubBookId($hyperlight), $privateSubBookInfo)
                         ? 'private'
                         : 'public',
                 ];

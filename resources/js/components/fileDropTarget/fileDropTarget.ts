@@ -398,7 +398,20 @@ async function routeDrop(entries: ReturnType<typeof captureDropEntries>, plainFi
 /* ── Lifecycle ──────────────────────────────────────────────────────────── */
 
 export function initializeFileDropTarget() {
-  if (overlayEl) return; // idempotent
+  // Idempotent — but the guard MUST ask the DOM, not just the module variable.
+  // The overlay is appended to document.body, and an SPA transition swaps the
+  // body out from under it: the element is detached while this module happily
+  // keeps its reference. A plain `if (overlayEl) return` then skipped the
+  // rebuild forever, so page-level file drop was silently dead on every
+  // SPA-entered home/user/journal page — and, worse, the registry still
+  // reported fileDropTarget as ACTIVE, so nothing looked wrong. (Found via the
+  // grand tour's journal → … → home landing, 2026-09-22: "registry: page=home,
+  // fileDropTarget active=true" with no #page-drop-overlay in the document.)
+  if (overlayEl?.isConnected) return;
+
+  // Detached leftovers: tear the old instance down first so the window
+  // listeners below are not bound twice.
+  if (overlayEl) destroyFileDropTarget();
 
   overlayEl = buildOverlay();
   document.body.appendChild(overlayEl);

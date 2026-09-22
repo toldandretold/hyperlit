@@ -4,6 +4,7 @@
     "user-overlay": { "module": "resources/js/components/userContainer/index.ts", "wiring": "containerManager" },
     "money-overlay": { "module": "resources/js/components/moneyOverlay/moneyOverlay.ts", "wiring": "trapModalFocus" },
     "stats-overlay": { "module": "resources/js/components/statsOverlay/statsOverlay.ts", "wiring": "trapModalFocus" },
+    "notifications-overlay": { "module": "resources/js/components/notificationsOverlay/notificationsOverlay.ts", "wiring": "trapModalFocus" },
     "settings-overlay": { "module": "resources/js/components/settingsContainer/index.ts", "wiring": "containerManager" },
     "source-overlay": { "module": "resources/js/components/sourceContainer/index.ts + newbookContainer (shared overlay)", "wiring": "containerManager" },
     "toc-overlay": { "module": "resources/js/components/tocContainer/index.ts", "wiring": "containerManager" },

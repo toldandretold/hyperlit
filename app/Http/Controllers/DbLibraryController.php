@@ -169,6 +169,56 @@ class DbLibraryController extends Controller
         }
     }
 
+    /**
+     * May the current actor make a book PUBLIC (visibility=public / listed=true)?
+     *
+     * The rule (config/publishing.php):
+     *   - Anonymous (no logged-in user) → never. If a logged-in user must verify
+     *     an email to publish, a visitor with no identity at all cannot.
+     *   - Logged in, account created BEFORE the cutoff → allowed (grandfathered:
+     *     verification was never enforced historically, so pre-cutoff users are
+     *     not stranded mid-session).
+     *   - Logged in, created AT/AFTER the cutoff → allowed only with a verified
+     *     email.
+     *
+     * Returns ['allowed' => bool, 'reason' => 'anonymous'|'unverified_email'|null].
+     * The reason is surfaced to the client so the publish control can route to
+     * the right prompt; it is NOT an error — see the CLAMP note at the call site.
+     *
+     * @param  array{creator:?string, creator_token:?string, valid:bool}  $creatorInfo
+     * @return array{allowed:bool, reason:?string}
+     */
+    private function publishPermission(array $creatorInfo): array
+    {
+        $cutoffRaw = config('publishing.verified_email_required_after');
+
+        // No cutoff configured → the publish gate is OFF. This is the dev/e2e
+        // default (config/publishing.php only sets a cutoff in production), and
+        // it restores the exact pre-gate behaviour: anyone, INCLUDING anon, may
+        // publish. Feature tests that exercise the gate set the cutoff explicitly.
+        if (empty($cutoffRaw)) {
+            return ['allowed' => true, 'reason' => null];
+        }
+
+        $user = Auth::user();
+
+        // Anonymous: creator is null (an anon write carries a creator_token, not a name).
+        if (! $user) {
+            return ['allowed' => false, 'reason' => 'anonymous'];
+        }
+
+        // Grandfathered: accounts created before the cutoff predate the rule.
+        if ($user->created_at && $user->created_at->lt(\Illuminate\Support\Carbon::parse($cutoffRaw))) {
+            return ['allowed' => true, 'reason' => null];
+        }
+
+        if ($user->email_verified_at !== null) {
+            return ['allowed' => true, 'reason' => null];
+        }
+
+        return ['allowed' => false, 'reason' => 'unverified_email'];
+    }
+
     // In app/Http/Controllers/DbLibraryController.php
 
     /**
@@ -221,6 +271,10 @@ class DbLibraryController extends Controller
 
                 $isOwner = ($libraryRecord->creator && $libraryRecord->creator === $currentUserInfo['creator']) ||
                            ($libraryRecord->creator_token && $libraryRecord->creator_token === $currentUserInfo['creator_token']);
+
+                // Set by the publish gate below when a transition-to-public is
+                // clamped; echoed in the success response so the client can prompt.
+                $publishDeniedReason = null;
 
                 // This logic remains exactly the same.
                 if ($isOwner) {
@@ -322,6 +376,38 @@ class DbLibraryController extends Controller
                                 ->patchBibtexFields($libraryRecord->bibtex, $bibtexPatch);
                         }
                     }
+
+                    // PUBLISH GATE (config/publishing.php). Making a book public —
+                    // visibility→public OR listed→true — requires a verified email
+                    // for post-cutoff accounts, and is never allowed for anon.
+                    //
+                    // CLAMP, do not 422. This endpoint carries a bulk library sync
+                    // (UnifiedSyncController), and hard-failing the whole payload over
+                    // one disallowed field is the save-queue-wedge failure class
+                    // (CLAUDE.md: "Flushing before a wipe reports, it doesn't assume").
+                    // We force the two fields back to their stored values and tell the
+                    // client why; every other field in the sync still lands.
+                    //
+                    // Only a TRANSITION is gated: a routine re-sync of an
+                    // already-public book (grandfathered or otherwise) sends
+                    // visibility=public again and must pass untouched.
+                    $transitionToPublic =
+                        ($updateData['visibility'] === 'public' && $libraryRecord->visibility !== 'public')
+                        || (! empty($updateData['listed']) && ! $libraryRecord->listed);
+
+                    if ($transitionToPublic) {
+                        $perm = $this->publishPermission($currentUserInfo);
+                        if (! $perm['allowed']) {
+                            $updateData['visibility'] = $libraryRecord->visibility;
+                            $updateData['listed'] = $libraryRecord->listed;
+                            $publishDeniedReason = $perm['reason'];
+                            Log::warning('Publish denied — clamped to stored visibility/listed', [
+                                'book' => $bookId,
+                                'reason' => $perm['reason'],
+                                'creator' => $currentUserInfo['creator'] ?? 'anon',
+                            ]);
+                        }
+                    }
                 } else {
                     // Non-owners can only update annotations_updated_at (for their highlights/hypercites)
                     // Must use SECURITY DEFINER function to bypass RLS policy
@@ -387,6 +473,26 @@ class DbLibraryController extends Controller
                         // data on any shelf containing this book. Flush those shelves
                         // so they rebuild with fresh data on next view.
                         (new ShelfCacheInvalidator)->flushShelvesContaining($bookForShelf);
+
+                        // Hypercite pairing notifications are CITING-book-visibility
+                        // aware: a cite pasted from a private book is suppressed (its
+                        // ref would leak the private book). On the private↔public
+                        // transition of a MAIN book, fan out over every hypercite
+                        // citing INTO this book — publish notifies the cited owners,
+                        // hide retracts. Gated to the real transition on a main book
+                        // so a title edit never triggers the scan. NotificationWriter
+                        // defers again internally (harmless — afterCommit runs inline
+                        // once the outer tx has committed).
+                        if ($visChanged && ! str_contains($bookForShelf, '/')) {
+                            // $visChanged ⇒ old != new, so these arms are exclusive.
+                            if ($newVisibility === 'public') {
+                                // became visible (from private OR encrypted)
+                                \App\Services\Notifications\NotificationWriter::citingBookPublished($bookForShelf, $creator);
+                            } elseif ($oldVisibility === 'public') {
+                                // was visible, now hidden (private OR encrypted)
+                                \App\Services\Notifications\NotificationWriter::citingBookHidden($bookForShelf);
+                            }
+                        }
                     });
                 }
 
@@ -402,6 +508,9 @@ class DbLibraryController extends Controller
                     'success' => true,
                     'message' => 'Library record updated successfully.',
                     'library' => $libraryRecord->refresh(),
+                    // Non-null when a publish was clamped: 'anonymous' | 'unverified_email'.
+                    // The write still succeeded for every other field.
+                    'publish_denied' => $publishDeniedReason,
                 ]);
 
             } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -515,6 +624,23 @@ class DbLibraryController extends Controller
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
+
+                    // PUBLISH GATE (config/publishing.php): a book cannot be BORN
+                    // public unless its creator may publish. Anon and post-cutoff
+                    // unverified accounts are clamped to private — same clamp-don't-
+                    // reject rationale as the upsert path. (listed is not set at
+                    // create, so visibility is the only publish vector here.)
+                    if (($record['visibility'] ?? 'private') === 'public') {
+                        $perm = $this->publishPermission($creatorInfo);
+                        if (! $perm['allowed']) {
+                            $record['visibility'] = 'private';
+                            Log::warning('Publish-at-create denied — clamped to private', [
+                                'book' => $record['book'],
+                                'reason' => $perm['reason'],
+                                'creator' => $creatorInfo['creator'] ?? 'anon',
+                            ]);
+                        }
+                    }
 
                     // E2EE backstop: a born-encrypted book's metadata must be ciphertext
                     // (the flag comes from the request — no library row to look up yet).
@@ -1302,6 +1428,17 @@ class DbLibraryController extends Controller
             // out of sync with the route table (it used to be a local array
             // here, and never learned about /q, /3d or /maintainer).
             if (in_array($slug, config('reserved-routes'), true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug is reserved and cannot be used',
+                ], 422);
+            }
+
+            // A slug is reachable at /{slug}, so it can impersonate exactly as a
+            // username can — check the same identity blocklist
+            // (config/reserved-usernames.php). Slug is already lowercased by the
+            // format regex above, so a plain in_array is correct.
+            if (in_array($slug, config('reserved-usernames'), true)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This slug is reserved and cannot be used',

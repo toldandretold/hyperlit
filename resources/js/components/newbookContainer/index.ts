@@ -20,6 +20,9 @@ export class NewBookContainerManager extends (ContainerManager as any) implement
   declare overlay: HTMLElement | null;
   declare button: HTMLElement;
   declare isOpen: boolean;
+  // Also base-resolved: records which element a listener was attached to, so a
+  // handler stranded on a detached node is reportable (see checkBindings).
+  declare trackBinding: (id: string) => void;
 
   // Animation + view state.
   isAnimating = false;
@@ -36,6 +39,15 @@ export class NewBookContainerManager extends (ContainerManager as any) implement
   private boundVisibilityChangeHandler: () => void;
   private boundFocusHandler: () => void;
 
+  // False until the constructor has finished. The base constructor calls
+  // rebindElements(), and our override of it re-wires the in-panel buttons —
+  // which must NOT run before this subclass's field initializers have set
+  // createBookHandler/importBookHandler to null (they run after super()
+  // returns and would otherwise clobber the handlers we just stored, leaving
+  // the next setupButtonListeners unable to remove them → duplicate listeners
+  // → a single #createNewBook click creating two books).
+  private constructed = false;
+
   constructor(containerId: string, overlayId: string, buttonId: string, frozenContainerIds: string[] = []) {
     super(containerId, overlayId, buttonId, frozenContainerIds);
 
@@ -48,6 +60,34 @@ export class NewBookContainerManager extends (ContainerManager as any) implement
     this.boundFocusHandler = this.handleFocus.bind(this);
     document.addEventListener('visibilitychange', this.boundVisibilityChangeHandler);
     window.addEventListener('focus', this.boundFocusHandler);
+
+    this.constructed = true;
+  }
+
+  /**
+   * The base rebindElements() re-finds only the OUTER trio it knows about —
+   * container / overlay / #newBookButton. The two buttons INSIDE the panel
+   * (#createNewBook, #importBook) are wired by setupButtonListeners, which
+   * otherwise runs only from the constructor and after a form close.
+   *
+   * That gap is a live bug on every SPA body swap that the manager survives:
+   * initializeNewBookContainer takes its "manager exists → rebindElements()"
+   * branch, the container reference is refreshed (so the registry and every
+   * DOM probe report the component healthy), but both inner buttons keep
+   * their handlers on the DETACHED nodes from the previous page. The + menu
+   * opens and neither button does anything — and because the page-level file
+   * drop opens the import form by CLICKING #importBook, drag-and-drop import
+   * silently dies with it (the journal → … → home leg of
+   * tests/e2e/specs/journal/journal-spa-navigation.spec.js, 9/10 runs).
+   *
+   * setupButtonListeners removes-then-adds against the CURRENT elements, so
+   * repeat rebinds cannot accumulate handlers. Same idiom as
+   * sourceContainer/index.ts.
+   */
+  rebindElements(): void {
+    super.rebindElements();
+    if (!this.constructed) return; // mid-super(); the constructor wires them
+    this.setupButtonListeners();
   }
 
   // The form-open flow flips this when an external link is clicked; visibility/focus returning

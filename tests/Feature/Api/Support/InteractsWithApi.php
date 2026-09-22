@@ -144,10 +144,33 @@ trait InteractsWithApi
      * from an afterEach in each Api test file. Scoped to the suite's prefixes so
      * it never touches real data. Random ids mean leaked rows don't collide, but
      * cleaning up keeps the test DB from accumulating cruft.
+     *
+     * DEFERRED to beforeApplicationDestroyed (runs AFTER RefreshDatabase's
+     * rollback): a controller under test may UPDATE an admin-committed `library`
+     * row on the DEFAULT connection (e.g. the annotations_updated_at bump on
+     * every hyperlight write), which holds a row lock until the test transaction
+     * rolls back. An immediate pgsql_admin DELETE of that same row would wait on
+     * that lock FOREVER (the never-committing test tx) — the teardown-deadlock
+     * trap. Deferring runs the deletes once the locks are released.
      */
     protected function cleanupApiFixtures(): void
     {
+        $this->beforeApplicationDestroyed(fn () => $this->runApiFixtureCleanup());
+    }
+
+    /** The actual deletes — deferred by cleanupApiFixtures(); see its docblock. */
+    private function runApiFixtureCleanup(): void
+    {
         $admin = DB::connection('pgsql_admin');
+        // Annotations tests seed hyperlights/hypercites via pgsql_admin; those
+        // commit and must be cleared before their library rows.
+        foreach (['hyperlights', 'hypercites'] as $table) {
+            try {
+                $admin->table($table)->where('book', 'like', 'apitest\_%')->delete();
+            } catch (\Throwable $e) {
+                // table absent in this schema state — ignore
+            }
+        }
         // Job/scan rows reference books by id; clear them before the library rows.
         foreach (['citation_scans', 'citation_pipelines'] as $table) {
             try {
@@ -174,6 +197,14 @@ trait InteractsWithApi
             } catch (\Throwable $e) {
                 // table absent in this schema state — ignore
             }
+        }
+        // Notifications are written via pgsql_admin by NotificationWriter, so
+        // they COMMIT and would leak between tests. Keyed by recipient (the
+        // test-user identity) — the actor may be anonymous.
+        try {
+            $admin->table('notifications')->where('recipient', 'like', 'api\_test\_%')->delete();
+        } catch (\Throwable $e) {
+            // table absent in this schema state — ignore
         }
         // page_views has no `book` to key on (a page view isn't about a book —
         // that's the point of the separate table), so it is cleaned by the

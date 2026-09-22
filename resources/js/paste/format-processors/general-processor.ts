@@ -556,7 +556,7 @@ export class GeneralProcessor extends BaseFormatProcessor {
     const cited = new Set<string>();
     Array.from<Element>(dom.querySelectorAll('a[href]')).forEach((a: Element) => {
       const match = (a.getAttribute('href') || '').match(/#([a-zA-Z][\w-]*)$/);
-      if (match && this.looksLikeCitationMarker(a.textContent || '')) cited.add(match[1]);
+      if (match?.[1] && this.looksLikeCitationMarker(a.textContent || '')) cited.add(match[1]);
     });
 
     return cited;
@@ -590,7 +590,7 @@ export class GeneralProcessor extends BaseFormatProcessor {
       consider(child.getAttribute('name'));
     });
 
-    return found.length === 1 ? found[0] : null;
+    return found.length === 1 ? (found[0] ?? null) : null;
   }
 
   buildReferencesFromBlock(el: Element, citedFragments: Set<string> = new Set<string>()): any[] {

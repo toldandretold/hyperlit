@@ -32,6 +32,80 @@
   visibility: visible;
 }
 
+/*
+  Mode toggle: exact (local substring over IndexedDB) vs meaning (server-side
+  cosine over node embeddings). Segmented pill following the
+  .import-source-toggle idiom in importForm.css — the app's other true segmented
+  control. Rendered only by the reader (see partials/search-toolbar.blade.php)
+  and hidden at runtime for E2EE books and sub-books, neither of which has
+  embeddings for the server to search.
+
+  The overrides below are not decoration: the generic `#search-toolbar button`
+  rules above give every button a transparent background and a hover
+  scale(1.1), which on a segmented pill reads as broken.
+*/
+#search-toolbar .search-mode-toggle {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0;
+  border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+#search-toolbar .search-mode-toggle[hidden] {
+  display: none;
+}
+
+#search-toolbar .search-mode-toggle-btn {
+  padding: 5px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  background: transparent;
+  color: var(--color-text);
+  border: none;
+  border-right: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
+  border-radius: 0;
+  cursor: pointer;
+  /* Cancel the shared button hover transform — a pill segment must not jump. */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#search-toolbar .search-mode-toggle-btn:last-child {
+  border-right: none;
+}
+
+#search-toolbar .search-mode-toggle-btn:hover {
+  transform: none;
+  background-color: color-mix(in srgb, var(--icon-stroke-primary) 12%, transparent);
+}
+
+#search-toolbar .search-mode-toggle-btn.active {
+  background-color: var(--icon-stroke-primary);
+  color: var(--icon-background);
+  font-weight: 600;
+}
+
+#search-toolbar .search-mode-toggle-btn.active:hover {
+  background-color: var(--icon-stroke-primary);
+}
+
+#search-toolbar .search-mode-toggle-btn:focus-visible {
+  outline: 2px solid var(--icon-stroke-primary);
+  outline-offset: -2px;
+}
+
+/*
+  Semantic mode reports "no connection" / "unavailable" where the counter sits —
+  it is the only free space in a one-row find bar.
+*/
+#search-match-counter.search-status-error {
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  font-style: italic;
+  min-width: 0;
+}
+
 /* Search input field */
 #search-input {
   flex: 1;
@@ -132,6 +206,11 @@
   #search-toolbar button svg {
     width: 22px;
     height: 22px;
+  }
+
+  #search-toolbar .search-mode-toggle-btn {
+    padding: 5px 7px;
+    font-size: 10px;
   }
 
   /* Disable hover effects on touch devices */

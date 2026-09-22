@@ -8,6 +8,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use App\Models\PgLibrary;
 use App\Services\CanonicalSourceMatcher;
@@ -18,7 +19,9 @@ use App\Services\LlmService;
 use App\Services\WebFetchService;
 use App\Services\SemanticScholarService;
 use App\Services\BraveSearchService;
+use App\Services\CitationReview\Support\SourceWorkMismatch;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
+use App\Services\WebContent\WebTextAcquirer;
 
 class CitationScanBibliographyJob implements ShouldQueue
 {
@@ -193,7 +196,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                     if (is_string($cached)) {
                         $cached = json_decode($cached, true);
                     }
-                    if (!empty($cached) && array_key_exists('type', $cached)) {
+                    if (!empty($cached) && $this->cachedMetadataUsable($cached)) {
                         $llmMetadataMap[$entry->referenceId] = $cached;
                     } else {
                         $toExtract[$entry->referenceId] = $entry->content ?? '';
@@ -234,7 +237,11 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $llmMetadataMap = array_merge($llmMetadataMap, $extracted);
                     }
 
-                    // Cache newly extracted metadata on source rows
+                    // Cache newly extracted metadata on source rows. Registering in
+                    // recoveredRefIds exempts them from the no-match cooldown: an entry
+                    // re-extracted because its cached metadata went stale (see
+                    // cachedMetadataUsable) has new fields the waves never searched with,
+                    // and the cooldown reads the PRE-extraction updated_at from memory.
                     $newlyExtracted = $this->sourceTable === 'footnotes'
                         ? array_intersect_key($llmMetadataMap, $toExtract)
                         : $extracted;
@@ -242,6 +249,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                         $this->updateSourceEntry($db, $refId, [
                             'llm_metadata' => json_encode($metadata),
                         ]);
+                        $this->recoveredRefIds[$refId] = true;
                     }
                 }
 
@@ -528,7 +536,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                 Log::info('Wave 2a: Local DOI lookup', ['count' => count($doisToLookup)]);
                 $localDoiMatches = $db->table('library')
                     ->whereIn('doi', array_values($doisToLookup))
-                    ->get(['book', 'title', 'doi', 'openalex_id', 'open_library_key', 'canonical_source_id'])
+                    // `year` rides along for the doi_mismatch flag — the divergence is most
+                    // legible as "cited 2008, record says 2024", and without it the flag would
+                    // always report a null record year.
+                    ->get(['book', 'title', 'year', 'doi', 'openalex_id', 'open_library_key', 'canonical_source_id'])
                     ->keyBy('doi');
 
                 foreach ($doisToLookup as $refId => $doi) {
@@ -536,11 +547,35 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $match = $localDoiMatches->get($doi);
                     if ($match) {
                         $item = $pool[$refId];
+                        // `match_method` is PERSISTED here, not just reported in $results — this
+                        // wave never wrote it, so a local-DOI resolution reached the claim with
+                        // match_method NULL and was invisible as a DOI match to everything
+                        // downstream: the workbench's match line, the report's method label, and
+                        // the identity check that asks "did the identifier name another work?".
+                        // Measured: peer-review-2027-pdf resolves "Scientists split on ethics of
+                        // AI use" to a different Nature article this way, verdict `likely`.
                         $updateData = $item['isLinked']
-                            ? ['foundation_source' => $match->book]
-                            : ['source_id' => $match->book, 'foundation_source' => $match->book];
+                            ? ['foundation_source' => $match->book, 'match_method' => 'local_doi']
+                            : ['source_id' => $match->book, 'foundation_source' => $match->book,
+                               'match_method' => 'local_doi'];
                         // Carry the matched row's existing canonical link through
                         $updateData = array_merge($updateData, $this->canonicalColumnFor($match->canonical_source_id));
+                        // Same declaration Wave 2b makes: the DOI settles WHICH work, but if the
+                        // record it names describes something other than the citation, say so.
+                        // This wave writes its columns directly, so it never reached the check in
+                        // resolveWithNormalised().
+                        $doiDivergence = SourceWorkMismatch::compare(
+                            $item['llmMetadata']['title'] ?? null,
+                            $match->title ?? null,
+                            isset($item['llmMetadata']['year']) ? (int) $item['llmMetadata']['year'] : null,
+                            isset($match->year) && $match->year !== null ? (int) $match->year : null,
+                        );
+                        if ($doiDivergence !== null) {
+                            $updateData['match_diagnostics'] = json_encode(['doi_mismatch' => $doiDivergence]);
+                            Log::warning('Local DOI record describes a different work than the citation', [
+                                'refId' => $refId, 'book' => $match->book,
+                            ] + $doiDivergence);
+                        }
 
                         $this->updateSourceEntry($db, $refId, $updateData);
 
@@ -601,6 +636,14 @@ class CitationScanBibliographyJob implements ShouldQueue
                     $localNearMiss = null;
                     $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db, $localNearMiss);
                     if ($localMatch) {
+                        // URL-FIRST, same rule the external title-search waves follow: the
+                        // citation prints an address the author vouches for, so park this match
+                        // and let Wave 6 read it. Deferral cannot LOSE the match — if the URL
+                        // yields nothing that carries article text, the parked match is applied
+                        // below, before any search money is spent.
+                        if ($this->deferLibraryMatchForPrintedUrl($refId, $item, $localMatch)) {
+                            continue;
+                        }
                         $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
                         $updateData = $item['isLinked']
                             ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
@@ -1386,6 +1429,24 @@ class CitationScanBibliographyJob implements ShouldQueue
                             continue;
                         }
                         $item = $pool[$refId];
+
+                        // A ref holding a PARKED LIBRARY MATCH is only surrendered to a fetch
+                        // that actually read the article. Wave 6's own success test
+                        // (WebTextAcquirer::isResolved) is any non-null text, so without this a
+                        // 400-character "Subscribe now" teaser would evict a real library copy
+                        // of the work. A staged PDF counts — the conversion lane reads it.
+                        if (isset($this->urlDeferredLibraryMatches[$refId])
+                            && !$staged
+                            && !in_array($fetched['grade'] ?? '', self::GRADES_CARRYING_ARTICLE_TEXT, true)
+                        ) {
+                            $waveResults[$refId]['url_first'] = 'url_text_too_weak_kept_library_match';
+                            Log::info('Printed URL read, but not as the article — keeping the library match', [
+                                'refId' => $refId, 'grade' => $fetched['grade'] ?? null,
+                                'url' => $urlItems[$refId]['url'] ?? null,
+                            ]);
+                            continue;
+                        }
+
                         $stubTitle  = $item['searchedTitle'] ?? 'Web Source';
                         $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
                         $stubYear   = $item['llmMetadata']['year'] ?? null;
@@ -1433,6 +1494,41 @@ class CitationScanBibliographyJob implements ShouldQueue
             // different work) — apply the parked title-search match, so URL-first never LOSES a
             // resolution, it only orders content ahead of a content-free stub. Runs before Brave
             // so no search money is spent on refs that already hold a corroborated match.
+            // Parked LIBRARY matches first — same contract, different apply path (the book
+            // already exists, so this re-runs the Wave 3 write rather than minting a stub).
+            if (!empty($this->urlDeferredLibraryMatches)) {
+                foreach ($this->urlDeferredLibraryMatches as $refId => $stash) {
+                    if (!isset($pool[$refId])) {
+                        continue; // the URL won — it carried the article
+                    }
+                    $item = $stash['item'];
+                    $localMatch = $stash['match'];
+                    $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
+                    $updateData = $item['isLinked']
+                        ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
+                        : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson];
+                    $updateData = array_merge($updateData, $this->canonicalColumnFor($localMatch['canonical_source_id'] ?? null));
+                    $this->updateSourceEntry($db, $refId, $updateData);
+
+                    $waveResults[$refId]['url_first'] ??= 'url_unusable_fell_back_to_library';
+                    $results[] = [
+                        'referenceId'         => $refId,
+                        'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
+                        'match_method'        => 'library',
+                        'searched_title'      => $item['searchedTitle'],
+                        'result_title'        => $localMatch['title'],
+                        'similarity_score'    => $localMatch['score'],
+                        'openalex_id'         => $localMatch['openalex_id'] ?? null,
+                        'open_library_key'    => $localMatch['open_library_key'] ?? null,
+                        'foundation_book_id'  => $localMatch['book'],
+                        'canonical_source_id' => $localMatch['canonical_source_id'] ?? null,
+                        'llm_metadata'        => $item['llmMetadata'],
+                    ];
+                    $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
+                    $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
+                }
+            }
+
             if (!empty($this->urlDeferredMatches)) {
                 foreach ($this->urlDeferredMatches as $refId => $stash) {
                     if (!isset($pool[$refId])) {
@@ -1607,10 +1703,93 @@ class CitationScanBibliographyJob implements ShouldQueue
      */
     private array $urlDeferredMatches = [];
 
+    /**
+     * Wave-3 LOCAL LIBRARY matches parked for the same reason: refId => ['match' => …, 'item' => …].
+     *
+     * Kept apart from `urlDeferredMatches` because Wave 3 never goes through
+     * `resolveWithNormalised()` — it matches an EXISTING book by title similarity and writes the
+     * columns itself — so it bypassed BOTH gates that live there, the year corroboration and the
+     * URL-first deferral. That hole is how nicholls-nieo-paste/c03 resolved: Sauvant's "The Early
+     * Days of the Group of 77" prints its own un.org address, but a July auto-version harvest of
+     * the same title matched at 0.9 in Wave 3 and consumed the reference, so Wave 6 never fetched
+     * the URL — and that harvested book's "text" is 13,727 characters of un.org navigation chrome
+     * ("Skip to content / ADVANCED SEARCH / English español 中文"). The reviewer was handed page
+     * furniture and correctly reported the claim unsupported, which reads as a verdict about the
+     * citation when it is a verdict about a bad harvest.
+     */
+    private array $urlDeferredLibraryMatches = [];
+
+    /**
+     * Grades that mean "this is the work's prose", as opposed to merely usable text.
+     *
+     * A parked library match is only beaten by a web fetch that clears THIS bar, not
+     * `USABLE_GRADES`: a `thin_extract` of a paywall teaser is technically usable and would
+     * otherwise trade a real 80k-character library copy for 400 characters of "Subscribe now".
+     * Same discipline every "keep trying" rung inside WebTextAcquirer uses.
+     */
+    private const GRADES_CARRYING_ARTICLE_TEXT = [
+        WebTextAcquirer::GRADE_FULL_TEXT,
+        WebTextAcquirer::GRADE_ARTICLE_EXTRACT,
+        WebTextAcquirer::GRADE_TRANSCRIPT,
+    ];
+
+    /**
+     * Should this Wave-3 library match stand aside so Wave 6 can read the citation's own URL?
+     *
+     * Yes whenever a URL is printed and we lack POSITIVE evidence that this library copy is the
+     * work. "Positive evidence" is a completeness grade of verified_full/partial — deliberately
+     * not a character count, because the case this exists for holds 13,727 characters and every
+     * one of them is navigation. Measured on the live table: 256,677 content-bearing non-web
+     * books are ungraded against 64 graded, and the median ungraded one is 92 characters — a
+     * metadata stub. So "ungraded" is not a rare edge here, it is the norm, and a printed URL is
+     * better evidence than a title match against an unexamined row.
+     */
+    private function deferLibraryMatchForPrintedUrl(string $refId, array $item, array $localMatch): bool
+    {
+        $printedUrl = app(WebFetchService::class)->extractUrl($item['content'] ?? '')
+            ?: ($item['llmMetadata']['url'] ?? null);
+        if (!$printedUrl || !preg_match('#^https?://#i', (string) $printedUrl)) {
+            return false;
+        }
+        // NB these are `library.completeness` values, NOT WebTextAcquirer grades — different
+        // vocabularies for different questions ("how much of the work is this copy" vs "what
+        // kind of thing did we just read off the wire").
+        $grade = $localMatch['completeness'] ?? null;
+        if (in_array($grade, ['verified_full', 'partial'], true)) {
+            return false; // we already know this copy carries the work
+        }
+        $this->urlDeferredLibraryMatches[$refId] = ['match' => $localMatch, 'item' => $item];
+        Log::info('Library match deferred for printed URL', [
+            'refId' => $refId, 'book' => $localMatch['book'], 'score' => $localMatch['score'],
+            'url' => $printedUrl, 'completeness' => $grade,
+        ]);
+
+        return true;
+    }
+
     private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db, ?array $matchDiagnostics = null, bool $allowUrlDeferral = true): ?array
     {
         $refId    = $poolItem['referenceId'];
         $isLinked = $poolItem['isLinked'];
+
+        // An IDENTIFIER match skips the title-search gates — it settles which work this is. But
+        // "which work" and "is that the work the author described" are different questions, and
+        // a DOI can be mistyped by the author or mis-extracted by us from OCR'd text. Declare the
+        // disagreement rather than resolving through it.
+        if (in_array($matchMethod, ['doi', 'local_doi'], true)) {
+            $divergence = SourceWorkMismatch::compare(
+                $poolItem['llmMetadata']['title'] ?? null,
+                $normalised['title'] ?? null,
+                isset($poolItem['llmMetadata']['year']) ? (int) $poolItem['llmMetadata']['year'] : null,
+                isset($normalised['year']) && $normalised['year'] !== null ? (int) $normalised['year'] : null,
+            );
+            if ($divergence !== null) {
+                $matchDiagnostics = ($matchDiagnostics ?? []) + ['doi_mismatch' => $divergence];
+                Log::warning('DOI record describes a different work than the citation', [
+                    'refId' => $refId, 'method' => $matchMethod,
+                ] + $divergence);
+            }
+        }
 
         // Centralised gates for TITLE-SEARCH matches (identifier matches — DOI, existing ids —
         // skip both; an identifier is itself the corroboration).
@@ -1625,10 +1804,18 @@ class CitationScanBibliographyJob implements ShouldQueue
                 // Edition-mismatch tier: identity certain, year divergent — accept WITH the flag
                 // so the divergence reaches the reviewer instead of being resolved in silence.
                 $editionFlag = $this->editionMismatchTier($poolItem['llmMetadata'] ?? null, $normalised, $matchDiagnostics);
+                $containerFlag = $editionFlag === null
+                    ? $this->containerCorroborationTier($poolItem['llmMetadata'] ?? null, $normalised, $matchDiagnostics)
+                    : null;
                 if ($editionFlag !== null) {
                     $matchDiagnostics = ($matchDiagnostics ?? []) + ['edition_mismatch' => $editionFlag];
                     Log::info('Title-search match accepted with edition-mismatch flag', [
                         'refId' => $refId, 'method' => $matchMethod, 'flag' => $editionFlag,
+                    ]);
+                } elseif ($containerFlag !== null) {
+                    $matchDiagnostics = ($matchDiagnostics ?? []) + ['container_corroborated' => $containerFlag];
+                    Log::info('Title-search match accepted with container corroboration', [
+                        'refId' => $refId, 'method' => $matchMethod, 'flag' => $containerFlag,
                     ]);
                 } else {
                     Log::info('Title-search match rejected: uncorroborated', [
@@ -2440,7 +2627,10 @@ class CitationScanBibliographyJob implements ShouldQueue
                   ->orWhereNotNull('open_library_key');
             })
             ->limit(10)
-            ->get(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'canonical_source_id']);
+            // `completeness` rides along so the URL-first deferral can ask whether this copy is
+            // KNOWN to carry the work, rather than assuming a title match implies its text.
+            ->get(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key',
+                   'canonical_source_id', 'completeness']);
 
         if ($candidates->isEmpty()) {
             return null;
@@ -2478,6 +2668,7 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'openalex_id'         => $bestMatch->openalex_id,
                 'open_library_key'    => $bestMatch->open_library_key,
                 'canonical_source_id' => $bestMatch->canonical_source_id,
+                'completeness'        => $bestMatch->completeness ?? null,
             ];
         }
 
@@ -2617,6 +2808,158 @@ class CitationScanBibliographyJob implements ShouldQueue
         ];
     }
 
+    /**
+     * The CONTAINER-CORROBORATION tier: a chapter in an edited volume whose year the record dates
+     * differently, vouched for by the volume itself.
+     *
+     * Live case (dedesaileontug2015, chacko): "Political articulation: The structured creativity
+     * of parties. In: … (eds) Building Blocs: How Parties Organize Society" (2015). Semantic
+     * Scholar HAS the chapter — "Introduction. Political Articulation: The Structured Creativity
+     * of Parties", authorScore 1.0 — but dates its record 2020 (the digitised eBook edition) and
+     * prefixes "Introduction.", so titleScore lands at 0.79: too fuzzy for the edition tier, and
+     * the year gap refuses plain corroboration. The right-work match was thrown away.
+     *
+     * What neither rule could see: the citation PRINTS which volume the chapter lives in, and the
+     * record KNOWS which volume it lives in — Crossref's container-title for the chapter DOI is
+     * "Building Blocs". Two independent statements of the same containment are exactly the
+     * title-independent witness the corroboration rule demands. So: strong-but-not-exact title,
+     * near-certain author, and an agreeing container → accept, WITH a flag that rides
+     * match_diagnostics to the workbench (like edition_mismatch) so the year divergence stays a
+     * visible finding rather than a silent resolution.
+     *
+     * The bars keep the Nkrumah class out: a standalone book prints NO container (tier never
+     * applies), and a different chapter in the SAME volume fails the 0.7 title floor. Container
+     * evidence comes from the candidate's venue field when the provider put the volume title
+     * there, else one Crossref lookup by the candidate's DOI — only on this already-rare
+     * year-divergent path, so the extra HTTP call costs nothing in the common case.
+     *
+     * The author bar is a MAJORITY (0.5), not the edition tier's 0.9, because the container is
+     * doing the identity work the edition tier asks of the author field — and because OCR
+     * garbles one diacritic-heavy name per author list with some regularity. Live case: the
+     * same citation re-extracted as "Tugál, C" one run and "Tug ̆al, C" (combining breve) the
+     * next; the second never matches "C. Tuğal", so a 3-author list caps at 0.67 through no
+     * fault of the citation. Two of three exact plus an agreeing volume is corroboration;
+     * zero-overlap author lists never even reach a tier (metadataScore hard-rejects them).
+     *
+     * @return array{printed_container: string, record_container: string, via: string,
+     *               printed_year: ?int, record_year: ?int, title_score: float, author_score: float}|null
+     */
+    private function containerCorroborationTier(?array $llmMeta, array $candidate, ?array $diagnostics): ?array
+    {
+        $printedContainer = trim((string) ($llmMeta['container_title'] ?? ''));
+        if ($printedContainer === '') {
+            return null; // no volume printed — nothing to corroborate with
+        }
+        $titleScore = (float) ($diagnostics['titleScore'] ?? 0);
+        $authorScore = (float) ($diagnostics['authorScore'] ?? 0);
+        if ($titleScore < 0.7 || $authorScore < 0.5) {
+            return null;
+        }
+
+        $via = 'venue';
+        $recordContainer = trim((string) ($candidate['journal'] ?? ''));
+        if ($recordContainer === '' || !$this->containerTitlesAgree($printedContainer, $recordContainer)) {
+            $doi = trim((string) ($candidate['doi'] ?? ''));
+            if ($doi === '') {
+                return null;
+            }
+            $via = 'crossref';
+            $recordContainer = (string) $this->crossrefContainerTitle($doi);
+            if ($recordContainer === '' || !$this->containerTitlesAgree($printedContainer, $recordContainer)) {
+                return null;
+            }
+        }
+
+        return [
+            'printed_container' => mb_substr($printedContainer, 0, 200),
+            'record_container'  => mb_substr($recordContainer, 0, 200),
+            'via'               => $via,
+            'printed_year'      => isset($llmMeta['year']) ? (int) $llmMeta['year'] : null,
+            'record_year'       => isset($candidate['year']) && $candidate['year'] !== null ? (int) $candidate['year'] : null,
+            'title_score'       => round($titleScore, 3),
+            'author_score'      => round($authorScore, 3),
+        ];
+    }
+
+    /**
+     * Do a printed and a recorded container title name the same volume? Containment-aware on
+     * purpose: Crossref abbreviates ("Building Blocs" for "Building Blocs: How Parties Organize
+     * Society"), so a symmetric similarity with a length penalty scores the RIGHT volume low.
+     * The shorter side's words must all appear in the longer side — and there must be at least
+     * two substantive words, so "Proceedings" alone can never vouch for anything.
+     */
+    private function containerTitlesAgree(string $printed, string $record): bool
+    {
+        $tokens = function (string $s): array {
+            $stop = ['the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'by', 'with', 'from', 'at'];
+            $s = mb_strtolower($s);
+            if (function_exists('transliterator_transliterate')) {
+                $s = transliterator_transliterate('Any-Latin; Latin-ASCII', $s);
+            }
+            $words = preg_split('/\s+/', trim((string) preg_replace('/[^\w\s]/u', ' ', $s)), -1, PREG_SPLIT_NO_EMPTY);
+
+            return array_values(array_unique(array_diff($words ?: [], $stop)));
+        };
+        $p = $tokens($printed);
+        $r = $tokens($record);
+        if (count($p) < 2 || count($r) < 2) {
+            return false;
+        }
+        [$shorter, $longer] = count($p) <= count($r) ? [$p, $r] : [$r, $p];
+
+        return array_diff($shorter, $longer) === [];
+    }
+
+    /**
+     * Is cached llm_metadata still complete enough to reuse, or must this entry be re-extracted?
+     *
+     * The cache key check ('type') is how a schema addition silently never reaches existing
+     * books: a re-scan reuses the old JSON forever, so the new field exists only for books
+     * imported after the change. When a field is added, name the rows it matters for here so
+     * ONE targeted re-extraction heals them — never invalidate the whole cache (that re-bills
+     * the LLM for every entry of every rescanned book).
+     *
+     * container_title (2026-09-21): only book-chapters carry a containing volume, so only
+     * cached chapters lacking the KEY need re-extraction.
+     */
+    private function cachedMetadataUsable(array $cached): bool
+    {
+        if (!array_key_exists('type', $cached)) {
+            return false;
+        }
+        if (($cached['type'] ?? null) === 'book-chapter' && !array_key_exists('container_title', $cached)) {
+            return false;
+        }
+        foreach ($cached['sub_citations'] ?? [] as $sub) {
+            if (is_array($sub)
+                && ($sub['type'] ?? null) === 'book-chapter'
+                && !array_key_exists('container_title', $sub)
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Crossref's container-title for a DOI — the volume a chapter belongs to. Null on any failure. */
+    private function crossrefContainerTitle(string $doi): ?string
+    {
+        try {
+            $resp = Http::timeout(10)->get('https://api.crossref.org/works/' . rawurlencode($doi));
+            if (!$resp->successful()) {
+                return null;
+            }
+            $container = $resp->json('message.container-title.0');
+
+            return is_string($container) && trim($container) !== '' ? trim($container) : null;
+        } catch (\Throwable $e) {
+            Log::info('Crossref container-title lookup failed', ['doi' => $doi, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
     private function hasYearCorroboration(?array $llmMeta, array $candidate, ?array $diagnostics): bool
     {
         $candidateYear = isset($candidate['year']) && $candidate['year'] !== null ? (int) $candidate['year'] : null;
@@ -2697,15 +3040,28 @@ class CitationScanBibliographyJob implements ShouldQueue
         // Remove the resolved entry itself
         unset($pool[$resolvedRefId]);
 
-        // Remove all related entries (parent and all its subs)
+        // A SUB resolving retires only ITSELF. It used to evict the parent and every sibling
+        // too, which is how a claim about one work came to be verified against another: in
+        // underwood-2016-pdf, "Pedregosa et al., Scikit-learn…; Images are produced using Hadley
+        // Wickham, ggplot2…" had its ggplot2 sub resolve first, so the PRIMARY (scikit-learn) was
+        // struck from the pool before any wave searched for it — leaving the footnote with
+        // source_id NULL, foundation_source pointing at ggplot2, and a confident `tier:
+        // canonical` verdict on a logistic-regression claim reasoned from a graphics book.
+        // 8 of phase2's 11 wrong-source verdicts are this shape.
+        //
+        // The foundation_source written above stays a FALLBACK, and becomes one for free: if the
+        // parent resolves later its own wave writes both source_id and foundation_source over
+        // the top, and if it never resolves the sibling's book is still better than nothing.
+        if ($parentRefId !== null) {
+            return;
+        }
+
+        // The PARENT resolved: retire it and its subs together. (The subs' own outcomes are
+        // already recorded in llm_metadata.sub_citations[i].resolution, and the report says
+        // plainly which cited works were not independently verified.)
         $keysToRemove = [];
         foreach ($pool as $key => $item) {
-            // This is a sub of the same parent
-            if (($item['parentRefId'] ?? null) === $baseRefId) {
-                $keysToRemove[] = $key;
-            }
-            // This is the parent itself
-            if ($key === $baseRefId) {
+            if (($item['parentRefId'] ?? null) === $baseRefId || $key === $baseRefId) {
                 $keysToRemove[] = $key;
             }
         }

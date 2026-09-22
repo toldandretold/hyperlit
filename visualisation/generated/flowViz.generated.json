@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1917,
-    "moduleCount": 407,
+    "fnCount": 1940,
+    "moduleCount": 408,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3946,
+    "edgeCount": 3975,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -1362,6 +1362,14 @@
     {
       "id": "components/newbookContainer/index:NewBookContainerManager.openContainer",
       "label": "NewBookContainerManager.openContainer",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/index:NewBookContainerManager.rebindElements",
+      "label": "NewBookContainerManager.rebindElements",
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/index",
@@ -4859,6 +4867,14 @@
       "leaf": true
     },
     {
+      "id": "components/utilities/containerManager:ContainerManager.checkBindings",
+      "label": "ContainerManager.checkBindings",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
+    },
+    {
       "id": "components/utilities/containerManager:ContainerManager.cleanupURL",
       "label": "ContainerManager.cleanupURL",
       "kind": "fn",
@@ -4945,6 +4961,14 @@
       "stage": "components",
       "module": "components/utilities/containerManager",
       "leaf": true
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.trackBinding",
+      "label": "ContainerManager.trackBinding",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/utilities/containerManager",
+      "leaf": false
     },
     {
       "id": "components/utilities/containerManager:ContainerManager.unfreezeElement",
@@ -11160,10 +11184,7 @@
       "kind": "fn",
       "stage": "domain",
       "module": "indexedDB/core/library",
-      "leaf": false,
-      "types": [
-        "LibraryRecord"
-      ]
+      "leaf": true
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp",
@@ -12911,6 +12932,22 @@
       "leaf": true
     },
     {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.repairTypographicUrls",
+      "label": "BaseFormatProcessor.repairTypographicUrls",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": true
+    },
+    {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden",
+      "label": "BaseFormatProcessor.stripVisuallyHidden",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/base-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/base-processor:BaseFormatProcessor.transformStructure",
       "label": "BaseFormatProcessor.transformStructure",
       "kind": "fn",
@@ -13335,6 +13372,14 @@
       "leaf": true
     },
     {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn",
+      "label": "ScienceDirectProcessor.convertCitationAnchorsIn",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
       "label": "ScienceDirectProcessor.convertCitationLinks",
       "kind": "fn",
@@ -13348,7 +13393,7 @@
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/science-direct-processor",
-      "leaf": true
+      "leaf": false
     },
     {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
@@ -13367,8 +13412,32 @@
       "leaf": false
     },
     {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.footnoteIdentifierFrom",
+      "label": "ScienceDirectProcessor.footnoteIdentifierFrom",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
       "label": "ScienceDirectProcessor.linkCitations",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
+      "label": "ScienceDirectProcessor.linkFootnotes",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/format-processors/science-direct-processor",
+      "leaf": false
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph",
+      "label": "ScienceDirectProcessor.replaceWithParagraph",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/format-processors/science-direct-processor",
@@ -14041,6 +14110,14 @@
     {
       "id": "paste/utils/normalizer:normalizeSpaces",
       "label": "normalizeSpaces",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
+    },
+    {
+      "id": "paste/utils/normalizer:prepareClipboardHtml",
+      "label": "prepareClipboardHtml",
       "kind": "fn",
       "stage": "infra",
       "module": "paste/utils/normalizer",
@@ -15049,6 +15126,14 @@
       "leaf": false
     },
     {
+      "id": "search/inTextSearch/searchHighlight:applySemanticNodeHighlight",
+      "label": "applySemanticNodeHighlight",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchHighlight",
+      "leaf": false
+    },
+    {
       "id": "search/inTextSearch/searchHighlight:clearSearchHighlights",
       "label": "clearSearchHighlights",
       "kind": "fn",
@@ -15057,8 +15142,8 @@
       "leaf": false
     },
     {
-      "id": "search/inTextSearch/searchHighlight:setCurrentHighlight",
-      "label": "setCurrentHighlight",
+      "id": "search/inTextSearch/searchHighlight:clearSemanticHighlights",
+      "label": "clearSemanticHighlights",
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchHighlight",
@@ -15161,12 +15246,36 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyModeAvailability",
+      "label": "SearchToolbarManager.applyModeAvailability",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
       "label": "SearchToolbarManager.bindElements",
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
       "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode",
+      "label": "SearchToolbarManager.changeMode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights",
+      "label": "SearchToolbarManager.clearAllHighlights",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearSearch",
@@ -15183,6 +15292,14 @@
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
       "leaf": false
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.commitMatches",
+      "label": "SearchToolbarManager.commitMatches",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.constructor",
@@ -15249,6 +15366,14 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleModeToggleClick",
+      "label": "SearchToolbarManager.handleModeToggleClick",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleNext",
       "label": "SearchToolbarManager.handleNext",
       "kind": "fn",
@@ -15281,8 +15406,24 @@
       "leaf": false
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.installDebounce",
+      "label": "SearchToolbarManager.installDebounce",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.invalidateIndex",
       "label": "SearchToolbarManager.invalidateIndex",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.minQueryLength",
+      "label": "SearchToolbarManager.minQueryLength",
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
@@ -15313,6 +15454,22 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSemanticSearch",
+      "label": "SearchToolbarManager.performSemanticSearch",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.readStoredMode",
+      "label": "SearchToolbarManager.readStoredMode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.rebindElements",
       "label": "SearchToolbarManager.rebindElements",
       "kind": "fn",
@@ -15321,12 +15478,28 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle",
+      "label": "SearchToolbarManager.renderModeToggle",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.setupEventListeners",
       "label": "SearchToolbarManager.setupEventListeners",
       "kind": "fn",
       "stage": "infra",
       "module": "search/inTextSearch/searchToolbar",
       "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showModeError",
+      "label": "SearchToolbarManager.showModeError",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": false
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
@@ -15361,12 +15534,20 @@
       "leaf": true
     },
     {
-      "id": "search/inTextSearch/searchToolbar:toggleSearchToolbar",
-      "label": "toggleSearchToolbar",
+      "id": "search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "label": "abortSemanticSearch",
       "kind": "fn",
       "stage": "infra",
-      "module": "search/inTextSearch/searchToolbar",
+      "module": "search/inTextSearch/semanticSearch",
       "leaf": true
+    },
+    {
+      "id": "search/inTextSearch/semanticSearch:searchBookSemantically",
+      "label": "searchBookSemantically",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/semanticSearch",
+      "leaf": false
     },
     {
       "id": "search/postgreSQLsearch/homepageSearch:destroyHomepageSearch",
@@ -17695,6 +17876,7 @@
         "components/newbookContainer/index:NewBookContainerManager.handleFocus",
         "components/newbookContainer/index:NewBookContainerManager.handleVisibilityChange",
         "components/newbookContainer/index:NewBookContainerManager.openContainer",
+        "components/newbookContainer/index:NewBookContainerManager.rebindElements",
         "components/newbookContainer/index:NewBookContainerManager.resetAnimationState",
         "components/newbookContainer/index:NewBookContainerManager.restoreOriginalContent",
         "components/newbookContainer/index:NewBookContainerManager.setResponsiveFormSize",
@@ -18761,6 +18943,7 @@
         "components/utilities/containerManager:ContainerManager._applyTopRightVisibility",
         "components/utilities/containerManager:ContainerManager._engageFocusTrap",
         "components/utilities/containerManager:ContainerManager._releaseFocusTrap",
+        "components/utilities/containerManager:ContainerManager.checkBindings",
         "components/utilities/containerManager:ContainerManager.cleanupURL",
         "components/utilities/containerManager:ContainerManager.closeContainer",
         "components/utilities/containerManager:ContainerManager.constructor",
@@ -18772,6 +18955,7 @@
         "components/utilities/containerManager:ContainerManager.restoreNavElementsState",
         "components/utilities/containerManager:ContainerManager.saveNavElementsState",
         "components/utilities/containerManager:ContainerManager.toggleContainer",
+        "components/utilities/containerManager:ContainerManager.trackBinding",
         "components/utilities/containerManager:ContainerManager.unfreezeElement",
         "components/utilities/containerManager:ContainerManager.updateState"
       ]
@@ -21138,6 +21322,8 @@
         "paste/format-processors/base-processor:BaseFormatProcessor.normalize",
         "paste/format-processors/base-processor:BaseFormatProcessor.process",
         "paste/format-processors/base-processor:BaseFormatProcessor.processLite",
+        "paste/format-processors/base-processor:BaseFormatProcessor.repairTypographicUrls",
+        "paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden",
         "paste/format-processors/base-processor:BaseFormatProcessor.transformStructure"
       ]
     },
@@ -21247,11 +21433,15 @@
       "band": "capture",
       "fnIds": [
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.constructor",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractReferences",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.flattenReferenceContent",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.footnoteIdentifierFrom",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
+        "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph",
         "paste/format-processors/science-direct-processor:ScienceDirectProcessor.transformStructure"
       ]
     },
@@ -21568,6 +21758,7 @@
         "paste/utils/normalizer:normalizeListItems",
         "paste/utils/normalizer:normalizeQuotes",
         "paste/utils/normalizer:normalizeSpaces",
+        "paste/utils/normalizer:prepareClipboardHtml",
         "paste/utils/normalizer:stripHyperciteTags",
         "paste/utils/normalizer:stripMarkTags"
       ]
@@ -21857,8 +22048,9 @@
       "band": "capture",
       "fnIds": [
         "search/inTextSearch/searchHighlight:applySearchHighlight",
+        "search/inTextSearch/searchHighlight:applySemanticNodeHighlight",
         "search/inTextSearch/searchHighlight:clearSearchHighlights",
-        "search/inTextSearch/searchHighlight:setCurrentHighlight",
+        "search/inTextSearch/searchHighlight:clearSemanticHighlights",
         "search/inTextSearch/searchHighlight:setSearchMode"
       ]
     },
@@ -21870,9 +22062,13 @@
       "fnIds": [
         "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksToLoadedChunks",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.applyModeAvailability",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.bindElements",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.clearSearch",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.commitMatches",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.constructor",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.destroy",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex",
@@ -21881,16 +22077,23 @@
         "search/inTextSearch/searchToolbar:SearchToolbarManager.handleClickOutside",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.handleKeydown",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.handleModeToggleClick",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.handleNext",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.handlePrev",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.installDebounce",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.invalidateIndex",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.minQueryLength",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.navigateToCurrentMatch",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.open",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.performSearch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.performSemanticSearch",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.readStoredMode",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.rebindElements",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.setupEventListeners",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.showModeError",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.toggle",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
@@ -21903,8 +22106,17 @@
         "search/inTextSearch/searchToolbar:invalidateSearchIndex",
         "search/inTextSearch/searchToolbar:isSearchToolbarOpen",
         "search/inTextSearch/searchToolbar:openSearchToolbar",
-        "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery",
-        "search/inTextSearch/searchToolbar:toggleSearchToolbar"
+        "search/inTextSearch/searchToolbar:openSearchToolbarWithQuery"
+      ]
+    },
+    {
+      "id": "search/inTextSearch/semanticSearch",
+      "label": "search/inTextSearch/semanticSearch",
+      "stage": "infra",
+      "band": "sync",
+      "fnIds": [
+        "search/inTextSearch/semanticSearch:abortSemanticSearch",
+        "search/inTextSearch/semanticSearch:searchBookSemantically"
       ]
     },
     {
@@ -22761,6 +22973,12 @@
       "source": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+      "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "target": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+      "rel": "call"
     },
     {
       "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/userButton/userButton:initializeUserContainer",
@@ -30050,6 +30268,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/userContainer/profile:showUserProfile",
+      "source": "dom",
+      "target": "components/userContainer/profile:showUserProfile",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/userContainer/validation:attachValidationListeners",
       "source": "dom",
       "target": "components/userContainer/validation:attachValidationListeners",
@@ -30134,6 +30358,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.checkBindings",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.checkBindings",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/utilities/containerManager:ContainerManager.closeContainer",
       "source": "dom",
       "target": "components/utilities/containerManager:ContainerManager.closeContainer",
@@ -30161,6 +30391,12 @@
       "id": "dom__domread__components/utilities/containerManager:ContainerManager.saveNavElementsState",
       "source": "dom",
       "target": "components/utilities/containerManager:ContainerManager.saveNavElementsState",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/utilities/containerManager:ContainerManager.trackBinding",
+      "source": "dom",
+      "target": "components/utilities/containerManager:ContainerManager.trackBinding",
       "rel": "domread"
     },
     {
@@ -32036,6 +32272,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden",
+      "source": "dom",
+      "target": "paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
       "source": "dom",
       "target": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
@@ -32264,9 +32506,15 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn",
       "source": "dom",
-      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
       "rel": "domread"
     },
     {
@@ -32282,9 +32530,21 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.footnoteIdentifierFrom",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.footnoteIdentifierFrom",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
       "source": "dom",
       "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
+      "source": "dom",
+      "target": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
       "rel": "domread"
     },
     {
@@ -32732,9 +32992,9 @@
       "rel": "domread"
     },
     {
-      "id": "dom__domread__search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "id": "dom__domread__search/inTextSearch/searchHighlight:clearSemanticHighlights",
       "source": "dom",
-      "target": "search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "target": "search/inTextSearch/searchHighlight:clearSemanticHighlights",
       "rel": "domread"
     },
     {
@@ -32756,6 +33016,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.handleModeToggleClick",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleModeToggleClick",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
       "source": "dom",
       "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.hidePerimeterButtons",
@@ -32765,6 +33031,12 @@
       "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
       "source": "dom",
       "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.highlightCurrentMatch",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle",
+      "source": "dom",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle",
       "rel": "domread"
     },
     {
@@ -34831,8 +35103,7 @@
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/annotations:attachAnnotationListener",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/annotations:attachAnnotationListener__call__indexedDB/syncQueue/queue:queueForSync",
@@ -34876,8 +35147,7 @@
       "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/annotations:saveHighlightAnnotation",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/annotations:saveHighlightAnnotation__call__indexedDB/syncQueue/queue:queueForSync",
@@ -34963,8 +35233,7 @@
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
@@ -35198,8 +35467,7 @@
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/deletion:deleteHighlightById",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/deletion:deleteHighlightById__call__indexedDB/core/library:updateBookTimestamp",
@@ -35271,8 +35539,7 @@
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "hyperlights/deletion:hideHighlightById",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "hyperlights/deletion:hideHighlightById__call__indexedDB/core/library:updateBookTimestamp",
@@ -38306,32 +38573,6 @@
       "rel": "write"
     },
     {
-      "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/core/connection:openDatabase",
-      "source": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "target": "indexedDB/core/connection:openDatabase",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/core/library:updateAnnotationsTimestamp",
-      "source": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
-    },
-    {
-      "id": "indexedDB/core/library:updateAnnotationsTimestamp__call__indexedDB/syncQueue/queue:queueForSync",
-      "source": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "target": "indexedDB/syncQueue/queue:queueForSync",
-      "rel": "call"
-    },
-    {
-      "id": "indexedDB/core/library:updateAnnotationsTimestamp__write__store:library",
-      "source": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "target": "store:library",
-      "rel": "write"
-    },
-    {
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/core/library:updateBookTimestamp",
       "target": "indexedDB/core/connection:openDatabase",
@@ -38342,8 +38583,7 @@
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/library:updateAnnotationsTimestamp",
       "source": "indexedDB/core/library:updateBookTimestamp",
       "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "indexedDB/core/library:updateBookTimestamp__call__indexedDB/core/library:updateBookTimestamp",
@@ -41320,6 +41560,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden__domwrite__dom",
+      "source": "paste/format-processors/base-processor:BaseFormatProcessor.stripVisuallyHidden",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader__domwrite__dom",
       "source": "paste/format-processors/bristol-up-processor:BristolUPProcessor.buildArticleHeader",
       "target": "dom",
@@ -41722,8 +41968,26 @@
       "rel": "call"
     },
     {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationAnchorsIn",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks__domwrite__dom",
       "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.convertCitationLinks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.extractFootnotes",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -41754,6 +42018,30 @@
     {
       "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations__domwrite__dom",
       "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkCitations",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes__call__paste/utils/footnote-linker:createFootnoteSupElement",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
+      "target": "paste/utils/footnote-linker:createFootnoteSupElement",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.linkFootnotes",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph__call__paste/utils/transform-helpers:cloneAndClean",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph",
+      "target": "paste/utils/transform-helpers:cloneAndClean",
+      "rel": "call"
+    },
+    {
+      "id": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph__domwrite__dom",
+      "source": "paste/format-processors/science-direct-processor:ScienceDirectProcessor.replaceWithParagraph",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -42739,6 +43027,18 @@
       "source": "paste/utils/normalizer:normalizeListItems",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/normalizer:prepareClipboardHtml__call__paste/utils/normalizer:stripHyperciteTags",
+      "source": "paste/utils/normalizer:prepareClipboardHtml",
+      "target": "paste/utils/normalizer:stripHyperciteTags",
+      "rel": "call"
+    },
+    {
+      "id": "paste/utils/normalizer:prepareClipboardHtml__call__paste/utils/normalizer:stripMarkTags",
+      "source": "paste/utils/normalizer:prepareClipboardHtml",
+      "target": "paste/utils/normalizer:stripMarkTags",
+      "rel": "call"
     },
     {
       "id": "paste/utils/reference-detection:collectReferenceRun__call__paste/utils/reference-detection:followsCiteLabel",
@@ -44053,14 +44353,20 @@
       "rel": "domwrite"
     },
     {
+      "id": "search/inTextSearch/searchHighlight:applySemanticNodeHighlight__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:applySemanticNodeHighlight",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "search/inTextSearch/searchHighlight:clearSearchHighlights__domwrite__dom",
       "source": "search/inTextSearch/searchHighlight:clearSearchHighlights",
       "target": "dom",
       "rel": "domwrite"
     },
     {
-      "id": "search/inTextSearch/searchHighlight:setCurrentHighlight__domwrite__dom",
-      "source": "search/inTextSearch/searchHighlight:setCurrentHighlight",
+      "id": "search/inTextSearch/searchHighlight:clearSemanticHighlights__domwrite__dom",
+      "source": "search/inTextSearch/searchHighlight:clearSemanticHighlights",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -44089,9 +44395,33 @@
       "rel": "call"
     },
     {
-      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__call__search/inTextSearch/searchHighlight:clearSearchHighlights",
-      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk__call__search/inTextSearch/searchHighlight:applySemanticNodeHighlight",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.applyMarksForChunk",
+      "target": "search/inTextSearch/searchHighlight:applySemanticNodeHighlight",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode__call__search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode",
+      "target": "search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode__write__store:localStorage",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.changeMode",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights__call__search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights",
       "target": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights__call__search/inTextSearch/searchHighlight:clearSemanticHighlights",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.clearAllHighlights",
+      "target": "search/inTextSearch/searchHighlight:clearSemanticHighlights",
       "rel": "call"
     },
     {
@@ -44101,10 +44431,22 @@
       "rel": "call"
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__call__search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
+      "target": "search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "rel": "call"
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.close__domwrite__dom",
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.close",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.destroy__call__search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.destroy",
+      "target": "search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "rel": "call"
     },
     {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.ensureSearchIndex__call__indexedDB/nodes/read:getNodesFromIndexedDB",
@@ -44133,9 +44475,9 @@
       "dataPath": true
     },
     {
-      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput__call__search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput__call__search/inTextSearch/semanticSearch:abortSemanticSearch",
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.handleInput",
-      "target": "search/inTextSearch/searchHighlight:clearSearchHighlights",
+      "target": "search/inTextSearch/semanticSearch:abortSemanticSearch",
       "rel": "call"
     },
     {
@@ -44188,6 +44530,25 @@
       "rel": "call"
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSemanticSearch__call__search/inTextSearch/semanticSearch:searchBookSemantically",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.performSemanticSearch",
+      "target": "search/inTextSearch/semanticSearch:searchBookSemantically",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.renderModeToggle",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showModeError__domwrite__dom",
+      "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.showModeError",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons__domwrite__dom",
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.showPerimeterButtons",
       "target": "dom",
@@ -44198,6 +44559,24 @@
       "source": "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "search/inTextSearch/semanticSearch:searchBookSemantically__call__search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "source": "search/inTextSearch/semanticSearch:searchBookSemantically",
+      "target": "search/inTextSearch/semanticSearch:abortSemanticSearch",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/semanticSearch:searchBookSemantically__call__search/searchResultCache:searchCacheGet",
+      "source": "search/inTextSearch/semanticSearch:searchBookSemantically",
+      "target": "search/searchResultCache:searchCacheGet",
+      "rel": "call"
+    },
+    {
+      "id": "search/inTextSearch/semanticSearch:searchBookSemantically__call__search/searchResultCache:searchCacheSet",
+      "source": "search/inTextSearch/semanticSearch:searchBookSemantically",
+      "target": "search/searchResultCache:searchCacheSet",
+      "rel": "call"
     },
     {
       "id": "search/searchBox:createSearchBox__call__search/searchResultCache:searchCacheGet",
@@ -46301,12 +46680,6 @@
       "rel": "read"
     },
     {
-      "id": "store:library__read__indexedDB/core/library:updateAnnotationsTimestamp",
-      "source": "store:library",
-      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
-      "rel": "read"
-    },
-    {
       "id": "store:library__read__indexedDB/core/library:updateBookTimestamp",
       "source": "store:library",
       "target": "indexedDB/core/library:updateBookTimestamp",
@@ -46586,6 +46959,12 @@
       "id": "store:localStorage__read__scrolling/scrollTrace:scrollTraceEnabled",
       "source": "store:localStorage",
       "target": "scrolling/scrollTrace:scrollTraceEnabled",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__search/inTextSearch/searchToolbar:SearchToolbarManager.readStoredMode",
+      "source": "store:localStorage",
+      "target": "search/inTextSearch/searchToolbar:SearchToolbarManager.readStoredMode",
       "rel": "read"
     },
     {
@@ -49036,6 +49415,11 @@
     {
       "source": "components/userProfile/userProfilePage",
       "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "pageLoad/backgroundDownload",
       "kind": "lazy"
     },
     {
@@ -52485,6 +52869,11 @@
     },
     {
       "source": "paste/format-processors/science-direct-processor",
+      "target": "paste/utils/footnote-linker",
+      "kind": "static"
+    },
+    {
+      "source": "paste/format-processors/science-direct-processor",
       "target": "paste/utils/reference-headings",
       "kind": "static"
     },
@@ -53144,6 +53533,16 @@
       "kind": "static"
     },
     {
+      "source": "search/inTextSearch/searchToolbar",
+      "target": "search/inTextSearch/semanticSearch",
+      "kind": "static"
+    },
+    {
+      "source": "search/inTextSearch/semanticSearch",
+      "target": "search/searchResultCache",
+      "kind": "static"
+    },
+    {
       "source": "search/postgreSQLsearch/homepageSearch",
       "target": "search/searchBox",
       "kind": "static"
@@ -53188,6 +53587,6 @@
       ]
     ],
     "breakerCount": 6,
-    "lazyCount": 298
+    "lazyCount": 299
   }
 }

@@ -637,7 +637,175 @@ def normalize_footnote_defs(text):
     return text
 
 
-def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None):
+# Below this character-level agreement, two definition bodies are DIFFERENT notes and
+# reading one's number off the other would weld a citation to the wrong text. Same bar
+# as recovery's _REPAIR_MIN_SIMILARITY — both answer "is this the same note?".
+_DEF_MATCH_MIN_SIMILARITY = 0.85
+# ...and the winner must beat the runner-up by this much. A page whose notes include two
+# short back-references ("Pasco, 'Literature as Historical Archive', p. 388." is notes 11
+# AND 12 of the Anand article, byte-identical) offers no way to tell them apart, and the
+# house rule is no link over a wrong one.
+_DEF_MATCH_MIN_MARGIN = 0.05
+# Compare OPENINGS, not whole bodies: the text layer caps a def at 700 chars and glues the
+# running header onto a page's last note ("…pp. 178e179. A. Sreekumar Journal of Historical
+# Geography…"), so tails disagree routinely even when it is plainly the same note.
+_DEF_MATCH_PREFIX_CHARS = 80
+
+
+def _def_fingerprint(text):
+    """Fold a definition body to what a SUBSTANTIVE difference would show up in.
+
+    The two witnesses disagree constantly on things that are not the note's identity:
+    directional quotes, the hyphen a justified line-wrap left mid-word ("Self-Determi-
+    nation"), ligature spacing ("identi ﬁes"), accent composition. Drop all of it and
+    compare the opening letters and digits only.
+    """
+    import unicodedata
+    folded = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()
+    return re.sub(r'[^a-z0-9]+', '', folded)[:_DEF_MATCH_PREFIX_CHARS]
+
+
+def repair_page_def_numbers(block, pypdf_defs, page_label=''):
+    """Re-derive a page's footnote definition numbers from the PDF's own text layer.
+
+    A footnote block printed in TWO COLUMNS can come back from OCR both scrambled and
+    mis-numbered: the Anand article's page 2 note column holds 3,4,5,6 | 7,8,9, and Mistral
+    read it as 5,6 (LABELLED "3","4"), then 7,8,9, then the real 3,4 — so the page offered
+    the number 3 twice with two different texts and 4 twice with two more. Everything
+    downstream trusts that numbering: `renumber_page_footnotes` maps local→global, the two
+    collided pairs got ONE global number each, and the reader ended up with the Desai note
+    sitting under the marker for Raza. No hole is left behind, so no later pass can see it.
+
+    The text layer has no reading-order problem here — it carries each number beside its own
+    body — so when the OCR block CONTRADICTS ITSELF (a repeated or descending number, which a
+    real footnote block never does), match each OCR body against the page's pypdf definitions
+    and take the number off whichever one it actually is.
+
+    Deliberately all-or-nothing: unless EVERY definition on the page finds one confident,
+    unshared owner, the block is returned untouched. A partial repair would leave a page
+    mixing repaired and unrepaired numbers, which is a fresh way to collide.
+
+    Args:
+        block: [(line_index, number, number_str, body), …] in page order — the trailing
+            definition run `renumber_page_footnotes` collected.
+        pypdf_defs: [(number, text), …] for THIS page from extract_pypdf_footnote_defs().
+            May contain junk (a body line that looks like a def) and may repeat a number;
+            matching is by BODY, so a candidate nothing resembles simply never wins.
+        page_label: for the log line.
+
+    Returns:
+        (block, repaired): the block re-numbered AND re-ordered so that page order is
+        numeric order (the line slots are reused in place), or the original block with
+        repaired=False.
+    """
+    import difflib
+
+    nums = [b[1] for b in block]
+    if len(nums) < 2 or not pypdf_defs:
+        return block, False
+    # A well-formed page-bottom block ascends with no repeats. Anything else is the OCR
+    # contradicting itself — the only trigger, so a clean page is never touched.
+    if all(nums[k] < nums[k + 1] for k in range(len(nums) - 1)):
+        return block, False
+
+    candidates = [(n, _def_fingerprint(t)) for n, t in pypdf_defs]
+    candidates = [(n, fp) for n, fp in candidates if len(fp) >= 12]
+    if not candidates:
+        return block, False
+
+    assigned = []
+    claimed = {}
+    for _idx, _n, _s, body in block:
+        probe = _def_fingerprint(body)
+        if len(probe) < 12:
+            return block, False
+        scored = sorted(
+            ((difflib.SequenceMatcher(None, probe, fp, autojunk=False).ratio(), n)
+             for n, fp in candidates),
+            reverse=True,
+        )
+        best_score, best_num = scored[0]
+        runner_up = scored[1][0] if len(scored) > 1 else 0.0
+        if best_score < _DEF_MATCH_MIN_SIMILARITY or best_score - runner_up < _DEF_MATCH_MIN_MARGIN:
+            return block, False
+        if best_num in claimed:
+            return block, False            # two bodies claiming one number — refuse the page
+        claimed[best_num] = True
+        assigned.append((best_num, body))
+
+    if [n for n, _b in assigned] == nums:
+        return block, False                # the text layer agrees with the OCR; nothing to do
+
+    # Page order becomes numeric order: the definitions are written back into the same line
+    # slots, lowest number first. Leaving them scrambled would keep a descending step in the
+    # markdown, which simple_md_to_html reads as the start of a new footnote SECTION.
+    slots = [b[0] for b in block]
+    assigned.sort(key=lambda e: e[0])
+    repaired = [(slot, n, str(n), body) for slot, (n, body) in zip(slots, assigned)]
+    before = ','.join(str(n) for n in nums)
+    after = ','.join(str(n) for n, _s, _b in ((e[1], e[2], e[3]) for e in repaired))
+    print(f"  footnote def numbering repaired from the PDF text layer{page_label}: {before} → {after}")
+    return repaired, True
+
+
+def find_midpage_def_block(lines, candidate_fn, pypdf_defs):
+    """A note block the OCR emitted in the MIDDLE of a page, with body text after it.
+
+    The bottom-up block scan assumes the notes are the last thing on the page, which is true
+    of a single-column page and false of a journal article's first page: there the note column
+    sits beside the body, so the OCR's reading order yields "…affiliation / 1 Note / 2 Note /
+    body continues…". Those lines then stay in the body forever — rendered as bare numbered
+    prose, their markers pointing at whatever the renumbering happened to leave in that slot.
+
+    Finding it needs OUTSIDE evidence, because "a couple of lines that open with a number" is
+    also every numbered list in the corpus. The gate is the PDF's own text layer: a run only
+    qualifies when it ascends, has at least two entries, and EVERY entry's body is recognisably
+    the text the layer carries for that exact number. A numbered list matches nothing.
+
+    Returns the run's [(line_index, number, number_str, body), …], or [].
+    """
+    import difflib
+
+    if not pypdf_defs:
+        return []
+    by_num = {}
+    for n, t in pypdf_defs:
+        fp = _def_fingerprint(t)
+        if len(fp) >= 12:
+            by_num.setdefault(n, []).append(fp)
+    if not by_num:
+        return []
+
+    runs, cur = [], []
+    for idx, raw in enumerate(lines):
+        stripped = raw.strip()
+        if not stripped:
+            continue                                  # a blank line does not end a run
+        cand = candidate_fn(stripped)
+        if cand is None:
+            if cur:
+                runs.append(cur)                      # ended by real content = mid-page
+                cur = []
+            continue
+        cur.append((idx, *cand))
+    # `cur` is deliberately NOT flushed here: a run still open at end-of-page is the ordinary
+    # trailing block, which the caller's own bottom-up scan owns.
+
+    for run in sorted(runs, key=len, reverse=True):
+        nums = [n for _i, n, _s, _r in run]
+        if len(run) < 2 or any(nums[k] >= nums[k + 1] for k in range(len(nums) - 1)):
+            continue
+        if all(
+            any(difflib.SequenceMatcher(None, _def_fingerprint(body), fp, autojunk=False).ratio()
+                >= _DEF_MATCH_MIN_SIMILARITY for fp in by_num.get(n, ()))
+            for _i, n, _s, body in run
+        ):
+            return run
+    return []
+
+
+def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,
+                            pypdf_defs=None, page_label=''):
     """Renumber footnotes on a single page from local numbering to global sequential.
 
     For "page_bottom" documents where each page restarts at [^1].
@@ -653,6 +821,10 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
     marker survived as a bare digit ("…three lines of defence. 10", deloitte p9: footer def
     misread 9→10 and "10 Ibid." dropped, so the OCR side had nothing to license the marker;
     once converted, the marker enters the page map and pypdf recovery injects the RIGHT text).
+
+    `pypdf_defs` (optional [(num, text), …]): the same page's definitions WITH their bodies,
+    used by repair_page_def_numbers to re-derive the numbering when the OCR block contradicts
+    itself (a two-column note block read out of order and mis-labelled).
 
     Returns (processed_md, new_global_counter).
     """
@@ -699,6 +871,27 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
             return int(num), num, rest
         return None
 
+    # A journal article's FIRST page prints its notes in the left column BESIDE the body, not
+    # under it, so the OCR's linear reading order drops the note block into the MIDDLE of the
+    # page — where the bottom-up scan below can never see it. On the Anand article that lost
+    # note 1 outright (it stayed in the body as the prose line "1 Shahul Hameed Mattumannil,
+    # 'The Left Approach…'") and, because the whole apparatus is then renumbered around the
+    # hole, shifted EVERY later note one place against the printed article. Lift the block to
+    # the foot of the page and let the normal path have it. Gated on the text layer agreeing
+    # note-for-note, and only for a page with no bottom block at all.
+    _last = next((l.strip() for l in reversed(lines) if l.strip()), '')
+    if pypdf_defs and (not _last or _def_candidate(_last) is None):
+        midpage = find_midpage_def_block(lines, _def_candidate, pypdf_defs)
+        if midpage:
+            moved = {idx for idx, _n, _s, _r in midpage}
+            kept = [l for k, l in enumerate(lines) if k not in moved]
+            tail = []
+            for idx, _n, _s, _r in midpage:
+                tail.extend(['', lines[idx]])
+            lines = kept + tail
+            print(f"  note block found mid-page and moved to the page foot{page_label}: "
+                  f"{','.join(str(n) for _i, n, _s, _r in midpage)}")
+
     # Collect the trailing contiguous block of definition candidates (skip blank lines /
     # page-number anchors), bottom-up, then flip to page order.
     block = []
@@ -714,6 +907,11 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
         block.append((i, *cand))
         i -= 1
     block.reverse()
+
+    # Before anything trusts these numbers: a block that repeats or descends is the OCR
+    # contradicting itself, and the PDF's own text layer can say which body is which note.
+    if block:
+        block, _repaired = repair_page_def_numbers(block, pypdf_defs, page_label)
 
     # A trailing run of STRICTLY ASCENDING numbers that overlaps this page's in-text refs is
     # unambiguously a page-bottom footnote block -- convert the WHOLE run, even numbers whose own
@@ -774,14 +972,15 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
             lines[idx] = ' ' * leading + f'[^{num_str}]: {rest}'
     page_md = '\n'.join(lines)
 
-    # Collect unique local footnote numbers in order of first appearance
-    seen = set()
-    local_numbers = []
-    for m in re.finditer(r'\[\^(\d+)\]', page_md):
-        num = m.group(1)
-        if num not in seen:
-            seen.add(num)
-            local_numbers.append(num)
+    # Collect this page's unique local footnote numbers, LOWEST FIRST. The print numbering IS
+    # the reading order; first-appearance order is not. A note whose marker sits on the previous
+    # page contributes only its DEFINITION here, and that definition comes after every body
+    # marker on the page — so note 3, defined at the foot of a page whose body carries markers
+    # 4-9, was assigned a global number above all of them and the definition list came out
+    # interleaved. This was never anand-specific: switching to numeric order took six other
+    # page_bottom fixtures from 1-7 out-of-order definitions each to zero (3f202e8f 7, ca74000e
+    # and 1abb31d5 4, 21696c70 and 1ee13ed9 2, bedjaoui 1), and changed nothing else about them.
+    local_numbers = sorted({m.group(1) for m in re.finditer(r'\[\^(\d+)\]', page_md)}, key=int)
 
     if not local_numbers:
         return page_md, global_counter

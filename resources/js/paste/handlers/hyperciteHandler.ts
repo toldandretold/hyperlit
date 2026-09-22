@@ -530,6 +530,20 @@ export async function handleHypercitePaste(event: any, targetBookId: any, clipbo
     }
   }
 
+  // CONSISTENCY GATE: commit THIS (citing) book's pasted content — the just-
+  // inserted <u id="hypercite_…"> anchor node — to the backend BEFORE the
+  // cited-side reconcile below. That reconcile immediately syncs the CITED
+  // book's grown citedIN, whose server commit fires the "cited" notification
+  // (NotificationWriter, afterCommit). The notification links to THIS book's
+  // anchor, so if the anchor node were still sitting in the debounced save
+  // queue (or stuck there on a network blip), a recipient could open the
+  // notification and land on a book missing the target. Flushing here makes
+  // "notification exists ⇒ its link target is already committed" a hard
+  // guarantee, matching the hyperlight path. The final flush at the end of the
+  // handler then becomes a near no-op.
+  const { debouncedMasterSync } = await import('../../indexedDB/index');
+  await debouncedMasterSync.flush();
+
   // Update all original hypercites' citedIN arrays
   // Use batched sync for multiple hypercites to avoid 429 rate limiting
   const shouldBatch = updateTasks.length > 1;

@@ -16,8 +16,9 @@ Unique sources cited: 5 (3 verified, 1 canonical-verified, 2 with full text)
 ## Results
 
 <table data-chart="verdict-summary"><thead><tr><th>Verdict</th><th>Count</th></tr></thead><tbody>
+<tr><td>Broken Sources</td><td>1</td></tr>
 <tr><td>Unverified Sources</td><td>3</td></tr>
-<tr><td>Rejected</td><td>1</td></tr>
+<tr><td>Rejected</td><td>0</td></tr>
 <tr><td>Unlikely</td><td>1</td></tr>
 <tr><td>Plausible</td><td>1</td></tr>
 <tr><td>Likely</td><td>1</td></tr>
@@ -28,17 +29,19 @@ Unique sources cited: 5 (3 verified, 1 canonical-verified, 2 with full text)
 
 ---
 
-## Rejected
+# Broken Sources (1)
 
-**Source:** Unrelated Landing Page
-**Provenance:** ⚠️ Web source — the live page at the cited URL [http://dubious.example/paper](http://dubious.example/paper) appears to be a DIFFERENT article (its declared title contradicts the citation). Treat content from this URL as untrusted.
-**Match:** 55% — Brave Search — *this was the closest match found*
-⚠ Title differs: bibliography has "The Original Cited Study Title That Is Quite Different" but matched source is "Unrelated Landing Page"
-🚩 **Suspicious URL** (`http://dubious.example/paper`): suspicious TLD ".zzz", domain does not exist (DNS lookup failed) — possible fabricated citation, or a URL garbled by OCR — verify the address before trusting either way
-**Claim:** "A study proved the opposite conclusion."
-**Evidence:** Web page content (partial)
-**Verdict:** Rejected
-**Summary:** Page contradicts the citation.
+> The identifier or details printed in these citations resolve to a **different work** than the citation describes. No verdict is issued for them — a claim cannot be verified against a record that is not the cited work — so each entry below is a diagnosis of the citation itself: what it prints, what that actually resolves to, and how far apart the two are.
+
+### “The Original Cited Study Title That Is Quite Different”
+
+**Identifier printed in the citation:** URL http://dubious.example/paper
+**Record this citation resolved to:** “Unrelated Landing Page”
+**Title agreement:** 0% — the record's title shares no words with the cited title.
+
+**What is broken:** No identifier is printed, and the closest database match (via brave_search, score 0.55) is the record above — which does not match the citation. The cited work may exist unindexed, or the printed details may be wrong.
+
+**Impact:** 1 claim in the text cites this work. No verdict is issued — a claim cannot be verified against a record that is not the cited work. Correct the citation or its identifier and re-run the review.
 
 ---
 

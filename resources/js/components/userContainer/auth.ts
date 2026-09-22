@@ -238,13 +238,13 @@ export async function handleLogout(self: any) {
   // other failed sync dies with it. So it gets a bigger budget than the default
   // AND it must never wipe on an unsynced verdict without asking — a silent
   // "flushed!" that hadn't reached the server is how an edit disappears for good.
-  let flush = { synced: true, pendingBatches: 0, timedOut: false };
+  let flush = { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
   const previousLabel = setLogoutBusy(self, true);
   try {
     flush = await flushAllPendingEdits({ budgetMs: 30_000 });
   } catch (error) {
     console.error("⚠️ Failed to flush pending edits before logout:", error);
-    flush = { synced: false, pendingBatches: 0, timedOut: false };
+    flush = { synced: false, pendingBatches: 0, queuedItems: 0, timedOut: false };
   } finally {
     setLogoutBusy(self, false, previousLabel);
   }

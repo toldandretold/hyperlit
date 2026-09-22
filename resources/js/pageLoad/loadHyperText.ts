@@ -672,10 +672,18 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
       return; // Refresh includes annotations, no need to check further
     }
 
-    // Check if only annotations changed (highlights/hypercites)
-    if (serverAnnotationsTs > localAnnotationsTs) {
+    // Re-sync annotations whenever the server's timestamp DIFFERS from ours,
+    // not just when it's strictly greater. The old `>` assumed a single
+    // monotonic clock; in practice the local value could end up ABOVE the
+    // server's (a stale client-clock write from before the fix, or clock skew),
+    // and `server > local` then stayed false forever — a reader never saw
+    // others' new annotations until wiping IndexedDB (2026-09-21). `!=`
+    // re-fetches on any divergence and converges: syncAnnotationsOnly is
+    // flush-first (won't drop an unsynced local edit), and the line below
+    // resets local to the server value, so it settles after one re-fetch.
+    if (serverAnnotationsTs !== localAnnotationsTs) {
       verbose.content(
-      `Annotations changed for ${bookId}. Syncing annotations only...`, '/pageLoad/loadHyperText.ts'
+      `Annotations differ for ${bookId} (server ${serverAnnotationsTs} vs local ${localAnnotationsTs}). Syncing annotations only...`, '/pageLoad/loadHyperText.ts'
       );
 
       // 1. Download latest annotations from backend to IndexedDB
@@ -683,7 +691,6 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
       await updateLocalAnnotationsTimestamp(bookId, serverAnnotationsTs);
 
       await reapplyAnnotationsToVisibleNodes(bookId);
-    } else {
     }
   } catch (err) {
     log.error("❌ Error during background timestamp check:", '/pageLoad/loadHyperText.ts', err);

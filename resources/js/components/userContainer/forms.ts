@@ -94,6 +94,8 @@ const ICON_LOGOUT = profileIcon('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h
 const ICON_MONEY = profileIcon('<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>');
 // Lucide "chart-column" — the Stats row (any-page reading-stats overlay)
 const ICON_STATS = profileIcon('<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>');
+// Lucide "bell" — the Notifications row (any-page notifications overlay)
+const ICON_BELL = profileIcon('<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>');
 
 export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
@@ -110,6 +112,18 @@ export function getProfileHTML(emailVerified = true): string {
       <button id="statsBtn" class="menu-row-btn">
         ${ICON_STATS}
         Stats
+      </button>
+      <button id="notificationsBtn" class="menu-row-btn">
+        ${/* The unread-dot anchor ships in the MARKUP, not built by JS when the
+             count arrives: this row sits inside a flyout that animates open
+             over 0.3s, and inserting a wrapper span around the icon mid-
+             animation reflows every row beneath it — the rows moved under the
+             user's cursor (and detached #myBooksBtn out from under the e2e
+             tour's click). notificationsOverlay only toggles .has-unread on
+             this anchor; the dot itself is absolutely positioned, so showing
+             it costs a repaint and no reflow. */''}
+        <span class="notif-dot-anchor">${ICON_BELL}<span class="notif-dot" aria-hidden="true"></span></span>
+        Notifications
       </button>
       <button id="moneyBtn" class="menu-row-btn">
         ${ICON_MONEY}

@@ -195,53 +195,25 @@ export async function updateBookTimestamp(
 }
 
 /**
- * Update annotations_updated_at for a book (for highlight/hypercite changes)
+ * No-op: annotations_updated_at is OWNED BY THE SERVER.
+ *
+ * This used to write `record.annotations_updated_at = Date.now()` and sync it —
+ * a CLIENT-clock value pushed into a field the reader freshness gate compares
+ * against the SERVER-clock value. That mix made the timestamp non-monotonic:
+ * once a reader's locally-written value sat >= the server's, `server > local`
+ * was false on every reload and other users' new annotations never appeared
+ * until a full IndexedDB wipe (2026-09-21 report).
+ *
+ * The server now bumps annotations_updated_at monotonically on EVERY hyperlight
+ * write (DbHyperlightController upsert/bulkCreate/delete/hide → the SECURITY
+ * DEFINER `update_annotations_timestamp`, GREATEST(existing+1, ts)), so the
+ * client must NOT touch it — the local value stays purely server-sourced (set
+ * only by pulls), keeping the freshness comparison honest. The caller's own
+ * highlight is already in IndexedDB for its own render; it does not need a local
+ * timestamp bump. Kept as a resolved no-op so existing callers need no change.
  */
-export async function updateAnnotationsTimestamp(bookId: BookId): Promise<boolean> {
-  try {
-    const db = await openDatabase();
-    const tx = db.transaction("library", "readwrite");
-    const store = tx.objectStore("library");
-    const getRequest = store.get(bookId);
-
-    return new Promise((resolve, reject) => {
-      getRequest.onerror = () => reject(getRequest.error);
-
-      getRequest.onsuccess = () => {
-        const record = getRequest.result as LibraryRecord | undefined;
-        if (!record) {
-          // Sub-books (footnote/highlight sub-books, id "book_X/FnY") have no
-          // local library row — only real books do. Annotating inside one is a
-          // normal action, so cascade the timestamp bump to the parent book's
-          // row instead of erroring out and silently dropping the update.
-          if (bookId.includes('/')) {
-            const { foundation } = parseSubBookId(bookId);
-            if (foundation && foundation !== bookId) {
-              resolve(updateAnnotationsTimestamp(foundation as BookId));
-              return;
-            }
-          }
-          log.error(`No library record found for ${bookId}`, '/indexedDB/core/library.ts');
-          resolve(false);
-          return;
-        }
-
-        const originalRecord = structuredClone(record);
-        record.annotations_updated_at = Date.now();
-
-        const putRequest = store.put(record);
-        putRequest.onerror = () => reject(putRequest.error);
-        putRequest.onsuccess = () => {
-          // Library timestamp updates are always side-effects, never clear redo history
-          queueForSync("library", bookId, "update", record, originalRecord, true);
-          resolve(true);
-        };
-      };
-    });
-  } catch (error) {
-    log.error('Failed to update annotations timestamp', '/indexedDB/core/library.ts', error);
-    return false;
-  }
+export async function updateAnnotationsTimestamp(_bookId: BookId): Promise<boolean> {
+  return true;
 }
 
 /**

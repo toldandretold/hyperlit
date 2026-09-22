@@ -39,4 +39,9 @@ export interface ContainerHost {
   setupResizeListener(): void;
   cleanupResizeListener(): void;
   setResponsiveFormSize(): void;
+
+  // Inherited from the base ContainerManager: records which element a listener
+  // was just attached to, so a handler stranded on a detached node after an SPA
+  // body swap is reportable instead of invisible.
+  trackBinding(id: string): void;
 }

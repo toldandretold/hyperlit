@@ -113,9 +113,37 @@ export function stripHyperciteTags(html: string): string {
 }
 
 /**
+ * The STRUCTURAL clipboard preparation a real paste applies before the format
+ * engine ever sees the payload. It exists as one exported function so the
+ * regression suite can run fixtures through the same sequence the paste handler
+ * does — testing `processor.process(fixture)` directly tests the processor, not
+ * the paste, and the two diverged badly: `convertDefinitionListTags` used to run
+ * HERE, before detection, so it had already rewritten every `<dt>`/`<dd>` to
+ * `<p>` and deleted the `<dl>` (class and all) by the time a processor looked
+ * for one. ScienceDirect's 109 notes live in `<dl class="footnote">` blocks, so
+ * the engine found 0 definition blocks in the browser while the fixture test —
+ * which skipped this step — found 110 and passed. The conversion now runs on the
+ * processor's OUTPUT (see paste/index.ts), which keeps `<dl>` out of the editor
+ * without blinding the processors to it.
+ *
+ * Smart-quote normalization deliberately stays in the handler: it is a
+ * character-level swap that no processor branches on.
+ *
+ * @param {string} html - Raw clipboard `text/html`
+ * @returns {string} - Payload as the format processors receive it
+ */
+export function prepareClipboardHtml(html: string): string {
+  if (!html) return html;
+  return stripHyperciteTags(stripMarkTags(html));
+}
+
+/**
  * Convert definition list tags (<dl>, <dt>, <dd>) to paragraphs.
  * Definition lists are used by some publishers for author names, metadata, etc.
  * They're not supported in the editor, so convert <dt>/<dd> to <p> and strip <dl> wrappers.
+ *
+ * MUST run on processed output, never on the raw clipboard — see
+ * prepareClipboardHtml above for what that ordering cost.
  *
  * @param {string} html - HTML content that may contain definition list tags
  * @returns {string} - HTML with definition list tags converted to paragraphs

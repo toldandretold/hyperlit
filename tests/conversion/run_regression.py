@@ -29,6 +29,7 @@ Usage:
     python3 tests/conversion/run_regression.py --coverage
     python3 tests/conversion/run_regression.py --update-golden [--fixture X]
     python3 tests/conversion/run_regression.py --verbose | --json
+    python3 tests/conversion/run_regression.py --fixture X --keep-output /tmp/conv
 """
 
 import argparse
@@ -715,7 +716,7 @@ def write_goldens(fixture, tmp_dir):
 # Run a fixture
 # ---------------------------------------------------------------------------
 
-def run_fixture(fixture, verbose=False, update_golden=False):
+def run_fixture(fixture, verbose=False, update_golden=False, keep_output=None):
     """Returns (status, results, pipeline) where status is 'pass'|'fail'|'skip'."""
     results = []
     pipeline = fixture['pipeline']
@@ -739,6 +740,11 @@ def run_fixture(fixture, verbose=False, update_golden=False):
             return 'fail', results, pipeline
 
         normalize_outputs(tmp_dir)
+
+        if keep_output:
+            dest = os.path.join(keep_output, fixture['name'].replace(os.sep, '_'))
+            shutil.rmtree(dest, ignore_errors=True)
+            shutil.copytree(tmp_dir, dest)
 
         if update_golden:
             written = write_goldens(fixture, tmp_dir)
@@ -814,6 +820,11 @@ def main():
                         help='Replay a foreign-engine OCR response from engine-cache/ '
                              '(written by ocr_engine_compare.py) instead of the fixture '
                              'ocr_response.json. PDF fixtures only; skips the golden comparator.')
+    parser.add_argument('--keep-output', metavar='DIR',
+                        help='Copy each fixture\'s conversion work directory to DIR/<fixture>/ '
+                             'instead of discarding it. A count comparator tells you a fixture is '
+                             'wrong but not HOW — this hands you the assembled markdown, '
+                             'footnotes.jsonl and conversion log to read.')
     args = parser.parse_args()
 
     if args.coverage:
@@ -849,7 +860,9 @@ def main():
         style = manifest.get('citation_style', '?')
         strategy = manifest.get('footnote_strategy', '?')
 
-        status, results, pipeline = run_fixture(fixture, verbose=args.verbose, update_golden=args.update_golden)
+        status, results, pipeline = run_fixture(fixture, verbose=args.verbose,
+                                                update_golden=args.update_golden,
+                                                keep_output=args.keep_output)
 
         if args.json:
             json_results.append({

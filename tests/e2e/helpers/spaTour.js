@@ -96,12 +96,22 @@ async function enterReaderViaCard(page) {
   await (await pick()).click();
   // The generic runTour waitForTransition can race this DifferentTemplate
   // pathway (the structure briefly reads stale). Wait for the reader to
-  // actually land; retry the click once if the first didn't register.
+  // actually land; retry the click once if the first didn't register — but
+  // ONLY if no transition is observably in flight (loading overlay visible =
+  // the first click DID register and the entry is just slow, e.g. parked
+  // behind the home book's background hydration; a blind second click then
+  // stacks a second full transition on top and doubles the stall).
   try {
     await page.waitForFunction(() => document.body.getAttribute('data-page') === 'reader', null, { timeout: 8000 });
   } catch {
-    await (await pick()).click();
-    await page.waitForFunction(() => document.body.getAttribute('data-page') === 'reader', null, { timeout: 8000 });
+    const inFlight = await page.evaluate(() => {
+      const ov = document.getElementById('initial-navigation-overlay');
+      return !!ov && getComputedStyle(ov).display !== 'none';
+    });
+    if (!inFlight) {
+      await (await pick()).click();
+    }
+    await page.waitForFunction(() => document.body.getAttribute('data-page') === 'reader', null, { timeout: 15000 });
   }
 }
 
@@ -209,7 +219,10 @@ export async function createNewBookFromReader(page) {
     return style.opacity === '1' && c.getBoundingClientRect().width > 0;
   }, null, { timeout: 5000 });
   await page.click('#createNewBook');
-  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 10000 });
+  // 15s, deliberately ABOVE enableEditMode's internal 10s first-chunk cap: a
+  // slow entry (reader getAll parked behind home-book hydration) engages edit
+  // mode via that cap path, and a 10s test wait mathematically loses to it.
+  await page.waitForFunction(() => window.isEditing === true, null, { timeout: 15000 });
   await page.click('#editButton');
   await page.waitForFunction(() => window.isEditing === false, null, { timeout: 5000 });
 }

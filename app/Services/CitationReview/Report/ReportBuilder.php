@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\SourceWorkMismatch;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\CitationReview\Support\SourceUrlResolver;
 use Illuminate\Support\Facades\DB;
@@ -114,9 +115,19 @@ final class ReportBuilder
         $unlikely = [];
         $rejected = [];
 
+        $wrongSource = [];
+
         foreach ($claims as $claim) {
             if (empty($claim['source_book_id'])) {
                 $unverified[] = $claim;
+                continue;
+            }
+            // BEFORE the verdict buckets, for the same reason "Unverified" comes before them:
+            // this is not a weaker verdict, it is the absence of one. We checked a work the
+            // claim is not about, so "rejected" and "confirmed" are equally meaningless and
+            // filing it under either invites the reader to believe it.
+            if (SourceWorkMismatch::forClaim($claim) !== null) {
+                $wrongSource[] = $claim;
                 continue;
             }
             $support = $claim['llm_verdict']['support'] ?? 'insufficient';
@@ -130,8 +141,16 @@ final class ReportBuilder
             };
         }
 
+        // One broken CITATION can carry several claims — the table row and the section both
+        // count citations, the unit the reader has to go fix.
+        $brokenByReference = [];
+        foreach ($wrongSource as $c) {
+            $brokenByReference[$c['referenceId'] ?? spl_object_id((object) $c)][] = $c;
+        }
+
         // Summary table — rendered as bar chart on the frontend via chartRenderer.js
         $md .= '<table data-chart="verdict-summary"><thead><tr><th>Verdict</th><th>Count</th></tr></thead><tbody>' . "\n";
+        $md .= '<tr><td>Broken Sources</td><td>' . count($brokenByReference) . "</td></tr>\n";
         $md .= '<tr><td>Unverified Sources</td><td>' . count($unverified) . "</td></tr>\n";
         $md .= '<tr><td>Rejected</td><td>' . count($rejected) . "</td></tr>\n";
         $md .= '<tr><td>Unlikely</td><td>' . count($unlikely) . "</td></tr>\n";
@@ -145,6 +164,29 @@ final class ReportBuilder
         $md .= "> Truth claims are extracted by [{$extractionModel}] and verified by [{$verificationModel}]. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
 
         $md .= "---\n\n";
+
+        // Leads the results: these claims have no usable verdict at all, because the work we
+        // checked is not the work the claim is about. Rendered in FULL like every other
+        // category — an index of titles would make the reader hunt the report for the claim,
+        // the citation and the evidence that go with each one.
+        if (!empty($wrongSource)) {
+            // One DIAGNOSTIC block per broken CITATION, never a claim block — no verdict exists
+            // for these (the pipeline halts before verification), and a legacy verdict is
+            // deliberately not shown. The banner describes the CITATION's problem, never our
+            // matching process: "the footnote cites several works and we matched the wrong one"
+            // was in an earlier draft — that failure mode is engineered out (every cited work is
+            // now checked on its own row), and a customer-facing report must not advertise a
+            // mistake it no longer makes as one of the normal ways things go.
+            $md .= '# Broken Sources (' . count($brokenByReference) . ")\n\n";
+            $md .= "> The identifier or details printed in these citations resolve to a **different work** "
+                 . "than the citation describes. No verdict is issued for them — a claim cannot be verified "
+                 . "against a record that is not the cited work — so each entry below is a diagnosis of the "
+                 . "citation itself: what it prints, what that actually resolves to, and how far apart the "
+                 . "two are.\n\n";
+            foreach ($brokenByReference as $group) {
+                $md .= $this->claimFormatter->formatBrokenSourceMd($group);
+            }
+        }
 
         // Sections — strongest concern first
         if (!empty($rejected)) {

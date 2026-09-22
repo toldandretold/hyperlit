@@ -18,7 +18,7 @@ from ingestion.pdf.pdf_shared import (  # noqa: F401
 )
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
-    extract_pypdf_page_texts, resurrect_glued_markers_from_pypdf,
+    extract_pypdf_page_texts, resurrect_dropped_markers_from_pypdf,
     derive_pua_digit_map, extract_pua_marker_seams, filter_ascending_marker_chain,
     resurrect_pua_markers,
     repair_def_text_from_pypdf,
@@ -1196,15 +1196,21 @@ class PageBottomAssembler(FootnoteAssembler):
 
     def per_page(self, ctx, i, page, md, md_stripped):
         page_map = {}
-        pypdf_nums = {n for n, _t in (getattr(ctx, 'pypdf_page_defs', None) or {}).get(i, [])}
+        pypdf_defs = (getattr(ctx, 'pypdf_page_defs', None) or {}).get(i, [])
+        pypdf_nums = {n for n, _t in pypdf_defs}
         # Markers Mistral dropped ENTIRELY (no digit left to license) — resurrect from the PDF
         # text layer's glued-superscript seams before renumbering, so they enter the page map
         # and the missing-def recovery can pair them.
         ptext = (getattr(ctx, 'pypdf_page_texts', None) or {}).get(i)
         if pypdf_nums and ptext:
-            md, _n = resurrect_glued_markers_from_pypdf(md, ptext, pypdf_nums, f' (page {i})')
+            def_texts = {}
+            for _n, _t in pypdf_defs:
+                def_texts.setdefault(_n, []).append(_t)
+            md, _n = resurrect_dropped_markers_from_pypdf(
+                md, ptext, pypdf_nums, f' (page {i})', def_texts=def_texts)
         md, ctx.global_fn_counter = renumber_page_footnotes(
-            md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums)
+            md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums,
+            pypdf_defs=pypdf_defs, page_label=f' (page {i})')
         if page_map:
             ctx.page_local_to_global[i] = page_map
         body, fn_text = split_body_and_footnotes(md)

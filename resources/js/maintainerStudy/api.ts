@@ -56,6 +56,21 @@ export interface ClaimSource {
   match_score: string | number | null;
   /** Identity-certain match whose YEAR diverges from the printed one — edition/reprint or wrong printed details. */
   edition_mismatch?: { printed_year?: number | null; record_year?: number } | null;
+  /** Chapter-in-edited-volume accepted past a divergent year because the record's container agrees with the printed volume. */
+  container_corroborated?: {
+    printed_container?: string; record_container?: string; via?: string;
+    printed_year?: number | null; record_year?: number | null;
+  } | null;
+  /**
+   * The source we verified against is NOT the work this claim is about — so the verdict is void,
+   * not negative. `cause` says which of the three ways it happened.
+   */
+  work_mismatch?: {
+    cited_title?: string; matched_title?: string;
+    cited_year?: number | null; matched_year?: number | null; overlap?: number;
+    cause?: 'multi_work' | 'identifier' | 'title_search';
+    matched_work_position?: number; total_works?: number;
+  } | null;
   verification_tier: string | null;
   evidence_type: string | null;
   passages: unknown[];
@@ -73,6 +88,12 @@ export interface ClaimSource {
     channel: string | null;
     url: string | null;
   } | null;
+  /**
+   * How much text our extraction actually KEPT for this source. The verifier is only ever shown
+   * a few passages, so this is what separates "the model misread the source" from "we handed the
+   * model 400 characters of navigation rail". Null when no source book was resolved.
+   */
+  stored: { nodes: number; chars: number } | null;
 }
 
 export interface ClaimRow {
@@ -250,13 +271,23 @@ export const api = {
       {},
     ),
 
+  /** Record a human judgement of what we extracted from a cited URL. */
+  flagExtraction: (body: {
+    book: string; verdict: string; note?: string; key?: string; corpus?: string; slug?: string;
+  }) => postJson<{ ok?: boolean; cleared?: boolean; report_count?: number; error?: string }>(
+    '/api/maintainer/study/flag-extraction', body,
+  ),
+
+  /** `book` searches a RESOLVED SOURCE's stored nodes instead of the study copy's. */
   nodeSearch: async (
     corpus: string,
     slug: string,
     q: string,
+    book?: string | null,
   ): Promise<{ status: number; data: NodeSearchResult & { error?: string } }> => {
     const res = await fetch(
-      `/api/maintainer/study/node-search/${encodeURIComponent(slug)}${corpusQs(corpus)}&q=${encodeURIComponent(q)}`,
+      `/api/maintainer/study/node-search/${encodeURIComponent(slug)}${corpusQs(corpus)}&q=${encodeURIComponent(q)}`
+      + (book ? `&book=${encodeURIComponent(book)}` : ''),
       { credentials: 'include' },
     );
     const data = (await res.json().catch(() => ({}))) as NodeSearchResult & { error?: string };

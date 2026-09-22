@@ -364,7 +364,7 @@ class LlmService
     {
         $plain = strip_tags($citationHtml);
         $result = $this->chat(
-            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
+            'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "container_title": "... or null", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. For a chapter/essay in an edited volume — "Author (year) Chapter title. In: Editors (eds) Volume Title" — "title" is the CHAPTER title and "container_title" is the VOLUME title; never put the volume title in "journal". For anything that is not part of a larger book, "container_title" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present.',
             $plain
         );
 
@@ -387,14 +387,15 @@ class LlmService
 
         // Normalise fields
         return [
-            'title'         => is_string($parsed['title']) ? trim($parsed['title']) : null,
-            'authors'       => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
-            'year'          => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
-            'original_year' => is_numeric($parsed['original_year'] ?? null) ? (int) $parsed['original_year'] : null,
-            'journal'       => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
-            'publisher'     => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
-            'type'          => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
-            'doi'           => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
+            'title'           => is_string($parsed['title']) ? trim($parsed['title']) : null,
+            'authors'         => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
+            'year'            => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
+            'original_year'   => is_numeric($parsed['original_year'] ?? null) ? (int) $parsed['original_year'] : null,
+            'journal'         => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
+            'publisher'       => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+            'container_title' => is_string($parsed['container_title'] ?? null) ? trim($parsed['container_title']) : null,
+            'type'            => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
+            'doi'             => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
         ];
     }
 
@@ -405,7 +406,7 @@ class LlmService
      */
     public function extractCitationMetadataBatch(array $citations): array
     {
-        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present. The url should be any URL present in the citation text (even if malformed), or null if none.';
+        $systemPrompt = 'Extract structured metadata from this bibliography entry. Return ONLY valid JSON with these fields: {"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "container_title": "... or null", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null"}. IMPORTANT: For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year (1976 or 1989) and "original_year" MUST be the original publication year in square brackets (1867 or 1938). For non-reprints, "original_year" is null. For a chapter/essay in an edited volume — "Author (year) Chapter title. In: Editors (eds) Volume Title" — "title" is the CHAPTER title and "container_title" is the VOLUME title; never put the volume title in "journal". For anything that is not part of a larger book, "container_title" is null. Use null for any field you cannot determine. The year must be an integer or null — it should be the publication/reprint year. Authors must be an array of strings in "Lastname, Firstname" format. The doi should be the DOI string (e.g. "10.1234/example") or null if not present. The url should be any URL present in the citation text (even if malformed), or null if none.';
 
         $requests = [];
         foreach ($citations as $key => $html) {
@@ -449,15 +450,16 @@ class LlmService
                 }
 
                 $allResults[$k] = [
-                    'title'         => is_string($parsed['title']) ? trim($parsed['title']) : null,
-                    'authors'       => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
-                    'year'          => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
-                    'original_year' => is_numeric($parsed['original_year'] ?? null) ? (int) $parsed['original_year'] : null,
-                    'journal'       => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
-                    'publisher'     => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
-                    'type'          => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
-                    'doi'           => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
-                    'url'           => is_string($parsed['url'] ?? null) ? trim($parsed['url']) : null,
+                    'title'           => is_string($parsed['title']) ? trim($parsed['title']) : null,
+                    'authors'         => is_array($parsed['authors'] ?? null) ? $parsed['authors'] : [],
+                    'year'            => is_numeric($parsed['year'] ?? null) ? (int) $parsed['year'] : null,
+                    'original_year'   => is_numeric($parsed['original_year'] ?? null) ? (int) $parsed['original_year'] : null,
+                    'journal'         => is_string($parsed['journal'] ?? null) ? trim($parsed['journal']) : null,
+                    'publisher'       => is_string($parsed['publisher'] ?? null) ? trim($parsed['publisher']) : null,
+                    'container_title' => is_string($parsed['container_title'] ?? null) ? trim($parsed['container_title']) : null,
+                    'type'            => is_string($parsed['type'] ?? null) ? trim($parsed['type']) : null,
+                    'doi'             => is_string($parsed['doi'] ?? null) ? trim($parsed['doi']) : null,
+                    'url'             => is_string($parsed['url'] ?? null) ? trim($parsed['url']) : null,
                 ];
             }
 
@@ -487,10 +489,11 @@ class LlmService
 Extract structured metadata from this footnote. This is a footnote from an academic text. It may contain one or more citations separated by semicolons.
 
 Return a JSON array of citation objects — one per distinct cited work. Each object has these fields:
-{"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|commentary|short-form|ibid|pointer|legislation|case-law|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null", "surname": null, "short_title": null}
+{"title": "...", "authors": ["Lastname, Firstname", ...], "year": 2000, "original_year": 1867, "journal": "...", "publisher": "...", "container_title": "... or null", "type": "book|journal-article|book-chapter|conference-paper|thesis|report|news-article|archival-source|youtube-video|website|commentary|short-form|ibid|pointer|legislation|case-law|other", "doi": "10.xxxx/yyyy or null", "url": "https://... or null", "surname": null, "short_title": null}
 
 IMPORTANT RULES:
 - For reprinted works like "(1976[1867])" or "[1938] 1989", "year" MUST be the modern reprint/edition year and "original_year" the original publication year. For non-reprints, "original_year" is null.
+- For a chapter/essay in an edited volume — "Author, Chapter title, in Editors (eds), Volume Title" — "title" is the CHAPTER title and "container_title" is the VOLUME title; never put the volume title in "journal". For anything not part of a larger book, "container_title" is null.
 - Use null for any field you cannot determine. The year must be an integer or null.
 - Authors must be an array of strings in "Lastname, Firstname" format.
 - SHORT-FORM REPEAT CITATIONS: scholarly footnotes give a work's full reference once, then cite it later in shortened form — e.g. "Hart, Justice, pp. 66–7" or "Millstone, Manuscript circulation, p. 313" (surname + truncated title + pages, with NO year, place, or publisher). For these return:
@@ -567,17 +570,18 @@ PROMPT;
                         continue;
                     }
                     $normalised[] = [
-                        'title'         => is_string($item['title'] ?? null) ? trim($item['title']) : null,
-                        'authors'       => is_array($item['authors'] ?? null) ? $item['authors'] : [],
-                        'year'          => is_numeric($item['year'] ?? null) ? (int) $item['year'] : null,
-                        'original_year' => is_numeric($item['original_year'] ?? null) ? (int) $item['original_year'] : null,
-                        'journal'       => is_string($item['journal'] ?? null) ? trim($item['journal']) : null,
-                        'publisher'     => is_string($item['publisher'] ?? null) ? trim($item['publisher']) : null,
-                        'type'          => is_string($item['type'] ?? null) ? trim($item['type']) : null,
-                        'doi'           => is_string($item['doi'] ?? null) ? trim($item['doi']) : null,
-                        'url'           => is_string($item['url'] ?? null) ? trim($item['url']) : null,
-                        'surname'       => is_string($item['surname'] ?? null) ? trim($item['surname']) : null,
-                        'short_title'   => is_string($item['short_title'] ?? null) ? trim($item['short_title']) : null,
+                        'title'           => is_string($item['title'] ?? null) ? trim($item['title']) : null,
+                        'authors'         => is_array($item['authors'] ?? null) ? $item['authors'] : [],
+                        'year'            => is_numeric($item['year'] ?? null) ? (int) $item['year'] : null,
+                        'original_year'   => is_numeric($item['original_year'] ?? null) ? (int) $item['original_year'] : null,
+                        'journal'         => is_string($item['journal'] ?? null) ? trim($item['journal']) : null,
+                        'publisher'       => is_string($item['publisher'] ?? null) ? trim($item['publisher']) : null,
+                        'container_title' => is_string($item['container_title'] ?? null) ? trim($item['container_title']) : null,
+                        'type'            => is_string($item['type'] ?? null) ? trim($item['type']) : null,
+                        'doi'             => is_string($item['doi'] ?? null) ? trim($item['doi']) : null,
+                        'url'             => is_string($item['url'] ?? null) ? trim($item['url']) : null,
+                        'surname'         => is_string($item['surname'] ?? null) ? trim($item['surname']) : null,
+                        'short_title'     => is_string($item['short_title'] ?? null) ? trim($item['short_title']) : null,
                     ];
                 }
 

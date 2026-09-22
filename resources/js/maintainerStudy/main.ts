@@ -314,7 +314,13 @@ function claimRow(claim: ClaimRow): HTMLElement {
     state.selectedKey = claim.key;
     renderList();
     renderDetail(claim);
-    if (paneView === 'hyperlit') jumpToClaimInHyperlit(claim);
+    // The pane follows the selection: Hyperlit lands on this claim's node, Source swaps to THIS
+    // claim's extracted text (falling back when it resolved none). Tabs refresh either way —
+    // whether Source is reachable is a fact about the claim you just picked.
+    refreshPaneTabs();
+    renderExtractionFlag(claim);
+    if (paneView === 'source') setPaneView('source');
+    else if (paneView === 'hyperlit') jumpToClaimInHyperlit(claim);
   });
   return row;
 }
@@ -397,6 +403,39 @@ function renderDetail(claim: ClaimRow): void {
         + 'Same work, divergent details — likely another edition/printing, or the citation year is wrong. Judge which.',
       ));
     }
+    // Chapter in an edited volume: the year diverged, but the record's container agrees with
+    // the volume printed in the citation — that containment is what vouched for the match.
+    if (claim.source.container_corroborated) {
+      const cc = claim.source.container_corroborated;
+      srcSec.append(el(
+        'p',
+        'st-conv-warn',
+        `⚠ Year mismatch (printed ${cc.printed_year ?? '?'}, record ${cc.record_year ?? '?'}) on a chapter match `
+        + `vouched for by its volume: citation prints “${cc.printed_container ?? '?'}”, record belongs to `
+        + `“${cc.record_container ?? '?'}”. Likely another edition of the volume, or the citation year is wrong.`,
+      ));
+    }
+    // Loud, because every other signal still reads "canonical match, high confidence" — the
+    // reviewer would otherwise judge the claim against a work it was never about. The CAUSE is
+    // spelled out: telling someone to check a DOI that is perfectly correct (the multi-work
+    // case) sends them to inspect something that is fine.
+    if (claim.source.work_mismatch) {
+      const wm = claim.source.work_mismatch;
+      const warn = el('div', 'st-conv-bad');
+      warn.append(el('p', undefined, '⚠ The source below is NOT the work this claim is about — the verdict is void, not negative.'));
+      warn.append(el('p', 'st-muted', `claim is about: \u201C${wm.cited_title ?? '?'}\u201D`
+        + (wm.cited_year ? ` (${wm.cited_year})` : '')));
+      warn.append(el('p', 'st-muted', `verified against: \u201C${wm.matched_title ?? '?'}\u201D`
+        + (wm.matched_year ? ` (${wm.matched_year})` : '')));
+      warn.append(el('p', 'st-muted',
+        wm.cause === 'multi_work'
+          ? `Cause: this entry cites ${wm.total_works ?? '?'} works and we matched #${wm.matched_work_position ?? '?'}. `
+            + 'The identifier is correct for the work it named — the DOI is not the problem.'
+          : wm.cause === 'identifier'
+            ? 'Cause: the identifier names the other work — mistyped in the source, or mis-extracted by us.'
+            : 'Cause: a title-similarity match reached the wrong work.'));
+      srcSec.append(warn);
+    }
     if (claim.source.url || claim.source.doi) {
       const p = el('p');
       const a = el('a', undefined, claim.source.url ?? `doi:${claim.source.doi}`);
@@ -413,6 +452,10 @@ function renderDetail(claim: ClaimRow): void {
     if (claim.source.content_grade_note) {
       srcSec.append(el('p', 'st-muted', `content: ${claim.source.content_grade_note}`));
     }
+    // WHAT WE ACTUALLY KEPT. The verifier is shown three or four passages, so until this was
+    // here a nav rail we scraped and a whole article read identically from the console — and a
+    // verdict about our extraction was indistinguishable from a verdict about the citation.
+    srcSec.append(extractedSourceLine(claim));
     if (claim.source.web_status === 'rejected') {
       srcSec.append(
         el(
@@ -479,6 +522,55 @@ function renderDetail(claim: ClaimRow): void {
   pane.replaceChildren(frag);
 
   prefillPdfSearch(claim);
+}
+
+/** A thin extraction is the commonest reason a real source "doesn't support" a claim. */
+const THIN_EXTRACTION_CHARS = 1200;
+
+/**
+ * "What we extracted" — the size of the stored source, and the way into reading all of it.
+ *
+ * Every resolved source is stored as a real book (a `web_…` stub, or an existing library work),
+ * but the console only ever showed the three or four passages the search stage picked, so there
+ * was no way to tell a bad verdict from a bad scrape. The character count is the tell: a
+ * 400-character "article" is page furniture, and a claim missing from it says nothing about the
+ * citation.
+ */
+function extractedSourceLine(claim: ClaimRow): HTMLElement {
+  const wrap = el('p', 'st-extracted');
+  const stored = claim.source.stored;
+  if (!claim.source.book_id) {
+    wrap.append(el('span', 'st-muted', 'No stored source text.'));
+    return wrap;
+  }
+  const btn = el('button', 'st-undo', 'Read what we extracted');
+  btn.type = 'button';
+  btn.addEventListener('click', () => setPaneView('source'));
+  wrap.append(btn);
+
+  // The BOOK itself, in the real reader, in its own tab. The pane is for reading it beside the
+  // claim; this is for everything else — sharing the id, poking at it properly, seeing it the
+  // way a user would. Web stubs are `visibility: public` (just unlisted) so this opens; a
+  // private non-web source will 404, which is itself worth knowing.
+  const open = el('a', 'st-open-link', `open ${claim.source.book_id} ↗`);
+  open.setAttribute('href', `/${encodeURIComponent(claim.source.book_id)}`);
+  open.setAttribute('target', '_blank');
+  open.setAttribute('rel', 'noopener');
+  open.title = 'Open this source book in the reader, in a new tab';
+  wrap.append(open);
+
+  if (!stored || stored.chars === 0) {
+    wrap.append(el('span', 'st-conv-bad',
+      ' nothing stored — the source was identified but no readable body was kept, '
+      + 'so any "not supported" verdict came from the abstract alone.'));
+  } else {
+    const size = `${stored.chars.toLocaleString()} chars · ${stored.nodes} nodes`;
+    wrap.append(el('span', stored.chars < THIN_EXTRACTION_CHARS ? 'st-conv-warn' : 'st-muted',
+      stored.chars < THIN_EXTRACTION_CHARS
+        ? ` ${size} — THIN. Check this is the article and not page furniture before trusting a rejection.`
+        : ` ${size}`));
+  }
+  return wrap;
 }
 
 /**
@@ -979,7 +1071,9 @@ function renderApplyBar(): void {
 // Hyperlit view is where "jump to this citation" is exact: claims carry the
 // study copy's node_ids, which are the render's anchors.
 
-let paneView: 'pdf' | 'hyperlit' = 'pdf';
+type PaneView = 'pdf' | 'hyperlit' | 'source';
+
+let paneView: PaneView = 'pdf';
 let pdfAvailable = false;
 
 function pdfUrl(): string | null {
@@ -992,11 +1086,26 @@ function hyperlitUrl(): string | null {
   return `/api/maintainer/study/render/${encodeURIComponent(state.slug)}?corpus=${encodeURIComponent(state.corpus)}`;
 }
 
+/**
+ * The SELECTED claim's resolved source, rendered from its stored nodes.
+ *
+ * Per CLAIM, not per book — each citation resolves to its own source, so this view follows the
+ * selection the way the Hyperlit anchor does. Null when the claim resolved nothing, which is
+ * what disables the tab.
+ */
+function sourceUrl(claim: ClaimRow | null): string | null {
+  const bookId = claim?.source.book_id;
+  return bookId ? `/api/maintainer/study/source/${encodeURIComponent(bookId)}` : null;
+}
+
 function setupPdfPane(): void {
   const pane = byId<HTMLElement>('st-pdf-pane');
   const original = pdfUrl();
   const hyperlit = hyperlitUrl();
-  if (!original && !hyperlit) {
+  // A resolved source is reason enough to keep the pane: an adopted raw-file corpus entry has
+  // no original PDF, and reading what we extracted must not depend on the article's own copy.
+  const anySource = (state.payload?.claims ?? []).some((c) => !!c.source.book_id);
+  if (!original && !hyperlit && !anySource) {
     pane.hidden = true;
     return;
   }
@@ -1012,11 +1121,12 @@ function setupPdfPane(): void {
       else setPaneView(paneView);
     });
   } else {
-    setPaneView('hyperlit');
+    setPaneView(hyperlit ? 'hyperlit' : 'source');
   }
 
   byId<HTMLButtonElement>('st-view-pdf').onclick = () => setPaneView('pdf');
   byId<HTMLButtonElement>('st-view-hyperlit').onclick = () => setPaneView('hyperlit');
+  byId<HTMLButtonElement>('st-view-source').onclick = () => setPaneView('source');
   const go = byId<HTMLButtonElement>('st-pdf-go');
   const query = byId<HTMLInputElement>('st-pdf-query');
   go.onclick = () => void runSearch();
@@ -1030,26 +1140,51 @@ function runSearch(): Promise<void> {
   return paneView === 'pdf' ? runPdfSearch() : runNodeSearch();
 }
 
-function setPaneView(view: 'pdf' | 'hyperlit'): void {
+/**
+ * Which tabs are available, and which is current.
+ *
+ * SEPARATE from setPaneView because availability depends on the SELECTED CLAIM — Source resolves
+ * per claim — so it has to re-run on every selection, not only when the view changes. It didn't,
+ * and the Source tab was permanently disabled: nothing is selected when the pane is first built,
+ * and the Hyperlit branch of the selection handler jumped the frame without ever going through
+ * setPaneView.
+ */
+function refreshPaneTabs(): void {
+  const pdfBtn = byId<HTMLButtonElement>('st-view-pdf');
+  const hlBtn = byId<HTMLButtonElement>('st-view-hyperlit');
+  const srcBtn = byId<HTMLButtonElement>('st-view-source');
+  pdfBtn.setAttribute('aria-selected', String(paneView === 'pdf'));
+  hlBtn.setAttribute('aria-selected', String(paneView === 'hyperlit'));
+  srcBtn.setAttribute('aria-selected', String(paneView === 'source'));
+  pdfBtn.disabled = !pdfAvailable;
+  hlBtn.disabled = !hyperlitUrl();
+  srcBtn.disabled = !sourceUrl(selectedClaim());
+  byId<HTMLElement>('st-extraction-flag').hidden = paneView !== 'source';
+}
+
+function setPaneView(view: PaneView): void {
+  // Fall back rather than show an empty frame: a web-imported book has no PDF, a run that has
+  // not completed has no study copy, and a claim that resolved nothing has no source.
+  const sourceTarget = sourceUrl(selectedClaim());
+  if (view === 'source' && !sourceTarget) view = hyperlitUrl() ? 'hyperlit' : 'pdf';
   if (view === 'pdf' && !pdfAvailable) view = 'hyperlit';
   if (view === 'hyperlit' && !hyperlitUrl()) view = 'pdf';
   paneView = view;
+  refreshPaneTabs();
 
-  const pdfBtn = byId<HTMLButtonElement>('st-view-pdf');
-  const hlBtn = byId<HTMLButtonElement>('st-view-hyperlit');
-  pdfBtn.setAttribute('aria-selected', String(view === 'pdf'));
-  hlBtn.setAttribute('aria-selected', String(view === 'hyperlit'));
-  pdfBtn.disabled = !pdfAvailable;
-  hlBtn.disabled = !hyperlitUrl();
-
-  // One search strip, two backends: pdf-search (pdftotext, page hits) in PDF
-  // view, node-search (the study copy's plainText, node hits) in Hyperlit.
+  // One search strip, three backends: pdf-search (pdftotext, page hits) in PDF view, and
+  // node-search in the other two — against the study copy in Hyperlit, against the resolved
+  // source's stored nodes in Source (else the box would answer about the wrong document).
   byId<HTMLInputElement>('st-pdf-query').placeholder =
-    view === 'pdf' ? 'Search the PDF…' : 'Search the article…';
+    view === 'pdf' ? 'Search the PDF…'
+      : view === 'source' ? 'Search the extracted source…'
+        : 'Search the article…';
   byId<HTMLDivElement>('st-pdf-hits').replaceChildren();
 
   const frame = byId<HTMLIFrameElement>('st-pdf-frame');
-  const target = view === 'pdf' ? pdfUrl() : hyperlitAnchorUrl(selectedClaim());
+  const target = view === 'pdf' ? pdfUrl()
+    : view === 'source' ? sourceTarget
+      : hyperlitAnchorUrl(selectedClaim());
   if (target && frame.getAttribute('data-view-url') !== target) {
     frame.setAttribute('data-view-url', target);
     navigateFrame(frame, target);
@@ -1058,6 +1193,84 @@ function setPaneView(view: 'pdf' | 'hyperlit'): void {
 
 function selectedClaim(): ClaimRow | null {
   return state.payload?.claims.find((c) => c.key === state.selectedKey) ?? null;
+}
+
+/**
+ * Judge the EXTRACTION, beside the extraction. Mirrors
+ * StudyConsoleController::EXTRACTION_VERDICTS.
+ *
+ * Seeing a bad scrape is worth little on its own — the value is the tally. Each verdict records
+ * the URL's HOST, the grade WebTextAcquirer assigned and how many characters we kept, so
+ * `citation:extraction-flags` can answer "which publishers does our extractor fail on, and did
+ * it already know it had failed". `good` is offered too and is not decoration: without the
+ * successes counted, a host's failure count has no denominator.
+ */
+const EXTRACTION_VERDICTS: Array<{ value: string; text: string; title: string }> = [
+  { value: 'empty', text: 'Nothing', title: 'No body text at all' },
+  { value: 'fragment', text: 'Only a bit of it', title: 'Real article text, but most of the article is missing' },
+  // Stored as `furniture` — this codebase's word for a page's chrome (MainContentExtractor,
+  // WebTextAcquirer). The BUTTON does not say "furniture": the reviewer needs to know which
+  // failure they are looking at, not which term we file it under.
+  { value: 'furniture', text: 'Nav/ads, not the article',
+    title: 'Right page, wrong part of it — we kept the navigation, related-story rails, subscribe '
+      + 'prompts or cookie notice instead of the body ("page furniture")' },
+  { value: 'wrong_page', text: 'A different article',
+    title: 'Not the cited work at all — the URL resolved to some other page' },
+  { value: 'good', text: 'Looks right', title: 'The article, substantially complete — clears any open flag' },
+];
+
+function renderExtractionFlag(claim: ClaimRow | null): void {
+  const box = byId<HTMLElement>('st-extraction-flag');
+  const book = claim?.source.book_id;
+  if (!book) {
+    box.replaceChildren();
+    return;
+  }
+  const row = el('div', 'st-flag-row');
+  row.append(el('span', 'st-muted', 'This extraction is:'));
+  const status = el('span', 'st-flag-status');
+
+  EXTRACTION_VERDICTS.forEach((v) => {
+    const b = el('button', 'st-undo', v.text);
+    b.type = 'button';
+    b.title = v.title;
+    b.addEventListener('click', () => {
+      void (async () => {
+        row.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = true; });
+        status.className = 'st-flag-status st-muted';
+        status.textContent = 'Saving…';
+        try {
+          const { status: code, data } = await api.flagExtraction({
+            book,
+            verdict: v.value,
+            key: claim.key,
+            corpus: state.corpus,
+            slug: state.slug ?? undefined,
+          });
+          if (code !== 200) {
+            status.className = 'st-flag-status st-conv-bad';
+            status.textContent = `Failed (${data.error ?? code}).`;
+          } else if (v.value === 'good') {
+            status.className = 'st-flag-status st-muted';
+            status.textContent = data.cleared ? 'Recorded — earlier flag cleared.' : 'Recorded.';
+          } else {
+            status.className = 'st-flag-status st-conv-warn';
+            status.textContent = `Flagged — “${v.text}”`
+              + ((data.report_count ?? 1) > 1 ? ` (${data.report_count} reports)` : '');
+          }
+        } catch (e) {
+          status.className = 'st-flag-status st-conv-bad';
+          status.textContent = 'Failed to save.';
+          log.error(`extraction flag failed: ${String(e)}`, '/maintainerStudy/main.ts');
+        } finally {
+          row.querySelectorAll('button').forEach((x) => { (x as HTMLButtonElement).disabled = false; });
+        }
+      })();
+    });
+    row.append(b);
+  });
+
+  box.replaceChildren(row, status);
 }
 
 function hyperlitAnchorUrl(claim: ClaimRow | null): string | null {
@@ -1126,14 +1339,17 @@ async function runNodeSearch(): Promise<void> {
   const query = byId<HTMLInputElement>('st-pdf-query').value.trim();
   if (query.length < 2 || !state.slug) return;
   hitsBox.replaceChildren(el('p', 'st-empty', 'Searching…'));
+  // In the Source view the box searches what we EXTRACTED, not the article being reviewed.
+  const sourceBook = paneView === 'source' ? (selectedClaim()?.source.book_id ?? null) : null;
   try {
-    const { status, data: result } = await api.nodeSearch(state.corpus, state.slug, query);
+    const { status, data: result } = await api.nodeSearch(state.corpus, state.slug, query, sourceBook);
     if (status !== 200) {
       hitsBox.replaceChildren(el('p', 'st-empty', `Search failed (${result.error ?? status}).`));
       return;
     }
     if (result.hits.length === 0) {
-      hitsBox.replaceChildren(el('p', 'st-empty', 'No matches in the article.'));
+      hitsBox.replaceChildren(el('p', 'st-empty',
+        sourceBook ? 'Not present in the text we extracted from this source.' : 'No matches in the article.'));
       return;
     }
     hitsBox.replaceChildren(
@@ -1141,7 +1357,7 @@ async function runNodeSearch(): Promise<void> {
         const b = el('button', 'st-hit');
         b.type = 'button';
         b.append(el('span', 'st-hit-page', '¶'), el('span', 'st-hit-snippet', hit.snippet));
-        b.addEventListener('click', () => jumpToNode(hit.node_id));
+        b.addEventListener('click', () => jumpToNode(hit.node_id, sourceBook));
         return b;
       }),
     );
@@ -1152,8 +1368,10 @@ async function runNodeSearch(): Promise<void> {
   }
 }
 
-function jumpToNode(nodeId: string): void {
-  const base = hyperlitUrl();
+function jumpToNode(nodeId: string, sourceBook?: string | null): void {
+  const base = sourceBook
+    ? `/api/maintainer/study/source/${encodeURIComponent(sourceBook)}`
+    : hyperlitUrl();
   if (!base) return;
   const url = `${base}#${encodeURIComponent(nodeId)}`;
   const frame = byId<HTMLIFrameElement>('st-pdf-frame');

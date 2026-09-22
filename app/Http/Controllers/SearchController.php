@@ -486,6 +486,101 @@ class SearchController extends Controller
     }
 
     /**
+     * Semantic search WITHIN one book — the reader's in-text find bar in
+     * "semantic" mode. Same engine as searchSemantic (one query embedding, pure
+     * cosine over nodes.embedding), scoped to a single book instead of every
+     * visible one, and returning node-granular hits: what matched is a whole
+     * paragraph, not a substring of it, so there are no character offsets to
+     * hand back.
+     *
+     * Free, like searchSemantic and for the same reasons (~$0.00000008 per
+     * query, BillingService's 0.0001 floor would over-bill ~1000×, guests have
+     * no billing path); the group's throttle:60,1 covers abuse.
+     */
+    public function searchInBook(Request $request)
+    {
+        $book = trim((string) $request->input('book', ''));
+        $query = trim((string) $request->input('q', ''));
+        $limit = max(1, min((int) $request->input('limit', 20), self::MAX_RESULTS));
+
+        if ($book === '') {
+            return response()->json(['success' => false, 'message' => 'book is required'], 422);
+        }
+
+        // 3+ chars: shorter fragments embed to near-noise and each cache miss
+        // costs an embedding API round-trip.
+        if (mb_strlen($query) < 3) {
+            return response()->json([
+                'success' => true,
+                'results' => [],
+                'query' => $query,
+                'mode' => 'semantic',
+                'count' => 0,
+            ]);
+        }
+
+        // 🔒 The ONLY access guard — the search connection is BYPASSRLS. This
+        // also refuses books whose nodes are never embedded (sub-book, E2EE,
+        // system feed, generated card list), before spending an embedding call
+        // to discover the result is necessarily empty.
+        if (!$this->searchService->bookSemanticallySearchable(
+            $book,
+            Auth::user()?->name,
+            $request->cookie('anon_token'),
+        )) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This text cannot be searched by meaning',
+            ], 403);
+        }
+
+        try {
+            $norm = mb_strtolower($query);
+
+            $t = hrtime(true);
+            $queryEmbedding = $this->embeddingService->embedSearchQuery($norm);
+            $embedMs = round((hrtime(true) - $t) / 1e6, 1);
+            if ($queryEmbedding === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Semantic search is temporarily unavailable',
+                ], 503);
+            }
+
+            // Viewer-INDEPENDENT cache key, unlike searchSemantic's: the book
+            // scope is itself the authorization (checked above), so the result
+            // set depends only on book + query + limit and two readers of the
+            // same book can share it.
+            $cacheKey = 'search:semantic:book:' . md5($book) . ':' . md5($norm) . ':' . $limit;
+
+            $t = hrtime(true);
+            $payload = Cache::remember($cacheKey, 60, function () use ($book, $queryEmbedding, $limit) {
+                $results = $this->searchService->runBookScopedSemanticSearch($book, $queryEmbedding, $limit);
+
+                return ['results' => $results, 'count' => $results->count()];
+            });
+            $dbMs = round((hrtime(true) - $t) / 1e6, 1);
+
+            return response()->json([
+                'success' => true,
+                'results' => $payload['results'],
+                'query' => $query,
+                'book' => $book,
+                'mode' => 'semantic',
+                'count' => $payload['count'],
+            ])->header('Server-Timing', $this->serverTimingHeader(['embed_ms' => $embedMs, 'db_ms' => $dbMs]));
+
+        } catch (\Exception $e) {
+            Log::error('In-book semantic search failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
      * Execute node search with specified text search configuration.
      *
      * SQL assembly lives in SearchService::buildNodeSearchQuery (shared with

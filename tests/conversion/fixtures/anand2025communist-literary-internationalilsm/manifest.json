@@ -1,0 +1,23 @@
+{
+    "name": "anand2025communist-literary-internationalilsm",
+    "description": "pulled prod case: anand2025communist-literary-internationalilsm — two-column page-bottom note block (OCR read the columns out of order AND mis-labelled two notes), a first page whose note block prints beside the body, and two pages whose entire apparatus (markers AND notes) the OCR dropped",
+    "license": "is_oa=true oa_status=hybrid work_license=cc-by — license cc-by -> committable",
+    "book_id": "anand2025communist-literary-internationalilsm",
+    "citation_style": "none",
+    "footnote_strategy": "sequential",
+    "pipeline": "full",
+    "stage_pdf": true,
+    "expected": {
+        "references_count": 0,
+        "citations_linked": 0,
+        "citations_total": 0,
+        "footnotes_count": 101,
+        "audit_gaps": 5,
+        "max_unmatched_defs": 2
+    },
+    "notes": [
+        "The article prints 109 notes; 101 are recovered. This fixture exists for three failures that all hide inside a clean-looking conversion, and stage_pdf MUST stay true — every one of them is arbitrated by the PDF text layer, so a PDF-less replay exercises none of it.",
+        "(1) Two-column note block: the definition list used to carry [^2] and [^3] TWICE, each holding two different works, so the reader showed the Desai note under the marker for Raza. (2) First page prints its notes beside the body, so the OCR emitted them mid-page and note 1 was lost as prose. (3) PDF pages 7 and 9 came back with NO markers and NO note block at all — 19 notes recovered only once the marker seam accepted the line-broken and sentence-boundary shapes, since a page_bottom page's definitions arrive through the local→global map built from its own markers.",
+        "DECLARED DEBT, max_unmatched_defs=2: converted notes 73 and 81 (printed 76 and 84 — E K Nayanar's Ente Russian Diary, and Kerala Liberation Struggle in Pictures) render without an in-text link. Their markers sit in the text layer in a shape none of the three seams claims, and the house rule prefers an unlinked note over a wrongly-linked one. Absent entirely: printed notes 11 and 12 — byte-identical text, so recover_missing_defs's anti-chrome rule discards both as a running footer — plus 34, 65, 66 and 91."
+    ]
+}

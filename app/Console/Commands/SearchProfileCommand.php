@@ -37,6 +37,7 @@ class SearchProfileCommand extends Command
         {--shelf-id= : shelf id when --scope=shelf}
         {--creator= : simulate this authed username (affects visibility + RLS context)}
         {--mode=all : which shapes to profile (all|citations|library|nodes)}
+        {--book= : also profile the in-book semantic shape against this book id}
         {--role=both : run as app (RLS-enforced), admin (BYPASSRLS), or both}
         {--analyze : EXPLAIN ANALYZE (executes the queries) instead of plain EXPLAIN}';
 
@@ -158,6 +159,21 @@ class SearchProfileCommand extends Command
             if ($embedding !== null) {
                 $visibleBooks = $search->getVisibleSemanticSearchBooks($creator, null);
                 $shapes['nodes (semantic/hnsw)'] = $search->buildSemanticNodeSearchQuery($embedding, self::LIMIT, $visibleBooks);
+
+                // The reader's in-book shape. Expect `Index Scan using
+                // idx_nodes_embedding` with a non-zero "Rows Removed by Filter"
+                // — the iterative scan streaming past out-of-book tuples until
+                // the LIMIT fills. Measured ~1.6-2.5ms on a 5243-node book.
+                // A plan WITHOUT iterative scan silently returns short; see
+                // SearchService::buildBookScopedSemanticQuery for why the exact
+                // (fenced) alternative was measured and rejected.
+                if ($book = $this->option('book')) {
+                    $shapes['nodes (semantic/in-book)'] = SearchService::buildBookScopedSemanticQuery(
+                        (string) $book,
+                        $embedding,
+                        self::LIMIT,
+                    );
+                }
             } else {
                 $this->warn('Embedding API unavailable — skipping the semantic shape.');
             }

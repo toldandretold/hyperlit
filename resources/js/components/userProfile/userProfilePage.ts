@@ -223,16 +223,33 @@ async function handleDeleteBook(bookId: any, target: any) {
     // doesn't touch it. Without this the user page re-paints the card on the next visit from the
     // cached home book (an optimistic render that runs before the freshness pull replaces it),
     // mirroring what BookDeletionService removes server-side. window.allBook = `<sanitized>All`.
-    try {
-      const allHome = (window as any).allBook as string | undefined;
-      if (allHome) {
-        const base = allHome.replace(/All$/, '');
-        const cardNodeIds = [base, base + 'Private', allHome].map(h => `${h}_${bookId}_card`);
-        await deleteNodesByNodeIds(cardNodeIds);
+    const allHome = (window as any).allBook as string | undefined;
+    const homeBooks = allHome ? [allHome.replace(/All$/, ''), allHome.replace(/All$/, 'Private'), allHome] : [];
+    const evictHomeCards = async () => {
+      if (!homeBooks.length) return;
+      try {
+        await deleteNodesByNodeIds(homeBooks.map(h => `${h}_${bookId}_card`));
+      } catch (e) {
+        console.warn('Failed to evict home-book card node from IndexedDB:', e);
       }
-    } catch (e) {
-      console.warn('Failed to evict home-book card node from IndexedDB:', e);
-    }
+    };
+    await evictHomeCards();
+
+    // The eviction races the home book's own BACKGROUND CHUNK DOWNLOAD: entering the
+    // user page kicks backgroundDownloadRemainingChunks('<name>All'), whose end-of-run
+    // upsert writes back the ENTIRE pre-delete snapshot — card node included — and it
+    // is deliberately not fenced by isCurrentBook (book-keyed writes are "always safe").
+    // A delete clicked while that download is in flight was silently undone: the card
+    // resurrected in IDB and re-rendered on the next user-page visit (e2e
+    // library-home-sync, prod-shaped race). Re-evict once each possibly-in-flight home
+    // download settles — waitForBackgroundDownload resolves immediately when idle, and
+    // its completion event fires AFTER the final upsert, so this lands on top of it.
+    // Fire-and-forget: the delete UX must not park behind a 76-chunk download.
+    import('../../pageLoad/backgroundDownload').then(({ waitForBackgroundDownload }) => {
+      homeBooks.forEach((home) => {
+        waitForBackgroundDownload(home).then(evictHomeCards).catch(() => {});
+      });
+    }).catch(() => {});
 
     // Send delete request to server
     try {
@@ -254,6 +271,10 @@ async function handleDeleteBook(bookId: any, target: any) {
             throw new Error(`${resp.status} ${txt}`);
         }
         verbose.content(`Book ${bookId} deletion request sent to server.`, '/components/userProfile/userProfilePage.ts');
+
+        // Belt-and-braces against the background-download race above: a stale
+        // upsert that landed DURING the server round trip is wiped here too.
+        await evictHomeCards();
     } catch (err) {
         log.error('Server delete failed:', '/components/userProfile/userProfilePage.ts', err);
     }

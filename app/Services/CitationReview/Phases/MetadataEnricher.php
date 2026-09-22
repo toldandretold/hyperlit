@@ -34,11 +34,13 @@ final class MetadataEnricher
             return [];
         }
 
-        // Batch query 1: bibliography → foundation_source + citation content
+        // Batch query 1: bibliography → foundation_source + citation content.
+        // `source_id` rides along for the multi-work fan-out below: it is the row's OWN match,
+        // where foundation_source may be a promoted sub-citation's book standing in for it.
         $bibEntries = $db->table('bibliography')
             ->where('book', $bookId)
             ->whereIn('referenceId', $allRefIds)
-            ->select(['referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', 'canonical_source_id'])
+            ->select(['referenceId', 'foundation_source', 'source_id', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', 'canonical_source_id'])
             ->get()
             ->keyBy('referenceId');
 
@@ -50,11 +52,74 @@ final class MetadataEnricher
             $fnEntries = $db->table('footnotes')
                 ->where('book', $bookId)
                 ->whereIn('footnoteId', $missingIds)
-                ->select(['footnoteId as referenceId', 'foundation_source', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', $db->raw('NULL as canonical_source_id')])
+                ->select(['footnoteId as referenceId', 'foundation_source', 'source_id', 'content', 'llm_metadata', 'match_method', 'match_score', 'match_diagnostics', $db->raw('NULL as canonical_source_id')])
                 ->get()
                 ->keyBy('referenceId');
             $footnoteRefIds = $fnEntries->keys()->flip()->toArray();
             $bibEntries = $bibEntries->merge($fnEntries);
+        }
+
+        // ── Multi-work fan-out: one SOURCE ENTRY per cited work. ────────────────────────────
+        // A footnote citing "Pedregosa, Scikit-learn…; Wickham, ggplot2…" is N citations sharing
+        // one marker, and the resolver already resolves each separately (pool keys ::subN, the
+        // outcome stored in llm_metadata.sub_citations[i].resolution). The review used to
+        // collapse them back onto the parent's single foundation_source — which is how a claim
+        // about logistic regression got verified against an R graphics book at tier: canonical.
+        // Here every cited work becomes its own entry, enriched through the identical
+        // library/canonical/best-version path; TruthClaimExtractor::expandMultiWorkClaims then
+        // gives each work its own claim row, so each is verified individually.
+        $subRefsByParent = [];
+        foreach ($bibEntries as $refId => $entry) {
+            $meta = is_string($entry->llm_metadata) ? json_decode($entry->llm_metadata, true) : (array) $entry->llm_metadata;
+            $subs = is_array($meta) ? ($meta['sub_citations'] ?? []) : [];
+            if (!is_array($subs) || $subs === []) {
+                continue;
+            }
+            $subBooks = [];
+            foreach ($subs as $i => $sub) {
+                if (!is_array($sub) || empty($sub['title'])) {
+                    continue;
+                }
+                $subRef = $refId . '::sub' . ($i + 1);            // the resolver's own key scheme
+                $subBook = $sub['resolution']['book'] ?? null;    // null = searched, not found
+                if ($subBook) {
+                    $subBooks[] = $subBook;
+                }
+                $subMeta = $sub;
+                unset($subMeta['resolution']);
+                // Marks this metadata as ONE work split out of a multi-work citation, so the
+                // "appears to contain more than one work but was parsed as a single work"
+                // heuristic never fires on the (necessarily semicolon-carrying) citation text.
+                $subMeta['split_from'] = $refId;
+
+                $bibEntries[$subRef] = (object) [
+                    'referenceId'         => $subRef,
+                    'foundation_source'   => $subBook,
+                    'source_id'           => $subBook,
+                    'content'             => $entry->content,
+                    'llm_metadata'        => json_encode($subMeta),
+                    'match_method'        => null,
+                    'match_score'         => null,
+                    'match_diagnostics'   => null,
+                    'canonical_source_id' => null,
+                ];
+                $allRefIds[] = $subRef;
+                if (isset($footnoteRefIds[$refId])) {
+                    $footnoteRefIds[$subRef] = true;
+                }
+                $subRefsByParent[$refId][] = $subRef;
+            }
+
+            // PROMOTION GUARD: the scan promotes a resolving sub's book into the parent's
+            // foundation_source as a stand-in (kept for the reader's footnote→source link). For
+            // the REVIEW that stand-in is exactly the wrong-source bug — the sub's work now has
+            // its own entry — so the primary only keeps a foundation that is its OWN match.
+            if ($subBooks !== []
+                && in_array($entry->foundation_source, $subBooks, true)
+                && ($entry->source_id ?? null) !== $entry->foundation_source
+            ) {
+                $entry->foundation_source = null;
+            }
         }
 
         // Collect foundation_source book IDs for library lookup
@@ -199,6 +264,14 @@ final class MetadataEnricher
                 'web_status'          => $webStatus,
                 'content_provenance'  => $provenance,
             ];
+        }
+
+        // Hand the extractor the fan-out map: parent refId → its per-work entry keys. The claim
+        // is extracted once (the in-text marker is the parent's), then cloned per cited work.
+        foreach ($subRefsByParent as $parentRef => $subRefs) {
+            if (isset($citationMeta[$parentRef])) {
+                $citationMeta[$parentRef]['sub_source_refs'] = $subRefs;
+            }
         }
 
         return $citationMeta;

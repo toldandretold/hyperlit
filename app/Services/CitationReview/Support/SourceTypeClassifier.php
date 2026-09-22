@@ -151,6 +151,13 @@ final class SourceTypeClassifier
         if (!empty($meta['sub_citations'])) {
             return false; // already split
         }
+        // One work SPLIT OUT of a multi-work citation by the review's fan-out: its metadata is
+        // single-work by construction while its citation text still carries the semicolons —
+        // exactly the shape this heuristic exists to flag, except here every work HAS been
+        // searched on its own row.
+        if (!empty($meta['split_from']) || !empty($claim['cited_work_total'])) {
+            return false;
+        }
         if (in_array(self::type($claim), ['ibid', 'short-form', 'pointer'], true)) {
             return false;
         }

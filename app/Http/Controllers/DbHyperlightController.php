@@ -9,7 +9,7 @@ use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Services\BookDeletionService;
-use App\Services\Connections\ConnectionCountQuery;
+use App\Services\Notifications\NotificationWriter;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -140,6 +140,7 @@ class DbHyperlightController extends Controller
             
             if (isset($data['data']) && is_array($data['data'])) {
                 $records = [];
+                $notifyQueue = [];
                 $user = Auth::user();
                 $anonymousToken = $user ? null : $request->cookie('anon_token');
                 
@@ -187,16 +188,66 @@ class DbHyperlightController extends Controller
                     ];
                     
                     $records[] = $record;
+                    // Post-insert work, gathered here because $records skips
+                    // denied items (index alignment with $data['data'] is lost)
+                    // and $record must stay insert()-clean.
+                    if (!empty($record['book']) && !empty($record['hyperlight_id'])) {
+                        $notifyQueue[] = [
+                            'creator' => $creator,
+                            'creator_token' => $creator_token,
+                            'book' => $record['book'],
+                            'sub_book_id' => $record['sub_book_id'],
+                            'hyperlight_id' => $record['hyperlight_id'],
+                            'snippet' => $record['highlightedText'],
+                            'visibility' => (($item['sub_book_visibility'] ?? null) === 'private') ? 'private' : 'public',
+                        ];
+                    }
                 }
-                
+
                 if (empty($records)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'No valid records to insert - access denied for all items'
                     ], 403);
                 }
-                
+
                 PgHyperlight::insert($records);
+
+                foreach ($notifyQueue as $n) {
+                    // Seed the annotation sub-book library row, honouring the
+                    // client's visibility — mirrors upsert()'s create branch.
+                    // Without it a highlight born private through THIS path had
+                    // no library row at all, and every privacy layer (RLS,
+                    // getHyperlights, find, client gate) failed open on the
+                    // missing linkage (the 2026-09-21 leak class).
+                    if ($n['sub_book_id']) {
+                        PgLibrary::firstOrCreate(
+                            ['book' => $n['sub_book_id']],
+                            [
+                                'creator'       => $n['creator'],
+                                'creator_token' => $n['creator_token'],
+                                'visibility'    => $n['visibility'],
+                                'listed'        => false,
+                                'title'         => 'Annotation: ' . $n['hyperlight_id'],
+                                'type'          => 'sub_book',
+                                'has_nodes'     => true,
+                                'raw_json'      => json_encode([]),
+                                'timestamp'     => 0,
+                            ]
+                        );
+                    }
+
+                    // Tell each book's owner (deferred + dedup'd — every row
+                    // here is a create by construction). Private highlights
+                    // are silent.
+                    NotificationWriter::hyperlightCreated(
+                        $n['creator'],
+                        $n['book'],
+                        $n['hyperlight_id'],
+                        $n['snippet'],
+                        $n['visibility']
+                    );
+                }
 
                 // Keep the deep-link index fresh for these new highlights (best-effort; no-op if cold).
                 $indexUpdates = [];
@@ -207,6 +258,11 @@ class DbHyperlightController extends Controller
                     }
                 }
                 $this->refreshAnnotationIndex($indexUpdates);
+
+                // Bump annotations_updated_at server-side (see upsert note).
+                $this->updateAnnotationsTimestamp(
+                    array_values(array_unique(array_filter(array_column($records, 'book'))))
+                );
 
                 Log::info('DbHyperlightController::bulkCreate - Success', [
                     'records_inserted' => count($records)
@@ -419,6 +475,20 @@ class DbHyperlightController extends Controller
                                 'error' => $e->getMessage(),
                             ]);
                         }
+
+                        // Tell the book's owner (deferred + dedup'd; a replayed
+                        // upsert of the same highlight is a no-op). A PRIVATE
+                        // highlight is silent — same visibility expression as
+                        // the sub-book row seeded above.
+                        if ($bookId && !empty($item['hyperlight_id'])) {
+                            NotificationWriter::hyperlightCreated(
+                                $user?->name,
+                                $bookId,
+                                $item['hyperlight_id'],
+                                $item['highlightedText'] ?? null,
+                                (($item['sub_book_visibility'] ?? null) === 'private') ? 'private' : 'public'
+                            );
+                        }
                     }
 
                     $processedCount++;
@@ -436,6 +506,14 @@ class DbHyperlightController extends Controller
 
                 // Best-effort: append the new/updated highlights to each book's cached index.
                 $this->refreshAnnotationIndex($indexUpdates);
+
+                // Bump annotations_updated_at SERVER-SIDE (monotonic, server clock)
+                // so every reader's freshness gate re-fetches. This used to be
+                // driven ONLY by the client's Date.now() library sync, which made
+                // the timestamp non-monotonic across clocks and let a reader's
+                // cached value sit >= the server's forever — others' new highlights
+                // never appeared until a full IndexedDB wipe (2026-09-21 report).
+                $this->updateAnnotationsTimestamp($processedBookIds);
 
                 Log::info('DbHyperlightController::upsert - Success', [
                     'records_processed' => $processedCount
@@ -577,6 +655,10 @@ class DbHyperlightController extends Controller
                     }
                 }
 
+                // Bump annotations_updated_at server-side so readers drop the
+                // deleted highlight on next open (see upsert note).
+                $this->updateAnnotationsTimestamp($deletedBookIds);
+
                 Log::info('DbHyperlightController::delete - Success', [
                     'records_deleted' => $deletedCount,
                     'sub_books_cleaned' => count($deletedSubBookIds),
@@ -650,22 +732,25 @@ class DbHyperlightController extends Controller
 
         // Private-sub-book pass (mirror of the bulk getHyperlights filter): the highlight's
         // annotation sub-book being private hides the whole highlight from non-creators.
-        // The lookup always runs (when a sub_book_id exists) so the wire row can report
-        // sub_book_visibility to the creator's own client.
+        // The lookup always runs so the wire row can report sub_book_visibility to the
+        // creator's own client. ⚠️ FAIL-CLOSED on missing linkage: a NULL sub_book_id
+        // column is checked against the DERIVED id ({book}/{hyperlight_id}) — the old
+        // `if ($hyperlight->sub_book_id)` skip is how an unlinked private highlight
+        // leaked through this deep-link pull (2026-09-21).
         $subBookVisibility = 'public';
-        if ($hyperlight->sub_book_id) {
-            $subBook = DB::connection('pgsql_admin')->table('library')
-                ->where('book', $hyperlight->sub_book_id)
-                ->where('visibility', 'private')
-                ->first(['creator', 'creator_token']);
-            if ($subBook) {
-                $subBookVisibility = 'private';
-                if (!$isUserHighlight) {
-                    $isSubBookOwner = ($user && $subBook->creator === $user->name) ||
-                                      ($anonToken && $subBook->creator_token && $subBook->creator_token === $anonToken);
-                    if (!$isSubBookOwner) {
-                        return response()->json(['error' => 'Hyperlight not found.'], 404);
-                    }
+        $subBookId = $hyperlight->sub_book_id
+            ?: SubBookIdHelper::build($hyperlight->book, $hyperlight->hyperlight_id);
+        $subBook = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $subBookId)
+            ->where('visibility', 'private')
+            ->first(['creator', 'creator_token']);
+        if ($subBook) {
+            $subBookVisibility = 'private';
+            if (!$isUserHighlight) {
+                $isSubBookOwner = ($user && $subBook->creator === $user->name) ||
+                                  ($anonToken && $subBook->creator_token && $subBook->creator_token === $anonToken);
+                if (!$isSubBookOwner) {
+                    return response()->json(['error' => 'Hyperlight not found.'], 404);
                 }
             }
         }
@@ -765,6 +850,10 @@ class DbHyperlightController extends Controller
                     Log::info("Hidden highlight {$item['hyperlight_id']} in book {$item['book']}");
                 }
 
+                // Bump annotations_updated_at server-side so readers drop the
+                // hidden highlight on next open (see upsert note).
+                $this->updateAnnotationsTimestamp($hiddenBookIds);
+
                 Log::info('DbHyperlightController::hide - Success', [
                     'records_hidden' => $hiddenCount
                 ]);
@@ -816,13 +905,22 @@ class DbHyperlightController extends Controller
     }
 
     /**
-     * Update annotations_updated_at timestamp for the given books.
-     * This is called after any highlight modification to enable efficient sync.
+     * Bump annotations_updated_at (the reader-freshness signal) for the given
+     * books. Wired into upsert/bulkCreate/delete/hide (2026-09-21) so the SERVER
+     * owns this timestamp on every hyperlight write — it used to be driven only
+     * by the client's Date.now() library sync, which made it non-monotonic
+     * across clocks and masked others' new highlights until an IndexedDB wipe.
      *
-     * Uses SECURITY DEFINER function to bypass RLS, allowing users to update
-     * the timestamp on public books they don't own (when adding highlights).
+     * DELIBERATELY LEAN: just the SECURITY DEFINER bump (which is now monotonic,
+     * GREATEST(existing+1, ts)). It does NOT recompute total_highlights — that
+     * was never done on a highlight save before (this helper was unwired), the
+     * "Most Lit" score is refreshed periodically by library:recompute-connections
+     * / ConnectionRefresher, and a per-save pgsql_admin recompute here would both
+     * add hot-path load and self-deadlock against the caller's open DEFAULT
+     * transaction (the 2026-08-30 cross-connection pattern). Inline is safe: the
+     * DEFINER call runs on the DEFAULT connection, in the caller's own tx.
      *
-     * @param array $bookIds - Array of book IDs that had highlights modified
+     * @param array $bookIds - Book IDs that had highlights modified
      */
     private function updateAnnotationsTimestamp(array $bookIds)
     {
@@ -831,41 +929,8 @@ class DbHyperlightController extends Controller
         }
 
         $now = round(microtime(true) * 1000);
-        $uniqueBookIds = array_unique($bookIds);
-
-        // Use SECURITY DEFINER function to bypass RLS for this specific update
-        foreach ($uniqueBookIds as $bookId) {
+        foreach (array_unique($bookIds) as $bookId) {
             DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
         }
-
-        // Keep total_highlights (half of the "Most Lit" score) current. ONLY the
-        // hyperlight half of the recompute: a highlight cannot change a
-        // connection count, and this runs on every save. The rendered feeds are
-        // deliberately NOT flushed here — per-save shelf invalidation would be
-        // far too aggressive; the connected/lit renders carry a staleness TTL
-        // for exactly this case.
-        //
-        // DEFERRED via afterCommit: recomputeHighlights UPDATEs `library` via
-        // pgsql_admin, and the SECURITY DEFINER `update_annotations_timestamp`
-        // above locks those SAME library rows on the DEFAULT connection. If this
-        // method were ever called inside an open DEFAULT transaction (it is
-        // currently UNWIRED — no caller — but its DbHyperciteController sibling
-        // IS wired into the unified-sync transaction), an inline admin recompute
-        // would self-deadlock cross-connection (the 2026-08-30 outage pattern).
-        // afterCommit runs it once the transaction has committed/released locks,
-        // and immediately when there is no open transaction.
-        DB::afterCommit(function () use ($uniqueBookIds) {
-            try {
-                (new ConnectionCountQuery())->recomputeHighlights(array_values($uniqueBookIds));
-            } catch (\Throwable $e) {
-                // Never fail a highlight save over a ranking column.
-                Log::warning('Hyperlight count recompute failed (non-fatal)', ['error' => $e->getMessage()]);
-            }
-        });
-
-        Log::info('Updated annotations_updated_at for books', [
-            'books' => $uniqueBookIds,
-            'timestamp' => $now
-        ]);
     }
 }

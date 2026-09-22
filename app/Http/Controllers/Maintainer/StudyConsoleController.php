@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Maintainer;
 
 use App\Http\Controllers\Controller;
+use App\Models\ConversionFlag;
 use App\Services\CitationStudy\AdjudicationStore;
 use App\Services\CitationStudy\CorpusManifest;
 use App\Services\CitationStudy\WorkbenchData;
@@ -20,8 +21,17 @@ use Symfony\Component\Process\Process;
  * output. Per flagged claim it shows the truth claim, the citation as
  * printed, the AI's verdict + reasoning, the resolved source (or its
  * absence), and the conversion-triage evidence (was the citation OUR OCR's
- * fault?) — beside the source PDF with server-side text search — and records
- * a two-axis verdict: the ground-truth label plus whose failure the flag was.
+ * fault?) — beside a three-view pane (the original PDF with server-side text
+ * search, the article as Hyperlit stored it, and the text we EXTRACTED from
+ * the cited source) — and records a two-axis verdict: the ground-truth label
+ * plus whose failure the flag was.
+ *
+ * The third view exists because the two most confusable failures look
+ * identical from a verdict: the model misreading a source, and us handing the
+ * model page furniture. The console used to show only the few passages the
+ * search stage picked, so "not supported" could not be attributed. Every
+ * resolved source is stored as a real book, so `sourceRender` serves the whole
+ * of it and the payload carries its size — see `WorkbenchData::storedSourceText`.
  * An explicit Apply step folds labels into ground_truth.json, making the
  * human review the baseline the AI is scored against.
  *
@@ -417,7 +427,13 @@ class StudyConsoleController extends Controller
      */
     public function nodeSearch(Request $request, string $slug)
     {
-        $data = $request->validate(['q' => ['required', 'string', 'min:2', 'max:300']]);
+        $data = $request->validate([
+            'q' => ['required', 'string', 'min:2', 'max:300'],
+            // Optional: search a RESOLVED SOURCE's stored text instead of the study copy. The
+            // pane's one search strip follows whichever view is showing, and in the Source view
+            // searching the article would silently answer about the wrong document.
+            'book' => ['sometimes', 'string', 'max:255', 'regex:/^[A-Za-z0-9_\-\/.]+$/'],
+        ]);
         $manifest = $this->manifest($request);
         try {
             $manifest->book($slug);
@@ -425,6 +441,12 @@ class StudyConsoleController extends Controller
             return response()->json(['error' => 'unknown_book'], 404);
         }
         $bookId = $manifest->bookIdFor($slug);
+        if (!empty($data['book'])) {
+            if (!$this->sourceLibraryRow($data['book'])) {
+                return response()->json(['error' => 'unknown_source'], 404);
+            }
+            $bookId = $data['book'];
+        }
 
         $needle = $data['q'];
         $rows = DB::connection('pgsql_admin')->table('nodes')
@@ -520,6 +542,211 @@ HTML;
         return response($html)
             ->header('Content-Type', 'text/html; charset=utf-8')
             ->header('Cache-Control', 'private, no-store');
+    }
+
+    /**
+     * GET /api/maintainer/study/source/{book} — the RESOLVED SOURCE's stored text, as one
+     * scrollable document, for the workbench's "Source" pane.
+     *
+     * The point of this endpoint is to make our own EXTRACTION auditable. Every source a review
+     * resolves is stored as a real book — a `web_…` stub written by
+     * `WebFetchService::createWebStubWithNodes`, or an existing library work — and the reviewer's
+     * verdict is reasoned from that text. But the console only ever showed the three or four
+     * PASSAGES the search stage picked (`source_material_sent`), so "the model got this wrong"
+     * and "we fed the model a navigation rail" looked identical. Now the whole stored text is one
+     * click away, next to the claim.
+     *
+     * Read through `pgsql_admin` for the same reason `render()` does: web stubs are unlisted and
+     * several sources are RLS-private, so the real reader would render or 404 depending on who is
+     * logged in. The route is admin-only.
+     */
+    public function sourceRender(Request $request, string $book)
+    {
+        $row = $this->sourceLibraryRow($book);
+        if (!$row) {
+            abort(404);
+        }
+
+        $nodes = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $book)
+            ->orderBy('startLine')
+            ->get(['node_id', 'content', 'plainText']);
+
+        $chars = 0;
+        $body = '';
+        foreach ($nodes as $node) {
+            $chars += mb_strlen((string) $node->plainText);
+            // Stored node HTML is sanitized at write time (NodeHtmlSanitizer).
+            $body .= '<div class="st-node" id="' . e($node->node_id) . "\">{$node->content}</div>\n";
+        }
+
+        // The header is the audit: WHAT we fetched, HOW it graded, and HOW MUCH text we kept.
+        // A `thin_extract` of 400 characters is the answer to "why did the verifier say the
+        // claim isn't supported" far more often than the verifier is.
+        $meta = array_filter([
+            $row->completeness ? 'grade: ' . $row->completeness : null,
+            $nodes->isEmpty() ? null : count($nodes) . ' nodes · ' . number_format($chars) . ' chars',
+            $row->completeness_reason ?: null,
+        ]);
+        $header = '<header class="st-src-head">'
+            . '<h1>' . e($row->title ?: 'Web Source') . '</h1>'
+            . ($row->url
+                ? '<p><a href="' . e($row->url) . '" target="_blank" rel="noopener">' . e($row->url) . '</a></p>'
+                : '')
+            . ($meta ? '<p class="st-src-meta">' . e(implode(' · ', $meta)) . '</p>' : '')
+            // The book in the real reader. `target="_blank"` explicitly, because the document's
+            // <base target="_self"> would otherwise open it INSIDE this pane — and _top would
+            // replace the whole console.
+            . '<p class="st-src-meta">book <a href="/' . e(rawurlencode($book)) . '" target="_blank"'
+            . ' rel="noopener">' . e($book) . ' ↗</a></p>'
+            . '</header>';
+
+        if ($nodes->isEmpty()) {
+            $body = '<p class="st-src-empty">This source has NO stored text — the resolver recorded'
+                . ' the work\'s identity but never got a readable body. Any verdict about whether the'
+                . ' claim is supported was reasoned from the abstract alone, or from nothing.</p>';
+        }
+
+        $title = e($row->title ?: $book) . ' — extracted source';
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<title>{$title}</title>
+<style>
+  body { margin: 0; padding: 1.2rem 1.4rem 60vh; background: #221f20; color: #cbcccc;
+         font-family: Georgia, 'Times New Roman', serif; font-size: 0.95rem; line-height: 1.6; }
+  h1, h2, h3 { font-family: system-ui, sans-serif; line-height: 1.3; }
+  a { color: #4eacae; overflow-wrap: anywhere; }
+  img { max-width: 100%; }
+  blockquote { border-left: 3px solid #4eacae55; margin-left: 0; padding-left: 1rem; opacity: 0.9; }
+  .st-node:target { outline: 2px solid #4eacae; outline-offset: 6px; border-radius: 4px;
+                    scroll-margin-top: 20vh; background: #4eacae14; }
+  .st-src-head { font-family: system-ui, sans-serif; border-bottom: 1px solid #4eacae33;
+                 padding-bottom: 0.8rem; margin-bottom: 1.4rem; }
+  .st-src-head h1 { font-size: 1.05rem; margin: 0 0 0.4rem; }
+  .st-src-meta { font-size: 0.78rem; opacity: 0.7; margin: 0.25rem 0; }
+  .st-src-empty { font-family: system-ui, sans-serif; color: #e0a0a0; }
+</style>
+<base target="_self">
+</head>
+<body>
+{$header}
+{$body}
+</body>
+</html>
+HTML;
+
+        return response($html)
+            ->header('Content-Type', 'text/html; charset=utf-8')
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    /** What a human can say about an extraction, worst first. */
+    public const EXTRACTION_VERDICTS = [
+        'empty' => 'no body text at all',
+        'fragment' => 'a fragment of the body — most of the article is missing',
+        'furniture' => 'page furniture (nav, promos, cookie notice), not the article',
+        'wrong_page' => 'a different page than the one cited',
+        'good' => 'the article, substantially complete',
+    ];
+
+    /**
+     * POST /api/maintainer/study/flag-extraction — record a human judgement of what we
+     * EXTRACTED from a cited URL.
+     *
+     * The Source pane made bad extractions visible; this is what turns seeing one into data. A
+     * verdict lands in `conversion_flags` under `study_extraction` carrying the evidence that
+     * makes it diagnosable later — the URL and its HOST, the grade `WebTextAcquirer` assigned,
+     * and how many characters we actually kept. That triple is the whole question: "which hosts
+     * does our extractor fail on, and did it already know?"
+     *
+     * `good` is recorded too, and deliberately so. Only-flag-the-bad gives a denominator-free
+     * pile of complaints; a host is only worth re-engineering if it fails OFTEN, which needs the
+     * successes counted as well. A `good` verdict RESOLVES any open flag on that book rather
+     * than filing a contradiction — a re-fetch may well have fixed it.
+     */
+    public function flagExtraction(Request $request)
+    {
+        $data = $request->validate([
+            'book' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9_\-\/.]+$/'],
+            'verdict' => ['required', 'string', Rule::in(array_keys(self::EXTRACTION_VERDICTS))],
+            'note' => ['nullable', 'string', 'max:500'],
+            'key' => ['nullable', 'string', 'max:200'],
+            'corpus' => ['nullable', 'string', 'max:100'],
+            'slug' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $row = $this->sourceLibraryRow($data['book']);
+        if (!$row) {
+            return response()->json(['error' => 'unknown_source'], 404);
+        }
+
+        $stored = DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $data['book'])
+            ->selectRaw('COUNT(*) AS n, COALESCE(SUM(LENGTH("plainText")), 0) AS c')
+            ->first();
+
+        // A `good` verdict CLOSES the loop instead of contradicting itself in the same row.
+        if ($data['verdict'] === 'good') {
+            $closed = ConversionFlag::where('book', $data['book'])
+                ->where('source', ConversionFlag::SOURCE_STUDY_EXTRACTION)
+                ->where('status', 'open')
+                ->update([
+                    'status' => 'resolved',
+                    'resolution' => 'dismissed',
+                    'resolved_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            return response()->json(['ok' => true, 'verdict' => 'good', 'cleared' => $closed > 0]);
+        }
+
+        $flag = ConversionFlag::raise(
+            $data['book'],
+            ConversionFlag::SOURCE_STUDY_EXTRACTION,
+            self::EXTRACTION_VERDICTS[$data['verdict']],
+            array_filter([
+                'verdict' => $data['verdict'],
+                'url' => $row->url,
+                // Stored separately from the URL so the read-back can GROUP by it without
+                // re-parsing 500 URLs, and so a host stays legible when the URL is enormous.
+                'host' => $row->url ? (parse_url($row->url, PHP_URL_HOST) ?: null) : null,
+                'content_grade' => $row->completeness,
+                'stored_chars' => (int) ($stored->c ?? 0),
+                'stored_nodes' => (int) ($stored->n ?? 0),
+                // `?? null` first: a validated payload OMITS an absent nullable key rather than
+                // nulling it, so `$data['note']` on a body that never sent one is a warning
+                // (and a 500 under the API handler).
+                'note' => ($data['note'] ?? null) ?: null,
+                'corpus' => ($data['corpus'] ?? null) ?: null,
+                'study_slug' => ($data['slug'] ?? null) ?: null,
+                'claims' => !empty($data['key']) ? [$data['key']] : null,
+            ], static fn ($v) => $v !== null),
+        );
+
+        return response()->json([
+            'ok' => true,
+            'verdict' => $data['verdict'],
+            'flag_id' => $flag->id,
+            'report_count' => $flag->details['report_count'] ?? 1,
+        ]);
+    }
+
+    /**
+     * The `library` row for a resolved source, read admin-side. Returns null when the id names
+     * nothing — which is what keeps `{book}` from being a free-form read of any table.
+     */
+    private function sourceLibraryRow(string $book): ?object
+    {
+        try {
+            return DB::connection('pgsql_admin')->table('library')
+                ->where('book', $book)
+                ->first(['book', 'title', 'url', 'completeness', 'completeness_reason']);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

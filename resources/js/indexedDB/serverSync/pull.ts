@@ -205,7 +205,7 @@ export async function syncAnnotationsOnly(bookId: string): Promise<PullResult> {
     const annFlush = await flushAllPendingEdits();
     if (!annFlush.synced) {
       log.error(
-        `Annotations-only resync for ${bookId} with ${annFlush.pendingBatches} batch(es) unsent`,
+        `Annotations-only resync for ${bookId} with ${annFlush.pendingBatches} batch(es) + ${annFlush.queuedItems} queued item(s) unsent`,
         'serverSync/pull',
       );
     }

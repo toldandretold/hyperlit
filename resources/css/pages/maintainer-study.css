@@ -337,6 +337,37 @@ body {
   color: #e5a53a;
 }
 
+/* Judge-the-extraction strip — sits under the search box, only in the Source view. */
+.st-extraction-flag {
+  padding: 0.4rem 0.6rem 0.5rem;
+  border-bottom: 1px solid rgba(78, 172, 174, 0.2);
+}
+
+.st-flag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.st-flag-status {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  min-height: 1em;
+}
+
+/* "What we extracted" — the button into the Source pane plus the size of the stored text. */
+.st-extracted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+}
+
 .st-checklink {
   display: flex;
   flex-wrap: wrap;

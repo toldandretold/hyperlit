@@ -364,6 +364,26 @@ final class TruthClaimExtractor
             // a weak result on a span_backfill claim may be OUR missing contextualisation rather
             // than a weak citation.
             'claim_source'         => $source,
+            'source_passages'      => [],
+            'llm_verdict'          => null,
+            'evidence_type'        => 'none',
+            'source_material_sent' => null,
+            'charStart'            => $charStart,
+            'charEnd'              => $charEnd,
+            'highlightId'          => 'HL_' . abs(crc32($node['node_id'] . $refId)),
+        ] + $this->metaFields($meta);
+    }
+
+    /**
+     * The claim fields that come from ONE cited work's enriched metadata — split out so a
+     * multi-work expansion clone can swap in a different work without re-deriving the claim.
+     *
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    private function metaFields(array $meta): array
+    {
+        return [
             'verified_source'      => $meta['verified'] ?? false,
             'verification_tier'    => $meta['verification_tier'] ?? null,
             'web_status'           => $meta['web_status'] ?? null,
@@ -388,13 +408,58 @@ final class TruthClaimExtractor
             'match_method'         => $meta['match_method'] ?? null,
             'match_score'          => $meta['match_score'] ?? null,
             'match_diagnostics'    => $meta['match_diagnostics'] ?? null,
-            'source_passages'      => [],
-            'llm_verdict'          => null,
-            'evidence_type'        => 'none',
-            'source_material_sent' => null,
-            'charStart'            => $charStart,
-            'charEnd'              => $charEnd,
-            'highlightId'          => 'HL_' . abs(crc32($node['node_id'] . $refId)),
         ];
+    }
+
+    /**
+     * One claim row per CITED WORK. A footnote citing "Pedregosa, Scikit-learn…; Wickham,
+     * ggplot2…" is N citations sharing one marker; the claim is the same, so the honest review
+     * checks it against EACH work individually — the way a reader reads that footnote. Before
+     * this, the claim was verified once, against whichever single book the parent row carried,
+     * and the report had to apologise ("the matched source is the 2nd — not independently
+     * verified: …"). Now there is nothing to apologise for: each work gets its own row, its own
+     * passages, its own verdict — and an unresolved work lands in Unverified Sources under its
+     * own type, with the fabrication banner that type deserves.
+     *
+     * Runs AFTER CitationCoverage::assess (coverage maps in-text citations to claims by the
+     * PARENT refId; ::subN keys would read as unmatched citations). Clones share the parent's
+     * highlightId — one text span, one highlight; VerificationHighlighter skips the clones.
+     */
+    public function expandMultiWorkClaims(array $claims, array $citationMeta): array
+    {
+        $out = [];
+        foreach ($claims as $claim) {
+            $subRefs = $citationMeta[$claim['referenceId']]['sub_source_refs'] ?? [];
+            if ($subRefs === []) {
+                $out[] = $claim;
+                continue;
+            }
+
+            $total = count($subRefs) + 1;
+            $claim['cited_work_position'] = 1;
+            $claim['cited_work_total'] = $total;
+            $out[] = $claim;
+
+            foreach ($subRefs as $i => $subRef) {
+                $meta = $citationMeta[$subRef] ?? null;
+                if ($meta === null) {
+                    continue;
+                }
+                // Same work resolved for both (e.g. a self-referencing chain) — one row is enough.
+                if (!empty($meta['source_book_id']) && $meta['source_book_id'] === $claim['source_book_id']) {
+                    continue;
+                }
+                $out[] = [
+                    'referenceId'          => $subRef,
+                    'cited_work_position'  => $i + 2,
+                    'cited_work_total'     => $total,
+                    // One highlight per SPAN, owned by the primary row — the highlighter skips
+                    // expanded rows so the same sentence is not stacked with N highlights.
+                    'expanded_work'        => true,
+                ] + $this->metaFields($meta) + $claim;
+            }
+        }
+
+        return $out;
     }
 }

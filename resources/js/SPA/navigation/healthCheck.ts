@@ -225,6 +225,49 @@ export function checkNavigationHealth() {
   }
 
   // ========================================
+  // 10b. STALE LISTENER BINDINGS (container managers)
+  // ========================================
+  // The failure mode with NO other symptom. A ContainerManager singleton
+  // survives an SPA body swap; rebindElements() refreshes the outer elements
+  // so the ButtonRegistry reports the component ACTIVE and every presence
+  // check passes — while a listener still sits on the DETACHED node from the
+  // previous page. Clicking the perfectly-real button on screen does nothing.
+  //
+  // That shipped twice: #importBook / #createNewBook inside #newbook-container
+  // (which also killed page-level drag-and-drop import, since the drop handler
+  // opens the form by CLICKING #importBook), and fileDropTarget's overlay.
+  // `detached-but-present` is the dangerous reason — a live element is sitting
+  // in place of the one we're bound to, so nothing else can see the fault.
+  // Only the managers that actually publish themselves on window. The source /
+  // settings / archive containers keep their singleton module-private, so they
+  // are out of reach here — expose one the same way if it ever needs covering.
+  const managerGlobals = ['newBookManager', 'userManager', 'openBookManager'];
+  const staleBindings: any[] = [];
+  for (const globalName of managerGlobals) {
+    const mgr = (window as any)[globalName];
+    if (typeof mgr?.checkBindings !== 'function') continue;
+    try {
+      for (const entry of mgr.checkBindings()) {
+        // Plain `detached` (nothing answers to that id at all) is usually just
+        // a page-type change — no #importBook on a reader page. Only the two
+        // reasons that mean "a live element is there and it is NOT ours".
+        if (entry.reason === 'detached') continue;
+        staleBindings.push({ manager: globalName, ...entry });
+      }
+    } catch { /* a manager mid-teardown is not a finding */ }
+  }
+  if (staleBindings.length > 0) {
+    const desc = staleBindings
+      .map((b) => `${b.manager}#${b.id} (${b.reason})`)
+      .join(', ');
+    results.issues.push(
+      `❌ STALE BINDING: ${staleBindings.length} listener(s) attached to elements that are no longer live — ${desc}. `
+      + 'The component reports healthy but its buttons are dead; the owning manager needs a rebindElements() '
+      + 'override that re-runs its own wiring (see NewBookContainerManager).'
+    );
+  }
+
+  // ========================================
   // 11. EVENT LISTENER COUNTING (Chrome only)
   // ========================================
   if (typeof (globalThis as any).getEventListeners === 'function') {

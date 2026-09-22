@@ -12,6 +12,7 @@ use App\Services\CitationReview\Phases\VerificationHighlighter;
 use App\Services\CitationReview\Report\ReportBuilder;
 use App\Services\CitationReview\Support\CitationCoverage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CitationReviewService
 {
@@ -27,6 +28,60 @@ class CitationReviewService
         private ReportSubBookImporter $reportImporter,
         private CitationCoverage $citationCoverage,
     ) {}
+
+    /**
+     * For each broken CITATION (deduped by referenceId), search OpenAlex for the CITED title and
+     * record the closest thing that exists — the component the resolver never checked, because
+     * an identifier match pre-empts the title waves. The result rides on every claim of that
+     * citation as `broken_probe` and renders in the Broken Sources diagnosis.
+     */
+    private function probeBrokenSources(array &$claims): void
+    {
+        $byRef = [];
+        foreach ($claims as $i => $claim) {
+            if (!empty($claim['broken_source'])) {
+                $byRef[$claim['referenceId'] ?? "idx{$i}"][] = $i;
+            }
+        }
+
+        foreach ($byRef as $indices) {
+            $meta = $claims[$indices[0]]['llm_metadata'] ?? [];
+            $citedTitle = is_array($meta) ? trim((string) ($meta['title'] ?? '')) : '';
+            if ($citedTitle === '') {
+                continue;
+            }
+            $probe = ['queried' => mb_substr($citedTitle, 0, 200)];
+            try {
+                $results = app(OpenAlexService::class)->fetchFromOpenAlex($citedTitle, 3);
+                $best = null;
+                $bestScore = 0.0;
+                foreach ($results as $work) {
+                    $score = \App\Services\CitationReview\Support\SourceWorkMismatch::titleOverlap(
+                        $citedTitle, (string) ($work['title'] ?? ''),
+                    ) ?? 0.0;
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $best = $work;
+                    }
+                }
+                if ($best !== null) {
+                    $probe += [
+                        'best_title' => mb_substr((string) ($best['title'] ?? ''), 0, 200),
+                        'best_year'  => $best['year'] ?? null,
+                        'similarity' => round($bestScore, 2),
+                    ];
+                } else {
+                    $probe['none'] = true;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Broken-source title probe failed', ['title' => $citedTitle, 'error' => $e->getMessage()]);
+                continue; // no line rendered — never a fabricated one
+            }
+            foreach ($indices as $i) {
+                $claims[$i]['broken_probe'] = $probe;
+            }
+        }
+    }
 
     public function getLlm(): LlmService
     {
@@ -90,6 +145,40 @@ class CitationReviewService
                 ],
                 'unmatched_citations' => $coverage['details'],
             ];
+        }
+
+        // Phase 3.5: one claim row per CITED WORK. A multi-work footnote's claim is checked
+        // against EACH work it cites, individually — never against whichever single book
+        // happened to win the parent row. Runs after coverage (which maps citations to claims
+        // by the parent refId) and before passage search (each row searches its own source).
+        $claims = $this->truthClaimExtractor->expandMultiWorkClaims($claims, $citationMeta);
+        $progress('extract', count($claims) . " claim checks after expanding multi-work citations");
+
+        // Phase 3.6: BROKEN-SOURCE GATE. When the attached record describes a different work
+        // than the citation does (a mistyped/misattributed DOI, or a title match that reached
+        // the wrong work), STOP — no passage search, no LLM verification, no verdict. Verifying
+        // a claim against a record that is not the cited work produces a verdict that can only
+        // mislead, and it costs real money to produce. The report renders these as a Broken
+        // Sources diagnosis instead of a claim block.
+        $broken = 0;
+        foreach ($claims as &$claim) {
+            if (!empty($claim['source_book_id'])
+                && \App\Services\CitationReview\Support\SourceWorkMismatch::forClaim($claim) !== null
+            ) {
+                $claim['broken_source'] = true;
+                $broken++;
+            }
+        }
+        unset($claim);
+        if ($broken > 0) {
+            $progress('verify', "{$broken} claim(s) skipped: the attached record is not the cited work (see Broken Sources)");
+            // The COMPONENT PROBE: a broken citation is not the end of what we can know — the
+            // reader's next question is "does the cited title exist anywhere at all?", and for a
+            // DOI-resolved citation nothing ever searched the title (the identifier won first).
+            // One OpenAlex title search per broken CITATION answers it; the diagnosis renders the
+            // result. Best-effort by construction — an OpenAlex outage costs the line, never the
+            // review.
+            $this->probeBrokenSources($claims);
         }
 
         // Phase 4: Search source passages

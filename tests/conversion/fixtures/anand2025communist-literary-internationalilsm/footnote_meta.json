@@ -1,0 +1,208 @@
+{
+  "version": 1,
+  "classification": "page_bottom",
+  "confidence": 0.5,
+  "signals": {
+    "total_pages": 10,
+    "pages_with_refs": 5,
+    "pages_with_defs": 6,
+    "pages_with_both": 5,
+    "co_location_ratio": 1.0,
+    "def_clustering_ratio": 0.6,
+    "reset_count": 1,
+    "reset_frequency": 0.2,
+    "notes_page_count": 0,
+    "notes_page_indices": [],
+    "trailing_page_number_offset": null,
+    "trailing_page_number_consistency": 0.0,
+    "trailing_def_page_ratio": 0.0,
+    "ref_number_max_page_spread": 1,
+    "numbers_on_multiple_pages": 0,
+    "max_ref_number": 109,
+    "citation_group_ratio": 0.0
+  },
+  "page_summary": [
+    {
+      "index": 0,
+      "refs": [
+        2
+      ],
+      "defs": [
+        1,
+        2
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 1,
+      "refs": [],
+      "defs": [
+        3,
+        4,
+        7,
+        8,
+        9
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 3,
+      "refs": [
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "defs": [
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 5,
+      "refs": [
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62
+      ],
+      "defs": [
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 7,
+      "refs": [
+        44,
+        75,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        85,
+        86,
+        87
+      ],
+      "defs": [
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87
+      ],
+      "trailing_number": null
+    },
+    {
+      "index": 9,
+      "refs": [
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "defs": [
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109
+      ],
+      "trailing_number": null
+    }
+  ],
+  "rationale": "refs and their definitions co-locate on the same pages (footnotes at page bottom)",
+  "considered": [
+    {
+      "option": "none",
+      "rejected_because": "5 page(s) carry in-text references",
+      "would_need": "zero pages with in-text footnote references"
+    },
+    {
+      "option": "chapter_endnotes",
+      "rejected_because": "no Notes-header page and co-location 1.00/reset-freq 0.20 miss the endnote rules",
+      "would_need": "a \"Notes\" page header, OR per-chapter resets with separated definition pages (co-location < 0.3)"
+    },
+    {
+      "option": "document_endnotes",
+      "rejected_because": "co-location 1.00 (need <0.15) and def-clustering 0.60 (need <0.1; or 1-2 def pages with zero co-location on a short doc \u2014 here 6 def page(s), 5 shared)",
+      "would_need": "definitions clustered on very few trailing pages with near-zero co-location"
+    },
+    {
+      "option": "wackSTEMbibliographyNotes",
+      "rejected_because": "ref page-spread 1 (need >=3) and co-location 1.00 (need <0.2)",
+      "would_need": "the same low ref-numbers reappearing across many pages (bibliography citations)"
+    },
+    {
+      "option": "unknown",
+      "rejected_because": "a specific classifier matched",
+      "would_need": "signals that fail every specific classifier"
+    }
+  ],
+  "margin": "co-location 1.00 (gate 0.4/0.5), reset-freq 0.20, max-ref 109",
+  "segment_boundaries": [],
+  "footnote_warnings": [],
+  "ocr_degeneration": []
+}

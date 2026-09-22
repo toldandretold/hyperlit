@@ -204,9 +204,12 @@ class WorkScorer
             }
         }
 
-        // Journal bonus (weight 0.05): similar_text comparison
+        // Journal bonus (weight 0.05): similar_text comparison. A book chapter has no journal,
+        // but its containing VOLUME plays the same role — and candidate records put the volume
+        // title in their venue slot (Semantic Scholar's `venue`, Crossref's container-title),
+        // which our normalisers map into `journal`. So the container fills the empty slot.
         $journalScore = 0.0;
-        $llmJournal = $llmMeta['journal'] ?? '';
+        $llmJournal = (string) (($llmMeta['journal'] ?? '') ?: ($llmMeta['container_title'] ?? ''));
         $candidateJournal = $candidate['journal'] ?? '';
         if (strlen($llmJournal) >= 3 && strlen($candidateJournal) >= 3) {
             $normLlmJournal  = $this->normaliseText($llmJournal);

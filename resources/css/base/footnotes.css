@@ -68,6 +68,28 @@ sup[fn-count-id]::before,
     /* This creates an invisible 16px padding around the element for easier clicking */
 }
 
+/* …but NOT leftwards over a marker that is already there.
+   A marker glyph is tiny — a rendered "1" measures ~5px — and the halo above
+   reaches 8px further left than that, so for CONSECUTIVE markers ("[1][2]", the
+   standard shape for two citations on one clause) the second marker's halo
+   covers the first one entirely. Being later in the DOM it also paints on top,
+   so document.elementFromPoint at the FIRST marker's own centre returns the
+   SECOND — its note is simply unreachable, and the click silently opens the
+   wrong footnote.
+   Measured on the wikipedia fixture: marker 1 spans x 659.4–664.5 (5.1px wide),
+   marker 2 spans 664.5–672.5 and its halo starts at 656.5, swallowing marker 1.
+   Dropping only the LEFT overhang keeps the enlarged touch target in all three
+   other directions and on every non-adjacent marker.
+   NOTE the adjacent-sibling combinator ignores intervening TEXT, so "1, 2"
+   matches too and loses its left overhang as well — deliberate: the remaining
+   target is still the glyph plus 8px of top/right/bottom, and the alternative
+   (a halo that can eat its neighbour) is a dead marker. */
+sup[fn-count-id] + sup[fn-count-id]::before,
+.in-text-citation + .in-text-citation::before,
+.citation-ref + .citation-ref::before {
+    left: 0;
+}
+
 @media (hover: none) and (pointer: coarse) {
     sup[fn-count-id]::before,
     .in-text-citation::before,

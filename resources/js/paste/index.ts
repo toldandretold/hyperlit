@@ -446,8 +446,12 @@ async function handlePaste(event: any) {
     // pristine clipboard copy above, so it is unaffected.
     rawHtml = stripHyperciteTags(rawHtml);
 
-    // Convert <dl>, <dt>, <dd> definition list tags to <p> paragraphs
-    rawHtml = convertDefinitionListTags(rawHtml);
+    // NOTE: <dl>/<dt>/<dd> → <p> conversion used to happen HERE, and it is the
+    // reason a ScienceDirect footnote article pasted with all 109 notes lost.
+    // Stripping the <dl> wrapper takes its class with it, so a processor that
+    // reads publisher semantics off `dl.footnote` saw nothing. It now runs on
+    // the processed output below — same end state for the editor, but the
+    // format engine gets to see the markup the publisher actually sent.
 
     // Declare variables that will be used throughout the paste flow
     let htmlContent = "";
@@ -601,6 +605,11 @@ async function handlePaste(event: any) {
         }
       }
     }
+
+    // Definition lists are not an editor node type. Converting them HERE — after
+    // the format processors have read whatever publisher meaning the <dl> carried
+    // — keeps them out of the book without hiding them from the engine.
+    htmlContent = convertDefinitionListTags(htmlContent);
 
     // 4) Perform routing checks for special paste types.
     if (await handleHypercitePaste(event, targetBookId, pristineClipboardHtml)) return;

@@ -117,7 +117,7 @@ describe('flushAllPendingEdits — durability verdict', () => {
   it('reports synced immediately when there is nothing queued, running or parked', async () => {
     const result = await flushAllPendingEdits();
 
-    expect(result).toEqual({ synced: true, pendingBatches: 0, timedOut: false });
+    expect(result).toEqual({ synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -143,7 +143,7 @@ describe('flushAllPendingEdits — durability verdict', () => {
     releaseFetch();
     await drain;
 
-    await expect(flushing).resolves.toEqual({ synced: true, pendingBatches: 0, timedOut: false });
+    await expect(flushing).resolves.toEqual({ synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false });
     const log = await readAll('historyLog');
     expect(log.map((e) => e.status)).toEqual(['synced']);
   });
@@ -171,7 +171,7 @@ describe('flushAllPendingEdits — durability verdict', () => {
     }]);
 
     await expect(flushAllPendingEdits()).resolves.toEqual({
-      synced: true, pendingBatches: 0, timedOut: false,
+      synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false,
     });
   });
 });

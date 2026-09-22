@@ -275,7 +275,11 @@ class SubBookController extends Controller
                 'visibility' => 'required|in:public,private',
             ]);
 
-            $parentBook = $validated['parentBook'];
+            // Slug-resolve like every READER endpoint does — without this, a
+            // slug-addressed parent derives a sub-book id no reader ever
+            // computes, and the privacy flip becomes a silent no-op (the
+            // 2026-09-21 private-highlight leak).
+            $parentBook = \App\Helpers\BookSlugHelper::resolve($validated['parentBook']);
             $itemId     = $validated['itemId'];
             $visibility = $validated['visibility'];
 
@@ -310,6 +314,11 @@ class SubBookController extends Controller
             [$creator, $creatorToken] = $this->getCreatorInfo($request);
 
             $library = PgLibrary::on('pgsql_admin')->where('book', $subBookId)->first();
+            // The visibility BEFORE this flip — drives the notification transition
+            // logic below. A brand-new row (null) counts as effectively public:
+            // its create-sync already notified, so setting it public here must
+            // not double-notify.
+            $wasVisibility = $library?->visibility ?? 'public';
             if (!$item && $library) {
                 $rowIsCallers = ($library->creator && $creator && $library->creator === $creator)
                     || (!$library->creator && $library->creator_token && $library->creator_token === $creatorToken);
@@ -338,6 +347,57 @@ class SubBookController extends Controller
                     'raw_json'      => json_encode([]),
                     'timestamp'     => 0,
                 ]);
+            }
+
+            // Stamp the linkage the privacy passes key off: a legacy highlight
+            // row with a NULL sub_book_id would otherwise never be joined to
+            // the library row this flip just wrote. (The read paths now ALSO
+            // fail closed on the derived id, but the stored column is what the
+            // RLS policy and every other consumer sees.)
+            if ($item && !$item->sub_book_id) {
+                PgHyperlight::on('pgsql_admin')
+                    ->where('book', $parentBook)
+                    ->where('hyperlight_id', $itemId)
+                    ->update(['sub_book_id' => $subBookId]);
+            }
+
+            // Retract any notification already sent for this highlight when it
+            // becomes private. A highlight is born PUBLIC (the notification
+            // fires at create), so a "highlight then flip private" leaves the
+            // book owner holding a notification that names the private activity
+            // and carries its snippet — the 2026-09-21 residual leak. Deleting
+            // the row (unread ⇒ the dot clears; read ⇒ it vanishes from the
+            // feed) is the retraction. pgsql_admin: these are recipient-owned
+            // rows the actor has no RLS context for. Best-effort.
+            if ($visibility === 'private') {
+                try {
+                    DB::connection('pgsql_admin')->table('notifications')
+                        ->where('type', \App\Services\Notifications\NotificationWriter::TYPE_HYPERLIGHT)
+                        ->where('book', $parentBook)
+                        ->where('subject_id', $itemId)
+                        ->delete();
+                } catch (\Throwable $e) {
+                    Log::warning('Notification retraction on private flip failed (non-fatal)', [
+                        'book' => $parentBook, 'item' => $itemId, 'error' => $e->getMessage(),
+                    ]);
+                }
+            } elseif ($visibility === 'public' && $wasVisibility === 'private') {
+                // The MIRROR of retraction: a highlight that was private becomes
+                // visible now, which is exactly when the book owner should hear
+                // about it (its create-time notification was suppressed while
+                // private). Fires only on the real private→public transition —
+                // a public→public no-op or a fresh public row (already notified
+                // at create) does not double-notify. Routed through
+                // NotificationWriter so it is deferred, dedup'd (a born-public→
+                // private→public round-trip re-inserts cleanly, the prior row
+                // having been retracted) and self-suppressed.
+                \App\Services\Notifications\NotificationWriter::hyperlightCreated(
+                    $creator,
+                    $parentBook,
+                    $itemId,
+                    $item?->highlightedText,
+                    'public'
+                );
             }
 
             // Bump the PARENT book's annotations_updated_at (same SECURITY DEFINER

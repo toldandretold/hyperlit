@@ -24,6 +24,8 @@
 import { test, expect } from '../../fixtures/navigation.fixture.js';
 import { filterConsoleErrors } from '../../helpers/pageHelpers.js';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { PASTE_CORPUS } from '../../../paste/fixtures/corpus.js';
+import { dumpBookNodes } from '../../helpers/idbInspect.js';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,23 +33,30 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = join(__dirname, '..', '..', '..', 'paste', 'fixtures', 'clipboard');
 
 /**
- * Baseline expectations per fixture — minimum counts the paste pipeline
- * should produce in the rendered DOM. Numbers track the smoke-test baseline
- * (see tests/paste/handlers/fixtures-smoke.test.js); we assert `>=` here
- * because the render layer may add wrapper sups or expand things, and small
- * undercounts due to dedup are acceptable but a *drop* is a regression.
+ * The fixture list is NOT maintained here — it is `tests/paste/fixtures/corpus.js`,
+ * the same list `tests/paste/handlers/fixtures-smoke.test.js` asserts against.
+ *
+ * It used to be a hand-copied array, and it rotted exactly the way hand-copied
+ * arrays do: `sciencedirect.html` was recorded here with 0 footnotes (it has
+ * 2), and the ScienceDirect FOOTNOTE fixture — the payload that was actually
+ * broken in production — was never added at all. So the only suite that fires a
+ * real paste event skipped the only case that needed it.
+ *
+ * The corpus carries exact in-process counts; here they are MINIMUMS against
+ * the rendered DOM, because the render layer may add wrapper sups and the
+ * static bibliography section counts alongside the in-text anchors. A drop below
+ * the baseline is the regression this file exists to catch.
  */
-const FIXTURES = [
-  { file: 'cambrdidge-authordate.html', format: 'cambridge', minFootnotes: 0, minReferences: 32, hasClickableMarkers: true },
-  { file: 'cambridge-footnotes.html',   format: 'cambridge', minFootnotes: 147, minReferences: 0, hasClickableMarkers: true },
-  { file: 'oxford.html',                format: 'oup',       minFootnotes: 4,   minReferences: 126, hasClickableMarkers: true },
-  { file: 'sage1.html',                 format: 'sage',      minFootnotes: 144, minReferences: 0, hasClickableMarkers: true },
-  { file: 'sage2.html',                 format: 'sage',      minFootnotes: 5,   minReferences: 65, hasClickableMarkers: true },
-  { file: 'sciencedirect.html',         format: 'science-direct', minFootnotes: 0, minReferences: 88, hasClickableMarkers: true },
-  { file: 'springer-authoerdate.html',  format: 'springer',  minFootnotes: 0,   minReferences: 78, hasClickableMarkers: true },
-  { file: 'springer-footnotes.html',    format: 'springer',  minFootnotes: 142, minReferences: 69, hasClickableMarkers: true },
-  { file: 'taylorandfrancis.html',      format: 'taylor-francis', minFootnotes: 1, minReferences: 66, hasClickableMarkers: true },
-];
+const FIXTURES = PASTE_CORPUS
+  .filter((entry) => !entry.skipE2e)
+  .map((entry) => ({
+    file: entry.file,
+    format: entry.format,
+    minFootnotes: entry.footnoteMarkers ?? 0,
+    minReferences: entry.references ?? 0,
+    // Anything with a marker of either kind is worth clicking.
+    hasClickableMarkers: (entry.footnoteMarkers ?? 0) > 0 || (entry.inTextCitations ?? 0) > 0,
+  }));
 
 /**
  * Create a fresh book and put the cursor in the editable area.
@@ -303,11 +312,37 @@ test.describe('Publisher clipboard paste — end-to-end', () => {
       // eslint-disable-next-line no-console
       console.log(`[${fixture.file}] markers:`, counts, `shape:`, shape, `bookId=${bookId}`);
 
+      // `min*` means MINIMUM, and until 2026-09-22 this only asserted "> 0" —
+      // so a paste that dropped 107 of 109 notes read as a pass.
+      //
+      // Assert against what the paste STORED, not against the rendered DOM. The
+      // lazy loader only draws the chunks it has reached, so a DOM count is a
+      // measure of scroll progress as much as of paste correctness: the same
+      // sciencedirect.html paste counted 2 markers / 225 refs on one run and
+      // 0 / 148 on the next, with identical code. IndexedDB is the contract —
+      // it is what the book IS, and what syncs to the server.
+      const storedNodes = await dumpBookNodes(page, bookId);
+      const storedHTML = storedNodes.map((n) => n.content || '').join('');
+      const stored = {
+        footnoteMarkers: (storedHTML.match(/fn-count-id=/g) || []).length,
+        inTextCitations: (storedHTML.match(/class="[^"]*\bin-text-citation\b/g) || []).length,
+        bibliographyEntries: (storedHTML.match(/data-static-content="bibliography"/g) || []).length,
+      };
+      // eslint-disable-next-line no-console
+      console.log(`[${fixture.file}] stored:`, stored, `rendered:`, counts);
+
       if (fixture.minFootnotes > 0) {
-        expect.soft(counts.footnoteMarkers, `expected at least one footnote marker in ${fixture.file}`).toBeGreaterThan(0);
+        expect.soft(
+          stored.footnoteMarkers,
+          `expected >= ${fixture.minFootnotes} stored footnote markers in ${fixture.file}, got ${stored.footnoteMarkers}`,
+        ).toBeGreaterThanOrEqual(fixture.minFootnotes);
       }
       if (fixture.minReferences > 0) {
-        expect.soft(counts.referenceMarkers, `expected at least one reference marker in ${fixture.file}`).toBeGreaterThan(0);
+        expect.soft(
+          stored.bibliographyEntries + stored.inTextCitations,
+          `expected >= ${fixture.minReferences} stored reference markers in ${fixture.file}, ` +
+          `got ${stored.bibliographyEntries} bibliography entries + ${stored.inTextCitations} in-text citations`,
+        ).toBeGreaterThanOrEqual(fixture.minReferences);
       }
 
       // 4d. Click the first footnote marker (if any). The click should not
@@ -328,7 +363,58 @@ test.describe('Publisher clipboard paste — end-to-end', () => {
             const m = document.querySelector('.main-content sup.footnote-ref, .main-content sup[fn-count-id]');
             return m && m.hasAttribute('fn-count-id');
           }, null, { timeout: 15_000 }).catch(() => {});
-          await firstMarker.click({ timeout: 5000 }).catch(() => { /* tolerate — markers may be inert */ });
+          // Settle the LAYOUT before clicking, and do not swallow the failure.
+          //
+          // waitForPasteSettled deliberately scrolls to the bottom sentinel to force
+          // every chunk to render, which leaves the FIRST marker ~14,000px above the
+          // viewport. Playwright then scrolls it back into view — and that scroll
+          // makes the lazy loader render/unrender chunks, so the layout shifts under
+          // the hit-test and the click keeps landing on whichever element moved into
+          // that point ("<sup fn-count-id=\"2\"> intercepts pointer events", then the
+          // edit toolbar, then sup 2 again, until the 5s timeout).
+          //
+          // A silent `.catch(() => {})` turned that into "the click did nothing",
+          // which reads as a product bug and is not one. Scroll first, wait for the
+          // marker's box to stop moving, then click — and report a real failure.
+          await firstMarker.scrollIntoViewIfNeeded().catch(() => {});
+          await page.waitForFunction(() => {
+            const m = document.querySelector('.main-content sup.footnote-ref, .main-content sup[fn-count-id]');
+            if (!m) return false;
+            const r = m.getBoundingClientRect();
+            const prev = window.__markerRect;
+            window.__markerRect = `${r.top.toFixed(0)}:${r.left.toFixed(0)}`;
+            return prev !== undefined && prev === window.__markerRect;
+          }, null, { timeout: 10_000, polling: 250 }).catch(() => {});
+
+          // A marker must be its OWN hit target.
+          //
+          // `sup[fn-count-id]::before` paints an invisible 8px halo around every
+          // marker so it is tappable. A marker glyph is ~5px wide, so for
+          // CONSECUTIVE markers ("[1][2]" — two citations on one clause, the
+          // standard Wikipedia shape) the SECOND marker's halo covered the first
+          // one completely and, being later in the DOM, painted on top: clicking
+          // marker 1 opened marker 2's note and marker 1's note was unreachable.
+          // No count could see it — the extraction was perfect and the
+          // interaction was broken. Fix + measurements: resources/css/base/footnotes.css.
+          const hit = await page.evaluate(() => {
+            const m = document.querySelector('.main-content sup.footnote-ref, .main-content sup[fn-count-id]');
+            if (!m) return null;
+            const r = m.getBoundingClientRect();
+            const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            const describe = (el) => (el && el.getAttribute
+              ? `${el.tagName}#${el.id} fn-count-id=${el.getAttribute('fn-count-id')}`
+              : 'nothing');
+            return { isTheMarker: at === m, got: describe(at), want: describe(m) };
+          });
+          expect.soft(
+            hit?.isTheMarker,
+            `the first footnote marker in ${fixture.file} is not its own hit target — ` +
+            `elementFromPoint at its centre returned ${hit?.got} (wanted ${hit?.want})`,
+          ).toBe(true);
+
+          let clickError = null;
+          await firstMarker.click({ timeout: 5000 }).catch((e) => { clickError = String(e).split('\n')[0]; });
+          expect.soft(clickError, `clicking the first footnote marker in ${fixture.file} threw`).toBeNull();
           await page.waitForTimeout(500);
 
           const afterHash = page.url().split('#')[1] || '';

@@ -78,9 +78,13 @@ export async function isLocalCacheFresh(bookId: any) {
     // If either is missing, can't determine freshness — not fresh
     if (!serverRecord || !localRecord) return false;
 
-    // Fresh if local timestamp is >= server timestamp for BOTH content and annotations
+    // Content timestamp is a single monotonic scheme — local >= server is
+    // genuinely fresh. Annotations are NOT: their timestamp mixed clocks
+    // historically, so a local value ABOVE the server's is stale-but-masked,
+    // not fresh. Treat ANY annotations divergence as not-fresh so the reader
+    // re-syncs and converges (mirrors loadHyperText's `!=` gate; 2026-09-21).
     if (localRecord.timestamp < serverRecord.timestamp) return false;
-    if (localRecord.annotationsUpdatedAt < serverRecord.annotationsUpdatedAt) return false;
+    if (localRecord.annotationsUpdatedAt !== serverRecord.annotationsUpdatedAt) return false;
     return true;
   } catch (e) {
     console.warn('isLocalCacheFresh check failed:', e);

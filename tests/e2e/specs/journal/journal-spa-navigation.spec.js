@@ -150,14 +150,13 @@ async function heroSpaTour(page, spa, heroPath) {
   await expect(page.locator('.journal-content-wrapper')).toBeAttached({ timeout: 30_000 });
   await awaitStructureSettled(page, spa, 'journal');
 
-  // #userButton now lives inside the journal page's logo flyout (reader-parity
-  // chrome) — open it first.
-  await page.click('#logoContainer');
-  await page.waitForSelector('#logoNavMenu:not(.hidden)', { timeout: 5000 });
-  await page.click('#userButton');
-  const myBooks = page.locator('#myBooksBtn');
-  await expect(myBooks).toBeVisible({ timeout: 10_000 });
-  await myBooks.click();
+  // #userButton lives inside the journal page's logo flyout (reader-parity
+  // chrome). Use the shared helper rather than hand-rolling the sequence: it
+  // owns the bounded retry on the logo-nav toggle (a click can land before the
+  // handler re-binds after an SPA entry) and waits for the profile flyout to
+  // stop animating before clicking #myBooksBtn. The hand-rolled version here
+  // did neither and failed intermittently with "element is not stable".
+  await spa.navigateToUserPage(page);
   await expect(page.locator('.user-content-wrapper')).toBeAttached({ timeout: 30_000 });
   await awaitStructureSettled(page, spa, 'user');
 

@@ -68,6 +68,12 @@ export class UserContainerManager extends (ContainerManager as any) {
     const userLogo = document.getElementById('userLogo') as any;
     if (!userLogo) return;
     userLogo.style.fill = '';
+    // Logged-in (re)bind is also when the Account button can carry the unread
+    // pink dot — refresh it here so rebinds stay correct (lazy: keeps the
+    // notifications module out of the eager path).
+    void import('../notificationsOverlay/notificationsOverlay')
+      .then(({ refreshNotificationsBadge }) => refreshNotificationsBadge())
+      .catch(() => {});
   }
 
   setupUserContainerStyles() {

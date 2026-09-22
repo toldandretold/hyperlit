@@ -20,6 +20,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\InferenceTicketController;
 use App\Http\Controllers\IntegrityReportController;
 use App\Http\Controllers\NodeHistoryController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OpenAlexController;
 use App\Http\Controllers\PasskeyController;
 use App\Http\Controllers\ReadingTelemetryController;
@@ -79,6 +80,9 @@ Route::prefix('search')->middleware('throttle:60,1')->group(function () {
     Route::get('/library', [SearchController::class, 'searchLibrary']);
     Route::get('/nodes', [SearchController::class, 'searchNodes']);
     Route::get('/semantic', [SearchController::class, 'searchSemantic']);
+    // The reader's in-text find bar in semantic mode — same engine as
+    // /semantic, scoped to one book (which is also its access guard).
+    Route::get('/in-book', [SearchController::class, 'searchInBook']);
     Route::get('/openalex', [OpenAlexController::class, 'search']);
     Route::get('/combined', [SearchController::class, 'searchWithOpenAlex']);
 });
@@ -205,6 +209,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Creator reading stats (Stats overlay) — aggregates only, own books only
     Route::get('/creator/stats', [CreatorStatsController::class, 'index']);
     Route::get('/creator/stats/{book}', [CreatorStatsController::class, 'show']);
+
+    // Notifications (Notifications overlay) — RLS scopes rows to the recipient
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::post('/notifications/read', [NotificationController::class, 'markRead']);
 });
 
 // Public like count (+ requester's own liked state when authed) — no auth, throttled
@@ -732,6 +741,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::get('/maintainer/study/render/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'render'])
         ->where('slug', '[a-zA-Z0-9_-]+');
+    // The RESOLVED SOURCE's stored text — what our extraction actually kept from the cited URL,
+    // as opposed to the handful of passages the verifier was shown.
+    Route::get('/maintainer/study/source/{book}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'sourceRender'])
+        ->where('book', '[A-Za-z0-9_\-\/.]+');
+    // A human's judgement of that extraction — the evidence behind "which hosts does our
+    // extractor fail on". Read back with `php artisan citation:extraction-flags`.
+    Route::post('/maintainer/study/flag-extraction', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'flagExtraction']);
     Route::get('/maintainer/study/node-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'nodeSearch'])
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::post('/maintainer/study/books/{slug}/flag-conversion', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'flagConversion'])

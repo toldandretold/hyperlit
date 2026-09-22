@@ -222,7 +222,18 @@ async function gotoWithNetRetry(page, url, opts) {
 export async function coldLoadBook(page, bookId) {
   await gotoWithNetRetry(page, '/');
   await page.waitForLoadState('networkidle');
-  await gotoWithNetRetry(page, `/${bookId}`, { waitUntil: 'domcontentloaded' });
+  // A 5xx here means the SERVER never produced the book page (e.g. a dev-machine
+  // config file half-written mid-run 500s every request for ~1s). Fail loudly now
+  // instead of letting waitForNode burn 30s and blame the restore path; retry once
+  // to ride out a sub-second blip.
+  let resp = await gotoWithNetRetry(page, `/${bookId}`, { waitUntil: 'domcontentloaded' });
+  if (resp && resp.status() >= 500) {
+    await page.waitForTimeout(2000);
+    resp = await gotoWithNetRetry(page, `/${bookId}`, { waitUntil: 'domcontentloaded' });
+    if (resp && resp.status() >= 500) {
+      throw new Error(`coldLoadBook: /${bookId} returned HTTP ${resp.status()} — server error, not a restore failure`);
+    }
+  }
 }
 
 /** Wait for a node id to exist in the DOM (numeric ids don't selector-escape). */

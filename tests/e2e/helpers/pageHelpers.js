@@ -118,6 +118,44 @@ export async function getRegistryStatus(page) {
 }
 
 /**
+ * Container-manager listeners that are attached to elements which are no
+ * longer the live ones.
+ *
+ * "The registry says ACTIVE" is not the same as "the component works". A
+ * ContainerManager singleton can survive an SPA body swap with its outer
+ * elements refreshed — so the registry, and every `is the button in the DOM`
+ * probe, report perfect health — while a listener still sits on the DETACHED
+ * node from the previous page. The button renders, and clicking it does
+ * nothing.
+ *
+ * That cost a full debugging session: the tour failed at "#cite-form never
+ * opened after a synthetic drop" (the page-level file drop opens the import
+ * form by CLICKING #importBook) while the diagnostic reported every link in
+ * the chain present. Asserting this alongside the registry means the NEXT one
+ * is named at the point of failure instead of inferred from a symptom three
+ * steps downstream.
+ */
+export async function getStaleBindings(page) {
+  return page.evaluate(() => {
+    const out = [];
+    for (const name of ['newBookManager', 'userManager', 'openBookManager']) {
+      const mgr = window[name];
+      if (typeof mgr?.checkBindings !== 'function') continue;
+      try {
+        for (const entry of mgr.checkBindings()) {
+          // Plain `detached` (no live element with that id) is normally just a
+          // page-type change — not a fault. The other reasons mean a live
+          // element is sitting there and it is NOT the one we're wired to.
+          if (entry.reason === 'detached') continue;
+          out.push({ manager: name, ...entry });
+        }
+      } catch { /* mid-teardown */ }
+    }
+    return out;
+  });
+}
+
+/**
  * Get globals relevant to page state.
  */
 export async function getPageGlobals(page) {
@@ -216,6 +254,18 @@ export async function assertRegistryHealthy(page, expectedPageType, { timeout = 
       if (missing.length > 0) {
         errors.push(`Missing active components: ${missing.join(', ')}`);
       }
+    }
+
+    // "Active" is not "working" — see getStaleBindings. A component wired to a
+    // detached node passes every check above, so it is asserted here, at the
+    // same moment and in the same message as the registry's own verdict.
+    const stale = await getStaleBindings(page);
+    if (stale.length > 0) {
+      errors.push(
+        `Stale listener bindings (component reports ACTIVE but its buttons are dead): `
+        + stale.map(b => `${b.manager}#${b.id} [${b.reason}]`).join(', ')
+        + ' — the owning manager needs a rebindElements() override that re-runs its own wiring.'
+      );
     }
 
     if (errors.length === 0) return;
@@ -376,8 +426,49 @@ export async function navigateToUserPage(page) {
   // Wait for the "My Books" button to appear in the user container
   await page.waitForSelector('#myBooksBtn', { timeout: 5000 });
 
+  // ...and for the flyout to STOP MOVING. #user-container animates
+  // width/height/opacity over 0.3s, and the panel is present (so
+  // waitForSelector / toBeVisible are satisfied) from the first frame. Clicking
+  // into that window is a click at a moving target: Playwright's own stability
+  // check retries and eventually reports "element is not stable". Same rule as
+  // elementProbes.js probeResizeHandle — wait for the animation to REST, not
+  // merely to have started.
+  await waitForFlyoutAtRest(page, '#user-container');
+
   // Click "My Books" to trigger SPA navigation to /u/username
   await page.click('#myBooksBtn');
+}
+
+/**
+ * Resolve once a container's box has been identical for two consecutive frames.
+ *
+ * Reads the geometry rather than the transition state on purpose: the panels
+ * animate several properties, some transitions are interrupted and restarted
+ * mid-flight, and `transitionend` is unreliable when a property never actually
+ * changes. "Has it stopped moving" is the question the caller actually has.
+ *
+ * Soft: resolves on timeout instead of throwing, so it can be dropped in front
+ * of any click without becoming a new way for a test to fail.
+ */
+export async function waitForFlyoutAtRest(page, selector, { timeout = 3000 } = {}) {
+  await page
+    .waitForFunction(
+      (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return true; // nothing to settle
+        const r = el.getBoundingClientRect();
+        const now = `${r.x},${r.y},${r.width},${r.height}`;
+        const prev = el.dataset.e2eRestProbe;
+        el.dataset.e2eRestProbe = now;
+        return prev === now;
+      },
+      selector,
+      { timeout, polling: 'raf' },
+    )
+    .catch(() => {});
+  await page.evaluate((sel) => {
+    delete document.querySelector(sel)?.dataset.e2eRestProbe;
+  }, selector).catch(() => {});
 }
 
 /**

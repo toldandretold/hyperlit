@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\CitationScanBibliographyJob;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Title-search corroboration — the gate that stops "same author, similar title" being accepted as
@@ -101,4 +102,149 @@ test('weak author agreement is not identity — tier refuses', function () {
         ['title' => 'Towards A New Trade Policy For Development', 'year' => 2016],
         ['titleScore' => 1.0, 'authorScore' => 0.5],
     ))->toBeNull();
+});
+
+/**
+ * The CONTAINER-CORROBORATION tier: a chapter in an edited volume, year divergent, vouched for by
+ * the volume the citation prints and the record's own container agreeing.
+ *
+ * Real case: dedesaileontug2015 (chacko) — "Political articulation: The structured creativity of
+ * parties. In: … (eds) Building Blocs: How Parties Organize Society" (2015). Semantic Scholar has
+ * the chapter as "Introduction. Political Articulation: The Structured Creativity of Parties",
+ * authorScore 1.0, but titleScore 0.79 (the "Introduction." prefix) and year 2020 (the eBook
+ * edition) — too fuzzy for the edition tier, refused by plain corroboration. Crossref's
+ * container-title for the chapter's DOI is "Building Blocs": the missing witness.
+ */
+function containerTier(?array $llmMeta, array $candidate, ?array $diagnostics): ?array
+{
+    $job = (new ReflectionClass(CitationScanBibliographyJob::class))->newInstanceWithoutConstructor();
+    $m = new ReflectionMethod($job, 'containerCorroborationTier');
+    $m->setAccessible(true);
+
+    return $m->invoke($job, $llmMeta, $candidate, $diagnostics);
+}
+
+// The chacko chapter's real data, verbatim.
+const DELEON_META = [
+    'title'           => 'Political articulation: The structured creativity of parties',
+    'authors'         => ['De Leon, C', 'Desai, M', 'Tugál, C'],
+    'year'            => 2015,
+    'container_title' => 'Building Blocs: How Parties Organize Society',
+];
+const DELEON_CANDIDATE = [
+    'title'   => 'Introduction. Political Articulation: The Structured Creativity of Parties',
+    'author'  => 'C. de Leon; M. Desai; C. Tuğal',
+    'year'    => 2020,
+    'journal' => null,
+    'doi'     => '10.1515/9780804794985-003',
+];
+const DELEON_DIAG = ['titleScore' => 0.7886, 'authorScore' => 1.0];
+
+test('the de leon chapter is ACCEPTED via crossref: the record\'s container-title is the printed volume', function () {
+    Http::fake([
+        'api.crossref.org/*' => Http::response(['message' => [
+            'container-title' => ['Building Blocs'],
+        ]]),
+    ]);
+
+    $flag = containerTier(DELEON_META, DELEON_CANDIDATE, DELEON_DIAG);
+
+    expect($flag)->not->toBeNull()
+        ->and($flag['via'])->toBe('crossref')
+        ->and($flag['record_container'])->toBe('Building Blocs')
+        ->and($flag['printed_year'])->toBe(2015)
+        ->and($flag['record_year'])->toBe(2020);
+});
+
+test('a provider venue carrying the volume title corroborates without any HTTP call', function () {
+    Http::fake(fn () => throw new RuntimeException('no HTTP call expected'));
+
+    $flag = containerTier(
+        DELEON_META,
+        ['journal' => 'Building Blocs: How Parties Organize Society', 'year' => 2020, 'doi' => null] + DELEON_CANDIDATE,
+        DELEON_DIAG,
+    );
+
+    expect($flag)->not->toBeNull()->and($flag['via'])->toBe('venue');
+});
+
+test('a standalone book prints no container — the tier never applies (nkrumah stays out)', function () {
+    expect(containerTier(
+        ['title' => 'Neo-Colonialism: The Last Stage of Imperialism', 'year' => 1965],
+        ['title' => 'The spark on neo-colonialism', 'year' => 2007, 'doi' => '10.1/x'],
+        ['titleScore' => 0.78, 'authorScore' => 1.0],
+    ))->toBeNull();
+});
+
+test('an OCR-garbled author name does not sink a container-vouched match (majority bar, not 0.9)', function () {
+    // The SAME citation's second extraction rendered "Tugál, C" as "Tug ̆al, C" (combining
+    // breve) — that token never matches "C. Tuğal", so authorScore capped at 0.6667 with two
+    // of three authors EXACT. The container is the identity witness here; a garbled third
+    // name is evidence-free, not contrary (the Kwon lesson, again).
+    Http::fake([
+        'api.crossref.org/*' => Http::response(['message' => [
+            'container-title' => ['Building Blocs'],
+        ]]),
+    ]);
+
+    $flag = containerTier(DELEON_META, DELEON_CANDIDATE, ['titleScore' => 0.7886, 'authorScore' => 0.6667]);
+
+    expect($flag)->not->toBeNull()->and($flag['author_score'])->toBe(0.667);
+});
+
+test('a MINORITY author match refuses even with an agreeing container', function () {
+    expect(containerTier(DELEON_META, DELEON_CANDIDATE, ['titleScore' => 0.7886, 'authorScore' => 0.4]))
+        ->toBeNull();
+});
+
+test('a DIFFERENT chapter in the same volume fails the title floor — containment alone is not identity', function () {
+    expect(containerTier(
+        DELEON_META,
+        DELEON_CANDIDATE,
+        ['titleScore' => 0.4, 'authorScore' => 1.0],
+    ))->toBeNull();
+});
+
+test('a record living in a DIFFERENT volume refuses', function () {
+    Http::fake([
+        'api.crossref.org/*' => Http::response(['message' => [
+            'container-title' => ['The Oxford Handbook of Political Parties'],
+        ]]),
+    ]);
+
+    expect(containerTier(DELEON_META, DELEON_CANDIDATE, DELEON_DIAG))->toBeNull();
+});
+
+test('a crossref outage refuses rather than crashing the wave', function () {
+    Http::fake(['api.crossref.org/*' => Http::response(null, 500)]);
+
+    expect(containerTier(DELEON_META, DELEON_CANDIDATE, DELEON_DIAG))->toBeNull();
+});
+
+test('cached chapter metadata that predates container_title is re-extracted, everything else is reused', function () {
+    // Without this, the container tier exists only for books imported after the field was
+    // added — a re-scan reuses the old JSON forever and the fix looks like it never shipped.
+    $job = (new ReflectionClass(CitationScanBibliographyJob::class))->newInstanceWithoutConstructor();
+    $m = new ReflectionMethod($job, 'cachedMetadataUsable');
+    $m->setAccessible(true);
+
+    expect($m->invoke($job, ['type' => 'book-chapter', 'title' => 'X']))->toBeFalse()
+        ->and($m->invoke($job, ['type' => 'book-chapter', 'container_title' => 'The Volume']))->toBeTrue()
+        ->and($m->invoke($job, ['type' => 'book-chapter', 'container_title' => null]))->toBeTrue()
+        ->and($m->invoke($job, ['type' => 'journal-article', 'title' => 'X']))->toBeTrue()
+        ->and($m->invoke($job, ['title' => 'X']))->toBeFalse()
+        ->and($m->invoke($job, [
+            'type' => 'journal-article',
+            'sub_citations' => [['type' => 'book-chapter', 'title' => 'Y']],
+        ]))->toBeFalse();
+});
+
+test('abbreviated containers agree by containment, one-word containers vouch for nothing', function () {
+    $job = (new ReflectionClass(CitationScanBibliographyJob::class))->newInstanceWithoutConstructor();
+    $m = new ReflectionMethod($job, 'containerTitlesAgree');
+    $m->setAccessible(true);
+
+    expect($m->invoke($job, 'Building Blocs: How Parties Organize Society', 'Building Blocs'))->toBeTrue()
+        ->and($m->invoke($job, 'Building Blocs: How Parties Organize Society', 'Stanford University Press eBooks'))->toBeFalse()
+        ->and($m->invoke($job, 'Conference Proceedings', 'Proceedings'))->toBeFalse();
 });

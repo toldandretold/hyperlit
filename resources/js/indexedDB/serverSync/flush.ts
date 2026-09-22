@@ -31,6 +31,14 @@ export interface FlushResult {
   synced: boolean;
   /** How many replayable historyLog batches are still unsent (0 when synced). */
   pendingBatches: number;
+  /**
+   * Queue items (pendingSyncs) still uncut when the flush gave up (0 when synced).
+   * Distinct from pendingBatches: historyLog is NODES only, so annotation edits
+   * at risk of being clobbered show up HERE, not there — a failure report of
+   * "0 batches unsent" alone would hide exactly the loss syncAnnotationsOnly
+   * warns about.
+   */
+  queuedItems: number;
   /** True when the budget ran out with work still pending (as opposed to a clean "nothing to do"). */
   timedOut: boolean;
 }
@@ -97,7 +105,7 @@ export async function flushAllPendingEdits(
     && !getMasterSyncInFlight()
     && (await countUnsentBatches()) === 0;
   if (idle) {
-    return { synced: true, pendingBatches: 0, timedOut: false };
+    return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
   }
 
   verbose.content('Flushing all pending edits before clear+redownload', 'serverSync/flush');
@@ -145,7 +153,7 @@ export async function flushAllPendingEdits(
     const stillQueued = await queuedCount();
     if (pendingBatches === 0 && stillQueued === 0 && !getMasterSyncInFlight()) {
       verbose.content('Pending edits flushed', 'serverSync/flush');
-      return { synced: true, pendingBatches: 0, timedOut: false };
+      return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
     }
 
     // Rows parked by an earlier failure are masterSync's blind spot — it only
@@ -161,7 +169,7 @@ export async function flushAllPendingEdits(
       }
       pendingBatches = await countUnsentBatches();
       if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
-        return { synced: true, pendingBatches: 0, timedOut: false };
+        return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
       }
     }
 
@@ -175,12 +183,27 @@ export async function flushAllPendingEdits(
     await new Promise<void>((resolve) => setTimeout(resolve, 250));
   }
 
+  // Final authoritative re-check before declaring failure. The loop can exit
+  // through the early break with STALE reads: the parked-batch replay drives
+  // pendingBatches to 0, the mid-loop success check (line ~163) sees a drain
+  // still settling and fails, and the break then fires once that drain has
+  // settled — reporting `synced: false` with 0 batches unsent, a false
+  // negative that logout turns into a scary "unsynced edits" confirm and
+  // syncAnnotationsOnly logs as a data-loss ERROR. If nothing is unsent NOW,
+  // the flush succeeded, whatever the intermediate reads said.
+  pendingBatches = await countUnsentBatches();
+  if (pendingBatches === 0 && (await queuedCount()) === 0 && !getMasterSyncInFlight()) {
+    verbose.content('Pending edits flushed (confirmed on final re-check)', 'serverSync/flush');
+    return { synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false };
+  }
+
+  const queuedItems = await queuedCount();
   const timedOut = Date.now() >= deadline;
   verbose.content(
     timedOut
-      ? `Flush budget (${budgetMs}ms) exhausted with ${pendingBatches} batch(es) unsent`
-      : `Flush gave up with ${pendingBatches} batch(es) the server would not take`,
+      ? `Flush budget (${budgetMs}ms) exhausted with ${pendingBatches} batch(es) + ${queuedItems} queued item(s) unsent`
+      : `Flush gave up with ${pendingBatches} batch(es) the server would not take (+ ${queuedItems} queued)`,
     'serverSync/flush',
   );
-  return { synced: false, pendingBatches, timedOut };
+  return { synced: false, pendingBatches, queuedItems, timedOut };
 }

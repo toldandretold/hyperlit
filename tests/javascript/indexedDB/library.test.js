@@ -124,17 +124,20 @@ describe('core/library.js (characterization)', () => {
     expect(await readOne('library', 'book_parent')).toBeTruthy();
   });
 
-  it('updateAnnotationsTimestamp stamps annotations_updated_at and queues with the original', async () => {
+  it('updateAnnotationsTimestamp is a no-op — annotations_updated_at is server-owned', async () => {
+    // Deliberately no longer writes a client-clock timestamp: that mixed client
+    // and server clocks in the reader freshness gate and masked others' new
+    // annotations (2026-09-21). The server now bumps annotations_updated_at
+    // monotonically on every hyperlight write; the client must not touch it.
     await seedStore('library', [{ book: 'bookA', title: 'A' }]);
 
     const ok = await updateAnnotationsTimestamp('bookA');
 
     expect(ok).toBe(true);
-    expect((await readOne('library', 'bookA')).annotations_updated_at).toEqual(expect.any(Number));
-    const queued = pendingSyncs.get('library-bookA-bookA');
-    expect(queued.originalData.annotations_updated_at).toBeUndefined();
-    // Returns false (not an error) when there is no record
-    expect(await updateAnnotationsTimestamp('missing')).toBe(false);
+    // The local record's timestamp is untouched (stays server-sourced) …
+    expect((await readOne('library', 'bookA')).annotations_updated_at).toBeUndefined();
+    // … and nothing is queued for sync.
+    expect(pendingSyncs.get('library-bookA-bookA')).toBeUndefined();
   });
 
   it('syncFirstNodeToTitle renames an "Untitled" book from its first node', async () => {

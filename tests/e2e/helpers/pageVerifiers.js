@@ -94,12 +94,27 @@ export async function verifyHomePage(page, spa) {
   const lavaD2 = await lavaPath.getAttribute('d');
   expect(lavaD2, 'lava-lamp background is not animating (rAF dead / stale singleton after SPA return)').not.toBe(lavaD1);
 
-  // Drop overlay element exists and is hidden by default
+  // Drop overlay element exists and is hidden by default.
+  // The failure message carries the REGISTRY's view alongside the DOM's: the two
+  // disagreeing ("registry says fileDropTarget is active, but its overlay isn't
+  // in the DOM") is a completely different bug from "the component never
+  // initialised", and the bare toBe(true) couldn't tell them apart.
   const overlayState = await page.evaluate(() => {
     const el = document.getElementById('page-drop-overlay');
-    return el ? { exists: true, display: window.getComputedStyle(el).display } : { exists: false };
+    const status = window.buttonRegistry?.getStatus?.() ?? null;
+    return {
+      exists: !!el,
+      display: el ? window.getComputedStyle(el).display : null,
+      registryPage: status?.currentPage ?? null,
+      dropTargetActive: status?.activeComponents?.includes('fileDropTarget') ?? null,
+      activeCount: status?.activeComponents?.length ?? null,
+    };
   });
-  expect(overlayState.exists).toBe(true);
+  expect(
+    overlayState.exists,
+    `#page-drop-overlay missing (registry: page=${overlayState.registryPage}, `
+      + `fileDropTarget active=${overlayState.dropTargetActive}, ${overlayState.activeCount} components active)`
+  ).toBe(true);
   expect(overlayState.display).toBe('none');
 
   // Synthetic file drop opens the import form with the file pre-attached
@@ -108,7 +123,32 @@ export async function verifyHomePage(page, spa) {
     type: 'text/markdown',
     content: '# Tour drop on home\n\nE2E grand tour synthetic drop.',
   });
-  await page.waitForSelector('#cite-form', { timeout: 5000 });
+  // A bare waitForSelector timeout here says only "the form never opened",
+  // which is the least useful half of the story: the drop path is
+  // overlay → routeDrop → click #importBook → form. Report which link broke.
+  try {
+    await page.waitForSelector('#cite-form', { timeout: 5000 });
+  } catch {
+    const chain = await page.evaluate(() => {
+      const o = document.getElementById('page-drop-overlay');
+      return {
+        dropOverlay: !!o,
+        // The commonest reason the form never opens is NOT a broken drop: the
+        // session lapsed, so handleAcceptedDrop took the anonymous branch and
+        // rendered a "Login required" card instead. Report what the overlay
+        // actually says before blaming the import path.
+        overlaySays: o ? (o.innerText || '').replace(/\s+/g, ' ').slice(0, 80) : null,
+        importBtn: !!document.getElementById('importBook'),
+        newbookContainer: !!document.getElementById('newbook-container'),
+        registryPage: window.buttonRegistry?.getStatus?.()?.currentPage ?? null,
+        newBookButtonActive:
+          window.buttonRegistry?.getStatus?.()?.activeComponents?.includes('newBookButton') ?? null,
+      };
+    });
+    throw new Error(
+      `#cite-form never opened after a synthetic drop. Drop chain state: ${JSON.stringify(chain)}`
+    );
+  }
   const homeFileName = await page.evaluate(() => {
     const i = document.getElementById('markdown_file');
     return i && i.files && i.files[0] ? i.files[0].name : null;

@@ -160,12 +160,31 @@ class ImportCasesCommand extends Command
             ->where(fn ($q) => $q->where('book', $book)->orWhere('book', 'like', $book . '/%'))
             ->update(['creator' => $owner, 'creator_token' => null]);
         $this->line("  private book claimed for local triage: creator \"{$row->creator}\" → \"{$owner}\" (view it logged in as {$owner})");
+
+        // The owner was INFERRED from session activity, and more than one admin
+        // is signed in somewhere — the freshest session is not necessarily the
+        // browser the human is sitting in, and the loser only finds out via a
+        // full-screen "Access Denied" over the book being triaged. Name the
+        // rivals and the one-command recovery (the bundle is in ingested/ by
+        // the end of this run, so re-importing is not it).
+        if ($this->ownerRivals !== []) {
+            $this->warn('  guessed from session activity; other signed-in admin(s): ' . implode(', ', $this->ownerRivals));
+            $this->line("  wrong account? php artisan book:claim {$book} --owner=<you>");
+        }
     }
 
     /** Memoized result of resolveLocalOwner() — one lookup (and one warning) per run. */
     private bool $ownerResolved = false;
 
     private ?string $localOwner = null;
+
+    /**
+     * Other signed-in admins the session guess passed over — empty when --owner=
+     * was given (no guess) or when only one admin has a session (no rival).
+     *
+     * @var list<string>
+     */
+    private array $ownerRivals = [];
 
     /**
      * The local account that owns this run's claims and review shelf:
@@ -191,12 +210,26 @@ class ImportCasesCommand extends Command
             return $this->localOwner = $owner;
         }
 
-        return $this->localOwner = $db->table('users')
+        $admins = $db->table('users')
             ->leftJoin('sessions', 'sessions.user_id', '=', 'users.id')
             ->where('users.is_admin', true)
             ->groupBy('users.id', 'users.name')
             ->orderByRaw('max(sessions.last_activity) DESC NULLS LAST')
-            ->value('users.name');
+            ->pluck('users.name')
+            ->all();
+
+        $this->localOwner = $admins[0] ?? null;
+        // Only admins with a SESSION are rivals — an admin who has never signed
+        // in here can't be the browser showing Access Denied.
+        $this->ownerRivals = array_values(array_filter(
+            array_slice($admins, 1),
+            fn ($name) => $db->table('sessions')
+                ->join('users', 'users.id', '=', 'sessions.user_id')
+                ->where('users.name', $name)
+                ->exists()
+        ));
+
+        return $this->localOwner;
     }
 
     /**

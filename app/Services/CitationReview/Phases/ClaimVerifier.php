@@ -32,6 +32,9 @@ final class ClaimVerifier
         $abstractKeyMap = [];
 
         foreach ($claims as $i => $claim) {
+            if (!empty($claim['broken_source'])) {
+                continue; // no abstract validation for a record that is not the cited work
+            }
             $isWebSource = ($claim['source_type'] ?? null) === 'web_source';
             if (!empty($claim['abstract']) && !$isWebSource) {
                 $abstractKeyMap[] = $i;
@@ -61,6 +64,15 @@ final class ClaimVerifier
         $verifyKeyMap = [];
 
         foreach ($claims as $i => &$claim) {
+            // BROKEN SOURCE: the attached record is not the cited work, so there is nothing to
+            // verify against. NO verdict is issued — a verdict here, supported or not, would be
+            // a statement about the wrong work presented under the citation's name.
+            if (!empty($claim['broken_source'])) {
+                $claim['evidence_type'] = 'none';
+                $claim['source_material_sent'] = null;
+                $claim['llm_verdict'] = null;
+                continue;
+            }
             $hasPassages = !empty($claim['source_passages']);
             $isWebSource = ($claim['source_type'] ?? null) === 'web_source';
             $hasAbstract = false;

@@ -1,3 +1,147 @@
+// resources/js/utilities/logger.ts
+var readVerboseFlag = () => {
+  try {
+    return localStorage.getItem("hyperlit_verbose_logs") === "true";
+  } catch (e) {
+    return false;
+  }
+};
+var verboseCache = readVerboseFlag();
+var IS_PROD = import.meta.env?.MODE === "production" || typeof window !== "undefined" && window.location.hostname !== "localhost";
+var colors = {
+  INIT: "#3B82F6",
+  // Blue - Initialization
+  NAV: "#8B5CF6",
+  // Purple - Navigation
+  CONTENT: "#10B981",
+  // Green - Content/Data loading
+  USER: "#F59E0B",
+  // Orange - User interactions
+  WARN: "#F59E0B",
+  // Orange - Degraded-but-handled outcomes
+  ERROR: "#EF4444"
+  // Red - Errors
+};
+var pad2 = (n) => n < 10 ? "0" + n : "" + n;
+function formatTimestamp() {
+  const d = /* @__PURE__ */ new Date();
+  const ms = d.getMilliseconds();
+  const mmm = ms < 10 ? "00" + ms : ms < 100 ? "0" + ms : "" + ms;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}.${mmm}`;
+}
+function logMessage(level, message, filePath, details = null, forceShow = false) {
+  if (IS_PROD && level !== "ERROR" && level !== "WARN") {
+    return;
+  }
+  if (!forceShow && !verboseCache && level !== "ERROR") {
+    return;
+  }
+  const color = colors[level] || "#6B7280";
+  const emit = level === "ERROR" ? console.error : level === "WARN" ? console.warn : console.log;
+  emit(
+    `%c${formatTimestamp()} %c[${level}]%c ${message} %c(${filePath})`,
+    "color: #6B7280",
+    `color: ${color}; font-weight: bold`,
+    "color: inherit",
+    "color: #6B7280; font-style: italic"
+  );
+  if (details !== null && details !== void 0) {
+    emit("  \u2514\u2500", details);
+  }
+}
+var verbose = {
+  init: (message, filePath, details = null) => {
+    logMessage("INIT", message, filePath, details, false);
+  },
+  nav: (message, filePath, details = null) => {
+    logMessage("NAV", message, filePath, details, false);
+  },
+  content: (message, filePath, details = null) => {
+    logMessage("CONTENT", message, filePath, details, false);
+  },
+  user: (message, filePath, details = null) => {
+    logMessage("USER", message, filePath, details, false);
+  },
+  debug: (message, filePath, details = null) => {
+    if (verboseCache) {
+      console.log(`[DEBUG] ${message} (${filePath})`, details || "");
+    }
+  }
+};
+var logger = {
+  /**
+   * Enable verbose logging (effective immediately, persists via localStorage)
+   */
+  enableVerbose: () => {
+    try {
+      localStorage.setItem("hyperlit_verbose_logs", "true");
+      verboseCache = true;
+      console.log("%c[LOGGER] Verbose mode enabled (effective immediately).", "color: #10B981; font-weight: bold");
+    } catch (e) {
+      console.error("Failed to enable verbose mode:", e);
+    }
+  },
+  /**
+   * Disable verbose logging (effective immediately)
+   */
+  disableVerbose: () => {
+    try {
+      localStorage.removeItem("hyperlit_verbose_logs");
+      verboseCache = false;
+      console.log("%c[LOGGER] Verbose mode disabled (effective immediately).", "color: #6B7280; font-weight: bold");
+    } catch (e) {
+      console.error("Failed to disable verbose mode:", e);
+    }
+  },
+  /**
+   * Check current verbose mode status
+   */
+  isVerbose: () => {
+    console.log(
+      `%c[LOGGER] Verbose mode: ${verboseCache ? "ENABLED" : "DISABLED"}`,
+      verboseCache ? "color: #10B981; font-weight: bold" : "color: #6B7280"
+    );
+    return verboseCache;
+  },
+  /**
+   * Show help
+   */
+  help: () => {
+    console.log(`%c
+\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557
+\u2551           Hyperlit Logger - Developer Guide               \u2551
+\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D
+
+\u{1F4D6} USAGE:
+  import { log, verbose } from './utilities/logger';
+
+  // Checkpoint logs (always shown):
+  log.init('Database initialized', '/indexedDB/index');
+  log.nav('Fresh page load', '/navigation/NavigationManager.js');
+  log.content('First chunk rendered', 'lazyLoaderFactory.js');
+  log.user('Text selected', '/hyperlights/selection.js');
+  log.error('Failed to load', 'initializePage.js', error);
+
+  // Verbose logs (only in verbose mode):
+  verbose.init('Detailed step...', '/path/to/file.js');
+
+\u{1F527} DEVELOPER COMMANDS:
+  logger.enableVerbose()   - Enable verbose logging (instant)
+  logger.disableVerbose()  - Disable verbose logging (instant)
+  logger.isVerbose()       - Check current mode
+  logger.help()            - Show this help
+
+\u{1F4A1} TIP: Use verbose.* for debugging details that clutter
+       normal operation. Use log.* sparingly for major
+       checkpoints only. NEVER log per event/entry/mutation \u2014
+       log state transitions or per-flush summaries instead.
+    `, "color: #3B82F6");
+  }
+};
+if (typeof window !== "undefined") {
+  window.logger = logger;
+}
+
 // resources/js/paste/utils/normalizer.ts
 function normalizeQuotes(text) {
   if (!text) return text;
@@ -912,7 +1056,7 @@ var BaseFormatProcessor = class {
       return clean;
     });
     if (fixed > 0) {
-      console.log(`  - Repaired ${fixed} URL(s) containing typographic spaces`);
+      verbose.content(`  - Repaired ${fixed} URL(s) containing typographic spaces`, "/paste/format-processors/base-processor.ts");
     }
     return out;
   }
@@ -944,7 +1088,7 @@ var BaseFormatProcessor = class {
       removed++;
     });
     if (removed > 0) {
-      console.log(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`);
+      verbose.content(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`, "/paste/format-processors/base-processor.ts");
     }
   }
   /**
@@ -1484,8 +1628,8 @@ function isReferenceShaped(text) {
   const firstChar = trimmed.charAt(0);
   return firstChar !== firstChar.toLowerCase() && firstChar === firstChar.toUpperCase();
 }
-function hasEarlyYear(text, window = 80) {
-  return /\d{4}/.test(normalizeText(text).slice(0, window));
+function hasEarlyYear(text, window2 = 80) {
+  return /\d{4}/.test(normalizeText(text).slice(0, window2));
 }
 function collectReferenceRun(blocks, options = {}) {
   const {
@@ -2288,7 +2432,7 @@ var GeneralProcessor = class extends BaseFormatProcessor {
     const cited = /* @__PURE__ */ new Set();
     Array.from(dom.querySelectorAll("a[href]")).forEach((a) => {
       const match = (a.getAttribute("href") || "").match(/#([a-zA-Z][\w-]*)$/);
-      if (match && this.looksLikeCitationMarker(a.textContent || "")) cited.add(match[1]);
+      if (match?.[1] && this.looksLikeCitationMarker(a.textContent || "")) cited.add(match[1]);
     });
     return cited;
   }
@@ -2317,7 +2461,7 @@ var GeneralProcessor = class extends BaseFormatProcessor {
       consider(child.getAttribute("id"));
       consider(child.getAttribute("name"));
     });
-    return found.length === 1 ? found[0] : null;
+    return found.length === 1 ? found[0] ?? null : null;
   }
   buildReferencesFromBlock(el, citedFragments = /* @__PURE__ */ new Set()) {
     const html = el.innerHTML;
@@ -2837,7 +2981,7 @@ var TaylorFrancisProcessor = class extends BaseFormatProcessor {
     });
     console.log(`  - Converted ${convertedCount} T&F citation links`);
     if (unwrappedCount > 0) {
-      console.log(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`);
+      verbose.content(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`, "/paste/format-processors/taylor-francis-processor.ts");
     }
   }
   /**
@@ -3733,18 +3877,121 @@ var ScienceDirectProcessor = class extends BaseFormatProcessor {
   constructor() {
     super("science-direct");
     this.bibIdToRefMap = /* @__PURE__ */ new Map();
+    this.fnIdToFootnote = /* @__PURE__ */ new Map();
+    this.extractedFootnotes = [];
   }
   /**
-   * Extract footnotes from Science Direct structure
-   * Science Direct typically doesn't use traditional footnotes
+   * Extract footnotes from Science Direct structure.
+   *
+   * Definitions live in a `.footnotes` block as one <dl class="footnote"> per
+   * note:
+   *   <dl class="footnote">
+   *     <dt class="footnote-label"><a href="…#bfn1"><sup>1</sup></a></dt>
+   *     <dd class="footnote-detail"><div id="ntpara0015">…</div></dd>
+   *   </dl>
+   * The label's fragment is the MARKER's `name` (`bfn1`); the marker's own id is
+   * `fn1` — that is the key the in-text anchors are matched on.
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
    * @returns {Promise<Array>} - Array of footnote objects
    */
   async extractFootnotes(dom, bookId) {
-    console.log("\u{1F4DA} ScienceDirect: Science Direct typically uses inline references, not footnotes");
-    return [];
+    const footnotes = [];
+    const blocks = dom.querySelectorAll("dl.footnote");
+    blocks.forEach((block) => {
+      const label = block.querySelector("dt.footnote-label") || block.querySelector("dt");
+      const labelAnchor = label ? label.querySelector('a[href*="#"]') : null;
+      const detail = block.querySelector("dd.footnote-detail") || block.querySelector("dd");
+      if (!detail) return;
+      if (!label || !labelAnchor) {
+        this.replaceWithParagraph(block, detail);
+        return;
+      }
+      const identifier = this.footnoteIdentifierFrom(label, labelAnchor);
+      if (!identifier) {
+        this.replaceWithParagraph(block, detail);
+        return;
+      }
+      const clone = cloneAndClean(detail, [".ReferenceLinks", "svg"]);
+      const content = this.flattenReferenceContent(clone);
+      if (!content) return;
+      const footnoteId = this.generateFootnoteId(bookId, identifier);
+      const footnote = this.createFootnote(
+        footnoteId,
+        content,
+        identifier,
+        this.generateFootnoteRefId(footnoteId),
+        "science-direct"
+      );
+      footnotes.push(footnote);
+      this.fnIdToFootnote.set(`fn${identifier}`, footnote);
+      block.remove();
+    });
+    console.log(`\u{1F4DA} ScienceDirect: Extracted ${footnotes.length} footnotes from ${blocks.length} definition blocks`);
+    this.extractedFootnotes = footnotes;
+    return footnotes;
+  }
+  /**
+   * Swap a footnote <dl> we are NOT extracting for a plain paragraph of its
+   * detail text, so no definition list survives into the stored content.
+   */
+  replaceWithParagraph(block, detail) {
+    const content = this.flattenReferenceContent(cloneAndClean(detail, [".ReferenceLinks", "svg"]));
+    if (!content) {
+      block.remove();
+      return;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.innerHTML = content;
+    block.replaceWith(paragraph);
+  }
+  /**
+   * The displayed note number for a <dt class="footnote-label">.
+   * Prefers the visible <sup>, falling back to the digits in the label's
+   * `#bfnN` fragment. Non-numeric labels (†, ☆) are refused — the in-text
+   * anchors are keyed `fnN`, so a symbol has nothing to match against.
+   */
+  footnoteIdentifierFrom(label, labelAnchor) {
+    const sup = label.querySelector("sup");
+    const labelText = (sup || labelAnchor).textContent?.trim() ?? "";
+    if (/^\d+$/.test(labelText)) return String(parseInt(labelText, 10));
+    const fragment = (labelAnchor.getAttribute("href") || "").split("#")[1] || "";
+    const fragmentDigits = fragment.match(/^b?fn-?(\d+)$/i)?.[1];
+    return fragmentDigits ? String(parseInt(fragmentDigits, 10)) : null;
+  }
+  /**
+   * Link in-text footnote markers structurally — `data-xocs-content-id="fn1"`
+   * maps EXACTLY to one extracted note, so no text scanning is involved (and
+   * none is wanted: the base scanner would read sentence-final digits in a
+   * 109-note article as phantom markers).
+   *
+   * Runs at stage 7, after cleanup: cleanup strips style/class/id but leaves
+   * data attributes, so the anchors are still identifiable here.
+   *
+   * @param {HTMLElement} dom - DOM element
+   * @param {Array} footnotes - Extracted footnotes
+   */
+  linkFootnotes(dom, footnotes) {
+    if (!footnotes || footnotes.length === 0) return;
+    const markers = dom.querySelectorAll('a[data-xocs-content-id^="fn"]');
+    let linked = 0;
+    let orphaned = 0;
+    markers.forEach((marker) => {
+      const contentId = marker.getAttribute("data-xocs-content-id") || "";
+      const footnote = this.fnIdToFootnote.get(contentId);
+      const target = marker.parentElement && marker.parentElement.tagName === "SUP" ? marker.parentElement : marker;
+      if (footnote) {
+        target.replaceWith(createFootnoteSupElement(footnote.refId, footnote.originalIdentifier));
+        linked++;
+        return;
+      }
+      const orphanSup = document.createElement("sup");
+      orphanSup.textContent = marker.textContent?.trim() ?? "";
+      target.replaceWith(orphanSup);
+      orphaned++;
+    });
+    console.log(`\u{1F4DA} ScienceDirect: Linked ${linked} footnote markers (${orphaned} without a definition)`);
   }
   /**
    * Extract references from Science Direct bibliography
@@ -3945,12 +4192,39 @@ var ScienceDirectProcessor = class extends BaseFormatProcessor {
    */
   convertCitationLinks(dom) {
     console.log("\u{1F4DA} ScienceDirect: Converting Science Direct citation links...");
-    const citationLinks = dom.querySelectorAll('a.anchor[data-xocs-content-type="reference"]');
-    console.log(`\u{1F4DA} ScienceDirect: Found ${citationLinks.length} citation links`);
+    const inBody = this.convertCitationAnchorsIn(dom);
+    let inNotes = { converted: 0, failed: 0 };
+    this.extractedFootnotes.forEach((footnote) => {
+      const temp = document.createElement("div");
+      temp.innerHTML = footnote.content;
+      const result = this.convertCitationAnchorsIn(temp);
+      if (result.converted || result.failed) {
+        footnote.content = temp.innerHTML;
+        inNotes = { converted: inNotes.converted + result.converted, failed: inNotes.failed + result.failed };
+      }
+    });
+    console.log(
+      `  - Converted ${inBody.converted} Science Direct citation links, ${inBody.failed} failed (+${inNotes.converted}/${inNotes.failed} inside footnote text)`
+    );
+  }
+  /**
+   * One citation-anchor conversion pass over a root element.
+   *
+   * Selector note: it matches on `data-xocs-content-type` ALONE, not
+   * `a.anchor[…]` — footnote content has already been through stripAttributes
+   * by the time it gets here, so the publisher's `class="anchor"` is gone while
+   * the data attributes remain.
+   *
+   * @param {HTMLElement} root - Element to convert citation anchors within
+   * @returns {{converted: number, failed: number}}
+   */
+  convertCitationAnchorsIn(root) {
+    const citationLinks = root.querySelectorAll('a[data-xocs-content-type="reference"]');
     let convertedCount = 0;
     let failedCount = 0;
     citationLinks.forEach((link) => {
       const bibId = link.getAttribute("data-xocs-content-id");
+      if (!bibId || /^fn\d/i.test(bibId)) return;
       const reference = this.bibIdToRefMap.get(bibId);
       if (reference) {
         const citText = link.textContent.trim();
@@ -3971,7 +4245,7 @@ var ScienceDirectProcessor = class extends BaseFormatProcessor {
         failedCount++;
       }
     });
-    console.log(`  - Converted ${convertedCount} Science Direct citation links, ${failedCount} failed`);
+    return { converted: convertedCount, failed: failedCount };
   }
   /**
    * Override linkCitations to update temporary bibId hrefs with actual reference IDs

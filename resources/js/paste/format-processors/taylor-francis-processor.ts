@@ -3,6 +3,7 @@
  * Handles T&F content with Notes sections and CIT IDs
  */
 
+import { verbose } from '../../utilities/logger';
 import { BaseFormatProcessor } from './base-processor';
 import { unwrap, isReferenceSectionHeading } from '../utils/dom-utils';
 import { isReferenceHeading } from '../utils/reference-headings';
@@ -354,7 +355,7 @@ export class TaylorFrancisProcessor extends BaseFormatProcessor {
 
     console.log(`  - Converted ${convertedCount} T&F citation links`);
     if (unwrappedCount > 0) {
-      console.log(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`);
+      verbose.content(`  - Unwrapped ${unwrappedCount} unmatched T&F citation link(s) to plain text`, '/paste/format-processors/taylor-francis-processor.ts');
     }
   }
 

@@ -650,3 +650,317 @@ test('a genuine 200 with content is still ok', function () {
     expect($this->getJson('/api/maintainer/study/check-link?url=' . urlencode('https://example.com/r'))
         ->assertOk()->json('category'))->toBe('ok');
 });
+
+/**
+ * "What did we actually extract from that link?"
+ *
+ * Every source a review resolves is stored as a real book, but the console only ever showed the
+ * three or four PASSAGES the search stage picked (`source_material_sent`) — so a verdict about
+ * OUR SCRAPER ("the claim isn't supported" because we kept 400 characters of navigation rail)
+ * was indistinguishable from a verdict about the citation. These pin the two halves of the fix:
+ * the size readout in the payload, and the endpoint that serves the whole stored text.
+ */
+function sconSeedSource(string $book, array $nodes, array $library = []): void
+{
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('nodes')->where('book', $book)->delete();
+    $db->table('library')->where('book', $book)->delete();
+    $db->table('library')->insert(array_merge([
+        'book' => $book,
+        'title' => 'Scraped Source',
+        'url' => 'https://example.com/article',
+        'type' => 'web_source',
+        'has_nodes' => $nodes !== [],
+        'visibility' => 'public',
+        'listed' => false,
+        'completeness' => 'partial',
+        'completeness_reason' => 'article extract — page furniture was stripped',
+        'raw_json' => json_encode(['source_url' => 'https://example.com/article']),
+        'timestamp' => 1,
+    ], $library));
+    foreach ($nodes as $i => $text) {
+        $db->table('nodes')->insert([
+            'book' => $book, 'node_id' => "{$book}_n{$i}", 'startLine' => 100 + $i, 'chunk_id' => 1,
+            'content' => '<p id="' . (100 + $i) . '">' . e($text) . '</p>',
+            'plainText' => $text, 'type' => 'p',
+        ]);
+    }
+}
+
+function sconDropSource(string $book): void
+{
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('nodes')->where('book', $book)->delete();
+    $db->table('library')->where('book', $book)->delete();
+}
+
+test('source render serves the whole stored extraction, admin-gated', function () {
+    sconCorpus();
+    sconSeedSource('web_sconfixture', ['First stored paragraph.', 'Braithwaite on restorative justice.']);
+    try {
+        $this->loginUser(); // not admin
+        $this->get('/api/maintainer/study/source/web_sconfixture')->assertStatus(403);
+
+        $this->loginUser(['is_admin' => true]);
+        $res = $this->get('/api/maintainer/study/source/web_sconfixture')->assertOk();
+        expect($res->headers->get('content-type'))->toContain('text/html');
+        $html = $res->getContent();
+        // The extraction itself, in stored order...
+        expect($html)->toContain('First stored paragraph.')
+            ->toContain('Braithwaite on restorative justice.')
+            ->toContain('id="web_sconfixture_n0"');
+        expect(strpos($html, 'web_sconfixture_n0'))->toBeLessThan(strpos($html, 'web_sconfixture_n1'));
+        // ...plus the audit header: where it came from, how it graded, how much we kept.
+        expect($html)->toContain('https://example.com/article')
+            ->toContain('grade: partial')
+            ->toContain('article extract')
+            ->toContain('2 nodes')
+            // ...and a way OUT to the book in the real reader. target=_blank explicitly: the
+            // document's <base target="_self"> would otherwise open it inside this pane.
+            ->toContain('href="/web_sconfixture"')
+            ->toContain('target="_blank"');
+    } finally {
+        sconDropSource('web_sconfixture');
+    }
+});
+
+test('source render NAMES an empty extraction rather than showing a blank page', function () {
+    // The dangerous case: the resolver recorded the work's identity and kept none of its text,
+    // so the verifier reasoned from the abstract or from nothing. A blank pane reads as "loading".
+    sconCorpus();
+    sconSeedSource('web_sconempty', []);
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $html = $this->get('/api/maintainer/study/source/web_sconempty')->assertOk()->getContent();
+        expect($html)->toContain('NO stored text');
+    } finally {
+        sconDropSource('web_sconempty');
+    }
+});
+
+test('source render 404s for a book id that names nothing', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    $this->get('/api/maintainer/study/source/web_nosuchbook')->assertNotFound();
+});
+
+test('node-search can be pointed at a resolved source instead of the study copy', function () {
+    sconCorpus();
+    sconSeedSource('web_sconsearch', ['The extracted page mentions restorative justice.']);
+    $db = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+    $db->table('nodes')->insert([
+        'book' => 'study_contest_fixture', 'node_id' => 'study_contest_fixture_9_zzz',
+        'startLine' => 109, 'chunk_id' => 1,
+        'content' => '<p id="109">The article under review says nothing of the kind.</p>',
+        'plainText' => 'The article under review says nothing of the kind.', 'type' => 'p',
+    ]);
+    try {
+        $this->loginUser(['is_admin' => true]);
+        // Without ?book= the box answers about the ARTICLE...
+        $article = $this->getJson('/api/maintainer/study/node-search/fixture?corpus=contest&q=restorative')
+            ->assertOk()->json();
+        expect($article['hits'])->toBe([]);
+        // ...with it, about what we extracted from the SOURCE.
+        $source = $this->getJson('/api/maintainer/study/node-search/fixture?corpus=contest'
+            . '&q=restorative&book=web_sconsearch')->assertOk()->json();
+        expect($source['hits'])->toHaveCount(1)
+            ->and($source['hits'][0]['node_id'])->toBe('web_sconsearch_n0');
+        // A book id naming nothing is refused, not silently answered from the study copy.
+        $this->getJson('/api/maintainer/study/node-search/fixture?corpus=contest'
+            . '&q=restorative&book=web_nosuchbook')->assertNotFound();
+    } finally {
+        sconDropSource('web_sconsearch');
+        $db->table('nodes')->where('book', 'study_contest_fixture')->delete();
+    }
+});
+
+test('the payload reports how much text we actually kept for each resolved source', function () {
+    // The size IS the finding. A claim resolved to a 40-character "article" is our scraper
+    // failing, not the citation — but from the console both look like "source found".
+    sconCorpus();
+    sconSeedSource('web_sconsize', ['Twenty-six chars of prose.', 'And a second paragraph.']);
+    $claimsPath = base_path(SCON_ROOT . '/results/contest/runs/run1/fixture.claims.json');
+    $claims = json_decode(File::get($claimsPath), true);
+    $claims[0]['source_book_id'] = 'web_sconsize';
+    File::put($claimsPath, json_encode($claims));
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $claim = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')
+            ->assertOk()->json('claims.0');
+        expect($claim['source']['found'])->toBeTrue()
+            ->and($claim['source']['stored']['nodes'])->toBe(2)
+            ->and($claim['source']['stored']['chars'])->toBe(49);
+    } finally {
+        sconDropSource('web_sconsize');
+    }
+});
+
+test('a source that resolved but stored NOTHING reports zeros, not absence', function () {
+    // "We found the work and read none of it" has to be visible — an absent key would render as
+    // "unknown" and read like missing plumbing rather than a finding about the review.
+    sconCorpus();
+    sconSeedSource('web_sconzero', []);
+    $claimsPath = base_path(SCON_ROOT . '/results/contest/runs/run1/fixture.claims.json');
+    $claims = json_decode(File::get($claimsPath), true);
+    $claims[0]['source_book_id'] = 'web_sconzero';
+    File::put($claimsPath, json_encode($claims));
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $claim = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')
+            ->assertOk()->json('claims.0');
+        expect($claim['source']['stored'])->toBe(['nodes' => 0, 'chars' => 0]);
+    } finally {
+        sconDropSource('web_sconzero');
+    }
+});
+
+// ── Judging the extraction ──
+
+test('an extraction verdict records the evidence that makes it diagnosable', function () {
+    // The verdict alone is a complaint. What makes it data is the triple stored with it: the
+    // HOST (the unit an extractor fix is written against), the grade WebTextAcquirer assigned,
+    // and how much text we actually kept.
+    sconCorpus();
+    sconSeedSource('web_sconflag', ['Cookie notice. Subscribe now.'], [
+        'url' => 'https://paywalled.example.org/2024/an-article',
+    ]);
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $res = $this->postJson('/api/maintainer/study/flag-extraction', [
+            'book' => 'web_sconflag',
+            'verdict' => 'furniture',
+            'key' => 'fixture/c01',
+            'corpus' => 'contest',
+            'slug' => 'fixture',
+        ])->assertOk();
+        expect($res->json('verdict'))->toBe('furniture');
+
+        $flag = \App\Models\ConversionFlag::where('book', 'web_sconflag')->firstOrFail();
+        expect($flag->source)->toBe('study_extraction')
+            ->and($flag->status)->toBe('open')
+            ->and($flag->details['verdict'])->toBe('furniture')
+            ->and($flag->details['host'])->toBe('paywalled.example.org')
+            ->and($flag->details['content_grade'])->toBe('partial')
+            ->and($flag->details['stored_chars'])->toBe(29)
+            ->and($flag->details['claims'])->toBe(['fixture/c01']);
+    } finally {
+        sconDropSource('web_sconflag');
+        \App\Models\ConversionFlag::where('book', 'web_sconflag')->delete();
+    }
+});
+
+test('repeat verdicts on the same source upsert one open flag', function () {
+    sconCorpus();
+    sconSeedSource('web_sconrepeat', ['Nav. Nav. Nav.']);
+    try {
+        $this->loginUser(['is_admin' => true]);
+        foreach (['furniture', 'furniture'] as $v) {
+            $this->postJson('/api/maintainer/study/flag-extraction', [
+                'book' => 'web_sconrepeat', 'verdict' => $v,
+            ])->assertOk();
+        }
+        expect(\App\Models\ConversionFlag::where('book', 'web_sconrepeat')->count())->toBe(1)
+            ->and(\App\Models\ConversionFlag::where('book', 'web_sconrepeat')
+                ->first()->details['report_count'])->toBe(2);
+    } finally {
+        sconDropSource('web_sconrepeat');
+        \App\Models\ConversionFlag::where('book', 'web_sconrepeat')->delete();
+    }
+});
+
+test('a good verdict RESOLVES the open flag instead of contradicting it', function () {
+    // A re-fetch may genuinely have fixed the extraction, so the honest record is a closed flag,
+    // not a second row saying the opposite of the first.
+    sconCorpus();
+    sconSeedSource('web_sconfixed', ['The whole article, at last.']);
+    try {
+        $this->loginUser(['is_admin' => true]);
+        $this->postJson('/api/maintainer/study/flag-extraction',
+            ['book' => 'web_sconfixed', 'verdict' => 'empty'])->assertOk();
+        $res = $this->postJson('/api/maintainer/study/flag-extraction',
+            ['book' => 'web_sconfixed', 'verdict' => 'good'])->assertOk();
+
+        expect($res->json('cleared'))->toBeTrue();
+        $flag = \App\Models\ConversionFlag::where('book', 'web_sconfixed')->firstOrFail();
+        expect($flag->status)->toBe('resolved');
+    } finally {
+        sconDropSource('web_sconfixed');
+        \App\Models\ConversionFlag::where('book', 'web_sconfixed')->delete();
+    }
+});
+
+test('an extraction flag NEVER enrols the book for re-conversion', function () {
+    // The fence that matters, and the reason study_extraction is not in CONVERSION_SOURCES:
+    // these are web stubs with no PDF or OCR to replay, so the reconvert loop would re-run the
+    // converter over the same stored page and produce the same junk — at real money on OCR.
+    expect(\App\Models\ConversionFlag::CONVERSION_SOURCES)
+        ->not->toContain(\App\Models\ConversionFlag::SOURCE_STUDY_EXTRACTION);
+});
+
+test('flag-extraction is admin-gated and refuses an unknown book or verdict', function () {
+    sconCorpus();
+    sconSeedSource('web_sconguard', ['text']);
+    try {
+        $this->loginUser(); // not admin
+        $this->postJson('/api/maintainer/study/flag-extraction',
+            ['book' => 'web_sconguard', 'verdict' => 'empty'])->assertStatus(403);
+
+        $this->loginUser(['is_admin' => true]);
+        $this->postJson('/api/maintainer/study/flag-extraction',
+            ['book' => 'web_nosuchbook', 'verdict' => 'empty'])->assertNotFound();
+        $this->postJson('/api/maintainer/study/flag-extraction',
+            ['book' => 'web_sconguard', 'verdict' => 'meh'])->assertStatus(422);
+    } finally {
+        sconDropSource('web_sconguard');
+        \App\Models\ConversionFlag::where('book', 'web_sconguard')->delete();
+    }
+});
+
+test('the workbench flags a wrong DOI on an EXISTING run, with no re-scan', function () {
+    // The flag is written at resolve time, so every claims file on disk lacks it. The workbench
+    // derives it from the two titles the claim already carries — by the same helper the report
+    // uses, because the console and the report disagreeing about whether a citation is suspect
+    // would be worse than neither showing it. Live case: peer-review-2027-pdf resolves
+    // "Scientists split on ethics of AI use" to a different Nature article, verdict `likely`.
+    sconCorpus();
+    $claimsPath = base_path(SCON_ROOT . '/results/contest/runs/run1/fixture.claims.json');
+    $claims = json_decode(File::get($claimsPath), true);
+    // array_merge, not `+=`: the fixture claim already carries source_book_id => null, and `+=`
+    // keeps an existing key even when it is null — so the claim stayed sourceless and nothing
+    // could be mismatched.
+    $claims[0] = array_merge($claims[0], [
+        'source_book_id' => 'srcbook',
+        'source_doi' => '10.1038/d41586-025-01463-8',
+        'source_title' => 'Is it OK for AI to write science papers? Nature survey shows',
+        'source_year' => 2025,
+        'match_method' => null,   // Wave 2a never persisted it
+    ]);
+    $claims[0]['llm_metadata'] = ['title' => 'Scientists split on ethics of ai use', 'year' => 2023];
+    File::put($claimsPath, json_encode($claims));
+
+    $this->loginUser(['is_admin' => true]);
+    $source = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')
+        ->assertOk()->json('claims.0.source');
+
+    expect($source['work_mismatch'])->not->toBeNull()
+        ->and($source['work_mismatch']['matched_title'])->toContain('Is it OK for AI')
+        ->and($source['work_mismatch']['cited_year'])->toBe(2023)
+        ->and($source['work_mismatch']['matched_year'])->toBe(2025);
+});
+
+test('a source whose title AGREES carries no mismatch flag', function () {
+    sconCorpus();
+    $claimsPath = base_path(SCON_ROOT . '/results/contest/runs/run1/fixture.claims.json');
+    $claims = json_decode(File::get($claimsPath), true);
+    $claims[0] = array_merge($claims[0], [
+        'source_book_id' => 'srcbook', 'source_doi' => '10.1234/x',
+        'source_title' => 'Abbreviations and Acronyms in English Word-Formation',
+    ]);
+    $claims[0]['llm_metadata'] = ['title' => 'Abbreviations and acronyms in English word-formation'];
+    File::put($claimsPath, json_encode($claims));
+
+    $this->loginUser(['is_admin' => true]);
+    expect($this->getJson('/api/maintainer/study/books/fixture?corpus=contest')
+        ->assertOk()->json('claims.0.source.work_mismatch'))->toBeNull();
+});

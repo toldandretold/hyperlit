@@ -769,6 +769,186 @@ class SearchService
     }
 
     /**
+     * THE single definition of "rank ONE book's nodes by meaning" — the
+     * reader's in-book semantic search and the citation reviewer's semantic
+     * fallback (PassageSearcher::semanticSearchByVector) both assemble their
+     * SQL here. Static for the same reason as nodeTsExpression: pure string
+     * assembly, no state, callable from a phase class with no DI.
+     *
+     * Shape notes — deliberately NOT buildSemanticNodeSearchQuery's shape:
+     * - NO MATERIALIZED CTE fence and NO visible-book array. The homepage fence
+     *   exists to FORCE the HNSW scan (joined to `library` the planner drives
+     *   from library and brute-forces every visible node's distance, ~425ms on
+     *   a 165k-node dev DB). Here there is no join to confuse it: with
+     *   `book = ?` alone the planner picks idx_nodes_embedding on its own.
+     * - 🔑 `SET LOCAL hnsw.iterative_scan = relaxed_order` in the caller is
+     *   therefore LOAD-BEARING, not a belt (see runBookScopedSemanticSearch).
+     *   MEASURED on the dev DB's largest book (`capital`, 5243 embedded nodes
+     *   of ~165k): the plan is `Index Scan using idx_nodes_embedding` with
+     *   `Rows Removed by Filter: 92` — i.e. the scan streams past out-of-book
+     *   tuples until the LIMIT fills with this book's. A single-book filter is
+     *   the selective case HNSW handles worst, so without iterative scan it
+     *   would emit at most ef_search (40) tuples and silently UNDER-FILL.
+     *   The scary case is the opposite of the big book — a TINY one in a large
+     *   corpus, where almost every global neighbour is out of scope. Measured:
+     *   an 8-node book among 726k embedded nodes, probed with a vector taken
+     *   from a DIFFERENT book (so the whole neighbourhood is out of scope),
+     *   still returns all 8 rows in ~2ms. That is the harvested-web-stub shape,
+     *   and it holds.
+     * - The ranking is consequently APPROXIMATE, and that is the deliberate
+     *   trade. The exact alternative (book rows in a MATERIALIZED CTE, sorted
+     *   outside the fence) was measured against this one: 52ms vs 13.6ms for
+     *   top-20, agreeing on 19 of 20 hits but not their order — and the exact
+     *   scan's cost grows linearly with book length, so a 20k-node monograph
+     *   would push a find-bar keystroke past 200ms. 4× the latency on every
+     *   keystroke is not worth one swapped result in twenty. Do not "fix" this
+     *   by adding a fence without re-measuring.
+     * - Sub-books are not excluded here the way they are in the homepage
+     *   builder: `book = ?` is an exact match, so a sub-book's nodes can only
+     *   appear if the sub-book IS the requested book — which
+     *   bookSemanticallySearchable already refuses.
+     * - chunk_id is selected because the reader's search toolbar needs it to
+     *   decide whether a hit's chunk is already lazy-loaded.
+     * - NO distance predicate in the WHERE: that would force pgvector
+     *   post-filtering. Callers apply their own similarity floor afterwards.
+     * - `distance` is returned raw, not as `1 - distance`; a caller wanting a
+     *   similarity converts it (cheaper to read than two conventions in one
+     *   codebase).
+     *
+     * @param array $queryEmbedding 768-dim query vector
+     * @param bool $withContent also select `content` — the citation reviewer
+     *        needs the node HTML; the reader UI only needs plainText
+     * @return array{0: string, 1: array} [sql, params]
+     */
+    public static function buildBookScopedSemanticQuery(
+        string $book,
+        array $queryEmbedding,
+        int $limit,
+        bool $withContent = false,
+    ): array {
+        $vectorStr = '[' . implode(',', $queryEmbedding) . ']';
+        $contentColumn = $withContent ? "nodes.content,\n                " : '';
+
+        $sql = "
+            SELECT
+                nodes.node_id,
+                nodes.\"startLine\",
+                nodes.chunk_id,
+                nodes.\"plainText\",
+                {$contentColumn}(nodes.embedding <=> ?::halfvec) AS distance
+            FROM nodes
+            WHERE nodes.book = ?
+                AND nodes.embedding IS NOT NULL
+            ORDER BY nodes.embedding <=> ?::halfvec
+            LIMIT ?
+        ";
+
+        return [$sql, [$vectorStr, $book, $vectorStr, $limit]];
+    }
+
+    /**
+     * Execute the reader's in-book semantic search end-to-end: rank one book's
+     * nodes, drop the clearly-unrelated tail, and shape rows for the search
+     * toolbar. Lives here (not the controller) for the same reason as the
+     * homepage runner — one place for the cutoff/match semantics.
+     *
+     * 🔑 IN-BOOK CALIBRATION IS ITS OWN THING. Do NOT reuse
+     * services.llm.semantic_max_distance / semantic_match_floor here: cosine's
+     * noise floor is far higher WITHIN one document than across the corpus.
+     * Measured on chacko c128 (see PassageSearcher::MIN_SEMANTIC_SIMILARITY),
+     * the passage that PROVED the citation scored 0.73 while unrelated
+     * paragraphs OF THE SAME DOCUMENT sat at ~0.67. The homepage floor (0.55)
+     * would badge those unrelated paragraphs at ~27%, and the homepage cutoff
+     * (0.6 distance = 0.4 similarity) would admit literally every node in the
+     * book. As there, the ORDERING does the real work; the floor only guards
+     * against degenerate matches.
+     *
+     * @return \Illuminate\Support\Collection<int, array>
+     */
+    public function runBookScopedSemanticSearch(string $book, array $queryEmbedding, int $limit)
+    {
+        [$sql, $params] = self::buildBookScopedSemanticQuery($book, $queryEmbedding, $limit);
+
+        // iterative_scan is REQUIRED, not tuning: the planner takes
+        // idx_nodes_embedding for this shape (measured — see the builder), and a
+        // one-book filter is exactly the selective case a plain HNSW scan
+        // under-fills, capping out at ef_search tuples before the LIMIT is met.
+        // SET LOCAL needs the transaction.
+        $conn = $this->searchConnection();
+        $rows = $conn->transaction(function () use ($conn, $sql, $params) {
+            $conn->statement('SET LOCAL hnsw.iterative_scan = relaxed_order');
+            return $conn->select($sql, $params);
+        });
+
+        $minSimilarity = (float) config('services.llm.semantic_in_book_min_similarity');
+        $matchFloor = min((float) config('services.llm.semantic_in_book_match_floor'), 0.99);
+
+        return collect($rows)
+            ->map(fn ($r) => [$r, 1 - (float) $r->distance])
+            ->filter(fn (array $hit) => $hit[1] >= $minSimilarity)
+            ->map(function (array $hit) use ($matchFloor) {
+                [$r, $sim] = $hit;
+
+                return [
+                    'node_id' => $r->node_id,
+                    'startLine' => $r->startLine,
+                    'chunk_id' => $r->chunk_id,
+                    'excerpt' => mb_substr((string) ($r->plainText ?? ''), 0, 300),
+                    'similarity' => round($sim, 3),
+                    'match' => (int) round(max(0, ($sim - $matchFloor) / (1 - $matchFloor)) * 100),
+                ];
+            })->values();
+    }
+
+    /**
+     * May this requester run an in-book semantic search over $book?
+     *
+     * 🔒 Deliberately NOT App\Services\BookAccess::canAccessBookContent(): that
+     * reads `library` on the DEFAULT (RLS-enforced) connection, so another
+     * user's private book arrives as NO ROW and it returns true ("legacy or
+     * public content"). Harmless where RLS still guards the data underneath —
+     * but this search runs on the BYPASSRLS connection, where that default
+     * would hand back the book's node text. Fetching the row on the search
+     * connection closes the hole: an RLS-invisible row is a PRESENT row we can
+     * actually judge.
+     *
+     * Also deliberately NOT nodeVisibilityClause(): that requires
+     * `listed = true`, which answers the HOMEPAGE-FEED question. Harvested
+     * journal articles are minted unlisted and the reader is looking at one —
+     * "may I read this book" is the right question here, so this mirrors
+     * BookAccess's contract (public, or mine by name or anon token) exactly.
+     *
+     * EmbeddingEligibility is the other half: a book whose nodes are never
+     * embedded (sub-book, E2EE, deleted, system feed book, generated card
+     * list) can only ever return an empty result, so it is refused up front
+     * instead of costing an embedding round-trip to prove it.
+     */
+    public function bookSemanticallySearchable(string $book, ?string $creatorName, ?string $anonToken): bool
+    {
+        $row = $this->searchConnection()->selectOne(
+            'SELECT book, type, encrypted, visibility, creator, creator_token, raw_json
+             FROM library WHERE book = ? LIMIT 1',
+            [$book],
+        );
+
+        if (!$row || !EmbeddingEligibility::bookEligible($row, $book)) {
+            return false;
+        }
+
+        if (($row->visibility ?? '') === 'public') {
+            return true;
+        }
+
+        if ($creatorName && $row->creator === $creatorName) {
+            return true;
+        }
+
+        return (bool) ($anonToken
+            && $row->creator_token
+            && hash_equals((string) $row->creator_token, (string) $anonToken));
+    }
+
+    /**
      * Scope clause for the canonical branch of searchForCitations.
      * Returns [whereClause, params].
      *

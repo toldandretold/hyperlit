@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BookSlugHelper;
 use App\Services\Connections\ConnectionCountQuery;
+use App\Services\Notifications\NotificationWriter;
 use App\Services\Shelves\LikesShelf;
 use App\Services\Stats\ReadStatsCounter;
 use Illuminate\Http\JsonResponse;
@@ -70,10 +71,16 @@ class BookLikeController extends Controller
 
             if ($liked) {
                 // Idempotent: a double-like is a no-op, not an error.
-                DB::statement(
+                $inserted = DB::affectingStatement(
                     'INSERT INTO book_likes (book, creator) VALUES (?, ?) ON CONFLICT (book, creator) DO NOTHING',
                     [$book, $user->name]
                 );
+
+                // Notify the owner only when the like actually landed — a
+                // re-like hits the ON CONFLICT arm (0 rows) and stays silent.
+                if ($inserted > 0) {
+                    NotificationWriter::bookLiked($user->name, $book);
+                }
             } else {
                 DB::table('book_likes')
                     ->where('book', $book)

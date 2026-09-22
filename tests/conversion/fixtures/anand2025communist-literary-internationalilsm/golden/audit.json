@@ -1,0 +1,96 @@
+{
+    "total_refs": 82,
+    "total_defs": 85,
+    "gaps": [
+        {
+            "missing": 10,
+            "after_ref": 9,
+            "before_ref": 12,
+            "section": 1,
+            "after_ref_context": "I argue that these affiliations produced multiple worldmaking projects, which can be uncovered by an analysis of the lit",
+            "after_ref_section_id": "3",
+            "after_ref_heading": "Kerala's communist internationalism: Worldmaking and the lit",
+            "before_ref_context": "Often traced to the canonical formulation of Getachew to signify an anti-systemic vision which translates to ‘a rejectio",
+            "before_ref_section_id": "3",
+            "before_ref_heading": "Kerala's communist internationalism: Worldmaking and the lit"
+        },
+        {
+            "missing": 11,
+            "after_ref": 9,
+            "before_ref": 12,
+            "section": 1,
+            "after_ref_context": "I argue that these affiliations produced multiple worldmaking projects, which can be uncovered by an analysis of the lit",
+            "after_ref_section_id": "3",
+            "after_ref_heading": "Kerala's communist internationalism: Worldmaking and the lit",
+            "before_ref_context": "Often traced to the canonical formulation of Getachew to signify an anti-systemic vision which translates to ‘a rejectio",
+            "before_ref_section_id": "3",
+            "before_ref_heading": "Kerala's communist internationalism: Worldmaking and the lit"
+        },
+        {
+            "missing": 70,
+            "after_ref": 69,
+            "before_ref": 71,
+            "section": 2,
+            "after_ref_context": "The narratives of these works often remained highly defensive and protective of Stalin and Soviet Union. This constant d",
+            "after_ref_section_id": "3",
+            "after_ref_heading": "Progressive literature and social realism from the 1930s to",
+            "before_ref_context": "Thus, multiple worlds of Russia – both utopian and dystopian - collided during the Cold War. The afterlives of the Progr",
+            "before_ref_section_id": "3",
+            "before_ref_heading": "Progressive literature and social realism from the 1930s to"
+        },
+        {
+            "missing": 74,
+            "after_ref": 73,
+            "before_ref": 76,
+            "section": 2,
+            "after_ref_context": "The late-Stalinist era, dating from the end of the Cold War to the death of Stalin, is regarded as the most isolated per",
+            "after_ref_section_id": "3",
+            "after_ref_heading": "Progressive literature and social realism from the 1930s to",
+            "before_ref_context": "Endowed with a heavy subsidy from the Soviet Union, which made them quite affordable, these works were circulated across",
+            "before_ref_section_id": "3",
+            "before_ref_heading": "Progressive literature and social realism from the 1930s to"
+        },
+        {
+            "missing": 75,
+            "after_ref": 73,
+            "before_ref": 76,
+            "section": 2,
+            "after_ref_context": "The late-Stalinist era, dating from the end of the Cold War to the death of Stalin, is regarded as the most isolated per",
+            "after_ref_section_id": "3",
+            "after_ref_heading": "Progressive literature and social realism from the 1930s to",
+            "before_ref_context": "Endowed with a heavy subsidy from the Soviet Union, which made them quite affordable, these works were circulated across",
+            "before_ref_section_id": "3",
+            "before_ref_heading": "Progressive literature and social realism from the 1930s to"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "seq2_Fn1790029515641_0003",
+            "number": "2",
+            "section": "2",
+            "definition_preview": "See for instance, Ali Raza, Franziska Roy, and Benjamin Zachariah, The Internationalist Moment: South Asia, Worlds, and World Views 1917e39 (London: Sage Publications, 2014); Ali Raza, Revolutionary P"
+        },
+        {
+            "footnote_id": "seq3_Fn1790029515641_0005",
+            "number": "3",
+            "section": "3",
+            "definition_preview": "See for instance, Govindan Parayil, 'The \"Kerala Model\" of Development: Development and Sustainability in the Third World', Third World Quarterly 17 (1996) 941e958."
+        },
+        {
+            "footnote_id": "seq3_Fn1790029515642_0021",
+            "number": "74",
+            "section": "3",
+            "definition_preview": "E K Nayanar, Ente Russian Diary (Thiruvananthapuram: Chinta publishers, 1986) p. 9)."
+        },
+        {
+            "footnote_id": "seq3_Fn1790029515642_0022",
+            "number": "75",
+            "section": "3",
+            "definition_preview": "Kerala Liberation Struggle in Pictures (Kottayam: The Deepika publications, 1959), p. 29."
+        }
+    ],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

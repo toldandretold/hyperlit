@@ -19,6 +19,8 @@ import { getRecord, PUBLIC_SVG, PRIVATE_SVG, ENCRYPTED_SVG } from './helpers';
 import { log } from '../../utilities/logger';
 import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import { confirmDialog, alertDialog } from '../dialog/dialog';
+import { getCurrentUser } from '../../utilities/auth/session';
+import { promptRegister, promptVerifyEmail } from '../../utilities/auth/promptLogin';
 
 type VisState = 'public' | 'private' | 'encrypted';
 
@@ -192,11 +194,26 @@ export function attachVisibilityControlListeners(self: any) {
   });
 }
 
-/** Persist a plain visibility flip (public/private) to IDB + backend. */
-async function setVisibility(self: any, newVisibility: 'public' | 'private') {
+/**
+ * Persist a plain visibility flip (public/private) to IDB + backend.
+ *
+ * Returns the server's publish-denial reason (or null). The publish gate
+ * (config/publishing.php) CLAMPS rather than errors: it keeps the book private
+ * and reports `publish_denied` in the 200 response. So a failed publish is not
+ * an exception — we detect the reason here and realign the optimistically-
+ * flipped IDB record back to private so it matches what the server stored.
+ */
+async function setVisibility(self: any, newVisibility: 'public' | 'private'): Promise<string | null> {
   const db = await openDatabase();
   const record: LibraryRecord | null = await getRecord(db, 'library', book);
   if (!record) throw new Error('Library record not found.');
+
+  const putRecord = (r: LibraryRecord) => new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('library', 'readwrite');
+    const req = tx.objectStore('library').put(r);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
 
   record.visibility = newVisibility;
   // Keep raw_json in sync with top-level visibility (deprecated denormalized copy).
@@ -204,14 +221,24 @@ async function setVisibility(self: any, newVisibility: 'public' | 'private') {
     (record.raw_json as { visibility?: string }).visibility = newVisibility;
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('library', 'readwrite');
-    const req = tx.objectStore('library').put(record);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
+  await putRecord(record);
 
-  await self.syncLibraryRecordToBackend(record);
+  const result: any = await self.syncLibraryRecordToBackend(record);
+
+  const publishDenied = (newVisibility === 'public' && result?.publish_denied)
+    ? String(result.publish_denied)
+    : null;
+
+  if (publishDenied) {
+    // Server kept it private — undo the optimistic IDB flip so local and server agree.
+    record.visibility = 'private';
+    if (record.raw_json && typeof record.raw_json === 'object') {
+      (record.raw_json as { visibility?: string }).visibility = 'private';
+    }
+    await putRecord(record);
+  }
+
+  return publishDenied;
 }
 
 /** Re-paint the trigger icon/title and the option rows' active markers. */
@@ -257,6 +284,26 @@ export async function applyVisibilityState(self: any, target: VisState, optEl?: 
   control.classList.add('vis-busy');
 
   try {
+    // PUBLISH FUNNEL (config/publishing.php). Anonymous users can never publish,
+    // and that is known client-side with no round-trip — so intercept BEFORE the
+    // confirm and route them to register. (The unverified-email case is decided
+    // server-side and handled reactively below, so grandfathered accounts are
+    // never wrongly blocked.) Only a real publish transition is gated.
+    if (target === 'public' && current !== 'public') {
+      const user = await getCurrentUser();
+      if (!user) {
+        control._closePanel?.();
+        if (await confirmDialog({
+          title: 'Register to publish',
+          message: 'You need an account to publish a book on Hyperlit. It only takes a moment — your book stays exactly as it is.',
+          confirmLabel: 'Register',
+        })) {
+          await promptRegister();
+        }
+        return;
+      }
+    }
+
     // Warn on the transition if the table has copy for it (see TRANSITION_CONFIRMS).
     const confirmCopy = TRANSITION_CONFIRMS[`${current}->${target}`];
     if (confirmCopy && !(await confirmDialog(confirmCopy))) return;
@@ -265,6 +312,10 @@ export async function applyVisibilityState(self: any, target: VisState, optEl?: 
     started = true;
     if (iconSpan) iconSpan.innerHTML = '<span class="btn-spinner"></span>';
     control.querySelectorAll('.visibility-option').forEach((o: any) => { o.disabled = true; });
+
+    // Set when the server clamps a publish (verified-email gate); drives the
+    // "keep it private + prompt" branch after the transition runs.
+    let publishDenied: string | null = null;
 
     if (target === 'encrypted') {
       await ensureVaultUnlocked();
@@ -288,7 +339,7 @@ export async function applyVisibilityState(self: any, target: VisState, optEl?: 
       } finally {
         statusEl.remove();
       }
-      if (target === 'public') await setVisibility(self, 'public');
+      if (target === 'public') publishDenied = await setVisibility(self, 'public');
     } else {
       // Repair-on-click: a lingering wrapped DEK on a flag-off book means an
       // unfinished publish (some image bytes still ciphertext → broken imgs).
@@ -305,7 +356,30 @@ export async function applyVisibilityState(self: any, target: VisState, optEl?: 
           statusEl.remove();
         }
       }
-      await setVisibility(self, target);
+      // target is 'public' | 'private' here (the 'encrypted' target is handled
+      // above). setVisibility returns a denial reason only for a 'public' flip.
+      publishDenied = await setVisibility(self, target);
+    }
+
+    // Server clamped the publish (unverified email on a post-cutoff account):
+    // the book stayed private. Keep the control private and route to the verify
+    // screen instead of falsely showing it as published.
+    if (publishDenied) {
+      control.dataset.state = 'private';
+      clearEditPermissionCache(book);
+      renderControlState(control, 'private');
+      control._closePanel?.();
+      log.user(`Publish blocked (${publishDenied}) — book kept private`, LOG_PATH);
+      if (publishDenied === 'unverified_email') {
+        if (await confirmDialog({
+          title: 'Verify your email to publish',
+          message: 'Publishing a book requires a verified email address. Check your inbox, or resend the link from your account.',
+          confirmLabel: 'Verify email',
+        })) {
+          await promptVerifyEmail();
+        }
+      }
+      return;
     }
 
     control.dataset.state = target;

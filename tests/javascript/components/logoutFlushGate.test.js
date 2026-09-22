@@ -59,7 +59,7 @@ describe('handleLogout — unsynced-work gate', () => {
   });
 
   it('logs out normally when the flush reports everything synced', async () => {
-    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: true, pendingBatches: 0, timedOut: false });
+    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false });
 
     await handleLogout(makeSelf());
 
@@ -69,7 +69,7 @@ describe('handleLogout — unsynced-work gate', () => {
   });
 
   it('ABORTS the logout (no POST, no wipe) when work is unsent and the user backs out', async () => {
-    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: false, pendingBatches: 2, timedOut: true });
+    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: false, pendingBatches: 2, queuedItems: 0, timedOut: true });
     vi.mocked(confirmDialog).mockResolvedValue(false); // "Stay signed in"
 
     await handleLogout(makeSelf());
@@ -80,7 +80,7 @@ describe('handleLogout — unsynced-work gate', () => {
   });
 
   it('proceeds when the user accepts losing the unsent work', async () => {
-    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: false, pendingBatches: 1, timedOut: false });
+    vi.mocked(flushAllPendingEdits).mockResolvedValue({ synced: false, pendingBatches: 1, queuedItems: 0, timedOut: false });
     vi.mocked(confirmDialog).mockResolvedValue(true); // "Log out anyway"
 
     await handleLogout(makeSelf());
@@ -102,7 +102,7 @@ describe('handleLogout — unsynced-work gate', () => {
   it('shows a busy label on #logout while the flush runs, and restores it', async () => {
     let releaseFlush;
     vi.mocked(flushAllPendingEdits).mockImplementation(() => new Promise((resolve) => {
-      releaseFlush = () => resolve({ synced: true, pendingBatches: 0, timedOut: false });
+      releaseFlush = () => resolve({ synced: true, pendingBatches: 0, queuedItems: 0, timedOut: false });
     }));
 
     const self = makeSelf();

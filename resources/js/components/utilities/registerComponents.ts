@@ -118,6 +118,10 @@ import {
   destroyStatsOverlay
 } from '../statsOverlay/statsOverlay';
 import {
+  initNotificationsOverlay,
+  destroyNotificationsOverlay
+} from '../notificationsOverlay/notificationsOverlay';
+import {
   initPageViewTelemetry,
   destroyPageViewTelemetry,
 } from '../../scrolling/pageViewTelemetry';
@@ -519,6 +523,18 @@ export function registerAllComponents() {
     name: 'statsOverlay',
     initFn: initStatsOverlay,
     destroyFn: destroyStatsOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Notifications overlay + unread badge (userButton flyout). Same lifecycle
+  // rationale as Money/Stats; init also refreshes the pink unread dot for
+  // the current page entry.
+  buttonRegistry.register({
+    name: 'notificationsOverlay',
+    initFn: initNotificationsOverlay,
+    destroyFn: destroyNotificationsOverlay,
     pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false

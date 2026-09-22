@@ -1,5 +1,7 @@
 // searchHighlight.js - Handles applying and clearing search result highlights
 
+import { log, verbose } from "../../utilities/logger";
+
 /**
  * Get all text nodes within an element
  * @param {HTMLElement} element - Root element to traverse
@@ -78,7 +80,7 @@ function wrapRangeWithElement(startNode: any, startOffset: any, endNode: any, en
     wrapElement.appendChild(contents);
     range.insertNode(wrapElement);
   } catch (error) {
-    console.error('SearchHighlight: Failed to wrap range:', error);
+    log.error(`SearchHighlight: Failed to wrap range — ${(error as Error)?.message}`, '/search/inTextSearch/searchHighlight');
   }
 }
 
@@ -93,13 +95,13 @@ function wrapRangeWithElement(startNode: any, startOffset: any, endNode: any, en
  */
 export function applySearchHighlight(element: any, charStart: any, charEnd: any, isCurrent = false, markId: any = null) {
   if (!element) {
-    console.warn('SearchHighlight: No element provided');
+    log.error('SearchHighlight: No element provided', '/search/inTextSearch/searchHighlight');
     return null;
   }
 
   const positions = findPositionsInDOM(element, charStart, charEnd);
   if (!positions) {
-    console.warn('SearchHighlight: Could not find positions for', charStart, charEnd);
+    verbose.content(`SearchHighlight: no DOM positions for ${charStart}-${charEnd}`, '/search/inTextSearch/searchHighlight');
     return null;
   }
 
@@ -149,26 +151,49 @@ export function clearSearchHighlights() {
 }
 
 /**
- * Update which search highlight is marked as current
- * @param {number} startLine - The startLine of the current match
- * @param {number} charStart - The charStart of the current match
+ * Mark a whole node as a semantic match.
+ *
+ * Semantic mode has no character offsets to wrap — the server ranks whole nodes
+ * by cosine distance, so what matched IS the paragraph. This sets a class and a
+ * couple of data attributes on the node element and touches nothing inside it.
+ *
+ * That is deliberately unlike the exact-match path: applySearchHighlight does
+ * `range.extractContents()` + `insertNode`, real surgery on live book DOM. Fine
+ * for a read-mode find bar, but every mutation avoided is one less thing for the
+ * divEditor MutationObserver to ingest — and here there is nothing to gain from
+ * it, since the whole node is the hit.
+ *
+ * @param {HTMLElement} element - The node element (id = its startLine)
+ * @param {number} matchPercent - Floor-rescaled match %, rendered in the gutter
+ * @param {boolean} isCurrent - Whether this is the focused match
+ * @param {number} index - Match index, for addressing it later
  */
-export function setCurrentHighlight(startLine: any, charStart: any) {
-  // Remove current class from all
-  document.querySelectorAll('mark.search-highlight.current').forEach(mark => {
-    mark.classList.remove('current');
+export function applySemanticNodeHighlight(
+  element: HTMLElement | null,
+  matchPercent: number,
+  isCurrent = false,
+  index = 0,
+): HTMLElement | null {
+  if (!element) return null;
+
+  element.classList.add('semantic-match');
+  element.classList.toggle('current', isCurrent);
+  element.dataset.semanticMatch = String(matchPercent);
+  element.dataset.semanticIndex = String(index);
+
+  return element;
+}
+
+/**
+ * Remove every semantic match marker. Must run on close AND on every mode
+ * switch — a leftover tint would read as a hit in the other mode.
+ */
+export function clearSemanticHighlights() {
+  document.querySelectorAll('.semantic-match').forEach(el => {
+    el.classList.remove('semantic-match', 'current');
+    delete (el as HTMLElement).dataset.semanticMatch;
+    delete (el as HTMLElement).dataset.semanticIndex;
   });
-
-  // Find the element by startLine
-  const element = document.getElementById(String(startLine));
-  if (!element) return;
-
-  // Find marks within this element and mark the right one as current
-  const marks = element.querySelectorAll('mark.search-highlight');
-  // For now, just mark the first one - we could be more precise by checking char position
-  if (marks.length > 0) {
-    marks[0]!.classList.add('current');
-  }
 }
 
 /**

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1917 functions in 407 modules · 10 object stores · 10 PG tables · 3946 edges
+**MarkdownDB** schema v28 · 1940 functions in 408 modules · 10 object stores · 10 PG tables · 3975 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -162,6 +162,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `NewBookContainerManager.handleFocus` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.handleVisibilityChange` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.openContainer` | `components/newbookContainer/index` | — | — | — | — |
+| `NewBookContainerManager.rebindElements` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.resetAnimationState` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.restoreOriginalContent` | `components/newbookContainer/index` | — | — | — | — |
 | `NewBookContainerManager.setResponsiveFormSize` | `components/newbookContainer/index` | — | — | — | — |
@@ -542,7 +543,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UserContainerManager.triggerContentRefresh` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.updateButtonColor` | `components/userContainer/index` | — | — | read | — |
 | `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read | — |
-| `showUserProfile` | `components/userContainer/profile` | — | — | write | — |
+| `showUserProfile` | `components/userContainer/profile` | — | — | read/write | — |
 | `attachValidationListeners` | `components/userContainer/validation` | — | — | read | — |
 | `showValidationMessage` | `components/userContainer/validation` | — | — | read/write | — |
 | `validateEmail` | `components/userContainer/validation` | — | — | — | — |
@@ -588,6 +589,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ContainerManager._applyTopRightVisibility` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager._engageFocusTrap` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager._releaseFocusTrap` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.checkBindings` | `components/utilities/containerManager` | — | — | read | — |
 | `ContainerManager.cleanupURL` | `components/utilities/containerManager` | — | — | — | — |
 | `ContainerManager.closeContainer` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager.constructor` | `components/utilities/containerManager` | — | — | — | — |
@@ -599,6 +601,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ContainerManager.restoreNavElementsState` | `components/utilities/containerManager` | — | — | read/write | — |
 | `ContainerManager.saveNavElementsState` | `components/utilities/containerManager` | — | — | read | — |
 | `ContainerManager.toggleContainer` | `components/utilities/containerManager` | — | — | — | — |
+| `ContainerManager.trackBinding` | `components/utilities/containerManager` | — | — | read | — |
 | `ContainerManager.unfreezeElement` | `components/utilities/containerManager` | — | — | read | — |
 | `ContainerManager.updateState` | `components/utilities/containerManager` | — | — | write | — |
 | `attachFilesToInput` | `components/utilities/fileImportHelpers` | — | — | — | — |
@@ -1231,7 +1234,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `prepareLibraryForIndexedDB` | `indexedDB/core/library` | — | — | — | — |
 | `raiseLocalLibraryTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `syncFirstNodeToTitle` | `indexedDB/core/library` | `library` | `library` | — | — |
-| `updateAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
+| `updateAnnotationsTimestamp` | `indexedDB/core/library` | — | — | — | — |
 | `updateBookTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `updateLocalAnnotationsTimestamp` | `indexedDB/core/library` | `library` | `library` | — | — |
 | `hideIDBRecoveryToast` | `indexedDB/core/recoveryToast` | — | — | read/write | — |
@@ -1429,6 +1432,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `BaseFormatProcessor.normalize` | `paste/format-processors/base-processor` | — | — | write | — |
 | `BaseFormatProcessor.process` | `paste/format-processors/base-processor` | — | — | write | — |
 | `BaseFormatProcessor.processLite` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.repairTypographicUrls` | `paste/format-processors/base-processor` | — | — | — | — |
+| `BaseFormatProcessor.stripVisuallyHidden` | `paste/format-processors/base-processor` | — | — | read/write | — |
 | `BaseFormatProcessor.transformStructure` | `paste/format-processors/base-processor` | — | — | — | — |
 | `BristolUPProcessor.buildArticleHeader` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
 | `BristolUPProcessor.cleanup` | `paste/format-processors/bristol-up-processor` | — | — | read/write | — |
@@ -1482,11 +1487,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SageProcessor.linkFootnotes` | `paste/format-processors/sage-processor` | — | — | read/write | — |
 | `SageProcessor.transformStructure` | `paste/format-processors/sage-processor` | — | — | — | — |
 | `ScienceDirectProcessor.constructor` | `paste/format-processors/science-direct-processor` | — | — | — | — |
-| `ScienceDirectProcessor.convertCitationLinks` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
-| `ScienceDirectProcessor.extractFootnotes` | `paste/format-processors/science-direct-processor` | — | — | — | — |
+| `ScienceDirectProcessor.convertCitationAnchorsIn` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.convertCitationLinks` | `paste/format-processors/science-direct-processor` | — | — | write | — |
+| `ScienceDirectProcessor.extractFootnotes` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
 | `ScienceDirectProcessor.extractReferences` | `paste/format-processors/science-direct-processor` | — | — | read | — |
 | `ScienceDirectProcessor.flattenReferenceContent` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.footnoteIdentifierFrom` | `paste/format-processors/science-direct-processor` | — | — | read | — |
 | `ScienceDirectProcessor.linkCitations` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.linkFootnotes` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
+| `ScienceDirectProcessor.replaceWithParagraph` | `paste/format-processors/science-direct-processor` | — | — | write | — |
 | `ScienceDirectProcessor.transformStructure` | `paste/format-processors/science-direct-processor` | — | — | read/write | — |
 | `SpringerProcessor.constructor` | `paste/format-processors/springer-processor` | — | — | — | — |
 | `SpringerProcessor.extractFootnotes` | `paste/format-processors/springer-processor` | — | — | read/write | — |
@@ -1571,6 +1580,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `normalizeListItems` | `paste/utils/normalizer` | — | — | read/write | — |
 | `normalizeQuotes` | `paste/utils/normalizer` | — | — | — | — |
 | `normalizeSpaces` | `paste/utils/normalizer` | — | — | — | — |
+| `prepareClipboardHtml` | `paste/utils/normalizer` | — | — | — | — |
 | `stripHyperciteTags` | `paste/utils/normalizer` | — | — | — | — |
 | `stripMarkTags` | `paste/utils/normalizer` | — | — | — | — |
 | `collectReferenceRun` | `paste/utils/reference-detection` | — | — | — | — |
@@ -1668,8 +1678,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `searchIndex` | `search/inTextSearch/searchEngine` | — | — | — | — |
 | `stripHtml` | `search/inTextSearch/searchEngine` | — | — | write | — |
 | `applySearchHighlight` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
+| `applySemanticNodeHighlight` | `search/inTextSearch/searchHighlight` | — | — | write | — |
 | `clearSearchHighlights` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
-| `setCurrentHighlight` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
+| `clearSemanticHighlights` | `search/inTextSearch/searchHighlight` | — | — | read/write | — |
 | `setSearchMode` | `search/inTextSearch/searchHighlight` | — | — | write | — |
 | `checkHighlightParam` | `search/inTextSearch/searchToolbar` | `sessionStorage` | `sessionStorage` | — | — |
 | `closeSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
@@ -1682,9 +1693,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `openSearchToolbarWithQuery` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.applyMarksForChunk` | `search/inTextSearch/searchToolbar` | — | — | read | — |
 | `SearchToolbarManager.applyMarksToLoadedChunks` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.applyModeAvailability` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.bindElements` | `search/inTextSearch/searchToolbar` | — | — | read | — |
+| `SearchToolbarManager.changeMode` | `search/inTextSearch/searchToolbar` | — | `localStorage` | — | — |
+| `SearchToolbarManager.clearAllHighlights` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.clearSearch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.close` | `search/inTextSearch/searchToolbar` | — | — | write | — |
+| `SearchToolbarManager.commitMatches` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.constructor` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.destroy` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.ensureSearchIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
@@ -1693,21 +1708,29 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.handleClickOutside` | `search/inTextSearch/searchToolbar` | — | — | read | — |
 | `SearchToolbarManager.handleInput` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.handleKeydown` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.handleModeToggleClick` | `search/inTextSearch/searchToolbar` | — | — | read | — |
 | `SearchToolbarManager.handleNext` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.handlePrev` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.hidePerimeterButtons` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
 | `SearchToolbarManager.highlightCurrentMatch` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
+| `SearchToolbarManager.installDebounce` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.invalidateIndex` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.minQueryLength` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.navigateToCurrentMatch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.open` | `search/inTextSearch/searchToolbar` | — | — | write | — |
 | `SearchToolbarManager.performSearch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.performSemanticSearch` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.readStoredMode` | `search/inTextSearch/searchToolbar` | `localStorage` | — | — | — |
 | `SearchToolbarManager.rebindElements` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.renderModeToggle` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
 | `SearchToolbarManager.setupEventListeners` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.showModeError` | `search/inTextSearch/searchToolbar` | — | — | write | — |
 | `SearchToolbarManager.showPerimeterButtons` | `search/inTextSearch/searchToolbar` | — | — | read/write | — |
 | `SearchToolbarManager.toggle` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.updateMatchCounter` | `search/inTextSearch/searchToolbar` | — | — | write | — |
 | `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
-| `toggleSearchToolbar` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `abortSemanticSearch` | `search/inTextSearch/semanticSearch` | — | — | — | — |
+| `searchBookSemantically` | `search/inTextSearch/semanticSearch` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
 | `initializeHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |
 | `createSearchBox` | `search/searchBox` | `localStorage` | `localStorage` `sessionStorage` | read/write | — |
@@ -1930,7 +1953,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 298
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 299
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2051,6 +2074,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/userProfile/userProfilePage` → `components/shelves/addToShelfMenu`
 - `components/userProfile/userProfilePage` → `components/shelves/shelfPreview`
 - `components/userProfile/userProfilePage` → `indexedDB/index`
+- `components/userProfile/userProfilePage` → `pageLoad/backgroundDownload`
 - `components/utilities/containerManager` → `hyperlitContainer/stack`
 - `components/utilities/gateFilter` → `hyperlights/deletion`
 - `components/utilities/gateFilter` → `indexedDB/core/library`

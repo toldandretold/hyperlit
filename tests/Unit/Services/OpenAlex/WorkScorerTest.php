@@ -154,3 +154,35 @@ test('is_paratext does NOT catch whole-issue bundles — that guard lives elsewh
         'title' => 'DOWNLOAD THE ENTIRE SPECIAL ISSUE HERE',
     ]))->toBeTrue();
 });
+
+// ------------------------------------------- container_title fills the venue slot
+
+test('a chapter citation\'s container_title scores against the candidate venue when journal is empty', function () use ($svc) {
+    // Book chapters have no journal, but providers put the containing VOLUME in their venue
+    // field — without the fallback that agreement was invisible (journalScore 0 on every
+    // chapter citation, however perfectly the volume matched).
+    $withContainer = $svc()->metadataScore(
+        ['title' => 'Political articulation', 'authors' => [], 'journal' => null,
+         'container_title' => 'Building Blocs: How Parties Organize Society'],
+        ['title' => 'Political articulation', 'author' => '',
+         'journal' => 'Building Blocs: How Parties Organize Society'],
+    );
+    $without = $svc()->metadataScore(
+        ['title' => 'Political articulation', 'authors' => [], 'journal' => null],
+        ['title' => 'Political articulation', 'author' => '',
+         'journal' => 'Building Blocs: How Parties Organize Society'],
+    );
+
+    expect($withContainer['journalScore'])->toBeGreaterThan(0.9)
+        ->and($without['journalScore'])->toBe(0.0);
+});
+
+test('an explicit journal still wins over container_title', function () use ($svc) {
+    $r = $svc()->metadataScore(
+        ['title' => 'X', 'authors' => [], 'journal' => 'American Sociological Review',
+         'container_title' => 'Some Volume'],
+        ['title' => 'X', 'author' => '', 'journal' => 'American Sociological Review'],
+    );
+
+    expect($r['journalScore'])->toBeGreaterThan(0.9);
+});

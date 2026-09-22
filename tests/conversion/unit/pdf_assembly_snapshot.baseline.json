@@ -140,7 +140,7 @@
     "classification": "page_bottom",
     "confidence": 0.95,
     "md_len": 460404,
-    "md_sha256": "4eb1fa19ec2818bc68eec9c0a199fd7cb4d18a0a6476c4aabcfdefccc38b47e7",
+    "md_sha256": "a86df27bfdcc2da6d9499d1b95ca581bd4ed38e481cb2f42bc4b0521c10aded4",
     "segments": [
       86,
       101,
@@ -386,7 +386,7 @@
     "classification": "page_bottom",
     "confidence": 0.75,
     "md_len": 73170,
-    "md_sha256": "92dcd11663a340857e876a0ffbbb61a018160554d2bbd2508dbd1e1cdd63f9cd",
+    "md_sha256": "59a547ea956e953bdadfacf099501903281f9bd245bb597cdcdd00e9ee68de99",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -412,7 +412,7 @@
     "classification": "page_bottom",
     "confidence": 0.6,
     "md_len": 135508,
-    "md_sha256": "21613b53ed92892dd7b9ce049fb0665028bb989f3dcbd040d4e88c40ae9633a0",
+    "md_sha256": "3bcf46afdd572eb16cc13f2327786623b6bbaa9c765d4767dbad3b1008021952",
     "segments": [],
     "signals": {
       "citation_group_ratio": 0.0,
@@ -768,6 +768,32 @@
       "reset_frequency": 0.0,
       "total_pages": 3,
       "trailing_def_page_ratio": 0.0,
+      "trailing_page_number_consistency": 0.0,
+      "trailing_page_number_offset": null
+    }
+  },
+  "tests/conversion/fixtures/pdf/sequential/pua-encoded-digits/ocr_response.json": {
+    "classification": "unknown",
+    "confidence": 0.0,
+    "md_len": 64450,
+    "md_sha256": "350e35b2af9061df25c15756bf8998034a2d54eec63ee9f4f2329fe65b6c9014",
+    "segments": [],
+    "signals": {
+      "citation_group_ratio": 0.0,
+      "co_location_ratio": 0.0,
+      "def_clustering_ratio": 0.1429,
+      "max_ref_number": 30,
+      "notes_page_count": 0,
+      "notes_page_indices": [],
+      "numbers_on_multiple_pages": 0,
+      "pages_with_both": 0,
+      "pages_with_defs": 3,
+      "pages_with_refs": 2,
+      "ref_number_max_page_spread": 1,
+      "reset_count": 0,
+      "reset_frequency": 0.0,
+      "total_pages": 21,
+      "trailing_def_page_ratio": 1.0,
       "trailing_page_number_consistency": 0.0,
       "trailing_page_number_offset": null
     }

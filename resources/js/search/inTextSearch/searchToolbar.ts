@@ -1,6 +1,6 @@
 // searchToolbar.js - Manages the search toolbar for in-text search
 
-import { verbose } from "../../utilities/logger";
+import { verbose, log } from "../../utilities/logger";
 import { debounce } from "../../utilities/debounce";
 // Import from source modules (not the scrolling/ barrel) so searchToolbar doesn't pull the
 // whole scrolling graph in — keeps the static import graph acyclic.
@@ -10,12 +10,37 @@ import { getNodesFromIndexedDB } from "../../indexedDB/nodes/read";
 import { getFreshAnchor } from "../../scrolling/readingAnchor";
 import { maybePaginatorReveal } from "../../scrolling/paginator";
 import { currentLazyLoader } from "../../pageLoad/currentLazyLoaderState"; // zero-import leaf (not the pageLoad barrel) → no cycle
+import { isBookEncrypted } from "../../e2ee/registry"; // zero-import leaf → no cycle
 import { buildSearchIndex, searchIndex } from "./searchEngine";
 import {
+  abortSemanticSearch,
+  searchBookSemantically,
+  SEMANTIC_DEBOUNCE_MS,
+  SEMANTIC_MIN_QUERY_LENGTH,
+  type SemanticFailure,
+} from "./semanticSearch";
+import {
   applySearchHighlight,
+  applySemanticNodeHighlight,
   clearSearchHighlights,
+  clearSemanticHighlights,
   setSearchMode
 } from "./searchHighlight";
+
+/** Exact = local substring over IndexedDB; semantic = server-side cosine. */
+type SearchMode = 'exact' | 'semantic';
+
+/** Remembered across books and sessions, like homepage_search_mode. */
+const MODE_STORAGE_KEY = 'intext_search_mode';
+
+const EXACT_DEBOUNCE_MS = 300;
+
+const FAILURE_COPY: Record<SemanticFailure, string> = {
+  offline: 'no connection',
+  unavailable: 'unavailable',
+  unsupported: 'not available here',
+  failed: 'search failed',
+};
 
 /**
  * SearchToolbarManager - Manages the search toolbar UI and state
@@ -30,12 +55,19 @@ class SearchToolbarManager {
     this.matchCounter = null;
     this.isOpen = false;
 
+    this.modeToggle = null;
+
     // Search state
-    this.searchIndexCache = null;  // Cached search index
+    this.searchIndexCache = null;  // Cached search index (exact mode only)
     this.matches = [];             // Current search matches
     this.currentMatchIndex = -1;   // Current match position
     this.matchesByChunk = new Map(); // chunk_id -> array of matches with matchIndex
     this.initialStartLine = null;  // Scroll position when search opened (for nearest match)
+
+    // 'exact' | 'semantic'. Restored from localStorage, but forced back to
+    // exact whenever the toggle isn't available (see applyModeAvailability).
+    this.mode = this.readStoredMode();
+    this.modeAvailable = false;
 
     // Bound event handlers
     this.boundInputHandler = this.handleInput.bind(this);
@@ -46,9 +78,12 @@ class SearchToolbarManager {
     // Touch handlers with preventDefault to avoid ghost clicks
     this.boundPrevTouchHandler = (e: any) => { e.preventDefault(); this.handlePrev(); };
     this.boundNextTouchHandler = (e: any) => { e.preventDefault(); this.handleNext(); };
+    this.boundModeToggleHandler = this.handleModeToggleClick.bind(this);
 
-    // Debounced search handler (300ms delay to prevent rapid-fire searches)
-    this.debouncedSearch = debounce((query: any) => this.performSearch(query), 300);
+    // Debounced search handler. Exact mode is 300ms; semantic mode re-arms at
+    // 500ms (installDebounce) because every uncached keystroke there is an
+    // embedding round-trip, not a local indexOf.
+    this.installDebounce();
 
     // Bind elements
     this.bindElements();
@@ -68,9 +103,12 @@ class SearchToolbarManager {
     this.prevButton = document.getElementById('search-prev-button');
     this.nextButton = document.getElementById('search-next-button');
     this.matchCounter = document.getElementById('search-match-counter');
+    // Absent on every page but the reader — the feed pages render the partial
+    // without the toggle because their synthetic books are never embedded.
+    this.modeToggle = document.getElementById('search-mode-toggle');
 
     if (!this.toolbar) {
-      console.warn('SearchToolbar: search-toolbar element not found');
+      log.error('SearchToolbar: search-toolbar element not found', '/search/inTextSearch/searchToolbar');
       return;
     }
 
@@ -86,8 +124,11 @@ class SearchToolbarManager {
     // Input field
     if (this.input) {
       this.input.addEventListener('input', this.boundInputHandler);
-      this.input.addEventListener('keydown', this.boundKeydownHandler);
     }
+
+    // Keydown on the TOOLBAR, not the input: Escape must close no matter which
+    // control inside has focus (see handleKeydown).
+    this.toolbar.addEventListener('keydown', this.boundKeydownHandler);
 
     // Navigation buttons
     if (this.prevButton) {
@@ -100,7 +141,150 @@ class SearchToolbarManager {
       this.nextButton.addEventListener('touchend', this.boundNextTouchHandler);
     }
 
+    // Delegated on the group so the two segments share one listener.
+    if (this.modeToggle) {
+      this.modeToggle.addEventListener('click', this.boundModeToggleHandler);
+    }
+
     verbose.init('SearchToolbar: Event listeners attached', '/search/inTextSearch/searchToolbar');
+  }
+
+  /**
+   * Re-arm the debounced search at the current mode's interval. Exact mode is a
+   * local indexOf over an in-memory index; semantic mode is a network round-trip
+   * that may embed the query, so it waits longer (mirrors searchBox.ts).
+   */
+  installDebounce() {
+    if (this.debouncedSearch) this.debouncedSearch.cancel();
+    const delay = this.mode === 'semantic' ? SEMANTIC_DEBOUNCE_MS : EXACT_DEBOUNCE_MS;
+    this.debouncedSearch = debounce((query: any) => { void this.performSearch(query); }, delay);
+  }
+
+  /** Shortest query worth running in the current mode. */
+  minQueryLength() {
+    return this.mode === 'semantic' ? SEMANTIC_MIN_QUERY_LENGTH : 1;
+  }
+
+  readStoredMode(): SearchMode {
+    try {
+      return localStorage.getItem(MODE_STORAGE_KEY) === 'semantic' ? 'semantic' : 'exact';
+    } catch {
+      return 'exact';
+    }
+  }
+
+  /**
+   * Decide whether semantic mode is offered for the book now open, and force the
+   * mode back to exact when it isn't.
+   *
+   * Three reasons it may not be, all of them "the server has no embeddings for
+   * this text, so the request could only ever come back empty":
+   *  - the toggle was never rendered (a feed page — its book is a synthetic
+   *    card-list book, excluded by EmbeddingEligibility);
+   *  - the book is E2EE encrypted (its plainText AND embedding are nulled on
+   *    encrypt — DbLibraryController's scrub);
+   *  - it's a sub-book (`parent/Fn12`), excluded as EXCLUDED_LIBRARY_TYPES.
+   *
+   * The server refuses all three with a 403 anyway (bookSemanticallySearchable)
+   * — this is so the user is never offered a dead control.
+   */
+  applyModeAvailability() {
+    const bookId = currentLazyLoader?.bookId;
+    const encrypted = bookId ? isBookEncrypted(bookId) : false;
+    const isSubBook = typeof bookId === 'string' && bookId.includes('/');
+
+    this.modeAvailable = Boolean(this.modeToggle && bookId && !encrypted && !isSubBook);
+
+    if (this.modeToggle) {
+      this.modeToggle.hidden = !this.modeAvailable;
+    }
+
+    if (!this.modeAvailable && this.mode !== 'exact') {
+      verbose.init(
+        `SearchToolbar: semantic unavailable for ${bookId} (encrypted=${encrypted}, subBook=${isSubBook}) — forcing exact`,
+        '/search/inTextSearch/searchToolbar'
+      );
+      this.mode = 'exact';
+      this.installDebounce();
+    }
+
+    this.renderModeToggle();
+  }
+
+  /** Reflect this.mode onto the segmented control. */
+  renderModeToggle() {
+    if (!this.modeToggle) return;
+
+    this.modeToggle.querySelectorAll('.search-mode-toggle-btn').forEach((btn: Element) => {
+      const isActive = (btn as HTMLElement).dataset.searchMode === this.mode;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  handleModeToggleClick(e: any) {
+    const btn = e.target?.closest?.('.search-mode-toggle-btn');
+    if (!btn) return;
+
+    const next = btn.dataset.searchMode === 'semantic' ? 'semantic' : 'exact';
+    void this.changeMode(next);
+  }
+
+  /**
+   * Switch modes: drop the OTHER mode's artifacts (a leftover tint or <mark>
+   * would read as a hit in the new mode), then re-run whatever is in the box.
+   */
+  async changeMode(next: SearchMode) {
+    if (next === this.mode) return;
+    if (next === 'semantic' && !this.modeAvailable) return;
+
+    verbose.init(`SearchToolbar: mode ${this.mode} → ${next}`, '/search/inTextSearch/searchToolbar');
+
+    // Cancel work belonging to the mode we're leaving.
+    this.debouncedSearch.cancel();
+    abortSemanticSearch();
+
+    this.mode = next;
+    try {
+      localStorage.setItem(MODE_STORAGE_KEY, next);
+    } catch { /* private mode — the session still works, just doesn't persist */ }
+
+    this.installDebounce();
+    this.renderModeToggle();
+    this.clearAllHighlights();
+    this.matches = [];
+    this.currentMatchIndex = -1;
+    this.matchesByChunk = new Map();
+    this.updateMatchCounter(0, 0);
+    this.updateNavigationButtons(false);
+
+    // open() skips the local index when it opens straight into semantic mode, so
+    // the first switch INTO exact has to build it — without this, performSearch
+    // returns early on a null cache and exact mode silently finds nothing.
+    if (next === 'exact') {
+      await this.ensureSearchIndex();
+    }
+
+    const query = this.input?.value ?? '';
+    if (query.length >= this.minQueryLength()) {
+      await this.performSearch(query);
+    }
+  }
+
+  /** Both modes' markers, whichever is present. */
+  clearAllHighlights() {
+    clearSearchHighlights();
+    clearSemanticHighlights();
+  }
+
+  /**
+   * Report a semantic failure where the counter sits — the only free space in a
+   * one-row find bar.
+   */
+  showModeError(reason: SemanticFailure) {
+    if (!this.matchCounter) return;
+    this.matchCounter.textContent = FAILURE_COPY[reason] ?? FAILURE_COPY.failed;
+    this.matchCounter.classList.add('search-status-error');
   }
 
   /**
@@ -153,8 +337,15 @@ class SearchToolbarManager {
     // Disable navigation buttons initially
     this.updateNavigationButtons(false);
 
-    // Build search index if not cached
-    await this.ensureSearchIndex();
+    // Decide whether semantic mode is on offer for THIS book before the user can
+    // press anything.
+    this.applyModeAvailability();
+
+    // Semantic mode needs no local index — the ranking happens server-side, and
+    // building one would pull every node out of IndexedDB for nothing.
+    if (this.mode === 'exact') {
+      await this.ensureSearchIndex();
+    }
   }
 
   /**
@@ -170,7 +361,7 @@ class SearchToolbarManager {
     // Get book ID from lazyLoader
     const bookId = currentLazyLoader?.bookId;
     if (!bookId) {
-      console.warn('SearchToolbar: No bookId available');
+      log.error('SearchToolbar: No bookId available', '/search/inTextSearch/searchToolbar');
       return;
     }
 
@@ -179,7 +370,7 @@ class SearchToolbarManager {
       this.searchIndexCache = buildSearchIndex(nodes);
       verbose.init(`SearchToolbar: Index built with ${this.searchIndexCache.length} entries`, '/search/inTextSearch/searchToolbar');
     } catch (error) {
-      console.error('SearchToolbar: Failed to build search index', error);
+      log.error(`SearchToolbar: Failed to build search index — ${(error as Error)?.message}`, '/search/inTextSearch/searchToolbar');
     }
   }
 
@@ -191,15 +382,16 @@ class SearchToolbarManager {
 
     verbose.init('SearchToolbar: Closing', '/search/inTextSearch/searchToolbar');
 
-    // Cancel any pending debounced search
+    // Cancel any pending debounced search + any in-flight semantic request
     this.debouncedSearch.cancel();
+    abortSemanticSearch();
 
     this.toolbar.classList.remove('visible');
     this.isOpen = false;
 
     // Disable search mode and clear highlights
     setSearchMode(false);
-    clearSearchHighlights();
+    this.clearAllHighlights();
 
     // Restore perimeter buttons
     this.showPerimeterButtons();
@@ -243,12 +435,13 @@ class SearchToolbarManager {
     verbose.init(`SearchToolbar: Input changed - "${query}"`, '/search/inTextSearch/searchToolbar');
 
     // Clear previous highlights immediately for visual feedback
-    clearSearchHighlights();
+    this.clearAllHighlights();
     this.matchesByChunk = new Map();
 
     if (!query || query.length === 0) {
       // Cancel any pending debounced search
       this.debouncedSearch.cancel();
+      abortSemanticSearch();
       this.matches = [];
       this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
@@ -267,14 +460,76 @@ class SearchToolbarManager {
   }
 
   /**
-   * Perform the actual search (called after debounce)
+   * Perform the actual search (called after debounce).
+   *
+   * Both modes funnel into commitMatches, so everything downstream —
+   * navigation, prev/next, the counter, the nearest-match start — is identical.
+   * The only difference is where the match list comes from and what a match
+   * carries: exact hits have charStart/charEnd, semantic hits have a `match` %.
    */
-  performSearch(query: any) {
+  async performSearch(query: any) {
+    if (this.mode === 'semantic') {
+      await this.performSemanticSearch(query);
+      return;
+    }
+
     if (!this.searchIndexCache) return;
 
     verbose.init(`SearchToolbar: Performing search for "${query}"`, '/search/inTextSearch/searchToolbar');
 
-    this.matches = searchIndex(this.searchIndexCache, query);
+    this.commitMatches(searchIndex(this.searchIndexCache, query));
+  }
+
+  /**
+   * Server-side semantic search over this book's node embeddings.
+   *
+   * The server returns hits ranked by similarity; we re-sort to DOCUMENT ORDER
+   * before committing them. That is what keeps ▲▼ and findNearestMatchIndex()
+   * behaving exactly as in exact mode — the alternative (walking best-match
+   * first) would jump around the book and abandon "start where I'm reading".
+   */
+  async performSemanticSearch(query: any) {
+    const bookId = currentLazyLoader?.bookId;
+    if (!bookId) return;
+
+    verbose.init(`SearchToolbar: Performing semantic search for "${query}"`, '/search/inTextSearch/searchToolbar');
+
+    const result = await searchBookSemantically(bookId, String(query));
+
+    // A superseded keystroke: the newer request owns the UI now.
+    if (!result.ok && result.reason === 'aborted') return;
+
+    // Mode or query changed while the request was in flight.
+    if (this.mode !== 'semantic' || !this.isOpen) return;
+
+    if (!result.ok) {
+      this.matches = [];
+      this.currentMatchIndex = -1;
+      this.updateNavigationButtons(false);
+      this.showModeError(result.reason);
+      return;
+    }
+
+    const ordered = [...result.hits].sort(
+      (a, b) => parseFloat(a.startLine) - parseFloat(b.startLine)
+    );
+
+    this.commitMatches(ordered.map(hit => ({
+      startLine: hit.startLine,
+      chunk_id: hit.chunk_id,
+      match: hit.match,
+      similarity: hit.similarity,
+    })));
+  }
+
+  /**
+   * Adopt a fresh match list (already in document order) and drive the UI from
+   * it. Shared by both modes — this is the seam that makes semantic mode "work
+   * the same".
+   */
+  commitMatches(matches: any[]) {
+    this.matches = matches;
+    this.matchesByChunk = new Map();
 
     if (this.matches.length > 0) {
       // Group matches by chunk_id for efficient batch insertion
@@ -349,41 +604,57 @@ class SearchToolbarManager {
     // Ensure all marks for this chunk are applied
     this.applyMarksForChunk(chunkId);
 
-    // Remove 'current' from all marks
-    document.querySelectorAll('mark.search-highlight.current').forEach(m => {
-      m.classList.remove('current');
-    });
+    // Remove 'current' from whichever marker kind is in play
+    document.querySelectorAll('mark.search-highlight.current, .semantic-match.current')
+      .forEach(m => m.classList.remove('current'));
 
-    // Add 'current' to the target mark
-    const markEl = document.getElementById(`search-match-${this.currentMatchIndex}`);
-    if (markEl) {
-      markEl.classList.add('current');
+    // Semantic mode addresses the NODE (there is no <mark> — the whole node is
+    // the hit); exact mode addresses the <mark> it inserted.
+    const targetEl = this.mode === 'semantic'
+      ? document.getElementById(String(match.startLine))
+      : document.getElementById(`search-match-${this.currentMatchIndex}`);
+
+    if (targetEl) {
+      targetEl.classList.add('current');
       // Paginated mode: flip to the match's page (a native scrollIntoView
       // would scroll the overflow:hidden wrapper and corrupt page geometry).
-      if (!maybePaginatorReveal(markEl)) {
-        markEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (!maybePaginatorReveal(targetEl)) {
+        targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
     }
   }
 
   /**
-   * Apply all search marks for a specific chunk
-   * @param {number} chunkId - The chunk ID to apply marks for
+   * Apply all search markers for a specific chunk.
+   *
+   * Exact mode wraps character ranges in <mark>; semantic mode tints the node
+   * itself, because the server ranked the whole node and there are no offsets to
+   * wrap (see semanticSearch.ts for why we don't try to synthesize them).
+   *
+   * @param {number} chunkId - The chunk ID to apply markers for
    */
   applyMarksForChunk(chunkId: any) {
     const chunkMatches = this.matchesByChunk.get(chunkId);
     if (!chunkMatches) return;
 
     chunkMatches.forEach((match: any) => {
+      const element = document.getElementById(String(match.startLine));
+      if (!element) return;
+
+      const isCurrent = match.matchIndex === this.currentMatchIndex;
+
+      if (this.mode === 'semantic') {
+        // Idempotent: re-applying on a chunk reload just rewrites the same
+        // class + data attributes.
+        applySemanticNodeHighlight(element, match.match ?? 0, isCurrent, match.matchIndex);
+        return;
+      }
+
       const markId = `search-match-${match.matchIndex}`;
 
       // Skip if mark already exists (handles chunk reload case)
       if (document.getElementById(markId)) return;
 
-      const element = document.getElementById(String(match.startLine));
-      if (!element) return;
-
-      const isCurrent = match.matchIndex === this.currentMatchIndex;
       applySearchHighlight(element, match.charStart, match.charEnd, isCurrent, markId);
     });
   }
@@ -500,7 +771,22 @@ class SearchToolbarManager {
    * Handle keyboard shortcuts in search input
    */
   handleKeydown(e: any) {
-    // Enter or Cmd/Ctrl+G = next match
+    // Escape closes from ANYWHERE in the toolbar, not just the input. The
+    // listener used to sit on #search-input alone, so a user who clicked ▲/▼ (or
+    // the mode toggle) and then pressed Escape got nothing — focus was on a
+    // button, the event never reached the handler, and the find bar stayed up
+    // with no keyboard way out. The overlay contract is "Escape closes"; bind it
+    // to the toolbar and let it bubble.
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.close();
+      return;
+    }
+
+    // Enter / Cmd+G = next match — but ONLY from the input. On a focused button
+    // Enter already fires a click, so handling it here too would advance twice.
+    if (e.target !== this.input) return;
+
     if (e.key === 'Enter' || (e.key === 'g' && (e.metaKey || e.ctrlKey))) {
       e.preventDefault();
       if (e.shiftKey) {
@@ -509,11 +795,6 @@ class SearchToolbarManager {
         this.handleNext();
       }
     }
-    // Escape = close search
-    else if (e.key === 'Escape') {
-      e.preventDefault();
-      this.close();
-    }
   }
 
   /**
@@ -521,6 +802,8 @@ class SearchToolbarManager {
    */
   updateMatchCounter(current: any, total: any) {
     if (this.matchCounter) {
+      // Clears any semantic failure message showing in this slot.
+      this.matchCounter.classList.remove('search-status-error');
       this.matchCounter.textContent = `${current} of ${total}`;
     }
   }
@@ -606,7 +889,19 @@ class SearchToolbarManager {
    * Rebind elements after SPA transitions
    */
   rebindElements() {
+    // The toggle listener lives on an element that SPA nav may have replaced —
+    // drop it before rebinding or the old node keeps a live handler.
+    if (this.modeToggle) {
+      this.modeToggle.removeEventListener('click', this.boundModeToggleHandler);
+    }
+
     this.bindElements();
+
+    // Re-attach to the (possibly new) toggle element.
+    if (this.modeToggle) {
+      this.modeToggle.addEventListener('click', this.boundModeToggleHandler);
+    }
+
     // Invalidate index on rebind since book may have changed
     this.invalidateIndex();
     verbose.init('SearchToolbar: Elements rebound', '/search/inTextSearch/searchToolbar');
@@ -616,15 +911,23 @@ class SearchToolbarManager {
    * Clean up event listeners
    */
   destroy() {
-    // Cancel any pending debounced search
+    // Cancel any pending debounced search + in-flight semantic request
     this.debouncedSearch.cancel();
+    abortSemanticSearch();
 
     // Remove click outside listener if it exists
     document.removeEventListener('click', this.boundClickOutsideHandler, true);
 
+    if (this.modeToggle) {
+      this.modeToggle.removeEventListener('click', this.boundModeToggleHandler);
+    }
+
     if (this.input) {
       this.input.removeEventListener('input', this.boundInputHandler);
-      this.input.removeEventListener('keydown', this.boundKeydownHandler);
+    }
+
+    if (this.toolbar) {
+      this.toolbar.removeEventListener('keydown', this.boundKeydownHandler);
     }
 
     if (this.prevButton) {
@@ -694,15 +997,6 @@ export function closeSearchToolbar() {
 }
 
 /**
- * Toggle the search toolbar
- */
-export function toggleSearchToolbar() {
-  if (searchToolbarManager) {
-    searchToolbarManager.toggle();
-  }
-}
-
-/**
  * Check if search toolbar is currently open
  */
 export function isSearchToolbarOpen() {
@@ -738,12 +1032,24 @@ export function invalidateSearchIndex() {
  */
 export async function openSearchToolbarWithQuery(query: any, targetStartLine: any = null) {
   if (!searchToolbarManager) {
-    console.warn('SearchToolbar: Manager not initialized');
+    log.error('SearchToolbar: Manager not initialized', '/search/inTextSearch/searchToolbar');
     return;
   }
 
   // Open the toolbar first (this sets initialStartLine to current scroll position)
   await searchToolbarManager.open();
+
+  // This handoff always comes from a FULL-TEXT result (searchBox deliberately
+  // omits it for semantic hits — the matched paragraph doesn't contain the query
+  // words), so the query is a literal string that exists in the text. Force
+  // exact mode: running it through the semantic engine because that's the user's
+  // remembered preference would rank by meaning and land somewhere else.
+  if (searchToolbarManager.mode !== 'exact') {
+    searchToolbarManager.mode = 'exact';
+    searchToolbarManager.installDebounce();
+    searchToolbarManager.renderModeToggle();
+    await searchToolbarManager.ensureSearchIndex();
+  }
 
   // Override initialStartLine AFTER open() if we have a target startLine
   // This must come after open() because open() resets initialStartLine to current scroll position

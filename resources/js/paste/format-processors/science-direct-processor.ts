@@ -4,8 +4,24 @@
  *
  * Key features:
  * - Extracts references from <span class="reference"> elements
+ * - Extracts footnotes from <dl class="footnote"> definition blocks
  * - Converts anchor citation links to proper reference links
  * - Maps bib* IDs to sref* reference IDs
+ *
+ * ScienceDirect hosts BOTH citation styles and they share one anchor vocabulary.
+ * An author-date article marks its in-text citations
+ *   <a data-xocs-content-type="reference" data-xocs-content-id="b0120">
+ * and a footnote article marks its NOTE markers with the very same content-type,
+ * only ided `fnN`:
+ *   <a data-xocs-content-type="reference" data-xocs-content-id="fn1"><sup>1</sup></a>
+ * so the id PREFIX — `b`/`bib` vs `fn` — is the only thing separating a
+ * bibliography link from a footnote marker. Until 2026-09 only author-date
+ * captures had been seen, so `extractFootnotes` returned [] unconditionally and
+ * `convertCitationLinks` swallowed every `fn` anchor as a failed bibliography
+ * lookup, replacing it with its own text: all 109 notes of a Journal of
+ * Historical Geography article were lost and each marker became a bare digit
+ * glued to the sentence it followed ("…communist government.1 Five years…").
+ * Fixture: tests/paste/fixtures/clipboard/sciencedirect-footnotes.html.
  */
 
 import { BaseFormatProcessor } from './base-processor';
@@ -15,26 +31,163 @@ import {
   cloneAndClean,
   isValidReference
 } from '../utils/transform-helpers';
+import { createFootnoteSupElement } from '../utils/footnote-linker';
 
 export class ScienceDirectProcessor extends BaseFormatProcessor {
   [key: string]: any;
   constructor() {
     super('science-direct');
     this.bibIdToRefMap = new Map(); // Maps bib69 → reference object
+    this.fnIdToFootnote = new Map(); // Maps fn1 → footnote object
+    this.extractedFootnotes = []; // Same objects as the returned array, kept for the in-note citation pass
   }
 
 
   /**
-   * Extract footnotes from Science Direct structure
-   * Science Direct typically doesn't use traditional footnotes
+   * Extract footnotes from Science Direct structure.
+   *
+   * Definitions live in a `.footnotes` block as one <dl class="footnote"> per
+   * note:
+   *   <dl class="footnote">
+   *     <dt class="footnote-label"><a href="…#bfn1"><sup>1</sup></a></dt>
+   *     <dd class="footnote-detail"><div id="ntpara0015">…</div></dd>
+   *   </dl>
+   * The label's fragment is the MARKER's `name` (`bfn1`); the marker's own id is
+   * `fn1` — that is the key the in-text anchors are matched on.
    *
    * @param {HTMLElement} dom - DOM element
    * @param {string} bookId - Book identifier
    * @returns {Promise<Array>} - Array of footnote objects
    */
-  async extractFootnotes(dom: any, bookId: any) {
-    console.log('📚 ScienceDirect: Science Direct typically uses inline references, not footnotes');
-    return [];
+  async extractFootnotes(dom: HTMLElement, bookId: string) {
+    const footnotes: unknown[] = [];
+    const blocks = dom.querySelectorAll('dl.footnote');
+
+    blocks.forEach((block: Element) => {
+      const label = block.querySelector('dt.footnote-label') || block.querySelector('dt');
+      const labelAnchor = label ? label.querySelector('a[href*="#"]') : null;
+
+      const detail = block.querySelector('dd.footnote-detail') || block.querySelector('dd');
+      if (!detail) return;
+
+      // An UNLABELLED note carries no marker anywhere in the body — SD uses one
+      // for article-level statements ("This article is part of a special issue
+      // entitled…"). Minting a footnote nothing can point at would bury it in
+      // the Notes section, so keep the text as prose. It has to become a real
+      // <p>, not a left-alone <dl>: the surviving definition list ends up nested
+      // INSIDE a paragraph by cleanup, and a block inside a <p> splits into an
+      // empty tagged node plus an untagged orphan when the paste is stored.
+      if (!label || !labelAnchor) {
+        this.replaceWithParagraph(block, detail);
+        return;
+      }
+
+      const identifier = this.footnoteIdentifierFrom(label, labelAnchor);
+      if (!identifier) {
+        this.replaceWithParagraph(block, detail);
+        return;
+      }
+
+      // Keep <a> elements: SD footnotes cite bare URLs and the anchor's TEXT is
+      // that URL, so the `a[target="_blank"]` removal the reference extractor
+      // does would delete the citation's only locator.
+      const clone = cloneAndClean(detail, ['.ReferenceLinks', 'svg']);
+      const content = this.flattenReferenceContent(clone);
+      if (!content) return;
+
+      const footnoteId = this.generateFootnoteId(bookId, identifier);
+      const footnote = this.createFootnote(
+        footnoteId,
+        content,
+        identifier,
+        this.generateFootnoteRefId(footnoteId),
+        'science-direct',
+      );
+
+      footnotes.push(footnote);
+      this.fnIdToFootnote.set(`fn${identifier}`, footnote);
+      block.remove();
+    });
+
+    console.log(`📚 ScienceDirect: Extracted ${footnotes.length} footnotes from ${blocks.length} definition blocks`);
+    this.extractedFootnotes = footnotes;
+    return footnotes;
+  }
+
+  /**
+   * Swap a footnote <dl> we are NOT extracting for a plain paragraph of its
+   * detail text, so no definition list survives into the stored content.
+   */
+  replaceWithParagraph(block: Element, detail: Element) {
+    const content = this.flattenReferenceContent(cloneAndClean(detail, ['.ReferenceLinks', 'svg']));
+    if (!content) {
+      block.remove();
+      return;
+    }
+    const paragraph = document.createElement('p');
+    paragraph.innerHTML = content;
+    block.replaceWith(paragraph);
+  }
+
+  /**
+   * The displayed note number for a <dt class="footnote-label">.
+   * Prefers the visible <sup>, falling back to the digits in the label's
+   * `#bfnN` fragment. Non-numeric labels (†, ☆) are refused — the in-text
+   * anchors are keyed `fnN`, so a symbol has nothing to match against.
+   */
+  footnoteIdentifierFrom(label: Element, labelAnchor: Element): string | null {
+    const sup = label.querySelector('sup');
+    const labelText = (sup || labelAnchor).textContent?.trim() ?? '';
+    if (/^\d+$/.test(labelText)) return String(parseInt(labelText, 10));
+
+    const fragment = (labelAnchor.getAttribute('href') || '').split('#')[1] || '';
+    const fragmentDigits = fragment.match(/^b?fn-?(\d+)$/i)?.[1];
+    return fragmentDigits ? String(parseInt(fragmentDigits, 10)) : null;
+  }
+
+  /**
+   * Link in-text footnote markers structurally — `data-xocs-content-id="fn1"`
+   * maps EXACTLY to one extracted note, so no text scanning is involved (and
+   * none is wanted: the base scanner would read sentence-final digits in a
+   * 109-note article as phantom markers).
+   *
+   * Runs at stage 7, after cleanup: cleanup strips style/class/id but leaves
+   * data attributes, so the anchors are still identifiable here.
+   *
+   * @param {HTMLElement} dom - DOM element
+   * @param {Array} footnotes - Extracted footnotes
+   */
+  linkFootnotes(dom: HTMLElement, footnotes: unknown[]) {
+    if (!footnotes || footnotes.length === 0) return;
+
+    const markers = dom.querySelectorAll('a[data-xocs-content-id^="fn"]');
+    let linked = 0;
+    let orphaned = 0;
+
+    markers.forEach((marker: Element) => {
+      const contentId = marker.getAttribute('data-xocs-content-id') || '';
+      const footnote = this.fnIdToFootnote.get(contentId);
+      const target = marker.parentElement && marker.parentElement.tagName === 'SUP'
+        ? marker.parentElement
+        : marker;
+
+      if (footnote) {
+        target.replaceWith(createFootnoteSupElement(footnote.refId, footnote.originalIdentifier));
+        linked++;
+        return;
+      }
+
+      // No definition (a partial selection that missed the notes block). Keep
+      // the number superscripted rather than unwrapping it — a bare digit
+      // dropped into the text reads as part of the sentence — but never ship
+      // the live sciencedirect.com anchor.
+      const orphanSup = document.createElement('sup');
+      orphanSup.textContent = marker.textContent?.trim() ?? '';
+      target.replaceWith(orphanSup);
+      orphaned++;
+    });
+
+    console.log(`📚 ScienceDirect: Linked ${linked} footnote markers (${orphaned} without a definition)`);
   }
 
   /**
@@ -326,15 +479,55 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
   convertCitationLinks(dom: any) {
     console.log('📚 ScienceDirect: Converting Science Direct citation links...');
 
-    // Find all Science Direct citation links using data-xocs-content-type="reference"
-    // Different articles use different ID formats (bib0120, b0120, etc.)
-    const citationLinks = dom.querySelectorAll('a.anchor[data-xocs-content-type="reference"]');
-    console.log(`📚 ScienceDirect: Found ${citationLinks.length} citation links`);
+    const inBody = this.convertCitationAnchorsIn(dom);
+
+    // Footnote bodies were lifted OUT of the DOM at stage 2, before this ran, so
+    // a citation living inside a note — "(Lenin, 1920)" in note 2 of the
+    // author-date fixture — never passes under the query above and would ship
+    // with its live sciencedirect.com anchor intact. Convert those here too:
+    // appendStaticSections puts the content back into the DOM at stage 6, in
+    // time for linkCitations to swap the temp bibId for the real reference id.
+    let inNotes = { converted: 0, failed: 0 };
+    this.extractedFootnotes.forEach((footnote: { content: string }) => {
+      const temp = document.createElement('div');
+      temp.innerHTML = footnote.content;
+      const result = this.convertCitationAnchorsIn(temp);
+      if (result.converted || result.failed) {
+        footnote.content = temp.innerHTML;
+        inNotes = { converted: inNotes.converted + result.converted, failed: inNotes.failed + result.failed };
+      }
+    });
+
+    console.log(
+      `  - Converted ${inBody.converted} Science Direct citation links, ${inBody.failed} failed` +
+      ` (+${inNotes.converted}/${inNotes.failed} inside footnote text)`,
+    );
+  }
+
+  /**
+   * One citation-anchor conversion pass over a root element.
+   *
+   * Selector note: it matches on `data-xocs-content-type` ALONE, not
+   * `a.anchor[…]` — footnote content has already been through stripAttributes
+   * by the time it gets here, so the publisher's `class="anchor"` is gone while
+   * the data attributes remain.
+   *
+   * @param {HTMLElement} root - Element to convert citation anchors within
+   * @returns {{converted: number, failed: number}}
+   */
+  convertCitationAnchorsIn(root: ParentNode) {
+    const citationLinks = root.querySelectorAll('a[data-xocs-content-type="reference"]');
     let convertedCount = 0;
     let failedCount = 0;
 
     citationLinks.forEach((link: any) => {
       const bibId = link.getAttribute('data-xocs-content-id'); // e.g., "b0120"
+
+      // FOOTNOTE markers wear the same content-type as bibliography links and
+      // are told apart only by their `fnN` id. They belong to linkFootnotes —
+      // falling through to the "reference not found" branch below is what
+      // dissolved 109 markers into bare digits.
+      if (!bibId || /^fn\d/i.test(bibId)) return;
 
       // Look up the reference for this bibId
       const reference = this.bibIdToRefMap.get(bibId);
@@ -366,7 +559,7 @@ export class ScienceDirectProcessor extends BaseFormatProcessor {
       }
     });
 
-    console.log(`  - Converted ${convertedCount} Science Direct citation links, ${failedCount} failed`);
+    return { converted: convertedCount, failed: failedCount };
   }
 
   /**

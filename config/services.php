@@ -71,6 +71,42 @@ return [
         // no ceiling, no collapsed band.
         'semantic_match_floor' => (float) env('SEMANTIC_MATCH_FLOOR', 0.55),
 
+        // In-book ("find in this text") semantic search has its OWN pair of
+        // knobs, and the two above must not be reused for it: cosine's noise
+        // floor is far higher WITHIN one document than across the corpus.
+        // Measured on the chacko c128 source (the same corpus that calibrated
+        // PassageSearcher::MIN_SEMANTIC_SIMILARITY): the passage that PROVED
+        // the citation scored 0.73 while unrelated paragraphs OF THE SAME
+        // DOCUMENT sat at ~0.67. With the homepage numbers those unrelated
+        // paragraphs would badge at ~27% and the 0.6 distance cutoff would
+        // admit literally every node in the book.
+        //
+        // min_similarity is the "this is noise, not a hit" drop, reusing
+        // PassageSearcher's measured 0.55; match_floor is the zero point of
+        // the badge, set just under the in-document noise level so a
+        // topically-adjacent paragraph reads as a low percentage rather than a
+        // confident one. Same floor-only rescale as the homepage —
+        // match = (sim - floor) / (1 - floor), top unclamped, no ceiling.
+        //
+        // MEASURED against the `capital` book (5243 embedded nodes), 2026-09-21
+        // — the anchors to re-check if either number is ever moved:
+        //   "recipes for sourdough bread"            → 0 results (min_similarity
+        //                                              refuses the whole book)
+        //   "why capitalism keeps breaking down"     → 9-16%  (sim 0.68-0.71)
+        //   "crisis of overproduction"               → 33-44% (sim 0.76-0.81)
+        //   "the tendency of the rate of profit…"    → 53-55% (sim 0.84)
+        //   a sentence quoted VERBATIM from the book → 49%    (sim 0.82)
+        //
+        // That last one is not a bug and must not be "fixed" by rescaling: a
+        // node is a whole PARAGRAPH, so a one-sentence query is only ever
+        // partially similar to the paragraph containing it. In-book scores
+        // therefore top out near 55% in practice, where the homepage's
+        // verbatim case reaches ~97% (there the query is the whole node). The
+        // scale still separates cleanly across that narrower range, which is
+        // what matters; as in PassageSearcher, the ORDERING does the real work.
+        'semantic_in_book_min_similarity' => (float) env('SEMANTIC_IN_BOOK_MIN_SIMILARITY', 0.55),
+        'semantic_in_book_match_floor' => (float) env('SEMANTIC_IN_BOOK_MATCH_FLOOR', 0.65),
+
         // BYO-key inference tickets — ClientTicketTransport defaults (callers may
         // pass explicit values). Tests shrink these to avoid real waits.
         'ticket_ttl_seconds'  => (int) env('LLM_TICKET_TTL', 300),

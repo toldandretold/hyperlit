@@ -158,6 +158,13 @@ export function setupButtonListeners(host: ContainerHost): void {
   document.getElementById('createNewBook')?.addEventListener('click', host.createBookHandler);
   document.getElementById('importBook')?.addEventListener('click', host.importBookHandler);
 
+  // Record WHICH element each handler landed on. These two buttons live INSIDE
+  // the panel, so the base ContainerManager.rebindElements() knows nothing
+  // about them — without this, a handler left on a detached node after an SPA
+  // body swap is undetectable (see NewBookContainerManager.rebindElements).
+  host.trackBinding?.('createNewBook');
+  host.trackBinding?.('importBook');
+
   wireEncryptInfoToggle(host);
 }
 

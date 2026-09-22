@@ -35,4 +35,81 @@ mark.search-highlight.current {
   color: #000;
 }
 
+/*
+  =====================================================================
+  SEMANTIC MATCHES (in-text search, "meaning" mode)
+  =====================================================================
+
+  A semantic hit is a WHOLE NODE — the server ranks paragraphs by cosine
+  distance, so there is no substring to wrap in a <mark>. These rules tint the
+  node element itself, which is also why applySemanticNodeHighlight sets a class
+  instead of calling applySearchHighlight: no range.extractContents(), no live
+  text-node surgery, nothing for the divEditor MutationObserver to ingest.
+
+  Blue rather than the exact-match yellow, deliberately: "related in meaning" is
+  a different claim from "contains your words" and should not look the same.
+*/
+
+.semantic-match {
+  background-color: rgba(70, 130, 220, 0.14);
+  border-radius: 3px;
+  /* Only while searching — never leave content nodes in a positioned state. */
+  transition: background-color 0.15s ease;
+}
+
+body.search-mode .semantic-match {
+  position: relative;
+}
+
+.semantic-match.current {
+  background-color: rgba(70, 130, 220, 0.34);
+}
+
+/*
+  Badge carrying the match %, sitting in the paragraph gap just above the node's
+  top-right corner.
+
+  NOT in the left margin, though that is the obvious place for it: both
+  `.main-content` and `.reader-content-wrapper` are `overflow-x: hidden`, so
+  anything positioned outside the node's own width is CLIPPED at every viewport
+  size — and at phone width the reader's left margin is only ~40px anyway.
+  Staying within the node's box keeps it visible everywhere; sitting above the
+  text keeps it off the first line, and since it is absolutely positioned it
+  never reflows a word of prose.
+*/
+body.search-mode .semantic-match::before {
+  content: attr(data-semantic-match) "%";
+  position: absolute;
+  top: -1.15em;
+  right: 0.15em;
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(70, 130, 220, 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+body.search-mode .semantic-match.current::before {
+  color: rgba(40, 100, 200, 1);
+}
+
+[data-theme="dark"] .semantic-match {
+  background-color: rgba(110, 170, 255, 0.16);
+}
+
+[data-theme="dark"] .semantic-match.current {
+  background-color: rgba(110, 170, 255, 0.36);
+}
+
+[data-theme="dark"] body.search-mode .semantic-match::before {
+  color: rgba(130, 180, 255, 0.8);
+}
+
+[data-theme="dark"] body.search-mode .semantic-match.current::before {
+  color: rgba(160, 205, 255, 1);
+}
+
 /* end search highlight styles */

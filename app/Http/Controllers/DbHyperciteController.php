@@ -8,6 +8,7 @@ use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Http\Responses\ApiResponse;
 use App\Services\Connections\ConnectionRefresher;
+use App\Services\Notifications\NotificationWriter;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -395,6 +396,29 @@ class DbHyperciteController extends Controller
                         ],
                         $values
                     );
+
+                    // PAIRING notification: fire for each NEW citedIN entry
+                    // (single→couple and every couple→poly addition), never
+                    // for a bare create with empty citedIN — a `single` is
+                    // invisible to the book owner by design (gate filter), so
+                    // creation must stay silent. Deferred + dedup'd, so an
+                    // offline-flush replay of the same payload is a no-op.
+                    // NOTE: checkHypercitePermission means only the cite's
+                    // creator lands this update, so the cross-user case is
+                    // "B minted a cite on A's book, then pasted it into B's
+                    // book" — A (the book owner) is the recipient.
+                    if ($bookId && !empty($item['hyperciteId'])) {
+                        $oldRefs = $existingRecord ? ($existingRecord->citedIN ?? []) : [];
+                        $newRefs = array_values(array_diff($item['citedIN'] ?? [], $oldRefs));
+                        NotificationWriter::hypercitePaired(
+                            $user?->name,
+                            $bookId,
+                            $item['hyperciteId'],
+                            $newRefs,
+                            $creator,
+                            $item['hypercitedText'] ?? null
+                        );
+                    }
 
                     $processedCount++;
                     if ($bookId) {

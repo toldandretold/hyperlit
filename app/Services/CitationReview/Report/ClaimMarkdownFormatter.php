@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\SourceWorkMismatch;
 use App\Services\CitationReview\Support\ShortFormReference;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\CitationReview\Support\SourceUrlResolver;
@@ -95,10 +96,20 @@ final class ClaimMarkdownFormatter
             $md .= "**Reasoning:** {$verdict['reasoning']}\n";
         }
 
+        // An EXPANDED multi-work citation renders one block per cited work, so the reader sees
+        // the same claim once per work — say which work this block is, neutrally.
+        $expanded = !empty($claim['cited_work_total']) && (int) $claim['cited_work_total'] > 1;
+        if ($expanded) {
+            $md .= "\u{2139}\u{FE0F} Work {$claim['cited_work_position']} of {$claim['cited_work_total']} "
+                 . "cited in this " . (($claim['citation_row'] ?? null) === 'footnote' ? 'footnote' : 'entry')
+                 . " — each cited work is checked against the claim separately.\n";
+        }
+
         // A not-found multi-work entry otherwise reads as ONE work of the
         // primary's type — list every cited work so the reader knows what to
         // chase (the group banner only describes the primary's type).
-        if (empty($claim['source_book_id']) && ($worksSummary = SourceTypeClassifier::worksSummary($claim))) {
+        // Not on expanded rows: every cited work already has its own block.
+        if (!$expanded && empty($claim['source_book_id']) && ($worksSummary = SourceTypeClassifier::worksSummary($claim))) {
             $md .= "\u{2139}\u{FE0F} {$worksSummary}\n";
         }
         // Extraction split-miss: the raw text looks multi-work but the parsed
@@ -115,12 +126,14 @@ final class ClaimMarkdownFormatter
         // ReportBuilder partition) so it never fires for a matched-but-thin claim.
         // Sub-citation-aware: a multi-work footnote whose PRIMARY is (say) a report
         // still flags when a journal article it also cites is unfound — that work
-        // is named, since the surrounding block describes the primary.
+        // is named, since the surrounding block describes the primary. On an
+        // EXPANDED row the sub-aware reach is off: the other works carry their own
+        // rows and their own flags.
         if (empty($claim['source_book_id']) && SourceTypeClassifier::shouldBeIndexed($claim)) {
             if (SourceTypeClassifier::type($claim) === 'journal-article') {
                 $md .= "🚩 **Flag:** Formatted as a journal article but absent from every academic database — "
                      . "treat as a possible fabricated or miscited reference (higher scrutiny than a missing book).\n";
-            } else {
+            } elseif (!$expanded) {
                 $named = implode('”; “', SourceTypeClassifier::journalArticleTitles($claim));
                 $md .= "🚩 **Flag:** This entry also cites a journal article (“{$named}”) absent from every academic "
                      . "database — treat as a possible fabricated or miscited reference.\n";
@@ -155,6 +168,117 @@ final class ClaimMarkdownFormatter
 
         $md .= "\n---\n\n";
         return $md;
+    }
+
+    /**
+     * A BROKEN SOURCE entry: a diagnosis of the citation, never a claim verification.
+     *
+     * The old rendering reused the normal claim block, so the reader saw "Source: … Verdict:
+     * Likely" for a work the citation does not cite — and could not even tell whether "Source"
+     * meant the citation or our match. This lays out the components: the citation as printed,
+     * the work it describes, the identifier and what that identifier ACTUALLY resolves to, how
+     * far apart the two are, and what to do about it. No verdict appears, because none is issued
+     * (the pipeline's broken-source gate) and any legacy one is deliberately not shown.
+     *
+     * @param  list<array<string, mixed>>  $claims  every claim on this citation (same referenceId)
+     */
+    public function formatBrokenSourceMd(array $claims): string
+    {
+        $claim = $claims[0];
+        $mismatch = SourceWorkMismatch::forClaim($claim) ?? [];
+        $meta = is_array($claim['llm_metadata'] ?? null) ? $claim['llm_metadata'] : [];
+
+        $citedTitle = $mismatch['cited_title'] ?? ($meta['title'] ?? '(untitled)');
+        $citedYear  = $mismatch['cited_year'] ?? ($meta['year'] ?? null);
+        $citedAuthors = is_array($meta['authors'] ?? null) ? implode('; ', $meta['authors']) : ($meta['authors'] ?? null);
+
+        $md = "### \u{201C}{$citedTitle}\u{201D}"
+            . ($citedAuthors ? " — {$citedAuthors}" : '')
+            . ($citedYear ? " ({$citedYear})" : '') . "\n\n";
+
+        // 1. The citation exactly as it appears in the text — the ground truth everything below
+        // is measured against.
+        if (!empty($claim['bib_citation'])) {
+            $bibPlain = html_entity_decode(strip_tags($claim['bib_citation']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $md .= "**Citation as printed:**\n> {$bibPlain}\n\n";
+        }
+
+        // 2. The identifier: what the citation prints, and what our record carries.
+        $printedDoi = $meta['doi'] ?? null;
+        $printedUrl = $meta['url'] ?? null;
+        if ($printedDoi || $printedUrl) {
+            $bits = array_filter([
+                $printedDoi ? "DOI [`{$printedDoi}`](https://doi.org/{$printedDoi})" : null,
+                $printedUrl ? "URL {$printedUrl}" : null,
+            ]);
+            $md .= '**Identifier printed in the citation:** ' . implode(' · ', $bits) . "\n";
+        } else {
+            $md .= "**Identifier printed in the citation:** none — no DOI or URL appears in the citation text.\n";
+        }
+
+        $recordDoi = $claim['source_doi'] ?? null;
+        $recordBits = array_filter([
+            !empty($claim['source_title']) ? "\u{201C}{$claim['source_title']}\u{201D}" : null,
+            $claim['source_author'] ?? null,
+            !empty($claim['source_year']) ? "({$claim['source_year']})" : null,
+            $recordDoi ? "— DOI [`{$recordDoi}`](https://doi.org/{$recordDoi})" : null,
+        ]);
+        $md .= '**Record this citation resolved to:** ' . implode(' ', $recordBits) . "\n";
+
+        if (isset($mismatch['overlap'])) {
+            $pct = (int) round($mismatch['overlap'] * 100);
+            $md .= "**Title agreement:** {$pct}% — the record's title shares "
+                . ($pct === 0 ? 'no words' : 'almost no words') . " with the cited title.\n";
+        }
+        $md .= "\n";
+
+        // 3. The diagnosis, by cause.
+        $md .= '**What is broken:** ' . match ($mismatch['cause'] ?? null) {
+            SourceWorkMismatch::CAUSE_IDENTIFIER =>
+                'The identifier resolves to the record above, which is a different work than the '
+                . 'citation describes. Either the identifier is wrong in the source document, or the '
+                . "work's printed details are — both are findings about the citation.",
+            SourceWorkMismatch::CAUSE_MULTI_WORK =>
+                'This citation names ' . ($mismatch['total_works'] ?? '?') . ' works, and the record above '
+                . 'belongs to the ' . self::ordinal((int) ($mismatch['matched_work_position'] ?? 0))
+                . " of them — not to \u{201C}{$citedTitle}\u{201D}. This report predates per-work checking; "
+                . 're-run the review to have every cited work resolved and checked individually.',
+            default =>
+                'No identifier is printed, and the closest database match'
+                . (!empty($claim['match_method']) ? " (via {$claim['match_method']}"
+                    . (isset($claim['match_score']) ? ", score {$claim['match_score']}" : '') . ')' : '')
+                . ' is the record above — which does not match the citation. The cited work may exist '
+                . 'unindexed, or the printed details may be wrong.',
+        } . "\n\n";
+
+        // 3b. The component probe: does the CITED title exist anywhere? Only present on runs
+        // where the broken-source gate ran (it searches OpenAlex at review time) — a legacy
+        // rebuild simply has no line, never a guessed one.
+        $probe = $claim['broken_probe'] ?? null;
+        if (is_array($probe)) {
+            if (!empty($probe['none']) || !isset($probe['best_title'])) {
+                $md .= "**Does the cited title exist in a database?** No OpenAlex result resembles "
+                    . "\u{201C}{$probe['queried']}\u{201D} — the cited work may be unindexed, or its details "
+                    . "may be wrong.\n\n";
+            } else {
+                $pct = (int) round(($probe['similarity'] ?? 0) * 100);
+                $year = !empty($probe['best_year']) ? " ({$probe['best_year']})" : '';
+                $md .= "**Does the cited title exist in a database?** Closest OpenAlex match: "
+                    . "\u{201C}{$probe['best_title']}\u{201D}{$year}, title similarity {$pct}% — "
+                    . ($pct >= 60
+                        ? 'the cited work likely exists; the citation\'s identifier just points elsewhere.'
+                        : 'nothing close; the cited work may be unindexed, or its details may be wrong.')
+                    . "\n\n";
+            }
+        }
+
+        // 4. Impact — stated without a verdict, because there is none to state.
+        $n = count($claims);
+        $md .= '**Impact:** ' . ($n === 1 ? '1 claim in the text cites' : "{$n} claims in the text cite")
+            . ' this work. No verdict is issued — a claim cannot be verified against a record that is '
+            . "not the cited work. Correct the citation or its identifier and re-run the review.\n";
+
+        return $md . "\n---\n\n";
     }
 
     public function buildSourceMd(array $claim): ?string
@@ -304,6 +428,35 @@ final class ClaimMarkdownFormatter
             $lines[] = $line;
         }
 
+        // WHY the source is the wrong work decides what the reader does about it, so the line
+        // names the cause. Telling someone to check a DOI that is perfectly correct — the
+        // multi-work case, 8 of phase2's 11 — sends them to inspect something that is fine.
+        $mismatch = SourceWorkMismatch::forClaim($claim);
+        if (is_array($mismatch)) {
+            $citedYear = !empty($mismatch['cited_year']) ? " ({$mismatch['cited_year']})" : '';
+            $gotYear   = !empty($mismatch['matched_year']) ? " ({$mismatch['matched_year']})" : '';
+            $head = "\u{1F6A9} **The source below is not the work this claim is about.** Cited: \u{201C}"
+                . ($mismatch['cited_title'] ?? '?') . "\u{201D}{$citedYear}; verified against \u{201C}"
+                . ($mismatch['matched_title'] ?? '?') . "\u{201D}{$gotYear}.";
+            $lines[] = $head . ' ' . match ($mismatch['cause'] ?? null) {
+                // Legacy runs only — current reviews check every cited work on its own row
+                // (expandMultiWorkClaims), so this shape cannot be produced anymore. The wording
+                // stays factual about the CITATION and the VERDICT, never about our matching.
+                SourceWorkMismatch::CAUSE_MULTI_WORK =>
+                    'This citation names ' . ($mismatch['total_works'] ?? '?') . ' works, and the source above '
+                    . 'is the ' . self::ordinal((int) ($mismatch['matched_work_position'] ?? 0)) . ' of them — '
+                    . 'its identifier is correct for that work. The verdict below applies to that work only. '
+                    . 'This report predates per-work checking; re-run the review to have every cited work '
+                    . 'verified individually.',
+                SourceWorkMismatch::CAUSE_IDENTIFIER =>
+                    'The identifier printed in this citation names the other work. Check the DOI by hand — it '
+                    . 'may be mistyped in the source, or mis-extracted by us from a neighbouring reference.',
+                default =>
+                    'The match was made on title similarity and reached the wrong work. Treat the verdict as void.',
+            };
+            $lines[] = 'Whatever the verdict below says, it was reached against that other work.';
+        }
+
         if (!is_array($llmMeta)) {
             return empty($lines) ? '' : implode("\n", $lines) . "\n";
         }
@@ -329,19 +482,17 @@ final class ClaimMarkdownFormatter
         }
 
         if ($agreeIdx !== null && $agreeIdx > 0) {
-            $matched = $this->describeWork($works[$agreeIdx]);
-            $unchecked = [];
-            foreach ($works as $i => $work) {
-                if ($i !== $agreeIdx) {
-                    $unchecked[] = $this->describeWork($work);
-                }
-            }
-            $nth = ($agreeIdx + 1) . (['th', 'st', 'nd', 'rd'][($agreeIdx + 1) % 10] ?? 'th');
-            $lines[] = "\u{2139}\u{FE0F} This entry cites " . count($works) . " works; the matched source is the "
-                . "{$nth} — {$matched}. The claim was checked against the matched work only; not independently "
-                . 'verified: ' . implode('; ', $unchecked) . '.';
+            // The source is one of the entry's OTHER cited works. This used to render as an
+            // apology ("the matched source is the 2nd — not independently verified: …"), which
+            // is us telling the reader we checked the wrong thing. New runs never produce this
+            // shape — expandMultiWorkClaims gives every cited work its own row — and for legacy
+            // runs the Wrong Source Matched section already states it with its cause. Emitting
+            // nothing here only suppresses the PHANTOM mismatch warnings against the primary.
         } else {
-            array_push($lines, ...$this->workMismatchLines($llmMeta, $claim));
+            // The generic "Title differs" line is suppressed when the DOI flag above already
+            // said it, and said it with the cause attached — two warnings about one divergence
+            // read as two problems.
+            array_push($lines, ...$this->workMismatchLines($llmMeta, $claim, skipTitle: is_array($mismatch)));
         }
 
         // URL flags — potential fabrication indicator
@@ -382,7 +533,19 @@ final class ClaimMarkdownFormatter
      * matched source. Verbatim the pre-multi-work checks — the single-work path
      * must stay byte-identical (golden snapshots).
      */
-    private function workMismatchLines(array $work, array $claim): array
+    /** 1 -> "1st", 2 -> "2nd", 11 -> "11th". */
+    private static function ordinal(int $n): string
+    {
+        if ($n <= 0) {
+            return '?';
+        }
+        $suffix = ($n % 100 >= 11 && $n % 100 <= 13) ? 'th'
+            : (['th', 'st', 'nd', 'rd'][$n % 10] ?? 'th');
+
+        return $n . $suffix;
+    }
+
+    private function workMismatchLines(array $work, array $claim, bool $skipTitle = false): array
     {
         $lines = [];
 
@@ -403,7 +566,7 @@ final class ClaimMarkdownFormatter
 
         $llmTitle    = $work['title'] ?? null;
         $sourceTitle = $claim['source_title'] ?? null;
-        if ($llmTitle && $sourceTitle) {
+        if (!$skipTitle && $llmTitle && $sourceTitle) {
             $sim = $this->titles->similarity($llmTitle, $sourceTitle);
             if ($sim < 0.7) {
                 $lines[] = "\u{26A0} Title differs: bibliography has \"{$llmTitle}\" but matched source is \"{$sourceTitle}\"";

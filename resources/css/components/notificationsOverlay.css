@@ -1,0 +1,244 @@
+/* ---------- Notifications overlay (any-page engagement feed) ----------
+   Opened from the userButton flyout's "Notifications" row
+   (components/notificationsOverlay/notificationsOverlay.ts). Same shell
+   recipe as the Stats overlay (statsOverlay.css): fixed dimmed backdrop,
+   centered panel, header with a round close button, scrolling body. Imported
+   by the four page bundles alongside statsOverlay.css.
+
+   Also home of .notif-dot — the pink unread badge JS-injects onto #userButton
+   (Account, in the flyout) and #notificationsBtn (profile menu row). Both
+   hosts only exist INSIDE menus by design: no unread indicator ever rides the
+   always-visible logo nav. */
+
+#notifications-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#notifications-overlay .notifications-panel {
+  width: min(560px, calc(100vw - 32px));
+  /* FIXED height, matching the Stats panel: a box that resizes as pages of
+     rows load in would jump under the cursor. Part-empty is the better trade. */
+  height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background, #1a1a1a);
+  color: var(--color-text, #eee);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#notifications-overlay .notifications-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+#notifications-overlay .notifications-panel-title {
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+#notifications-overlay .notifications-panel-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#notifications-overlay .notifications-panel-close:hover {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+/* min-height: 0 is required, not decorative — see statsOverlay.css. */
+#notifications-overlay .notifications-panel-body {
+  padding: 8px 10px 14px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#notifications-overlay .notifications-panel-empty {
+  opacity: 0.7;
+  text-align: center;
+  padding: 24px 12px;
+}
+
+/* One row per notification — the whole row is an anchor into the highlight /
+   citation / book, so it must not look like a link blob. */
+#notifications-overlay .notif-row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px 10px 16px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.92em;
+}
+
+/* ── Per-type verb styling, so the KIND of engagement reads at a glance ── */
+
+/* Like: the aqua heart #like-book wears in its pressed state, to the left. */
+#notifications-overlay .notif-like-heart {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  align-self: center;
+  fill: var(--hyperlit-aqua, #4eacae);
+  stroke: var(--hyperlit-aqua, #4eacae);
+}
+
+/* Hyperlight: the verb wears a highlight mark, like a hyperlight itself
+   (pink, matching base/marks.css resting intensity). */
+#notifications-overlay .notif-verb-highlight {
+  background-color: rgba(238, 74, 149, 0.28);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* Hypercite: the verb is underlined in the couple/poly rainbow gradient
+   (base/hypercites.css u.couple/u.poly). */
+#notifications-overlay .notif-verb-cite {
+  text-decoration: none;
+  background-image: linear-gradient(to right,
+      rgba(238, 74, 149, 0.9),
+      rgba(239, 141, 52, 0.9),
+      rgba(78, 172, 174, 0.9),
+      rgba(238, 74, 149, 0.9));
+  background-position: 0 1.02em;
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+  padding-bottom: 2px;
+}
+
+#notifications-overlay .notif-row:hover {
+  background: rgba(128, 128, 128, 0.12);
+}
+
+/* Unread = pink left rule (kept for this open; dots clear immediately). */
+#notifications-overlay .notif-row.notif-unread::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-primary, #ee4a95);
+}
+
+#notifications-overlay .notif-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#notifications-overlay .notif-row-snippet {
+  opacity: 0.6;
+  font-size: 0.88em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#notifications-overlay .notif-row-time {
+  flex-shrink: 0;
+  opacity: 0.55;
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+/* Paging footer — same vocabulary as the Stats panel's. */
+#notifications-overlay .notif-load-more-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+#notifications-overlay .notif-load-more {
+  background: var(--container-solid-bg);
+  border: 1px solid var(--resize-edge-tint);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text);
+  padding: 5px 14px;
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+#notifications-overlay .notif-load-more:hover {
+  background: rgba(128, 128, 128, 0.18);
+}
+
+#notifications-overlay .notif-load-more-count {
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+
+/* ---------- Unread dot ----------
+   JS-wraps the button's icon svg in .notif-dot-anchor and puts the dot inside
+   it, so the dot always sits top-right of the SILHOUETTE/BELL itself — the
+   Account button is icon+label in the flyout but icon-only elsewhere, and a
+   button-corner dot drifts off the icon in one of the two. Sized ~half the
+   silhouette's head (icon is 18–20px; head ≈ 8px → 5px dot). menuRow.css
+   forbids per-row hover/colour overrides; a positioned child is fine. */
+.notif-dot-anchor {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+/* The dot is ALWAYS in the DOM and only fades in/out. It is never added or
+   removed at runtime: these buttons live inside flyouts that animate open over
+   0.3s, and a DOM insertion landing mid-animation (the unread count arrives on
+   a network round trip, so it lands whenever it lands) reflowed every row
+   beneath it — rows shifting under the user's cursor. Absolute positioning
+   keeps it out of flow; opacity keeps the reveal free of layout. */
+.notif-dot {
+  position: absolute;
+  /* Just off the top-right of the silhouette head — a hair of gap, not
+     floated off the icon corner and not touching the head. */
+  top: -1px;
+  right: 1px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-primary, #ee4a95);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+}
+
+.notif-dot-anchor.has-unread .notif-dot {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-dot { transition: none; }
+}

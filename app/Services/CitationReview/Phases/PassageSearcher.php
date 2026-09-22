@@ -93,6 +93,11 @@ final class PassageSearcher
         $deferred = []; // claimIdx => [bookId, searchText, raw fts rows]
 
         foreach ($claims as $idx => &$claim) {
+            // A broken source (the attached record is not the cited work) gets no analysis at
+            // all — searching the wrong book's text for the claim only manufactures evidence.
+            if (!empty($claim['broken_source'])) {
+                continue;
+            }
             if (!$claim['has_source_content'] || !$claim['source_book_id']) {
                 continue;
             }
@@ -286,17 +291,25 @@ final class PassageSearcher
      */
     private function semanticSearchByVector($db, string $bookId, array $vector): array
     {
-        $vectorStr = '[' . implode(',', $vector) . ']';
-
-        $rows = $db->select(
-            "SELECT node_id, \"plainText\", content,
-                    1 - (embedding <=> ?::halfvec) AS rank
-             FROM nodes
-             WHERE book = ? AND embedding IS NOT NULL
-             ORDER BY embedding <=> ?::halfvec
-             LIMIT 3",
-            [$vectorStr, $bookId, $vectorStr]
+        // SQL from SearchService — the single definition of "rank one book's
+        // nodes by meaning", shared with the reader's in-book search so the two
+        // can't drift. Execution stays here: this runs on the review's own
+        // pgsql_admin connection with no transaction, where the reader's
+        // user-facing path adds the iterative-scan belt.
+        [$sql, $params] = SearchService::buildBookScopedSemanticQuery(
+            $bookId,
+            $vector,
+            3,
+            withContent: true,
         );
+
+        $rows = $db->select($sql, $params);
+
+        // The builder returns raw cosine distance; the ladder's rows are
+        // rank-shaped (ftsQuery returns ts_rank), so convert to similarity.
+        foreach ($rows as $row) {
+            $row->rank = 1 - (float) $row->distance;
+        }
 
         return array_values(array_filter(
             $rows,

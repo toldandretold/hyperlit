@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 /**
@@ -41,6 +42,17 @@ class CreateNewUser implements CreatesNewUsers
                 'unique:pgsql_admin.users,name',
                 'alpha_dash',
                 'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/',
+                // Same two blocklists as AuthController::register (the SPA path).
+                // This no-JS fallback must not be a way around either: a route
+                // name (reserved-routes) is shadowed and unreachable; an identity
+                // name (reserved-usernames) can impersonate. The username squat
+                // this exists to stop could otherwise just move to /register.
+                Rule::notIn(config('reserved-routes')),
+                function ($attribute, $value, $fail) {
+                    if (in_array(strtolower((string) $value), config('reserved-usernames'), true)) {
+                        $fail('This username is reserved and cannot be used.');
+                    }
+                },
             ],
             'email' => [
                 'required',

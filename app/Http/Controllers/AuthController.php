@@ -39,6 +39,10 @@ class AuthController extends Controller
             'message' => 'Login successful',
             'anonymous_content' => $anonymousContent,
             'email_verified' => Auth::user()->email_verified_at !== null,
+            // The publish gate is grandfathered by account age (config/publishing.php):
+            // the client uses this to decide whether to show the verify-email prompt
+            // before a publish. NOT a security boundary — the server clamps regardless.
+            'created_at' => optional(Auth::user()->created_at)->toIso8601String(),
         ]);
     }
 
@@ -58,6 +62,15 @@ class AuthController extends Controller
                 // book slugs use — config/reserved-routes.php, gated by
                 // tests/Feature/Routing/ReservedRoutesTest.
                 Rule::notIn(config('reserved-routes')),
+                // Impersonation blocklist — SEPARATE list, different purpose
+                // (config/reserved-usernames.php). Compared case-insensitively
+                // because the regex above permits "Admin"/"ROOT", which a plain
+                // Rule::notIn (case-sensitive) would let through.
+                function ($attribute, $value, $fail) {
+                    if (in_array(strtolower((string) $value), config('reserved-usernames'), true)) {
+                        $fail('This username is reserved and cannot be used.');
+                    }
+                },
             ],
             'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email',
             'password' => 'required|string|min:8',

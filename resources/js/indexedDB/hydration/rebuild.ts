@@ -243,27 +243,38 @@ function buildHypercitesForNode(node: NodeRecord, allHypercites: HyperciteRecord
 }
 
 /**
- * Update nodes in IndexedDB with rebuilt arrays
+ * Update nodes in IndexedDB with rebuilt arrays.
+ *
+ * BATCHED, not one transaction: the user page's aggregate home book runs this
+ * over its whole library (~7.5k HTML-heavy records on a mature account), and a
+ * single readwrite transaction on `nodes` holds the store's lock for its whole
+ * lifetime — a reader entry navigating away mid-hydration then parks its
+ * readonly getAll BEHIND it (measured 16.6s at "Checking local cache… 10%",
+ * the grand-tour lap-3 freeze). ~100-put transactions with a macrotask yield
+ * between them let a concurrent reader interleave instead of queuing (same
+ * pattern as serverSync/loaders batchedWrite).
  */
 async function updateNodesInDB(db: IDBDatabase, nodes: NodeRecord[]): Promise<void> {
-  const tx = db.transaction('nodes', 'readwrite');
-  const store = tx.objectStore('nodes');
-
-  // Fire all put() calls without individual awaits, wait for tx.oncomplete
-  for (const node of nodes) {
-    store.put(node);
+  const batchSize = 100;
+  for (let i = 0; i < nodes.length; i += batchSize) {
+    const batch = nodes.slice(i, i + batchSize);
+    const tx = db.transaction('nodes', 'readwrite');
+    const store = tx.objectStore('nodes');
+    for (const node of batch) {
+      store.put(node);
+    }
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => {
+        log.error('Failed to update nodes in IndexedDB', '/indexedDB/hydration/rebuild.ts', tx.error);
+        reject(tx.error);
+      };
+    });
+    if (i + batchSize < nodes.length) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
   }
-
-  await new Promise<void>((resolve, reject) => {
-    tx.oncomplete = () => {
-      verbose.content(`NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`, 'indexedDB/hydration/rebuild');
-      resolve();
-    };
-    tx.onerror = () => {
-      log.error('Failed to update nodes in IndexedDB', '/indexedDB/hydration/rebuild.ts', tx.error);
-      reject(tx.error);
-    };
-  });
+  verbose.content(`NEW SYSTEM: Updated ${nodes.length} nodes in IndexedDB`, 'indexedDB/hydration/rebuild');
 }
 
 /**

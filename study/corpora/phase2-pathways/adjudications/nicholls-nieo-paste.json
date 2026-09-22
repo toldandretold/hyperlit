@@ -13,6 +13,71 @@
             "reference_exists": true,
             "adjudicated_at": "2026-09-19T22:30:57+00:00",
             "adjudicated_by": "encryptER"
+        },
+        "nicholls-nieo-paste/c18": {
+            "gt_id": "nicholls-nieo-paste/c18",
+            "referenceId": "amin1982",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": "claim_scoping",
+            "supported_scope": "whole_claim",
+            "note": "only has title which is expected as it is a closed access source. but maybe could have gotten abstract also from a repository like open alex, not sure. main thing that stands out to me is this: \"TRUTH CLAIM\nIt is for this purpose that Yanis Varoufakis (2023) has called on the PI to ask itself: \"Why did we lose last time round?\" Curiously, similar questions were asked by Samir Amin (1982) during the project's demise.\nCONTEXTUALISED\nThe PI should ask why it lost the previous time, a question that was also raised during the project's demise.\" the contextualised truth claim is bad. the claim is simply that similar questions were asked by amin, not that it had anything to do with PI, and the turth is amin simply analysed why the project failed.. that is what was similar...",
+            "found_url": null,
+            "reference_exists": null,
+            "adjudicated_at": "2026-09-20T23:11:04+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "nicholls-nieo-paste/c10": {
+            "gt_id": "nicholls-nieo-paste/c10",
+            "referenceId": "una1976",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": "citation_mislink",
+            "supported_scope": null,
+            "note": "completely wrong citation is used... source says: \"This strategic imaginary was a fundamental part the NIEO's founding declarations, which claimed that it would help both North and South alike (UN 1974a). It\" we ar saying it is: \"UNA. 1976. \"4. Financial Affairs Commission (3d Meeting: 3.30 PM), 14 February\". In Conference on International Economic Cooperation, Paris – July 1976-1978. Series 0913, Box 17, File 4.\" FUCKED! it is not UNA 1976.. .it is UN 1974a ... FML",
+            "found_url": null,
+            "reference_exists": null,
+            "adjudicated_at": "2026-09-20T23:20:23+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "nicholls-nieo-paste/c03": {
+            "gt_id": "nicholls-nieo-paste/c03",
+            "referenceId": "sauvant2014",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "fragment_only",
+            "note": null,
+            "found_url": null,
+            "reference_exists": null,
+            "adjudicated_at": "2026-09-20T23:24:56+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "nicholls-nieo-paste/c58": {
+            "gt_id": "nicholls-nieo-paste/c58",
+            "referenceId": "opec1975",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": "dead_link",
+            "supported_scope": null,
+            "note": "oh wait, url is actually to wrong place... actual pdf is in diff url now or was pasted wrong",
+            "found_url": null,
+            "reference_exists": null,
+            "adjudicated_at": "2026-09-21T10:08:16+00:00",
+            "adjudicated_by": "encryptER"
+        },
+        "nicholls-nieo-paste/c33": {
+            "gt_id": "nicholls-nieo-paste/c33",
+            "referenceId": "dietrich2017",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "claim_distortion",
+            "cause": "correct_flag",
+            "supported_scope": null,
+            "note": "Source says something related to the claim, but does not support the claim.",
+            "found_url": null,
+            "reference_exists": null,
+            "adjudicated_at": "2026-09-21T11:50:59+00:00",
+            "adjudicated_by": "encryptER"
         }
     }
 }

@@ -53,6 +53,69 @@ export class ContainerManager {
     this.rebindElements();
   }
 
+  /**
+   * Record that a listener has just been attached to the element currently
+   * answering to `id`. Paired with checkBindings(), this is what makes a
+   * "wired to a node that no longer exists" bug VISIBLE.
+   *
+   * The failure it exists for has no other symptom: a manager survives an SPA
+   * body swap, rebindElements() refreshes the outer elements, and the registry
+   * reports the component ACTIVE — while a listener still sits on the detached
+   * node from the previous page. Every presence check passes
+   * (`document.getElementById('importBook')` returns a perfectly good button),
+   * so nothing downstream can tell that clicking it does nothing.
+   *
+   * Call this from wherever a listener is bound, INCLUDING subclass wiring —
+   * an element that is bound but not tracked is invisible to the check.
+   */
+  trackBinding(id: any) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!this._boundElements) this._boundElements = new Map();
+    this._boundElements.set(id, el);
+  }
+
+  /**
+   * Every tracked binding whose element is no longer the live one.
+   *
+   * Three faults, deliberately named apart — the first is the one this exists
+   * for, and the only one that is otherwise undetectable:
+   *
+   *  - `detached-but-present` — our bound node is out of the document AND a
+   *      live element with that id is sitting there in its place. Presence
+   *      checks pass, the registry says ACTIVE, the button renders perfectly,
+   *      and clicking it does nothing. This is the SPA-body-swap bug.
+   *  - `detached` — bound node is gone and nothing answers to that id either.
+   *      Usually BENIGN and not worth reporting: the commonest cause is a
+   *      page-type change (no #importBook on a reader page). Callers should
+   *      treat this reason as informational, not a fault.
+   *  - `replaced` — bound node is still connected but is no longer the one
+   *      getElementById returns (duplicate ids / re-parenting).
+   *
+   * Returns [] when clean, so callers can treat a non-empty array as an issue.
+   */
+  checkBindings() {
+    if (!this._boundElements) return [];
+
+    // Not on this page at all → not in play, nothing to report. Container
+    // partials are per-blade (openbook-container is on reader/user/journal but
+    // NOT on home), so a dormant manager carrying bindings from the last page
+    // it WAS on is expected, not a fault. Without this the check cried wolf
+    // about openBookManager#user-overlay on every home landing.
+    if (!document.getElementById(this.containerId)) return [];
+
+    const stale: any[] = [];
+    for (const [id, el] of this._boundElements) {
+      const live = document.getElementById(id);
+      if (live === el) continue;
+      const reason = !el.isConnected
+        ? (live ? 'detached-but-present' : 'detached')
+        : 'replaced';
+      stale.push({ container: this.containerId, id, reason });
+    }
+    return stale;
+  }
+
   // =================================================================
   // THIS IS THE NEW METHOD, BUILT FROM YOUR ORIGINAL CONSTRUCTOR.
   // It finds the elements AND attaches the listeners. It can be called
@@ -61,6 +124,12 @@ export class ContainerManager {
   rebindElements() {
     // Reset any stale drag/resize state from before SPA navigation
     if ((window as any).containerDragger) (window as any).containerDragger.reset();
+
+    // NOTE: the binding record is deliberately NOT cleared here. Clearing it
+    // would erase exactly the evidence checkBindings() exists to find — a
+    // rebind that forgets to re-wire something leaves its OLD entry in place,
+    // which is the signal. Each trackBinding() overwrites its own id, so the
+    // elements this method does re-attach below refresh themselves.
 
     // Store old element references for cleanup
     const oldContainer = this.container;
@@ -127,6 +196,7 @@ export class ContainerManager {
       }; 
       
       this.container.addEventListener("click", this.containerClickHandler);
+      this.trackBinding(this.containerId);
     }
 
     // If the overlay exists, set up its click handler
@@ -203,6 +273,7 @@ export class ContainerManager {
       // Anchor the handler on the DOM element so any future instance can find and remove it
       this.overlay[handlerKey] = this.overlayClickHandler;
       this.overlay.addEventListener("click", this.overlayClickHandler);
+      this.trackBinding(this.overlayId);
     }
 
     // hyperlit-container: Escape = the overlay-click close (history-driven —
@@ -232,6 +303,7 @@ export class ContainerManager {
       };
 
       this.button.addEventListener("click", this.buttonClickHandler);
+      if (this.buttonId) this.trackBinding(this.buttonId);
     }
 
     // Reset container state after rebinding

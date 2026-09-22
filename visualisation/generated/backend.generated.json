@@ -10,6 +10,7 @@
         "PgHyperlight": "hyperlights",
         "PgLibrary": "library",
         "PgNode": "nodes",
+        "PgNotification": "notifications",
         "PgReference": "bibliography"
     },
     "nodes": [

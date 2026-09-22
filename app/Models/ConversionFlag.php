@@ -34,6 +34,18 @@ class ConversionFlag extends Model
     public const SOURCE_METADATA_DRIFT = 'metadata_drift';
 
     /**
+     * A human read what we EXTRACTED from a cited URL and judged it junk — empty, a fragment, or
+     * somebody else's page. Raised from the /maintainer/study workbench's Source pane.
+     *
+     * Deliberately NOT in `CONVERSION_SOURCES`, for the same reason metadata_drift isn't: there
+     * is nothing for the reconvert loop to replay. These books are web stubs whose text came from
+     * `WebTextAcquirer`, so re-running conversion over the same stored page reproduces the same
+     * extraction byte for byte. What the flag is FOR is evidence — which hosts, which grades, and
+     * which rung of the fetch ladder produce unusable text — read back by `citation:extraction-flags`.
+     */
+    public const SOURCE_STUDY_EXTRACTION = 'study_extraction';
+
+    /**
      * Sources that mean "this book's CONTENT is suspect", i.e. the ones the reconvert queue acts
      * on. An allow-list rather than an exclusion of `metadata_drift`, deliberately: the queue
      * used to select every open flag regardless of source, so adding any new flag kind silently

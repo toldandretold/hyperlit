@@ -4,6 +4,7 @@
  * Subclasses override format-specific stages while common stages are implemented here
  */
 
+import { verbose } from '../../utilities/logger';
 import { normalizeContent } from '../utils/normalizer';
 import { createTempDOM, removeEmptyBlocks, stripAttributes, groupInlineElements, visuallyStartsWith, unwrapNonContentContainers } from '../utils/dom-utils';
 import { generateReferenceKeys } from '../utils/reference-key-generator';
@@ -192,7 +193,7 @@ export class BaseFormatProcessor {
     });
 
     if (fixed > 0) {
-      console.log(`  - Repaired ${fixed} URL(s) containing typographic spaces`);
+      verbose.content(`  - Repaired ${fixed} URL(s) containing typographic spaces`, '/paste/format-processors/base-processor.ts');
     }
     return out;
   }
@@ -205,7 +206,7 @@ export class BaseFormatProcessor {
    * clip/off-screen style. An element the reader cannot see is not part of the document's text,
    * and carrying it forward corrupts URLs, prose and reference strings alike.
    */
-  stripVisuallyHidden(dom: any) {
+  stripVisuallyHidden(dom: Element | Document) {
     const CLASS_SEL = [
       '.off-screen', '.offscreen', '.sr-only', '.visually-hidden', '.visuallyhidden',
       '.screen-reader-text', '.screen-reader-only', '.a11y-hidden', '.accessibility-hidden',
@@ -221,7 +222,7 @@ export class BaseFormatProcessor {
     dom.querySelectorAll(CLASS_SEL).forEach((el: Element) => { el.remove(); removed++; });
 
     if (removed > 0) {
-      console.log(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`);
+      verbose.content(`  - Removed ${removed} visually-hidden element(s) (screen-reader-only text)`, '/paste/format-processors/base-processor.ts');
     }
   }
 

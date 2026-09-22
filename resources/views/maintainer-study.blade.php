@@ -82,11 +82,19 @@
             <div class="st-pane-toggle" role="tablist" aria-label="Source view">
                 <button type="button" id="st-view-pdf" role="tab" aria-selected="true">Original PDF</button>
                 <button type="button" id="st-view-hyperlit" role="tab" aria-selected="false">Hyperlit</button>
+                {{-- What WE extracted from the cited source, as stored. The verifier only ever
+                     sees a few passages of it, so this is where "did we scrape a nav rail?" is
+                     answered. Enabled only for a claim whose source actually resolved. --}}
+                <button type="button" id="st-view-source" role="tab" aria-selected="false">Extracted source</button>
             </div>
             <div class="st-pdf-search" id="st-pdf-search">
                 <input type="search" id="st-pdf-query" placeholder="Search the PDF…" />
                 <button type="button" id="st-pdf-go">Search</button>
             </div>
+            {{-- Judge the EXTRACTION, not the citation. Shown only in the Source view, because
+                 that is the only place you can see what we kept. Buttons are built in main.ts
+                 from StudyConsoleController::EXTRACTION_VERDICTS. --}}
+            <div class="st-extraction-flag" id="st-extraction-flag" hidden></div>
             <div id="st-pdf-hits" class="st-pdf-hits"></div>
             <iframe id="st-pdf-frame" title="Source document"></iframe>
         </aside>

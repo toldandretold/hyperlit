@@ -45,6 +45,18 @@ final class VerificationHighlighter
         $count = 0;
 
         foreach ($claims as $key => $claim) {
+            // A multi-work expansion clone shares its primary's text span and highlightId —
+            // one sentence, one highlight. Creating one per clone would stack N highlights on
+            // the same words (and duplicate the highlightId the report anchors on).
+            if (!empty($claim['expanded_work'])) {
+                continue;
+            }
+            // A broken source carries no verdict — a verdict highlight would present the wrong
+            // work's colours over the claim. The Broken Sources section is its surface.
+            if (!empty($claim['broken_source'])) {
+                continue;
+            }
+
             $verdict = $claim['llm_verdict'] ?? null;
 
             $nodeId      = $claim['node_id'];

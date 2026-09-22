@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ConversionFlag;
+use App\Services\CanonicalVersions\AutoVersionResolver;
 use App\Services\Conversion\ReconvertQueue;
 use Illuminate\Console\Command;
 
@@ -84,8 +85,15 @@ class ReconvertQueueCommand extends Command
             }
             $this->line(match ($entry['suggested']) {
                 // --book= is an OPTION on reconvert-system-version; a bare positional id is a
-                // hard "No arguments expected" error, so this line must never print one.
-                'reconvert' => "  reconvert:  php artisan library:reconvert-system-version --book={$bookId}",
+                // hard "No arguments expected" error, so this line must never print one. And the
+                // command REFUSES a non-system row outright ("not a system row") — which is every
+                // user_report case, the commonest kind in this queue, and every imported case book
+                // (book:import-cases re-owns those to a local admin). For those the reconvert is
+                // the console's ↻ button, so print that instead of a line that cannot work.
+                'reconvert' => ($entry['creator'] ?? null) === AutoVersionResolver::CREATOR
+                    ? "  reconvert:  php artisan library:reconvert-system-version --book={$bookId}"
+                    : '  reconvert:  press ↻ on the triage page above (owner-gated HTTP reconvert — '
+                      . "the CLI refuses a user-owned book, creator={$entry['creator']})",
                 're-fetch'  => '  re-fetch:   clear pdf_url_status + ocr cache, then reconvert (fetch ladder re-runs)',
                 // harvest:retract takes POSITIONAL book ids (unlike reconvert-system-version's
                 // --book=). Both spellings are printed for copy-paste, so both must be real.

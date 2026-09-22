@@ -276,40 +276,110 @@ def extract_pypdf_page_texts(pdf_path):
     return out
 
 
-# A GLUED superscript marker in pypdf text: "risk.9 This" — word + sentence punctuation with the
-# digit attached directly (no space; a spaced digit is ordinary prose, "by 9 percent"), then the
-# next word. Captures (word+punct seam, number, following word).
-_PYPDF_GLUED_MARKER_RE = re.compile(
-    r"([A-Za-z]{2,}[.,;:!?)\'\"’”])(\d{1,3})\s+([A-Za-z]{2,})")
+# A superscript marker as the PDF's text layer renders it: an anchor WORD, the punctuation
+# closing its sentence/clause, the digit, then the next word. The layer spaces the digit three
+# different ways depending on where the superscript fell in the printed line, so the shapes are
+# classified after matching rather than by three near-identical patterns.
+_PYPDF_MARKER_SEAM_RE = re.compile(
+    r"([A-Za-z]{2,})"                                 # anchor word
+    r"([.,;:!?)]?[ \t]*['\"‘’“”]?)"   # punctuation closing it ("world.", "completely. ’")
+    r"([ \t]*\n?[ \t]*)"                              # gap before the digit
+    r"(\d{1,3})"
+    r"([ \t]*\n?[ \t]*)"                              # gap after it
+    r"([A-Za-z]{2,})")                                # the following word
+
+_SENTENCE_END = re.compile(r"[.!?]")
 
 
-def resurrect_glued_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_label=''):
+def _marker_seams(pypdf_text):
+    """Yield (anchor_word, number, index_after_number, following_word) for every superscript-
+    shaped marker in a page's text layer.
+
+    THREE accepted shapes, and the reason there are three is that the layer's spacing records
+    where the superscript sat in the printed line, not what it means:
+      - GLUED, the original rule — "…mitigate risk.9 This" (deloitte p9).
+      - LINE-BROKEN — "…he adopts. 63\\nThis", "…literature.\\n66 As", "…itself.\\n68\\nIn". The
+        newline IS the signature: running prose does not break a line to isolate a number.
+      - SENTENCE-BOUNDARY — "…the Soviet Union. 88 While dialectical". Spaced on both sides, so
+        it needs the strictest test: the punctuation must END A SENTENCE and the next word must
+        be Capitalised. That is what separates it from the shape the original rule deliberately
+        excluded — a digit merely spaced inside a clause ("rose by 9 percent"), where nothing
+        ends and the follower is lowercase.
+
+    The anchor word is yielded rather than the literal seam because the OCR and the text layer
+    disagree constantly on the punctuation between them (quote glyph, spacing); the caller
+    rebuilds a tolerant pattern from word + follower.
+    """
+    for m in _PYPDF_MARKER_SEAM_RE.finditer(pypdf_text):
+        word, punct, before, num, after, follow = m.groups()
+        if not punct.strip():
+            continue                     # no clause/sentence close at all — this is just prose
+        glued = before == ''
+        broken = '\n' in (before + after)
+        sentence = bool(_SENTENCE_END.search(punct)) and re.match(r'[A-Z][a-z]', follow)
+        if not (glued or broken or sentence):
+            continue
+        yield word, int(num), m.end(4), follow
+
+
+def resurrect_dropped_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_label='',
+                                         def_texts=None):
     """Re-inject in-text markers Mistral dropped ENTIRELY, using the PDF text layer as witness.
 
     deloitte p9: printed "…mitigate risk.9 This ensures…" OCR'd as "…mitigate risk. This
     ensures…" — no digit at all, so no licensing rule can ever resurrect it from the OCR side.
-    But pypdf keeps the glued superscript ("risk.9 This"). For each def number the page's own
-    note area carries with NO marker in the OCR text: find pypdf's word-punct+N+word seam, then
-    find that exact seam (digit-less) in the OCR markdown — insert [^N] there. Gated hard: the
-    number must be glued in pypdf (superscript signature), must be one of THIS page's def
-    numbers, must not already appear as a marker, and the seam must match EXACTLY ONCE in the
-    OCR page — a wrong link is worse than a missing one, so any ambiguity skips.
+    But pypdf keeps the superscript. For each def number the page's own note area carries with
+    NO marker in the OCR text: find pypdf's word-punct+N+word seam, then find that exact seam
+    (digit-less) in the OCR markdown — insert [^N] there. Gated hard: the number must carry the
+    superscript signature in pypdf, must be one of THIS page's def numbers, must not already
+    appear as a marker, and the seam must match EXACTLY ONCE in the OCR page — a wrong link is
+    worse than a missing one, so any ambiguity skips.
+
+    TWO seam shapes, because a page can lose its whole apparatus. On the Anand article the OCR
+    emitted pages 7 and 9 of the PDF with no markers AND no note block at all, and the only
+    ones the glued shape could reclaim were the two where the layer happened not to break the
+    line — which matters far more than 2 markers, because a page_bottom page's definitions are
+    recovered through the local→global map built from its markers (assembly.py), so a page with
+    no markers cannot receive its definitions either. Accepting the line-broken shape took those
+    two pages from 5 markers to 19 and let 19 definitions follow.
+
+    `def_texts` (optional {num: [text, …]}): the page's definition BODIES. Used to reject a
+    candidate whose digit is the note's own printed number at the head of its definition —
+    "…of Kerala.\n63 P Kesavadev, Odayil Ninnu" is the note block, not a marker in the body.
+    Without it the line-broken shape can plant a marker inside the note area.
 
     Returns (updated_md, resurrected_count).
     """
     existing = set(int(n) for n in re.findall(r'\[\^?(\d{1,3})\]', ocr_md))
+    def_texts = def_texts or {}
     count = 0
-    for m in _PYPDF_GLUED_MARKER_RE.finditer(pypdf_text):
-        num = int(m.group(2))
+
+    def _is_definition_head(num, at):
+        """True when the text right after the digit IS that note's definition."""
+        after = _comparable(pypdf_text[at:at + 40])
+        for t in def_texts.get(num, ()):
+            head = _comparable(t)[:30]
+            if head and after.startswith(head):
+                return True
+        return False
+
+    for word, num, after_num, follow in _marker_seams(pypdf_text):
         if num not in def_nums or num in existing:
             continue
-        seam, follow = m.group(1), m.group(3)
-        pattern = re.escape(seam) + r'\s+' + re.escape(follow)
+        if _is_definition_head(num, after_num):
+            continue
+        # Anchor on the two WORDS and tolerate whatever punctuation sits between them: the OCR
+        # and the text layer routinely render the same closing quote differently ("world.’70"
+        # vs "world.'"), and an exact-seam match would simply never fire on those.
+        pattern = re.escape(word) + r"[.,;:!?)\s'\"‘’“”]{1,5}" + re.escape(follow)
         hits = list(re.finditer(pattern, ocr_md))
         if len(hits) != 1:
             continue                     # absent (OCR reworded) or ambiguous — skip, never guess
-        h = hits[0]
-        ocr_md = ocr_md[:h.start() + len(seam)] + f'[^{num}]' + ocr_md[h.start() + len(seam):]
+        # The marker belongs at the END of the punctuation run, not before it: "world.'[^70] Thus".
+        at = hits[0].end() - len(follow)
+        while at > hits[0].start() and ocr_md[at - 1].isspace():
+            at -= 1
+        ocr_md = ocr_md[:at] + f'[^{num}]' + ocr_md[at:]
         existing.add(num)
         count += 1
     if count:

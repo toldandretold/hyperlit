@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationStudy;
 
+use App\Services\CitationReview\Support\SourceWorkMismatch;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -113,6 +114,7 @@ class WorkbenchData
         $adjudications = $this->adjudications->load($manifest, $book)['adjudications'];
         $anchorYears = $this->anchorYearsByReference($manifest->bookIdFor($slug));
         $entryYears = $this->entryYearsByReference($manifest->bookIdFor($slug));
+        $storedText = $this->storedSourceText($claims);
 
         $rows = [];
         $flagged = 0;
@@ -149,6 +151,16 @@ class WorkbenchData
                     // are wrong). Surfaced so the reviewer sees "printed 1964, record 2016" as a
                     // fact about the citation instead of a silently-resolved match.
                     'edition_mismatch' => $claim['match_diagnostics']['edition_mismatch'] ?? null,
+                    // Chapter-in-edited-volume accepted past a divergent year because the record's
+                    // container agrees with the printed volume title (see containerCorroborationTier).
+                    'container_corroborated' => $claim['match_diagnostics']['container_corroborated'] ?? null,
+                    // The source we verified against is NOT the work this claim is about, with
+                    // the cause (multi-work footnote / wrong identifier / title-search reach).
+                    // The verdict is void, not negative. DERIVED from the claim rather than read
+                    // from a stored flag, so it shows on every existing run without a re-scan —
+                    // by the same helper the report uses, because the console and the report
+                    // disagreeing about whether a citation is suspect is worse than neither.
+                    'work_mismatch' => SourceWorkMismatch::forClaim($claim),
                     'verification_tier' => $claim['verification_tier'] ?? null,
                     'evidence_type' => $claim['evidence_type'] ?? null,
                     'passages' => $claim['source_passages'] ?? [],
@@ -161,6 +173,12 @@ class WorkbenchData
                     'content_grade_note' => $claim['source_completeness_reason'] ?? null,
                     'web_status' => $claim['web_status'] ?? null,
                     'fetch_outcome' => $this->fetchOutcome($claim),
+                    // How much text our extraction actually KEPT from this source. The verifier
+                    // only ever sees a few passages, so without this a 400-char navigation rail
+                    // and a whole article look the same from here — and "the claim isn't
+                    // supported" reads as a verdict about the citation when it is a verdict
+                    // about our scraper. Null means we never looked (no source book).
+                    'stored' => $storedText[$claim['source_book_id'] ?? ''] ?? null,
                 ],
                 'source_material_sent' => $claim['source_material_sent'] ?? null,
                 'gt' => $gt === null ? null : [
@@ -182,6 +200,41 @@ class WorkbenchData
             'adjudicated' => count($adjudications),
         ];
         return $base;
+    }
+
+    /**
+     * How much text is stored for each resolved source, in ONE query.
+     *
+     * Per-claim lookups would be ~260 round trips on a full run, so the whole run's source books
+     * are collected first and counted in a single grouped query. A source that resolved but
+     * stored nothing comes back as zeros rather than absent — "we found the work and read none
+     * of it" is a finding, not missing data.
+     *
+     * @param  list<array<string, mixed>>  $claims
+     * @return array<string, array{nodes: int, chars: int}>
+     */
+    private function storedSourceText(array $claims): array
+    {
+        $books = array_values(array_unique(array_filter(
+            array_map(static fn ($c) => $c['source_book_id'] ?? null, $claims)
+        )));
+        if ($books === []) {
+            return [];
+        }
+        $out = array_fill_keys($books, ['nodes' => 0, 'chars' => 0]);
+        try {
+            $rows = DB::connection('pgsql_admin')->table('nodes')
+                ->whereIn('book', $books)
+                ->groupBy('book')
+                ->selectRaw('book, COUNT(*) AS n, COALESCE(SUM(LENGTH("plainText")), 0) AS c')
+                ->get();
+        } catch (\Throwable) {
+            return [];
+        }
+        foreach ($rows as $row) {
+            $out[$row->book] = ['nodes' => (int) $row->n, 'chars' => (int) $row->c];
+        }
+        return $out;
     }
 
     /**
