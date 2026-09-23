@@ -38,7 +38,10 @@ class ArchivePageController extends Controller
             ->where('visibility', 'public')
             ->value('id');
 
-        $readable = $shelfId ? $readableCount->for($archive->id, $shelfId) : 0;
+        // Viewer-independent public count (see ArchiveReadableCount::forPublic
+        // — the RLS-per-request twin on journals cost seconds per page view on
+        // prod; a visitor still only ever hears about public documents).
+        $readable = $shelfId ? $readableCount->forPublic($archive->id, $shelfId) : 0;
 
         // The blade renders about UNESCAPED (links belong in archive copy).
         // The write path already sanitizes; this covers rows saved before it did.

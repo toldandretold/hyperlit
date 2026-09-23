@@ -39,9 +39,13 @@ class JournalPageController extends Controller
         }
 
         // One definition of "readable", shared with the homepage's certified-journal
-        // list — see JournalReadableCount. Still the DEFAULT connection, so the
-        // count stays the caller's RLS view of `library`.
-        $readable = app(JournalReadableCount::class)->for($journal->id);
+        // list — see JournalReadableCount. The viewer-independent PUBLIC variant:
+        // harvested articles are public, and the per-viewer RLS form measured
+        // ~5.9s on prod for ONE journal (the computed-COALESCE join runs the
+        // library RLS policy across the whole scan; admin + explicit public
+        // gate is ~190ms). A visitor is still never told about articles they
+        // cannot open — the count only includes public, content-bearing rows.
+        $readable = app(JournalReadableCount::class)->forPublic($journal->id);
 
         $total = DB::table('canonical_source')
             ->where('journal_source_id', $journal->id)

@@ -47,9 +47,51 @@ class JournalReadableCount
             ->all();
     }
 
-    /** Readable count for one journal. */
+    /** Readable count for one journal, the caller's RLS view. */
     public function for(string $journalId): int
     {
         return $this->forJournals([$journalId])[$journalId] ?? 0;
+    }
+
+    /** Readable count for one journal, viewer-independent — see forJournalsPublic. */
+    public function forPublic(string $journalId): int
+    {
+        return $this->forJournalsPublic([$journalId])[$journalId] ?? 0;
+    }
+
+    /**
+     * Viewer-INDEPENDENT variant: pgsql_admin with an explicit public gate
+     * (the JournalHyperciteMap pattern — output independent of the caller is
+     * what makes caching it safe). For the homepage's certified list, whose
+     * result is cached and served to every visitor: computing it under the
+     * requester's RLS view would cache one caller's view for everyone. The
+     * per-viewer forJournals()/for() above stay for /j/{slug}, where the count
+     * must be the caller's own view.
+     *
+     * The RLS-free admin connection also sidesteps what made the per-viewer
+     * form cost ~4.8s on prod for the homepage (2026-09-23): the computed
+     * COALESCE join runs the library RLS policy per candidate row.
+     *
+     * @param  array<int, string>  $journalIds
+     * @return array<string, int>
+     */
+    public function forJournalsPublic(array $journalIds): array
+    {
+        if (empty($journalIds)) {
+            return [];
+        }
+
+        $bestVersion = BestVersionService::sqlCoalesceExpression('cs');
+
+        return DB::connection('pgsql_admin')->table('canonical_source as cs')
+            ->join('library as l', 'l.book', '=', DB::raw("({$bestVersion})"))
+            ->whereIn('cs.journal_source_id', $journalIds)
+            ->where('l.has_nodes', true)
+            ->where('l.visibility', 'public')
+            ->groupBy('cs.journal_source_id')
+            ->selectRaw('cs.journal_source_id, COUNT(*) as readable')
+            ->get()
+            ->mapWithKeys(fn ($row) => [(string) $row->journal_source_id => (int) $row->readable])
+            ->all();
     }
 }

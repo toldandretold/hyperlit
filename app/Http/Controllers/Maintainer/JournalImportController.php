@@ -300,6 +300,11 @@ class JournalImportController extends Controller
         $journal->certified_at = $certified ? now() : null;
         $journal->save();
 
+        // The homepage's certified list is cached (stale-while-revalidate);
+        // busting it here keeps the operator's toggle live on the next request
+        // — the liveness the list had back when it ran uncached.
+        \Illuminate\Support\Facades\Cache::forget(\App\Services\JournalHarvest\CertifiedJournalsQuery::CACHE_KEY);
+
         return response()->json([
             'certified'    => $journal->certified_at !== null,
             'certified_at' => $journal->certified_at?->toIso8601String(),

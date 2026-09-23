@@ -461,6 +461,10 @@ class ShelfImportController extends Controller
             : null;
         $archive->save();
 
+        // The homepage's certified-archive list is cached (stale-while-
+        // revalidate); busting it keeps this toggle live on the next request.
+        \Illuminate\Support\Facades\Cache::forget(\App\Services\Archives\CertifiedArchivesQuery::CACHE_KEY);
+
         return response()->json(['archive' => $this->archivePayload($archive)]);
     }
 

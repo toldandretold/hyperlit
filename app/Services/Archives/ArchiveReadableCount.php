@@ -59,9 +59,64 @@ class ArchiveReadableCount
         return $counts;
     }
 
-    /** Readable count for one archive's shelf. */
+    /** Readable count for one archive's shelf, the caller's RLS view. */
     public function for(string $archiveId, string $shelfId): int
     {
         return $this->forArchives([$archiveId => $shelfId])[$archiveId] ?? 0;
+    }
+
+    /**
+     * Viewer-INDEPENDENT variant: the library read goes through pgsql_admin
+     * with an explicit public gate, so the result is safe to cache and serve
+     * to every visitor (the JournalReadableCount::forJournalsPublic pattern —
+     * its RLS-form twin measured ~30× slower on prod, and this one has the
+     * same shape, only fast today because the archive corpus is small). A
+     * visitor is still never told about documents they cannot open: only
+     * public, content-bearing rows count.
+     *
+     * @param  array<string, string>  $shelfByArchiveId  archive id => shelf_id
+     * @return array<string, int>
+     */
+    public function forArchivesPublic(array $shelfByArchiveId): array
+    {
+        if (empty($shelfByArchiveId)) {
+            return [];
+        }
+
+        $admin = DB::connection('pgsql_admin');
+
+        $items = $admin->table('shelf_items')
+            ->whereIn('shelf_id', array_values($shelfByArchiveId))
+            ->get(['shelf_id', 'book']);
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        $readableBooks = $admin->table('library')
+            ->whereIn('book', $items->pluck('book')->unique()->all())
+            ->where('has_nodes', true)
+            ->where('visibility', 'public')
+            ->pluck('book')
+            ->flip();
+
+        $byShelf = [];
+        foreach ($items as $item) {
+            if (isset($readableBooks[$item->book])) {
+                $byShelf[$item->shelf_id] = ($byShelf[$item->shelf_id] ?? 0) + 1;
+            }
+        }
+
+        $counts = [];
+        foreach ($shelfByArchiveId as $archiveId => $shelfId) {
+            $counts[$archiveId] = $byShelf[$shelfId] ?? 0;
+        }
+
+        return $counts;
+    }
+
+    /** Readable count for one archive's shelf, viewer-independent — see forArchivesPublic. */
+    public function forPublic(string $archiveId, string $shelfId): int
+    {
+        return $this->forArchivesPublic([$archiveId => $shelfId])[$archiveId] ?? 0;
     }
 }
