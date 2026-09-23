@@ -400,6 +400,39 @@ class UserHomeServerController extends Controller
     }
 
     /**
+     * Newest CARD-RELEVANT metadata change across the user's real books, in
+     * epoch ms. `library.meta_updated_at` is bumped by a Postgres trigger
+     * (library_meta_touch) only when one of the seven fields a feed card
+     * renders actually changes — unlike `library.timestamp`, which is the
+     * client's sync base and bumps on every content-editing session. The
+     * freshness guards compare THIS, so a content edit never trips a card
+     * rebuild (the cards would be byte-identical, and the rebuild's timestamp
+     * bump would force the client to redownload an unchanged feed).
+     * COALESCE covers any row minted before the backfill.
+     */
+    private function maxRealBookMetaTimestamp(string $username, array $visibilities): ?int
+    {
+        $sanitizedUsername = $this->sanitizeUsername($username);
+
+        $max = DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->whereNotIn('book', [
+                $sanitizedUsername,
+                $sanitizedUsername . 'Private',
+                $sanitizedUsername . 'All',
+                $sanitizedUsername . 'Account',
+                $sanitizedUsername . 'About',
+            ])
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%')
+            ->whereIn('visibility', $visibilities)
+            ->selectRaw('max(COALESCE(meta_updated_at, timestamp)) AS ts')
+            ->value('ts');
+
+        return $max !== null ? (int) $max : null;
+    }
+
+    /**
      * Newest billing input for the Account book, in epoch ms: the latest
      * `billing_ledger.created_at` for the user, and `users.updated_at` (which
      * updateTier bumps so tier changes count as billing input too). Backs the
@@ -434,16 +467,73 @@ class UserHomeServerController extends Controller
     }
 
     /**
+     * Stale-feed rebuilds queued to run AFTER the response is sent, keyed by
+     * book so duplicates collapse. A tripped freshness guard used to rebuild
+     * the home book INLINE in the page request — measured at ~3s per book on
+     * prod (2026-09-23: private + All back-to-back put ~6-10s on the owner's
+     * TTFB), and content edits bump library.timestamp without touching the
+     * home books, so the FIRST /u/ visit after any editing session paid it.
+     * Serving the current (order-stale for one view) feed and rebuilding in
+     * the terminating phase removes the stall; the rebuild bumps the home
+     * book's timestamp, so the client's NEXT visit picks up the fresh order.
+     *
+     * @var array<string, \Closure>
+     */
+    private array $deferredRegens = [];
+
+    private bool $deferredHookRegistered = false;
+
+    private function deferRegen(string $bookName, \Closure $regen): void
+    {
+        $this->deferredRegens[$bookName] = $regen;
+        if (!$this->deferredHookRegistered) {
+            $this->deferredHookRegistered = true;
+            app()->terminating(fn () => $this->runDeferredRegens());
+        }
+    }
+
+    /**
+     * Drain the deferred rebuild queue. Runs in the terminating phase in
+     * production (after the response is flushed to the client); tests invoke
+     * it directly to flush synchronously. Draining makes a double call a
+     * no-op, and the per-book lock stops two concurrent requests from
+     * rebuilding the same feed twice.
+     */
+    public function runDeferredRegens(): void
+    {
+        while ($this->deferredRegens !== []) {
+            $bookName = array_key_first($this->deferredRegens);
+            $regen = $this->deferredRegens[$bookName];
+            unset($this->deferredRegens[$bookName]);
+
+            $lock = Cache::lock("home-regen:{$bookName}", 120);
+            if (!$lock->get()) {
+                continue; // another request's deferred rebuild is already on it
+            }
+            try {
+                $regen();
+            } catch (\Throwable $e) {
+                Log::error('Deferred home-book regen failed', ['book' => $bookName, 'error' => $e->getMessage()]);
+            } finally {
+                $lock->release();
+            }
+        }
+    }
+
+    /**
      * The home book is maintained INCREMENTALLY at every library mutation
      * (addBookToUserPage / moveBookBetweenHomeBooks / updateBookOnUserPage, and
      * BookDeletionService removes the card on delete) — all keyed by node_id, no
      * raw_json. So on a normal visit there is nothing to do: serve as-is.
      *
-     * This guard only (a) generates on the true first visit, and (b) as a cheap
-     * failsafe, regenerates once if a real library book is NEWER than the home
-     * book — i.e. an incremental update was somehow missed. It compares two
-     * indexed `timestamp` reads instead of json_decoding every node's raw_json
-     * on every visit (which is what used to stall the SPA's fetchHtml('/u/…')).
+     * This guard only (a) generates on the true first visit — inline, there is
+     * nothing to serve stale — and (b) as a failsafe, regenerates once if a
+     * real library book is NEWER than the home book (an incremental update was
+     * missed, or a content edit changed recency order). The failsafe rebuild is
+     * DEFERRED to after the response — see deferRegen. The check itself
+     * compares two indexed `timestamp` reads instead of json_decoding every
+     * node's raw_json on every visit (which is what used to stall the SPA's
+     * fetchHtml('/u/…')).
      */
     private function generateUserHomeBookIfNeeded(string $username, bool $isOwner, string $visibility): void
     {
@@ -456,14 +546,14 @@ class UserHomeServerController extends Controller
             return;
         }
 
-        $newest = $this->maxRealBookTimestamp($username, [$visibility]);
+        $newest = $this->maxRealBookMetaTimestamp($username, [$visibility]);
         if ($newest !== null && $newest > (int) ($home->timestamp ?? 0)) {
-            Log::info('Regenerating ' . $visibility . ' home book: a library book is newer than the home book.', [
+            Log::info('Regenerating ' . $visibility . ' home book after response: a book\'s citation metadata is newer than the home book.', [
                 'username' => $username,
-                'newest_book_ts' => $newest,
+                'newest_meta_ts' => $newest,
                 'home_book_ts' => $home->timestamp,
             ]);
-            $this->generateUserHomeBook($username, $isOwner, $visibility);
+            $this->deferRegen($bookName, fn () => $this->generateUserHomeBook($username, $isOwner, $visibility));
         }
     }
 
@@ -478,14 +568,14 @@ class UserHomeServerController extends Controller
             return;
         }
 
-        $newest = $this->maxRealBookTimestamp($username, ['public', 'private']);
+        $newest = $this->maxRealBookMetaTimestamp($username, ['public', 'private']);
         if ($newest !== null && $newest > (int) ($home->timestamp ?? 0)) {
-            Log::info('Regenerating All home book: a library book is newer than the home book.', [
+            Log::info('Regenerating All home book after response: a book\'s citation metadata is newer than the home book.', [
                 'username' => $username,
-                'newest_book_ts' => $newest,
+                'newest_meta_ts' => $newest,
                 'home_book_ts' => $home->timestamp,
             ]);
-            $this->generateAllUserHomeBook($username);
+            $this->deferRegen($bookName, fn () => $this->generateAllUserHomeBook($username));
         }
     }
 
@@ -516,22 +606,6 @@ class UserHomeServerController extends Controller
         // even if a book carries a client-skewed `timestamp`.
         $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, ['public', 'private']) ?? 0);
 
-        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
-            ['book' => $bookName],
-            [
-                'author' => null, 'title' => $username . "'s library", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
-                'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => 'all']),
-                'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
-            ]
-        );
-
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
-
-        // Invalidate sorted "all" variants
-        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
-        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
-
         $chunks = [];
         $positionId = 100;
         $generator = new LibraryCardGenerator();
@@ -546,9 +620,30 @@ class UserHomeServerController extends Controller
             $chunks[] = $generator->generateLibraryCardChunk(null, $bookName, 1, true, true, 0, 'public');
         }
 
-        foreach (array_chunk($chunks, 500) as $batch) {
-            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
-        }
+        // Cards are built ABOVE; one short transaction swaps the feed so a
+        // concurrent reader (the rebuild can run after the response, racing the
+        // page's own /initial fetch) never sees it half-deleted.
+        DB::connection('pgsql_admin')->transaction(function () use ($bookName, $sanitizedUsername, $username, $homeTs, $chunks) {
+            DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+                ['book' => $bookName],
+                [
+                    'author' => null, 'title' => $username . "'s library", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
+                    'creator_token' => null,
+                    'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => 'all']),
+                    'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
+                ]
+            );
+
+            DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
+
+            // Invalidate sorted "all" variants
+            DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+            DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+
+            foreach (array_chunk($chunks, 500) as $batch) {
+                DB::connection('pgsql_admin')->table('nodes')->insert($batch);
+            }
+        });
 
         return ['success' => true, 'count' => count($chunks)];
     }
@@ -568,7 +663,9 @@ class UserHomeServerController extends Controller
      */
     public function ensureAccountBookFresh(string $username): void
     {
-        $this->generateAccountBookIfNeeded($username);
+        // inline: the Money overlay reads the Account book straight after this
+        // call — a deferred rebuild would hand it a stale balance.
+        $this->generateAccountBookIfNeeded($username, inline: true);
     }
 
     /**
@@ -668,7 +765,7 @@ class UserHomeServerController extends Controller
         }
     }
 
-    private function generateAccountBookIfNeeded(string $username): void
+    private function generateAccountBookIfNeeded(string $username, bool $inline = false): void
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
         $bookName = $sanitizedUsername . 'Account';
@@ -679,6 +776,13 @@ class UserHomeServerController extends Controller
             return;
         }
 
+        // Existing-but-stale rebuilds run after the response on the page-view
+        // path (serve the current render now); ensureAccountBookFresh passes
+        // inline because the Money overlay reads the book immediately after.
+        $regen = $inline
+            ? fn () => $this->generateAccountBook($username)
+            : fn () => $this->deferRegen($bookName, fn () => $this->generateAccountBook($username));
+
         // Markup-version tripwire: the stored render outlives code changes to
         // the balance card's HTML (it only regenerates on billing mutations).
         // 'tier-radio' marks the current markup generation — bump this token
@@ -688,18 +792,18 @@ class UserHomeServerController extends Controller
             ->where('node_id', $bookName . '_balance_card')
             ->value('content');
         if ($card !== null && !str_contains($card, 'tier-radio')) {
-            $this->generateAccountBook($username);
+            $regen();
             return;
         }
 
         $newest = $this->maxAccountInputTimestamp($username);
         if ($newest !== null && $newest > (int) ($account->timestamp ?? 0)) {
-            Log::info('Regenerating account book: billing data is newer than the account book.', [
+            Log::info('Regenerating account book' . ($inline ? '' : ' after response') . ': billing data is newer than the account book.', [
                 'username' => $username,
                 'newest_billing_ts' => $newest,
                 'account_book_ts' => $account->timestamp,
             ]);
-            $this->generateAccountBook($username);
+            $regen();
         }
     }
 
@@ -749,22 +853,6 @@ class UserHomeServerController extends Controller
         $existingTitle = DB::connection('pgsql_admin')->table('library')
             ->where('book', $bookName)->value('title');
 
-        DB::connection('pgsql_admin')->table('library')->updateOrInsert(
-            ['book' => $bookName],
-            [
-                'author' => null, 'title' => $existingTitle ?: $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
-                'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
-                'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
-            ]
-        );
-
-        DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
-
-        // Invalidate sorted variants when the default book is regenerated
-        DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
-        DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
-
         $chunks = [];
 
         $positionId = 100;
@@ -782,9 +870,31 @@ class UserHomeServerController extends Controller
              $chunks[] = $this->generateLibraryCardChunk(null, $bookName, 1, $isOwner, true, 0, $visibility);
         }
 
-        foreach (array_chunk($chunks, 500) as $batch) {
-            DB::connection('pgsql_admin')->table('nodes')->insert($batch);
-        }
+        // Cards are built ABOVE; the swap itself is one short transaction so a
+        // concurrent reader (the rebuild can run after the response, racing the
+        // page's own /initial fetch) sees the old feed or the new feed — never
+        // a half-deleted one.
+        DB::connection('pgsql_admin')->transaction(function () use ($bookName, $sanitizedUsername, $visibility, $username, $existingTitle, $homeTs, $chunks) {
+            DB::connection('pgsql_admin')->table('library')->updateOrInsert(
+                ['book' => $bookName],
+                [
+                    'author' => null, 'title' => $existingTitle ?: $username . "'s library", 'visibility' => $visibility, 'listed' => false, 'creator' => $username,
+                    'creator_token' => null,
+                    'raw_json' => json_encode(['type' => 'user_home', 'username' => $username, 'sanitized_username' => $sanitizedUsername, 'visibility' => $visibility]),
+                    'timestamp' => $homeTs, 'updated_at' => now(), 'created_at' => now(),
+                ]
+            );
+
+            DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
+
+            // Invalidate sorted variants when the default book is regenerated
+            DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
+            DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
+
+            foreach (array_chunk($chunks, 500) as $batch) {
+                DB::connection('pgsql_admin')->table('nodes')->insert($batch);
+            }
+        });
 
         return ['success' => true, 'count' => count($chunks)];
     }
@@ -1041,20 +1151,6 @@ class UserHomeServerController extends Controller
         // account.timestamp) is self-stable — regenerates once, then settles.
         $accountTs = max((int) round(microtime(true) * 1000), $this->maxAccountInputTimestamp($username) ?? 0);
 
-        // Upsert library record
-        $admin->table('library')->updateOrInsert(
-            ['book' => $bookName],
-            [
-                'author' => null, 'title' => $username . "'s account", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
-                'creator_token' => null,
-                'raw_json' => json_encode(['type' => 'user_account', 'username' => $username, 'sanitized_username' => $sanitizedUsername]),
-                'timestamp' => $accountTs, 'updated_at' => now(), 'created_at' => now(),
-            ]
-        );
-
-        // Clear existing nodes
-        $admin->table('nodes')->where('book', $bookName)->delete();
-
         // Fetch user billing data
         $user = $admin->table('users')->where('name', $username)->first();
         $credits = (float) ($user->credits ?? 0);
@@ -1150,10 +1246,26 @@ class UserHomeServerController extends Controller
             }
         }
 
-        // Batch insert
-        foreach (array_chunk($chunks, 500) as $batch) {
-            $admin->table('nodes')->insert($batch);
-        }
+        // Nodes are built ABOVE; one short transaction swaps the book so a
+        // concurrent reader (the rebuild can run after the response) never
+        // sees it half-deleted.
+        $admin->transaction(function () use ($admin, $bookName, $sanitizedUsername, $username, $accountTs, $chunks) {
+            $admin->table('library')->updateOrInsert(
+                ['book' => $bookName],
+                [
+                    'author' => null, 'title' => $username . "'s account", 'visibility' => 'private', 'listed' => false, 'creator' => $username,
+                    'creator_token' => null,
+                    'raw_json' => json_encode(['type' => 'user_account', 'username' => $username, 'sanitized_username' => $sanitizedUsername]),
+                    'timestamp' => $accountTs, 'updated_at' => now(), 'created_at' => now(),
+                ]
+            );
+
+            $admin->table('nodes')->where('book', $bookName)->delete();
+
+            foreach (array_chunk($chunks, 500) as $batch) {
+                $admin->table('nodes')->insert($batch);
+            }
+        });
 
         return ['success' => true, 'count' => count($chunks)];
     }

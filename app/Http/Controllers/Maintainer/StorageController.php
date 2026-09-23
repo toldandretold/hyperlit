@@ -246,6 +246,7 @@ class StorageController extends Controller
             $sysBooks = "'" . implode("','", \App\Services\EmbeddingEligibility::SYSTEM_BOOKS) . "'";
             $synthetic = "'" . implode("','", \App\Services\EmbeddingEligibility::SYNTHETIC_RAW_TYPES) . "'";
             $minChars = \App\Services\EmbeddingEligibility::MIN_PLAINTEXT_CHARS;
+            $referenceSql = \App\Services\EmbeddingEligibility::referenceSql('n');
             $coverageRows = $db->select(<<<SQL
                 SELECT
                     CASE
@@ -257,6 +258,7 @@ class StorageController extends Controller
                         WHEN COALESCE(l.encrypted, false) THEN 'E2EE encrypted books'
                         WHEN l.visibility = 'deleted' THEN 'deleted books'
                         WHEN LENGTH(TRIM(COALESCE(n."plainText", ''))) < {$minChars} THEN 'text under {$minChars} chars'
+                        WHEN {$referenceSql} THEN 'bibliography / footnote nodes'
                         WHEN l.visibility = 'private' THEN 'private books'
                         ELSE 'public books'
                     END AS bucket,

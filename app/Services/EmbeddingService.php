@@ -8,6 +8,31 @@ use Illuminate\Support\Facades\Log;
 
 class EmbeddingService
 {
+    /**
+     * HTTP timeout for a BACKGROUND embedding call (queue jobs, reconcile,
+     * indexing) — generous, because nothing is waiting on it.
+     */
+    public const TIMEOUT_BACKGROUND = 60;
+
+    /**
+     * HTTP timeout for an INTERACTIVE embedding call — one made inside a request
+     * a user is waiting on (AI brain / archivist SSE, homepage semantic search).
+     *
+     * This MUST stay comfortably below the web server's FastCGI/proxy read
+     * timeout, which is 60s by default in nginx and is NOT overridden by Herd
+     * (dev) — see deploy/. A hung provider socket that runs the full background
+     * 60s is therefore indistinguishable from a dead app: nginx tears down the
+     * connection first, the SSE stream dies mid-flight, and the browser reports
+     * a transport error ("network connection was lost" / TypeError: Load failed)
+     * with NO error event ever rendered, because the request never got to return
+     * one. That is exactly how a Fireworks /embeddings flap took the archivist
+     * down on 2026-09-23 — the ask died 68s in with no terminal log line at all.
+     *
+     * Degrading to keyword-only search in 10s is strictly better than losing the
+     * whole answer at 60s.
+     */
+    public const TIMEOUT_INTERACTIVE = 10;
+
     private string $baseUrl;
     private string $apiKey;
     private string $model;
@@ -37,13 +62,16 @@ class EmbeddingService
      * Embed a single text string.
      * @param string $text The text to embed
      * @param string $prefix 'search_document: ' for indexing, 'search_query: ' for queries
-     * @param int $maxRetries Interactive callers (homepage search) pass 1 to fail
-     *                        fast instead of hanging ~6s behind the 2s/4s backoff
+     * @param int $maxRetries Interactive callers (homepage search, AI brain) pass 1
+     *                        to fail fast instead of hanging ~6s behind the 2s/4s backoff
+     * @param int $timeout    Per-attempt HTTP timeout. Interactive callers MUST pass
+     *                        self::TIMEOUT_INTERACTIVE — the background default alone
+     *                        exceeds nginx's 60s read timeout and kills the response.
      * @return array|null The embedding vector, or null on failure
      */
-    public function embed(string $text, string $prefix = 'search_document: ', int $maxRetries = 3): ?array
+    public function embed(string $text, string $prefix = 'search_document: ', int $maxRetries = 3, int $timeout = self::TIMEOUT_BACKGROUND): ?array
     {
-        $result = $this->embedBatch([$prefix . $text], $maxRetries);
+        $result = $this->embedBatch([$prefix . $text], $maxRetries, $timeout);
         return $result[0] ?? null;
     }
 
@@ -64,7 +92,7 @@ class EmbeddingService
         if ($cached !== null) {
             return $cached;
         }
-        $vector = $this->embed($normQuery, 'search_query: ', 1);
+        $vector = $this->embed($normQuery, 'search_query: ', 1, self::TIMEOUT_INTERACTIVE);
         if ($vector !== null) {
             \Illuminate\Support\Facades\Cache::put($cacheKey, $vector, 3600);
         }
@@ -139,7 +167,7 @@ class EmbeddingService
      * Texts should already include their prefix.
      * @return array Array of embedding vectors (null entries for failures)
      */
-    public function embedBatch(array $texts, int $maxRetries = 3): array
+    public function embedBatch(array $texts, int $maxRetries = 3, int $timeout = self::TIMEOUT_BACKGROUND): array
     {
         if (empty($texts) || !$this->apiKey || !$this->baseUrl) {
             return array_fill(0, count($texts), null);
@@ -149,7 +177,7 @@ class EmbeddingService
             try {
                 $response = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $this->apiKey,
-                ])->timeout(60)->post($this->baseUrl . '/embeddings', [
+                ])->timeout($timeout)->post($this->baseUrl . '/embeddings', [
                     'model' => $this->model,
                     'input' => array_values($texts),
                 ]);

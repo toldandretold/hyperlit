@@ -384,7 +384,7 @@ export async function injectBrainInput(targetEl: any, highlight: any, scroller: 
           highlightId,
           nodeIds: Array.isArray(nodeIds) ? nodeIds : Object.keys(charData),
           charData,
-          model: 'accounts/fireworks/models/deepseek-v4-pro-0813',
+          model: 'accounts/fireworks/models/deepseek-v4p1-flash',
           sourceScope,
           mode,
           shelfId,

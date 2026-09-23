@@ -145,6 +145,9 @@ function abInvokeGuard(string $username): void
     $m = (new ReflectionClass($controller))->getMethod('generateAccountBookIfNeeded');
     $m->setAccessible(true);
     $m->invoke($controller, $username);
+    // A stale rebuild is deferred to after the response; drain it the way the
+    // terminating phase does in production (see UserHomeFreshnessGuardTest).
+    $controller->runDeferredRegens();
 }
 
 function abUserModel(string $username): User

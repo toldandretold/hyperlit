@@ -32,10 +32,29 @@ class RetrievalService
         $toolsUsed = [];
         $log = [];
 
-        // Embedding search
+        // Embedding search. Retrieval ALWAYS runs inside a live request a user is
+        // watching (the AI brain / archivist SSE stream), so this call is bounded
+        // on BOTH axes — 1 attempt, and a 10s per-attempt HTTP timeout.
+        //
+        // Either default alone is fatal here. nginx's fastcgi_read_timeout is 60s
+        // and is not overridden, so ONE hung provider socket running the background
+        // 60s already exceeds it: nginx tears the connection down, the SSE stream
+        // dies mid-flight, and the browser reports a transport error with NO error
+        // event, because the request never returned one. The 3-attempt default
+        // compounds it (2s + 4s of blocking sleep between attempts, up to ~186s).
+        // That is exactly how a Fireworks /embeddings flap took the archivist down
+        // on 2026-09-23 — the ask died 68s in with no terminal log line at all.
+        //
+        // Degrading to keyword-only search is the correct trade: the answer still
+        // ships. Same reasoning as embedSearchQuery().
         if (!empty($embeddingQuery)) {
             $queryText = $embeddingQuery;
-            $queryEmbedding = $this->embeddingService->embed($queryText, 'search_query: ');
+            $queryEmbedding = $this->embeddingService->embed(
+                $queryText,
+                'search_query: ',
+                1,
+                EmbeddingService::TIMEOUT_INTERACTIVE
+            );
 
             if (!$queryEmbedding) {
                 Log::warning('RetrievalService: embedding failed');

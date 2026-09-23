@@ -27,7 +27,9 @@ class ReconcileEmbeddings extends Command
      *   big backlog never blocks imports).
      *
      *   STRAY — embeddings on INELIGIBLE books (generated card-list books a
-     *   backfill over-reached, books that became sub-books, orphans) are
+     *   backfill over-reached, books that became sub-books, orphans) OR on
+     *   ineligible NODES within an eligible book (too-short text, bibliography
+     *   entries and footnote definitions — see EmbeddingEligibility) are
      *   nulled: they pollute AI-brain retrieval and pay storage for vectors
      *   no query should return. E2EE scrubbing is NOT this command's job
      *   (setEncryption does it transactionally) but it backstops that too.
@@ -63,11 +65,15 @@ class ReconcileEmbeddings extends Command
         }
         $this->info(($dryRun ? '[dry-run] would dispatch' : 'Dispatched') . " QueueBookEmbeddings for {$missing->count()} books ({$missingNodes} nodes missing embeddings)");
 
-        // STRAY: vectors on ineligible books (NOT bookSql) or on orphan nodes
-        // whose book has no library row at all.
+        // STRAY: vectors on ineligible books (NOT bookSql), on orphan nodes
+        // whose book has no library row at all, or on ineligible NODES within
+        // an eligible book (NOT nodeSql) — too-short text and reference matter.
+        // The node-level arm is what retires vectors when the node predicate
+        // tightens; without it a rule change only ever applies to new content.
         $strayWhere = "embedding IS NOT NULL AND ("
             . "NOT EXISTS (SELECT 1 FROM library l WHERE l.book = nodes.book)"
             . " OR EXISTS (SELECT 1 FROM library l WHERE l.book = nodes.book AND NOT {$bookSql})"
+            . " OR NOT " . EmbeddingEligibility::nodeSql('nodes')
             . ")";
 
         if ($dryRun) {

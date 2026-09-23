@@ -2158,13 +2158,13 @@ PROMPT;
     private function resolveModelChain(?string $requestedModel): array
     {
         $fallbackChain = [
-            'accounts/fireworks/models/deepseek-v4-pro-0813',  // primary — DeepSeek V4 Pro (GA; preview id serverless-decommissioned 2026-08-27)
+            'accounts/fireworks/models/deepseek-v4p1-flash',  // primary — DeepSeek V4.1 Flash (0813 serverless-decommissioned 2026-09-25)
             'accounts/fireworks/models/kimi-k2p6',             // fallback 1 — different family
             'accounts/fireworks/models/gpt-oss-120b',          // fallback 2 — cheap safety net
         ];
 
         $modelLabels = [
-            'accounts/fireworks/models/deepseek-v4-pro-0813' => 'DeepSeek V4 Pro',
+            'accounts/fireworks/models/deepseek-v4p1-flash' => 'DeepSeek V4.1 Flash',
             'accounts/fireworks/models/kimi-k2p6'            => 'Kimi K2.6',
             'accounts/fireworks/models/gpt-oss-120b'         => 'GPT-OSS 120B',
         ];
@@ -2173,7 +2173,7 @@ PROMPT;
         $allowedModels = array_keys($modelLabels);
         $brainModel = in_array($requestedModel, $allowedModels)
             ? $requestedModel
-            : 'accounts/fireworks/models/deepseek-v4-pro-0813';
+            : 'accounts/fireworks/models/deepseek-v4p1-flash';
 
         // Reorder fallback chain: user's chosen model first, then the rest
         $fallbackChain = array_values(array_unique(array_merge([$brainModel], $fallbackChain)));

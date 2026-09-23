@@ -97,11 +97,11 @@ function mockAskLlm(int $askCount = 1, ?string $answerHtml = null): void
     for ($i = 0; $i < $askCount; $i++) {
         $returns[] = [
             'content' => '<search>{"keywords":"delinking","library_keywords":"Samir Amin","embedding_query":"delinking internal development"}</search>',
-            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+            'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         ];
         $returns[] = [
             'content' => $answerHtml,
-            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+            'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         ];
     }
     $mock = Mockery::mock(App\Services\LlmService::class);

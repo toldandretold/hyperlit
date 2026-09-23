@@ -64,8 +64,13 @@ class GenerateNodeEmbedding implements ShouldQueue
             return; // someone (inline embed, an earlier run) got here first
         }
 
-        // Skip very short text (not useful for embedding)
-        if (strlen(trim($node->plainText)) < 20) {
+        // Node-level eligibility from the ONE shared definition: too-short text,
+        // and reference matter (bibliography entries / footnote definitions,
+        // which are the wrong thing to retrieve by meaning). This used to be an
+        // inline length check, which meant nodeSql() changes never reached the
+        // per-node path — the job would happily re-embed what reconcile had
+        // just scrubbed.
+        if (!\App\Services\EmbeddingEligibility::nodeEligible($node)) {
             return;
         }
 

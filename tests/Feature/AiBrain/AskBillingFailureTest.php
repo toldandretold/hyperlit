@@ -55,7 +55,7 @@ function askBillRouterPlan(): array
 {
     return [
         'content' => '<search>{"keywords":"monetarism","library_keywords":"","embedding_query":"monetarism inflation"}</search>',
-        'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+        'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
     ];
 }
 
@@ -146,7 +146,7 @@ test('a successful ask charges exactly once under category ai_brain', function (
             askBillRouterPlan(),
             [
                 'content' => '<p>Monetarism was contested from the start [1].</p>',
-                'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+                'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
             ]
         );
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
@@ -186,7 +186,7 @@ test('no billing under client_inference (BYO key) — charge waived', function (
             askBillRouterPlan(),
             [
                 'content' => '<p>Monetarism was contested from the start [1].</p>',
-                'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+                'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
             ]
         );
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);

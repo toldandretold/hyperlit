@@ -25,5 +25,14 @@
     "output_cost_per_token": 0.00000348,
     "litellm_provider": "fireworks_ai",
     "mode": "chat"
+  },
+  "fireworks_ai/accounts/fireworks/models/deepseek-v4p1-flash": {
+    "max_input_tokens": 1040000,
+    "max_output_tokens": 32768,
+    "max_tokens": 32768,
+    "input_cost_per_token": 0.00000022,
+    "output_cost_per_token": 0.00000066,
+    "litellm_provider": "fireworks_ai",
+    "mode": "chat"
   }
 }

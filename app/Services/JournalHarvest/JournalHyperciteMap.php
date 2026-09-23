@@ -40,6 +40,14 @@ class JournalHyperciteMap
 {
     private const CACHE_TTL = 900; // matches the homepage recompute cadence
 
+    /**
+     * Stale-serve window: between CACHE_TTL and this, the stored SVG is served
+     * instantly and the rebuild runs deferred after the response — nobody pays
+     * the whole-hypercites-table edge walk inline (the first visitor after
+     * every 15-min expiry used to). Same pattern as the user-page map.
+     */
+    private const CACHE_STALE_TTL = 86400;
+
     /** Blob dots beyond this are dropped (hypercited articles win the cut). */
     private const MAX_BLOB_DOTS = 400;
 
@@ -71,17 +79,24 @@ class JournalHyperciteMap
 
     private const AQUA = '#2E7D80'; // darkened brand aqua — the raw #4EACAE washes out on the lamp
 
-    /** The map SVG, or null when the journal has no readable articles. */
+    /**
+     * The map SVG, or null when the journal has no readable articles.
+     * Stale-while-revalidate (see CACHE_STALE_TTL). The value is wrapped in an
+     * array because a null SVG (empty corpus) must still cache — a bare cached
+     * null reads as a miss and rebuilds every request.
+     */
     public function svg(JournalSource $journal): ?string
     {
-        return Cache::remember(
-            "journal-hypercite-map:{$journal->id}:v7",
-            self::CACHE_TTL,
-            fn () => $this->buildFromCorpus(
+        $cached = Cache::flexible(
+            "journal-hypercite-map:{$journal->id}:v8",
+            [self::CACHE_TTL, self::CACHE_STALE_TTL],
+            fn () => ['svg' => $this->buildFromCorpus(
                 $this->journalArticles($journal),
                 'Hypercite network of ' . $journal->display_name,
-            ),
+            )],
         );
+
+        return $cached['svg'] ?? null;
     }
 
     /**

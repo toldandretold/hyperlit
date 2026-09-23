@@ -32,7 +32,7 @@ def _parse_llm_json(content):
 
 
 
-def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deepseek-v4-pro-0813'):
+def propose_patch(prompt, mock_diff=None, model='accounts/fireworks/models/deepseek-v4p1-flash'):
     if mock_diff:
         return json.load(open(mock_diff, encoding='utf-8'))  # {rationale, functions:[{file,name,code}]}
     # Optional response cache (the co-evolution harness sets VIBE_LLM_CACHE): keyed on

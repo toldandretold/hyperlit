@@ -589,7 +589,7 @@ export async function openArchivistPanel({ question, shelfId, shelfName = null, 
                 question,
                 shelfId,
                 username,
-                model: 'accounts/fireworks/models/deepseek-v4-pro-0813',
+                model: 'accounts/fireworks/models/deepseek-v4p1-flash',
                 client_inference: byoActive,
             }),
         });

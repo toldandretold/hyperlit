@@ -24,8 +24,37 @@ namespace App\Services;
  * Private books ARE eligible by policy: unreachable by any query today, but
  * kept embedded for the planned private-library search.
  *
- * Node-level: plainText must have >= MIN_PLAINTEXT_CHARS trimmed chars
- * (mirrored by the jobs' skip checks).
+ * Node-level: plainText must have >= MIN_PLAINTEXT_CHARS trimmed chars, and
+ * the node must not be REFERENCE MATTER — a bibliography entry or footnote
+ * definition (see referenceSql).
+ *
+ * Why reference matter is excluded (2026-09): it is title-and-author dense, so
+ * it scores high on any topical query while carrying no argument, and it was
+ * crowding out prose in cross-book semantic search — 12.6% of all embedded
+ * nodes. Excluding it loses nothing, because semantic search is the wrong tool
+ * for finding a citation anyway: you look a work up by its TITLE, and full-text
+ * search indexes these nodes with no filter at all. Same reasoning as the
+ * "stray vectors pollute AI-brain retrieval" note in ReconcileEmbeddings.
+ *
+ * Three things about the reference predicate are load-bearing and were each
+ * measured against the production corpus — do not "simplify" them away:
+ *
+ *  1. It matches the `bib-entry` and `footnote` markers by EXACT class token.
+ *     A substring pattern like class="[^"]*footnote" matches `footnote-ref`,
+ *     which is the INLINE <sup> marker inside ordinary prose — 125,309 nodes
+ *     of pure body text. Likewise `in-text-citation` (68,957) is inline. The
+ *     only class that means "this node IS a reference" is `bib-entry`.
+ *  2. <a fn-count-id> means a footnote DEFINITION (the anchor the traditional
+ *     footnote lane inserts, leaving the definition in the body); <sup
+ *     fn-count-id> is the inline marker. Match the anchor, never the sup.
+ *  3. Figure captions are carved out. The bibliography extractor wrongly mints
+ *     bib-entry anchors inside <figcaption> — 3,230 embedded nodes that are
+ *     real prose describing photographs.
+ *
+ * Deliberately NOT used: a leading "N." numeric prefix. It reads like an
+ * endnote but is ambiguous with ordinary numbered list content (measured: of
+ * 31,636 matches, the ~3k not already marked include list items and maths
+ * exercises), so keying on it would delete legitimate content.
  */
 class EmbeddingEligibility
 {
@@ -58,10 +87,90 @@ class EmbeddingEligibility
             . " AND COALESCE({$l}.raw_json->>'type', '') NOT IN ({$raw}))";
     }
 
-    /** SQL predicate: the node aliased $n has enough plainText to embed. */
+    /**
+     * SQL predicate: the node aliased $n IS reference matter (a bibliography
+     * entry or a footnote definition) and so must never be embedded.
+     *
+     * NOTE the word-boundary escape is `\y`, NOT `\b`. In Postgres regexes
+     * `\b` means BACKSPACE — a `\b` version of this silently matches nothing.
+     * (The PHP twin below uses PCRE, where `\b` is correct. They differ.)
+     */
+    public static function referenceSql(string $n = 'n'): string
+    {
+        $content = "COALESCE({$n}.content, '')";
+        $plain = "COALESCE({$n}.\"plainText\", '')";
+
+        return '(('
+            // Paste engine's static sections (the only two values it emits).
+            . "{$content} ILIKE '%data-static-content=\"footnotes\"%'"
+            . " OR {$content} ILIKE '%data-static-content=\"bibliography\"%'"
+            // Python/JATS bibliography entries. Three shapes share this class:
+            // <a class="bib-entry">, <p id="CR1" class="bib-entry">, and the
+            // legacy <div class="bib-entry"> — hence a class match, not a tag.
+            . " OR {$content} ~* 'class=\"[^\"]*\\ybib-entry\\y'"
+            // Footnote definitions from the traditional/sectioned lane: an
+            // anchor inserted at the head of the definition, carrying no class.
+            . " OR {$content} ~* '<a[^>]*fn-count-id'"
+            // Raw markdown footnote definitions the paste lane never converted.
+            . " OR {$plain} ~ '^\\[\\^[^\\]]{1,20}\\]:'"
+            . ')'
+            // Figure captions carry wrongly-minted bib-entry anchors.
+            . " AND {$content} NOT ILIKE '%<figcaption%')";
+    }
+
+    /** SQL predicate: the node aliased $n should carry an embedding. */
     public static function nodeSql(string $n = 'n'): string
     {
-        return "LENGTH(TRIM(COALESCE({$n}.\"plainText\", ''))) >= " . self::MIN_PLAINTEXT_CHARS;
+        return '(LENGTH(TRIM(COALESCE(' . $n . '."plainText", \'\'))) >= ' . self::MIN_PLAINTEXT_CHARS
+            . ' AND NOT ' . self::referenceSql($n) . ')';
+    }
+
+    /**
+     * PHP-side twin of nodeSql() for paths that already hold the node row (the
+     * per-node job). $node is a stdClass row from the nodes table.
+     *
+     * Mirrors referenceSql() in PCRE, where `\b` IS the word boundary — the
+     * SQL side needs `\y` for the same meaning.
+     */
+    public static function nodeEligible(?object $node): bool
+    {
+        if (!$node) {
+            return false;
+        }
+
+        $plain = (string) ($node->plainText ?? '');
+        if (mb_strlen(trim($plain)) < self::MIN_PLAINTEXT_CHARS) {
+            return false;
+        }
+
+        $content = (string) ($node->content ?? '');
+
+        // A figure caption is content even when the extractor wrongly tagged it.
+        if (stripos($content, '<figcaption') !== false) {
+            return true;
+        }
+
+        if (stripos($content, 'data-static-content="footnotes"') !== false
+            || stripos($content, 'data-static-content="bibliography"') !== false) {
+            return false;
+        }
+
+        // Exact class token: `footnote-ref` / `in-text-citation` are INLINE
+        // markers in prose and must not match.
+        if (preg_match('/class="[^"]*\bbib-entry\b/i', $content)) {
+            return false;
+        }
+
+        // <a fn-count-id> = definition. <sup fn-count-id> = inline marker.
+        if (preg_match('/<a[^>]*fn-count-id/i', $content)) {
+            return false;
+        }
+
+        if (preg_match('/^\[\^[^\]]{1,20}\]:/', $plain)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

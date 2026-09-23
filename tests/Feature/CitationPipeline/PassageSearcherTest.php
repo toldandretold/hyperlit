@@ -97,12 +97,12 @@ function psFakeEmbeddings(?array $queryVector, array $batchVectors = []): void
     $fake = new class($queryVector, $batchVectors) extends \App\Services\EmbeddingService {
         public array $embedded = [];
         public function __construct(private ?array $q, private array $b) { parent::__construct(); }
-        public function embed(string $text, string $prefix = 'search_document: ', int $maxRetries = 3): ?array
+        public function embed(string $text, string $prefix = 'search_document: ', int $maxRetries = 3, int $timeout = parent::TIMEOUT_BACKGROUND): ?array
         {
             $this->embedded[] = $prefix . $text;
             return $this->q;
         }
-        public function embedBatch(array $texts, int $maxRetries = 3): array
+        public function embedBatch(array $texts, int $maxRetries = 3, int $timeout = parent::TIMEOUT_BACKGROUND): array
         {
             $this->embedded = array_merge($this->embedded, $texts);
             return array_slice(array_pad($this->b, count($texts), null), 0, count($texts));

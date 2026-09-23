@@ -52,7 +52,7 @@ return [
         // role model lands in retired_models or loses its pricing entry.
         'model'              => 'accounts/fireworks/models/gpt-oss-120b',
         'extraction_model'   => 'accounts/fireworks/models/gpt-oss-120b',
-        'verification_model' => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+        'verification_model' => 'accounts/fireworks/models/deepseek-v4p1-flash',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
 
         // Homepage semantic search: max cosine distance for a node to count as
@@ -115,10 +115,12 @@ return [
 
         'pricing' => [
             // Fireworks AI — cost per 1M tokens (USD). Verified live 2026-05-27.
-            // 0813 = GA release replacing the preview deepseek-v4-pro (Fireworks
-            // decommissions the old id from serverless 2026-08-27 — move it into
-            // retired_models then). Fireworks' docs price the V4 Pro family as one
-            // row; verified 2026-08-21.
+            // deepseek-v4p1-flash replaces deepseek-v4-pro-0813 (Fireworks
+            // decommissions 0813 from serverless 2026-09-25 — DeepSeek itself
+            // retired V4-Pro in favor of Flash, which beats it on most
+            // benchmarks except GPQA/HLE-text). Verified 2026-09-23.
+            'accounts/fireworks/models/deepseek-v4p1-flash'     => ['input' => 0.22, 'output' => 0.66],
+            // Retired on Fireworks — kept for cost lookup on historical ledger rows
             'accounts/fireworks/models/deepseek-v4-pro-0813'    => ['input' => 1.74, 'output' => 3.48],
             'accounts/fireworks/models/deepseek-v4-pro'         => ['input' => 1.74, 'output' => 3.48],
             'accounts/fireworks/models/kimi-k2p6'               => ['input' => 0.95, 'output' => 4.00],
@@ -158,6 +160,8 @@ return [
             'accounts/fireworks/models/deepseek-v3p1',
             'accounts/fireworks/models/llama-v3p3-70b-instruct',
             'accounts/fireworks/models/minimax-m2p5',
+            'accounts/fireworks/models/deepseek-v4-pro-0813', // decommissioned 2026-09-25, 7PM PST
+            'accounts/fireworks/models/deepseek-v4-pro',      // preview id, decommissioned 2026-08-27
         ],
     ],
 

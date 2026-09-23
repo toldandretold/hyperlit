@@ -261,7 +261,7 @@ or a harness file → everything). The speed core for the vibe-conversion loop.
 ## 6. Vibe conversion — the self-improving loop
 
 When a user's document converts badly, **"✨ Vibe convert"** asks an LLM (a Fireworks model — see the
-run modes below; default `deepseek-v4-pro-0813`, or the faster `gpt-oss-120b`) to fix the *pipeline* for
+run modes below; default `deepseek-v4p1-flash`, or the faster `gpt-oss-120b`) to fix the *pipeline* for
 **that one document**, validated against the document itself — production code is never touched.
 
 ### Engine: `app/Python/vibe_convert.py`
@@ -433,7 +433,7 @@ is shared, and both send the **identical** diagnostic context (`build_diagnostic
 
 - **`native`** — our `propose_patch` (full-function JSON) + `apply_function_replacements` (op:
   replace/add/register/edit). Tight JSON contract + path-allowlist + dangerous-scan *before* apply.
-  Default model: `deepseek-v4-pro-0813`.
+  Default model: `deepseek-v4p1-flash`.
 - **`aider`** — [aider](https://aider.chat) (Apache-2.0) edits the sandbox via **repo-map +
   search/replace + a test-driven retry loop**, where **our `_reconvert` + `evaluate` gate is its
   `--test-cmd`** (`app/Python/vibe_aider_gate.py`). Better at coordinated multi-edit structural fixes

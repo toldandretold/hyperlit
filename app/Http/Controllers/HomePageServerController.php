@@ -45,6 +45,18 @@ class HomePageServerController extends Controller
     private const CACHE_TTL = 900; // 15 minutes
     private const PINNED_BOOK_ID = 'book_1773824629440';
 
+    /**
+     * Fingerprint of the last rebuild's INPUTS (see corpusSignal). When the
+     * connection recompute reports zero changed rows AND this signal matches,
+     * the ranked output cannot differ from what's stored — so the rebuild
+     * (delete + reinsert + a fresh `timestamp` on all three ranking books) is
+     * skipped. The timestamp part is the one that matters beyond server work:
+     * stamping it unconditionally every 15 minutes marked the feed stale for
+     * EVERY returning visitor's IndexedDB cache, forcing a clear + full
+     * redownload of byte-identical cards ~96 times a day.
+     */
+    private const SIGNAL_KEY = 'homepage_books_signal';
+
     public function getHomePageBooks(Request $request)
     {
         // Fast path: serve the cached payload.
@@ -91,6 +103,33 @@ class HomePageServerController extends Controller
         }
     }
 
+    /**
+     * One aggregate over the homepage's INPUT corpus (public + listed real
+     * books, plus the pinned book, which rides most-recent even when
+     * unlisted): row count + newest card-relevant metadata change. Together
+     * with the recompute's changed-row count this captures every way the
+     * ranked output can differ: membership (count / listed / visibility via
+     * the library_meta_touch trigger), card content (the trigger's metadata
+     * columns), order (created_at is immutable; connection/highlight ranks are
+     * the recompute's report). Content edits bump only library.timestamp,
+     * which this deliberately does not read.
+     */
+    private function corpusSignal(): string
+    {
+        $sig = DB::connection('pgsql_admin')->table('library')
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->where('listed', true)->whereNotIn('visibility', ['private', 'deleted']);
+                })->orWhere('book', self::PINNED_BOOK_ID);
+            })
+            ->whereNotIn('book', ['stats', 'most-recent', 'most-connected', 'most-lit'])
+            ->where('book', 'NOT LIKE', '%/%')
+            ->selectRaw('count(*) AS n, COALESCE(max(COALESCE(meta_updated_at, timestamp)), 0) AS meta')
+            ->first();
+
+        return $sig->n . ':' . $sig->meta;
+    }
+
     private function generateHomePageBooks()
     {
         // Refresh the ranking columns FIRST, then read them. Corpus-wide and
@@ -99,7 +138,26 @@ class HomePageServerController extends Controller
         // — the harvested journal corpus is minted listed = false and its counts
         // were NULL forever because the old recompute skipped it. WHICH books
         // the homepage ranks is the separate `where('listed', true)` below.
-        (new ConnectionCountQuery())->recompute();
+        $changedRanks = (new ConnectionCountQuery())->recompute();
+
+        // Skip-if-unchanged: no rank moved, no membership/metadata change since
+        // the last rebuild, and the ranking books exist → the stored feed is
+        // already exactly what this rebuild would produce. Leaving it untouched
+        // (no timestamp bump) is what keeps returning visitors' cached feeds
+        // valid. Conservative by construction: ANY corpus-wide rank change or
+        // metadata change forces a real rebuild.
+        $signal = $this->corpusSignal();
+        $rankingBooksIntact = DB::connection('pgsql_admin')->table('library')
+            ->whereIn('book', ['most-recent', 'most-connected', 'most-lit'])
+            ->count() === 3;
+        if ($changedRanks === 0 && $rankingBooksIntact && Cache::get(self::SIGNAL_KEY) === $signal) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Homepage unchanged — rebuild skipped',
+                'books_processed' => 0,
+                'timestamp' => Carbon::now()
+            ]);
+        }
 
         // Get all library records with the required columns, excluding unlisted books
         $cardColumns = [
@@ -166,6 +224,11 @@ class HomePageServerController extends Controller
         $this->writeFeedNodes('most-connected', $mostConnected, $adminDb);
         $this->writeFeedNodes('most-lit', $mostLit, $adminDb);
 
+        // Remember what this rebuild was built FROM — the skip check above
+        // compares against it. Written only after a real rebuild, so a crashed
+        // rebuild can never record a signal for output it didn't produce.
+        Cache::forever(self::SIGNAL_KEY, $signal);
+
         return response()->json([
             'success' => true,
             'message' => 'Homepage books updated successfully',
@@ -196,6 +259,14 @@ class HomePageServerController extends Controller
                     'book_id' => $bookId
                 ]),
                 'timestamp' => round(microtime(true) * 1000),
+                // Born settled: NULL counts here made the NEXT recompute()
+                // "change" these rows back to 0 every cycle, so its changed-row
+                // report never hit zero and the skip-if-unchanged guard above
+                // could never fire. These synthetic books have no edges; 0 is
+                // their true score.
+                'hypercite_connections' => 0,
+                'reference_connections' => 0,
+                'total_highlights' => 0,
                 'created_at' => $currentTime,
                 'updated_at' => $currentTime
             ];

@@ -118,7 +118,7 @@ test("accepts the asker's OWN private shelf and opens the stream", function () {
     $this->mock(LlmService::class, function ($mock) {
         $mock->shouldReceive('chatWithFallback')->andReturn([
             'content' => '<search>{"keywords":"delinking","library_keywords":"","embedding_query":"delinking world economy"}</search>',
-            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+            'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         ]);
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
         $mock->shouldReceive('clearTransport');
@@ -198,7 +198,7 @@ test("accepts another user's page username and opens the stream", function () {
     $this->mock(LlmService::class, function ($mock) {
         $mock->shouldReceive('chatWithFallback')->andReturn([
             'content' => '<search>{"keywords":"delinking","library_keywords":"","embedding_query":"delinking world economy"}</search>',
-            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+            'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         ]);
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
         $mock->shouldReceive('clearTransport');
@@ -242,7 +242,7 @@ test("accepts another user's PUBLIC shelf and opens the stream", function () {
     $this->mock(LlmService::class, function ($mock) {
         $mock->shouldReceive('chatWithFallback')->andReturn([
             'content' => '<search>{"keywords":"delinking","library_keywords":"","embedding_query":"delinking world economy"}</search>',
-            'model'   => 'accounts/fireworks/models/deepseek-v4-pro-0813',
+            'model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         ]);
         $mock->shouldReceive('getUsageStats')->andReturn(['by_model' => []]);
         $mock->shouldReceive('clearTransport');
