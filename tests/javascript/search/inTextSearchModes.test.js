@@ -78,7 +78,7 @@ function buildDom({ withToggle = true } = {}) {
         ${withToggle ? `
         <div id="search-mode-toggle" class="search-mode-toggle">
           <button type="button" class="search-mode-toggle-btn active" data-search-mode="exact">exact</button>
-          <button type="button" class="search-mode-toggle-btn" data-search-mode="semantic">meaning</button>
+          <button type="button" class="search-mode-toggle-btn" data-search-mode="semantic">semantic</button>
         </div>` : ''}
         <input type="text" id="search-input" />
         <button type="button" id="search-prev-button"></button>
@@ -309,6 +309,29 @@ describe('switching modes', () => {
 
         expect(localStorage.getItem('intext_search_mode')).toBe('semantic');
     });
+
+    it('flips the placeholder with the mode', async () => {
+        const toolbar = initializeSearchToolbar();
+        await toolbar.open();
+        expect(toolbar.input.placeholder).toBe('Search by keyword…');
+
+        mockFetchOnce(rankedPayload());
+        await toolbar.changeMode('semantic');
+        expect(toolbar.input.placeholder).toBe('Search by meaning…');
+
+        await toolbar.changeMode('exact');
+        expect(toolbar.input.placeholder).toBe('Search by keyword…');
+    });
+
+    it('shows the keyword placeholder when a stored semantic mode is forced back to exact', async () => {
+        encryptedBooks.add(BOOK);
+        localStorage.setItem('intext_search_mode', 'semantic');
+
+        const toolbar = initializeSearchToolbar();
+        await toolbar.open();
+
+        expect(toolbar.input.placeholder).toBe('Search by keyword…');
+    });
 });
 
 describe('request lifecycle', () => {
@@ -359,6 +382,44 @@ describe('request lifecycle', () => {
         const counter = document.getElementById('search-match-counter');
         expect(counter.classList.contains('search-status-error')).toBe(true);
         expect(counter.textContent).toBe('not available here');
+    });
+
+    it('reports indexing progress instead of zero matches while embeddings drain', async () => {
+        const fetchMock = mockFetchOnce({
+            success: true,
+            results: [],
+            count: 0,
+            indexing: { embedded: 3, eligible: 8, pending: 5 },
+        });
+        const toolbar = initializeSearchToolbar();
+        await toolbar.open();
+        await toolbar.changeMode('semantic');
+
+        await typeAndSearch(toolbar, 'crisis of overproduction');
+
+        const counter = document.getElementById('search-match-counter');
+        expect(counter.classList.contains('search-status-error')).toBe(true);
+        expect(counter.textContent).toBe('still indexing — 37%');
+
+        // Not cached: the result set is still growing, so a retype refetches.
+        await typeAndSearch(toolbar, 'crisis of overproduction');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows partial results while indexing but refuses to cache them', async () => {
+        const fetchMock = mockFetchOnce({
+            ...rankedPayload(),
+            indexing: { embedded: 5, eligible: 8, pending: 3 },
+        });
+        const toolbar = initializeSearchToolbar();
+        await toolbar.open();
+        await toolbar.changeMode('semantic');
+
+        await typeAndSearch(toolbar, 'crisis of overproduction');
+        expect(toolbar.matches.map(m => m.startLine)).toEqual(['100', '200', '300']);
+
+        await typeAndSearch(toolbar, 'crisis of overproduction');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('does not fetch at all when offline', async () => {

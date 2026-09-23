@@ -534,6 +534,30 @@ class SearchController extends Controller
             ], 403);
         }
 
+        // Eligible ≠ ready: a fresh import sits in the embeddings queue for a
+        // while, and searching it would return an empty SUCCESS the find bar
+        // can't tell from "no matches". Report the backfill instead — and when
+        // NOTHING is embedded yet, skip the provider round-trip outright (the
+        // result could only be empty). 30s cache: a drain moves thousands of
+        // nodes a minute, so per-keystroke recounts would be pure waste.
+        $progress = Cache::remember(
+            'search:semantic:book-progress:' . md5($book),
+            30,
+            fn () => $this->searchService->bookEmbeddingProgress($book),
+        );
+
+        if ($progress['pending'] > 0 && $progress['embedded'] === 0) {
+            return response()->json([
+                'success' => true,
+                'results' => [],
+                'query' => $query,
+                'book' => $book,
+                'mode' => 'semantic',
+                'count' => 0,
+                'indexing' => $progress,
+            ]);
+        }
+
         try {
             $norm = mb_strtolower($query);
 
@@ -561,14 +585,22 @@ class SearchController extends Controller
             });
             $dbMs = round((hrtime(true) - $t) / 1e6, 1);
 
-            return response()->json([
+            $body = [
                 'success' => true,
                 'results' => $payload['results'],
                 'query' => $query,
                 'book' => $book,
                 'mode' => 'semantic',
                 'count' => $payload['count'],
-            ])->header('Server-Timing', $this->serverTimingHeader(['embed_ms' => $embedMs, 'db_ms' => $dbMs]));
+            ];
+            // Partial coverage: results are live but the backfill is still
+            // draining, so the client must not cache them as final.
+            if ($progress['pending'] > 0) {
+                $body['indexing'] = $progress;
+            }
+
+            return response()->json($body)
+                ->header('Server-Timing', $this->serverTimingHeader(['embed_ms' => $embedMs, 'db_ms' => $dbMs]));
 
         } catch (\Exception $e) {
             Log::error('In-book semantic search failed: ' . $e->getMessage());

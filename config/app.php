@@ -43,6 +43,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Server-Timing instrumentation
+    |--------------------------------------------------------------------------
+    |
+    | When true, the page-load-critical routes (/u/{username} and the
+    | database-to-indexeddb book payloads) emit a Server-Timing header
+    | breaking the response time into phases (guards/map/shelves/total).
+    | Dev-only measurement aid — see app/Support/ServerTiming.php.
+    |
+    */
+
+    'server_timing' => (bool) env('SERVER_TIMING_ENABLED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |

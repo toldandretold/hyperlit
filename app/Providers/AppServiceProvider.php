@@ -59,6 +59,10 @@ class AppServiceProvider extends ServiceProvider
         // report 0 and every escalation would be on us.
         $this->app->singleton(\App\Services\WebContent\WebTextAcquirer::class);
 
+        // Server-Timing collector: scoped (fresh per request) so one request's
+        // spans can never leak into another's header. See app/Support/ServerTiming.php.
+        $this->app->scoped(\App\Support\ServerTiming::class);
+
         // TTS provider seam — config-selected so a self-hosted Kokoro service
         // can swap in without touching GenerateBookAudioJob.
         $this->app->bind(\App\Services\Tts\TtsProviderInterface::class, function () {

@@ -39,6 +39,7 @@ const FAILURE_COPY: Record<SemanticFailure, string> = {
   offline: 'no connection',
   unavailable: 'unavailable',
   unsupported: 'not available here',
+  indexing: 'still indexing…',
   failed: 'search failed',
 };
 
@@ -209,6 +210,18 @@ class SearchToolbarManager {
     }
 
     this.renderModeToggle();
+    this.updatePlaceholder();
+  }
+
+  /**
+   * The placeholder doubles as the mode explainer: "keyword" for exact,
+   * "meaning" for semantic. Runs even where the toggle isn't rendered, so a
+   * mode forced back to exact never leaves a stale semantic prompt behind.
+   */
+  updatePlaceholder() {
+    if (!this.input) return;
+    this.input.placeholder =
+      this.mode === 'semantic' ? 'Search by meaning…' : 'Search by keyword…';
   }
 
   /** Reflect this.mode onto the segmented control. */
@@ -251,6 +264,7 @@ class SearchToolbarManager {
 
     this.installDebounce();
     this.renderModeToggle();
+    this.updatePlaceholder();
     this.clearAllHighlights();
     this.matches = [];
     this.currentMatchIndex = -1;
@@ -281,9 +295,9 @@ class SearchToolbarManager {
    * Report a semantic failure where the counter sits — the only free space in a
    * one-row find bar.
    */
-  showModeError(reason: SemanticFailure) {
+  showModeError(reason: SemanticFailure, detail?: string) {
     if (!this.matchCounter) return;
-    this.matchCounter.textContent = FAILURE_COPY[reason] ?? FAILURE_COPY.failed;
+    this.matchCounter.textContent = detail ?? FAILURE_COPY[reason] ?? FAILURE_COPY.failed;
     this.matchCounter.classList.add('search-status-error');
   }
 
@@ -506,7 +520,7 @@ class SearchToolbarManager {
       this.matches = [];
       this.currentMatchIndex = -1;
       this.updateNavigationButtons(false);
-      this.showModeError(result.reason);
+      this.showModeError(result.reason, result.detail);
       return;
     }
 

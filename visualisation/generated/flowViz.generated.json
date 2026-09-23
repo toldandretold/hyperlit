@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1940,
+    "fnCount": 1941,
     "moduleCount": 408,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3975,
+    "edgeCount": 3974,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -15535,6 +15535,14 @@
       "leaf": true
     },
     {
+      "id": "search/inTextSearch/searchToolbar:SearchToolbarManager.updatePlaceholder",
+      "label": "SearchToolbarManager.updatePlaceholder",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "search/inTextSearch/searchToolbar",
+      "leaf": true
+    },
+    {
       "id": "search/inTextSearch/semanticSearch:abortSemanticSearch",
       "label": "abortSemanticSearch",
       "kind": "fn",
@@ -22099,6 +22107,7 @@
         "search/inTextSearch/searchToolbar:SearchToolbarManager.toggle",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.updateMatchCounter",
         "search/inTextSearch/searchToolbar:SearchToolbarManager.updateNavigationButtons",
+        "search/inTextSearch/searchToolbar:SearchToolbarManager.updatePlaceholder",
         "search/inTextSearch/searchToolbar:checkHighlightParam",
         "search/inTextSearch/searchToolbar:closeSearchToolbar",
         "search/inTextSearch/searchToolbar:destroySearchToolbar",
@@ -46690,12 +46699,6 @@
       "id": "store:library__read__indexedDB/core/library:updateLocalAnnotationsTimestamp",
       "source": "store:library",
       "target": "indexedDB/core/library:updateLocalAnnotationsTimestamp",
-      "rel": "read"
-    },
-    {
-      "id": "store:library__read__indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
-      "source": "store:library",
-      "target": "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
       "rel": "read"
     },
     {

@@ -47,6 +47,21 @@ export async function rebuildAndRenumber(bookId: BookId, nodes: any[]): Promise<
 
   buildFootnoteMap(bookId, nodes);
 
+  // A book with NO footnotes has nothing to renumber and nothing stale to
+  // reconcile — but reconcileStoredFootnoteContent would still run a readwrite
+  // cursor over EVERY node of the book just to skip each one. The user page's
+  // {u}All feed is exactly this shape (~7,600 footnote-less library cards,
+  // reconciled after every full background download), so bail before the
+  // full-book pass. Still dispatch footnotesRenumbered — listeners expect the
+  // lifecycle event regardless of count.
+  if (getMapSize() === 0) {
+    window.dispatchEvent(new CustomEvent('footnotesRenumbered', {
+      detail: { bookId, count: 0 }
+    }));
+    verbose.content('Footnote map empty — skipping DOM renumber + stored reconcile', 'FootnoteNumberingService.js');
+    return;
+  }
+
   const affectedStartLines = updateFootnoteNumbersInDOM();
 
   // Persist updated fn-count-id values for currently-rendered nodes via the

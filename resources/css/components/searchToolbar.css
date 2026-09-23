@@ -15,10 +15,15 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 16px;
-  background: color-mix(in srgb, var(--icon-background) 98%, transparent);
+  padding: 16px;
+  /* Settings-container glass idiom: fully transparent + blur, so the bar can
+     sit over text (settingsContainer.css). The input keeps its own solid
+     background for legibility. */
+  background: transparent;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-top: 0.5px solid color-mix(in srgb, var(--icon-stroke-primary) 20%, transparent);
+  border-radius: 1em 1em 0 0;
   z-index: 999999;
   opacity: 0;
   visibility: hidden;
@@ -109,8 +114,12 @@
 /* Search input field */
 #search-input {
   flex: 1;
+  /* min-width: 0 lets flex actually shrink the input below its intrinsic
+     (size=20) width — without it the nowrap row overflows both screen edges
+     on phones. */
+  min-width: 0;
   max-width: 400px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   background: var(--color-background);
   color: var(--color-text);
   border: 1px solid color-mix(in srgb, var(--icon-stroke-primary) 30%, transparent);
@@ -193,12 +202,39 @@
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
+  /*
+    Two fixed rows on phones: controls on top (toggle left; counter + arrows
+    right), a full-width input below. Done with wrap + order on the flat
+    partial markup so keyboardManager's #search-toolbar handling (and its
+    height cache) sees one static-height box. The double auto-margin splits
+    row 1 into left/right groups; without the toggle (feed pages) the
+    counter's auto margin alone right-aligns the group.
+  */
   #search-toolbar {
-    padding: 8px 12px;
-    gap: 6px;
+    padding: 14px 12px 16px;
+    gap: 8px;
+    row-gap: 12px;
+    flex-wrap: wrap;
   }
 
+  #search-toolbar .search-mode-toggle {
+    order: 1;
+    margin-right: auto;
+  }
+
+  #search-match-counter {
+    order: 2;
+    margin-left: auto;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  #search-prev-button { order: 3; }
+  #search-next-button { order: 4; }
+
   #search-input {
+    order: 5;
+    flex-basis: 100%;
     max-width: none;
     font-size: 16px; /* Prevent zoom on iOS */
   }

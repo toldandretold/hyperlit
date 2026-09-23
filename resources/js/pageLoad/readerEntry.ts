@@ -25,6 +25,7 @@ import { initializeUserProfileEditor } from "../components/userProfile/userProfi
 import { initializeUserProfilePage } from "../components/userProfile/userProfilePage";
 import { initializeLogoNav } from "../components/logoNav/logoNav";
 import { asBookId } from "../indexedDB/types";
+import { perfMark } from "../utilities/perfMarks";
 import {
   isReconvertHandoff, clearReconvertHandoff, showReconvertOverlay, hideReconvertOverlay,
 } from "../utilities/reconvertHandoff";
@@ -82,6 +83,7 @@ function handlePendingNewBookSync() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  perfMark('boot:dom-ready');
   verbose.init("DOM ready", "readerDOMContentLoaded.js");
 
   const pageType = document.body.getAttribute("data-page");
@@ -94,6 +96,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   handlePendingNewBookSync();
   await openDatabase();
+  perfMark('boot:db-open');
   verbose.init("IndexedDB initialized", "readerDOMContentLoaded.js");
 
   // Initialize database modules with dependencies
@@ -143,6 +146,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ✅ UNIFIED: ALL page types go through NavigationManager for consistent initialization
   // NavigationManager handles ALL initialization including ButtonRegistry (also registers navigate()).
   const { NavigationManager } = await import('../SPA/navigation/NavigationManager.js');
+  perfMark('boot:navigate-start');
   try {
     await NavigationManager.navigate('fresh-page-load');
   } finally {

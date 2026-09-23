@@ -21,11 +21,11 @@
       <button type="button" class="search-mode-toggle-btn active" data-search-mode="exact"
               aria-pressed="true" title="Match the exact words you type">exact</button>
       <button type="button" class="search-mode-toggle-btn" data-search-mode="semantic"
-              aria-pressed="false" title="Find passages by meaning, even in different words">meaning</button>
+              aria-pressed="false" title="Find passages by meaning, even in different words">semantic</button>
     </div>
   @endif
 
-  <input type="text" id="search-input" placeholder="Find in document" autocomplete="off" />
+  <input type="text" id="search-input" placeholder="Search by keyword…" autocomplete="off" />
 
   <button type="button" id="search-prev-button" aria-label="Previous match">
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

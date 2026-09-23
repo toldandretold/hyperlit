@@ -101,6 +101,18 @@ class JournalHyperciteMap
         );
     }
 
+    /**
+     * Uncached corpus build — for callers that manage their own caching. The
+     * user page wraps its corpus QUERY and this build in one
+     * stale-while-revalidate entry (UserHomeServerController::show), so the
+     * expensive whole-hypercites-table edge walk runs after the response is
+     * sent instead of inline for whichever visitor hits the 15-min expiry.
+     */
+    public function buildSvgForBooks(array $articles, string $ariaLabel): ?string
+    {
+        return $this->buildFromCorpus($articles, $ariaLabel);
+    }
+
     // ── data ─────────────────────────────────────────────────────────────────
 
     private function buildFromCorpus(array $articles, string $ariaLabel): ?string

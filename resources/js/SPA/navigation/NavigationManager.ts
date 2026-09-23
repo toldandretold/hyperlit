@@ -20,6 +20,7 @@ import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
 import { DifferentTemplateTransition} from './pathways/DifferentTemplateTransition.js';
 import { getPageStructure, areStructuresCompatible, nonBookPrefixStructure } from './utils/structureDetection.js';
 import { RevealGate } from './RevealGate';
+import { perfMarkOnce, perfMeasure } from '../../utilities/perfMarks';
 
 export class NavigationManager {
   static navigationCount = 0;
@@ -65,6 +66,9 @@ export class NavigationManager {
       // capped (4s) and cancelled by any user gesture, so this can't hang.
       await RevealGate.completion();
       await ProgressOverlayEnactor.hide();
+      if (perfMarkOnce('boot:overlay-hidden')) {
+        perfMeasure('boot:total', 'boot:dom-ready', 'boot:overlay-hidden');
+      }
 
     } catch (error: any) {
       log.error(`Navigation failed for pathway ${pathway}`, '/navigation/NavigationManager.js', error);

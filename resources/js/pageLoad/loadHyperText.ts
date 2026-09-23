@@ -34,6 +34,8 @@ import { currentLazyLoader, initializeLazyLoader } from './lazyLoaderRegistry';
 import { isReconvertHandoff } from '../utilities/reconvertHandoff';
 // Zero-import leaf — flag-gated forensics (see scrolling/scrollTrace).
 import { recordNavDecision } from '../scrolling/scrollTrace';
+// Zero-import leaf — boot/feed performance milestones (see utilities/perfMarks).
+import { perfMark } from '../utilities/perfMarks';
 
 /* Edit-button dimming (reader entry): the button is dimmed until THIS book's
  * background download reports in. One subscription at a time, and a hard cap so
@@ -101,6 +103,7 @@ export async function loadFromJSONFiles(bookId: BookId) {
 }
 
 export async function loadHyperText(bookId: BookId, progressCallback: any = null) {
+  perfMark('feed:load-start');
   resetFirstChunkPromise();
   const currentBook = bookId || book;
   verbose.content(`Book data loaded: ${currentBook}`, 'initializePage.js');
@@ -158,6 +161,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
     // 1. Check for nodes in IndexedDB (No change)
     updatePageLoadProgress(10, "Checking local cache...");
     const cached: any = await getNodesFromIndexedDB(currentBook);
+    perfMark('feed:idb-read-done');
     if (cached && cached.length) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
@@ -211,6 +215,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
       }
       updatePageLoadProgress(90, "Initializing interface...");
       await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID, resolvedTargetChunkId);
+      perfMark('feed:first-chunk-rendered');
 
       // Signal that content is loaded — without this, anything awaiting
       // pendingFirstChunkLoadedPromise (e.g. handleHashNavigation) hangs forever
@@ -326,6 +331,7 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
 
       updatePageLoadProgress(90, "Initializing interface...");
       await initializeLazyLoader(openHyperlightID, currentBook, openFootnoteID);
+      perfMark('feed:first-chunk-rendered');
 
       // Dim the edit button while background download is pending — edit mode
       // needs the full dataset, so the user shouldn't enter it yet. READER

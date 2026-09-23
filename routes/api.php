@@ -838,10 +838,12 @@ Route::prefix('database-to-indexeddb')->group(function () {
 
     // Batched data download (chunk_id range)
     Route::get('books/{bookId}/data/batch', [DatabaseToIndexedDBController::class, 'getBookDataBatch'])
+        ->middleware(\App\Http\Middleware\AddServerTiming::class)
         ->name('api.database-to-indexeddb.book-data-batch');
 
     // Chunked lazy loading: initial chunk + manifest
     Route::get('books/{bookId}/initial', [DatabaseToIndexedDBController::class, 'getInitialChunk'])
+        ->middleware(\App\Http\Middleware\AddServerTiming::class)
         ->name('api.database-to-indexeddb.book-initial');
 
     // Chunked lazy loading: fetch a single chunk on demand

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -157,16 +158,21 @@ class UserHomeServerController extends Controller
         // Check if viewer is owner (for delete buttons)
         $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
 
-        // Ensure user home books exist (only regenerate on first visit)
-        $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'public');
+        // Ensure user home books exist (only regenerate on first visit).
+        // Server-Timing span: a tripped freshness guard does a full inline
+        // card rebuild here — the header makes that visible per request.
+        $timing = app(\App\Support\ServerTiming::class);
+        $timing->span('guards', function () use ($actualUsername, $isOwner) {
+            $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'public');
 
-        // Only generate private book, all book, and account book if owner
-        if ($isOwner) {
-            $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'private');
-            $this->generateAllUserHomeBookIfNeeded($actualUsername);
-            $this->generateAccountBookIfNeeded($actualUsername);
-            $this->ensureAboutBook($actualUsername);
-        }
+            // Only generate private book, all book, and account book if owner
+            if ($isOwner) {
+                $this->generateUserHomeBookIfNeeded($actualUsername, $isOwner, 'private');
+                $this->generateAllUserHomeBookIfNeeded($actualUsername);
+                $this->generateAccountBookIfNeeded($actualUsername);
+                $this->ensureAboutBook($actualUsername);
+            }
+        });
 
         // Fetch library record for title and bio (use sanitized for book ID)
         $libraryRecord = DB::table('library')
@@ -235,32 +241,50 @@ class UserHomeServerController extends Controller
         ], fn ($v) => $v !== null);
 
         // The library's hypercite network (opt-in): PUBLIC books only for
-        // every viewer — the SVG is cached per user and served to all.
+        // every viewer — cached per user and served to all. ONE
+        // stale-while-revalidate entry covers BOTH the corpus query (a
+        // non-indexable raw_json jsonb filter that used to run on EVERY page
+        // view even with the SVG cached) and the SVG build (a
+        // whole-hypercites-table edge walk that whichever visitor hit the
+        // 15-min expiry used to pay inline). Fresh 15 min; between 15 min and
+        // a day the stale SVG serves instantly and the rebuild runs deferred
+        // after the response. The value is wrapped in an array because an
+        // empty corpus builds a null SVG, and a bare cached null would read as
+        // a miss and rebuild every request.
         $hyperciteMap = null;
         if ($showMap) {
-            $mapCorpus = DB::connection('pgsql_admin')->table('library')
-                ->where('creator', $actualUsername)
-                ->where('visibility', 'public')
-                ->where('has_nodes', true)
-                ->whereNotIn('book', [
-                    $sanitizedUsername,
-                    $sanitizedUsername . 'Private',
-                    $sanitizedUsername . 'All',
-                    $sanitizedUsername . 'Account',
-                    $sanitizedUsername . 'About',
-                ])
-                ->where('book', 'NOT LIKE', '%/%')
-                ->where('book', 'NOT LIKE', 'shelf_%')
-                ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
-                ->get(['book', 'title', 'author', 'year'])
-                ->keyBy('book')
-                ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
-                ->all();
-            $hyperciteMap = app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->svgForBooks(
-                $mapCorpus,
-                'Hypercite network of ' . $title,
-                "user-hypercite-map:{$sanitizedUsername}:v2",
+            $timing->start('map');
+            $mapCached = Cache::flexible(
+                "user-hypercite-map:{$sanitizedUsername}:v3",
+                [900, 86400],
+                function () use ($actualUsername, $sanitizedUsername, $title) {
+                    $mapCorpus = DB::connection('pgsql_admin')->table('library')
+                        ->where('creator', $actualUsername)
+                        ->where('visibility', 'public')
+                        ->where('has_nodes', true)
+                        ->whereNotIn('book', [
+                            $sanitizedUsername,
+                            $sanitizedUsername . 'Private',
+                            $sanitizedUsername . 'All',
+                            $sanitizedUsername . 'Account',
+                            $sanitizedUsername . 'About',
+                        ])
+                        ->where('book', 'NOT LIKE', '%/%')
+                        ->where('book', 'NOT LIKE', 'shelf_%')
+                        ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
+                        ->get(['book', 'title', 'author', 'year'])
+                        ->keyBy('book')
+                        ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
+                        ->all();
+
+                    return ['svg' => app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->buildSvgForBooks(
+                        $mapCorpus,
+                        'Hypercite network of ' . $title,
+                    )];
+                },
             );
+            $hyperciteMap = $mapCached['svg'] ?? null;
+            $timing->stop('map');
         }
 
         // SEO data for user pages
@@ -268,6 +292,7 @@ class UserHomeServerController extends Controller
         $pageDescription = $bio ? \Illuminate\Support\Str::limit(strip_tags($bio), 160) : "{$actualUsername}'s library on Hyperlit";
 
         // Fetch user's shelves if owner
+        $timing->start('shelves');
         $shelves = [];
         if ($isOwner) {
             $shelves = DB::table('shelves')
@@ -284,6 +309,8 @@ class UserHomeServerController extends Controller
             ->orderByDesc('updated_at')
             ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
             ->toArray();
+
+        $timing->stop('shelves');
 
         // Pill curation applied: visitors see only the CHECKED shelves as
         // pills — including none at all; no stored curation = all of them.
@@ -942,9 +969,15 @@ class UserHomeServerController extends Controller
         $visibility = $bookRecord->visibility ?? 'public';
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
-        // Use new node_id pattern to find the card
+        // Use new node_id pattern to find the card.
+        // pgsql_admin like every other home-book path (the {u}All lookup below
+        // always was): the RLS-scoped default connection hides {u}Private's
+        // nodes outside an owner session, so this lookup silently returned
+        // nothing, the timestamp bump below never ran, and the next /u/ page
+        // view saw "a library book is newer than the home book" forever —
+        // paying the failsafe FULL card rebuild inline on every visit.
         $expectedNodeId = $bookName . '_' . $bookRecord->book . '_card';
-        $chunkToUpdate = DB::table('nodes')
+        $chunkToUpdate = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookName)
             ->where('node_id', $expectedNodeId)
             ->first();

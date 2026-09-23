@@ -11,6 +11,7 @@ import { log, verbose } from '../utilities/logger';
 import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
 import { appendGateParam } from '../components/utilities/gateFilter';
 import { reconvertSyncActive } from '../utilities/reconvertHandoff';
+import { perfMark } from '../utilities/perfMarks';
 
 /**
  * How many chunks to fetch per batch request.
@@ -206,6 +207,8 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             `Background download complete: ${allNodes.length} nodes in ${batches.length} batches`,
             'backgroundDownloader.js'
         );
+
+        perfMark('feed:background-download-done');
 
         // Notify listeners (TOC, search, etc.)
         window.dispatchEvent(new CustomEvent('backgroundDownloadComplete', {

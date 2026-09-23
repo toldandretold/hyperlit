@@ -901,6 +901,38 @@ class SearchService
     }
 
     /**
+     * How far along is this book's embedding backfill?
+     *
+     * The in-book query filters `embedding IS NOT NULL`, so a book whose
+     * embeddings lane hasn't drained yet returns an EMPTY success — which the
+     * find bar would render as "0 of 0", indistinguishable from "no matches".
+     * This counts the same node population the jobs embed (the ONE shared
+     * definition — EmbeddingEligibility::nodeSql), so "pending = 0" and "the
+     * queue is done" can never drift apart.
+     *
+     * @return array{embedded:int, eligible:int, pending:int}
+     */
+    public function bookEmbeddingProgress(string $book): array
+    {
+        $row = $this->searchConnection()->selectOne(
+            'SELECT COUNT(*) FILTER (WHERE embedding IS NOT NULL) AS embedded,
+                    COUNT(*) AS eligible
+             FROM nodes
+             WHERE book = ? AND ' . EmbeddingEligibility::nodeSql('nodes'),
+            [$book],
+        );
+
+        $embedded = (int) ($row->embedded ?? 0);
+        $eligible = (int) ($row->eligible ?? 0);
+
+        return [
+            'embedded' => $embedded,
+            'eligible' => $eligible,
+            'pending' => max(0, $eligible - $embedded),
+        ];
+    }
+
+    /**
      * May this requester run an in-book semantic search over $book?
      *
      * 🔒 Deliberately NOT App\Services\BookAccess::canAccessBookContent(): that

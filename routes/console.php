@@ -50,12 +50,12 @@ Schedule::job(\App\Jobs\DailyStatsJob::class)
     ->withoutOverlapping()
     ->onOneServer();
 
-// Generated books (user home/account/shelf pages) are rebuilt by deleting all
-// their nodes and re-inserting, so the versioning trigger archives a row per
-// card every time. The trigger can't exclude them — their ids are per-user, and
-// a trigger WHEN clause can't run a subquery — so the history is swept weekly
-// instead. The fixed ranking books ARE excluded at the trigger, so this only
-// mops up what still gets written.
+// Generated-book history sweep. The fixed ranking books AND generated library
+// cards (node_id ending `_card` — user home/sorted/shelf feeds) are excluded at
+// the versioning trigger, so the bulk churn never lands. This weekly sweep mops
+// up what the trigger can't catch by column alone: account-ledger entry nodes,
+// About-book nodes, and any legacy rows from before the trigger exclusions
+// (identified by library.raw_json type — see PurgeSystemNodeHistory).
 Schedule::command('nodes:purge-system-history --force')
     ->weekly()
     ->sundays()

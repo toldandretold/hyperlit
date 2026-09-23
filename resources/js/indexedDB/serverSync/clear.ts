@@ -6,6 +6,7 @@
  * resources/js/postgreSQL.js.
  */
 import { verbose } from '../../utilities/logger';
+import { perfMark } from '../../utilities/perfMarks';
 import type { ServerHyperlightRow, ServerHyperciteRow } from './types';
 import type { NodeHyperlightView, NodeHyperciteView } from '../types';
 
@@ -186,36 +187,45 @@ export async function updateEmbeddedAnnotationsInNodes(
 }
 
 /**
+ * All book-scoped stores have compound primary keys whose FIRST element is the
+ * book id (indexedDB/core/connection.ts: nodes ["book","startLine"],
+ * hyperlights ["book","hyperlight_id"], hypercites ["book","hyperciteId"],
+ * footnotes ["book","footnoteId"], bibliography ["book","referenceId"]), so
+ * "every record of this book" is ONE primary-key range: [bookId] ≤ key <
+ * [bookId, []]. An empty array sorts above every string and number in IDB key
+ * order, and array comparison is element-wise, so a sibling book whose id
+ * merely extends this one ("bookIdX") sits outside the range.
+ */
+function bookKeyRange(bookId: string): IDBKeyRange {
+  return IDBKeyRange.bound([bookId], [bookId, []]);
+}
+
+/** One range delete against a store's compound primary key; resolves on tx completion. */
+async function rangeDeleteBook(db: IDBDatabase, storeName: string, bookId: string): Promise<void> {
+  const tx = db.transaction(storeName, 'readwrite');
+  tx.objectStore(storeName).delete(bookKeyRange(bookId));
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+/**
  * Clear existing book data from IndexedDB
  */
 export async function clearBookDataFromIndexedDB(db: IDBDatabase, bookId: string): Promise<void> {
+  perfMark('sync:clear-start');
   verbose.content(`Clearing existing data for book: ${bookId}`, 'serverSync/clear');
 
-  // Clear stores that have book-based indices
-  // NOTE: 'footnotes' has compound keyPath ["book", "footnoteId"] — must use 'book' index,
-  // not store.delete(bookId) which silently no-ops on compound keys.
+  // One key-range delete per store. This used to getAllKeys + delete each key
+  // behind its own awaited round-trip — ~7,600 sequential awaits for a mature
+  // user's {u}All feed, the dominant cost of every stale-refresh reload.
   const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites', 'footnotes'];
 
   for (const storeName of bookIndexedStores) {
-    const tx = db.transaction(storeName, 'readwrite');
-    const store = tx.objectStore(storeName);
-    const index = store.index('book');
-
-    const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
-      const request = index.getAllKeys(bookId);
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-
-    for (const key of keys) {
-      await new Promise<void>((resolve, reject) => {
-        const deleteRequest = store.delete(key);
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
-      });
-    }
-
-    verbose.content(`Cleared ${keys.length} records from ${storeName}`, 'serverSync/clear');
+    await rangeDeleteBook(db, storeName, bookId);
+    verbose.content(`Cleared ${storeName} for book`, 'serverSync/clear');
   }
 
   // Clear library (uses citationID as key, which should match bookId)
@@ -232,6 +242,7 @@ export async function clearBookDataFromIndexedDB(db: IDBDatabase, bookId: string
   } catch (error) {
     verbose.content('No existing library record to clear', 'serverSync/clear');
   }
+  perfMark('sync:clear-done');
 }
 
 /**
@@ -251,32 +262,16 @@ export async function clearBookDataFromIndexedDB(db: IDBDatabase, bookId: string
 export async function purgeStaleBookFromIndexedDB(db: IDBDatabase, bookId: string): Promise<void> {
   verbose.content(`Purging ALL local data for stale book: ${bookId}`, 'serverSync/clear');
 
-  // Stores keyed/indexed by 'book' — same delete-by-index loop as the base helper,
-  // plus 'bibliography'.
+  // Stores whose primary key starts with the book id — same single range
+  // delete as the base helper, plus 'bibliography'.
   const bookIndexedStores = ['nodes', 'hyperlights', 'hypercites', 'footnotes', 'bibliography'];
 
   for (const storeName of bookIndexedStores) {
     try {
-      const tx = db.transaction(storeName, 'readwrite');
-      const store = tx.objectStore(storeName);
-      const index = store.index('book');
-
-      const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {
-        const request = index.getAllKeys(bookId);
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      });
-
-      for (const key of keys) {
-        await new Promise<void>((resolve, reject) => {
-          const deleteRequest = store.delete(key);
-          deleteRequest.onsuccess = () => resolve();
-          deleteRequest.onerror = () => reject(deleteRequest.error);
-        });
-      }
-      verbose.content(`Purged ${keys.length} records from ${storeName}`, 'serverSync/clear');
+      await rangeDeleteBook(db, storeName, bookId);
+      verbose.content(`Purged ${storeName} for book`, 'serverSync/clear');
     } catch (error) {
-      verbose.content(`Could not purge ${storeName} (store/index may be absent)`, 'serverSync/clear');
+      verbose.content(`Could not purge ${storeName} (store may be absent)`, 'serverSync/clear');
     }
   }
 
@@ -293,8 +288,10 @@ export async function purgeStaleBookFromIndexedDB(db: IDBDatabase, bookId: strin
     verbose.content('No library record to purge', 'serverSync/clear');
   }
 
-  // historyLog — the replay source. Keyed by autoIncrement 'id', so delete via the
-  // 'bookId' index. THIS is the store that, left in place, replays the 409 forever.
+  // historyLog — the replay source. Keyed by autoIncrement 'id' (no book
+  // prefix), so collect keys via the 'bookId' index — but issue every delete
+  // in one transaction without awaiting each, and await tx completion once.
+  // THIS is the store that, left in place, replays the 409 forever.
   try {
     const tx = db.transaction('historyLog', 'readwrite');
     const store = tx.objectStore('historyLog');
@@ -305,12 +302,13 @@ export async function purgeStaleBookFromIndexedDB(db: IDBDatabase, bookId: strin
       request.onerror = () => reject(request.error);
     });
     for (const key of keys) {
-      await new Promise<void>((resolve, reject) => {
-        const deleteRequest = store.delete(key);
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
-      });
+      store.delete(key);
     }
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
     verbose.content(`Purged ${keys.length} historyLog batch(es) for book`, 'serverSync/clear');
   } catch (error) {
     verbose.content('Could not purge historyLog for book', 'serverSync/clear');

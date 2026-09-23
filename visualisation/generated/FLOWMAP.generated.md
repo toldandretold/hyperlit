@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1940 functions in 408 modules · 10 object stores · 10 PG tables · 3975 edges
+**MarkdownDB** schema v28 · 1941 functions in 408 modules · 10 object stores · 10 PG tables · 3974 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1302,7 +1302,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `saveAllNodesToIndexedDB` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `writeNodes` | `indexedDB/nodes/write` | — | `nodes` | — | — |
 | `clearAnnotationsFromIndexedDB` | `indexedDB/serverSync/clear` | — | `hypercites` `hyperlights` | — | — |
-| `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | `library` | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
+| `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | — | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `purgeStaleBookFromIndexedDB` | `indexedDB/serverSync/clear` | `historyLog` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | `historyLog` | — | — | — |
@@ -1729,6 +1729,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SearchToolbarManager.toggle` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `SearchToolbarManager.updateMatchCounter` | `search/inTextSearch/searchToolbar` | — | — | write | — |
 | `SearchToolbarManager.updateNavigationButtons` | `search/inTextSearch/searchToolbar` | — | — | — | — |
+| `SearchToolbarManager.updatePlaceholder` | `search/inTextSearch/searchToolbar` | — | — | — | — |
 | `abortSemanticSearch` | `search/inTextSearch/semanticSearch` | — | — | — | — |
 | `searchBookSemantically` | `search/inTextSearch/semanticSearch` | — | — | — | — |
 | `destroyHomepageSearch` | `search/postgreSQLsearch/homepageSearch` | — | — | — | — |

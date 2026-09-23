@@ -445,7 +445,9 @@ Route::get('/u/{username}/shelf/{shelfId}', function ($username, $shelfId) {
 // User pages - /u/{username}
 Route::get('/u/{username}', function ($username) {
     return app(\App\Http\Controllers\UserHomeServerController::class)->show($username);
-})->where('username', '[A-Za-z0-9_-]+')->name('user.home');
+})->where('username', '[A-Za-z0-9_-]+')
+    ->middleware(\App\Http\Middleware\AddServerTiming::class)
+    ->name('user.home');
 
 // Legacy user page route - redirects to new /u/{username} format
 Route::get('/{identifier}', function (Request $request, $identifier) {

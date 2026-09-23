@@ -54,12 +54,31 @@ function seedInBookFixture(array $opts = []): string
         'node_id'    => $book . '_node_1',
         'content'    => '<p>the tendency of the rate of profit to fall</p>',
         'plainText'  => 'the tendency of the rate of profit to fall',
-        'embedding'  => inBookAdminDb()->raw("'{$vector}'::halfvec"),
+        // embedded => false: the queue hasn't reached this node yet.
+        'embedding'  => ($opts['embedded'] ?? true)
+            ? inBookAdminDb()->raw("'{$vector}'::halfvec")
+            : null,
         'created_at' => now(),
         'updated_at' => now(),
     ]);
 
     return $book;
+}
+
+/** A second node the embeddings lane hasn't processed yet. */
+function seedUnembeddedNode(string $book): void
+{
+    inBookAdminDb()->table('nodes')->insert([
+        'book'       => $book,
+        'chunk_id'   => 8,
+        'startLine'  => 520,
+        'node_id'    => $book . '_node_2',
+        'content'    => '<p>primitive accumulation and the enclosure of the commons</p>',
+        'plainText'  => 'primitive accumulation and the enclosure of the commons',
+        'embedding'  => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
 }
 
 /** A query vector identical to the seeded node's → distance 0, similarity 1. */
@@ -86,7 +105,9 @@ test('returns the envelope with a seeded hit carrying chunk_id', function () {
     $response = $this->getJson('/api/search/in-book?book=' . urlencode($book) . '&q=falling profitability')
         ->assertStatus(200)
         ->assertJsonStructure(['success', 'results', 'query', 'book', 'mode', 'count'])
-        ->assertJson(['success' => true, 'mode' => 'semantic', 'book' => $book]);
+        ->assertJson(['success' => true, 'mode' => 'semantic', 'book' => $book])
+        // Fully embedded → no indexing marker; the client caches freely.
+        ->assertJsonMissingPath('indexing');
 
     $hit = $response->json('results.0');
 
@@ -185,6 +206,37 @@ test('short query returns empty results without embedding', function () {
     $this->getJson('/api/search/in-book?book=' . urlencode($book) . '&q=ab')
         ->assertStatus(200)
         ->assertJson(['success' => true, 'mode' => 'semantic', 'results' => [], 'count' => 0]);
+});
+
+test('a book the embeddings queue has not started reports indexing without an embedding call', function () {
+    // Eligible ≠ ready: the whole point of the marker. With NOTHING embedded
+    // the search could only be empty, so no provider round-trip is spent.
+    $book = seedInBookFixture(['embedded' => false]);
+    $this->mock(EmbeddingService::class)->shouldReceive('embedSearchQuery')->never();
+
+    $this->getJson('/api/search/in-book?book=' . urlencode($book) . '&q=falling profitability')
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'count' => 0,
+            'indexing' => ['embedded' => 0, 'eligible' => 1, 'pending' => 1],
+        ]);
+});
+
+test('partial embedding coverage carries indexing alongside live results', function () {
+    $book = seedInBookFixture();
+    seedUnembeddedNode($book);
+
+    $this->mock(EmbeddingService::class)
+        ->shouldReceive('embedSearchQuery')->andReturn(nearVector());
+
+    $this->getJson('/api/search/in-book?book=' . urlencode($book) . '&q=falling profitability')
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'count' => 1,
+            'indexing' => ['embedded' => 1, 'eligible' => 2, 'pending' => 1],
+        ]);
 });
 
 test('embedding provider outage returns 503', function () {

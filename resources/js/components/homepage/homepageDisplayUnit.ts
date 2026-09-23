@@ -1,6 +1,6 @@
 import { setCurrentBook } from '../../app';
 import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
-import { verbose } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 import { formatAuthorsForReference } from '../../utilities/authorList';
 
@@ -23,6 +23,31 @@ function persistActiveTabToHistory(filter: any, content: any, shelfId = null) {
   } catch (e) {
     // replaceState can throw in rare cross-origin / sandboxed contexts; fail silently
   }
+}
+
+// Run the BOOT feed load without blocking component init. initializeHomepageButtons
+// used to await this work, which held buttonRegistry.initializeAll (strictly
+// serial) — and with it the full-page #initial-navigation-overlay — hostage to
+// the entire aggregate feed fetch/render: nothing painted until the slowest
+// part of the page finished. The feed shows its own in-feed loading indicator
+// instead (transitionToBookContent's showLoader), and follow-up work that needs
+// the RENDERED feed rides the continuation here. Safe because the active tab
+// is stamped synchronously before this runs (the signal aiArchivist's restore
+// keys on — see archivistPanel.ts), and transitionToBookContent's internal
+// chain serializes any early tab click against this load (newest-wins).
+function runBootFeedLoad(work: () => Promise<void>): void {
+  void (async () => {
+    try {
+      await work();
+      // lockedCardTitles inits in registry order, i.e. before this deferred
+      // feed has rendered its cards — re-run its one-shot scan now that they
+      // exist. Idempotent (WeakSet) and inert without encrypted cards.
+      const { initLockedCardTitles } = await import('../../e2ee/ui/lockedCardTitles');
+      initLockedCardTitles();
+    } catch (err: any) {
+      log.error('Boot feed load failed', '/components/homepage/homepageDisplayUnit.ts', err);
+    }
+  })();
 }
 
 // Fix header spacing dynamically based on actual header height
@@ -196,34 +221,36 @@ export async function initializeHomepageButtons() {
       const sort = activeButton.dataset.sort || 'recent';
       const shelfName = activeButton.dataset.shelfName || 'Shelf';
       const shelfSlug = activeButton.dataset.shelfSlug || null;
-      try {
-        const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
-        const data = await resp.json();
-        if (data.bookId) {
-          activeButton.dataset.content = data.bookId;
-          await transitionToBookContent(data.bookId, false);
-          if ((window as any).isUserPage) {
-            const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-            showShelfHeader({
-              shelfId,
-              shelfName,
-              visibility: 'public',
-              currentSort: sort,
-              isSystemShelf: false,
-              isOwner: false,
-              username: (window as any).username,
-              slug: shelfSlug,
-            });
+      runBootFeedLoad(async () => {
+        try {
+          const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
+          const data = await resp.json();
+          if (data.bookId) {
+            activeButton.dataset.content = data.bookId;
+            await transitionToBookContent(data.bookId, true);
+            if ((window as any).isUserPage) {
+              const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+              showShelfHeader({
+                shelfId,
+                shelfName,
+                visibility: 'public',
+                currentSort: sort,
+                isSystemShelf: false,
+                isOwner: false,
+                username: (window as any).username,
+                slug: shelfSlug,
+              });
+            }
+          }
+        } catch (err) {
+          log.error('Failed to load public shelf', '/components/homepage/homepageDisplayUnit.ts', err as any);
+          // Fall back to public content
+          const mainContent = document.querySelector('.main-content');
+          if (mainContent && mainContent.id) {
+            await transitionToBookContent(mainContent.id, true);
           }
         }
-      } catch (err) {
-        console.error('Failed to load public shelf:', err);
-        // Fall back to public content
-        const mainContent = document.querySelector('.main-content');
-        if (mainContent && mainContent.id) {
-          await transitionToBookContent(mainContent.id, false);
-        }
-      }
+      });
     } else {
       let initialTargetId = activeButton.dataset.content;
 
@@ -237,46 +264,51 @@ export async function initializeHomepageButtons() {
         }
       }
 
-      await transitionToBookContent(initialTargetId, false); // No loading overlay on initial load
+      runBootFeedLoad(async () => {
+        await transitionToBookContent(initialTargetId, true);
 
-      // Show shelf header for initial Library tab on user page
-      if ((window as any).isUserPage) {
-        if (filter === 'library') {
-          const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-          const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
-          showShelfHeader({
-            shelfId: null,
-            shelfName: 'Library',
-            visibility: (window as any).isOwner ? 'all' : 'public',
-            currentSort: savedSort,
-            isSystemShelf: true,
-            isOwner: (window as any).isOwner,
-            username: (window as any).username,
-          });
+        // Show shelf header for initial Library tab on user page
+        if ((window as any).isUserPage) {
+          if (filter === 'library') {
+            const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+            const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
+            showShelfHeader({
+              shelfId: null,
+              shelfName: 'Library',
+              visibility: (window as any).isOwner ? 'all' : 'public',
+              currentSort: savedSort,
+              isSystemShelf: true,
+              isOwner: (window as any).isOwner,
+              username: (window as any).username,
+            });
+          }
         }
-      }
+      });
     }
   } else if (!deferToShelfTabs) {
     // No buttons exist (e.g., non-owner viewing user page with no public shelves)
     // Load the public content by default using the main-content div's ID
     const mainContent = document.querySelector('.main-content');
     if (mainContent && mainContent.id) {
-      console.log(`📄 No arranger buttons found, loading default content: ${mainContent.id}`);
-      await transitionToBookContent(mainContent.id, false);
+      const defaultContentId = mainContent.id;
+      verbose.content(`No arranger buttons found, loading default content: ${defaultContentId}`, '/components/homepage/homepageDisplayUnit.ts');
+      runBootFeedLoad(async () => {
+        await transitionToBookContent(defaultContentId, true);
 
-      // Show shelf header for visitors so search works on library tab
-      if ((window as any).isUserPage && !(window as any).isOwner) {
-        const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-        showShelfHeader({
-          shelfId: null,
-          shelfName: 'Library',
-          visibility: 'public',
-          currentSort: 'recent',
-          isSystemShelf: true,
-          isOwner: false,
-          username: (window as any).username,
-        });
-      }
+        // Show shelf header for visitors so search works on library tab
+        if ((window as any).isUserPage && !(window as any).isOwner) {
+          const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+          showShelfHeader({
+            shelfId: null,
+            shelfName: 'Library',
+            visibility: 'public',
+            currentSort: 'recent',
+            isSystemShelf: true,
+            isOwner: false,
+            username: (window as any).username,
+          });
+        }
+      });
     }
   }
   

@@ -72,11 +72,13 @@ export type SemanticFailure =
   | 'offline'
   | 'unavailable'   // 503 — the embedding provider is down
   | 'unsupported'   // 403 — this book has no embeddings (E2EE, sub-book, feed)
+  | 'indexing'      // eligible, but the embeddings queue hasn't drained yet
   | 'failed';       // anything else
 
 export type SemanticSearchResult =
   | { ok: true; hits: SemanticHit[] }
-  | { ok: false; reason: SemanticFailure }
+  /** `detail` overrides the toolbar's canned copy (e.g. an indexing %). */
+  | { ok: false; reason: SemanticFailure; detail?: string }
   | { ok: false; reason: 'aborted' };
 
 /**
@@ -163,7 +165,20 @@ export async function searchBookSemantically(
       ? payload.results.map(normalizeHit)
       : [];
 
-    searchCacheSet(url, hits);
+    // `indexing` means the book is eligible but the embeddings queue hasn't
+    // finished it: an empty result is NOT "no matches", so say so instead —
+    // and never cache while pending, since the result set is still growing.
+    const pending = Number(payload?.indexing?.pending ?? 0);
+    if (pending > 0 && hits.length === 0) {
+      const eligible = Number(payload?.indexing?.eligible ?? 0);
+      const embedded = Number(payload?.indexing?.embedded ?? 0);
+      const pct = eligible > 0 ? Math.floor((embedded / eligible) * 100) : 0;
+      return { ok: false, reason: 'indexing', detail: `still indexing — ${pct}%` };
+    }
+
+    if (pending === 0) {
+      searchCacheSet(url, hits);
+    }
     verbose.content(
       `SemanticSearch: ${hits.length} hits for "${query}" in ${bookId}`,
       '/search/inTextSearch/semanticSearch',
