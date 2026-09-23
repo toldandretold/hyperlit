@@ -243,6 +243,20 @@ body[data-page="user"] #app-container.lava-lamp-background #logoNavWrapper {
   color: inherit;
 }
 
+/* Every remaining heading level + bold run is authored copy (the user page's
+   About book is edited in the reader, so it emits h3/h4 and <b>). The base
+   sheet paints headings --color-text and b/strong --color-strong — both
+   theme-light, i.e. invisible over the lava. The intro is black-on-lava in
+   every theme, so everything inside it inherits. */
+.welcome-copy h3,
+.welcome-copy h4,
+.welcome-copy h5,
+.welcome-copy h6,
+.welcome-copy b,
+.welcome-copy strong {
+  color: inherit;
+}
+
 .welcome-copy h2.copy-statement {
   font-size: clamp(1.7rem, 4vw, 2.5rem);
   line-height: 1.2;
