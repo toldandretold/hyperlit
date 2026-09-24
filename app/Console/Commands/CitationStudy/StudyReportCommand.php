@@ -4,6 +4,7 @@ namespace App\Console\Commands\CitationStudy;
 
 use App\Services\CitationStudy\ClaimsJoiner;
 use App\Services\CitationStudy\CorpusManifest;
+use App\Services\CitationStudy\EvidenceCoverage;
 use App\Services\CitationStudy\MetricsCalculator;
 use App\Services\CitationStudy\StudyRunner;
 use Illuminate\Console\Command;
@@ -17,8 +18,12 @@ class StudyReportCommand extends Command
 
     protected $description = 'Join claims, ground truth, timings and billing into dataset.csv + summary.json + summary.md';
 
-    public function handle(ClaimsJoiner $joiner, MetricsCalculator $metrics, StudyRunner $runner): int
-    {
+    public function handle(
+        ClaimsJoiner $joiner,
+        MetricsCalculator $metrics,
+        StudyRunner $runner,
+        EvidenceCoverage $coverage,
+    ): int {
         $manifest = CorpusManifest::load($this->argument('corpus'));
         $state = $runner->loadState($manifest);
         if (($state['books'] ?? []) === []) {
@@ -46,6 +51,11 @@ class StudyReportCommand extends Command
 
         $summary = $metrics->summarise($joined['rows'], $joined['diagnostics']);
         $summary['review_substage_seconds_by_book'] = $substages;
+        // Attached HERE rather than inside summarise(), which takes rows and
+        // must stay a pure function of them: coverage is counted over the
+        // ADJUDICATION FILES, because ground-truth entries carry the manifest's
+        // blanket default label and would measure corpus size, not review work.
+        $summary['evidence_coverage'] = $coverage->forCorpus($manifest);
 
         // Per-run reports keep cold and warm runs side by side for comparison.
         $outDir = $manifest->resultsDir() . '/report' . ($runId ? "/{$runId}" : '');

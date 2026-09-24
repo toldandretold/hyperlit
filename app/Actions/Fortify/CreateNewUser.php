@@ -3,11 +3,11 @@
 namespace App\Actions\Fortify;
 
 use App\Models\User;
+use App\Support\UsernameRules;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 /**
@@ -33,27 +33,12 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
+        // ONE definition, shared with AuthController::register (the SPA path):
+        // App\Support\UsernameRules. This no-JS fallback must never be the
+        // laxer of the two — the username squat this guards against could
+        // otherwise just move to /register.
         Validator::make($input, [
-            'name' => [
-                'required',
-                'string',
-                'min:3',
-                'max:30',
-                'unique:pgsql_admin.users,name',
-                'alpha_dash',
-                'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/',
-                // Same two blocklists as AuthController::register (the SPA path).
-                // This no-JS fallback must not be a way around either: a route
-                // name (reserved-routes) is shadowed and unreachable; an identity
-                // name (reserved-usernames) can impersonate. The username squat
-                // this exists to stop could otherwise just move to /register.
-                Rule::notIn(config('reserved-routes')),
-                function ($attribute, $value, $fail) {
-                    if (in_array(strtolower((string) $value), config('reserved-usernames'), true)) {
-                        $fail('This username is reserved and cannot be used.');
-                    }
-                },
-            ],
+            'name' => UsernameRules::rules(),
             'email' => [
                 'required',
                 'string',
@@ -62,10 +47,7 @@ class CreateNewUser implements CreatesNewUsers
                 'unique:pgsql_admin.users,email',
             ],
             'password' => $this->passwordRules(),
-        ], [
-            'name.alpha_dash' => 'Username can only contain letters, numbers, hyphens, and underscores.',
-            'name.regex' => 'Username cannot start or end with - or _.',
-        ])->validate();
+        ], UsernameRules::messages())->validate();
 
         $userId = DB::connection('pgsql_admin')->table('users')->insertGetId([
             'name' => $input['name'],

@@ -8,15 +8,101 @@ import { authorsToBibtexField, formatAuthorsForReference } from "./authorList";
  * `author = {{van Rossum}, Guido and {World Health Organization}}` parses whole,
  * where the old first-closing-brace regex truncated at `{van Rossum}`.
  * Keys are lowercased. Values keep their inner braces (splitAuthors strips them).
+ *
+ * A bare unquoted value (`year = 2026,` — legal BibTeX, and what several
+ * exporters emit for year/volume) is read too: it was silently DROPPED before,
+ * which mattered once the form autofill below started reading its fields from
+ * here instead of its own per-field regexes.
  */
 export function parseBibtexFields(bibtex: string): Record<string, string> {
   const fields: Record<string, string> = {};
-  const fieldRegex = /(\w+)\s*=\s*(?:\{((?:[^{}]|\{[^{}]*\})*)\}|"([^"]*)")/g;
+  // Braced/quoted alternatives come FIRST — the bare branch must only ever pick
+  // up a value that has no delimiter of its own.
+  const fieldRegex = /(\w+)\s*=\s*(?:\{((?:[^{}]|\{[^{}]*\})*)\}|"([^"]*)"|([^,{}"\s][^,{}"]*))/g;
   let match: RegExpExecArray | null;
   while ((match = fieldRegex.exec(String(bibtex ?? ''))) !== null) {
-    fields[match[1]!.toLowerCase()] = (match[2] ?? match[3] ?? '').trim();
+    fields[match[1]!.toLowerCase()] = (match[2] ?? match[3] ?? match[4] ?? '').trim();
   }
   return fields;
+}
+
+/**
+ * BibTeX key → cite-form field id, for autofilling a pasted entry into the
+ * new-book form and the source panel's pencil form.
+ *
+ * EXACT KEYS, and that is the whole point. Both forms used to carry their own
+ * block of per-field regexes (`/note\s*=\s*[{"]([^}"]+)[}"]/i` and friends),
+ * which were unanchored and delimiter-naive, so a real OJS export
+ * (`~/Downloads/bibtex.bib`, the Weizenbaum article — kept as the fixture in
+ * tests/javascript/utilities/bibtexAutofill.test.js) mis-filled four ways at once:
+ *
+ *  - `abstractNote={…}` matched the `note` pattern on its TAIL, so a 1210-char
+ *    abstract landed in the Note field → into `library.bibtex` as `note = {…}` →
+ *    appended verbatim to the citation on every server-rendered library card
+ *    (LibraryCardGenerator::generateHtmlCitation renders `note` last). Home,
+ *    user page, shelves, journal feeds.
+ *  - `booktitle`/`bookauthor` matched `title`/`author` the same way, so an
+ *    @incollection export whose booktitle came first autofilled the anthology's
+ *    title as the chapter's.
+ *  - any ASCII apostrophe ended the value: `title={Marx's Capital}` → `Marx`.
+ *  - `DOI={…}` had no pattern at all and was dropped.
+ *
+ * Unrecognised keys are IGNORED rather than guessed at. `abstractNote`/`abstract`
+ * and `doi` are deliberately absent: neither form has an input for them and
+ * neither `POST /import-file` nor the library upsert accepts one, so there is
+ * nowhere honest to put them yet — dropping an abstract beats filing it as a
+ * citation field. Wiring `library.abstract` (it feeds the book page's meta
+ * description + JSON-LD) through import is its own change.
+ */
+const AUTOFILL_FIELD_BY_BIBTEX_KEY: Readonly<Record<string, string>> = {
+  title: 'title',
+  author: 'author',
+  journal: 'journal',
+  year: 'year',
+  pages: 'pages',
+  publisher: 'publisher',
+  school: 'school',
+  note: 'note',
+  url: 'url',
+  volume: 'volume',
+  number: 'issue',
+  booktitle: 'booktitle',
+  chapter: 'chapter',
+  editor: 'editor',
+};
+
+/**
+ * The form-field values a pasted BibTeX entry implies: `{ title, author, … }`,
+ * keyed by FORM field name (so `number` arrives as `issue`). Keys the entry
+ * doesn't carry are absent rather than empty — callers only ever assign what is
+ * present, so a paste never blanks a field the user typed themselves.
+ */
+export function bibtexAutofillValues(bibtex: string): Record<string, string> {
+  const fields = parseBibtexFields(bibtex);
+  const out: Record<string, string> = {};
+
+  for (const [key, formField] of Object.entries(AUTOFILL_FIELD_BY_BIBTEX_KEY)) {
+    const value = fields[key];
+    if (value === undefined || value === '') continue;
+    out[formField] = value;
+  }
+
+  // A year field can legitimately read `2026`, `Sep. 2026` or `{2026}a`; the
+  // forms bind it to <input type="number">, so take the 4-digit year out of it
+  // (the per-field regex this replaces captured `(\d+)` for the same reason).
+  if (out.year) {
+    const year = out.year.match(/\d{4}/);
+    if (year) out.year = year[0];
+    else delete out.year;
+  }
+
+  return out;
+}
+
+/** The `@type{key,` citation key of an entry — the cite form offers it as the book id. */
+export function bibtexEntryKey(bibtex: string): string | null {
+  const match = String(bibtex ?? '').match(/@\w+\s*\{\s*([^,\s]+)\s*,/);
+  return match ? match[1]!.trim() : null;
 }
 
 const CITATION_ARTICLE_TYPES = new Set(['article', 'journal-article', 'journal article', 'proceedings-article', 'conference-paper', 'paper']);

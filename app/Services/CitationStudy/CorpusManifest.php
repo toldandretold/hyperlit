@@ -195,26 +195,50 @@ class CorpusManifest
      * text is unchanged. Regeneration must never silently un-bind an imported
      * book: the bindings are what the report joins on, and a wiped binding
      * turns every citation into a phantom "missed" row.
+     *
+     * HUMAN EVIDENCE rides the same carry-over, for the same reason and a
+     * sharper one: the corruptor builds each entry as a fixed literal in seven
+     * places, so a hand-added field would be erased the next time
+     * `citation:study:corrupt` ran — destroying quotations a person typed. This
+     * is the single write path for every generation route (corrupt, skeleton,
+     * skeletonFromImportedRows, skeletonFromFootnotes), so protecting it here
+     * protects all of them without touching any literal.
      */
     public function saveGroundTruth(array $book, array $groundTruth): void
     {
         $path = $this->groundTruthPath($book);
 
+        // Fields a HUMAN authored, which no generator can reproduce.
+        $humanFields = ['evidence', 'evidence_locator', 'evidenced_by', 'evidenced_at'];
+
         if (is_file($path)) {
             $existing = json_decode((string) file_get_contents($path), true);
             $previousBindings = [];
+            $previousHuman = [];
             foreach ($existing['entries'] ?? [] as $entry) {
+                $key = ($entry['bib_text_hash'] ?? '') . '|' . ($entry['claim_snippet'] ?? '');
                 if (!empty($entry['bound_reference_id'])) {
-                    $key = $entry['bib_text_hash'] . '|' . ($entry['claim_snippet'] ?? '');
                     $previousBindings[$key] = $entry['bound_reference_id'];
+                }
+                foreach ($humanFields as $field) {
+                    if (($entry[$field] ?? null) !== null && $entry[$field] !== '') {
+                        $previousHuman[$key][$field] = $entry[$field];
+                    }
                 }
             }
             $carried = 0;
             foreach ($groundTruth['entries'] as &$entry) {
+                $key = ($entry['bib_text_hash'] ?? '') . '|' . ($entry['claim_snippet'] ?? '');
+                if (isset($previousHuman[$key])) {
+                    foreach ($previousHuman[$key] as $field => $value) {
+                        if (($entry[$field] ?? null) === null || $entry[$field] === '') {
+                            $entry[$field] = $value;
+                        }
+                    }
+                }
                 if (!empty($entry['bound_reference_id'])) {
                     continue;
                 }
-                $key = $entry['bib_text_hash'] . '|' . ($entry['claim_snippet'] ?? '');
                 if (isset($previousBindings[$key])) {
                     $entry['bound_reference_id'] = $previousBindings[$key];
                     $carried++;

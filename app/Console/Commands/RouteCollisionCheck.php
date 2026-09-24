@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\UsernameKey;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -61,7 +62,13 @@ class RouteCollisionCheck extends Command
             }
         }
 
-        $names = $db->table('users')->whereIn('name', $reserved)->pluck('name');
+        // Compared on the URL key (lower + spaces stripped), not exactly:
+        // usernames are now case-insensitively unique, so an account named
+        // `Admin` IS the reserved word `admin` and a plain whereIn missed it.
+        $keys = array_map(fn ($w) => UsernameKey::for((string) $w), $reserved);
+        $names = $db->table('users')
+            ->whereIn(DB::raw("lower(replace(name, ' ', ''))"), $keys)
+            ->pluck('name');
         if ($names->isNotEmpty()) {
             $this->newLine();
             $this->warn('Usernames shadowed by a route (still reachable at /u/<name>):');

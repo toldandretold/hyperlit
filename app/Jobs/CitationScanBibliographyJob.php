@@ -1426,6 +1426,12 @@ class CitationScanBibliographyJob implements ShouldQueue
                                 'http_status' => $fetched['http_status'] ?? null,
                                 'channel'     => $fetched['channel'] ?? null,
                             ];
+                            // A refusal can still confirm the reference is REAL — a
+                            // foreign-language video or a paywall interstitial declares
+                            // the work's title without a word of its content.
+                            if (!empty($fetched['title'])) {
+                                $waveResults[$refId]['web_fetch']['title'] = $fetched['title'];
+                            }
                             continue;
                         }
                         $item = $pool[$refId];
@@ -1731,6 +1737,7 @@ class CitationScanBibliographyJob implements ShouldQueue
         WebTextAcquirer::GRADE_FULL_TEXT,
         WebTextAcquirer::GRADE_ARTICLE_EXTRACT,
         WebTextAcquirer::GRADE_TRANSCRIPT,
+        WebTextAcquirer::GRADE_TRANSLATED_TRANSCRIPT,
     ];
 
     /**

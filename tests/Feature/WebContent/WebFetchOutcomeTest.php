@@ -421,3 +421,100 @@ it('leaves an untouched URL exactly as it was', function () {
         ->and($svc->extractUrl('Available at: <https://doi.org/10.1017/S0892679423000424>.'))
         ->toBe('https://doi.org/10.1017/S0892679423000424');
 });
+
+// ---------------------------------------------------------------- escalation keeps findings
+
+function acquirerFailure(string $grade, string $reason, string $channel, ?string $title = null): array
+{
+    $r = [
+        'text' => null, 'grade' => $grade, 'reason' => $reason, 'channel' => $channel,
+        'final_url' => 'https://www.youtube.com/watch?v=f-G-MzKbiUw', 'chars' => 0,
+        'prose_blocks' => 0, 'format' => null, 'references' => 0,
+        'extraction' => 'none', 'http_status' => null,
+    ];
+    if ($title !== null) {
+        $r['title'] = $title;
+    }
+
+    return $r;
+}
+
+test('a text-less LADDER FINDING beats the pooled pass\'s generic grade', function () {
+    // The bug: pass 2's escalated result was kept only when it carried TEXT, so a Hindi
+    // video's honest refusal — foreign_language, "the en track is a machine translation" —
+    // was thrown away in favour of pass 1's "JS shell, no prose block survived" (chacko
+    // modi2024a, an entire study run). The ladder subsumes the pooled GET; its answer wins.
+    Http::fake(['*' => Http::response(
+        '<html><head><title>YouTube</title></head><body><div id="root"></div></body></html>',
+        200, ['Content-Type' => 'text/html'],
+    )]);
+    $acquirer = Mockery::mock(WebTextAcquirer::class);
+    $acquirer->shouldReceive('assessHtml')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_METADATA_ONLY, 'page had no article body', 'plain',
+    ));
+    $acquirer->shouldReceive('acquire')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_FOREIGN_LANGUAGE,
+        "the video is in 'hi', not en. YouTube's en captions for it are a MACHINE TRANSLATION",
+        'transcript',
+        'Illegal immigrants are snatching the opportunities meant for the Youth of West Bengal: PM Modi',
+    ));
+    app()->instance(WebTextAcquirer::class, $acquirer);
+
+    $results = app(WebFetchService::class)->fetchAndValidateBatch([
+        'modi2024a' => ['url' => 'https://www.youtube.com/watch?v=f-G-MzKbiUw', 'title' => 'Illegal immigrants…'],
+    ]);
+
+    expect($results['modi2024a']['grade'])->toBe(WebTextAcquirer::GRADE_FOREIGN_LANGUAGE)
+        ->and($results['modi2024a']['reason'])->toContain('MACHINE TRANSLATION')
+        ->and($results['modi2024a']['title'])->toContain('Illegal immigrants');
+});
+
+test('a transient unreachable on escalation does NOT overwrite a page pass 1 actually graded', function () {
+    Http::fake(['*' => Http::response(
+        '<html><head><title>Shell</title></head><body><div id="root"></div></body></html>',
+        200, ['Content-Type' => 'text/html'],
+    )]);
+    $acquirer = Mockery::mock(WebTextAcquirer::class);
+    $acquirer->shouldReceive('assessHtml')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_METADATA_ONLY, 'page had no article body', 'plain',
+    ));
+    $acquirer->shouldReceive('acquire')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_UNREACHABLE, 'connection reset', 'plain',
+    ));
+    app()->instance(WebTextAcquirer::class, $acquirer);
+
+    $results = app(WebFetchService::class)->fetchAndValidateBatch([
+        'x' => ['url' => 'https://example.com/shell', 'title' => 'A Cited Work'],
+    ]);
+
+    expect($results['x']['grade'])->toBe(WebTextAcquirer::GRADE_METADATA_ONLY);
+});
+
+test('a source-KIND verdict outranks the pooled pass even when it is a transient throttle', function () {
+    // A YouTube URL's pooled GET can only ever say "this HTML has no article in it". When the
+    // ladder dispatched by SOURCE KIND (transcript/pdf), its answer is about the SOURCE, so the
+    // transient-unreachable exception must not apply — otherwise "page had no article body"
+    // outranks "YouTube throttled the caption download" and the misdiagnosis is back.
+    Http::fake(['*' => Http::response(
+        '<html><head><title>YouTube</title></head><body><div id="root"></div></body></html>',
+        200, ['Content-Type' => 'text/html'],
+    )]);
+    $acquirer = Mockery::mock(WebTextAcquirer::class);
+    $acquirer->shouldReceive('assessHtml')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_METADATA_ONLY, 'page had no article body', 'plain',
+    ));
+    $acquirer->shouldReceive('acquire')->andReturn(acquirerFailure(
+        WebTextAcquirer::GRADE_UNREACHABLE,
+        'YouTube rate-limited the caption download (HTTP 429) — a temporary throttle',
+        'transcript',
+    ));
+    app()->instance(WebTextAcquirer::class, $acquirer);
+
+    $results = app(WebFetchService::class)->fetchAndValidateBatch([
+        'modi2024a' => ['url' => 'https://www.youtube.com/watch?v=f-G-MzKbiUw', 'title' => 'Illegal immigrants…'],
+    ]);
+
+    expect($results['modi2024a']['grade'])->toBe(WebTextAcquirer::GRADE_UNREACHABLE)
+        ->and($results['modi2024a']['reason'])->toContain('throttle')
+        ->and($results['modi2024a']['channel'])->toBe('transcript');
+});

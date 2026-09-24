@@ -964,3 +964,94 @@ test('a source whose title AGREES carries no mismatch flag', function () {
     expect($this->getJson('/api/maintainer/study/books/fixture?corpus=contest')
         ->assertOk()->json('claims.0.source.work_mismatch'))->toBeNull();
 });
+
+/**
+ * EVIDENCE — the quotes behind a human label.
+ *
+ * A label alone is an assertion, and "we verified this by hand" is the first
+ * claim a reader of the paper probes. The dedicated endpoint exists because the
+ * workbench has no edit path for a saved verdict: its other mutation is Undo,
+ * which DELETES the record, and ~50 verdicts predate this field.
+ */
+test('evidence saves with a first verdict and comes back in the payload', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'evidence' => '"the sentence that settles it"',
+        'evidence_locator' => 'p. 412',
+    ])->assertOk()
+        ->assertJsonPath('adjudication.evidence', '"the sentence that settles it"')
+        ->assertJsonPath('adjudication.evidence_locator', 'p. 412');
+
+    $payload = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')->json();
+    expect($payload['claims'][0]['adjudication']['evidence'])->toBe('"the sentence that settles it"');
+});
+
+test('the evidence endpoint BACKFILLS a saved verdict without disturbing it', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'cause' => 'resolver_gap',
+        'note' => 'found it by hand',
+    ])->assertOk();
+
+    $this->postJson('/api/maintainer/study/books/fixture/evidence?corpus=contest', [
+        'key' => 'fixture/c01',
+        'evidence' => '"quoted later"',
+        'evidence_locator' => '0:01-1:51',
+    ])->assertOk()
+        ->assertJsonPath('adjudication.evidence', '"quoted later"')
+        // The verdict it backs is untouched — this is the whole point of the
+        // separate seam rather than a re-adjudication.
+        ->assertJsonPath('adjudication.label', 'verified_intact')
+        ->assertJsonPath('adjudication.cause', 'resolver_gap')
+        ->assertJsonPath('adjudication.note', 'found it by hand');
+});
+
+test('evidence for a claim with NO verdict is refused', function () {
+    // An evidence-only record would carry no label, and two consumers read
+    // ['label'] unguarded.
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/evidence?corpus=contest', [
+        'key' => 'fixture/c01',
+        'evidence' => 'a quote with nothing to back',
+    ])->assertStatus(422);
+});
+
+test('over-long evidence is refused rather than silently trimmed', function () {
+    // Silent truncation is worse than refusal: what survives still reads as a
+    // complete quotation.
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'evidence' => str_repeat('x', \App\Services\CitationStudy\AdjudicationStore::EVIDENCE_MAX_CHARS + 1),
+    ])->assertStatus(422);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'evidence' => 'fine',
+        'evidence_locator' => str_repeat('y', 201),
+    ])->assertStatus(422);
+});
+
+test('the evidence endpoint is admin-only', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => false]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/evidence?corpus=contest', [
+        'key' => 'fixture/c01',
+        'evidence' => 'a quote',
+    ])->assertStatus(403);
+});

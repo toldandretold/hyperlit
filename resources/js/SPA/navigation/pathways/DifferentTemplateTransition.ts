@@ -44,9 +44,29 @@ export class DifferentTemplateTransition {
 
       progress(30, 'Fetching new page...');
 
-      // Step 2: Fetch target HTML (using shared utility)
-      const targetUrlResolved = targetUrl || `/${toBook}`;
-      const html = await fetchHtml(targetUrlResolved);
+      // Step 2: Fetch target HTML (using shared utility).
+      // The server may CANONICALIZE the URL under us — /u/{username} 301s to
+      // the stored casing — and fetch follows that silently, so take the URL
+      // we actually landed on as the truth from here on.
+      const targetUrlRequested = targetUrl || `/${toBook}`;
+      const { html, finalUrl } = await fetchHtml(targetUrlRequested);
+
+      const requestedUrl = new URL(targetUrlRequested, window.location.origin);
+      const landedUrl = new URL(finalUrl, window.location.origin);
+      // Compare PATHS only — a canonicalization changes the path; the query
+      // string is carried through the 301 untouched and must survive here too
+      // (pathname alone would silently drop ?tab=…&sort=… on the push).
+      const requestedPath = requestedUrl.pathname;
+      const wasRedirected = landedUrl.pathname !== requestedPath;
+      if (wasRedirected) {
+        verbose.nav(
+          `Server canonicalized ${requestedPath} → ${landedUrl.pathname}`,
+          '/navigation/pathways/DifferentTemplateTransition.js'
+        );
+      }
+      const targetUrlResolved = wasRedirected
+        ? landedUrl.pathname + landedUrl.search
+        : targetUrlRequested;
 
       progress(60, 'Updating page template...');
 
@@ -70,7 +90,15 @@ export class DifferentTemplateTransition {
 
       // Resolve real bookId from DOM — server renders <main id="realBookId">,
       // so slugs (e.g. "welcome") get resolved to the actual book ID.
-      const rawBookId = toBook || getBookIdFromUrl(targetUrlResolved);
+      //
+      // `toBook` comes from the LINK's path, so a redirect invalidates it: a
+      // /u/james link whose page is really `James` would otherwise seat the
+      // wrong id. User pages render no server-side `.main-content` (the
+      // deferred hero), so that fallback cannot rescue it — re-derive from the
+      // URL we landed on instead.
+      const rawBookId = wasRedirected
+        ? getBookIdFromUrl(targetUrlResolved)
+        : (toBook || getBookIdFromUrl(targetUrlResolved));
       const bookId = document.querySelector('.main-content')?.id || rawBookId;
 
       // Step 4: Update URL BEFORE initialization (using shared utility).
@@ -91,7 +119,10 @@ export class DifferentTemplateTransition {
         fromStructure,
         toStructure,
         transitionType: 'template-switch',
-        isPopstate
+        isPopstate,
+        // Ask the staleness guard about where we NAVIGATED, not where the
+        // server canonicalized us to (see updateUrl).
+        expectedPath: wasRedirected ? requestedPath : undefined
       });
 
       // Step 5: Structure-aware initialization (using shared utility)

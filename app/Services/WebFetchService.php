@@ -286,11 +286,25 @@ class WebFetchService
             }
 
             $escalated = $this->acquirer->acquire($item['url']);
-            if ($escalated['text'] !== null) {
-                $results[$key] = $escalated;
-            } elseif (($results[$key]['grade'] ?? null) === WebTextAcquirer::GRADE_UNREACHABLE) {
-                // The ladder knows more than a bare pool failure does — a wall
-                // it recognised, or a real HTTP status. Keep the better answer.
+            // The ladder SUBSUMES the pooled GET (its first rung is the same plain fetch),
+            // so its answer wins even with no text: `foreign_language` ("this video is in
+            // Hindi and has no translated track at all") and `paywalled` are FINDINGS
+            // the pooled pass can never produce. Keeping pass 1 unless the ladder returned
+            // text is how a Hindi PM Modi video spent a whole study run diagnosed as "JS
+            // shell, no prose block survived" — the generic story, hiding the honest one.
+            // The one exception: a transient `unreachable` on the second attempt must not
+            // overwrite a PAGE grade pass 1 genuinely earned. It is scoped to page channels,
+            // because when the ladder dispatched by SOURCE KIND — a transcript, a PDF — its
+            // verdict is about the source itself, which pass 1 structurally cannot assess: a
+            // YouTube URL's pooled GET can only ever say "this HTML has no article in it",
+            // so letting that outrank "YouTube throttled the caption download" restores the
+            // exact misdiagnosis this whole block exists to prevent.
+            $aboutTheSource = in_array($escalated['channel'] ?? '', ['transcript', 'pdf'], true);
+            if ($escalated['text'] !== null
+                || $aboutTheSource
+                || ($escalated['grade'] ?? null) !== WebTextAcquirer::GRADE_UNREACHABLE
+                || ($results[$key]['grade'] ?? null) === WebTextAcquirer::GRADE_UNREACHABLE
+            ) {
                 $results[$key] = $escalated;
             }
         }
@@ -510,7 +524,7 @@ class WebFetchService
             // it gets the softer "absence is inconclusive" note rather than the
             // stronger partial-copy warning. The approximate-WORDING caveat is
             // a separate axis, carried by the grade description.
-            WebTextAcquirer::GRADE_TRANSCRIPT => 'unverified',
+            WebTextAcquirer::GRADE_TRANSCRIPT, WebTextAcquirer::GRADE_TRANSLATED_TRANSCRIPT => 'unverified',
             default => 'unverified',
         };
 

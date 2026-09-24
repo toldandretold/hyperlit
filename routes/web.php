@@ -5,6 +5,7 @@ use App\Http\Controllers\QuantizerController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\TextController;
 use App\Models\User;
+use App\Support\UsernameKey;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -451,24 +452,20 @@ Route::get('/u/{username}', function ($username) {
 
 // Legacy user page route - redirects to new /u/{username} format
 Route::get('/{identifier}', function (Request $request, $identifier) {
-    // Check if it's a username - redirect to new format
-    // Try exact match first
-    $user = User::where('name', $identifier)->first();
+    // ONE lookup, through the SECURITY DEFINER function (indexed on
+    // lower(replace(name,' ',''))), which handles casing and spaces together.
+    //
+    // This used to be two Eloquent queries on the DEFAULT connection — and
+    // that connection is RLS-subject, with users_select_policy limiting SELECT
+    // to your OWN row. So for an anonymous visitor both found nothing and this
+    // whole redirect was dead: /James fell through and was looked up as a
+    // book. findByNamePublic bypasses RLS deliberately, returning public
+    // fields only.
+    $user = User::findByNamePublic($identifier);
 
-    // If no exact match, try sanitized match (handles usernames with spaces:
-    // the URL form has them stripped). Done as ONE indexed query — this used
-    // to load every user and compare in PHP, which meant each book-by-slug
-    // page load walked the whole users table. Index:
-    // users_name_nospace_idx on (replace(name,' ','')).
-    if (! $user) {
-        $user = User::whereRaw("replace(name, ' ', '') = ?", [$identifier])->first();
-    }
-
-    // If we found a user, redirect to /u/{sanitized_username}
+    // If we found a user, redirect to their canonical /u/ URL.
     if ($user) {
-        $sanitizedUsername = str_replace(' ', '', $user->name);
-
-        return redirect("/u/{$sanitizedUsername}", 301);
+        return redirect(UsernameKey::profileUrl($user->name), 301);
     }
 
     // Otherwise it's a regular book - show reader.blade.php

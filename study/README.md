@@ -73,14 +73,27 @@ php artisan citation:study:report dev
 
 Writes `study/results/dev/report/dataset.csv` (one row per citation occurrence), `summary.json`, and `summary.md`: confusion matrices at every verdict cutoff with Wilson 95% CIs, detection-channel split (source-not-found vs verdict), pre/post rejection-upgrade comparison, per-arm/evidence-type/match-method breakdowns, and timing/cost stats.
 
+## Evidencing human labels
+
+A label a person assigned is an assertion until it carries the source text that person read — and "we verified this citation by hand" is the first claim a reader of the paper will probe. So every human adjudication recorded in `/maintainer/study` has an **evidence** field: verbatim quotes from the source, plus an optional locator (`p. 412`, `0:01–1:51, auto-captions`). Quotes are capped at 1500 characters with a live counter, because the point is selective quotation — enough to show what was judged, never a copy of a closed-access source.
+
+Evidence saves with a verdict, and can also be added to a verdict recorded earlier without re-making it (the "Add evidence" button on a saved verdict; `POST …/books/{slug}/evidence`). Buttons beside each retrieved passage, and a "use selection" button that reads whatever you have highlighted in the page or the source pane, append quotes for you. On Apply the quotes travel into `ground_truth.json` alongside the label, so the published artifact carries its own evidence; they also land in `dataset.csv` as `human_evidence` / `human_evidence_locator` / `human_evidence_chars`.
+
+**Which labels need evidence.** The SCORED labels do — `intact`, `verified_intact`, `fabricated_reference`, `source_swap`, `claim_distortion`. The non-scored ones (`suspect`, `unverifiable`, `not_a_citation`) are exempt, because there is nothing to quote: you never obtained access, or no citation exists at all (a phantom anchor the linker minted from a year range has no source to quote from). Those carry their reason in the `note` instead, and a coverage run reports any that do not.
+
+**Reading coverage.** `citation:study:report {corpus}` writes an `evidence_coverage` block into `summary.json` and a section into `summary.md`; `citation:study:freeze {corpus}` prints the same line and lists every un-evidenced scored label before freezing (it warns, it does not refuse); `citation:study:adjudications {corpus}` shows a per-book count. Coverage counts ADJUDICATIONS, not ground-truth entries — entries carry the manifest's blanket `default_label`, so an entry-based figure would measure the corpus's size rather than the review work.
+
+Note that `dataset.csv` now contains multi-line quoted fields, which is valid RFC 4180 but means a naive `wc -l` over-counts rows; parse it with a real CSV reader.
+
 ## Study protocol (dev vs test corpus)
 
-Tune the tool freely against the `dev` corpus. BEFORE any reported run: build the `test` corpus, hand-verify its labels, set `"frozen": true` in its manifest, and run `citation:study:freeze test`. The `test` corpus is then run once per reported configuration; `runs/{run_id}/provenance.json` (git sha + dirty flag + model config) is the audit trail for every number in the paper.
+Tune the tool freely against the `dev` corpus. BEFORE any reported run: build the `test` corpus, hand-verify **and evidence** its labels, set `"frozen": true` in its manifest, and run `citation:study:freeze test` (which warns about any scored human label still lacking a quotation). Complete the evidencing BEFORE freezing: the lock hashes `adjudications/*.json`, so every later evidence edit invalidates it. The `test` corpus is then run once per reported configuration; `runs/{run_id}/provenance.json` (git sha + dirty flag + model config) is the audit trail for every number in the paper.
 
 ## Things that invalidate results (the harness guards these, but know them)
 
 - Study books must never carry `openalex_id` / `open_library_key` / `canonical_source_id` — Wave 3 local matching only considers rows that have them, which is what stops a fabricated reference resolving against another study book. The importer leaves them NULL and the runner's preflight asserts it.
 - Re-runs must pass `--force` to the pipeline (the runner always does) or the 24h no-match cooldown silently reuses cached resolution verdicts.
 - referenceIds are NOT stable across imports (Python set iteration order), which is why ground truth is text-keyed and bound after import; never hand-write `bound_reference_id`.
+- Human EVIDENCE in `ground_truth.json` is a mirror, not the original. It survives regeneration via the carry-over in `CorpusManifest::saveGroundTruth` (keyed on `bib_text_hash|claim_snippet`), but that key changes if the source text does — in which case the quotes are dropped silently. The source of truth is `adjudications/{slug}.json`; re-run `citation:study:adjudications {corpus} --apply` to restore them.
 - The completion email is sent without a try/catch — if your mailer is unreachable mid-run, the review succeeds and bills but the runner records the book as failed. Local Mailpit running, or `MAIL_MAILER=log`.
 - The study user must have billing balance; a broke user runs fine but silently loses the per-run cost data (`billReview` is try/caught).

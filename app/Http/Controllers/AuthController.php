@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\UsernameRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -12,7 +13,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -46,42 +46,44 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * Map a 23505 from the users INSERT onto the field that actually clashed.
+     *
+     * This is the race the validator cannot close: two simultaneous signups
+     * pass their uniqueness checks and one INSERT loses. Until
+     * `users_name_url_unique` existed there was no unique index on `name` at
+     * all, so this could only ever fire for email/user_token — which is why it
+     * blamed `email` unconditionally. Now a username race is reachable, and
+     * reporting it under `email` would point the user at the wrong field.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function duplicateKeyErrors(\Illuminate\Database\QueryException $e): array
+    {
+        $message = $e->getMessage();
+
+        if (str_contains($message, 'users_name_url_unique')) {
+            return ['name' => ['This username is already taken. Usernames are not case-sensitive.']];
+        }
+
+        if (str_contains($message, 'users_email_unique')) {
+            return ['email' => ['This email is already registered.']];
+        }
+
+        // user_token or an index added later — don't guess a field.
+        return ['email' => ['This email or username is already registered.']];
+    }
+
     public function register(Request $request)
     {
+        // Username rules live in ONE place (App\Support\UsernameRules) so this
+        // path and the no-JS /register fallback cannot drift — a laxer copy is
+        // a bypass, which is how the 2026-09-22 squat could have moved paths.
         $request->validate([
-            'name' => [
-                'required',
-                'string',
-                'min:3',
-                'max:30',
-                'unique:pgsql_admin.users,name',
-                'alpha_dash', // Allows alphanumeric, hyphens, and underscores only
-                'regex:/^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$/', // Cannot start/end with - or _
-                // A username is reachable at /{name} via the catch-all, so a
-                // name that matches a root route is shadowed by it. Same list
-                // book slugs use — config/reserved-routes.php, gated by
-                // tests/Feature/Routing/ReservedRoutesTest.
-                Rule::notIn(config('reserved-routes')),
-                // Impersonation blocklist — SEPARATE list, different purpose
-                // (config/reserved-usernames.php). Compared case-insensitively
-                // because the regex above permits "Admin"/"ROOT", which a plain
-                // Rule::notIn (case-sensitive) would let through.
-                function ($attribute, $value, $fail) {
-                    if (in_array(strtolower((string) $value), config('reserved-usernames'), true)) {
-                        $fail('This username is reserved and cannot be used.');
-                    }
-                },
-            ],
+            'name' => UsernameRules::rules(),
             'email' => 'required|string|email|max:255|unique:pgsql_admin.users,email',
             'password' => 'required|string|min:8',
-        ], [
-            'name.alpha_dash' => 'Username can only contain letters, numbers, hyphens, and underscores.',
-            'name.regex' => 'Username cannot start or end with - or _.',
-            'name.min' => 'Username must be at least 3 characters.',
-            'name.max' => 'Username must be 30 characters or less.',
-            'name.unique' => 'This username is already taken.',
-            'name.not_in' => 'This username is reserved and cannot be used.',
-        ]);
+        ], UsernameRules::messages());
 
         // Use admin connection for registration - trusted operation that bypasses RLS
         // Validation uses pgsql_admin too, so uniqueness checks see all rows regardless of RLS
@@ -99,7 +101,7 @@ class AuthController extends Controller
             if ($e->getCode() === '23505') { // Unique constraint violation (race condition)
                 return response()->json([
                     'success' => false,
-                    'errors' => ['email' => ['This email or username is already registered.']],
+                    'errors' => self::duplicateKeyErrors($e),
                 ], 422);
             }
             throw $e;

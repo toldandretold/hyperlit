@@ -31,12 +31,42 @@ const SAMPLES_DIR = __DIR__ . '/../../conversion/import-samples';
  * RLS on `users` blocks INSERT from the app's `pgsql` role; tests must
  * create users via the `pgsql_admin` connection (BYPASSRLS). Mirrors the
  * helper in tests/Feature/Security/SqlInjectionWarGameTest.php.
+ *
+ * The NAME is randomised, not just the email. A pgsql_admin INSERT commits
+ * OUTSIDE RefreshDatabase, so a fixed name accumulated one row per test per
+ * run — 131 `Import Test User` rows in dev and 1742 in the test DB — which
+ * the `users_name_url_unique` index (usernames are now case-insensitively
+ * unique) refuses to build over.
+ *
+ * The sweep of those leftovers runs in beforeEach, NOT afterEach, and that is
+ * load-bearing: an import CHARGES BILLING, which UPDATEs users.debits on the
+ * DEFAULT connection inside RefreshDatabase's still-open transaction. A DELETE
+ * of that row from pgsql_admin — a different connection — then blocks on
+ * Lock:transactionid waiting for a transaction that cannot roll back until the
+ * teardown it is blocking completes. That hung the suite indefinitely (no
+ * timeout, no output). In beforeEach the previous test's transaction has
+ * already rolled back and the current one has touched nothing, so there is no
+ * conflicting row lock. The lock_timeout is the backstop: a cleanup must fail
+ * loudly, never wedge the run.
  */
+function sweepImportTestUsers(): void
+{
+    $admin = DB::connection('pgsql_admin');
+    try {
+        $admin->statement("SET lock_timeout = '5s'");
+        $admin->table('users')->where('email', 'like', 'imptest_%@test.local')->delete();
+    } catch (\Throwable $e) {
+        // Leftovers are hygiene, not correctness — names are random, so they
+        // cannot collide. Never fail or hang a test over the sweep.
+    } finally {
+        $admin->statement("SET lock_timeout = '0'");
+    }
+}
 function makeImportTestUser(): User
 {
     $email = 'imptest_' . Str::random(8) . '@test.local';
     DB::connection('pgsql_admin')->table('users')->insert([
-        'name'              => 'Import Test User',
+        'name'              => 'ImportTest_' . Str::random(8),
         'email'             => $email,
         'email_verified_at' => now(),
         'password'          => Hash::make('password'),
@@ -49,6 +79,9 @@ function makeImportTestUser(): User
 }
 
 beforeEach(function () {
+    // Sweep the PREVIOUS test's user here, not in its own teardown — see
+    // sweepImportTestUsers().
+    sweepImportTestUsers();
     $this->user = makeImportTestUser();
 });
 

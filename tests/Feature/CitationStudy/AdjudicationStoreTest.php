@@ -211,3 +211,132 @@ test('stale citation_mislink verdicts are listed, not applied, after a new run',
     $legacy = $store->applyToGroundTruth($manifest, $book, null);
     expect($legacy['applied'])->toBe(2)->and($legacy['stale_mislinks'])->toBe([]);
 });
+
+// ------------------------------------------------------------------ evidence
+
+test('evidence saves with a verdict and is normalised, never truncated', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    // Pasted from a PDF: CRLF endings and a run of blank lines.
+    $record = $store->put(
+        $manifest, $book, 'fixture/c01', 'verified_intact', null,
+        null, 'ref_abc', 'run1', 'sam',
+        evidence: "\"first quote\"\r\n\r\n\r\n\"second quote\"\r\n",
+        evidenceLocator: 'p. 412',
+    );
+
+    expect($record['evidence'])->toBe("\"first quote\"\n\n\"second quote\"")
+        ->and($record['evidence_locator'])->toBe('p. 412');
+
+    // The cap is the REQUEST's job. A store that silently shortened a
+    // quotation would leave something that still reads as complete.
+    $long = str_repeat('x', AdjudicationStore::EVIDENCE_MAX_CHARS + 500);
+    $big = $store->put(
+        $manifest, $book, 'fixture/c02', 'verified_intact', null,
+        null, 'ref_def', 'run1', 'sam', evidence: $long,
+    );
+    expect(mb_strlen((string) $big['evidence']))->toBe(AdjudicationStore::EVIDENCE_MAX_CHARS + 500);
+});
+
+test('putEvidence MERGES — the verdict it backs is untouched', function () {
+    // The backfill path. The workbench's only other mutation is Undo, which
+    // deletes the record, so this must not disturb a single verdict field.
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $original = $store->put(
+        $manifest, $book, 'fixture/c01', 'verified_intact', 'resolver_gap',
+        'found it by hand', 'ref_abc', 'run1', 'sam',
+        foundUrl: 'https://example.com/paper', referenceExists: true, supportedScope: 'whole_claim',
+    );
+
+    $updated = $store->putEvidence($manifest, $book, 'fixture/c01', '"the quoted sentence"', 'p. 7', 'marx');
+
+    expect($updated['evidence'])->toBe('"the quoted sentence"')
+        ->and($updated['evidence_locator'])->toBe('p. 7')
+        ->and($updated['evidenced_by'])->toBe('marx')
+        ->and($updated['evidenced_at'])->not->toBeNull()
+        // Every verdict field survives, including WHO made it and WHEN — the
+        // evidence stamp is separate precisely so this stays true.
+        ->and($updated['label'])->toBe('verified_intact')
+        ->and($updated['cause'])->toBe('resolver_gap')
+        ->and($updated['note'])->toBe('found it by hand')
+        ->and($updated['found_url'])->toBe('https://example.com/paper')
+        ->and($updated['reference_exists'])->toBeTrue()
+        ->and($updated['supported_scope'])->toBe('whole_claim')
+        ->and($updated['adjudicated_by'])->toBe('sam')
+        ->and($updated['adjudicated_at'])->toBe($original['adjudicated_at']);
+});
+
+test('putEvidence REFUSES to create a record', function () {
+    // An evidence-only record would carry no label, and both
+    // applyToGroundTruth() and citation:study:adjudications read ['label']
+    // unguarded — this guard is what keeps those from fataling.
+    $manifest = adjCorpus();
+    $store = new AdjudicationStore();
+
+    expect(fn () => $store->putEvidence($manifest, $manifest->book('fixture'), 'fixture/c99', 'quote', null, 'sam'))
+        ->toThrow(RuntimeException::class);
+});
+
+test('clearing evidence clears its stamps too', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $store->put($manifest, $book, 'fixture/c01', 'verified_intact', null, null, 'ref_abc', 'run1', 'sam',
+        evidence: 'a quote');
+    $cleared = $store->putEvidence($manifest, $book, 'fixture/c01', '   ', null, 'sam');
+
+    expect($cleared['evidence'])->toBeNull()
+        ->and($cleared['evidenced_at'])->toBeNull()
+        ->and($cleared['evidenced_by'])->toBeNull();
+});
+
+test('apply carries evidence into ground truth, and writes nothing when there is none', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $store->put($manifest, $book, 'fixture/c01', 'verified_intact', null, null, 'ref_abc', 'run1', 'sam',
+        evidence: '"the sentence that settles it"', evidenceLocator: 'p. 7');
+    $store->put($manifest, $book, 'fixture/c02', 'verified_intact', null, null, 'ref_def', 'run1', 'sam');
+    $store->applyToGroundTruth($manifest, $book, 'run1');
+
+    $entries = collect($manifest->loadGroundTruth($book)['entries'])->keyBy('gt_id');
+
+    expect($entries['fixture/c01']['evidence'])->toBe('"the sentence that settles it"')
+        ->and($entries['fixture/c01']['evidence_locator'])->toBe('p. 7')
+        ->and($entries['fixture/c01']['evidenced_by'])->toBe('sam')
+        // An un-evidenced entry gains no null keys: ground_truth.json is
+        // hash-locked, and a null per entry would balloon the diff.
+        ->and($entries['fixture/c02'])->not->toHaveKey('evidence');
+});
+
+test('human evidence SURVIVES a ground-truth regeneration', function () {
+    // The corruptor rebuilds each entry from a fixed literal in seven places,
+    // so without the carry-over in saveGroundTruth a reviewer's quotations
+    // would be destroyed by the next `citation:study:corrupt`.
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $store->put($manifest, $book, 'fixture/c01', 'verified_intact', null, null, 'ref_abc', 'run1', 'sam',
+        evidence: '"quoted by a human"', evidenceLocator: 'p. 7');
+    $store->applyToGroundTruth($manifest, $book, 'run1');
+
+    // Regenerate: entries rebuilt from scratch, carrying no human fields.
+    $regenerated = $manifest->loadGroundTruth($book);
+    foreach ($regenerated['entries'] as &$entry) {
+        unset($entry['evidence'], $entry['evidence_locator'], $entry['evidenced_by'], $entry['evidenced_at']);
+    }
+    unset($entry);
+    $manifest->saveGroundTruth($book, $regenerated);
+
+    $after = collect($manifest->loadGroundTruth($book)['entries'])->keyBy('gt_id');
+    expect($after['fixture/c01']['evidence'])->toBe('"quoted by a human"')
+        ->and($after['fixture/c01']['evidence_locator'])->toBe('p. 7');
+});

@@ -40,10 +40,17 @@ class StudyAdjudicationsCommand extends Command
 
             $byLabel = [];
             $byCause = [];
-            foreach ($data['adjudications'] as $record) {
+            $unevidenced = [];
+            $scored = AdjudicationStore::evidenceExpectedLabels();
+            foreach ($data['adjudications'] as $key => $record) {
                 $byLabel[$record['label']] = ($byLabel[$record['label']] ?? 0) + 1;
                 $cause = $record['cause'] ?? '(none)';
                 $byCause[$cause] = ($byCause[$cause] ?? 0) + 1;
+                if (in_array($record['label'], $scored, true)
+                    && trim((string) ($record['evidence'] ?? '')) === ''
+                ) {
+                    $unevidenced[] = $key;
+                }
             }
             ksort($byLabel);
             ksort($byCause);
@@ -52,6 +59,11 @@ class StudyAdjudicationsCommand extends Command
             $this->info("{$slug}: {$n} adjudication(s)");
             $this->line("  labels: {$labelStr}");
             $this->line("  causes: {$causeStr}");
+            if ($unevidenced !== []) {
+                $this->warn('  un-evidenced (scored labels with no quotation): '
+                    . count($unevidenced) . ' — ' . implode(', ', array_slice($unevidenced, 0, 10))
+                    . (count($unevidenced) > 10 ? ', …' : ''));
+            }
 
             if ($this->option('apply')) {
                 try {

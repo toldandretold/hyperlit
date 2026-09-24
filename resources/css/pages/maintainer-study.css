@@ -263,9 +263,10 @@ body {
 .st-fetch-thin_extract,
 .st-fetch-unreachable,
 .st-fetch-irrelevant,
-/* The source exists and is readable BY SOMEONE — just not by us, because the
-   only translation on offer is machine-made. Amber like the other "our gap,
-   not the author's fault" outcomes, never red. */
+/* The source exists and is readable BY SOMEONE — just not by us, because no
+   translation of it exists at all, machine or otherwise. (Where a machine
+   translation IS available we take it: see .st-fetch-translated_transcript.)
+   Amber like the other "our gap, not the author's fault" outcomes, never red. */
 .st-fetch-foreign_language,
 /* The reference is REAL — we confirmed the work exists at this URL from the
    publisher's own declared title — we just cannot read the body. Amber, not
@@ -282,6 +283,12 @@ body {
 .st-fetch-full_text,
 .st-fetch-article_extract {
   background: color-mix(in srgb, #3fa66a 26%, transparent);
+}
+
+/* Real content, twice removed: a machine TRANSLATION of the captions. Between
+   the ambers and the greens on purpose — read it for meaning, never wording. */
+.st-fetch-translated_transcript {
+  background: color-mix(in srgb, #8fb84a 26%, transparent);
 }
 
 /* An assertion about the source that should stop the reviewer, not a hint. */
@@ -548,6 +555,76 @@ body {
 .st-busy {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- evidence
+   The quotes behind a human verdict. Roomier than the note box because it is
+   read as much as it is written — a reviewer defending a label re-reads what
+   they quoted. */
+.st-evidence {
+  min-height: 7rem;
+}
+
+.st-charcount {
+  margin: -0.3rem 0 0.4rem;
+  font-size: 0.72rem;
+  text-align: right;
+  opacity: 0.6;
+}
+
+/* Approaching the cap is a nudge to be selective, not an error — amber, never
+   the red reserved for failures. */
+.st-charcount-near {
+  color: #e5a53a;
+  opacity: 1;
+}
+
+.st-evidence-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  opacity: 0.55;
+}
+
+/* Small ghost button, flush with the field it fills. */
+.st-useevidence {
+  background: none;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.st-useevidence:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+/* pre-wrap is load-bearing: evidence is paragraph-separated quotations and the
+   renderer builds it as a text node, never innerHTML. */
+.st-evidence-quote {
+  white-space: pre-wrap;
+  margin: 0.4rem 0;
+  padding: 0.35rem 0 0.35rem 0.7rem;
+  border-left: 2px solid color-mix(in srgb, var(--hyperlit-aqua, #4eacae) 45%, transparent);
+  font-size: 0.82rem;
+  opacity: 0.92;
+}
+
+.st-evidence-block {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.st-passage {
+  margin-bottom: 0.3rem;
+}
+
+.st-passage-rule {
+  border: none;
+  border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  margin: 0.5rem 0;
 }
 
 .st-error {

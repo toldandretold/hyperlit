@@ -14,6 +14,7 @@ import { log } from '../utilities/logger';
 import { drainResponse } from '../utilities/drainResponse';
 import {
   api,
+  EVIDENCE_MAX_CHARS,
   type Adjudication,
   type BookPayload,
   type BookSummary,
@@ -476,6 +477,16 @@ function renderDetail(claim: ClaimRow): void {
       const via = f.channel && f.channel !== 'none' ? ` · tried via ${f.channel}` : '';
       srcSec.append(el('p', `st-badge st-fetch-${f.outcome}`, f.outcome.replace(/_/g, ' ')));
       srcSec.append(el('p', 'st-muted', `${f.reason ?? ''}${status}${via}`));
+      // A refusal that read the page's OWN title has still confirmed something: when
+      // it matches the citation, the reference EXISTS — only its content went unread
+      // (paywall interstitial, foreign-language video).
+      if (f.title) {
+        srcSec.append(el(
+          'p',
+          'st-muted',
+          `The refused page declares its title as “${f.title}” — if that matches the citation, the reference exists; only its content is unread.`,
+        ));
+      }
     }
   }
   // The URL as PRINTED in the citation (llm_metadata) — checkable even (and
@@ -509,6 +520,40 @@ function renderDetail(claim: ClaimRow): void {
   }
   convSec.append(flagConversionButton(claim));
   frag.append(convSec);
+
+  // The individual passages the search stage picked. Rendered separately from
+  // the concatenated blob below because each one is a self-contained quotation
+  // the reviewer can lift straight into their evidence — and because until now
+  // `passages` was carried in the payload and never shown at all.
+  const passages = (claim.source.passages ?? []).filter((p) => (p?.text ?? '').trim() !== '');
+  if (passages.length > 0) {
+    const sec = el('section', 'st-section');
+    sec.append(el('h3', undefined, 'Passages the verifier was shown'));
+    passages.forEach((passage, i) => {
+      const row = el('div', 'st-passage');
+      row.append(el('blockquote', 'st-evidence-quote', (passage.text ?? '').trim()));
+      const use = el('button', 'st-useevidence', '⤓ use as evidence');
+      use.type = 'button';
+      use.title = 'Append this passage to the evidence box below';
+      use.addEventListener('click', () => {
+        // getElementById, not byId: on an already-adjudicated claim the editor
+        // is collapsed until "Add evidence" is pressed, so its absence is a
+        // normal state that deserves an instruction, not a thrown error.
+        const box = document.getElementById('st-evidence') as HTMLTextAreaElement | null;
+        if (!box) {
+          flash(row, 'Press "Add evidence" on the verdict below first, then use this button.');
+          return;
+        }
+        appendEvidence(box, (passage.text ?? '').trim());
+        box.scrollIntoView({ block: 'nearest' });
+      });
+      row.append(use);
+      if (passage.node_id) row.append(el('span', 'st-muted', ` ${passage.node_id}`));
+      sec.append(row);
+      if (i < passages.length - 1) sec.append(el('hr', 'st-passage-rule'));
+    });
+    frag.append(sec);
+  }
 
   // What the verifier saw.
   if (claim.source_material_sent) {
@@ -807,6 +852,161 @@ function section(title: string, body: string): HTMLElement {
   return sec;
 }
 
+// ----------------------------------------------------------------- evidence
+
+/**
+ * The quotes behind a human verdict.
+ *
+ * A label on its own is an assertion, and "we checked this citation by hand" is
+ * the first thing a reader of the paper probes. These fields are what make it
+ * showable — kept deliberately small (a capped textarea and a locator line) so
+ * evidencing a closed-access source stays selective quotation.
+ *
+ * Built as one shared unit because it appears in TWO places that must behave
+ * identically: the first-verdict form, and the saved verdict (where it is the
+ * only way to backfill, since the other mutation there is a destructive Undo).
+ */
+function evidenceFields(existing: Adjudication | null): {
+  wrap: HTMLElement;
+  textarea: HTMLTextAreaElement;
+  locator: HTMLInputElement;
+  value: () => string | null;
+  locatorValue: () => string | null;
+} {
+  const wrap = el('div', 'st-evidence-fields');
+
+  const textarea = el('textarea', 'st-note st-evidence') as HTMLTextAreaElement;
+  textarea.rows = 6;
+  textarea.maxLength = EVIDENCE_MAX_CHARS;
+  textarea.placeholder =
+    'Quotes from the source that back this verdict — one per paragraph. Select text in the pane and press "use selection", or paste.';
+  textarea.value = existing?.evidence ?? '';
+  // The id is how the prefill buttons find whichever copy of this is on screen
+  // (the first-verdict form and the saved-verdict editor are never both open).
+  textarea.id = 'st-evidence';
+
+  const count = el('p', 'st-charcount');
+  const refreshCount = (): void => {
+    const n = textarea.value.length;
+    count.textContent = `${n} / ${EVIDENCE_MAX_CHARS}`;
+    count.classList.toggle('st-charcount-near', n > EVIDENCE_MAX_CHARS * 0.9);
+  };
+  textarea.addEventListener('input', refreshCount);
+  refreshCount();
+
+  const locator = el('input', 'st-note st-locator') as HTMLInputElement;
+  locator.type = 'text';
+  locator.maxLength = 200;
+  locator.placeholder = 'Where in the source (optional) — "p. 412", "0:01–1:51, auto-captions"';
+  locator.value = existing?.evidence_locator ?? '';
+
+  wrap.append(
+    el('p', 'st-axis-label', 'Evidence — what did YOU read that settles this?'),
+    textarea,
+    count,
+    prefillRow(textarea, locator),
+    locator,
+    el(
+      'p',
+      'st-evidence-hint',
+      'Short, selective quotation only — enough to show what you judged, never a copy of the source.',
+    ),
+  );
+
+  return {
+    wrap,
+    textarea,
+    locator,
+    value: () => textarea.value.trim() || null,
+    locatorValue: () => locator.value.trim() || null,
+  };
+}
+
+/**
+ * Capture what the reviewer has SELECTED, rather than making them retype it.
+ *
+ * The selection may be in the page (the passages, the claim text) or inside the
+ * pane iframe — both the Hyperlit render and the extracted-source render are
+ * same-origin, so their selection is readable. The browser's PDF viewer is NOT,
+ * which is why the failure is explained rather than silent.
+ */
+function prefillRow(textarea: HTMLTextAreaElement, locator: HTMLInputElement): HTMLElement {
+  const row = el('div', 'st-btnrow');
+  const useSelection = el('button', 'st-useevidence', '⤓ use selection');
+  useSelection.type = 'button';
+  useSelection.title = 'Append whatever text is currently selected — in this page or in the source pane';
+  useSelection.addEventListener('click', () => {
+    const picked = currentSelectionText();
+    if (!picked) {
+      flash(
+        row,
+        'Nothing selected. Select text in the page or the source pane first — a PDF in the viewer cannot be read this way, so quote it by hand.',
+      );
+      return;
+    }
+    appendEvidence(textarea, picked);
+    if (!locator.value.trim()) {
+      const suggested = suggestedLocator();
+      if (suggested) locator.value = suggested;
+    }
+  });
+  row.append(useSelection);
+  return row;
+}
+
+/** The selection from the page, else from the same-origin pane iframe. */
+function currentSelectionText(): string {
+  const inPage = window.getSelection()?.toString().trim();
+  if (inPage) return inPage;
+
+  // getElementById, not byId: byId THROWS on a missing node, and "the pane is
+  // not open" is an ordinary state here, not a broken page.
+  const frame = document.getElementById('st-pdf-frame') as HTMLIFrameElement | null;
+  try {
+    // Cross-origin (or the PDF viewer) throws or yields nothing — both mean
+    // "cannot read this", and the caller explains that to the reviewer.
+    return frame?.contentWindow?.getSelection()?.toString().trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/** A locator we can honestly infer from the pane the reviewer is reading. */
+function suggestedLocator(): string | null {
+  if (paneView === 'source') return 'extracted source';
+  if (paneView === 'hyperlit') return 'study copy';
+  return null;
+}
+
+/**
+ * Append one quotation, keeping the "one quote per paragraph" shape.
+ *
+ * Truncation is REPORTED rather than silent: evidence that was quietly cut is
+ * worse than no evidence, because it still reads as a complete quotation.
+ */
+function appendEvidence(textarea: HTMLTextAreaElement, text: string): void {
+  const quoted = `“${text.replace(/\s+/g, ' ').trim()}”`;
+  const separator = textarea.value.trim() ? '\n\n' : '';
+  const room = EVIDENCE_MAX_CHARS - textarea.value.length - separator.length;
+  if (room <= 0) {
+    flash(textarea.parentElement ?? textarea, `Evidence is full (${EVIDENCE_MAX_CHARS} characters) — trim it first.`);
+    return;
+  }
+  const fits = quoted.length <= room;
+  textarea.value += separator + (fits ? quoted : quoted.slice(0, room - 1) + '…');
+  textarea.dispatchEvent(new Event('input'));
+  if (!fits) {
+    flash(textarea.parentElement ?? textarea, `Quote was truncated to fit the ${EVIDENCE_MAX_CHARS}-character cap.`);
+  }
+}
+
+/** Does this label owe evidence? Mirrors AdjudicationStore::evidenceExpectedLabels(). */
+function labelExpectsEvidence(label: string | null | undefined): boolean {
+  return ['intact', 'verified_intact', 'fabricated_reference', 'source_swap', 'claim_distortion'].includes(
+    label ?? '',
+  );
+}
+
 // ------------------------------------------------------------- adjudication
 
 function adjudicationForm(claim: ClaimRow): HTMLElement {
@@ -930,8 +1130,10 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     'URL where YOU found the source (optional) — each one becomes a resolver test case';
 
   const note = el('textarea', 'st-note') as HTMLTextAreaElement;
-  note.placeholder = 'Optional note — your evidence/reasoning; saved with the verdict, lands in dataset.csv';
+  note.placeholder = 'Optional note — your reasoning; saved with the verdict, lands in dataset.csv';
   note.rows = 2;
+
+  const evidence = evidenceFields(null);
 
   const saveBtn = el('button', 'st-save', 'Save verdict') as HTMLButtonElement;
   saveBtn.type = 'button';
@@ -947,6 +1149,8 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
       note: note.value.trim() || null,
       found_url: foundUrl.value.trim() || null,
       reference_exists: refExists.checked ? true : null,
+      evidence: evidence.value(),
+      evidence_locator: evidence.locatorValue(),
       referenceId: claim.referenceId,
       run_id: state.payload?.run_id ?? null,
     });
@@ -973,6 +1177,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     refExistsWrap,
     foundUrl,
     note,
+    evidence.wrap,
     saveBtn,
   );
   return form;
@@ -1002,6 +1207,7 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
     wrap.append(p);
   }
   if (adj.note) wrap.append(el('p', 'st-muted', adj.note));
+  wrap.append(evidenceBlock(claim, adj, wrap));
   const undo = el('button', 'st-undo', 'Undo');
   undo.type = 'button';
   undo.addEventListener('click', async () => {
@@ -1019,6 +1225,72 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
   });
   wrap.append(undo);
   return wrap;
+}
+
+/**
+ * The evidence on an ALREADY-SAVED verdict: shown when present, promptable when
+ * missing, editable either way — WITHOUT going through Undo, which deletes the
+ * record. This is the only path that can backfill the verdicts recorded before
+ * the field existed, and there are ~50 of those.
+ */
+function evidenceBlock(claim: ClaimRow, adj: Adjudication, host: HTMLElement): HTMLElement {
+  const block = el('div', 'st-evidence-block');
+
+  if (adj.evidence) {
+    // pre-wrap in CSS, so paragraphs survive without innerHTML (house rule).
+    block.append(el('blockquote', 'st-evidence-quote', adj.evidence));
+    const meta = [adj.evidence_locator, adj.evidenced_by ? `evidenced by ${adj.evidenced_by}` : null]
+      .filter(Boolean)
+      .join(' · ');
+    if (meta) block.append(el('p', 'st-muted', meta));
+  } else if (labelExpectsEvidence(adj.label)) {
+    // Only nag where a quotation is actually possible: the non-scored labels
+    // are exempt precisely because there is nothing to quote.
+    block.append(el('p', 'st-conv-warn', '⚠ No evidence recorded — this label is an assertion until it has one.'));
+  }
+
+  const toggle = el('button', 'st-undo', adj.evidence ? 'Edit evidence' : 'Add evidence');
+  toggle.type = 'button';
+  toggle.addEventListener('click', () => {
+    toggle.remove();
+    block.append(evidenceEditor(claim, adj, host));
+  });
+  block.append(toggle);
+
+  return block;
+}
+
+function evidenceEditor(claim: ClaimRow, adj: Adjudication, host: HTMLElement): HTMLElement {
+  const editor = el('div', 'st-evidence-editor');
+  const fields = evidenceFields(adj);
+
+  const save = el('button', 'st-save', 'Save evidence') as HTMLButtonElement;
+  save.type = 'button';
+  save.addEventListener('click', async () => {
+    if (!state.slug) return;
+    editor.classList.add('st-busy');
+    const { status, data } = await api.putEvidence(state.corpus, state.slug, {
+      key: claim.key,
+      evidence: fields.value(),
+      evidence_locator: fields.locatorValue(),
+    });
+    editor.classList.remove('st-busy');
+    if (status !== 200 || !data.ok || !data.adjudication) {
+      flash(editor, data.error ?? `Save failed (${status})`);
+      log.error(`evidence save failed: ${data.error ?? status}`, '/maintainerStudy/main.ts');
+      return;
+    }
+    claim.adjudication = data.adjudication;
+    // Re-render only this verdict block. renderDetail would reset the pane's
+    // scroll, and the reviewer is usually deep in a long source when they
+    // finish quoting from it. NOT a bumpAdjudicatedCount: that counter means
+    // adjudications, and this added none.
+    host.replaceWith(currentAdjudication(claim, data.adjudication));
+    renderList();
+  });
+
+  editor.append(fields.wrap, save);
+  return editor;
 }
 
 function bumpAdjudicatedCount(delta: number): void {

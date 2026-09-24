@@ -11,6 +11,7 @@ use App\Models\PgLibrary;
 use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Connections\ConnectionRefresher;
 use App\Services\LibraryCardGenerator;
+use App\Support\UsernameKey;
 use Illuminate\Http\Request;
 
 /**
@@ -130,12 +131,18 @@ class UserHomeServerController extends Controller
     }
 
     /**
-     * Sanitize username by removing all spaces
-     * Allows URLs like /u/MrJohns to work with DB username "Mr Johns"
+     * The URL form of a username: the stored casing with spaces removed.
+     *
+     * Legacy names may contain spaces (the registration regex forbids them for
+     * anything minted since) and the route pattern is `[A-Za-z0-9_-]+`, so the
+     * URL form is the only reachable one. This used to claim it made
+     * `/u/MrJohns` resolve for a DB name of `Mr Johns` — it never did on this
+     * path: `lookup_user_by_name` matched exactly until the normalized index
+     * landed, so those users were 301'd by routes/web.php straight into a 404.
      */
     private function sanitizeUsername(string $username): string
     {
-        return str_replace(' ', '', $username);
+        return UsernameKey::forUrl($username);
     }
 
     /**
@@ -154,6 +161,29 @@ class UserHomeServerController extends Controller
         // Use the actual DB username for all operations, but sanitized for book IDs
         $actualUsername = $user->name;
         $sanitizedUsername = $this->sanitizeUsername($actualUsername);
+
+        // ONE canonical URL per user. The lookup above is case-insensitive
+        // (usernames are case-insensitively unique — users_name_url_unique),
+        // so /u/james now RESOLVES for a user stored as `James` instead of
+        // 404ing; send it to the stored casing so a profile isn't served at
+        // arbitrarily many URLs.
+        //
+        // 301 rather than 302 is safe ONLY because the target can never
+        // change: no code path renames a user (users.name is a de-facto
+        // foreign key compared case-sensitively by ~99 RLS policies). If a
+        // rename feature is ever added, every one of these permanent
+        // redirects cached in the wild becomes wrong.
+        //
+        // Before the `guards` span deliberately — a tripped freshness guard
+        // there does a full inline card rebuild, and a redirect must not pay
+        // for a page it isn't going to render.
+        if ($username !== $sanitizedUsername) {
+            $target = '/u/'.$sanitizedUsername
+                .($shelfId !== null ? '/shelf/'.$shelfId : '');
+            $qs = request()->getQueryString();
+
+            return redirect($qs ? "{$target}?{$qs}" : $target, 301);
+        }
 
         // Check if viewer is owner (for delete buttons)
         $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
@@ -342,9 +372,20 @@ class UserHomeServerController extends Controller
             }
         }
 
+        // Canonical URL. layout.blade.php falls back to url()->current() when
+        // this isn't passed, which self-canonicalized whatever was requested —
+        // so a deep link to a shelf the viewer can't see (or a stale slug)
+        // advertised itself as canonical. A deep link is only canonical if it
+        // actually RESOLVED to a shelf; otherwise the plain profile is.
+        $canonicalUrl = ($shelfId !== null && $activeShelfId !== null)
+            ? UsernameKey::shelfUrl($actualUsername, $shelfId)
+            : UsernameKey::profileUrl($actualUsername);
+
         // Return user.blade.php with user page data (use sanitized for book ID)
         return view('user', [
             'pageType' => 'user',
+            'canonicalUrl' => $canonicalUrl,
+            'ogUrl' => $canonicalUrl,
             'book' => $sanitizedUsername,
             'allBook' => $sanitizedUsername . 'All',
             'username' => $actualUsername,

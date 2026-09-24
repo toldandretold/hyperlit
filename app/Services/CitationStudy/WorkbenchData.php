@@ -186,6 +186,12 @@ class WorkbenchData
                     'label' => $gt['label'],
                     'footnote_marker' => $gt['footnote_marker'] ?? null,
                     'corruption_meta' => $gt['corruption_meta'] ?? null,
+                    // Evidence that has already been APPLIED into ground truth —
+                    // distinct from the adjudication's own copy below, which is
+                    // the editable one. Shown so a reviewer can see that their
+                    // quotes made it into the published artifact.
+                    'evidence' => $gt['evidence'] ?? null,
+                    'evidence_locator' => $gt['evidence_locator'] ?? null,
                 ],
                 'triage' => $gt !== null ? ($triage[$gt['gt_id']] ?? null) : null,
                 'adjudication' => $adjudications[$key] ?? null,
@@ -345,6 +351,10 @@ class WorkbenchData
             'http_status' => $wave['http_status'] ?? null,
             'channel' => $wave['channel'] ?? null,
             'url' => $wave['url'] ?? null,
+            // The title the refused page/video itself declared — when it matches the
+            // citation, the refusal still CONFIRMED the reference exists (paywall,
+            // foreign-language video).
+            'title' => $wave['title'] ?? null,
         ];
     }
 

@@ -3,9 +3,13 @@
 namespace App\Services;
 
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class LibraryCardGenerator
 {
+    /** How much of a bibtex `note` a card citation will render before cutting it. */
+    private const NOTE_LIMIT = 120;
+
     /** The asterisked E2EE padlock, 14px inline (see resources/js/e2ee/ui/lockIcon.ts). */
     private const ENCRYPTED_LOCK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-danger)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><text x="7.5" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text><text x="12" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text><text x="16.5" y="20" font-size="10" font-weight="bold" fill="var(--color-danger)" stroke="none" text-anchor="middle" font-family="monospace">*</text></svg>';
 
@@ -363,8 +367,15 @@ class LibraryCardGenerator
             $html .= '. DOI: <a href="https://doi.org/' . e($doi) . '" target="_blank" rel="noopener">' . e($doi) . '</a>';
         }
 
+        // A `note` is free text of unbounded length (the import validator accepts
+        // 5000 chars) and it renders INSIDE the citation on every server-generated
+        // card — home feeds, user page, shelves, journal. One OJS export whose
+        // `abstractNote` was mis-read into the note field (fixed at the source in
+        // utilities/bibtexProcessor.ts) therefore put a 1210-char abstract in the
+        // middle of a library card. Truncate rather than trust the writer: a note
+        // long enough to need cutting is never a citation detail.
         if ($note = $get('note')) {
-            $html .= '. ' . e($note);
+            $html .= '. ' . e(Str::limit($note, self::NOTE_LIMIT));
         }
 
         $html = preg_replace('/\s+/', ' ', $html);

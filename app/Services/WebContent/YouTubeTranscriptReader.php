@@ -23,17 +23,20 @@ use Symfony\Component\Process\Process;
  *
  * ── The trap this is built around ────────────────────────────────────────────
  * YouTube offers AUTO-TRANSLATED captions in every language it supports, so
- * asking for "en" on a Hindi speech returns a machine translation of it. Using
- * that to verify a citation would be fabricating evidence: the reviewer would
- * be shown Google's paraphrase and told it was the source's words. Two of the
- * three YouTube citations in the chacko corpus are exactly this shape
- * (`hi-orig` Hindi originals whose `en` track is translated).
+ * asking for "en" on a Hindi speech returns a machine translation of it. The
+ * danger is not the translation — it is presenting it AS the source's words.
+ * Two of the three YouTube citations in the chacko corpus are exactly this
+ * shape (`hi-orig` Hindi originals whose `en` track is translated).
  *
- * So the ORIGINAL track is the only one accepted, identified by yt-dlp's
- * `-orig` suffix, plus author-uploaded manual subtitles which are by definition
- * not machine translations. If the original language is not one we accept, this
- * declines and says so — we have no translation capability, and an honest
- * "cannot read this source" beats confident nonsense.
+ * So track choice is about LABELLING, not refusal: author-uploaded manual
+ * subtitles first (not machine translations by definition), then the
+ * auto-generated ORIGINAL track (yt-dlp's `-orig` suffix) when the original is
+ * the accepted language — and when it is NOT, the machine-translated track is
+ * taken anyway with `origin: machine_translation` and the ORIGINAL language
+ * kept, so every consumer can say "an AI translation of the Hindi captions"
+ * the same way an extract says "most of the article, not all of it". The
+ * qualified evidence beats an empty hand; what was never acceptable was the
+ * missing label.
  */
 class YouTubeTranscriptReader
 {
@@ -87,12 +90,32 @@ class YouTubeTranscriptReader
             return $this->miss($track['reason'], $meta['title'] ?? null, $meta['duration'] ?? null, $track['language']);
         }
 
-        $vtt = $this->download($track['url']);
-        if ($vtt === null) {
-            return $this->miss('the caption track could not be downloaded', $meta['title'] ?? null, $meta['duration'] ?? null);
+        // yt-dlp is asked for the track by the language we CHOSE to read, which
+        // for a machine translation is the accepted language, not the video's
+        // original — `$track['language']` deliberately holds the original so the
+        // text can be labelled, and passing that would fetch the Hindi captions.
+        $fetched = $this->download(
+            $track['url'],
+            $id,
+            $track['origin'] === 'machine_translation' ? $acceptLanguage : (string) $track['language'],
+        );
+        if ($fetched['body'] === null) {
+            // A THROTTLE is not a verdict about the video. Reported as its own
+            // retryable reason so it cannot be read as "this video has nothing
+            // in it" — YouTube rate-limits the translation endpoint hardest,
+            // and the same track serves 200 minutes later.
+            return $this->miss(
+                $fetched['rate_limited']
+                    ? 'YouTube rate-limited the caption download (HTTP 429) — a temporary throttle, not a fact about the video; retry later'
+                    : 'the caption track could not be downloaded',
+                $meta['title'] ?? null,
+                $meta['duration'] ?? null,
+                $track['language'],
+                $fetched['rate_limited'],
+            );
         }
 
-        $segments = $this->parseVtt($vtt);
+        $segments = $this->parseVtt($fetched['body']);
         if ($segments === []) {
             return $this->miss('the caption track was empty', $meta['title'] ?? null, $meta['duration'] ?? null);
         }
@@ -158,15 +181,17 @@ class YouTubeTranscriptReader
     }
 
     /**
-     * Choose a caption track we are entitled to treat as the source's own
-     * words.
+     * Choose a caption track, labelled by what it actually is.
      *
      * Order: author-uploaded manual subtitles in the accepted language (not a
      * machine translation by definition), then the auto-generated ORIGINAL
-     * track when that original is the accepted language. Anything else is
-     * refused — including a bare automatic `en` with no `-orig` marker, because
-     * we cannot then tell an English original from a translation, and guessing
-     * wrong means presenting a paraphrase as a quote.
+     * track when that original is the accepted language, then — when the
+     * original is FOREIGN — the machine-translated accepted-language track,
+     * with `origin: machine_translation` and the ORIGINAL language kept so the
+     * caller can label it honestly. The one remaining refusal is a bare
+     * automatic `en` with NO `-orig` marker anywhere: we cannot then tell an
+     * English original from a translation, so we cannot label it truthfully
+     * either way.
      *
      * @param  array<string, mixed>  $meta
      * @return array{url: ?string, language: ?string, origin: ?string, reason: string}
@@ -200,11 +225,26 @@ class YouTubeTranscriptReader
         if ($origKeys !== []) {
             $spoken = substr((string) $origKeys[0], 0, -strlen('-orig'));
 
+            // A foreign original: take YouTube's machine-translated track in the
+            // accepted language, labelled as exactly that. The original language
+            // rides in `language` so every downstream description can say "an AI
+            // translation of the '{$spoken}' captions".
+            foreach ($auto as $lang => $formats) {
+                if (str_ends_with((string) $lang, '-orig')) {
+                    continue;
+                }
+                if ($this->languageMatches((string) $lang, $acceptLanguage)) {
+                    $url = $this->vttUrl($formats);
+                    if ($url !== null) {
+                        return ['url' => $url, 'language' => $spoken, 'origin' => 'machine_translation', 'reason' => ''];
+                    }
+                }
+            }
+
             return [
                 'url' => null, 'language' => $spoken, 'origin' => null,
-                'reason' => "the video is in '{$spoken}', not {$acceptLanguage}. YouTube's {$acceptLanguage} "
-                    . 'captions for it are a MACHINE TRANSLATION, which cannot be used to verify what the source '
-                    . 'actually said — we have no translation capability yet',
+                'reason' => "the video is in '{$spoken}' and YouTube offers no {$acceptLanguage} track for it, "
+                    . 'not even a machine translation',
             ];
         }
 
@@ -242,15 +282,114 @@ class YouTubeTranscriptReader
         return null;
     }
 
-    private function download(string $url): ?string
+    /**
+     * Fetch a caption track.
+     *
+     * Through YT-DLP, not a bare GET of the signed `api/timedtext` URL, because
+     * YouTube RATE-LIMITS that endpoint by IP and throttles the TRANSLATION
+     * variant (`tlang=`) hardest and most persistently: measured on
+     * f-G-MzKbiUw, the Hindi original served 200 (10,656 bytes) while its
+     * English translation returned 429 for ten minutes straight — reported as
+     * "the caption track could not be downloaded", which reads as a fact about
+     * the video when it is a fact about our client. yt-dlp goes through the
+     * android-vr player API and fetched the same track first time (7,664
+     * bytes). We already depend on yt-dlp for the probe, so this costs nothing.
+     *
+     * The direct GET stays as the fallback for the case yt-dlp cannot express:
+     * a URL we hold but no longer have the video id context for. A 429 there is
+     * congestion, reported as such and never as a verdict.
+     *
+     * @param  string  $lang  the caption language to ask yt-dlp for (`en`)
+     * @return array{body: ?string, rate_limited: bool}
+     */
+    private function download(string $url, ?string $videoId = null, string $lang = 'en'): array
     {
-        try {
-            $response = Http::withHeaders(ContentFetchService::browserHeaders())->timeout(30)->get($url);
-        } catch (\Throwable $e) {
+        if ($videoId !== null) {
+            $viaYtDlp = $this->downloadViaYtDlp($videoId, $lang);
+            if ($viaYtDlp !== null) {
+                return ['body' => $viaYtDlp, 'rate_limited' => false];
+            }
+        }
+
+        foreach ([0, 2, 5] as $attempt => $wait) {
+            if ($wait > 0) {
+                usleep($wait * 1_000_000);
+            }
+            try {
+                $response = Http::withHeaders(ContentFetchService::browserHeaders())->timeout(30)->get($url);
+            } catch (\Throwable $e) {
+                return ['body' => null, 'rate_limited' => false];
+            }
+            if ($response->successful() && trim($response->body()) !== '') {
+                return ['body' => $response->body(), 'rate_limited' => false];
+            }
+            if ($response->status() !== 429) {
+                return ['body' => null, 'rate_limited' => false]; // a real refusal, not congestion
+            }
+            Log::info('YouTubeTranscriptReader: caption track rate-limited, retrying', [
+                'attempt' => $attempt + 1,
+            ]);
+        }
+
+        return ['body' => null, 'rate_limited' => true];
+    }
+
+    /**
+     * Ask yt-dlp to write the caption track to a temp dir and read it back.
+     *
+     * `--write-auto-subs` covers both the auto-generated original and the
+     * auto-TRANSLATED track (YouTube serves both as "automatic"), and
+     * `--write-subs` covers author-uploaded subtitles — both are passed so one
+     * call serves every origin chooseTrack() can pick. Returns null on any
+     * failure, so the caller falls back to the direct GET.
+     */
+    private function downloadViaYtDlp(string $videoId, string $lang): ?string
+    {
+        $dir = storage_path('app/tmp/yt-captions/'.Str::random(16));
+        if (! @mkdir($dir, 0775, true) && ! is_dir($dir)) {
             return null;
         }
 
-        return $response->successful() && trim($response->body()) !== '' ? $response->body() : null;
+        try {
+            $proc = new Process([
+                'yt-dlp', '--skip-download', '--write-auto-subs', '--write-subs',
+                '--sub-langs', $lang, '--sub-format', 'vtt',
+                '--no-warnings', '--no-playlist',
+                '-o', $dir.'/cap',
+                "https://www.youtube.com/watch?v={$videoId}",
+            ]);
+            $proc->setTimeout(self::PROBE_TIMEOUT);
+            $proc->run();
+
+            if (! $proc->isSuccessful()) {
+                Log::info('YouTubeTranscriptReader: yt-dlp subtitle fetch exited non-zero', [
+                    'video' => $videoId, 'lang' => $lang,
+                    'stderr' => Str::limit(trim($proc->getErrorOutput()), 200),
+                ]);
+
+                return null;
+            }
+
+            foreach ((array) glob($dir.'/*.vtt') as $file) {
+                $body = @file_get_contents((string) $file);
+                if (is_string($body) && trim($body) !== '') {
+                    return $body;
+                }
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            Log::info('YouTubeTranscriptReader: yt-dlp subtitle fetch failed', [
+                'video' => $videoId, 'error' => Str::limit($e->getMessage(), 160),
+            ]);
+
+            return null;
+        } finally {
+            foreach ((array) glob($dir.'/*') as $file) {
+                @unlink((string) $file);
+            }
+            @rmdir($dir);
+        }
     }
 
     /**
@@ -328,12 +467,18 @@ class YouTubeTranscriptReader
             : sprintf('%d:%02d', intdiv($seconds, 60), $seconds % 60);
     }
 
-    /** @return array{text: null, chars: int, reason: string, language: ?string, origin: null, title: ?string, duration: ?int, segments: list<array{t: int, text: string}>} */
-    private function miss(string $reason, ?string $title = null, ?int $duration = null, ?string $language = null): array
-    {
+    /** @return array{text: null, chars: int, reason: string, language: ?string, origin: null, title: ?string, duration: ?int, segments: list<array{t: int, text: string}>, rate_limited: bool} */
+    private function miss(
+        string $reason,
+        ?string $title = null,
+        ?int $duration = null,
+        ?string $language = null,
+        bool $rateLimited = false,
+    ): array {
         return [
             'text' => null, 'chars' => 0, 'reason' => $reason, 'language' => $language,
             'origin' => null, 'title' => $title, 'duration' => $duration, 'segments' => [],
+            'rate_limited' => $rateLimited,
         ];
     }
 }

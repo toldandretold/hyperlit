@@ -412,6 +412,34 @@ class MetricsCalculator
         $lines[] = "- **Cost USD per citation** — median {$this->fmt($tc['cost_per_citation_usd']['median'])}.";
         $lines[] = '';
 
+        // Guarded, not assumed: summarise() does not produce this key — the
+        // report command attaches it — and toMarkdown is called elsewhere with
+        // hand-built summaries.
+        if (isset($summary['evidence_coverage'])) {
+            $cov = $summary['evidence_coverage'];
+            $lines[] = '## Evidence behind the human labels';
+            $lines[] = '';
+            $lines[] = 'How many human-adjudicated labels carry verbatim quotation from the source. Counted over adjudications, not ground-truth entries, because entries carry the corpus default label. The non-scored labels (`suspect`, `unverifiable`, `not_a_citation`) are exempt — there is nothing to quote when access was never obtained or no citation exists — and carry their reason in the note instead.';
+            $lines[] = '';
+            $lines[] = "- **Scored human labels** — {$cov['expected']}";
+            $lines[] = '- **Evidenced** — ' . $cov['evidenced']
+                . ($cov['rate'] === null ? '' : ' (' . number_format(((float) $cov['rate']) * 100, 1) . '%)');
+            $lines[] = "- **Exempt (non-scored)** — {$cov['exempt']}";
+            if ($cov['missing'] !== []) {
+                $lines[] = '- **Un-evidenced** — ' . count($cov['missing']) . ':';
+                foreach (array_slice($cov['missing'], 0, 20) as $row) {
+                    $lines[] = "  - `{$row['ref']}` ({$row['label']})";
+                }
+                if (count($cov['missing']) > 20) {
+                    $lines[] = '  - …and ' . (count($cov['missing']) - 20) . ' more (see summary.json)';
+                }
+            }
+            if ($cov['exempt_without_note'] !== []) {
+                $lines[] = '- **Exempt but unexplained (no note)** — ' . count($cov['exempt_without_note']);
+            }
+            $lines[] = '';
+        }
+
         $diag = $summary['join_diagnostics'];
         $lines[] = '## Join diagnostics';
         $lines[] = '- **Orphaned ground truth (emitted as misses)** — ' . (empty($diag['orphan_gt']) ? 'none' : implode(', ', $diag['orphan_gt'])) . '.';

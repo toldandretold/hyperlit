@@ -1490,8 +1490,15 @@ class DbLibraryController extends Controller
                 ], 422);
             }
 
-            // Check collision with existing usernames
-            if (\App\Models\User::where('name', $slug)->exists()) {
+            // Check collision with existing usernames.
+            //
+            // findByNamePublic, not User::where: that ran on the RLS-subject
+            // default connection where users_select_policy limits SELECT to
+            // your OWN row, so this impersonation guard saw nobody else and
+            // was inert. It also matches case-insensitively now, which is the
+            // point — a slug `marx` when a user `Marx` exists would be
+            // permanently shadowed by the /{identifier} → /u/ redirect.
+            if (\App\Models\User::findByNamePublic($slug) !== null) {
                 return response()->json([
                     'success' => false,
                     'message' => 'This slug collides with an existing username',

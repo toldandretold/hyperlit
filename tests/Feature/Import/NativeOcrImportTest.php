@@ -30,12 +30,36 @@ use Illuminate\Support\Str;
 const NATIVE_OCR_SAMPLES = __DIR__ . '/../../conversion/import-samples';
 const NATIVE_OCR_FIXTURE = __DIR__ . '/../../conversion/fixtures/pdf/sequential/synthetic/ocr_response.json';
 
-/** RLS on `users` blocks INSERT from the app role; create via pgsql_admin (BYPASSRLS). */
+/**
+ * RLS on `users` blocks INSERT from the app role; create via pgsql_admin (BYPASSRLS).
+ *
+ * NAME is randomised as well as the email: a pgsql_admin INSERT commits
+ * outside RefreshDatabase, so the old fixed name left one row per test per
+ * run (1360 in the test DB) and blocks `users_name_url_unique`.
+ *
+ * The sweep runs in beforeEach, NOT afterEach — an import UPDATEs users.debits
+ * on the DEFAULT connection inside RefreshDatabase's open transaction, so a
+ * pgsql_admin DELETE of that row in teardown blocks on Lock:transactionid
+ * against a transaction that cannot roll back until teardown finishes. That
+ * hangs the suite with no timeout and no output. lock_timeout is the backstop.
+ */
+function sweepNativeOcrTestUsers(): void
+{
+    $admin = DB::connection('pgsql_admin');
+    try {
+        $admin->statement("SET lock_timeout = '5s'");
+        $admin->table('users')->where('email', 'like', 'natocr_%@test.local')->delete();
+    } catch (\Throwable $e) {
+        // Hygiene only — names are random and cannot collide.
+    } finally {
+        $admin->statement("SET lock_timeout = '0'");
+    }
+}
 function makeNativeOcrTestUser(): User
 {
     $email = 'natocr_' . Str::random(8) . '@test.local';
     DB::connection('pgsql_admin')->table('users')->insert([
-        'name'              => 'Native OCR Test User',
+        'name'              => 'NativeOcrTest_' . Str::random(8),
         'email'             => $email,
         'email_verified_at' => now(),
         'password'          => Hash::make('password'),
@@ -73,6 +97,8 @@ function postNativeOcrImport($test, string $bookId, array $overrides = [])
 }
 
 beforeEach(function () {
+    // Sweeps the PREVIOUS test's user — see sweepNativeOcrTestUsers().
+    sweepNativeOcrTestUsers();
     $this->user = makeNativeOcrTestUser();
 });
 

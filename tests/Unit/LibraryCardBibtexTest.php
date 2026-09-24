@@ -173,3 +173,32 @@ test('a literal "null" bibtex author is rendered author-less, not as "null."', f
     expect($html)->not->toContain(', 2026'); // no ". , 2026" separator artifact
     expect($html)->toContain('2026');
 });
+
+test('a long bibtex note is cut, not printed into the middle of the card', function () {
+    // A `note` renders last, inside the citation, on every server-generated card.
+    // Prod 2026-09-24: an OJS export's `abstractNote` was mis-read into the note
+    // field by the cite form (fixed at the source in utilities/bibtexProcessor.ts),
+    // and a 1210-char abstract rendered as part of the citation everywhere. The
+    // form fix stops it arriving; this stops any note ever rendering unbounded.
+    $abstract = 'This article argues that the political effects of digitalization in peripheral societies '
+        . str_repeat('emerge from the relationship between platform properties and the social structures. ', 12);
+    $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
+        'bibtex' => '@article{x, author = {Gretschischkin, Felipe}, title = {Digitalization}, '
+            . 'journal = {Weizenbaum Journal of the Digital Society}, year = {2026}, note = {' . $abstract . '}}',
+    ]));
+
+    expect(strlen($abstract))->toBeGreaterThan(1000);      // the real shape
+    expect($html)->toContain('This article argues');        // still shown…
+    expect($html)->not->toContain('social structures. This'); // …but cut
+    expect(strlen($html))->toBeLessThan(500);
+});
+
+test('a short bibtex note still renders in full', function () {
+    $html = (new LibraryCardGenerator())->generateCitationHtml(cardRecord([
+        'bibtex' => '@book{x, author = {Ostrom}, title = {Governing the Commons}, year = {1990}, '
+            . 'note = {Reprinted with a new preface}}',
+    ]));
+
+    expect($html)->toContain('Reprinted with a new preface');
+    expect($html)->not->toContain('...');
+});

@@ -66,9 +66,17 @@ test('slug validation refuses every reserved word', function () {
 });
 
 test('username validation refuses every reserved word', function () {
-    $source = file_get_contents(app_path('Http/Controllers/AuthController.php'));
+    // The rules moved out of the two registration controllers into one shared
+    // definition (App\Support\UsernameRules) so the SPA path and the no-JS
+    // fallback cannot drift — a laxer copy is a bypass. The wiring check is
+    // therefore: the shared rules consume the list, and BOTH paths use the
+    // shared rules rather than hand-rolling their own.
+    expect(file_get_contents(app_path('Support/UsernameRules.php')))
+        ->toContain("config('reserved-routes')");
 
-    expect($source)->toContain("config('reserved-routes')");
+    foreach (['Http/Controllers/AuthController.php', 'Actions/Fortify/CreateNewUser.php'] as $path) {
+        expect(file_get_contents(app_path($path)))->toContain('UsernameRules::rules()');
+    }
 });
 
 test('the admin pages live under a prefix, not at the root', function () {

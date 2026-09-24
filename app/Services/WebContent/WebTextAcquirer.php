@@ -71,6 +71,18 @@ class WebTextAcquirer
     public const GRADE_TRANSCRIPT = 'transcript';
 
     /**
+     * A caption track machine-translated from the video's ORIGINAL language
+     * (a Hindi speech read through YouTube's automatic English translation).
+     * Its own grade — one step further from the source than GRADE_TRANSCRIPT —
+     * because BOTH axes are now approximate: the transcription and the
+     * translation. Qualified like every other partial evidence kind ("just a
+     * title", "abstract only", "an AI translation of the captions") rather
+     * than refused: the reviewer sees exactly what it is and judges MEANING,
+     * never wording. The result's `reason` names the original language.
+     */
+    public const GRADE_TRANSLATED_TRANSCRIPT = 'translated_transcript';
+
+    /**
      * The cited work IS at this URL — the publisher's own declared title
      * matches the citation — but the body is behind a paywall or a
      * subscription wall, so we cannot read what it says.
@@ -88,9 +100,9 @@ class WebTextAcquirer
     public const GRADE_PAYWALLED = 'paywalled';
 
     /**
-     * The source is in a language we cannot read, and the only translation
-     * available is machine-made. Refused rather than used: verifying a citation
-     * against Google's paraphrase would be fabricating evidence.
+     * The source is in a language we cannot read and NO translation exists —
+     * not even YouTube's machine one. (A machine translation, where available,
+     * is now taken and labelled: see GRADE_TRANSLATED_TRANSCRIPT.)
      */
     public const GRADE_FOREIGN_LANGUAGE = 'foreign_language';
 
@@ -107,7 +119,7 @@ class WebTextAcquirer
      * Grades that carry text worth storing and searching. Anything else has no
      * business becoming a source book.
      */
-    public const USABLE_GRADES = [self::GRADE_FULL_TEXT, self::GRADE_ARTICLE_EXTRACT, self::GRADE_THIN_EXTRACT, self::GRADE_TRANSCRIPT];
+    public const USABLE_GRADES = [self::GRADE_FULL_TEXT, self::GRADE_ARTICLE_EXTRACT, self::GRADE_THIN_EXTRACT, self::GRADE_TRANSCRIPT, self::GRADE_TRANSLATED_TRANSCRIPT];
 
     /**
      * The paste engine's generic fallback. It does no main-content extraction
@@ -248,7 +260,9 @@ class WebTextAcquirer
 
         // Record what we learned, so the next review inherits it — and so
         // `citation:hosts` can rank publishers by what they actually cost us.
-        if (in_array($outcome['grade'], FetchHostHealth::RECORDABLE, true)) {
+        if (in_array($outcome['grade'], FetchHostHealth::RECORDABLE, true)
+            && ($outcome['host_evidence'] ?? true) !== false
+        ) {
             $health->recordFailure(
                 $host,
                 $outcome['grade'],
@@ -569,6 +583,7 @@ class WebTextAcquirer
             self::GRADE_FULL_TEXT,
             self::GRADE_ARTICLE_EXTRACT,
             self::GRADE_TRANSCRIPT,
+            self::GRADE_TRANSLATED_TRANSCRIPT,
         ], true);
     }
 
@@ -698,8 +713,14 @@ class WebTextAcquirer
                 . 'timestamps marking where each passage occurs. Treat the content as reliable but the WORDING as '
                 . 'approximate — captions mis-hear names and technical terms, so do not judge an exact quotation '
                 . 'against it, and do not reject a claim over phrasing alone',
-            self::GRADE_FOREIGN_LANGUAGE => 'NOT usable — the source is in a language we cannot read, and the only '
-                . 'available translation is machine-made, which is not evidence of what the source said',
+            self::GRADE_TRANSLATED_TRANSCRIPT => 'an AI TRANSLATION of a video\'s caption track — the video is '
+                . 'spoken in another language, and this is YouTube\'s automatic translation of its captions, with '
+                . 'timestamps. TWO layers of approximation stand between this text and what was actually said: the '
+                . 'transcription and the machine translation. Judge the MEANING of a claim against it, never the '
+                . 'wording — an exact quotation can neither be confirmed nor rejected here, and phrasing '
+                . 'differences are evidence of nothing',
+            self::GRADE_FOREIGN_LANGUAGE => 'NOT usable — the source is in a language we cannot read, and no '
+                . 'translation of it is available, not even a machine one',
             self::GRADE_PDF_STAGED => 'the cited PDF itself, queued for conversion — its text reaches the reviewer '
                 . 'once the conversion step has run, not before',
             self::GRADE_PAYWALLED => 'CONFIRMATION THAT THE SOURCE EXISTS, but not its text. The publisher\'s own '
@@ -823,10 +844,12 @@ class WebTextAcquirer
      *
      * Graded `transcript` rather than full_text: the content may be right while
      * the wording is only approximate, and the reviewer needs to know that
-     * before judging a quotation. A non-English original is refused outright
-     * (`foreign_language`) — YouTube would happily hand over a machine
-     * translation, and verifying a citation against a paraphrase would be
-     * fabricating evidence.
+     * before judging a quotation. A non-English original comes through YouTube's
+     * machine translation graded `translated_transcript` — one MORE step of
+     * approximation, named as such everywhere ("an AI translation of the Hindi
+     * captions"), the same qualified-evidence treatment as "abstract only" or a
+     * thin extract. `foreign_language` remains only for a foreign video with no
+     * translated track at all.
      *
      * @return array<string, mixed>
      */
@@ -835,21 +858,53 @@ class WebTextAcquirer
         $video = app(YouTubeTranscriptReader::class)->read($url);
 
         if ($video['text'] === null) {
+            // A THROTTLE says nothing about the source: graded `unreachable` so
+            // it reads as "try again", never as a fact about the video (and so
+            // FetchHostHealth records congestion, not a refusal).
+            if (!empty($video['rate_limited'])) {
+                $throttled = $this->failure(self::GRADE_UNREACHABLE, (string) $video['reason'], 'transcript', $url, 429);
+                // NOT host evidence. A caption throttle is a statement about OUR
+                // request rate against one endpoint, not about whether the host
+                // will serve us — and `unreachable` is host-RECORDABLE, so
+                // recording it would put youtube.com into a 6-hour cooldown and
+                // skip every OTHER video citation in the review (and the next
+                // few reviews). The videos are there; we merely asked too fast.
+                $throttled['host_evidence'] = false;
+                if (!empty($video['title'])) {
+                    $throttled['title'] = $video['title'];
+                }
+
+                return $throttled;
+            }
+
             $foreign = $video['language'] !== null;
 
-            return $this->failure(
+            $refusal = $this->failure(
                 $foreign ? self::GRADE_FOREIGN_LANGUAGE : self::GRADE_METADATA_ONLY,
                 (string) $video['reason'],
                 'transcript',
                 $url,
                 null,
             );
+            // The refusal still CONFIRMED something: the video exists and has this
+            // title. Same logic as the paywall case — evidence of existence, no text.
+            if (!empty($video['title'])) {
+                $refusal['title'] = $video['title'];
+            }
+
+            return $refusal;
         }
+
+        $translated = $video['origin'] === 'machine_translation';
 
         return [
             'text'         => $video['text'],
-            'grade'        => self::GRADE_TRANSCRIPT,
-            'reason'       => null,
+            'grade'        => $translated ? self::GRADE_TRANSLATED_TRANSCRIPT : self::GRADE_TRANSCRIPT,
+            // For a translation, `language` is the ORIGINAL spoken language —
+            // named here so every consumer can say what this text really is.
+            'reason'       => $translated
+                ? "YouTube's automatic English translation of the video's '{$video['language']}' captions"
+                : null,
             'channel'      => 'transcript',
             'final_url'    => $url,
             'chars'        => $video['chars'],

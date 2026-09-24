@@ -83,11 +83,16 @@ test('only text-bearing grades are treated as usable', function () {
         WebTextAcquirer::GRADE_ARTICLE_EXTRACT,
         WebTextAcquirer::GRADE_THIN_EXTRACT,
         WebTextAcquirer::GRADE_TRANSCRIPT,
+        // A machine translation of a video's captions IS usable — qualified
+        // evidence, like a thin extract or an abstract, not evidence refused.
+        // Its description carries the two-layers-of-approximation warning and
+        // the meaning-not-wording rule; that label is what makes it safe.
+        WebTextAcquirer::GRADE_TRANSLATED_TRANSCRIPT,
     ]);
 
-    // Nothing we could not read may be stored as source text. A
-    // foreign-language source belongs here: the only translation available is
-    // machine-made, which is not evidence of what the source said.
+    // Nothing we could not read may be stored as source text. `foreign_language`
+    // belongs here because it now means something narrower: a foreign source
+    // with NO translation available at all, machine or otherwise.
     foreach ([
         WebTextAcquirer::GRADE_BLOCKED,
         WebTextAcquirer::GRADE_DEAD,

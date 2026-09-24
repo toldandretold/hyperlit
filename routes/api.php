@@ -735,6 +735,11 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::post('/maintainer/study/books/{slug}/retract', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'retract'])
         ->where('slug', '[a-zA-Z0-9_-]+');
+    // The quotes backing a verdict, editable WITHOUT re-making the verdict —
+    // the only way to backfill evidence onto adjudications recorded before the
+    // field existed, since the workbench's other mutation is a destructive Undo.
+    Route::post('/maintainer/study/books/{slug}/evidence', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'evidence'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
     Route::post('/maintainer/study/books/{slug}/apply', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'apply'])
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::get('/maintainer/study/pdf-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'pdfSearch'])

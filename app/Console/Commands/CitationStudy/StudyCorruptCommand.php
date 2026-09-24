@@ -85,10 +85,22 @@ class StudyCorruptCommand extends Command
         // Compare ground truth ignoring binding state (bind mutates the file).
         $onDisk = json_decode((string) file_get_contents($gtPath), true) ?: [];
         $fresh = $result['ground_truth'];
+        // Human-authored fields are stripped for the same reason bindings are:
+        // they exist only on disk. `corrupt(dryRun: true)` never calls
+        // saveGroundTruth, so the regenerated copy has no evidence while the
+        // on-disk copy does — without this, --check would fail on every book a
+        // reviewer had evidenced. unset() on an absent key is a no-op, so
+        // stripping both sides is safe.
         $strip = function (array $gt): array {
             unset($gt['binding']);
             foreach ($gt['entries'] as &$entry) {
-                unset($entry['bound_reference_id']);
+                unset(
+                    $entry['bound_reference_id'],
+                    $entry['evidence'],
+                    $entry['evidence_locator'],
+                    $entry['evidenced_by'],
+                    $entry['evidenced_at'],
+                );
             }
             return $gt;
         };

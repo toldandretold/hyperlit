@@ -104,6 +104,10 @@ class StudyConsoleController extends Controller
             // What the citation ACTUALLY supports — the axis that makes ground truth independent
             // of which verify-prompt denominator a run used. See AdjudicationStore::SUPPORTED_SCOPES.
             'supported_scope' => ['nullable', 'string', Rule::in(AdjudicationStore::SUPPORTED_SCOPES)],
+            // The quotes that BACK this verdict. Capped rather than unbounded so
+            // evidencing a closed-access source stays selective quotation.
+            'evidence' => ['nullable', 'string', 'max:' . AdjudicationStore::EVIDENCE_MAX_CHARS],
+            'evidence_locator' => ['nullable', 'string', 'max:200'],
             'referenceId' => ['nullable', 'string', 'max:200'],
             'run_id' => ['nullable', 'string', 'max:100'],
         ]);
@@ -111,23 +115,62 @@ class StudyConsoleController extends Controller
         $manifest = $this->manifest($request);
         try {
             $book = $manifest->book($slug);
+            // Named arguments: put() carries fourteen parameters, and a
+            // positional list that long turns any future insertion into a
+            // silent field-shifting bug.
             $record = $this->adjudications->put(
-                $manifest,
-                $book,
-                $data['key'],
-                $data['label'],
-                $data['cause'] ?? null,
-                $data['note'] ?? null,
-                $data['referenceId'] ?? null,
-                $data['run_id'] ?? null,
-                (string) ($request->user()->name ?? 'admin'),
-                $data['found_url'] ?? null,
-                array_key_exists('reference_exists', $data) ? $data['reference_exists'] : null,
-                $data['supported_scope'] ?? null,
+                manifest: $manifest,
+                book: $book,
+                key: $data['key'],
+                label: $data['label'],
+                cause: $data['cause'] ?? null,
+                note: $data['note'] ?? null,
+                referenceId: $data['referenceId'] ?? null,
+                runId: $data['run_id'] ?? null,
+                adjudicatedBy: (string) ($request->user()->name ?? 'admin'),
+                foundUrl: $data['found_url'] ?? null,
+                referenceExists: array_key_exists('reference_exists', $data) ? $data['reference_exists'] : null,
+                supportedScope: $data['supported_scope'] ?? null,
+                evidence: $data['evidence'] ?? null,
+                evidenceLocator: $data['evidence_locator'] ?? null,
             );
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
+        return response()->json(['ok' => true, 'adjudication' => $record]);
+    }
+
+    /**
+     * POST /api/maintainer/study/books/{slug}/evidence
+     *
+     * Attach (or clear) the quotes backing an EXISTING verdict, without
+     * disturbing the verdict itself. Its own endpoint because the workbench has
+     * no edit path for a saved adjudication — its only mutation is Undo, which
+     * deletes the record — and backfilling evidence onto verdicts recorded
+     * before this field existed must not mean re-entering them.
+     */
+    public function evidence(Request $request, string $slug)
+    {
+        $data = $request->validate([
+            'key' => ['required', 'string', 'max:200'],
+            'evidence' => ['nullable', 'string', 'max:' . AdjudicationStore::EVIDENCE_MAX_CHARS],
+            'evidence_locator' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $manifest = $this->manifest($request);
+        try {
+            $record = $this->adjudications->putEvidence(
+                $manifest,
+                $manifest->book($slug),
+                $data['key'],
+                $data['evidence'] ?? null,
+                $data['evidence_locator'] ?? null,
+                (string) ($request->user()->name ?? 'admin'),
+            );
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
         return response()->json(['ok' => true, 'adjudication' => $record]);
     }
 

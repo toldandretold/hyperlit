@@ -42,7 +42,20 @@ export interface Adjudication {
   adjudicated_by: string;
   /** What the citation actually supports — makes ground truth denominator-independent. */
   supported_scope?: string | null;
+  /**
+   * Verbatim quotes from the source backing this verdict — what turns a human
+   * label from an assertion into something showable. Stamped separately from
+   * the verdict because it is routinely added in a later sitting.
+   */
+  evidence?: string | null;
+  /** Where in the source — "p. 412", "0:01–1:51, auto-captions". */
+  evidence_locator?: string | null;
+  evidenced_at?: string | null;
+  evidenced_by?: string | null;
 }
+
+/** Cap on quoted evidence — mirrors AdjudicationStore::EVIDENCE_MAX_CHARS. */
+export const EVIDENCE_MAX_CHARS = 1500;
 
 export interface ClaimSource {
   found: boolean;
@@ -73,7 +86,8 @@ export interface ClaimSource {
   } | null;
   verification_tier: string | null;
   evidence_type: string | null;
-  passages: unknown[];
+  /** The passages the verifier was actually shown, in rank order. */
+  passages: { node_id?: string | null; text?: string | null; rank?: number | null }[];
   /** library.completeness for the resolved source (verified_full/partial/unverified). */
   content_grade: string | null;
   /** Plain-English "what the source text actually is" — WebTextAcquirer::describeGrade. */
@@ -87,6 +101,8 @@ export interface ClaimSource {
     http_status: number | null;
     channel: string | null;
     url: string | null;
+    /** Title the refused page/video itself declared — a match with the citation confirms the reference EXISTS. */
+    title?: string | null;
   } | null;
   /**
    * How much text our extraction actually KEPT for this source. The verifier is only ever shown
@@ -114,6 +130,9 @@ export interface ClaimRow {
     label: string;
     footnote_marker: string | null;
     corruption_meta: Record<string, unknown> | null;
+    /** Evidence already APPLIED into ground truth (the adjudication holds the editable copy). */
+    evidence?: string | null;
+    evidence_locator?: string | null;
   } | null;
   triage: TriageInfo | null;
   adjudication: Adjudication | null;
@@ -212,12 +231,30 @@ export const api = {
       note: string | null;
       found_url: string | null;
       reference_exists?: boolean | null;
+      /** Quotes from the source backing this verdict. */
+      evidence?: string | null;
+      evidence_locator?: string | null;
       referenceId: string | null;
       run_id: string | null;
     },
   ) =>
     postJson<{ ok?: boolean; adjudication?: Adjudication; error?: string }>(
       `/api/maintainer/study/books/${encodeURIComponent(slug)}/adjudicate${corpusQs(corpus)}`,
+      body,
+    ),
+
+  /**
+   * Attach or clear the evidence on an EXISTING verdict, without re-making it.
+   * The backfill path: the workbench's only other mutation is a destructive
+   * Undo, so evidencing an already-recorded label needs its own seam.
+   */
+  putEvidence: (
+    corpus: string,
+    slug: string,
+    body: { key: string; evidence: string | null; evidence_locator: string | null },
+  ) =>
+    postJson<{ ok?: boolean; adjudication?: Adjudication; error?: string }>(
+      `/api/maintainer/study/books/${encodeURIComponent(slug)}/evidence${corpusQs(corpus)}`,
       body,
     ),
 

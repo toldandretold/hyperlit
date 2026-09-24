@@ -17,19 +17,34 @@ import { initializeUserContainer } from '../../../components/userButton/userButt
 import { syncPageStylesheets, syncBodyAttributes } from './pageStylesheets';
 
 /**
- * Fetch HTML for target URL
+ * Fetch HTML for target URL.
  * Extracted from DifferentTemplateTransition.fetchHtml()
+ *
+ * Returns `finalUrl` as well as the markup because the server can CANONICALIZE
+ * a URL underneath us: /u/{username} 301s to the stored casing of the name.
+ * fetch() follows that transparently, so the caller would otherwise swap in
+ * the canonical page's HTML while still believing the requested path — and on
+ * user pages there is no server-rendered `.main-content` to fall back on, so
+ * the wrong book id would reach setCurrentBook/updateDatabaseBookId.
+ *
+ * `response.url` is the URL after redirects (empty string only for some
+ * synthetic responses, hence the `|| url` fallback).
  */
-export async function fetchHtml(url: any) {
+export async function fetchHtml(url: any): Promise<{ html: string; finalUrl: string }> {
   verbose.nav('Fetching target page', '/navigation/utils/contentSwapHelpers.js');
 
   const response = await fetch(url);
+
+  // Read the body unconditionally: an undrained Response holds its connection
+  // open (6 per origin) and the page never reaches network-idle — throwing on
+  // !ok without consuming it leaked one socket per failed navigation.
+  const htmlString = await response.text();
+
   if (!response.ok) {
     throw new Error(`Failed to fetch HTML: ${response.status}`);
   }
 
-  const htmlString = await response.text();
-  return htmlString;
+  return { html: htmlString, finalUrl: response.url || url };
 }
 
 /**
@@ -252,7 +267,15 @@ export function updateUrl(url: any, options: any = {}) {
     // "URL matches rendered structure, nothing to do". Only normalize the
     // entry when the current location still belongs to this transition.
     if (options.isPopstate) {
-      const targetPath = new URL(url, window.location.origin).pathname;
+      // `expectedPath` is where the history entry this transition belongs to
+      // actually points. It differs from `url` only when the server
+      // canonicalized under us (a /u/ casing 301): we still want to WRITE the
+      // canonical URL, but the "did history move on" question has to be asked
+      // about the path we navigated to, or a canonicalization would read as
+      // staleness and the write would always be skipped.
+      const targetPath = options.expectedPath
+        ? new URL(options.expectedPath, window.location.origin).pathname
+        : new URL(url, window.location.origin).pathname;
       if (window.location.pathname !== targetPath) {
         verbose.nav('updateUrl: history moved on mid-transition — skipping stale popstate URL write', '/navigation/utils/contentSwapHelpers.js');
         return;

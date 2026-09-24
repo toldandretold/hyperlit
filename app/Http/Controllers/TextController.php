@@ -21,14 +21,22 @@ class TextController extends Controller
 
         // If the path matches a username (allow basic slug variants),
         // (re)generate a user-home pseudo-book in DB and point $book to that.
+        // findByNamePublic goes through the SECURITY DEFINER lookup: it
+        // bypasses RLS (the default connection can only SELECT your OWN user
+        // row, so these probes found nothing for a visitor) and matches on the
+        // URL key — case- and space-insensitively.
+        //
+        // The second probe survives because the key STRIPS spaces rather than
+        // mapping separators to them: `Mr Johns` is now found by `MrJohns`,
+        // but `Mr_Johns` still needs the underscores turned back into spaces.
+        //
+        // $username is then the CANONICAL stored name — it keys library.creator
+        // and nodes.book below, which RLS compares case-sensitively.
         $possible = urldecode($book);
         $normalized = str_replace(['_', '-'], ' ', $possible);
-        $username = null;
-        if (\App\Models\User::where('name', $possible)->exists()) {
-            $username = $possible;
-        } elseif (\App\Models\User::where('name', $normalized)->exists()) {
-            $username = $normalized;
-        }
+        $user = \App\Models\User::findByNamePublic($possible)
+            ?? \App\Models\User::findByNamePublic($normalized);
+        $username = $user?->name;
 
         if ($username !== null) {
             $bookCount = DB::table('library')->where('creator', $username)->where('book', '!=', $username)->count();
@@ -60,7 +68,7 @@ class TextController extends Controller
         // User pseudo-books canonicalize to the /u/ profile URL, not the bare
         // /{username} path (which 301s to /u/ anyway).
         if ($username !== null) {
-            $userCanonical = url('/u/' . str_replace(' ', '', $username));
+            $userCanonical = \App\Support\UsernameKey::profileUrl($username);
             $seoData['canonicalUrl'] = $userCanonical;
             $seoData['ogUrl'] = $userCanonical;
         }

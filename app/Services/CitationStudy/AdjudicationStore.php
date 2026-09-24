@@ -54,6 +54,32 @@ class AdjudicationStore
         'undetermined',
     ];
 
+    /**
+     * Cap on quoted evidence, in characters.
+     *
+     * The point is SELECTIVE quotation: enough to show what the reviewer read
+     * and judged, never enough to reproduce a closed-access source. ~1500
+     * characters is a few short quotations; a reviewer who needs more is
+     * summarising rather than evidencing, and the `note` is the place for that.
+     * Mirrored by the request validation and by the UI's live counter.
+     */
+    public const EVIDENCE_MAX_CHARS = 1500;
+
+    /**
+     * Labels whose adjudications are EXPECTED to carry evidence — the scored
+     * ones. The non-scored labels (`suspect`, `unverifiable`, `not_a_citation`)
+     * are exempt because there is nothing to quote: you never obtained access,
+     * or no citation exists at all (the phantom year-range mislinks). They
+     * carry the reason in `note` instead. Derived from the scoring constants so
+     * a new scored label cannot silently escape the coverage denominator.
+     *
+     * @return list<string>
+     */
+    public static function evidenceExpectedLabels(): array
+    {
+        return array_merge(CorpusManifest::POSITIVE_LABELS, CorpusManifest::NEGATIVE_LABELS);
+    }
+
     public const CAUSES = [
         'correct_flag',        // the AI was right — the citation is genuinely bad
         'resolver_gap',        // real source, exists in an index, we failed to find it
@@ -134,6 +160,8 @@ class AdjudicationStore
         ?string $foundUrl = null,
         ?bool $referenceExists = null,
         ?string $supportedScope = null,
+        ?string $evidence = null,
+        ?string $evidenceLocator = null,
     ): array {
         if (!in_array($label, CorpusManifest::LABELS, true)) {
             throw new RuntimeException("Invalid label '{$label}'.");
@@ -172,12 +200,97 @@ class AdjudicationStore
             // analysis. true = confirmed real, false = could not even confirm
             // the work, null = not assessed.
             'reference_exists' => $referenceExists,
+            // THE QUOTES THE REVIEWER READ. A human label is otherwise an
+            // assertion with no artifact behind it — and "we manually verified
+            // this citation is fine" is exactly the claim a reader of the paper
+            // probes first. Short, selective quotation (capped at
+            // self::EVIDENCE_MAX_CHARS) so a closed-access source can be
+            // evidenced without reproducing it.
+            'evidence' => self::normaliseEvidence($evidence),
+            // WHERE in the source — "p. 412", "0:01-1:51, auto-captions". The
+            // source's identity is already carried by found_url and the
+            // resolved source; this is the position within it.
+            'evidence_locator' => $evidenceLocator !== null && $evidenceLocator !== '' ? $evidenceLocator : null,
             'adjudicated_at' => now()->toIso8601String(),
             'adjudicated_by' => $adjudicatedBy,
         ];
+        // Evidence is ALWAYS attributed, whichever path recorded it. Stamped
+        // here too (and not only in putEvidence) because ground truth carries
+        // the quotes onward, and an unattributed quotation in the published
+        // artifact is exactly the thing evidence exists to prevent. When the
+        // two arrive together the stamps simply match.
+        $record['evidenced_at'] = $record['evidence'] === null ? null : $record['adjudicated_at'];
+        $record['evidenced_by'] = $record['evidence'] === null ? null : $adjudicatedBy;
+
         $data['adjudications'][$key] = $record;
         $this->save($manifest, $book, $data);
         return $record;
+    }
+
+    /**
+     * Add or replace the EVIDENCE on an adjudication that already exists,
+     * merging rather than replacing the record.
+     *
+     * Separate from put() on purpose, twice over. (1) put() replaces the record
+     * wholesale, and that is a property worth keeping — it is what guarantees a
+     * re-adjudication cannot leave a stale cause or scope behind from the
+     * previous verdict. (2) The workbench has no edit path for a saved verdict:
+     * its only mutation is Undo, which DELETES the record. Backfilling evidence
+     * onto verdicts recorded before this field existed must not mean destroying
+     * and re-entering them, so evidence gets its own seam.
+     *
+     * @return array the updated record
+     */
+    public function putEvidence(
+        CorpusManifest $manifest,
+        array $book,
+        string $key,
+        ?string $evidence,
+        ?string $evidenceLocator,
+        string $evidencedBy,
+    ): array {
+        $data = $this->load($manifest, $book);
+        if (!isset($data['adjudications'][$key])) {
+            throw new RuntimeException("No adjudication to attach evidence to for '{$key}'.");
+        }
+
+        $record = $data['adjudications'][$key];
+        $record['evidence'] = self::normaliseEvidence($evidence);
+        $record['evidence_locator'] = $evidenceLocator !== null && $evidenceLocator !== '' ? $evidenceLocator : null;
+        // Stamped separately from adjudicated_at/by: evidence is routinely added
+        // later (and possibly by someone else) than the verdict it supports, and
+        // flattening the two would misreport when the verdict was made.
+        $record['evidenced_at'] = $record['evidence'] === null ? null : now()->toIso8601String();
+        $record['evidenced_by'] = $record['evidence'] === null ? null : $evidencedBy;
+
+        $data['adjudications'][$key] = $record;
+        $this->save($manifest, $book, $data);
+
+        return $record;
+    }
+
+    /**
+     * Tidy pasted quotations without altering their words.
+     *
+     * Evidence arrives by paste, usually out of a PDF or a rendered page, so it
+     * routinely carries CRLF or lone-CR line endings and runs of blank lines.
+     * Normalising HERE rather than at render time is what makes "one quote per
+     * paragraph" a real invariant instead of a hope — and a lone \r inside a
+     * quoted CSV field is mis-parsed by several readers, so dataset.csv depends
+     * on it too. Never truncates: the length cap belongs to the request
+     * validation, where exceeding it is an error the reviewer must see rather
+     * than a silent shortening of their quotation.
+     */
+    private static function normaliseEvidence(?string $evidence): ?string
+    {
+        if ($evidence === null) {
+            return null;
+        }
+        $clean = preg_replace("/\r\n?/", "\n", $evidence) ?? $evidence;
+        $clean = preg_replace("/\n{3,}/", "\n\n", $clean) ?? $clean;
+        $clean = trim($clean);
+
+        return $clean === '' ? null : $clean;
     }
 
     /** Remove one adjudication (undo). Returns true when something was removed. */
@@ -254,6 +367,16 @@ class AdjudicationStore
             if ($isPositive) {
                 $groundTruth['entries'][$i]['cited_occurrences'] =
                     max(1, (int) ($groundTruth['entries'][$i]['cited_occurrences'] ?? 0));
+            }
+            // The quotes travel WITH the label. Ground truth is the artifact a
+            // reader of the paper is handed, so a label that arrived by human
+            // judgement should carry its evidence in the same file rather than
+            // only in the adjudications the reader would have to be told about.
+            // Written only when present, so machine-labelled entries stay clean.
+            foreach (['evidence', 'evidence_locator', 'evidenced_by', 'evidenced_at'] as $field) {
+                if (($record[$field] ?? null) !== null && $record[$field] !== '') {
+                    $groundTruth['entries'][$i][$field] = $record[$field];
+                }
             }
             $applied++;
         }

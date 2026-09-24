@@ -182,6 +182,55 @@ test('workbench adjudications ride along as human_* passthrough columns', functi
         ->and($rows[0]['verdict'])->toBe('source_not_found');
 });
 
+test('the reviewer EVIDENCE reaches the dataset, and so does supported_scope', function () {
+    // supported_scope had been stored, validated, typed and rendered since
+    // 2026-09-19 while never being emitted, so the denominator-independence
+    // axis could not be analysed from dataset.csv at all. Pinned here with the
+    // evidence columns because both are the same one-line class of omission.
+    [$manifest, $state] = joinerCorpus(
+        [joinerGt('g/one', 'intact', 'alder2010')],
+        [joinerClaim('alder2010', 'rejected', ['source_book_id' => null])]
+    );
+
+    (new \App\Services\CitationStudy\AdjudicationStore())->put(
+        $manifest, $manifest->book('fixture'),
+        'g/one', 'verified_intact', 'resolver_gap', 'found by hand', 'alder2010', 'run1', 'sam',
+        supportedScope: 'whole_claim',
+        evidence: "\"first quote\"\n\n\"second quote\"",
+        evidenceLocator: 'p. 412',
+    );
+
+    $rows = (new ClaimsJoiner())->join($manifest, $state)['rows'];
+
+    expect($rows[0]['human_supported_scope'])->toBe('whole_claim')
+        ->and($rows[0]['human_evidence'])->toBe("\"first quote\"\n\n\"second quote\"")
+        ->and($rows[0]['human_evidence_locator'])->toBe('p. 412')
+        // A numeric column so the paper's "N of M evidenced" claim is a pivot,
+        // not a parse of prose out of a 1500-char field.
+        ->and($rows[0]['human_evidence_chars'])->toBe(29);
+});
+
+test('multi-line evidence survives the CSV round trip with its paragraphs intact', function () {
+    // fputcsv RFC4180-quotes embedded newlines; this pins that nothing
+    // downstream decides to flatten them, since the paragraph breaks ARE the
+    // one-quote-per-paragraph structure.
+    $evidence = "\"a quote, with a comma\"\n\n\"a second \"\"quoted\"\" one\"";
+    $path = tempnam(sys_get_temp_dir(), 'evcsv');
+    $handle = fopen($path, 'w');
+    fputcsv($handle, ['gt_id', 'human_evidence']);
+    fputcsv($handle, ['g/one', $evidence]);
+    fclose($handle);
+
+    $read = fopen($path, 'r');
+    fgetcsv($read); // header
+    $row = fgetcsv($read);
+    fclose($read);
+    @unlink($path);
+
+    expect($row[1])->toBe($evidence)
+        ->and(substr_count($row[1], "\n"))->toBe(2);
+});
+
 test('every dataset row carries the import pathway it came through', function () {
     // The citation review is downstream of conversion, so a result is only
     // interpretable alongside the pathway that produced its text.

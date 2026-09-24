@@ -234,6 +234,20 @@ class ClaimsJoiner
             'human_note' => $adjudication['note'] ?? null,
             'human_found_url' => $adjudication['found_url'] ?? null,
             'human_reference_exists' => $adjudication['reference_exists'] ?? null,
+            // Stored, validated, typed and shown in the workbench since 2026-09-19,
+            // but never emitted — so the denominator-independence axis could not be
+            // analysed from the dataset at all.
+            'human_supported_scope' => $adjudication['supported_scope'] ?? null,
+            // The quotes the reviewer read. Multi-line by design; fputcsv
+            // RFC4180-quotes embedded newlines, so this survives the round trip
+            // intact (a naive `wc -l` over dataset.csv will over-count rows).
+            'human_evidence' => $adjudication['evidence'] ?? null,
+            'human_evidence_locator' => $adjudication['evidence_locator'] ?? null,
+            // The claim the paper makes is a COUNT, so give it a numeric column
+            // rather than making every pivot parse prose out of a 1500-char field.
+            'human_evidence_chars' => isset($adjudication['evidence'])
+                ? mb_strlen((string) $adjudication['evidence'])
+                : null,
         ]);
     }
 

@@ -5,6 +5,7 @@
 import { $, qs } from './dom';
 import { generateBookIdFromMetadata, findAvailableBookId, updateBookUrlPreview } from './bookId';
 import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
+import { bibtexAutofillValues, bibtexEntryKey } from '../../../utilities/bibtexProcessor';
 
 export function populateFieldsFromBibtex() {
   const bibtexField = $('bibtex');
@@ -13,51 +14,38 @@ export function populateFieldsFromBibtex() {
   const bibtexText = bibtexField.value.trim();
   if (!bibtexText) return;
 
-  const patterns: any = {
-    id: /@\w+\s*\{\s*([^,]+)\s*,/,
-    title: /title\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    author: /author\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    journal: /journal\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    year: /year\s*=\s*[\{"']?(\d+)[\}"']?/i,
-    pages: /pages\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    publisher: /publisher\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    school: /school\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    note: /note\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    url: /url\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    volume: /volume\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    issue: /number\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    booktitle: /booktitle\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    chapter: /chapter\s*=\s*[\{"']([^}\"']+)[\}"']/i,
-    editor: /editor\s*=\s*[\{"']([^}\"']+)[\}"']/i
-  };
+  // Field extraction is the shared brace-aware, EXACT-key parser — never a block
+  // of per-field regexes. The ones this replaced matched a key on its tail, so a
+  // real OJS export filed its `abstractNote` as the Note (which every library
+  // card then appended to the citation) and truncated any value at an
+  // apostrophe. See AUTOFILL_FIELD_BY_BIBTEX_KEY in utilities/bibtexProcessor.ts.
+  const values: Record<string, string> = bibtexAutofillValues(bibtexText);
+  const entryKey = bibtexEntryKey(bibtexText);
+  if (entryKey) values.book = entryKey;
 
   let changed = false;
-  Object.entries(patterns).forEach(([field, pattern]: [any, any]) => {
-    const match = bibtexText.match(pattern);
-    if (match) {
-      const fieldName = field === 'id' ? 'book' : field;
-      const element = $(fieldName);
-      if (element) {
-        let newVal = match[1].trim();
+  Object.entries(values).forEach(([field, value]) => {
+    const element = $(field);
+    if (!element) return;
 
-        // Auto-format URL if it's a URL field
-        if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
-          newVal = `https://${newVal}`;
-        }
+    let newVal = value;
 
-        // Never autofill a value the form's own rules reject (an out-of-range
-        // year leaves the submit blocked by native min/max validation).
-        if (field === 'year') {
-          newVal = sanitizeYearForAutofill(newVal);
-          if (!newVal) return;
-        }
-        if (field === 'title') newVal = sanitizeTitleForAutofill(newVal);
+    // Auto-format URL if it's a URL field
+    if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
+      newVal = `https://${newVal}`;
+    }
 
-        if (element.value !== newVal) {
-          element.value = newVal;
-          changed = true;
-        }
-      }
+    // Never autofill a value the form's own rules reject (an out-of-range
+    // year leaves the submit blocked by native min/max validation).
+    if (field === 'year') {
+      newVal = sanitizeYearForAutofill(newVal);
+      if (!newVal) return;
+    }
+    if (field === 'title') newVal = sanitizeTitleForAutofill(newVal);
+
+    if (element.value !== newVal) {
+      element.value = newVal;
+      changed = true;
     }
   });
 

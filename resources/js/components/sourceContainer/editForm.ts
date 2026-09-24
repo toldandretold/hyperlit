@@ -7,7 +7,7 @@
 import { openDatabase, prepareLibraryForIndexedDB, cleanLibraryItemForStorage } from '../../indexedDB/index';
 import { advanceBaseTimestamp, forgetAutoDerivedTitle } from '../../indexedDB/core/library';
 import type { LibraryRecord } from '../../indexedDB/types';
-import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
+import { generateBibtexFromForm, bibtexAutofillValues } from '../../utilities/bibtexProcessor';
 import { book } from '../../app';
 import { canUserEditBook } from '../../utilities/auth/index';
 import { getRecord } from './helpers';
@@ -248,41 +248,26 @@ export function populateFieldsFromBibtex(self: any) {
   const bibtexText = bibtexField.value.trim();
   if (!bibtexText) return;
 
-  const patterns: any = {
-    title: /title\s*=\s*[{"]([^}"]+)[}"]/i,
-    author: /author\s*=\s*[{"]([^}"]+)[}"]/i,
-    journal: /journal\s*=\s*[{"]([^}"]+)[}"]/i,
-    year: /year\s*=\s*[{"]?(\d+)[}"]?/i,
-    pages: /pages\s*=\s*[{"]([^}"]+)[}"]/i,
-    publisher: /publisher\s*=\s*[{"]([^}"]+)[}"]/i,
-    school: /school\s*=\s*[{"]([^}"]+)[}"]/i,
-    note: /note\s*=\s*[{"]([^}"]+)[}"]/i,
-    url: /url\s*=\s*[{"]([^}"]+)[}"]/i,
-    volume: /volume\s*=\s*[{"]([^}"]+)[}"]/i,
-    issue: /number\s*=\s*[{"]([^}"]+)[}"]/i,
-    booktitle: /booktitle\s*=\s*[{"]([^}"]+)[}"]/i,
-    chapter: /chapter\s*=\s*[{"]([^}"]+)[}"]/i,
-    editor: /editor\s*=\s*[{"]([^}"]+)[}"]/i
-  };
+  // Same shared EXACT-key parser the cite form uses — see
+  // AUTOFILL_FIELD_BY_BIBTEX_KEY in utilities/bibtexProcessor.ts for the four
+  // ways the per-field regexes this replaced mis-filled a real publisher export.
+  const values = bibtexAutofillValues(bibtexText);
 
   let changed = false;
-  Object.entries(patterns).forEach(([field, pattern]: [any, any]) => {
-    const match = bibtexText.match(pattern);
-    if (match) {
-      const element = self.container.querySelector(`#edit-${field}`);
-      if (element) {
-        let newVal = match[1].trim();
+  Object.entries(values).forEach(([field, value]) => {
+    const element = self.container.querySelector(`#edit-${field}`);
+    if (!element) return;
 
-        // Auto-format URL if it's a URL field
-        if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
-          newVal = `https://${newVal}`;
-        }
+    let newVal = value;
 
-        if (element.value !== newVal) {
-          element.value = newVal;
-          changed = true;
-        }
-      }
+    // Auto-format URL if it's a URL field
+    if (field === 'url' && newVal && !newVal.match(/^https?:\/\//i)) {
+      newVal = `https://${newVal}`;
+    }
+
+    if (element.value !== newVal) {
+      element.value = newVal;
+      changed = true;
     }
   });
 

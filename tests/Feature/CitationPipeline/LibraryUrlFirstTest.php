@@ -113,7 +113,12 @@ test('only grades that carry the ARTICLE beat a parked library match', function 
     $bar = (new ReflectionClass(CitationScanBibliographyJob::class))
         ->getConstant('GRADES_CARRYING_ARTICLE_TEXT');
 
-    expect($bar)->toBe(['full_text', 'article_extract', 'transcript']);
+    // `translated_transcript` belongs here for the same reason `transcript` does: for a video
+    // citation the VIDEO is the cited work, so its caption track — even read through YouTube's
+    // machine translation — is the source itself, not a weak read of a page about it. What keeps
+    // it honest is the label (two layers of approximation, judge meaning not wording), not
+    // exclusion from the bar.
+    expect($bar)->toBe(['full_text', 'article_extract', 'transcript', 'translated_transcript']);
     // The ones deliberately EXCLUDED: a thin extract of a paywall teaser is technically usable
     // text (it is in WebTextAcquirer::USABLE_GRADES) and must not win.
     expect($bar)->not->toContain('thin_extract')
