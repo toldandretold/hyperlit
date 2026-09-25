@@ -120,6 +120,8 @@ export interface ClaimRow {
   verdict: string;
   truth_claim: string | null;
   contextualised_claim: string | null;
+  /** Where the claim text came from: 'llm' | 'span_scoped' | 'span_fallback' | 'span_backfill'. */
+  claim_source: string | null;
   bib_citation: string | null;
   llm_metadata: Record<string, unknown> | null;
   llm_verdict: { support?: string; summary?: string; reasoning?: string } | null;

@@ -134,6 +134,11 @@ class WorkbenchData
                 'verdict' => $verdict,
                 'truth_claim' => $claim['truth_claim'] ?? null,
                 'contextualised_claim' => $claim['contextualised_claim'] ?? null,
+                // WHERE the claim text came from. A claim the model wrote reads the same as one
+                // we scoped back to its own citation ('span_scoped') or rescued from our own
+                // span ('span_fallback'/'span_backfill'), and the difference changes how a weak
+                // verdict should be read — see TruthClaimExtractor::scopeToOwnSegment.
+                'claim_source' => $claim['claim_source'] ?? null,
                 'bib_citation' => $claim['bib_citation'] ?? null,
                 'llm_metadata' => $claim['llm_metadata'] ?? null,
                 'llm_verdict' => $claim['llm_verdict'] ?? null,

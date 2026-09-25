@@ -115,25 +115,31 @@
         },
         {
             "gt_id": "chacko-2025-paste/c11",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "economist 2023 the 2023 crony capitalism index 2 may available at https www economist com international 2023 05 02 the 2023 crony capitalism index accessed 2 december 2024",
             "bib_text_hash": "sha256:5586a8f996de6740bc573b8be286de51f4a232e34f9838b89e3e30d17f57efcf",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "economist2023"
+            "bound_reference_id": "economist2023",
+            "evidence": "\"The 2023 crony-capitalism index\nWar, tech woes and cock-ups have pummelled certain plutocrats\"",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:27:42+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c12",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "ecosoc 2023 report of the committee on non governmental organizations on its 2023 resumed session new york 15 23 may and 5 june 2023 available at https digitallibrary un org record 4015916 v pdf accessed 8 november 2025",
             "bib_text_hash": "sha256:d38c8ed2fb5c210e3fb023b7828876c50cec4b176766fb4103d8c2d11c2ddf38",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "ecosoc2023"
+            "bound_reference_id": "ecosoc2023",
+            "evidence": "39. The representative of India noted that India strongly supported consensus in the Committee. Therefore, its decision to vote against the seven NGOs did not reflect a position on the work of those NGOs, but was based on the principled and consistent position of his delegation on the procedure followed by the Committee.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:46:44+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c13",
@@ -302,25 +308,31 @@
         },
         {
             "gt_id": "chacko-2025-paste/c28",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "goi 2011 the foreign contribution regulation rules available at https indiankanoon org doc 20690064 accessed 20 november 2024",
             "bib_text_hash": "sha256:73e0df1e990cf08a8f11d82e78d273424ec10e874d02e00b1736745ab8c7aa8d",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "goi2011"
+            "bound_reference_id": "goi2011",
+            "evidence": "3. Guidelines for declaration of an organisation to be of a political nature, not being a political party.\n\n- The Central Government may specify any organisation as organisation of political nature on one or more of the following grounds:-\n(i)\norganisation having avowed political objectives in its Memorandum of Association or bylaws;\n(ii)\nany Trade Union whose objectives include activities for promoting political goals;\n(iii)\nany voluntary action group with objectives of a political nature or which participates in political activities;\n(iv)\nfront or mass organisations like Students Unions, Workers' Unions, Youth Forums and Women's wing of a political party;\n(v)\norganisation of farmers, workers, students, youth based on caste, community, religion, language or otherwise, which is not directly aligned to any political party, but whose objectives, as stated in the Memorandum of Association, or activities gathered through other material evidence, include steps towards advancement of Political interests of such groups;\n(vi)\nany organisation, by whatever name called, which habitually engages itself in or employs common methods of political action like 'bandh' or 'hartal', 'rasta roko', 'rail roko' or 'jail bharo' in support of public causes.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:36:03+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c29",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "goi 2015 ngos using foreign funds for anti national activities press information bureau government of india ministry of home affairs available at https www pib gov in newsite printrelease aspx relid 116430 accessed 30 june 2016",
             "bib_text_hash": "sha256:4ddc5343d5d799c45543f8c0e2d22c2b54c6f33b7e03de0212e434d075921a6e",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "goi2015"
+            "bound_reference_id": "goi2015",
+            "evidence": "Adverse reports were received against some NGOs such as Tuticorin Diocesan Association, Tuticorin, East Coast Research and Development Trust, Thoothukudi and Greenpeace India Society, Chennai. Inspection/investigation have been carried out against these NGOs. Based on inspections/ investigations reports, the FCRA registration of Tuticorin Diocesan Association and Centre for Promotion and Social Concern were suspended and their bank accounts have been frozen. FCRA registration of East Coast Research and Development Trust was cancelled. Greenpeace International have been put under watch list. Case of Centre for Promotion and Social Concern, Madurai has been referred to CBI.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:37:06+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c30",
@@ -335,14 +347,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c31",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "gorokhovskaia y linzer i 2022 defending democracy in exile policy responses to transnational repression washington dc freedom house",
             "bib_text_hash": "sha256:2e2f864d45ed3f5bfda783f30ee6174a45871faaad42888bf3fd2f2d729b47bb",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "gorokhovskaialinzer2022"
+            "bound_reference_id": "gorokhovskaialinzer2022",
+            "evidence": "The Chinese and other governments routinely block independent\ngroups from gaining consultative status. In 94 percent of\ninstances in which the committee has deferred an NGO’s\napplication, a question was raised by a member state from\nan unofficial cohort of mostly authoritarian governments,\nsometimes called the Like-Minded Group.87 The group\nincludes many state perpetrators of transnational repression,\nincluding Algeria, Belarus, Egypt, India, Iran, Pakistan, Syria,\nand Vietnam.88",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:44:50+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c32",
@@ -555,14 +570,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c51",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "jain b 2021 ngo accused of evangelist activities loses fcra nod times of india 30 september available at http timesofindia indiatimes com articleshow 86632777 cms utm source contentofinterest utm medium text utm campaign cppst accessed 4 january 2024",
             "bib_text_hash": "sha256:82a0fa7dd02dae03640d448345131fe1acae54d43f11b7fa8daeb7af5ae3d8ec",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "jain2021"
+            "bound_reference_id": "jain2021",
+            "evidence": "Harvest India is the tenth association to have its FCRA nod suspended this year, with the majority of the other nine also linked to evangelism and forced conversion.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:38:44+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c52",
@@ -951,14 +969,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c87",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "modi n 2014 text of prime minister shri narendra modi s address to the indian community at madison square garden new york press information bureau available at https pib gov in newsite printrelease aspx relid 136737 accessed 20 march 2024",
             "bib_text_hash": "sha256:5a5b9c6d5f6001a93a73fce523d465eccaf00fa9de339f45e32eb5d6ef1bceab",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "modi2014"
+            "bound_reference_id": "modi2014",
+            "evidence": "We are well aware of the history of our freedom movement. The Britishers ruled over us and prior to them various others ruled us. Almost for 1000 to 1200 years we were slaves. But if you were to see history, in each age there was some great man who sacrificed himself for the country. You can name all the gurus in the Sikh tradition. One after the other they sacrificed themselves. Bhagat Singh was a part of the same tradition. Till date the Sikhs guarding our borders are ready to lay down their lives for the country.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:26:27+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c88",
@@ -1402,12 +1423,12 @@
         },
         {
             "gt_id": "chacko-2025-paste/c128",
-            "label": "intact",
+            "label": "suspect",
             "bib_text_normalized": "rajya sabha 1973 the foreign contribution regulation bill 1973 available at www rsdebate nic in accessed 20 february 2025",
             "bib_text_hash": "sha256:1d383c1b83d92c55bad2fdb66e102447fc5d7f2410e5b1ff6a556d80f1b874c1",
             "claim_snippet": null,
             "cited_occurrences": null,
-            "expected_detection": "pass",
+            "expected_detection": "flag",
             "corruption_meta": null,
             "bound_reference_id": "rajyasabha1973"
         },
@@ -1479,14 +1500,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c135",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "savarkar vd 2016 the story of my transportation for life a biography of black days in andamans available at http library bjp org jspui handle 123456789 292 accessed 2 december 2024",
             "bib_text_hash": "sha256:833aac933ee82dbbb417470540cece5eb46515b2a3918e9daed5377cded84135",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "vd2016"
+            "bound_reference_id": "vd2016",
+            "evidence": "Moreover, the Pathans, as a rule, were bigoted Mohomedans, and were especially notorious for their fanatical hatred of the Hindus. The Officers had pampered them to serve their own ends. To persecute the Hindus was natural to them The result was that hey began to harass them all the more and justified their action by reporting fibs against neir fellow-prisoners-the Hindu warders.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:25:20+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c136",
@@ -1523,14 +1547,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c139",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "shakdher r 2015 priya parameshwaran pillai vs union of india and ors on 12 march 2015 india kanoon available at https indiankanoon org doc 64486862 type print accessed 24 october 2024",
             "bib_text_hash": "sha256:ce27937a23d23c56c6aea73e3c8b40c0c043bd16add4d4b3074d28c6a9008eee",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "shakdher2015"
+            "bound_reference_id": "shakdher2015",
+            "evidence": "(xiv). The ostensible reason given by the respondents for preventing Ms. Pillai from travelling outside India, and thus, in effect, articulating her views to British Parliamentarians is that it would create \"negative image\" of India overseas, which in effect would whittle down Foreign Direct Investment of Chattisgarh (2011) 7 SCC 547 and Mahanadi Coalfields Vs. Mathias Oram (2010) 11 SCC 269.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:42:34+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c140",
@@ -1578,14 +1605,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c144",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "singh p 2025 deepening ties with the homeland multiple dimensions of the uk sikh diaspora s role in the farmers protest in singh s siddiqui s eds a people s history of the farmers movement 2020 2021 new delhi india routledge pp 50 64",
             "bib_text_hash": "sha256:fa111ad11b430bc9b4ce71745d6b36f2839bdaa9e598cdc766ebb905fb3f3fa8",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "singh2025"
+            "bound_reference_id": "singh2025",
+            "evidence": "This format of the general and specific is the best way to approach the sub-\nject of the response of the Sikh diaspora to the farmers’ protests in India. The\nrole of the Sikh diaspora in the farmers’ protest had both the element of gen-\neral diaspora–homeland connection and the specific relationship of the Sikh\ndiaspora especially with a rural background to Punjab and its farming future. The rural dimension of the Sikh diaspora’s response to the farmers’ protests\nalso explained the uneven nature of Sikh diaspora enthusiasm and mobilisa-\ntion in supporting the farmers’ protest; that is it was of a relatively higher\nnature in areas with higher concentrations of Sikhs from more rural back-\ngrounds.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T22:45:45+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c145",
@@ -1743,14 +1773,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c159",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "tapasya 2022 modi govt warns 2 ngos seeking donations from citizens letters show article 14 29 december available at https article 14 com post modi govt warns 2 ngos seeking donations from citizens letters show 63acfab0a50be accessed 23 june 2024",
             "bib_text_hash": "sha256:f34b61d08650f735f08149f9dd8c8c6b711b299659ce88b1538e98d33af659ff",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "tapasya2022"
+            "bound_reference_id": "tapasya2022",
+            "evidence": "The health ministry said the donation drive was “against the spirit” of the government's own National Programme for Control of Blindness and Visual Impairment (NPCH&VI) under which “the government has been doing it for free”.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:39:31+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c160",
@@ -1765,14 +1798,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c161",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "tnn 2020 will fight on our soil as well as on foreign soil says ajit doval times of india 26 october available at https timesofindia indiatimes com india will fight on our soil as well as on foreign soil says ajit doval articleshow 78863843 cms accessed 3 december 2024",
             "bib_text_hash": "sha256:1303927dfcafbc0c0ee56420a81a081d17f85084dce31c0fe13b47d97b6f6c86",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "tnn2020"
+            "bound_reference_id": "tnn2020",
+            "evidence": "Addressing the Parmarth Niketan ashram in\nRishikesh, Doval said while India has never attacked anyone first, the new strategic thinking holds that perhaps we could have acted proactively to nip security threats. \"It is not necessary that we only fight where you want to. India will take the battle to where the threat originates,\" the NSA said, summing up the doctrine of what he called \"New India\".\n\n...\n\nOfficial sources, however, emphasised that Doval was speaking more in the context of civilisational ethos and his remarks were not directed against anyone in the current context. \"We never became aggressors to serve our personal interests. We will surely fight, on our soil as well as on foreign soil, but not for our personal interests. But in the interests of Parmarth spirituality,\" Doval said.",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T22:52:15+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c162",
@@ -1886,14 +1922,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c172",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "visana v 2021 savarkar before hindutva sovereignty republicanism and populism in india c 1900 1920 modern intellectual history 18 4 1106 1129",
             "bib_text_hash": "sha256:4d2e0af8a8312acd3865d7afe05e2582abfa5ac0ff372008871f6082c1e8381f",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "visana2021"
+            "bound_reference_id": "visana2021",
+            "evidence": "Lavishing praise on individuals who participated in the defence\nof swaraj and swadharma from a variety of religious and ethnic backgrounds,\nSavarkar dubbed them“equally glorious” while branding the“betrayers”\nas “idle, effeminate, selfish and treacherous.” The Sikhs were singled out as having aided the British in putting down their countrymen in exchange for preferment in the\nranks of the East India Company’s army, the possibility of looting captured rebel\ncities, and a life of agricultural largesse.68",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T22:54:21+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c173",
@@ -1952,14 +1991,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c178",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "widmalm s 2019b under modi govt a two pronged attack on india s democracy wire available at https thewire in politics india democracy modi government accessed 17 january 2025",
             "bib_text_hash": "sha256:de32a94812fbbbfdcb1168037500777b959ff1e763f422815a19640ace8614b9",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "widmalm2019b"
+            "bound_reference_id": "widmalm2019b",
+            "evidence": "\"Under Modi Govt, a Two-Pronged Attack on India's Democracy\"\n\n\"Now let us consider the other two variables: Religious organisation repression and freedom from political killings. Here the picture is quite worrying. The first variable concerns how much the government harasses religious groups or otherwise takes measures to curb their activities. Here the graph shows a slight decline (indicating a declining democratic performance) from 2011 to 2012, and then a quite sharp one from 2014 onwards. The overall decline since 2011 comes to a full point on the scale. In other words, religious repression has increased by 25%. The question is how far this kind of repression goes.\"",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:22:54+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c179",
@@ -2172,14 +2214,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c198",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "azim premji university 2023 state of working india social and labour market outcomes bengaluru india centre for sustainable employment",
             "bib_text_hash": "sha256:3c7e65ace06e506572aa588cb40f641c1e416b78e4db93b17e5724707f0a3a0c",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "azimpremjiuniversity2023"
+            "bound_reference_id": "azimpremjiuniversity2023",
+            "evidence": "For men, exit from agriculture meant a large increase in the share of construction while for women it meant an exit from the workforce. The figure shows two main challenges with respect to women's employment - the decline in the rural female workforce participation rate (WPR) and the stagnant, low urban rate. The recent rise in women's WPR since 2019 is discussed in Point 8. The period between 2004 and 2018 (just prior to the slowdown and the pandemic) saw a dramatic change in the composition of the female workforce. Older, less educated women working in agriculture exited while younger more educated women entered. As a result the large decline in the employment rate for rural women was accompanied by a significant increase in the proportion of women workers who had regular wage jobs - going from just under 10% in 2004 to 25% in 2018 before falling to 20% due to the pandemic.\n\n...\n\nThe loss of jobs during the pandemic forced workers to fall back on agriculture or on self-employment in order to survive. As a result the share of employment accounted for by these two sectors rose sharply in the lockdown quarter (April-June 2020). Two years later, it had declined to pre-pandemic levels for men but continued to remain elevated for women.\n\n....",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T23:02:58+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c199",
@@ -2491,14 +2536,17 @@
         },
         {
             "gt_id": "chacko-2025-paste/c227",
-            "label": "intact",
+            "label": "verified_intact",
             "bib_text_normalized": "dasgupta s 2024 anti development acts protests forced conversions govt lists reasons of fcra cancellations wire 12 november available at https thewire in government anti development acts protests forced conversions govt lists reasons of fcra cancellations accessed 24 january 2025",
             "bib_text_hash": "sha256:fbae41426e79fe2bca1d34f303cd2d85603306b16435a0bff31797b8dba1d975",
             "claim_snippet": null,
             "cited_occurrences": null,
             "expected_detection": "pass",
             "corruption_meta": null,
-            "bound_reference_id": "dasgupta2024"
+            "bound_reference_id": "dasgupta2024",
+            "evidence": "The notice comes amid a concerning rise in the list of NGOs who have had their FCRA licences cancelled. \n\n...\n\nIn point 10, the notice states that certification can be cancelled or not provided if “field inquiry has revealed adverse inputs against the association [e.g., involvement in anti-developmental activities, inciting protests with malicious intentions, linkage with terrorist organisation / anti-national organisations etc.]”",
+            "evidenced_by": "encryptER",
+            "evidenced_at": "2026-09-24T21:40:24+00:00"
         },
         {
             "gt_id": "chacko-2025-paste/c228",

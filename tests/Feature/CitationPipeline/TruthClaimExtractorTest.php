@@ -393,3 +393,112 @@ test('the pass reports how many claims it is rewriting', function () {
 
     expect(collect($msgs)->contains(fn ($m) => str_contains($m, 'Contextualising 1 rescued claim')))->toBeTrue();
 });
+
+/**
+ * A claim may not reach across a neighbouring citation into material that citation answers for.
+ *
+ * chacko-2025-paste/c161, 2026-09-20 run: one sentence, two citations, two jobs — the BJP manifesto
+ * for the viśvaguru doctrine, the Times of India for the Doval quotation. The model returned ONE
+ * grouped entry covering both (its own "GROUP BY CLAIM" instruction, written for a shared
+ * parenthetical, applied to citations that share nothing but a sentence), so a newspaper report was
+ * asked to support a claim about Hindutva political theory. Our OWN span was already right and we
+ * overwrote it with the model's.
+ */
+function c161Node(): array
+{
+    $plain = "Doval's doctrine of the 'New India' is consistent with Hindutva precepts that "
+        . "fashion India as a 'viśvaguru' (teacher of the world) (BJP, 2014: 40): 'We never "
+        . 'became aggressors to serve our personal interests. We will surely fight, on our soil '
+        . 'as well as on foreign soil, but not for our personal interests. But in the interests '
+        . "of Parmarth [highest] spirituality' (Doval quoted in TNN, 2020).";
+
+    return [[
+        'node_id'     => 'n1',
+        'marked_text' => $plain,
+        'plainText'   => $plain,
+        'reference_ids'       => ['bjp2014', 'tnn2020'],
+        'preceding_context'   => '',
+        'citationPositions'   => [
+            'bjp2014' => mb_strpos($plain, '(BJP, 2014') + 6,
+            'tnn2020' => mb_strpos($plain, '(Doval quoted in TNN, 2020') + 22,
+        ],
+        'extracted_sentences' => [],
+    ]];
+}
+
+test('a claim shared across two citations is scoped to each citation\'s own material', function () {
+    $wide = c161Node()[0]['plainText'];
+
+    // What the model actually returned: one entry, fanned out to both refIds.
+    $svc = extractorWith([[
+        ['referenceId' => 'bjp2014', 'truth_claim' => $wide, 'contextualised_claim' => 'Wide restatement.'],
+        ['referenceId' => 'tnn2020', 'truth_claim' => $wide, 'contextualised_claim' => 'Wide restatement.'],
+    ]]);
+
+    $claims = $svc->extractTruthClaims(c161Node(), [], fn ($m) => null);
+    $byRef = collect($claims)->keyBy('referenceId');
+
+    expect($claims)->toHaveCount(2);
+
+    // The newspaper is held to the quotation it is the source of — all three sentences
+    // of it — and to nothing about Hindutva political theory.
+    expect($byRef['tnn2020']['truth_claim'])->toStartWith("'We never became aggressors")
+        ->and($byRef['tnn2020']['truth_claim'])->not->toContain('viśvaguru')
+        ->and($byRef['tnn2020']['claim_source'])->toBe('span_scoped');
+
+    // The manifesto is held to the doctrine, and not to what Doval told a newspaper.
+    expect($byRef['bjp2014']['truth_claim'])->toContain('viśvaguru')
+        ->and($byRef['bjp2014']['truth_claim'])->not->toContain('Parmarth');
+
+    // The model's contextualisation described the WIDE claim; keeping it would hand the
+    // verifier back the text we just removed.
+    expect($byRef['tnn2020']['contextualised_claim'])->not->toBe('Wide restatement.');
+});
+
+test('citations that genuinely share one sentence are left alone', function () {
+    // "From Kissinger (1982), to Ruggie (1984), and Cox (1981), all agreed" — one predicate,
+    // three sources, and the shared claim is the honest one. Scoping here would clip a correct
+    // claim down to a name; the abbreviation-aware boundary ("Robert W. Cox") is what keeps
+    // every marker inside one sentence so the guard can tell the two cases apart.
+    $plain = 'From the imperialist Henry Kissinger (1982), to the theorist of embedded '
+        . 'liberalism, John Ruggie (Bhagwati and Ruggie 1984), and the historical materialist '
+        . 'Robert W. Cox (Cox 1981), all agreed.';
+    $node = [[
+        'node_id'     => 'n1',
+        'marked_text' => $plain,
+        'plainText'   => $plain,
+        'reference_ids'       => ['kissinger1982', 'bhagwati1984', 'cox1981'],
+        'preceding_context'   => '',
+        'citationPositions'   => [
+            'kissinger1982' => mb_strpos($plain, '(1982') + 1,
+            'bhagwati1984'  => mb_strpos($plain, '1984'),
+            'cox1981'       => mb_strpos($plain, '1981'),
+        ],
+        'extracted_sentences' => [],
+    ]];
+
+    $svc = extractorWith([[
+        ['referenceId' => 'kissinger1982', 'truth_claim' => $plain],
+        ['referenceId' => 'bhagwati1984', 'truth_claim' => $plain],
+        ['referenceId' => 'cox1981', 'truth_claim' => $plain],
+    ]]);
+
+    $claims = $svc->extractTruthClaims($node, [], fn ($m) => null);
+
+    expect($claims)->toHaveCount(3);
+    foreach ($claims as $claim) {
+        expect($claim['truth_claim'])->toBe($plain)
+            ->and($claim['claim_source'])->toBe('llm');
+    }
+});
+
+test('a single-citation node is never scoped', function () {
+    // Nothing to reach across — the guard must not fire on the common case.
+    $svc = extractorWith([[
+        ['referenceId' => 'r1', 'truth_claim' => 'The sky is blue'],
+    ]]);
+    $claims = $svc->extractTruthClaims(oneNode(), [], fn ($m) => null);
+
+    expect($claims)->toHaveCount(1)
+        ->and($claims[0]['claim_source'])->toBe('llm');
+});

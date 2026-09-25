@@ -199,7 +199,11 @@
             "found_url": "https://azimpremjiuniversity.edu.in/the-indian-economy/state-of-working-india-2023",
             "reference_exists": null,
             "adjudicated_at": "2026-09-24T01:38:06+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "evidence": "For men, exit from agriculture meant a large increase in the share of construction while for women it meant an exit from the workforce. The figure shows two main challenges with respect to women's employment - the decline in the rural female workforce participation rate (WPR) and the stagnant, low urban rate. The recent rise in women's WPR since 2019 is discussed in Point 8. The period between 2004 and 2018 (just prior to the slowdown and the pandemic) saw a dramatic change in the composition of the female workforce. Older, less educated women working in agriculture exited while younger more educated women entered. As a result the large decline in the employment rate for rural women was accompanied by a significant increase in the proportion of women workers who had regular wage jobs - going from just under 10% in 2004 to 25% in 2018 before falling to 20% due to the pandemic.\n\n...\n\nThe loss of jobs during the pandemic forced workers to fall back on agriculture or on self-employment in order to survive. As a result the share of employment accounted for by these two sectors rose sharply in the lockdown quarter (April-June 2020). Two years later, it had declined to pre-pandemic levels for men but continued to remain elevated for women.\n\n....",
+            "evidence_locator": null,
+            "evidenced_at": "2026-09-24T23:02:58+00:00",
+            "evidenced_by": "encryptER"
         },
         "chacko-2025-paste/c144": {
             "gt_id": "chacko-2025-paste/c144",
@@ -212,20 +216,11 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-24T01:39:44+00:00",
-            "adjudicated_by": "encryptER"
-        },
-        "chacko-2025-paste/c161": {
-            "gt_id": "chacko-2025-paste/c161",
-            "referenceId": "tnn2020",
-            "run_id": "20260920_015210_1a7e9767",
-            "label": "verified_intact",
-            "cause": "resolver_gap",
-            "supported_scope": null,
-            "note": null,
-            "found_url": "https://timesofindia.indiatimes.com/india/will-fight-on-our-soil-as-well-as-on-foreign-soil-says-ajit-doval/articleshow/78863843.cms",
-            "reference_exists": null,
-            "adjudicated_at": "2026-09-24T01:40:29+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "evidence": "This format of the general and specific is the best way to approach the sub-\nject of the response of the Sikh diaspora to the farmers’ protests in India. The\nrole of the Sikh diaspora in the farmers’ protest had both the element of gen-\neral diaspora–homeland connection and the specific relationship of the Sikh\ndiaspora especially with a rural background to Punjab and its farming future. The rural dimension of the Sikh diaspora’s response to the farmers’ protests\nalso explained the uneven nature of Sikh diaspora enthusiasm and mobilisa-\ntion in supporting the farmers’ protest; that is it was of a relatively higher\nnature in areas with higher concentrations of Sikhs from more rural back-\ngrounds.",
+            "evidence_locator": null,
+            "evidenced_at": "2026-09-24T22:45:45+00:00",
+            "evidenced_by": "encryptER"
         },
         "chacko-2025-paste/c172": {
             "gt_id": "chacko-2025-paste/c172",
@@ -238,7 +233,11 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-24T03:52:33+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "evidence": "Lavishing praise on individuals who participated in the defence\nof swaraj and swadharma from a variety of religious and ethnic backgrounds,\nSavarkar dubbed them“equally glorious” while branding the“betrayers”\nas “idle, effeminate, selfish and treacherous.” The Sikhs were singled out as having aided the British in putting down their countrymen in exchange for preferment in the\nranks of the East India Company’s army, the possibility of looting captured rebel\ncities, and a life of agricultural largesse.68",
+            "evidence_locator": null,
+            "evidenced_at": "2026-09-24T22:54:21+00:00",
+            "evidenced_by": "encryptER"
         },
         "chacko-2025-paste/c178": {
             "gt_id": "chacko-2025-paste/c178",
@@ -273,6 +272,23 @@
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
             "evidenced_by": null
+        },
+        "chacko-2025-paste/c161": {
+            "gt_id": "chacko-2025-paste/c161",
+            "referenceId": "tnn2020",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": "citation_mislink",
+            "supported_scope": null,
+            "note": null,
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "Addressing the Parmarth Niketan ashram in\nRishikesh, Doval said while India has never attacked anyone first, the new strategic thinking holds that perhaps we could have acted proactively to nip security threats. \"It is not necessary that we only fight where you want to. India will take the battle to where the threat originates,\" the NSA said, summing up the doctrine of what he called \"New India\".\n\n...\n\nOfficial sources, however, emphasised that Doval was speaking more in the context of civilisational ethos and his remarks were not directed against anyone in the current context. \"We never became aggressors to serve our personal interests. We will surely fight, on our soil as well as on foreign soil, but not for our personal interests. But in the interests of Parmarth spirituality,\" Doval said.",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-09-24T22:52:15+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-09-24T22:52:15+00:00",
+            "evidenced_by": "encryptER"
         }
     }
 }

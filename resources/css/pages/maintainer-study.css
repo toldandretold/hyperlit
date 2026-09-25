@@ -139,7 +139,10 @@ body {
 .st-filters {
   flex: 0 0 auto;
   display: flex;
-  gap: 1rem;
+  /* Three boxes don't fit one line in a narrow list pane — wrap rather than
+     overflow the third one out of reach. */
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
   padding: 0.45rem 0.8rem;
   font-size: 0.78rem;
   opacity: 0.85;
@@ -248,6 +251,18 @@ body {
 
 .st-done {
   background: color-mix(in srgb, #3fa66a 30%, transparent);
+}
+
+/* Is the saved verdict BACKED by a quotation? Teal = yes (deliberately a
+   different hue from the green ✓ verdict badge beside it — two different
+   facts, and reading them as one is the whole point of showing both);
+   amber = a label that could be quoted but wasn't, i.e. an assertion. */
+.st-evidenced {
+  background: color-mix(in srgb, #4eacae 32%, transparent);
+}
+
+.st-unevidenced {
+  background: color-mix(in srgb, #e5a53a 28%, transparent);
 }
 
 /* Why the resolver could not read a citation's URL. Colour carries the

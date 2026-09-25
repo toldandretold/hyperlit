@@ -629,10 +629,24 @@ RULES:
 - Each citation includes its claim span (after "— appears in sentence:"). USE IT — it is computed with the correct attachment direction. The truth_claim should be this span.
 - If the span is an anaphoric reference (e.g. "The same argument is made by...", "This is also noted by..."), include the substantive preceding sentence(s) that contain the actual claim.
 - truth_claim: Copy the claim span VERBATIM from the TEXT section ([CITE]: the complete sentence containing the marker; [FNCITE]: the text preceding the marker, which may be a clause). Do not include the markers themselves. Do not rephrase, summarise, or truncate.
-- GROUP BY CLAIM, NEVER REPEAT IT. When several citations share the same span — a multi-citation
-  parenthetical like "(A 2016; B 2017; C 2018)" — emit ONE entry whose referenceIds lists ALL of
-  them. Never emit the same truth_claim text more than once: repeating a long sentence per citation
-  overruns the response limit and the whole node is lost.
+- GROUP BY CLAIM, NEVER REPEAT IT. When several citations are offered for the SAME claim — a
+  multi-citation parenthetical like "(A 2016; B 2017; C 2018)", or a list of names sharing one
+  predicate ("From Kissinger (1982), to Ruggie (1984), and Cox (1981), all agreed that X") — emit
+  ONE entry whose referenceIds lists ALL of them. Never emit the same truth_claim text more than
+  once: repeating a long sentence per citation overruns the response limit and the whole node is
+  lost.
+- BUT SHARING A SENTENCE IS NOT SHARING A CLAIM. A sentence routinely does two jobs with two
+  citations, and each is offered for its own part. Ask of each citation: "which assertion was THIS
+  one offered for?" If the answers differ, emit SEPARATE entries, each with only the text its
+  citation supports — the claims get SHORTER, so this never costs you response budget.
+  Example: "Doval's doctrine is consistent with Hindutva precepts that fashion India as a
+  'viśvaguru' (BJP, 2014: 40): 'We never became aggressors… in the interests of Parmarth
+  spirituality' (Doval quoted in TNN, 2020)." → TWO entries. BJP 2014 = "Doval's doctrine … as a
+  'viśvaguru' (teacher of the world)"; TNN 2020 = the quoted passage it is the source of. Grouping
+  them asks a newspaper report to support a claim about political theory it never made.
+- A QUOTATION BELONGS TO THE CITATION THAT CLOSES IT. When quoted text runs across several
+  sentences and a citation follows the closing quote mark, the truth_claim is the WHOLE quotation,
+  not the last sentence of it.
 - Every referenceId that appears in the TEXT must appear in exactly one entry's referenceIds.
 - contextualised_claim: Rewrite the truth_claim so the FACTUAL SUBSTANCE is fully self-contained and verifiable in isolation.
   Do NOT include author names or attribution phrases ("X argues", "attributed to Y", "according to Z").

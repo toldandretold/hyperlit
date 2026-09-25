@@ -3,6 +3,7 @@
 namespace App\Services\CitationReview\Phases;
 
 use App\Services\CitationReview\Support\AnaphoraDetector;
+use App\Services\CitationReview\Support\ClaimSpanExtractor;
 use App\Services\CitationReview\Support\TextNormaliser;
 use App\Services\LlmService;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +24,7 @@ final class TruthClaimExtractor
         private LlmService $llm,
         private TextNormaliser $textNormaliser,
         private AnaphoraDetector $anaphora = new AnaphoraDetector(),
+        private ClaimSpanExtractor $claimSpans = new ClaimSpanExtractor(),
     ) {}
 
     public function extractTruthClaims(array $citationNodes, array $citationMeta, callable $emit): array
@@ -184,19 +186,19 @@ final class TruthClaimExtractor
                     $plainText = $node['plainText'];
                     $citeCharPos = $node['citationPositions'][$refId] ?? null;
 
+                    // SCOPE: a claim may not reach across a neighbouring citation into
+                    // material that citation answers for. See scopeToOwnSegment().
+                    $scoped = $this->scopeToOwnSegment($node, $refId, $truthClaim);
+                    if ($scoped !== null) {
+                        $claims[] = $this->makeClaimRecord(
+                            $node, $refId, $scoped, null, $citationMeta, 'span_scoped'
+                        );
+                        $seen[$refId] = true;
+                        continue;
+                    }
+
                     if ($citeCharPos !== null) {
-                        $before = mb_substr($plainText, 0, $citeCharPos);
-                        if (preg_match('/.*[.!?]\s+/su', $before, $m)) {
-                            $charStart = mb_strlen($m[0]);
-                        } else {
-                            $charStart = 0;
-                        }
-                        $after = mb_substr($plainText, $citeCharPos);
-                        if (preg_match('/^.*?[.!?](?:\s|$)/su', $after, $m)) {
-                            $charEnd = $citeCharPos + mb_strlen($m[0]);
-                        } else {
-                            $charEnd = mb_strlen($plainText);
-                        }
+                        [$charStart, $charEnd] = $this->claimSpans->sentenceBoundsAt($plainText, $citeCharPos);
                     } else {
                         $charStart = mb_strpos($plainText, $truthClaim);
                         if ($charStart === false) {
@@ -247,6 +249,100 @@ final class TruthClaimExtractor
     }
 
     /**
+     * A claim may not reach across a neighbouring citation into material that citation
+     * answers for. Returns the scoped-down claim text when it does, null when the claim
+     * is already within this citation's own material.
+     *
+     * The failure this exists for (chacko-2025-paste/c161, 2026-09-20 run). One sentence
+     * carries two citations doing different jobs: "Doval's doctrine … fashions India as a
+     * 'viśvaguru' (BJP, 2014: 40): 'We never became aggressors … in the interests of
+     * Parmarth spirituality' (Doval quoted in TNN, 2020)." The manifest is cited for the
+     * doctrine; the Times of India is cited for the quotation. The model returned ONE
+     * grouped entry covering both — the prompt's own "GROUP BY CLAIM, NEVER REPEAT IT"
+     * rule, written for a shared parenthetical "(A 2016; B 2017)", applied to two
+     * citations that share nothing but a sentence — so the newspaper was asked to support
+     * a claim about Hindutva political theory. It read `insufficient`, which describes OUR
+     * extraction and not the citation; under `source_not_found` nobody noticed.
+     *
+     * The test is positional, so it holds however the model chose to group: the claim is
+     * over-wide when it contains another citation's marker that lies OUTSIDE this
+     * citation's own sentence. A citation-dense sentence where every marker shares one
+     * sentence — "From the imperialist Henry Kissinger (1982), to … John Ruggie (Bhagwati
+     * and Ruggie 1984), and … Robert W. Cox (1981), all agreed" — is left alone, because
+     * there the shared claim is the honest one. That case is also why the sentence
+     * boundary had to learn about initials first: split at "Robert W.", Cox's own sentence
+     * became "Cox (1981), all agreed" and this guard would have clipped a correct claim.
+     *
+     * Scoped claims carry `claim_source = 'span_scoped'` and no contextualised_claim of
+     * their own — the model's contextualisation describes the WIDE claim, so keeping it
+     * would hand the verifier back the text we just removed.
+     */
+    private function scopeToOwnSegment(array $node, string $refId, string $truthClaim): ?string
+    {
+        $positions = $node['citationPositions'] ?? [];
+        $own = $positions[$refId] ?? null;
+        if ($own === null || count($positions) < 2) {
+            return null;
+        }
+
+        $plainText = (string) $node['plainText'];
+        $at = mb_strpos($plainText, $truthClaim);
+        if ($at === false) {
+            $at = mb_strpos(
+                $this->textNormaliser->normaliseQuotes($plainText),
+                $this->textNormaliser->normaliseQuotes($truthClaim),
+            );
+        }
+        if ($at === false) {
+            // Cannot locate the claim, so cannot reason about what it spans.
+            return null;
+        }
+        $claimEnd = $at + mb_strlen($truthClaim);
+
+        // The claim must contain our OWN marker. `citationPositions` records only a refId's
+        // FIRST occurrence in the node, so when a work is cited twice — "'…by targeting Prime
+        // Minister Modi' (Quoted in Bhowmick, 2024). These allegations were repeated by BJP MPs
+        // (Bhowmick, 2024; Dayal, 2024)." — the recorded position belongs to the other sentence,
+        // and scoping against it replaced a correct claim with an unrelated one. Measured on the
+        // 2026-09-20 run: this check is the difference between 48 rewrites and 27.
+        if ($own < $at || $own >= $claimEnd) {
+            return null;
+        }
+
+        [$ownStart, $ownEnd] = $this->claimSpans->sentenceBoundsAt($plainText, $own);
+
+        $crosses = false;
+        foreach ($positions as $otherRef => $pos) {
+            if ($otherRef === $refId) {
+                continue;
+            }
+            if ($pos >= $at && $pos < $claimEnd && ($pos < $ownStart || $pos >= $ownEnd)) {
+                $crosses = true;
+                break;
+            }
+        }
+        if (!$crosses) {
+            return null;
+        }
+
+        $segment = $this->claimSpans->ownSegmentSpan($plainText, $own, array_values($positions));
+        // Too short to be a claim (a bare marker, a stray fragment) — the wide claim, for
+        // all its faults, at least says something. Never trade a claim for nothing.
+        if (mb_strlen($segment) < 20) {
+            return null;
+        }
+
+        Log::info('Truth claim scoped to its own citation segment', [
+            'node' => $node['node_id'],
+            'refId' => $refId,
+            'was' => mb_substr($truthClaim, 0, 120),
+            'now' => mb_substr($segment, 0, 120),
+        ]);
+
+        return $segment;
+    }
+
+    /**
      * Give the RESCUED claims the one field they are missing: a self-contained restatement.
      *
      * A span-sourced claim (`span_fallback` / `span_backfill`) is our own sentence, so nothing
@@ -276,7 +372,7 @@ final class TruthClaimExtractor
 
         $items = [];
         foreach ($claims as $i => $claim) {
-            if (! in_array($claim['claim_source'] ?? null, ['span_fallback', 'span_backfill'], true)) {
+            if (! in_array($claim['claim_source'] ?? null, ['span_fallback', 'span_backfill', 'span_scoped'], true)) {
                 continue;
             }
             if (! $this->anaphora->needsContextualisation($claim['truth_claim'] ?? null)) {

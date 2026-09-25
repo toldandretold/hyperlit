@@ -1,0 +1,22 @@
+{
+    "book": "deloitte-2025-pdf",
+    "adjudications": {
+        "deloitte-2025-pdf/c01": {
+            "gt_id": "deloitte-2025-pdf/c01",
+            "referenceId": "seq1_Fn1789693791424_0001",
+            "run_id": "20260920_015210_1a7e9767",
+            "label": "verified_intact",
+            "cause": "conversion_mangled",
+            "supported_scope": null,
+            "note": "we converted \"Senate Education and Employment References Committee, Jobactiv e: Failing Those It Is Intended to Serve (Report, February 2019)\nhttps://www.aph.gov.au/Parliamentary_Business/Committees/Senate/Education_and_Employment/JobActive2018/Report .\" to \" Failing Thaw It Is Intended to Serve (Report, February 2019)\" which is really bad... especially when text layer is there... its because of cursive in doc, but \"thaw\" is definitely not there...",
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "8.4 On 1 July 2018, the Targeted Compliance Framework (TCF) commenced,\nreplacing the previous compliance framework.2 The TCF is the mechanism for\nenforcing mutual obligation requirements:\nThe TCF is comprised of three zones: Green Zone, the Warning Zone and\nthe Penalty Zone. All job seekers will start in the Green Zone and, so long\nas they meet all their Mutual Obligation Requirements, they will remain in\nthis zone. Where a job seeker commits a Mutual Obligation Failure they\nwill move to the Warning Zone. If they continue to be non",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-09-24T23:21:14+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-09-24T23:21:14+00:00",
+            "evidenced_by": "encryptER"
+        }
+    }
+}

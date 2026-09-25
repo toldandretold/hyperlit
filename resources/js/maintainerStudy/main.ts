@@ -154,6 +154,7 @@ interface State {
   selectedKey: string | null;
   filterFlagged: boolean;
   filterUnadjudicated: boolean;
+  filterNeedsEvidence: boolean;
 }
 
 const boot = (window as unknown as { __study?: { corpus?: string; slug?: string | null } })
@@ -165,6 +166,7 @@ const state: State = {
   selectedKey: null,
   filterFlagged: true,
   filterUnadjudicated: false,
+  filterNeedsEvidence: false,
 };
 
 // ---------------------------------------------------------------- helpers
@@ -252,6 +254,7 @@ function visibleClaims(): ClaimRow[] {
   return payload.claims.filter((c) => {
     if (state.filterFlagged && !FLAGGED.has(c.verdict)) return false;
     if (state.filterUnadjudicated && c.adjudication) return false;
+    if (state.filterNeedsEvidence && evidenceState(c) !== 'owed') return false;
     return true;
   });
 }
@@ -285,10 +288,28 @@ function renderList(): void {
   const list = byId<HTMLDivElement>('st-list');
   const claims = visibleClaims();
   if (claims.length === 0) {
-    list.replaceChildren(el('p', 'st-empty', 'No claims match the filter.'));
+    list.replaceChildren(el('p', 'st-empty', emptyListReason()));
     return;
   }
   list.replaceChildren(...claims.map((c) => claimRow(c)));
+}
+
+/**
+ * The filters compose (AND), and "flagged only" is ON by default — so an
+ * evidence sweep can come back empty while unquoted verdicts sit one unticked
+ * box away. Say so: a bare "no claims match" reads as "the backlog is clear",
+ * which is the opposite of the truth.
+ */
+function emptyListReason(): string {
+  const all = state.payload?.claims ?? [];
+  if (state.filterNeedsEvidence) {
+    const owed = all.filter((c) => evidenceState(c) === 'owed').length;
+    if (owed > 0) {
+      return `No claims match — ${owed} verdict(s) need evidence but are hidden by the other filters.`;
+    }
+    return 'Every adjudicated verdict that can be quoted has evidence. ✓';
+  }
+  return 'No claims match the filter.';
 }
 
 function claimRow(claim: ClaimRow): HTMLElement {
@@ -309,6 +330,8 @@ function claimRow(claim: ClaimRow): HTMLElement {
   }
   if (claim.anchor_warning) head.append(el('span', 'st-badge st-triage-ocr_garbled', 'anchor ⚠'));
   if (claim.adjudication) head.append(el('span', 'st-badge st-done', '✓ ' + claim.adjudication.label));
+  const evidenceBadge = evidenceStateBadge(claim);
+  if (evidenceBadge) head.append(evidenceBadge);
   row.append(head, el('span', 'st-claim-text', (claim.truth_claim ?? '').slice(0, 140)));
 
   row.addEventListener('click', () => {
@@ -324,6 +347,42 @@ function claimRow(claim: ClaimRow): HTMLElement {
     else if (paneView === 'hyperlit') jumpToClaimInHyperlit(claim);
   });
   return row;
+}
+
+/**
+ * Whether this claim's verdict is BACKED by a quotation. Three states, and the
+ * ABSENT one is the point:
+ *  - `quoted` — the adjudication carries evidence, or an applied one left it in
+ *    ground truth (a frozen corpus keeps only the latter);
+ *  - `owed` — a label that could be quoted but wasn't: an assertion, by the
+ *    same rule the detail-pane nag uses;
+ *  - `null` — nothing to quote (unadjudicated, or a non-scored label).
+ *
+ * ONE definition, because the badge and the "needs evidence" filter are the
+ * same question asked twice — a row that shows the amber badge and then hides
+ * from the filter meant to collect it would be worse than neither.
+ */
+function evidenceState(claim: ClaimRow): 'quoted' | 'owed' | null {
+  const adj = claim.adjudication;
+  if (adj?.evidence || claim.gt?.evidence) return 'quoted';
+  if (adj && labelExpectsEvidence(adj.label)) return 'owed';
+  return null;
+}
+
+/** The evidence state as a list badge — the detail pane's evidence block, hoisted. */
+function evidenceStateBadge(claim: ClaimRow): HTMLElement | null {
+  const st = evidenceState(claim);
+  if (st === 'quoted') {
+    const badge = el('span', 'st-badge st-evidenced', '❝ evidenced');
+    if (!claim.adjudication?.evidence) badge.title = 'Evidence already applied into ground truth';
+    return badge;
+  }
+  if (st === 'owed') {
+    const badge = el('span', 'st-badge st-unevidenced', 'no evidence');
+    badge.title = 'This label is an assertion until it carries a quotation';
+    return badge;
+  }
+  return null;
 }
 
 /** In Hyperlit view, land the source pane on the claim's own node. */
@@ -358,7 +417,15 @@ function renderDetail(claim: ClaimRow): void {
   }
 
   // Claims.
-  if (claim.truth_claim) frag.append(section('Truth claim', claim.truth_claim));
+  if (claim.truth_claim) {
+    const sec = section('Truth claim', claim.truth_claim);
+    const provenance = CLAIM_SOURCE_NOTES[claim.claim_source ?? ''];
+    // Where the claim text came from, when it did NOT come from the model. A scoped or rescued
+    // claim reads identically to one the model wrote, and the difference is exactly what a weak
+    // verdict has to be read against.
+    if (provenance) sec.append(el('p', 'st-muted', provenance));
+    frag.append(sec);
+  }
   if (claim.contextualised_claim && claim.contextualised_claim !== claim.truth_claim) {
     frag.append(section('Contextualised', claim.contextualised_claim));
   }
@@ -845,6 +912,22 @@ function bookContextLine(): HTMLElement {
   );
   return wrap;
 }
+
+/**
+ * Claims the model did NOT write, and what that means for reading the verdict. An 'llm' claim
+ * gets no note — it is the default, and labelling it would just be noise on every row.
+ */
+const CLAIM_SOURCE_NOTES: Record<string, string> = {
+  span_scoped:
+    'Scoped by us: the model returned a claim reaching across a neighbouring citation into '
+    + "material that citation answers for, so this is the span THIS citation's marker sits in.",
+  span_fallback:
+    'Our own span: the model could not reproduce the sentence verbatim, so the deterministic '
+    + 'span was used rather than dropping the citation from review.',
+  span_backfill:
+    'Our own span: the model never mentioned this citation, so the deterministic span was used '
+    + 'rather than leaving it unreviewed.',
+};
 
 function section(title: string, body: string): HTMLElement {
   const sec = el('section', 'st-section');
@@ -1677,6 +1760,10 @@ function wireFilters(): void {
   });
   byId<HTMLInputElement>('st-filter-unadjudicated').addEventListener('change', (e) => {
     state.filterUnadjudicated = (e.target as HTMLInputElement).checked;
+    renderList();
+  });
+  byId<HTMLInputElement>('st-filter-needs-evidence').addEventListener('change', (e) => {
+    state.filterNeedsEvidence = (e.target as HTMLInputElement).checked;
     renderList();
   });
   const helpToggle = byId<HTMLButtonElement>('st-help-toggle');
