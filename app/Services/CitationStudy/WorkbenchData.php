@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationStudy;
 
+use App\Services\CitationReview\Support\ShortFormReference;
 use App\Services\CitationReview\Support\SourceWorkMismatch;
 use Illuminate\Support\Facades\DB;
 
@@ -140,6 +141,13 @@ class WorkbenchData
                 // verdict should be read — see TruthClaimExtractor::scopeToOwnSegment.
                 'claim_source' => $claim['claim_source'] ?? null,
                 'bib_citation' => $claim['bib_citation'] ?? null,
+                // What a bare "Ibid." actually points at. The scan SUBSTITUTES a linked short
+                // form's metadata with its antecedent's, so the referenced work is sitting on
+                // the claim — but the reviewer only ever saw "Ibid." and a "No source found"
+                // pane, with the inheritance visible nowhere except the host in Check link.
+                // Rendered by the same helper as the report, because the console and the
+                // report disagreeing about what a citation refers to is worse than neither.
+                'short_form_of' => ShortFormReference::describe($claim),
                 'llm_metadata' => $claim['llm_metadata'] ?? null,
                 'llm_verdict' => $claim['llm_verdict'] ?? null,
                 'source' => [

@@ -62,7 +62,8 @@ class BraveSearchService
         string $title,
         ?string $author,
         ?int $year,
-        $db
+        $db,
+        ?string $citedUrl = null
     ): ?string {
         $apiKey = config('services.brave_search.api_key');
         if (!$apiKey) {
@@ -132,6 +133,9 @@ class BraveSearchService
                         'score'         => $pageTitleScore,
                         'url'           => $url,
                     ]);
+                    continue;
+                }
+                if (!$this->hostAgreesWithCitedUrl($citedUrl, $url)) {
                     continue;
                 }
 
@@ -259,6 +263,9 @@ class BraveSearchService
                 if ($this->pageTitleSimilarity($q['title'], $pageTitle) < 0.3) {
                     continue;
                 }
+                if (!$this->hostAgreesWithCitedUrl($q['cited_url'] ?? null, $url)) {
+                    continue;
+                }
 
                 $urlsToFetch[$key] = $url;
                 break; // Take first good match
@@ -375,6 +382,52 @@ class BraveSearchService
      * A page *about* the cited work will have the title in its <title> tag;
      * a page that merely *cites* it will have its own unrelated page title.
      */
+    /**
+     * When the citation PRINTS a URL, a search hit on a different host is a different work.
+     *
+     * Page-title similarity alone is not identity. Deloitte cites "Department of Social
+     * Services (Cth), Social Security Guide … https://guides.dss.gov.au/social-security-guide";
+     * that host returns 403 to us, Brave was asked for the title, and the top hit was
+     * `hamiltonfinancialplanning.com/blog/2025-social-security-guide/` — a US financial-planning
+     * blog whose page title matches almost word for word. It scored far above the 0.3 floor, was
+     * fetched, and 12,514 characters of it were stored as the source for an Australian
+     * welfare-law citation. That is a source swap our own resolver manufactured, which is the
+     * single failure citation review exists to catch.
+     *
+     * The printed URL is the author's own statement of what they cited, so it OUTRANKS a title
+     * match: same host (ignoring `www.`, and allowing a subdomain of the cited registrable
+     * domain, since publishers move between `example.com` and `guides.example.com`) or no deal.
+     * A citation with no printed URL is unaffected — the title match is all there is there.
+     */
+    private function hostAgreesWithCitedUrl(?string $citedUrl, string $candidateUrl): bool
+    {
+        if (!is_string($citedUrl) || $citedUrl === '') {
+            return true;
+        }
+        $host = static function (string $url): string {
+            $h = strtolower((string) parse_url($url, PHP_URL_HOST));
+            return preg_replace('/^www\./', '', $h) ?? $h;
+        };
+        $cited = $host($citedUrl);
+        $found = $host($candidateUrl);
+        if ($cited === '' || $found === '') {
+            return true;                    // nothing to compare — leave the title match alone
+        }
+        if ($cited === $found) {
+            return true;
+        }
+        // One a subdomain of the other ("dss.gov.au" vs "guides.dss.gov.au").
+        if (str_ends_with($found, '.' . $cited) || str_ends_with($cited, '.' . $found)) {
+            return true;
+        }
+        Log::info('BraveSearchService: search hit rejected — host differs from the cited URL', [
+            'cited_host' => $cited,
+            'found_host' => $found,
+            'found_url'  => $candidateUrl,
+        ]);
+        return false;
+    }
+
     private function pageTitleSimilarity(string $citationTitle, string $pageTitle): float
     {
         $stopWords = ['the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'by', 'with', 'from', 'at', 'is', 'as', 'pdf'];

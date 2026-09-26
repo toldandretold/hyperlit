@@ -102,6 +102,12 @@ def write_classification_assessment(footnote_meta, output_dir, markdown=None, fo
         if fidelity:
             fidelity['seq'] = len(records)
             records.append(fidelity)
+    # The CONTENT twin of the record above, computed in assemble_markdown where the PDF's
+    # untranslated text layer is still in hand. Absent on a PDF-less replay, deliberately.
+    content_fidelity = footnote_meta.get('def_content_fidelity')
+    if content_fidelity:
+        content_fidelity['seq'] = len(records)
+        records.append(content_fidelity)
     try:
         with open(os.path.join(str(output_dir), 'assessment.json'), 'w', encoding='utf-8') as f:
             json.dump({'records': records}, f, ensure_ascii=False, indent=2)

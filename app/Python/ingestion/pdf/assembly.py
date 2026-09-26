@@ -21,7 +21,7 @@ from ingestion.pdf.recovery import (  # noqa: F401
     extract_pypdf_page_texts, resurrect_dropped_markers_from_pypdf,
     derive_pua_digit_map, extract_pua_marker_seams, filter_ascending_marker_chain,
     resurrect_pua_markers,
-    repair_def_text_from_pypdf,
+    repair_def_text_from_pypdf, assess_def_content_fidelity,
 )
 
 # A footer line that opens a footnote DEFINITION, restricted to the marker shapes the shared
@@ -1210,7 +1210,8 @@ class PageBottomAssembler(FootnoteAssembler):
                 md, ptext, pypdf_nums, f' (page {i})', def_texts=def_texts)
         md, ctx.global_fn_counter = renumber_page_footnotes(
             md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums,
-            pypdf_defs=pypdf_defs, page_label=f' (page {i})')
+            pypdf_defs=pypdf_defs, page_label=f' (page {i})',
+            confirmed_out=ctx.text_layer_confirmed)
         if page_map:
             ctx.page_local_to_global[i] = page_map
         body, fn_text = split_body_and_footnotes(md)
@@ -2780,6 +2781,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             # adds or removes a definition.
             combined, text_repairs = repair_def_text_from_pypdf(
                 combined, clean_pypdf_defs, page_offsets=page_offsets_map,
+                confirmed_numbers=ctx.text_layer_confirmed,
             )
             if text_repairs:
                 print(f"  pypdf fallback: repaired OCR-garbled text in {len(text_repairs)} "
@@ -2883,6 +2885,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     if fn_heading_match:
         pos = fn_heading_match.start()
         combined = combined[:pos].rstrip() + "\n\n## Footnotes\n\n" + combined[pos:]
+
+    # Whose words are these? Asked of the FINAL definitions, against the PDF's untranslated
+    # text layer — after every repair and recovery above, so what it reports is the residual.
+    # Stashed on footnote_meta the way ocr_degeneration is; write_classification_assessment
+    # turns it into a trace record.
+    if footnote_meta is not None and ctx.pypdf_page_defs:
+        content_fidelity = assess_def_content_fidelity(combined, ctx.pypdf_page_defs)
+        if content_fidelity:
+            footnote_meta['def_content_fidelity'] = content_fidelity
 
     return combined
 

@@ -184,3 +184,61 @@ test('bibliography rows with no ground-truth label are surfaced', function () {
     $result = (new GroundTruthBinder())->bind($manifest, $manifest->book('fixture'));
     expect($result['unlabelled_reference_ids'])->toBe(['ghost2020']);
 });
+
+// ── Re-binding after the book was RECONVERTED ────────────────────────────────
+//
+// referenceIds are minted per conversion, so every one of them changes when a book is
+// re-imported. The bind is what re-points ground truth at the new rows — and for an entry
+// whose text the reconversion CHANGED (because the old text was our converter's damage, not
+// the author's citation) there is deliberately nothing to point at.
+//
+// saveGroundTruth carries a previous binding forward for any entry that has none, so that a
+// GENERATOR rewriting the entries (corrupt / skeleton) does not throw away work. Applied to a
+// fresh bind it undid the bind's own verdict: deloitte-2025-pdf came back from a reconversion
+// claiming 129 of 129 bound while 11 pointed at footnote rows that had just been deleted.
+// ClaimsJoiner keys on bound_reference_id, so a dangling one never errors — it simply never
+// joins, and the entry vanishes from the workbench instead of asking to be re-labelled.
+
+test('a bind that clears an entry is not undone by the carry-over', function () {
+    $manifest = binderWriteCorpus([
+        binderGtEntry('fixture/c01', 'Alder, P. (2010). First fixture reference. Journal A, 1(1), 1-10.'),
+        binderGtEntry('fixture/c02', 'Text that only ever existed because our converter invented it here.'),
+    ]);
+    binderSeedBib([
+        'alder2010' => 'Alder, P. (2010). First fixture reference. Journal A, 1(1), 1-10.',
+        'boren2012' => 'Boren, Q. (2012). Second fixture reference with a long enough title. Journal B.',
+    ]);
+
+    // First bind: c02 has a counterpart, so both bind.
+    $book = $manifest->book('fixture');
+    $gt = $manifest->loadGroundTruth($book);
+    $gt['entries'][1]['bound_reference_id'] = 'boren2012';
+    $manifest->saveGroundTruth($book, $gt);
+
+    // The book is reconverted: c02's text is no longer in it at all.
+    expect(fn () => (new GroundTruthBinder())->bind($manifest, $book))
+        ->toThrow(RuntimeException::class);
+
+    $after = array_column($manifest->loadGroundTruth($book)['entries'], 'bound_reference_id', 'gt_id');
+    expect($after['fixture/c01'])->toBe('alder2010')
+        ->and($after['fixture/c02'])->toBeNull('a cleared binding must stay cleared, not be resurrected');
+});
+
+test('the carry-over still protects a binding when a GENERATOR rewrites the entries', function () {
+    $manifest = binderWriteCorpus([
+        binderGtEntry('fixture/c01', 'Alder, P. (2010). First fixture reference. Journal A, 1(1), 1-10.'),
+    ]);
+    binderSeedBib(['alder2010' => 'Alder, P. (2010). First fixture reference. Journal A, 1(1), 1-10.']);
+    $book = $manifest->book('fixture');
+    (new GroundTruthBinder())->bind($manifest, $book);
+
+    // A regeneration rewrites the entries from scratch — no binding block, no bound ids.
+    $regenerated = [
+        'book' => 'fixture',
+        'entries' => [binderGtEntry('fixture/c01', 'Alder, P. (2010). First fixture reference. Journal A, 1(1), 1-10.')],
+    ];
+    $manifest->saveGroundTruth($book, $regenerated);
+
+    $after = array_column($manifest->loadGroundTruth($book)['entries'], 'bound_reference_id', 'gt_id');
+    expect($after['fixture/c01'])->toBe('alder2010', 'a generator must not cost the corpus its bindings');
+});

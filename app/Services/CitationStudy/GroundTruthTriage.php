@@ -92,8 +92,22 @@ class GroundTruthTriage
     /** Tokens shorter than this are too collision-prone to judge as invented. */
     private const MIN_TOKEN_LEN = 4;
 
+    /**
+     * A token found in the SPACE-STRIPPED witness on its own is only trustworthy above this
+     * length. The allowance exists for a word the witness writes unsplit ("marketdriven",
+     * "justice"); run document-wide on a short token it forgives anything — "thaw" is inside
+     * "wi(th a w)arning" and "stoe" inside "citizen(s to e)nsure", so deloitte's "Failing
+     * Thaw It Is Intended to Serve" and its junk definition "StoE" both reported CLEAN while
+     * "eier", one letter unluckier, was correctly called invented. Short fragments are
+     * forgiven by their NEIGHBOUR instead (see inventedTokens).
+     */
+    private const MIN_JOINED_TOKEN_LEN = 7;
+
     /** Below this token overlap, a reference-list row is a different citation. */
     private const WITNESS_MATCH_FLOOR = 0.60;
+
+    /** ...and it must beat the runner-up by this much, or the two rows are indistinguishable. */
+    private const WITNESS_MATCH_MARGIN = 0.05;
 
     /**
      * A counterpart this similar is the SAME citation, so its word differences
@@ -118,11 +132,9 @@ class GroundTruthTriage
     public function triage(CorpusManifest $manifest, array $book): array
     {
         $groundTruth = $manifest->loadGroundTruth($book);
-        $sourcePath = $manifest->studyFile($book);
-        $markdown = is_file($sourcePath) ? (string) file_get_contents($sourcePath) : '';
+        $markdown = $this->convertedMarkdown($manifest, $book);
 
-        $pdfPath = $this->pdfPathFor($book);
-        $pdfText = $pdfPath !== null ? $this->extractPdfText($pdfPath) : null;
+        $pdfText = $this->sourceWitnessText($manifest, $book);
         $pdfIndex = $pdfText !== null ? $this->indexWitness($pdfText) : null;
         $referenceRows = $this->referenceListRows($markdown);
 
@@ -226,7 +238,7 @@ class GroundTruthTriage
         return [
             'slug' => $book['slug'],
             'witnesses' => [
-                'pdf' => $pdfPath,
+                'pdf' => $pdfIndex !== null,
                 'reference_rows' => count($referenceRows),
             ],
             'counts' => $counts,
@@ -318,14 +330,102 @@ class GroundTruthTriage
 
     // ------------------------------------------------------------- witnesses
 
-    private function pdfPathFor(array $book): ?string
+    /**
+     * The source PDF, wherever this corpus keeps it.
+     *
+     * A phase1 book was ADOPTED from an already-imported book, so its PDF sits under that
+     * book's conversion artifacts and `provenance.source_book_id` names it. A pathway book
+     * is adopted from a RAW FILE: `source_book_id` is null and the PDF sits in the corpus
+     * itself. Looking only at the first spelling meant every pdf-pathway book reported
+     * `no_witness` for every entry — 124 of deloitte-2025-pdf's 129 — so the workbench's
+     * conversion-check pane could never say whether a bad citation was the author's or ours.
+     */
+    private function pdfPathFor(CorpusManifest $manifest, array $book): ?string
     {
+        $candidates = [];
+
         $sourceBookId = $book['provenance']['source_book_id'] ?? null;
-        if (!is_string($sourceBookId) || $sourceBookId === '') {
+        if (is_string($sourceBookId) && $sourceBookId !== '') {
+            $candidates[] = base_path("resources/markdown/{$sourceBookId}/original.pdf");
+        }
+
+        $sourceFile = $manifest->studyFile($book);
+        if (strtolower(pathinfo($sourceFile, PATHINFO_EXTENSION)) === 'pdf') {
+            $candidates[] = $sourceFile;
+        }
+
+        // The imported book's own conversion artifacts, for a corpus whose source file
+        // has been pruned.
+        $bookId = $manifest->bookIdFor((string) ($book['slug'] ?? ''));
+        $candidates[] = base_path("resources/markdown/{$bookId}/original.pdf");
+
+        foreach ($candidates as $path) {
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The document's OWN text, as we converted it — the second witness.
+     *
+     * For a paste/markdown corpus the study file IS that text. For a pdf/epub/docx pathway
+     * it is a binary, and handing it to `referenceListRows()` yields zero rows: deloitte
+     * prints a Reference List appendix giving every note's number, page and full text, and
+     * it was sitting unread in the converted markdown the whole time.
+     */
+    private function convertedMarkdown(CorpusManifest $manifest, array $book): string
+    {
+        $sourceFile = $manifest->studyFile($book);
+        $extension = strtolower(pathinfo($sourceFile, PATHINFO_EXTENSION));
+        if (in_array($extension, ['md', 'markdown', 'txt', 'html', 'htm'], true) && is_file($sourceFile)) {
+            return (string) file_get_contents($sourceFile);
+        }
+
+        $bookId = $manifest->bookIdFor((string) ($book['slug'] ?? ''));
+        $converted = base_path("resources/markdown/{$bookId}/main-text.md");
+        if (is_file($converted)) {
+            return (string) file_get_contents($converted);
+        }
+        return is_file($sourceFile) && $extension === '' ? (string) file_get_contents($sourceFile) : '';
+    }
+
+    /**
+     * The SOURCE document's own text — the witness that says whether a word in a converted
+     * citation was in the document at all, or invented on the way through.
+     *
+     * A PDF pathway reads the embedded text layer, which is the case this was built for. A
+     * paste pathway's source IS text already, and had no witness at all until now purely
+     * because the extractor was PDF-shaped — 230 of chacko-2025-paste's entries reported
+     * `no_witness` while the document they came from sat beside them in the corpus. epub and
+     * docx are containers with no cheap extractor here and still report honestly.
+     */
+    private function sourceWitnessText(CorpusManifest $manifest, array $book): ?string
+    {
+        $pdfPath = $this->pdfPathFor($manifest, $book);
+        if ($pdfPath !== null) {
+            return $this->extractPdfText($pdfPath);
+        }
+
+        $sourceFile = $manifest->studyFile($book);
+        if (!is_file($sourceFile)) {
             return null;
         }
-        $path = base_path("resources/markdown/{$sourceBookId}/original.pdf");
-        return is_file($path) ? $path : null;
+        $extension = strtolower(pathinfo($sourceFile, PATHINFO_EXTENSION));
+        if (in_array($extension, ['html', 'htm'], true)) {
+            $raw = (string) file_get_contents($sourceFile);
+            $raw = preg_replace('#<(script|style)\b[^>]*>.*?</\1>#is', ' ', $raw) ?? $raw;
+            // A tag becomes a SPACE, not nothing. `strip_tags` would glue
+            // "<span>Hansen</span><span>, </span>" into one token, and every author surname
+            // in a marked-up reference list then reads as a word the converter invented.
+            $raw = preg_replace('/<[^>]*>/', ' ', $raw) ?? $raw;
+            return html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        }
+        if (in_array($extension, ['md', 'markdown', 'txt'], true)) {
+            return (string) file_get_contents($sourceFile);
+        }
+        return null;
     }
 
     private function extractPdfText(string $pdfPath): ?string
@@ -390,6 +490,12 @@ class GroundTruthTriage
             if (!is_string($last) || mb_strlen($last) < 40) {
                 continue;
             }
+            // The row restates the note's printed NUMBER before the citation ("11 Commonwealth
+            // Ombudsman, How to Make a Complaint…"). That number is apparatus, not part of the
+            // work, and leaving it in defeats the spacing test: our "commo nwealth" against the
+            // row's "11 commonwealth" is not spacing-only once the digits are in the way, so a
+            // pypdf line-split got reported as invented text.
+            $last = preg_replace('/^\d{1,3}\s+(?=\S)/', '', $last) ?? $last;
             $norm = GroundTruthText::normalise($last);
             if ($norm !== '') {
                 $rows[] = $norm;
@@ -446,16 +552,34 @@ class GroundTruthTriage
     private function inventedTokens(string $text, array $witness): array
     {
         $invented = [];
-        foreach (array_unique(explode(' ', $text)) as $token) {
+        $sequence = array_values(array_filter(explode(' ', $text), fn ($t) => $t !== ''));
+        $seen = [];
+        foreach ($sequence as $position => $token) {
+            if (isset($seen[$token])) {
+                continue;
+            }
+            $seen[$token] = true;
             if (mb_strlen($token) < self::MIN_TOKEN_LEN || ctype_digit($token)) {
                 continue;
             }
             if (isset($witness['tokens'][$token])) {
                 continue;
             }
-            // A word the witness writes unsplit ("market driven" vs
-            // "marketdriven") is a spacing artifact, not an invented word.
-            if (str_contains($witness['joined'], $token)) {
+            // A word the witness writes unsplit ("market driven" vs "marketdriven") is a
+            // spacing artifact, not an invented word. Alone, that test is only safe for a
+            // long token (see MIN_JOINED_TOKEN_LEN) — so a short one has to be vouched for by
+            // its NEIGHBOUR: a split leaves its two halves ADJACENT, and the joined pair is
+            // what the witness carries ("ju stice" -> "justice", "market driven" ->
+            // "marketdriven"). A coincidence does not survive that, because the word it
+            // straddles in the witness has nothing to do with the entry's next word.
+            if (mb_strlen($token) >= self::MIN_JOINED_TOKEN_LEN
+                && str_contains($witness['joined'], $token)) {
+                continue;
+            }
+            $previous = $sequence[$position - 1] ?? '';
+            $next = $sequence[$position + 1] ?? '';
+            if (($previous !== '' && str_contains($witness['joined'], $previous . $token))
+                || ($next !== '' && str_contains($witness['joined'], $token . $next))) {
                 continue;
             }
             $singular = rtrim($token, 's');
@@ -482,14 +606,31 @@ class GroundTruthTriage
     {
         $best = null;
         $bestScore = 0.0;
+        $runnerUp = 0.0;
         foreach ($rows as $row) {
             $score = GroundTruthText::jaccard($text, $row);
             if ($score > $bestScore) {
+                $runnerUp = $bestScore;
                 $bestScore = $score;
                 $best = $row;
+            } elseif ($score > $runnerUp) {
+                $runnerUp = $score;
             }
         }
-        return $bestScore >= self::WITNESS_MATCH_FLOOR ? [$best, $bestScore] : [null, $bestScore];
+        if ($bestScore < self::WITNESS_MATCH_FLOOR) {
+            return [null, $bestScore];
+        }
+        // Token overlap alone still picks a near-twin. Deloitte cites the same department's
+        // quarterly data three times — "Public Data: October–December 2024" twice and
+        // "January–March 2024" once — which differ in FOUR tokens out of thirty, so the wrong
+        // row wins and the diff reports "october december -> january march" as damage our
+        // converter did. It did not: the note really says October–December. A reported
+        // corruption that isn't one costs more than a missing witness, because it sends the
+        // labeller to re-derive a citation that was right, so an ambiguous best is no witness.
+        if ($bestScore - $runnerUp < self::WITNESS_MATCH_MARGIN) {
+            return [null, $bestScore];
+        }
+        return [$best, $bestScore];
     }
 
     /**

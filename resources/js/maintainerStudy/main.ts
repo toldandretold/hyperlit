@@ -416,6 +416,12 @@ function renderDetail(claim: ClaimRow): void {
     frag.append(section('Citation as printed', htmlToText(claim.bib_citation)));
   }
 
+  // "Resolved source" belongs directly under the citation it resolves: that is where a
+  // reviewer looks for it, and reading a verdict before knowing WHICH work was checked is
+  // backwards. It is the longest block and is built further down, so remember the node it
+  // has to land in front of. Stays null when nothing follows — insertBefore(null) appends.
+  let sourceSlot: Node | null = null;
+
   // Claims.
   if (claim.truth_claim) {
     const sec = section('Truth claim', claim.truth_claim);
@@ -425,9 +431,12 @@ function renderDetail(claim: ClaimRow): void {
     // verdict has to be read against.
     if (provenance) sec.append(el('p', 'st-muted', provenance));
     frag.append(sec);
+    sourceSlot ??= sec;
   }
   if (claim.contextualised_claim && claim.contextualised_claim !== claim.truth_claim) {
-    frag.append(section('Contextualised', claim.contextualised_claim));
+    const ctxSec = section('Contextualised', claim.contextualised_claim);
+    frag.append(ctxSec);
+    sourceSlot ??= ctxSec;
   }
 
   // AI verdict.
@@ -441,10 +450,18 @@ function renderDetail(claim: ClaimRow): void {
     verdictSec.append(details);
   }
   frag.append(verdictSec);
+  sourceSlot ??= verdictSec;
 
   // Resolved source (or not).
   const srcSec = el('section', 'st-section');
   srcSec.append(el('h3', undefined, 'Resolved source'));
+  // A bare "Ibid." is unactionable on its own. The scan inherits the antecedent's work onto
+  // the claim, but the reviewer saw only "Ibid." over "No source found by the resolver" —
+  // with the inheritance visible nowhere except the hostname under Check link, which reads
+  // as the resolver having done nothing. Say which work it is, above the verdict on it.
+  if (claim.short_form_of) {
+    srcSec.append(el('p', 'st-shortform', claim.short_form_of));
+  }
   if (claim.source.found) {
     const bits = [
       claim.source.title,
@@ -566,7 +583,7 @@ function renderDetail(claim: ClaimRow): void {
   if (citedUrl && /^https?:\/\//i.test(citedUrl)) {
     srcSec.append(checkLinkButton(citedUrl, claim));
   }
-  frag.append(srcSec);
+  frag.insertBefore(srcSec, sourceSlot);
 
   // Conversion check — was it OUR OCR?
   const convSec = el('section', 'st-section');

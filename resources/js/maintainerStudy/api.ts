@@ -123,6 +123,8 @@ export interface ClaimRow {
   /** Where the claim text came from: 'llm' | 'span_scoped' | 'span_fallback' | 'span_backfill'. */
   claim_source: string | null;
   bib_citation: string | null;
+  /** "Refers to: …" for a linked ibid/short form, or the honest could-not-link note. */
+  short_form_of: string | null;
   llm_metadata: Record<string, unknown> | null;
   llm_verdict: { support?: string; summary?: string; reasoning?: string } | null;
   source: ClaimSource;

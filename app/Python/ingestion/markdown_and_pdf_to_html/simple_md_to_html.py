@@ -178,11 +178,16 @@ def process_inline_formatting(text):
 
     # Process bold (**text** or __text__)
     text = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', text)
-    text = re.sub(r'__([^_]+)__', r'<strong>\1</strong>', text)
+    text = re.sub(r'(?<![\w/])__([^_]+)__(?![\w/])', r'<strong>\1</strong>', text)
 
     # Process italics (*text* or _text_)
     text = re.sub(r'\*([^*]+)\*', r'<em>\1</em>', text)
-    text = re.sub(r'_([^_]+)_', r'<em>\1</em>', text)
+    # INTRAWORD underscores are NOT emphasis (the CommonMark rule), because the one place
+    # underscores routinely appear in our content is a URL path — and a naive `_..._` eats
+    # them: "…/Parliamentary_Business/Committees/Senate/Education_and_Employment/…" came out
+    # as "…/Parliamentary<em>Business/Committees/Senate/Education</em>and_Employment/…", a
+    # dead link in a footnote whose URL is the only thing citation resolution can act on.
+    text = re.sub(r'(?<![\w/])_([^_]+)_(?![\w/])', r'<em>\1</em>', text)
 
     # Process images ![alt](url) - must be before links
     text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1" />', text)

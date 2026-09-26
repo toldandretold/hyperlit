@@ -23,7 +23,7 @@ class StudyTriageCommand extends Command
         {--status=* : Only these statuses (clean, ocr_garbled, ocr_spacing, not_a_citation, no_witness)}
         {--write : Write the worklist to study/results/{corpus}/triage/}';
 
-    protected $description = 'Check a corpus book\'s ground-truth entries against the source PDF text layer and the document\'s own reference list before hand-labelling';
+    protected $description = 'Check a corpus book\'s ground-truth entries against the source document\'s own text (a PDF\'s text layer, a paste book\'s HTML) and the document\'s own reference list before hand-labelling';
 
     public function handle(GroundTruthTriage $triage): int
     {
@@ -47,8 +47,10 @@ class StudyTriageCommand extends Command
             $this->newLine();
             $this->info("{$result['slug']} — {$total} entries");
             $this->line(sprintf(
-                '  witnesses: PDF text layer %s, reference-list rows %d',
-                $result['witnesses']['pdf'] ? 'yes' : 'NO (install pdftotext or no original.pdf)',
+                '  witnesses: source text %s, reference-list rows %d',
+                $result['witnesses']['pdf']
+                    ? 'yes'
+                    : 'NO (no readable source for this pathway, or pdftotext missing)',
                 $result['witnesses']['reference_rows']
             ));
             foreach ($counts as $status => $n) {

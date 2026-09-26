@@ -6,6 +6,7 @@ use App\Jobs\ProcessDocumentImportJob;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -80,6 +81,7 @@ class StudyBookImporter
             if (!$reimport) {
                 return ['slug' => $slug, 'book_id' => $bookId, 'skipped' => true];
             }
+            [$ocrCache, $ocrSourceHash] = $this->stashOcrCache($bookId);
             $this->purge($bookId);
         }
 
@@ -126,6 +128,19 @@ class StudyBookImporter
             $extension = self::pipelineExtension($studyFile);
             File::copy($studyFile, "{$path}/original.{$extension}");
 
+            // Replay the OCR we already paid for, but only against the same bytes.
+            $sourceHash = hash_file('sha256', "{$path}/original.{$extension}");
+            if (($ocrCache ?? null) !== null && ($ocrSourceHash ?? null) === $sourceHash) {
+                File::put("{$path}/ocr_response.json", $ocrCache);
+                File::put($path . '/' . self::OCR_SOURCE_HASH, $sourceHash);
+            } elseif (($ocrCache ?? null) !== null) {
+                Log::warning('study import: cached OCR discarded, source bytes changed', [
+                    'book' => $bookId,
+                    'cached_source_sha256' => $ocrSourceHash ?? null,
+                    'current_source_sha256' => $sourceHash,
+                ]);
+            }
+
             $formData = [
                 'title' => $provenance['title'] ?? $slug,
                 'author' => $provenance['author'] ?? null,
@@ -163,6 +178,47 @@ class StudyBookImporter
             'nodes' => $nodeCount,
             'bibliography_rows' => $bibCount,
         ];
+    }
+
+    /** Sidecar recording which source bytes a preserved OCR response was produced from. */
+    private const OCR_SOURCE_HASH = 'ocr_source.sha256';
+
+    /**
+     * Keep the OCR response across a purge, tied to the bytes that produced it.
+     *
+     * A corpus exists to be RE-RUN — that is the whole point of a study harness — and a
+     * re-import that re-OCRs a 234-page PDF bills Mistral again for an answer we already
+     * have on disk. `mistral_ocr.py` replays `ocr_response.json` from the output directory
+     * and does not even need an API key to do it, so the only thing standing between us and
+     * a free reconversion was `purge()` deleting the whole directory.
+     *
+     * Tied to a HASH of the source, because `citation:study:adopt --file` can replace a
+     * book's source document: replaying the old OCR against a new PDF would silently
+     * convert the wrong document. No sidecar, or a sidecar that disagrees, means the cache
+     * is dropped and the OCR is paid for honestly.
+     *
+     * @return array{0: ?string, 1: ?string} the response JSON and the source hash it belongs to
+     */
+    private function stashOcrCache(string $bookId): array
+    {
+        $dir = resource_path("markdown/{$bookId}");
+        $cache = "{$dir}/ocr_response.json";
+        if (!is_file($cache)) {
+            return [null, null];
+        }
+        $hash = null;
+        $sidecar = $dir . '/' . self::OCR_SOURCE_HASH;
+        if (is_file($sidecar)) {
+            $hash = trim((string) file_get_contents($sidecar));
+        } else {
+            // First preservation of a cache that predates the sidecar: derive it from the
+            // source sitting beside it, which is by construction what produced the response.
+            foreach (glob("{$dir}/original.*") ?: [] as $source) {
+                $hash = hash_file('sha256', $source);
+                break;
+            }
+        }
+        return [(string) file_get_contents($cache), $hash];
     }
 
     /** Remove a study book and its sub-books entirely (for --reimport). */

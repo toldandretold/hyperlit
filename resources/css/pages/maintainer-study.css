@@ -306,6 +306,16 @@ body {
   background: color-mix(in srgb, #8fb84a 26%, transparent);
 }
 
+/* What a bare "Ibid." actually points at. Not a warning — an identification, so it reads
+   as part of the citation rather than as a problem with it. */
+.st-shortform {
+  margin-bottom: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  font-size: 0.85rem;
+}
+
 /* An assertion about the source that should stop the reviewer, not a hint. */
 .st-warn {
   margin-top: 0.4rem;

@@ -211,6 +211,17 @@ class CorpusManifest
         // Fields a HUMAN authored, which no generator can reproduce.
         $humanFields = ['evidence', 'evidence_locator', 'evidenced_by', 'evidenced_at'];
 
+        // A fresh BIND has already decided every entry's binding, including the ones it
+        // deliberately cleared because the book no longer contains that text. Carrying the
+        // old value back in would resurrect a referenceId that no longer exists — and since
+        // ClaimsJoiner keys on bound_reference_id, a dangling one does not error, it just
+        // never joins: the entry silently disappears from the workbench instead of showing
+        // up as "re-label me". That is how a reconverted deloitte came out claiming 129 of
+        // 129 bound while 11 pointed at rows that had been deleted. The carry-over exists to
+        // protect bindings when a GENERATOR rewrites the entries (corrupt / skeleton), and
+        // only a bind sets `binding.bound_at` — which this method already tests below.
+        $freshlyBound = !empty($groundTruth['binding']['bound_at']);
+
         if (is_file($path)) {
             $existing = json_decode((string) file_get_contents($path), true);
             $previousBindings = [];
@@ -236,7 +247,7 @@ class CorpusManifest
                         }
                     }
                 }
-                if (!empty($entry['bound_reference_id'])) {
+                if (!empty($entry['bound_reference_id']) || $freshlyBound) {
                     continue;
                 }
                 if (isset($previousBindings[$key])) {

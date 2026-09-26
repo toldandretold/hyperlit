@@ -35,9 +35,27 @@ class CitationScanBibliographyJob implements ShouldQueue
         'conference-paper', 'thesis', 'report',
     ];
 
+    /**
+     * A footnote whose type is NOT in here is classified `is_citation = false` and dropped
+     * from resolution entirely — never searched, never web-fetched, never reviewed.
+     *
+     * So this list has to speak the SAME VOCABULARY the extraction prompt asks for, and it
+     * did not. `LlmService` offers the model "…|report|news-article|archival-source|
+     * youtube-video|website|…"; this list answered with `web_page`, a string the prompt never
+     * emits, and `chapter`, which the prompt calls `book-chapter`. Four of the prompt's own
+     * types therefore fell straight through. Measured across every book in the database: 37
+     * `website` footnotes, 34 of them classified not-a-citation — and ALL 34 carried a live
+     * URL, which is the strongest identity signal a citation has. A government web page, a
+     * news report and a cited video are citations; the whole graded-web-fetch ladder exists
+     * for exactly those and could never fire for them.
+     *
+     * `commentary` is deliberately absent: a discursive footnote really is not a citation.
+     * `web_page`/`chapter` are kept so rows written under the old vocabulary still classify.
+     */
     private const CITABLE_TYPES = [
         'book', 'journal-article', 'book-chapter',
         'conference-paper', 'thesis', 'report',
+        'news-article', 'archival-source', 'youtube-video', 'website',
         'web_page', 'chapter',
     ];
 
@@ -1566,10 +1584,19 @@ class CitationScanBibliographyJob implements ShouldQueue
                     }
                     $braveTitle = $item['searchedTitle'];
                     $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
+                    // The URL the citation PRINTS, so a title hit on a different host can be
+                    // refused. By this wave the printed URL has already been tried and failed
+                    // (Wave 6) — usually a 403, which says the host refused US, not that the
+                    // work is elsewhere. Searching the title then accepting whatever shares it
+                    // is how "Social Security Guide" on guides.dss.gov.au became a US financial
+                    // planning blog. See BraveSearchService::hostAgreesWithCitedUrl.
+                    $citedUrl = app(WebFetchService::class)->extractUrl((string) ($item['content'] ?? ''))
+                        ?: ($item['llmMetadata']['url'] ?? null);
                     $braveQueries[$refId] = [
-                        'title'  => $braveTitle,
-                        'author' => $stubAuthor,
-                        'year'   => $item['llmMetadata']['year'] ?? null,
+                        'title'     => $braveTitle,
+                        'author'    => $stubAuthor,
+                        'year'      => $item['llmMetadata']['year'] ?? null,
+                        'cited_url' => is_string($citedUrl) && $citedUrl !== '' ? $citedUrl : null,
                     ];
                 }
                 if (!empty($braveQueries)) {

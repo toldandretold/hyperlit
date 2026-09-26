@@ -279,3 +279,200 @@ def test_page_local_numbers_map_to_globals_in_PRINT_order():
     assert mapping == {3: 100, 4: 101, 5: 102, 6: 103}
     assert counter == 104
     assert '[^100]: The note whose marker printed on the previous page.' in out
+
+
+# --- a page whose note block the OCR could not READ at all --------------------------------
+#
+# deloitte2025independent prints its page-bottom notes in ~5pt part-italic type. Mistral could
+# not read page 6's block and produced, instead of the four notes printed there, a truncated
+# note 1 ("Failing Thaw" for "Failing Those", its URL continuation line gone), a wholly
+# FABRICATED citation standing where the page prints "Ibid.", and the real notes 3 and 4
+# labelled 4 and 5. Every number ascends, so repair_page_def_numbers above — whose trigger is
+# the OCR contradicting ITSELF — never looks; and repair_def_text_from_pypdf pairs by NUMBER,
+# so once the numbering is wrong every comparison is against the wrong note and refuses at its
+# similarity floor. Zero repairs fired, and marker 2's claim was held against an invented work.
+
+LAYER_P6 = [
+    (1, 'Senate Education and Employment Ref erences Committee, Jobactiv e: Failing Those It '
+        'Is Int ended to Serve(Report, February 2019) https://www.aph.gov.au/Parliamentary_'
+        'Business/Committees/Senate/Education_and_Employment/JobActive2018/Report .'),
+    (2, 'Ibid.'),
+    (3, 'Social Security (Administ ration) Act 1999 (Cth) pt 3 div 3AA; Social Security '
+        '(Administ ration) (Non-Compliance) Determination 2018 (No 1) (Cth).'),
+    (4, 'Department of Employment and Workplace Relations (Cth), Statement of Work - '
+        'Statement of Assurance on t he Operat ions of t he T argeted Compliance Framework'
+        '(ESE24/1263, 28 November 2024) (co py on file with author).'),
+]
+
+OCR_P6 = [
+    (10, 1, '1', 'Senate Education and Employment References Committee, *Jobactive: Failing '
+                 'Thaw It Is Intended to Serve* (Report, February 2019)'),
+    (11, 2, '2', 'EIER (2019) *How to Make a World: A Guide to the TCF* (Report, February 2019)'),
+    (12, 3, '3', 'StoE'),
+    (13, 4, '4', 'Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA; *Social '
+                 'Security (Administration)/Non-Compliance Determination 2018* (No 1) (Cth)'),
+    (14, 5, '5', 'Department of Employment and Workplace Relations (Cth), *Statement of Work '
+                 '- Statement of Assurance on the Operations of the Targeted Compliance '
+                 'Framework* (ESE24/1263, 28 November 2024) (copy on file with author).'),
+]
+
+P6_LINES = ['Body carrying [^1] and [^2] and [^3] and [^4].'] + [b[3] for b in OCR_P6]
+P6_BLOCK = [(i + 1, n, s, b) for i, (_old, n, s, b) in enumerate(OCR_P6)]
+P6_REFS = {1, 2, 3, 4}
+
+
+def test_a_fabricated_definition_is_replaced_by_the_note_the_page_prints():
+    """The hallucination and the printed "Ibid." are the only pair the alignment cannot
+    anchor, so "Ibid." is assigned by ELIMINATION — which is the whole reason this aligns
+    sequences instead of matching each definition on its own. Its 4-character fingerprint
+    could never win a similarity contest."""
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(P6_BLOCK), list(P6_LINES), LAYER_P6, P6_REFS)
+    assert changed
+    assert _numbers(block) == [1, 2, 3, 4]
+    assert block[1][3] == 'Ibid.'
+    assert 'EIER' not in '\n'.join(lines)
+
+
+def test_the_surplus_definition_is_dropped_and_the_rest_renumbered():
+    """Five definitions for four printed notes: the junk one consumes a global number and
+    shifts every later note against the print — which is how marker 4's claim came to be
+    held against note 3."""
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(P6_BLOCK), list(P6_LINES), LAYER_P6, P6_REFS)
+    assert changed
+    assert 'StoE' not in '\n'.join(lines)
+    assert [b[1] for b in block] == [1, 2, 3, 4]
+    # note 3 of the print is numbered 3, not 4
+    assert 'Social Security' in block[2][3]
+    assert 'Statement of Work' in block[3][3]
+
+
+def test_a_definition_the_ocr_lost_is_inserted_from_the_text_layer():
+    ocr = [b for b in P6_BLOCK if b[1] != 2]
+    ocr = [(i, n if n < 2 else n - 1, str(n if n < 2 else n - 1), b) for i, n, _s, b in ocr]
+    lines = ['Body carrying [^1] and [^2] and [^3] and [^4].'] + [b[3] for b in ocr]
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(ocr), list(lines), LAYER_P6, P6_REFS)
+    assert changed
+    assert 'Ibid.' in [b[3] for b in block]
+
+
+def test_a_block_the_text_layer_agrees_with_is_left_alone():
+    """The gate that keeps this off every healthy page in the corpus."""
+    clean = [(1, 1, '1', 'Senate Education and Employment References Committee, Jobactive: '
+                         'Failing Those It Is Intended to Serve (Report, February 2019)'),
+             (2, 2, '2', 'Ibid.'),
+             (3, 3, '3', 'Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA; Social '
+                         'Security (Administration) (Non-Compliance) Determination 2018 (No 1) (Cth).'),
+             (4, 4, '4', 'Department of Employment and Workplace Relations (Cth), Statement of '
+                         'Work - Statement of Assurance on the Operations of the Targeted '
+                         'Compliance Framework (ESE24/1263, 28 November 2024) (copy on file with author).')]
+    lines = ['Body [^1][^2][^3][^4].'] + [b[3] for b in clean]
+    block, out_lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(clean), list(lines), LAYER_P6, P6_REFS)
+    assert not changed and block == clean and out_lines == lines
+
+
+def test_refuses_when_the_text_layer_block_is_not_contiguous():
+    """deloitte's Contents page reads as definitions 6,7,9,10,11,12. A gap means the
+    extractor missed something, and then "no counterpart" stops meaning "invented"."""
+    layer = [(6, 'Background and Methodology 44'), (7, 'Legislative and Policy Traceability 51'),
+             (9, 'Governance and Assurance 66')]
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(P6_BLOCK), list(P6_LINES), layer, P6_REFS)
+    assert not changed and block == P6_BLOCK
+
+
+def test_refuses_a_scrambled_layer_block():
+    """The anand page: the text layer's own order is 7(junk),3,4,5,6,7,8. This pass trusts
+    layer ORDER, so it must refuse that page and leave it to repair_page_def_numbers."""
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(OCR_BLOCK), list(P6_LINES), PYPDF_PAGE, {3, 4, 5, 6, 7, 8})
+    assert not changed and block == OCR_BLOCK
+
+
+def test_refuses_when_too_little_of_the_page_is_anchored():
+    """Below the anchor floor we are not reading the same block, and every gap-fill would be
+    positional guesswork bracketed by nothing."""
+    foreign = [(i, n, s, 'Entirely unrelated note number %d about something else' % n)
+               for i, n, s, _b in P6_BLOCK]
+    block, lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(foreign), list(P6_LINES), LAYER_P6, P6_REFS)
+    assert not changed and block == foreign
+
+
+def test_a_reconciled_page_renumbers_the_whole_document_correctly():
+    """End to end through renumber_page_footnotes: four markers and four definitions consume
+    four global numbers, not five, so nothing downstream of this page is shifted."""
+    # The glued converted-superscript form this book's note block actually arrives in:
+    # Mistral renders the printed number as a superscript with no space after it.
+    page = ('Body carrying [^1] and [^2] and [^3] and [^4].\n'
+            '\n'
+            + '\n'.join('[^{0}]{1}'.format(n, b) for _i, n, _s, b in P6_BLOCK) + '\n')
+    mapping = {}
+    confirmed = set()
+    out, counter = S.renumber_page_footnotes(
+        page, 100, mapping, pypdf_defs=LAYER_P6, confirmed_out=confirmed)
+    assert counter == 104, 'a junk definition must not consume a global number'
+    assert mapping == {1: 100, 2: 101, 3: 102, 4: 103}
+    assert '[^101]: Ibid.' in out
+    assert 'EIER' not in out and 'StoE' not in out
+    # The pairings the alignment settled are published so the text repair can lower its
+    # similarity floor for them. 101 is NOT among them: its body already came from the text
+    # layer, so there is nothing left for the repair to establish.
+    assert confirmed == {100, 102, 103}
+
+
+def test_nothing_is_confirmed_by_a_refused_page():
+    confirmed = set()
+    page = ('Body carrying [^1] and [^2] and [^3] and [^4].\n'
+            '\n'
+            + '\n'.join('[^{0}]{1}'.format(n, b) for _i, n, _s, b in P6_BLOCK) + '\n')
+    out, _counter = S.renumber_page_footnotes(
+        page, 100, {}, pypdf_defs=[(6, 'Background and Methodology 44')],
+        confirmed_out=confirmed)
+    assert confirmed == set()
+
+
+# --- emitting the text layer's own words --------------------------------------------------
+
+def test_a_wrapped_url_is_rejoined():
+    """pypdf positions text glyph by glyph, so a URL arrives in pieces. A reader works around
+    "Workplace R elations"; a dead link is not workable, and the printed URL is the strongest
+    signal citation resolution has."""
+    out = S.sanitize_layer_def_text(
+        'Dept (Web Page, 2025) https://www .dewr.gov.au/assuring-integrity-targeted-co '
+        'mpliance-framework/anno uncements/secretarys-opening-statement.')
+    assert 'https://www.dewr.gov.au/assuring-integrity-targeted-compliance-framework/' \
+           'announcements/secretarys-opening-statement.' in out
+
+
+def test_a_url_stops_at_the_prose_after_it():
+    out = S.sanitize_layer_def_text(
+        'A (2023) https://www.finance.gov.au/government/comcover/risk -services/management/risk '
+        '- management-to olkit/element-1 ; In stitute o f In ternal Au ditors, The Model.')
+    assert 'https://www.finance.gov.au/government/comcover/risk-services/management/' \
+           'risk-management-toolkit/element-1' in out
+    assert 'In stitute o f In ternal Au ditors' in out
+
+
+def test_a_bare_number_after_a_url_is_the_next_notes_number():
+    out = S.sanitize_layer_def_text(
+        'Data source: https://en.wikipedia.org/wiki/2019_coronavirus_in_mainland_China 2 Data '
+        'source: WHO.')
+    assert 'mainland_China 2 Data' in out
+
+
+def test_a_parenthetical_after_a_url_is_not_path():
+    out = S.sanitize_layer_def_text(
+        'See the video: http://www.youtube.com/watch?v=uyeRAhxcPjQ&feature=youtu.be '
+        '(accessed on September 8, 2013).')
+    assert 'youtu.be (accessed on September 8, 2013).' in out
+
+
+def test_text_without_a_url_is_returned_untouched():
+    """Only URL spans are rewritten — pypdf's other artifacts are left for a reader to see
+    rather than guessed at."""
+    text = 'An earlier version has been published as:  Fuchs, Christian (2003).  ISBN 0- 9740735-1-2.'
+    assert S.sanitize_layer_def_text(text) == text

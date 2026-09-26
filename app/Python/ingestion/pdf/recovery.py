@@ -261,7 +261,51 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
         if defs:
             result[page_idx] = defs
 
+    _unglue_page_numbers(result)
     return result
+
+
+def _unglue_page_numbers(defs_by_page):
+    """The printed PAGE NUMBER glued onto the first note's number, in place.
+
+    pypdf's content stream usually puts the printed page number on its own line before
+    anything else ("6\\n1Senate Education…"), but not always — deloitte page 7 arrives as
+    "75 Department of Employment and Workplace Relations (Cth), Secret ary's…", which is
+    the page number 7 and note number 5 with no separator. Read literally that is note 75,
+    which belongs to no page map, so the note gets NO WITNESS: its definition shipped with
+    a wholly hallucinated URL (dewi.gov.au/insuringintegrity-…) that the text layer could
+    have corrected outright.
+
+    Only the FIRST definition on a page can be affected (the page number is drawn before
+    the note block), and the evidence has to be positive on three counts before a number is
+    rewritten: the digits really do open with this page's own number, the remainder
+    continues the document's note run or repairs a DESCENT within the page (a real block
+    never descends), and the glued reading is implausibly far above the run. Anything less
+    and a genuine note 75 on page 7 would be silently renumbered to 5 — which is the same
+    class of damage this whole module exists to undo.
+    """
+    prev_max = None
+    for page_idx in sorted(defs_by_page.keys()):
+        page_defs = defs_by_page[page_idx]
+        num, text = page_defs[0]
+        digits = str(num)
+        prefix = str(page_idx + 1)
+        page_max = max(n for n, _t in page_defs)
+
+        if digits.startswith(prefix) and len(digits) > len(prefix):
+            remainder = digits[len(prefix):]
+            rem = int(remainder)
+            later = [n for n, _t in page_defs[1:]]
+            continues_run = prev_max is not None and rem == prev_max + 1
+            repairs_descent = any(rem < n <= num for n in later)
+            # The glued reading has to be an outlier, not merely larger.
+            implausible = (num > prev_max + 20) if prev_max is not None else (num >= rem * 10)
+            if rem >= 1 and not remainder.startswith('0') \
+                    and (continues_run or repairs_descent) and implausible:
+                page_defs[0] = (rem, text)
+                page_max = max(n for n, _t in page_defs)
+
+        prev_max = page_max
 
 
 def extract_pypdf_page_texts(pdf_path):
@@ -282,13 +326,37 @@ def extract_pypdf_page_texts(pdf_path):
 # classified after matching rather than by three near-identical patterns.
 _PYPDF_MARKER_SEAM_RE = re.compile(
     r"([A-Za-z]{2,})"                                 # anchor word
+    # TRIED AND REVERTED: widening this to a RUN of closing punctuation, optionally preceded
+    # by a space, so it could cross deloitte's "…(negative compliance ).17". It does reach
+    # that marker — and on the anand fixture it plants a SPURIOUS one, which consumes a global
+    # number and shifts everything after it: markers 72/80 became 73/81 and marker 104 fell
+    # off the end, costing a real definition. Measured both ways; the seams it newly finds are
+    # mostly genuine, so the fault is not the shape alone and a wider seam cannot be made safe
+    # by tightening the punctuation class (a leading-space rule separates neither case). A
+    # marker in the wrong place is the exact damage this module exists to undo, so deloitte's
+    # note 17 stays unlinked until there is evidence that distinguishes the two.
     r"([.,;:!?)]?[ \t]*['\"‘’“”]?)"   # punctuation closing it ("world.", "completely. ’")
     r"([ \t]*\n?[ \t]*)"                              # gap before the digit
     r"(\d{1,3})"
     r"([ \t]*\n?[ \t]*)"                              # gap after it
     r"([A-Za-z]{2,})")                                # the following word
 
+# TRIED AND REJECTED: a fourth shape for a marker that ends its text block with no word after
+# it, only a table number — "…prioritise systemic risk.120 ⏎ 5 Human-Centred…" (deloitte notes
+# 120/130/133). Anchored on the preceding word alone it recovered one of the three orphans and
+# cost more than it bought: a definition LOST and two NEW gaps (134, 136), because a marker
+# planted in the wrong place shifts that page's local→global map and everything after it. One
+# word is not enough evidence, and the exactly-one-match rule does not make it enough. These
+# three notes render unlinked, which is the better debt.
 _SENTENCE_END = re.compile(r"[.!?]")
+
+# "(Report, 17 April 2025)" has the exact shape of a glued marker seam — word, punctuation,
+# number, capitalised word — and it is a DATE. The number is a day, and planting [^17] there
+# would put a marker inside another note's definition. Nothing else about the seam can tell
+# the two apart, so the follower is checked by name.
+_MONTH_FOLLOWER_RE = re.compile(
+    r'^(January|February|March|April|May|June|July|August|September|October|November|December'
+    r'|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)$', re.IGNORECASE)
 
 
 def _marker_seams(pypdf_text):
@@ -319,6 +387,8 @@ def _marker_seams(pypdf_text):
         sentence = bool(_SENTENCE_END.search(punct)) and re.match(r'[A-Z][a-z]', follow)
         if not (glued or broken or sentence):
             continue
+        if _MONTH_FOLLOWER_RE.match(follow):
+            continue                     # a day of the month, not a superscript
         yield word, int(num), m.end(4), follow
 
 
@@ -371,7 +441,12 @@ def resurrect_dropped_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_labe
         # Anchor on the two WORDS and tolerate whatever punctuation sits between them: the OCR
         # and the text layer routinely render the same closing quote differently ("world.’70"
         # vs "world.'"), and an exact-seam match would simply never fire on those.
-        pattern = re.escape(word) + r"[.,;:!?)\s'\"‘’“”]{1,5}" + re.escape(follow)
+        # ...including the markdown EMPHASIS the OCR adds and the text layer cannot have:
+        # "(*negative compliance*).\n\nHowever" against the layer's "(negative compliance ).17
+        # However". Without the asterisks in the run the seam is found in the layer and then
+        # never located in the OCR, which is silently indistinguishable from "the OCR reworded
+        # it". Digits stay OUT of the class on purpose — see the month guard above.
+        pattern = re.escape(word) + r"[.,;:!?)*_\s'\"‘’“”]{1,8}" + re.escape(follow)
         hits = list(re.finditer(pattern, ocr_md))
         if len(hits) != 1:
             continue                     # absent (OCR reworded) or ambiguous — skip, never guess
@@ -615,6 +690,17 @@ def split_run_on_numbered_def(num, text):
     return [(n, t) for n, t in segs if t]
 
 
+# A short-form back-reference is SUPPOSED to repeat — that is what it is for. The chrome rule
+# below rejects any text appearing under two or more numbers, which is right for a running
+# footer ("2 PALGRAVE COMMUNICATIONS | 3:17092 | DOI…" on page 2 and "4 PALGRAVE…" on page 4)
+# and catastrophic for "Ibid.": deloitte prints it 20-odd times, so EVERY ibid was silently
+# dropped and its marker left with no definition at all. Kept short on purpose — a repeated
+# paragraph is furniture whatever it opens with.
+_SHORT_FORM_DEF_RE = re.compile(
+    r'^(ibid|id|idem|op\.?\s*cit|loc\.?\s*cit|ebd|a\.?\s*a\.?\s*o)\b[.,]?\s*\S{0,40}$',
+    re.IGNORECASE)
+
+
 def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                           page_offsets=None, targeted_pages=None,
                           allow_overwrite=False, only_numbers=None):
@@ -642,7 +728,8 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
         for _n, t in page_defs:
             key = re.sub(r'\s+', ' ', t).strip().lower()
             text_counts[key] = text_counts.get(key, 0) + 1
-    chrome = {k for k, c in text_counts.items() if c >= 2}
+    chrome = {k for k, c in text_counts.items()
+              if c >= 2 and not _SHORT_FORM_DEF_RE.match(k)}
 
     recovered = []
     seen = set()
@@ -671,7 +758,12 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 if shifted_num in seen:
                     continue
                 seen.add(shifted_num)
-                recovered.append((shifted_num, split_text))
+                # The text layer's glyph-by-glyph spacing ships as-is here — there is no OCR
+                # token stream to map onto — and a reader works around "In stitute o f In
+                # ternal Au ditors". A URL does not: "…/risk -services/management/risk -
+                # management-to olkit/…" is a dead link, and a recovered note is usually a
+                # note whose URL is the only thing citation resolution can act on.
+                recovered.append((shifted_num, sanitize_layer_def_text(split_text)))
     return recovered
 
 
@@ -688,6 +780,11 @@ _MARKUP_CHARS = frozenset('*')
 # Below this character-level agreement the pypdf def is a DIFFERENT note (or
 # extractor noise), and substituting from it would corrupt a good definition.
 _REPAIR_MIN_SIMILARITY = 0.85
+
+# ...but when the page's whole definition BLOCK has been aligned against the text layer's own
+# block, identity is already settled and the floor is only in the way. Still a floor, because
+# the alignment can be wrong and nothing should rewrite a definition out of all recognition.
+_REPAIR_CONFIRMED_MIN_SIMILARITY = 0.40
 
 _DASHES = '-‐‑‒–—'
 
@@ -795,7 +892,72 @@ def _char_index_map(a, b):
     return mapping
 
 
-def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARITY):
+# Below this ratio of lengths the two renderings are the same extent and there is no
+# dropped continuation line to look for.
+_TAIL_SLACK = 1.15
+
+# A continuation line the OCR dropped is only restored when it is a URL and NOTHING else.
+# That is the narrowest carve-out available: a URL is ASCII, carries no directional quotes,
+# has no line-break hyphenation to import and no Unicode composition to get wrong — the
+# four artifact classes that killed the earlier "rebuild the whole def from pypdf" version.
+_URL_TAIL_RE = re.compile(r'^[\s.,;:)\]]*(https?://\S.*)$', re.S)
+# A bare alphabetic word in the tail means it is prose, not a wrapped URL: pypdf splits a
+# URL into fragments that keep their punctuation ("g-integrity-targeted-co", "mpliance-",
+# "framework/announcements/secretarys"), whereas glued page chrome reads as words
+# ("Independent Review of Targeted Compliance Framework").
+_WORDLIKE_RE = re.compile(r'^[A-Za-z]{2,}$')
+
+
+def _url_only_tail(tail_text):
+    """The URL a dropped continuation line carried, or None if the tail is anything else."""
+    match = _URL_TAIL_RE.match(tail_text)
+    if not match:
+        return None
+    body = match.group(1)
+    if '|' in body:
+        return None
+    for piece in body.split():
+        if _WORDLIKE_RE.match(piece.strip('.,;:()[]')):
+            return None
+    url = re.sub(r'\s+', '', body).rstrip('.,;:')
+    if not 12 <= len(url) <= 300:
+        return None
+    return url
+
+
+def _prefix_cut(ocr_chars, pdf_chars):
+    """Where the OCR def's coverage of the pypdf stream ENDS, or None if it can't be placed.
+
+    Refuses unless the OCR stream is matched right to its own end — otherwise the two
+    renderings disagree somewhere other than a dropped tail, and truncating the pypdf side
+    would be inventing agreement.
+    """
+    import difflib
+    blocks = [b for b in difflib.SequenceMatcher(
+        None, ocr_chars.lower(), pdf_chars.lower(), autojunk=False
+    ).get_matching_blocks() if b.size]
+    if not blocks:
+        return None
+    last = blocks[-1]
+    if last.a + last.size < len(ocr_chars) - 2:
+        return None
+    return last.b + last.size
+
+
+def _orig_index_for_strip(tokens, text_len, strip_idx):
+    """Map an index in a _strip_tokens stream back to an index in the original text."""
+    last_end = 0
+    for orig_start, orig_end, span_start, span_end in tokens:
+        if strip_idx < span_start:
+            return last_end
+        if strip_idx <= span_end:
+            return orig_start + (strip_idx - span_start)
+        last_end = orig_end
+    return text_len
+
+
+def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARITY,
+                        identity_confirmed=False):
     """Substitute the words the OCR got wrong, using the PDF's own text layer.
 
     The two witnesses fail in opposite directions, which is what makes this
@@ -819,10 +981,38 @@ def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARIT
     """
     import difflib
     ocr_chars, tokens = _strip_tokens(ocr_text)
-    pdf_chars, _pdf_tokens = _strip_tokens(pdf_text)
+    pdf_chars, pdf_tokens = _strip_tokens(pdf_text)
     if not ocr_chars or not pdf_chars:
         return None, 0.0
-    if ocr_chars == pdf_chars:
+
+    # A definition whose continuation LINE the OCR dropped is shorter than the note it is,
+    # and the whole-string ratio then reads as "different note" and refuses the repair.
+    # Measured on deloitte note 1, whose second printed line is the aph.gov.au URL: against
+    # the full text layer the ratio is 0.65 (refused, "Failing Thaw" ships); against the
+    # layer truncated to the OCR's own extent it is 0.977 and "Those" is restored.
+    # The truncation is allowed ONLY when what it cuts off is a URL, so the length gate
+    # keeps working as the guard against a wrongly PAIRED note everywhere else.
+    restored_url = None
+    if len(pdf_chars) > len(ocr_chars) * _TAIL_SLACK:
+        cut = _prefix_cut(ocr_chars, pdf_chars)
+        if cut is not None and cut < len(pdf_chars):
+            tail_at = _orig_index_for_strip(pdf_tokens, len(pdf_text), cut)
+            candidate_url = _url_only_tail(pdf_text[tail_at:])
+            if candidate_url and candidate_url not in re.sub(r'\s+', '', ocr_text):
+                restored_url = candidate_url
+                pdf_chars = pdf_chars[:cut]
+            elif identity_confirmed:
+                # Not a URL, so nothing is restored — but the tail still has to go before
+                # the comparison. The extractor glues up to 700 characters of the FOLLOWING
+                # PAGE onto a page's last note, and that surplus drags the ratio down and
+                # skews the scaled index map: deloitte's note 6 is 229 characters against a
+                # 678-character layer copy whose tail is "1.3 Analysis and Findings Over the
+                # past two years…", scoring 0.52 and repairing nothing, while the note
+                # itself matches almost exactly. Only for a CONFIRMED pair, because here the
+                # length gate is no longer doing identity work — the alignment already did.
+                pdf_chars = pdf_chars[:cut]
+
+    if ocr_chars == pdf_chars and restored_url is None:
         return None, 1.0
 
     ratio = difflib.SequenceMatcher(
@@ -858,15 +1048,18 @@ def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARIT
         cursor = orig_end
         changed = True
 
-    if not changed:
+    if not changed and restored_url is None:
         return None, ratio
     out.append(ocr_text[cursor:])
     repaired = re.sub(r'[ \t]+', ' ', ''.join(out)).strip()
+    if restored_url:
+        repaired = (repaired + ' ' + restored_url).strip()
     return (repaired or None), ratio
 
 
 def repair_def_text_from_pypdf(combined, pypdf_defs_by_page, page_offsets=None,
-                               min_similarity=_REPAIR_MIN_SIMILARITY):
+                               min_similarity=_REPAIR_MIN_SIMILARITY,
+                               confirmed_numbers=None):
     """Repair footnote-definition TEXT that OCR garbled, against the PDF's own
     embedded text layer.
 
@@ -908,7 +1101,15 @@ def repair_def_text_from_pypdf(combined, pypdf_defs_by_page, page_offsets=None,
         pdf_text = by_num.get(num)
         if not pdf_text:
             return match.group(0)
-        repaired, ratio = _respace_from_pypdf(ocr_text, pdf_text, min_similarity)
+        # The similarity floor is there to answer "is this the same note?" — which is exactly
+        # what the block reconciliation has already settled for a CONFIRMED number, by aligning
+        # the whole page against the text layer. Keeping the floor there would refuse the only
+        # notes still worth repairing: a note garbled past recognition ("Michael Avasarheya and
+        # Miklos A. Alas, 'The Naw Economy'") scores 0.42 against the note it plainly is.
+        confirmed = bool(confirmed_numbers and num in confirmed_numbers)
+        floor = _REPAIR_CONFIRMED_MIN_SIMILARITY if confirmed else min_similarity
+        repaired, ratio = _respace_from_pypdf(ocr_text, pdf_text, floor,
+                                              identity_confirmed=confirmed)
         if repaired is None or repaired == ocr_text.strip():
             return match.group(0)
         repairs.append({
@@ -1267,6 +1468,147 @@ def assess_harvest_fidelity(footnote_meta, markdown, footnote_warnings=None):
         'confidence': confidence,
         'margin': None,
     }
+
+
+# A definition the text layer corroborates at or above this agrees with the print. Same bar as
+# the repair's — both answer "is this the note the document carries?".
+_DEF_WITNESS_MIN_SIMILARITY = 0.85
+# Below this share of definitions corroborated, the unreliable witness is the text LAYER, not
+# the book, and a verdict about the book would be a verdict about our extraction.
+_DEF_WITNESS_MIN_COVERAGE = 0.5
+# A definition this short carries no discriminating content either way ("Ibid.", "See ED75.").
+_DEF_WITNESS_MIN_CHARS = 12
+
+
+def assess_def_content_fidelity(markdown, pypdf_defs_by_page):
+    """Per-definition: does the PDF's own text layer corroborate what we are about to ship?
+
+    `assess_harvest_fidelity` counts — how many definitions for how many markers, are the
+    numbers unique. Both questions were answered "clean" on a document that shipped a
+    FABRICATED citation: deloitte's page-bottom notes are set in ~5pt part-italic type, the
+    OCR could not read them, and what it produced instead ("EIER (2019) How to Make a World:
+    A Guide to the TCF" where the page prints "Ibid.") is well-formed, plausible, and
+    entirely invented. Counts cannot see that. Only reading the definitions can.
+
+    So this is the CONTENT twin: every emitted definition is matched against the text layer's
+    own definitions, document-wide and NUMBER-AGNOSTIC — the question is "does the PDF say
+    this anywhere", so a numbering bug alone never produces an unwitnessed verdict. Only
+    content the document does not carry falls out.
+
+    Returns a fork-record, or None when there is nothing to witness with (the cached-OCR
+    replay runs without a PDF, and a verdict there would be unsupported).
+    """
+    if not pypdf_defs_by_page:
+        return None
+    pool = []
+    for page_defs in pypdf_defs_by_page.values():
+        for _num, text in page_defs:
+            folded = _comparable(text)
+            if folded:
+                pool.append(folded)
+    if not pool:
+        return None
+
+    import difflib
+    judged = 0
+    witnessed = 0
+    too_short = 0
+    unwitnessed = []
+    for match in re.finditer(r'^\[\^(\d+)\]:[ \t]*(.+)$', markdown or '', re.MULTILINE):
+        number = int(match.group(1))
+        body = match.group(2).strip()
+        probe = _comparable(body)
+        if len(probe) < _DEF_WITNESS_MIN_CHARS:
+            too_short += 1
+            continue
+        judged += 1
+        # Compare against the candidate's OPENING of comparable length, never its whole
+        # text. The extractor glues up to 700 characters of following page onto a page's
+        # last note, so the layer's copy of a 180-character note can be 700 characters long
+        # and the symmetric ratio reads 0.44 for a definition that matches it word for word.
+        # Capping the candidate is also what keeps this honest in the other direction: a
+        # fabricated definition assembled out of a real note's URL PATH stays low, because
+        # the fragments it was built from sit past the cap.
+        window = int(len(probe) * 1.1) + 10
+        # Every definition against every layer definition is O(defs x pool) over long strings —
+        # 9.3s on this 234-page book, and it scales with the square of the apparatus. difflib's
+        # own upper bounds (lengths, then the character multiset) are O(n) and let most
+        # candidates be discarded without ever running the real comparison. The result is
+        # EXACT: a candidate is only skipped when its ceiling is already at or below the best
+        # score so far. The probe stays seq1 and the candidate is seq2, even though seq2 is the
+        # cached side: SequenceMatcher.ratio() is NOT symmetric (find_longest_match breaks ties
+        # by position in seq1), so swapping them to save the cache silently changes the number
+        # — measured, it moved two of this book's 128 scores. Re-deriving seq2 per candidate is
+        # cheap because the candidate is windowed; the ratio() calls are what cost.
+        matcher = difflib.SequenceMatcher(None, autojunk=False)
+        matcher.set_seq1(probe)
+        best = 0.0
+        for candidate in pool:
+            matcher.set_seq2(candidate[:window])
+            if matcher.real_quick_ratio() <= best or matcher.quick_ratio() <= best:
+                continue
+            best = max(best, matcher.ratio())
+        if best >= _DEF_WITNESS_MIN_SIMILARITY:
+            witnessed += 1
+        else:
+            unwitnessed.append({'number': number, 'ratio': round(best, 3), 'text': body[:120]})
+
+    if not judged:
+        return None
+    fraction = round(witnessed / judged, 3)
+
+    if fraction < _DEF_WITNESS_MIN_COVERAGE:
+        # The layer corroborates almost nothing, which is a statement about the LAYER — a
+        # scanned PDF, a subset font, an excerpt whose pages we never had. Saying the book's
+        # citations are fabricated on this evidence would be the very error this exists to
+        # prevent.
+        verdict, confidence, why = ('not_witnessable', 0.9,
+            f'Only {witnessed} of {judged} definitions ({int(fraction * 100)}%) have any '
+            f'counterpart in the PDF text layer — the layer is not a usable witness for this '
+            f'document, so no definition here is being called unwitnessed.')
+    elif unwitnessed:
+        verdict, confidence, why = ('content_unwitnessed', 0.4,
+            f'{len(unwitnessed)} of {judged} definitions are NOT corroborated by the PDF\'s own '
+            f'text layer (the other {witnessed} are): '
+            + '; '.join('[^{0}] ({1}) {2}'.format(u['number'], u['ratio'], u['text'][:60])
+                        for u in unwitnessed[:4])
+            + '. Whatever the layer does not carry is our conversion\'s, not the author\'s. A '
+              'low agreement means the words were invented where OCR could not read the print; '
+              'one just under the bar means the note is recognisable but still says something '
+              'the document does not.')
+    else:
+        verdict, confidence, why = ('content_witnessed', 0.9,
+            f'All {judged} definitions are corroborated by the PDF\'s own text layer.')
+
+    return {
+        'seq': 1,
+        'module': 'pdf_footnote_content_fidelity',
+        'code_ref': 'recovery.py:assess_def_content_fidelity',
+        'node_help': assess_def_content_fidelity.plain,
+        'decision': 'def_content=' + verdict,
+        'question': ('Does the PDF\'s own text layer corroborate the TEXT of each footnote '
+                     'definition we are shipping? (counts cannot see a fabricated citation)'),
+        'rationale': why,
+        'evidence': {
+            'defs_judged': judged,
+            'witnessed': witnessed,
+            'witnessed_fraction': fraction,
+            'too_short_to_judge': too_short,
+            'layer_defs_in_pool': len(pool),
+            'unwitnessed_defs': unwitnessed[:20],
+        },
+        'considered': ['content_witnessed', 'content_unwitnessed', 'not_witnessable'],
+        'confidence': confidence,
+        'margin': None,
+    }
+
+
+assess_def_content_fidelity.plain = (
+    'AFTER assembly, the CONTENT self-check: is each footnote definition we are shipping something the '
+    'PDF actually says? Where OCR cannot read the print it does not leave a hole — it produces a '
+    'plausible, well-formed citation that is not in the document, and every count-based check calls '
+    'that clean. Each definition is matched against the PDF\'s own text layer, document-wide. A layer '
+    'that corroborates almost nothing is reported as an unusable WITNESS, never as a damaged book.')
 
 
 recover_missing_defs.plain = (

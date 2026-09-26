@@ -652,6 +652,20 @@ _DEF_MATCH_MIN_MARGIN = 0.05
 _DEF_MATCH_PREFIX_CHARS = 80
 
 
+def _def_whole_fingerprint(text):
+    """`_def_fingerprint` over the WHOLE definition rather than its opening.
+
+    The 80-char opening is the right thing to ALIGN on — it is stable against the tails the
+    two witnesses disagree about — but it cannot tell two works by the same author apart:
+    deloitte note 19 came back carrying note 18's text, and both open "Department of
+    Employment and Workplace Relations" (0.662 on the opening, 0.318 on the whole note).
+    So identity is decided on the whole thing, once alignment has already paired them.
+    """
+    import unicodedata
+    folded = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()
+    return re.sub(r'[^a-z0-9]+', '', folded)
+
+
 def _def_fingerprint(text):
     """Fold a definition body to what a SUBSTANTIVE difference would show up in.
 
@@ -748,6 +762,354 @@ def repair_page_def_numbers(block, pypdf_defs, page_label=''):
     return repaired, True
 
 
+# A page whose note block the OCR could not read at all is reconciled against the text layer
+# WHOLESALE rather than note by note. This many of the page's definitions must find a
+# confident, unique owner in the text layer before the rest is decided by elimination — below
+# it we are not reading the same block and the page is left alone.
+_RECONCILE_MIN_ANCHORED = 0.6
+
+# Below this, an OCR definition and the note printed in its slot have nothing in common and
+# the OCR's body is not a note the document carries at all — the hallucinated "EIER (2019)
+# How to Make a World" against the printed "Ibid." scores 0.102. Above it the note is merely
+# garbled, and the per-def text repair (now correctly paired) is the gentler instrument.
+_RECONCILE_FOREIGN_MAX = 0.45
+
+# An unanchored run longer than this is guesswork: positional pairing is only as good as the
+# anchors bracketing it, and a long unanchored stretch means there are barely any.
+_RECONCILE_MAX_GAP = 3
+
+# A text-layer block longer than this is not a page's note block — it is a bibliography page
+# or a table the extractor read as definitions, and it is in no position to arbitrate.
+_RECONCILE_MAX_LAYER_DEFS = 12
+
+
+# A whitespace-separated piece of pure letters is PROSE. Every other piece of a URL that
+# pypdf split keeps its punctuation ("-services/management/risk", "mpliance-framework/anno"),
+# so this is what says where a wrapped URL stops and the sentence after it starts.
+_LAYER_PROSE_PIECE_RE = re.compile(r'^[A-Za-z]{2,}$')
+_LAYER_PUNCT_PIECE_RE = re.compile(r'^[^\w]+$')
+# A lone run of URL punctuation ("risk - management-to olkit" for "risk-management-toolkit")
+# stays part of the URL, but only when something URL-shaped follows it. A lone ";" before
+# "In stitute o f In ternal Au ditors" ends it.
+_LAYER_URL_PUNCT_RE = re.compile(r'^[-/._~]+$')
+# A bare short number after a URL is the NEXT note's printed number, glued on by the
+# extractor — not a path segment ("…/wiki/…mainland_China 2 Data source: WHO, …").
+_LAYER_BARE_NUMBER_RE = re.compile(r'^\d{1,3}$')
+
+
+def _join_wrapped_url(pieces, start):
+    """Consume the wrapped URL beginning at `pieces[start]`. -> (next_index, url)."""
+    url = [pieces[start]]
+    idx = start + 1
+    while idx < len(pieces):
+        prev = url[-1]
+        # A URL does not carry on past these: pypdf splits INSIDE a token, so the piece it
+        # broke off never follows a closing comma, semicolon or bracket.
+        if prev and prev[-1] in ',;)]}>"':
+            break
+        nxt = pieces[idx]
+        if not nxt or nxt[0] in '([{"\'“‘«':
+            break                       # "(accessed on September 8, 2013)" is not path
+        if _LAYER_BARE_NUMBER_RE.match(nxt):
+            break                       # the next footnote's NUMBER, glued on by the extractor
+        if _LAYER_PROSE_PIECE_RE.match(nxt):
+            break
+        if _LAYER_PUNCT_PIECE_RE.match(nxt):
+            following = pieces[idx + 1] if idx + 1 < len(pieces) else None
+            if not (_LAYER_URL_PUNCT_RE.match(nxt) and following
+                    and not _LAYER_PROSE_PIECE_RE.match(following)
+                    and not _LAYER_PUNCT_PIECE_RE.match(following)):
+                break
+        url.append(nxt)
+        idx += 1
+    joined = ''.join(url)
+    trailing = ''
+    while joined and joined[-1] in '.,;:':
+        trailing = joined[-1] + trailing
+        joined = joined[:-1]
+    return idx, joined + trailing
+
+
+def sanitize_layer_def_text(text):
+    """Text-layer definition text fit to be EMITTED as a definition.
+
+    Emitting the layer's own text is the one place its artifacts cannot be mapped away —
+    there is no OCR token stream to substitute into, so pypdf's glyph-by-glyph spacing
+    ships as-is ("Workplace R elations ( Cth)"). A human and an LLM both read through that.
+    A URL does not: "https://www .dewr.gov.au/assuring-integrity-targeted-co mpliance-…" is
+    a dead link, and the printed URL is the strongest signal citation resolution has. A URL
+    cannot contain a space, so rejoining one is not a guess — the only question is where it
+    ENDS, and that is decided conservatively: the moment the text stops looking like path,
+    the URL stops. Under-joining leaves the link as broken as it already was; over-joining
+    invents a different address, so every ambiguous case stops.
+
+    Only URL spans are touched. Everything else, including whitespace, is returned verbatim.
+    """
+    if 'http' not in text:
+        return text
+    parts = re.split(r'(\s+)', text)
+    words = [(slot, part) for slot, part in enumerate(parts) if part and not part.isspace()]
+    word_texts = [part for _slot, part in words]
+    out = list(parts)
+    dropped = set()
+    index = 0
+    while index < len(word_texts):
+        if not word_texts[index].startswith(('http://', 'https://')):
+            index += 1
+            continue
+        end, url = _join_wrapped_url(word_texts, index)
+        out[words[index][0]] = url
+        for absorbed in range(index + 1, end):
+            dropped.add(words[absorbed][0])
+            dropped.add(words[absorbed][0] - 1)      # the whitespace that split the token
+        index = end
+    return ''.join(part for slot, part in enumerate(out) if slot not in dropped)
+
+
+def reconcile_page_defs_with_pypdf(block, lines, pypdf_defs, ref_nums, page_label='',
+                                   confirmed_out=None):
+    """Reconcile a page's whole OCR definition BLOCK against the PDF's own text layer.
+
+    `repair_page_def_numbers` above fires only when the OCR contradicts ITSELF (a repeated or
+    descending number). That misses the failure this exists for, where the OCR is internally
+    consistent and simply wrong: deloitte prints its page-bottom notes in ~5pt part-italic
+    type, and page 6's four notes came back as note 1 truncated ("Failing Thaw", its URL line
+    gone), then a FABRICATED full citation ("EIER (2019) How to Make a World: A Guide to the
+    TCF") standing where the printed note reads "Ibid.", then the real notes 3 and 4 labelled
+    4 and 5. Every number ascends, so nothing looked wrong; the claim at marker 2 was held
+    against an invented work and the reviewer returned "source not found" — a verdict about
+    our conversion wearing the clothes of a verdict about the citation.
+
+    Per-definition repair cannot reach that. `repair_def_text_from_pypdf` pairs by NUMBER, so
+    once the numbering is wrong every comparison is against the wrong note and refuses at the
+    similarity floor (measured: zero repairs on that page). And no per-def pass can express
+    "the OCR invented this note" or "the OCR lost that one" — only a whole-block view can.
+
+    So: align the two ordered blocks and decide four ways.
+      • matched            → take the text layer's NUMBER (fixes the 4→3 / 5→4 mislabel);
+                             the text itself is left to repair_def_text_from_pypdf later.
+      • matched, but the two cannot be the same note → the OCR invented it and the document
+                             does print a note there → take the layer's TEXT as well.
+      • an OCR def with no counterpart → spurious; drop it, or it consumes a global number.
+      • a layer def with no counterpart → the OCR lost the note; insert it.
+
+    Short definitions fall out of this for free, which is why alignment beats the per-def
+    best-match `repair_page_def_numbers` uses. On the real page 6 the confident scores are
+    0.963 / 1.000 / 1.000 against layer notes 1, 3 and 4 (runner-up 0.250), leaving the
+    hallucination and the printed "Ibid." as the only unclaimed pair — so "Ibid." is assigned
+    by ELIMINATION and never has to win a fingerprint contest, which its 4-character
+    fingerprint could not do against the 12-character floor the older pass imposes.
+
+    Deliberately all-or-nothing, like its sibling: unless the whole page resolves, nothing on
+    it is touched. A partial reconciliation would mix repaired and unrepaired numbering, which
+    is a fresh way to collide.
+
+    Args:
+        block: [(line_index, number, number_str, body), …] in page order.
+        lines: the page's lines; definitions are inserted and dropped here.
+        pypdf_defs: [(number, text), …] for THIS page from extract_pypdf_footnote_defs().
+        page_label: for the log line.
+
+    Returns:
+        (block, lines, changed).
+    """
+    import difflib
+
+    if not block or not pypdf_defs:
+        return block, lines, False
+
+    # The text layer's own block must be a clean ascending run before it can arbitrate
+    # anything — a repeated or descending number there means the EXTRACTOR is confused
+    # (a table row, a TOC tail) and it is in no position to correct the OCR.
+    layer = []
+    for num, text in pypdf_defs:
+        fingerprint = _def_fingerprint(text)
+        if not fingerprint:
+            return block, lines, False
+        layer.append((num, text, fingerprint))
+    layer_nums = [n for n, _t, _f in layer]
+    if not 2 <= len(layer) <= _RECONCILE_MAX_LAYER_DEFS:
+        return block, lines, False
+    # CONTIGUOUS, not merely ascending. A gap means the extractor missed a note on this page,
+    # and then "the layer has no counterpart for this def" stops meaning "the OCR invented it".
+    # It is also what keeps a Contents page out: deloitte's reads as defs 6,7,9,10,11,12.
+    if layer_nums != list(range(layer_nums[0], layer_nums[0] + len(layer_nums))):
+        return block, lines, False
+
+    probes = [_def_fingerprint(body) for _i, _n, _s, body in block]
+    scores = [[difflib.SequenceMatcher(None, probe, fingerprint, autojunk=False).ratio()
+               for _n, _t, fingerprint in layer] for probe in probes]
+
+    # Confident, unique owners first. A def only anchors the alignment if one layer note
+    # beats every other by a clear margin AND no other def claims it more strongly.
+    best_for = {}
+    for i, row in enumerate(scores):
+        ranked = sorted(range(len(layer)), key=lambda j: row[j], reverse=True)
+        top = ranked[0]
+        runner_up = row[ranked[1]] if len(ranked) > 1 else 0.0
+        if row[top] >= _DEF_MATCH_MIN_SIMILARITY and row[top] - runner_up >= _DEF_MATCH_MIN_MARGIN:
+            best_for[i] = top
+    # Two definitions claiming one layer note with the SAME score anchor nothing — picking
+    # either by document order is a coin toss, and the loser then has no counterpart and
+    # would be deleted as spurious. Page 13 of deloitte is exactly this: note 19 came back
+    # carrying note 18's text, so both score 1.000 against layer note 18. Left unanchored,
+    # the pair falls through to the positional gap-fill below, which gets both right.
+    contested = set()
+    anchors = {}
+    for i, j in best_for.items():
+        held = anchors.get(j)
+        if held is None:
+            anchors[j] = i
+        elif abs(scores[i][j] - scores[held][j]) < _DEF_MATCH_MIN_MARGIN:
+            contested.add(j)
+        elif scores[i][j] > scores[held][j]:
+            anchors[j] = i
+    for j in contested:
+        anchors.pop(j, None)
+    anchored = sorted((i, j) for j, i in anchors.items())
+
+    if len(anchored) < max(1, int(round(_RECONCILE_MIN_ANCHORED * len(block)))):
+        return block, lines, False
+    # Page order IS print order on both sides; an inversion means we are not reading the
+    # same block and no amount of gap-filling can rescue it.
+    if any(anchored[k][1] >= anchored[k + 1][1] for k in range(len(anchored) - 1)):
+        return block, lines, False
+
+
+    # Fill the gaps between anchors by elimination.
+    plan = []          # ('keep', i, num, body) | ('replace', i, num, text) | ('drop', i) | ('insert', num, text)
+    prev_i, prev_j = -1, -1
+    for i, j in anchored + [(len(block), len(layer))]:
+        gap_defs = list(range(prev_i + 1, i))
+        gap_layer = list(range(prev_j + 1, j))
+        if gap_defs and gap_layer:
+            # An unanchored run is paired POSITIONALLY — page order is print order on both
+            # sides — and only for a short run, because positional pairing is worth no more
+            # than the anchors bracketing it.
+            if len(gap_defs) > _RECONCILE_MAX_GAP or len(gap_layer) > _RECONCILE_MAX_GAP:
+                return block, lines, False
+
+            def _identity(def_index, layer_index):
+                return difflib.SequenceMatcher(
+                    None, _def_whole_fingerprint(block[def_index][3]),
+                    _def_whole_fingerprint(layer[layer_index][1]), autojunk=False).ratio()
+
+            if len(gap_defs) != len(gap_layer):
+                # Unequal sides can only be read one way: everything the OCR produced here is
+                # foreign to everything the page prints here, so the count difference is junk
+                # it invented or notes it lost. If ANY of them is recognisably one of these
+                # notes, the pairing is ambiguous and the page is refused. deloitte page 6 is
+                # the first case — two fabrications ("EIER (2019) How to Make a World", "StoE")
+                # standing where the page prints one note, "Ibid.".
+                if any(_identity(gi, gj) >= _RECONCILE_FOREIGN_MAX
+                       for gi in gap_defs for gj in gap_layer):
+                    return block, lines, False
+                for gi, gj in zip(gap_defs, gap_layer):
+                    plan.append(('replace', gi, layer[gj][0],
+                                 sanitize_layer_def_text(layer[gj][1])))
+                plan.extend(('drop', gi) for gi in gap_defs[len(gap_layer):])
+                plan.extend(('insert', layer[gj][0], sanitize_layer_def_text(layer[gj][1]))
+                            for gj in gap_layer[len(gap_defs):])
+            else:
+                for gi, gj in zip(gap_defs, gap_layer):
+                    if _identity(gi, gj) >= _RECONCILE_FOREIGN_MAX:
+                        # Garbled, possibly badly, but recognisably the note printed there.
+                        # Take the layer's NUMBER only — the pairing is now right, so the
+                        # per-def text repair can finish the job without importing pypdf's
+                        # spacing wholesale.
+                        plan.append(('keep', gi, layer[gj][0], block[gi][3]))
+                    else:
+                        # Nothing in common with the note printed there: what the OCR produced
+                        # is not a note this document carries. The layer's text is.
+                        plan.append(('replace', gi, layer[gj][0],
+                                     sanitize_layer_def_text(layer[gj][1])))
+        elif gap_defs:
+            plan.extend(('drop', gi) for gi in gap_defs)
+        elif gap_layer:
+            plan.extend(('insert', layer[gj][0], sanitize_layer_def_text(layer[gj][1]))
+                        for gj in gap_layer)
+        if i < len(block):
+            plan.append(('keep', i, layer[j][0], block[i][3]))
+        prev_i, prev_j = i, j
+
+    # A surviving pair settles IDENTITY: this definition and that printed note are the same
+    # note, on the evidence of the whole block's alignment rather than of their own
+    # similarity. Published only from a page that RESOLVED — a refused page proves nothing —
+    # and published even when the page needs no other change, because the value is downstream:
+    # the text repair can then correct a note too garbled to recognise on its own ("Michael
+    # Avasarheya and Miklos A. Alas, 'The Naw Economy'" for "Michael A Vasarhelyi and Miklos A
+    # Alles, 'The "Now" Economy'", which its own similarity floor refuses at 0.42).
+    def _publish_confirmed():
+        if confirmed_out is not None:
+            confirmed_out.update(entry[2] for entry in plan if entry[0] == 'keep')
+
+    renumbered = any(entry[0] == 'keep' and entry[2] != block[entry[1]][1] for entry in plan)
+    restructured = any(entry[0] != 'keep' for entry in plan)
+    if not renumbered and not restructured:
+        _publish_confirmed()
+        return block, lines, False           # the text layer agrees with the OCR; nothing to do
+
+    # The proposal has to survive the licensing test further down, or the definitions this
+    # pass just rewrote never become [^N]: lines at all and an INSERTED note would be a
+    # numbered prose line stranded in the body. Refuse rather than half-apply.
+    final_nums = [entry[1] if entry[0] == 'insert' else entry[2]
+                  for entry in plan if entry[0] != 'drop']
+    if len(final_nums) < 2 \
+            or any(final_nums[k] >= final_nums[k + 1] for k in range(len(final_nums) - 1)) \
+            or not (set(final_nums) & ref_nums):
+        return block, lines, False
+
+    _publish_confirmed()
+    return _apply_reconciled_plan(block, lines, plan, page_label)
+
+
+def _apply_reconciled_plan(block, lines, plan, page_label):
+    """Rewrite `lines` for a reconciled page and rebuild the block with valid line indices."""
+    dropped = {block[entry[1]][0] for entry in plan if entry[0] == 'drop'}
+    slot_for = {}
+    for position, entry in enumerate(plan):
+        if entry[0] in ('keep', 'replace'):
+            slot_for[block[entry[1]][0]] = position
+
+    def _rendered(num, body):
+        return '{0} {1}'.format(num, re.sub(r'\s+', ' ', body).strip())
+
+    new_lines = []
+    new_block = []
+    position = 0
+
+    def _flush_inserts(until):
+        nonlocal position
+        while position < until:
+            entry = plan[position]
+            if entry[0] == 'insert':
+                new_block.append((len(new_lines), entry[1], str(entry[1]), entry[2]))
+                new_lines.append(_rendered(entry[1], entry[2]))
+            position += 1
+
+    for idx, line in enumerate(lines):
+        if idx in dropped:
+            continue
+        if idx in slot_for:
+            _flush_inserts(slot_for[idx])
+            entry = plan[position]
+            body = entry[3]
+            leading = ' ' * (len(line) - len(line.lstrip()))
+            new_block.append((len(new_lines), entry[2], str(entry[2]), body))
+            new_lines.append(leading + _rendered(entry[2], body))
+            position += 1
+            continue
+        new_lines.append(line)
+    _flush_inserts(len(plan))
+
+    before = ','.join(str(b[1]) for b in block)
+    after = ','.join(str(b[1]) for b in new_block)
+    actions = ','.join(sorted({e[0] for e in plan if e[0] != 'keep'})) or 'renumber'
+    print("  footnote def block reconciled with the PDF text layer{0}: {1} → {2} ({3})".format(
+        page_label, before, after, actions))
+    return new_block, new_lines, True
+
+
 def find_midpage_def_block(lines, candidate_fn, pypdf_defs):
     """A note block the OCR emitted in the MIDDLE of a page, with body text after it.
 
@@ -805,7 +1167,7 @@ def find_midpage_def_block(lines, candidate_fn, pypdf_defs):
 
 
 def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,
-                            pypdf_defs=None, page_label=''):
+                            pypdf_defs=None, page_label='', confirmed_out=None):
     """Renumber footnotes on a single page from local numbering to global sequential.
 
     For "page_bottom" documents where each page restarts at [^1].
@@ -879,6 +1241,36 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
     # hole, shifted EVERY later note one place against the printed article. Lift the block to
     # the foot of the page and let the normal path have it. Gated on the text layer agreeing
     # note-for-note, and only for a page with no bottom block at all.
+    # TWO notes on ONE line: the OCR ran the next definition onto the end of this one
+    # ("…(ACOSS Paper No 180, …, August 2011). [^106]Australian Council of Social Service…").
+    # It costs the swallowed note its definition outright, and it also makes the surviving one
+    # unrepairable — the extra text drags its similarity against the text layer below the floor,
+    # which is how "Is Job Service Australia" kept the printed "Job Services Australia" out.
+    # Split only on the NEXT consecutive number followed by a definition-shaped opener: a note
+    # that merely mentions another ("see n 106") carries no converted marker, and a genuine run
+    # is consecutive by construction.
+    _split_lines = []
+    for _line in lines:
+        _cand = _def_candidate(_line.strip())
+        _did = False
+        if _cand:
+            _own = _cand[0]
+            # Skip the line's OWN leading marker — the glued one is always further in.
+            _at = next((m for m in re.finditer(
+                r'\[\^(\d{1,3})\]\s*(?=["\'‘“(]?[A-Z]|' + DEF_URL_OPENER + r')', _line)
+                if m.start() > 0 and int(m.group(1)) == _own + 1), None)
+            if _at:
+                _head = _line[:_at.start()].rstrip()
+                _tail = _line[_at.start():].strip()
+                if _def_candidate(_tail):
+                    _split_lines.extend([_head, _tail])
+                    _did = True
+                    print("  glued footnote definitions split{0}: [^{1}] had [^{2}] run onto "
+                          "the end of it".format(page_label, _own, _at.group(1)))
+        if not _did:
+            _split_lines.append(_line)
+    lines = _split_lines
+
     _last = next((l.strip() for l in reversed(lines) if l.strip()), '')
     if pypdf_defs and (not _last or _def_candidate(_last) is None):
         midpage = find_midpage_def_block(lines, _def_candidate, pypdf_defs)
@@ -910,8 +1302,19 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
 
     # Before anything trusts these numbers: a block that repeats or descends is the OCR
     # contradicting itself, and the PDF's own text layer can say which body is which note.
+    _repaired = False
     if block:
         block, _repaired = repair_page_def_numbers(block, pypdf_defs, page_label)
+
+    # ...and a block that is internally consistent can still be wrong, note for note, when
+    # the OCR could not read the print at all. That needs the whole block compared with the
+    # text layer's, not each definition with the number its own (mis)numbering points at.
+    # Never stacked on top of a repair: two rewrites of one block, on two different models of
+    # what the layer's own order means, is a fresh way to collide.
+    confirmed_local = set()
+    if block and not _repaired:
+        block, lines, _reconciled = reconcile_page_defs_with_pypdf(
+            block, lines, pypdf_defs, ref_nums, page_label, confirmed_out=confirmed_local)
 
     # A trailing run of STRICTLY ASCENDING numbers that overlaps this page's in-text refs is
     # unambiguously a page-bottom footnote block -- convert the WHOLE run, even numbers whose own
@@ -992,6 +1395,9 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
         global_counter += 1
     if mapping_out is not None:
         mapping_out.update({int(k): int(v) for k, v in local_to_global.items()})
+    if confirmed_out is not None and confirmed_local:
+        confirmed_out.update(int(local_to_global[str(n)]) for n in confirmed_local
+                             if str(n) in local_to_global)
 
     # Single-pass replacement using a callback
     def replace_local(m):
@@ -1495,6 +1901,10 @@ class AssemblyContext:
         self.footer_bare_candidates = {}     # {num: text} bare-number footer defs, injected only if [^N] is orphaned
         self.def_heavy_pages = set()
         self.page_local_to_global = {}       # page_idx → {local fn num: global fn num} (page_bottom renumber)
+        # Global def numbers the text layer's own block CONFIRMED as this note (see
+        # reconcile_page_defs_with_pypdf). Identity is settled for these, so the text repair
+        # no longer has to infer it from similarity and can fix a heavily garbled note.
+        self.text_layer_confirmed = set()
         self.pypdf_page_defs = None          # page_idx → [(num, text)] from the PDF text layer (page_bottom + real PDF)
         self.pypdf_page_texts = None         # page_idx → raw pypdf page text (marker resurrection)
         self.chapter_fn_offsets = None

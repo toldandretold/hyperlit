@@ -371,3 +371,254 @@ def test_stray_digits_are_never_appended_to_a_pinpoint():
         'Karen Yeung, ‘Algorithmic Regulation’ (2018) 12(4) Regulation and Governance 505, 510–13.7268',
     )
     assert out is None or '7268' not in out
+
+
+# ---------------------------------------------------------------------------
+# Layer 5 — a definition whose CONTINUATION LINE the OCR dropped
+#
+# deloitte note 1 prints over two lines: the citation, then its aph.gov.au URL. The OCR kept
+# only the first, so the def is a truncated PREFIX of the note — and the whole-string
+# similarity then reads "different note" and refuses the repair, so "Failing Thaw" (for
+# "Failing Those") shipped from a text layer that had it right all along. The URL went with
+# it, which is the one thing citation resolution can act on directly.
+# ---------------------------------------------------------------------------
+
+NOTE1_OCR = ('Senate Education and Employment References Committee, *Jobactive: Failing Thaw '
+             'It Is Intended to Serve* (Report, February 2019)')
+NOTE1_LAYER = ('Senate Education and Employment Ref erences Committee, Jobactiv e: Failing '
+               'Those It Is Int ended to Serve(Report, February 2019) '
+               'https://www.aph.gov.au/Parliamentary_Business/Committees/Senate/'
+               'Education_and_Employment/JobActive2018/Report .')
+
+
+def test_a_dropped_url_line_no_longer_defeats_the_repair():
+    """The failure is arithmetic, not semantic: our def is ~120 chars against the layer's
+    ~230, so the symmetric ratio is 0.65 and the 0.85 floor refuses a note it matches word
+    for word. Both numbers are pinned because the gap between them IS the bug."""
+    import difflib
+    whole_ratio = difflib.SequenceMatcher(
+        None, M._strip_tokens(NOTE1_OCR)[0].lower(),
+        M._strip_tokens(NOTE1_LAYER)[0].lower(), autojunk=False).ratio()
+    assert whole_ratio < 0.70, 'the pre-fix comparison, which refused at the 0.85 floor'
+
+    repaired, ratio = M._respace_from_pypdf(NOTE1_OCR, NOTE1_LAYER)
+    assert ratio > 0.97
+    assert 'Failing Those' in repaired and 'Thaw' not in repaired
+
+
+def test_the_dropped_line_is_restored_when_it_is_a_url():
+    repaired, _ratio = M._respace_from_pypdf(NOTE1_OCR, NOTE1_LAYER)
+    assert repaired.endswith(
+        'https://www.aph.gov.au/Parliamentary_Business/Committees/Senate/'
+        'Education_and_Employment/JobActive2018/Report')
+    # the emphasis the OCR added survives untouched
+    assert '*Jobactive: Failing Those It Is Intended to Serve*' in repaired
+
+
+def test_a_wrapped_url_is_de_whitespaced_on_the_way_in():
+    """pypdf breaks a URL wherever the glyphs fell, so the restored link has to be rejoined
+    or it is as dead as the one it replaces."""
+    ocr = ('Department of Employment and Workplace Relations, Workforce Australia Caseload '
+           'Time Series (Report, 17 April 2025)')
+    layer = ocr + (' https://www.dewr.gov.au/employment -\nservices-data/resources/workfo '
+                   'rce-australia-caseload-time-series.')
+    repaired, _ratio = M._respace_from_pypdf(ocr, layer)
+    assert repaired.endswith('https://www.dewr.gov.au/employment-services-data/resources/'
+                             'workforce-australia-caseload-time-series')
+
+
+def test_page_chrome_glued_to_the_layer_def_is_never_appended():
+    """The extractor glues up to 700 characters of the following page onto a page's last
+    note. Restoring THAT is the whole-def rebuild this module exists to avoid."""
+    ocr = 'Karl Marx, *Capital* (Penguin, 1976) 12.'
+    layer = ('Karl Marx, Capital (Penguin, 1976) 12. Independent Review of Targeted '
+             'Compliance Framework | Executive Summary')
+    assert M._respace_from_pypdf(ocr, layer)[0] is None
+
+
+def test_a_prose_continuation_is_not_restored():
+    """Only a URL. There is no syntactic check for prose, so a non-URL tail is left for the
+    content-fidelity verdict to make VISIBLE rather than guessed at."""
+    ocr = 'Department of Employment and Workplace Relations (Cth), Statement of Work'
+    layer = ocr + ' (copy on file with author).'
+    repaired, _ratio = M._respace_from_pypdf(ocr, layer)
+    assert repaired is None or 'copy on file' not in repaired
+
+
+def test_a_def_that_already_carries_the_url_is_not_given_a_second_one():
+    ocr = 'Dept, *Report* (2025) https://www.dewr.gov.au/x'
+    assert M._respace_from_pypdf(ocr, 'Dept, Report (2025) https://www.dewr.gov.au/x')[0] is None
+
+
+def test_a_confirmed_pairing_lowers_the_floor_for_that_number_only():
+    """Once the page's whole block has been aligned against the text layer, identity is
+    settled and the similarity floor is only in the way: "Michael Avasarheya and Miklos A.
+    Alas, 'The Naw Economy'" scores 0.42 against the note it plainly is."""
+    ocr = ('Michael Avasarheya and Miklos A. Alas, "The \'Naw\' Economy and the Need for '
+           'Continuous Assurance and Reporting" (2008) 22(2) *International Journal of '
+           'Accounting Information Systems* 1, 3-4.')
+    # ...and the reason it scores so low is the extractor's own 700-character glue: this is
+    # a page's LAST note, so the text layer's copy carries the next page's opening.
+    layer = ('Michael A Vasarhelyi and Miklos A Alles, \'The "N ow" Eco nomy and the Need f or '
+             'Continuous Assurance and Reporting\' (2008) 22(2) International Journal of '
+             'Accounting Information Systems 1, 3-4. 1.3.4 Compliance Model Design and '
+             'Maturity (Cont.) In relation to the defect issues identified by the Department, '
+             'evidence shows that despite processing flaws, the IT system still proceeded to '
+             'progress participant cases into compliance action.')
+    combined = '[^20]: ' + ocr + '\n'
+    defs = {0: [(20, layer)]}
+
+    untouched, repairs = M.repair_def_text_from_pypdf(combined, defs)
+    assert repairs == [] and untouched == combined
+
+    fixed, repairs = M.repair_def_text_from_pypdf(combined, defs, confirmed_numbers={20})
+    assert repairs and 'Vasarhelyi' in fixed and 'Alles' in fixed
+    assert 'Avasarheya' not in fixed
+    # the glue that dragged the ratio down must not be dragged in with the fix
+    assert 'Compliance Model Design' not in fixed
+
+
+# ---------------------------------------------------------------------------
+# The printed PAGE NUMBER glued to the first note's number
+# ---------------------------------------------------------------------------
+
+def test_a_page_number_glued_to_a_note_number_is_split():
+    """deloitte page 7 arrives as "75 Department of Employment…" — folio 7, note 5. Read
+    literally it is note 75, which belongs to no page map, so the note gets no witness at
+    all: its definition shipped with a wholly invented URL the text layer could have fixed."""
+    defs = {5: [(4, 'The previous page last note.')],
+            6: [(75, 'Department of Employment and Workplace Relations (Cth), Secretary'),
+                (6, 'See as examples, Social Security.')]}
+    M._unglue_page_numbers(defs)
+    assert [n for n, _t in defs[6]] == [5, 6]
+
+
+def test_a_genuine_high_note_number_is_left_alone():
+    """The negative that matters: on folio 7, a real note 75 on an already-ascending page
+    must not be silently renumbered to 5 — that is the same class of damage as the bug."""
+    defs = {5: [(74, 'The previous page last note.')],
+            6: [(75, 'A real note seventy-five.'), (76, 'And seventy-six.')]}
+    M._unglue_page_numbers(defs)
+    assert [n for n, _t in defs[6]] == [75, 76]
+
+
+# ---------------------------------------------------------------------------
+# Whose words are these? — the CONTENT twin of assess_harvest_fidelity
+# ---------------------------------------------------------------------------
+
+def test_a_fabricated_definition_is_reported_as_unwitnessed():
+    layer = {5: [(1, NOTE1_LAYER), (2, 'Ibid.'),
+                 (3, 'Social Security (Administ ration) Act 1999 (Cth) pt 3 div 3AA.'),
+                 (4, 'Department of Employment and Workplace Relations (Cth), Statement of '
+                     'Work - Statement of Assurance on t he Operat ions of t he T argeted '
+                     'Compliance Framework (ESE24/1263, 28 November 2024).')]}
+    md = ('[^1]: ' + NOTE1_OCR + '\n'
+          '[^2]: EIER (2019) *How to Make a World: A Guide to the TCF* (Report, February 2019)\n'
+          '[^3]: Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA.\n'
+          '[^4]: Department of Employment and Workplace Relations (Cth), Statement of Work - '
+          'Statement of Assurance on the Operations of the Targeted Compliance Framework '
+          '(ESE24/1263, 28 November 2024).\n')
+    record = M.assess_def_content_fidelity(md, layer)
+    assert record['decision'] == 'def_content=content_unwitnessed'
+    assert [u['number'] for u in record['evidence']['unwitnessed_defs']] == [2]
+
+
+def test_no_text_layer_means_no_verdict():
+    """The cached-OCR replay runs without a PDF. A verdict there would be unsupported."""
+    assert M.assess_def_content_fidelity('[^1]: Anything at all, at length.\n', {}) is None
+
+
+def test_a_layer_that_corroborates_nothing_is_reported_as_an_unusable_witness():
+    """A scanned PDF, a subset font, an excerpt whose pages we never had — the unreliable
+    party is the LAYER, and calling the book's citations fabricated on that evidence is the
+    very error this exists to prevent."""
+    layer = {0: [(1, 'Utterly unrelated text about something else entirely, at length.')]}
+    md = ('[^1]: Senate Education and Employment References Committee, Jobactive.\n'
+          '[^2]: Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA.\n')
+    record = M.assess_def_content_fidelity(md, layer)
+    assert record['decision'] == 'def_content=not_witnessable'
+    assert record['confidence'] == 0.9
+
+
+def test_a_short_definition_is_not_judged_either_way():
+    layer = {0: [(1, 'Social Security (Administ ration) Act 1999 (Cth) pt 3 div 3AA.')]}
+    md = '[^1]: Ibid.\n[^2]: Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA.\n'
+    record = M.assess_def_content_fidelity(md, layer)
+    assert record['evidence']['too_short_to_judge'] == 1
+    assert record['evidence']['defs_judged'] == 1
+
+
+def test_a_confirmed_pair_drops_page_glue_before_comparing():
+    """The third appearance of the same length trap, and the reason the fix is scoped to a
+    CONFIRMED pair. The extractor glues up to 700 characters of the FOLLOWING PAGE onto a
+    page's last note, so deloitte's 229-character note 6 is matched against a 678-character
+    layer copy ending "1.3 Analysis and Findings Over the past two years…". The surplus drags
+    the ratio to 0.52 and the repair declines a note that otherwise matches almost exactly —
+    leaving a dead URL (guides.dss.gov/socialsecurity-guide for guides.dss.gov.au/social-
+    security-guide) in a citation the text layer had right.
+
+    Dropping the tail is only safe once IDENTITY is settled, which for a confirmed pair the
+    block alignment has already done; unconfirmed, the length gate is still the guard against
+    a wrongly-paired note and must keep refusing.
+    """
+    ocr = ('See as examples, Social Security Administration (Non-Compliance) Determination '
+           '2018 (No 1) (Cth); Department of Social Services (Cth), Social Security Guide '
+           '(Version 1.329, 12 May 2025) https://guides.dss.gov/socialsecurity-guide')
+    layer = ('See as examples, Social Security (Administration) (No n -Compliance) Determinatio n '
+             '2018 (N o 1) (Cth); Department o f So cial Services (Cth), So cial Security Guide '
+             '(Version 1.329, 12 May 2025) https://guides.dss.gov.au/social -security-guide. '
+             '1.3 Analysis and Findings Over the past two years, the Department has taken steps '
+             'to identify and address issues with the TCF and its supporting IT system.')
+
+    refused, glued_ratio = M._respace_from_pypdf(ocr, layer, min_similarity=0.40)
+    assert refused is None, 'unconfirmed, the glue still defeats the repair'
+
+    repaired, ratio = M._respace_from_pypdf(ocr, layer, min_similarity=0.40,
+                                            identity_confirmed=True)
+    # Dropping the tail is the whole difference; assert the lift rather than a tuned figure,
+    # since how much glue the extractor caught varies per page.
+    assert ratio > 0.95 and ratio > glued_ratio
+    assert 'https://guides.dss.gov.au/social-security-guide' in repaired
+    # the glue that was cut off must not come back in with the fix
+    assert 'Analysis and Findings' not in repaired
+
+
+def test_a_repeated_short_form_is_not_running_footer_chrome():
+    """The anti-chrome rule rejects any text appearing under two or more numbers, because a
+    running footer does exactly that ("2 PALGRAVE COMMUNICATIONS | 3:17092 | DOI…" on page 2,
+    "4 PALGRAVE…" on page 4). A back-reference also does exactly that — it is what it is FOR.
+    deloitte prints "Ibid." twenty-odd times, so every one of them was silently discarded and
+    its marker left with no definition; one of those slots came back carrying a fragment of
+    the page's table instead."""
+    defs = {0: [(21, 'Terry Carney, Automating Compliance and Administrative Justice.'),
+                (22, 'Ibid.')],
+            1: [(30, 'Another real note, long enough to be distinct from the first.'),
+                (31, 'Ibid.')]}
+    got = dict(M.recover_missing_defs(set(), defs, max_ref_number=40))
+    assert got.get(22) == 'Ibid.' and got.get(31) == 'Ibid.'
+
+
+def test_real_running_footer_chrome_is_still_rejected():
+    footer = 'PALGRAVE COMMUNICATIONS | 3:17092 | DOI: 10.1057/palcomms.2017.92 | www.nature.com'
+    assert M.recover_missing_defs(set(), {1: [(2, footer)], 3: [(4, footer)]}, 40) == []
+
+
+def test_a_repeated_paragraph_is_furniture_whatever_it_opens_with():
+    """The exemption is for SHORT forms. A repeated paragraph that happens to begin "Ibid."
+    is still page furniture."""
+    long_repeat = 'Ibid. ' + ('and then a long repeated run of page furniture text ' * 3)
+    assert M.recover_missing_defs(set(), {0: [(5, long_repeat)], 1: [(6, long_repeat)]}, 40) == []
+
+
+def test_a_date_is_not_a_marker_seam():
+    """"(Report, 17 April 2025)" is word, punctuation, number, capitalised word — the exact
+    shape of a glued marker seam. Planting [^17] there puts a marker inside another note's
+    definition; nothing about the seam itself can tell the two apart."""
+    seams = list(M._marker_seams('Workforce Australia Caseload Time Series (Report, 17 April '
+                                 '2025) https://example.org/x\n'))
+    assert all(n != 17 for _w, n, _a, _f in seams)
+
+
+def test_the_ordinary_glued_seam_still_fires():
+    seams = [(w, n, f) for w, n, _a, f in M._marker_seams('mitigate risk.9 This ensures that\n')]
+    assert ('risk', 9, 'This') in seams
