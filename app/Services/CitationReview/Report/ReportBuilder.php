@@ -163,6 +163,19 @@ final class ReportBuilder
         $verificationModel = basename(config('services.llm.verification_model'));
         $md .= "> Truth claims are extracted by [{$extractionModel}] and verified by [{$verificationModel}]. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
 
+        // The method figure sits AFTER the results, deliberately — a reader comes for the
+        // verdicts first, the methodology second. The verdict fan on the figure reuses the
+        // buckets counted just above, so figure and summary chart cannot disagree.
+        $md .= $this->howThisWorksSection($claims, [
+            'Broken Sources'     => count($brokenByReference),
+            'Unverified Sources' => count($unverified),
+            'Rejected'           => count($rejected),
+            'Unlikely'           => count($unlikely),
+            'Plausible'          => count($plausible),
+            'Likely'             => count($likely),
+            'Confirmed'          => count($confirmed),
+        ]);
+
         $md .= "---\n\n";
 
         // Leads the results: these claims have no usable verdict at all, because the work we
@@ -309,6 +322,96 @@ final class ReportBuilder
      * is a statement about the reliability of this system, not about the author's citations, and it
      * belongs beside the verdicts rather than in a log nobody reads.
      */
+    /**
+     * "How this review works" — the method, as a flow-chart figure at the top of the report.
+     *
+     * Stored as a `data-chart` marker table (the house pattern: the sanitizer never stores SVG;
+     * lazyLoader/citationPathRenderer.ts swaps it for a client-drawn flow chart, and with JS off
+     * the table itself reads as the method, question by question). The bands ARE
+     * ResolutionLadderMap::bands() — the same six reviewer questions the workbench, the published
+     * map and every per-claim "How this was checked" block narrate in, so the figure and the
+     * blocks below it cannot tell different stories. The meta rows carry THIS book's own counts,
+     * making it a figure about this review rather than a generic methods diagram.
+     */
+    /**
+     * The GitHub home of each band's code, for the figure's "code ↗" links. The ladder band is
+     * the payoff of the wave extraction: it links to a FOLDER of fifteen wave classes, one per
+     * step — before the extraction the honest link was one 1,596-line method.
+     */
+    private const BAND_CODE_URLS = [
+        'claim'  => \App\Services\CitationPipeline\ResolutionLadderMap::SOURCE_BASE . 'app/Services/CitationReview/Phases/TruthClaimExtractor.php',
+        'route'  => \App\Services\CitationPipeline\ResolutionLadderMap::SOURCE_BASE . 'app/Jobs/CitationScanBibliographyJob.php',
+        'ladder' => 'https://github.com/toldandretold/hyperlit/tree/main/app/Services/CitationPipeline/Resolution/Waves',
+        'acq'    => \App\Services\CitationPipeline\ResolutionLadderMap::SOURCE_BASE . 'app/Services/WebContent/WebTextAcquirer.php',
+        'grades' => \App\Services\CitationPipeline\ResolutionLadderMap::SOURCE_BASE . 'app/Services/WebContent/WebTextAcquirer.php',
+        'join'   => \App\Services\CitationPipeline\ResolutionLadderMap::SOURCE_BASE . 'app/Services/CitationReview/Phases/ClaimVerifier.php',
+    ];
+
+    private function howThisWorksSection(array $claims, array $verdictCounts): string
+    {
+        $map = \App\Services\CitationPipeline\ResolutionLadderMap::class;
+
+        $refs = [];
+        foreach ($claims as $claim) {
+            $refId = $claim['referenceId'] ?? null;
+            if (!$refId) {
+                continue;
+            }
+            $refs[$refId] = ($refs[$refId] ?? false) || !empty($claim['source_book_id']);
+        }
+        $identified = count(array_filter($refs));
+
+        // Each band's member STATIONS, so the figure can expand a band into its real steps —
+        // grouped by the same bandForStage the trace vocabulary uses, each step carrying its own
+        // source link (a wave links to its own class file).
+        $stepsByBand = [];
+        foreach ($map::allStages() as $stage) {
+            $band = $map::bandForStage($stage['id']);
+            if ($band !== null) {
+                $stepsByBand[$band][] = ['title' => $stage['title'], 'url' => $map::sourceUrl($stage['code_ref'])];
+            }
+        }
+
+        $e = fn (string $s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+
+        $md = "## How this review works\n\n";
+        $md .= '<table data-chart="review-method"><thead><tr><th>The question we ask</th><th>How it is answered</th></tr></thead><tbody>';
+
+        foreach ($map::bands() as $band) {
+            $codeUrl = self::BAND_CODE_URLS[$band['id']] ?? null;
+            $link = $codeUrl ? ' <a href="' . $e($codeUrl) . '" target="_blank" rel="noopener">code</a>' : '';
+            $md .= '<tr data-band="' . $e($band['id']) . '" data-kind="band">'
+                . '<td>' . $e($band['question']) . '</td>'
+                . '<td>' . $e($band['sub']) . $link . '</td></tr>';
+
+            foreach ($stepsByBand[$band['id']] ?? [] as $step) {
+                $md .= '<tr data-band="' . $e($band['id']) . '" data-kind="step">'
+                    . '<td>' . $e($step['title']) . '</td>'
+                    . '<td><a href="' . $e($step['url']) . '" target="_blank" rel="noopener">code</a></td></tr>';
+            }
+        }
+
+        // This book's own numbers, so the figure is about THIS review.
+        foreach ([
+            'claims'     => count($claims),
+            'citations'  => count($refs),
+            'identified' => $identified,
+            'not_found'  => count($refs) - $identified,
+        ] as $key => $value) {
+            $md .= '<tr data-band="' . $key . '" data-kind="meta"><td>' . $key . '</td><td>' . $value . '</td></tr>';
+        }
+
+        // The verdict fan: the same buckets the summary chart counts, so the two cannot disagree.
+        foreach ($verdictCounts as $label => $count) {
+            $md .= '<tr data-band="verdict" data-kind="verdict"><td>' . $e($label) . '</td><td>' . (int) $count . '</td></tr>';
+        }
+
+        $md .= "</tbody></table>\n\n";
+        $md .= "> Every citation below carries its own \u{201C}How this was checked\u{201D} — the path it actually took through this process, each step linking to the code that performed it.\n\n";
+
+        return $md;
+    }
+
     private function reviewCoverageSection(array $stats, array $unmatched): string
     {
         $instances = $stats['citation_instances'] ?? null;

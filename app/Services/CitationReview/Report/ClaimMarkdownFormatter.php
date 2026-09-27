@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationReview\Report;
 
+use App\Services\CitationReview\Support\CitationPath;
 use App\Services\CitationReview\Support\SourceWorkMismatch;
 use App\Services\CitationReview\Support\ShortFormReference;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
@@ -66,6 +67,11 @@ final class ClaimMarkdownFormatter
         if ($diagnostics) {
             $md .= $diagnostics;
         }
+
+        // How this citation was checked — the open-science piece. A reader can follow the path
+        // we took (what was read, what was tried, what refused us) with each step linking to the
+        // source on GitHub, so the claim "here is how we checked" is itself checkable.
+        $md .= $this->buildPathTableMd($claim);
 
         $bibCitation = $claim['bib_citation'] ?? null;
         if ($bibCitation) {
@@ -182,6 +188,37 @@ final class ClaimMarkdownFormatter
      *
      * @param  list<array<string, mixed>>  $claims  every claim on this citation (same referenceId)
      */
+    /**
+     * The citation's path as a `data-chart` marker table — the house pattern for figures in
+     * stored node content (the sanitizer mangles camelCase SVG attributes, so SVG is never
+     * stored; lazyLoader/citationPathRenderer.ts swaps the table for a rendered rail, and with
+     * JS off the table itself reads as the story). One row per reviewer QUESTION, not per
+     * machine step — the workbench keeps step-level fidelity; a reader follows a story.
+     */
+    public function buildPathTableMd(array $claim): string
+    {
+        $summary = CitationPath::summarize($claim);
+        if ($summary['rows'] === []) {
+            return '';
+        }
+
+        $md = '<table data-chart="citation-path" data-recorded="' . ($summary['recorded'] ? '1' : '0') . '">'
+            . '<thead><tr><th>How this was checked</th><th>What happened</th></tr></thead><tbody>';
+        foreach ($summary['rows'] as $row) {
+            $text = htmlspecialchars($row['text'], ENT_QUOTES, 'UTF-8');
+            if (!empty($row['source_url'])) {
+                $text .= ' <a href="' . htmlspecialchars($row['source_url'], ENT_QUOTES, 'UTF-8')
+                    . '" target="_blank" rel="noopener">code</a>';
+            }
+            $md .= '<tr data-band="' . htmlspecialchars($row['band'], ENT_QUOTES, 'UTF-8')
+                . '" data-kind="' . htmlspecialchars($row['kind'], ENT_QUOTES, 'UTF-8') . '">'
+                . '<td>' . htmlspecialchars($row['question'], ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . $text . '</td></tr>';
+        }
+
+        return $md . "</tbody></table>\n\n";
+    }
+
     public function formatBrokenSourceMd(array $claims): string
     {
         $claim = $claims[0];

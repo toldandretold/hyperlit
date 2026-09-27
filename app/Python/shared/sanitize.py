@@ -29,8 +29,14 @@ ALLOWED_ATTRS = {
     # data-candidates: the ranked alternative targets of an AMBIGUOUS antecedent resolution —
     # the linker's evidence for the question a human answers in /maintainer/citations.
     'a': ['href', 'title', 'target', 'id', 'class', 'fn-count-id', 'data-refs', 'data-page',
-          'data-resolved', 'data-candidates'],
+          'data-resolved', 'data-candidates', 'rel'],
     'img': ['src', 'alt', 'title', 'width', 'height'],
+    # data-recorded / data-band / data-kind: the citation-path marker table (the review report's
+    # "how this citation was checked" block — ClaimMarkdownFormatter::buildPathTableMd). The
+    # client renderer reads them to chip the outcome and colour the rows; stripped, every path
+    # renders as unrecorded and unstyled, which silently mislabels traced citations.
+    'table': ['data-recorded'],
+    'tr': ['data-band', 'data-kind'],
     'td': ['colspan', 'rowspan'],
     'th': ['colspan', 'rowspan'],
     'sup': ['id', 'class', 'fn-count-id'],

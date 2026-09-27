@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1941 functions in 408 modules · 10 object stores · 10 PG tables · 3974 edges
+**MarkdownDB** schema v28 · 1943 functions in 409 modules · 10 object stores · 10 PG tables · 3980 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1354,6 +1354,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `normalizeHyperciteElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `renderMathElements` | `lazyLoader/chunkRender` | — | — | read/write | — |
 | `throttle` | `lazyLoader/chunkRender` | — | — | — | — |
+| `renderCitationPaths` | `lazyLoader/citationPathRenderer` | — | — | read/write | — |
+| `renderReviewMethod` | `lazyLoader/citationPathRenderer` | — | — | read/write | — |
 | `clearImageBlobCache` | `lazyLoader/encryptedImages` | — | — | — | — |
 | `hydrateEncryptedImages` | `lazyLoader/encryptedImages` | — | — | read/write | — |
 | `restoreCanonicalImageSrcs` | `lazyLoader/encryptedImages` | — | — | — | — |

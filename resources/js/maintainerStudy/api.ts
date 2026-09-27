@@ -112,6 +112,22 @@ export interface ClaimSource {
   stored: { nodes: number; chars: number } | null;
 }
 
+/** One station of a citation's resolution path (vocabulary: ResolutionLadderMap stage ids). */
+export interface PathStep {
+  stage: string;
+  outcome: string;
+  title: string;
+  label_plain: string;
+  label_dev: string;
+  code_ref?: string;
+  source_url?: string;
+  recorded: boolean;
+  method?: string;
+  score?: number;
+  reason?: string;
+  detail?: Record<string, unknown>;
+}
+
 export interface ClaimRow {
   key: string;
   referenceId: string | null;
@@ -125,6 +141,17 @@ export interface ClaimRow {
   bib_citation: string | null;
   /** "Refers to: …" for a linked ibid/short form, or the honest could-not-link note. */
   short_form_of: string | null;
+  /**
+   * The citation's path through resolution — the per-wave trace decorated with the ladder map's
+   * labels and GitHub code links (built by CitationPath, the same builder the reader report
+   * uses). `recorded: false` means the row predates tracing or was pre-routed with only a
+   * synthesized step: render "not recorded", NEVER "did not run".
+   */
+  path: {
+    steps: PathStep[];
+    subs: Record<string, PathStep[]>;
+    recorded: boolean;
+  };
   llm_metadata: Record<string, unknown> | null;
   llm_verdict: { support?: string; summary?: string; reasoning?: string } | null;
   source: ClaimSource;

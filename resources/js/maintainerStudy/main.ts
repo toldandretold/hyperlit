@@ -19,6 +19,7 @@ import {
   type BookPayload,
   type BookSummary,
   type ClaimRow,
+  type PathStep,
 } from './api';
 
 const FLAGGED = new Set(['rejected', 'unlikely', 'source_not_found', 'insufficient']);
@@ -585,6 +586,12 @@ function renderDetail(claim: ClaimRow): void {
   }
   frag.insertBefore(srcSec, sourceSlot);
 
+  // The PATH this citation took through resolution — every wave it entered, in order, with
+  // what each one concluded. This is the ledger that used to require a database console:
+  // "ran and found nothing" vs "never reached" vs "skipped because no API key", each step
+  // linking to the wave's own source file.
+  frag.insertBefore(pathSection(claim), sourceSlot);
+
   // Conversion check — was it OUR OCR?
   const convSec = el('section', 'st-section');
   convSec.append(el('h3', undefined, 'Conversion check'));
@@ -665,6 +672,97 @@ const THIN_EXTRACTION_CHARS = 1200;
  * 400-character "article" is page furniture, and a claim missing from it says nothing about the
  * citation.
  */
+/**
+ * The citation's resolution path, as a lit rail: one row per station it passed through, dot
+ * coloured by what happened there, wave-recorded evidence expandable under the step it belongs
+ * to, and each station linking to its own source file on GitHub. Vocabulary and labels come from
+ * ResolutionLadderMap via CitationPath, the same builder the reader-facing report renders — the
+ * two surfaces cannot disagree about what happened.
+ */
+function pathSection(claim: ClaimRow): HTMLElement {
+  const sec = el('section', 'st-section st-path');
+  sec.append(el('h3', undefined, 'Resolution path'));
+
+  const path = claim.path;
+  if (!path || path.steps.length === 0) {
+    sec.append(el('p', 'st-muted', 'No path data for this citation.'));
+    return sec;
+  }
+
+  // Rows scanned before tracing landed carry a synthesized single step. Say so — the absence
+  // is about WHEN the row was scanned, and must never read as "the ladder did not run".
+  if (!path.recorded) {
+    sec.append(el('p', 'st-muted',
+      'Path not recorded — this row predates per-wave tracing. Shown below is only what its '
+      + 'stored columns testify to; re-scan the book to record the full path.'));
+  }
+
+  sec.append(pathRail(path.steps));
+
+  // Sub-citations traverse the ladder as their own entries; their rails nest under the parent.
+  for (const [subKey, steps] of Object.entries(path.subs ?? {})) {
+    const det = el('details', 'st-path-sub');
+    det.append(el('summary', undefined, `${subKey} — this footnote cites several works; the path for this one`));
+    det.append(pathRail(steps));
+    sec.append(det);
+  }
+
+  return sec;
+}
+
+function pathRail(steps: PathStep[]): HTMLElement {
+  const rail = el('ol', 'st-path-rail');
+
+  for (const step of steps) {
+    const row = el('li', `st-path-step st-path-${outcomeClass(step.outcome)}`);
+
+    const head = el('div', 'st-path-head');
+    head.append(el('span', 'st-path-dot'));
+    head.append(el('span', 'st-path-title', step.title));
+    head.append(el('span', 'st-path-outcome', step.outcome.replace(/_/g, ' ')
+      + (step.score != null ? ` · ${step.score}` : '')));
+    if (step.source_url) {
+      const a = el('a', 'st-path-code', 'code ↗');
+      a.setAttribute('href', step.source_url);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+      a.title = step.code_ref ?? '';
+      head.append(a);
+    }
+    row.append(head);
+
+    if (step.reason) {
+      row.append(el('p', 'st-muted st-path-reason', `skipped: ${step.reason}`));
+    }
+
+    // What the wave itself recorded here — the fetch grade, the Brave query and its host
+    // refusals, the best sub-threshold score. This is the evidence that used to be reachable
+    // only through tinker.
+    if (step.detail && Object.keys(step.detail).length > 0) {
+      const det = el('details', 'st-path-detail');
+      det.append(el('summary', undefined, 'what this step recorded'));
+      const pre = el('pre', undefined, JSON.stringify(step.detail, null, 2));
+      det.append(pre);
+      row.append(det);
+    }
+
+    rail.append(row);
+  }
+
+  return rail;
+}
+
+/** Collapse outcome variants onto the palette's semantic classes. */
+function outcomeClass(outcome: string): string {
+  if (outcome === 'newly_resolved' || outcome === 'enriched') return 'resolved';
+  if (outcome === 'skipped') return 'skipped';
+  if (outcome === 'routed') return 'routed';
+  if (outcome === 'retired_with_relative') return 'retired';
+  if (outcome === 'not_a_citation' || outcome === 'excluded_by_design') return 'excluded';
+  if (outcome === 'inherited_antecedent' || outcome === 'matched_own_bibliography') return 'resolved';
+  return 'nomatch';
+}
+
 function extractedSourceLine(claim: ClaimRow): HTMLElement {
   const wrap = el('p', 'st-extracted');
   const stored = claim.source.stored;

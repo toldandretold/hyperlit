@@ -34,6 +34,23 @@ uses()->beforeEach(function () {
     \Illuminate\Support\Facades\DB::connection('pgsql_admin')
         ->table('fetch_host_reachability')
         ->delete();
+
+    /*
+     * Same trap, bigger surface: the CITATION-GRAPH tables. Suites all over the tree seed
+     * bibliography / footnotes / canonical_source / hypercites via pgsql_admin (RLS makes the
+     * default connection useless for it), those commits survive RefreshDatabase's rollback, and
+     * any test that queries GLOBALLY — DocuverseEndpointTest asserts edge counts over the whole
+     * graph — inherits every previous run's garbage. It bit twice in two days from two different
+     * polluters (HyperciteConsoleTest's HX fixtures, then the golden-report suite's bibliography
+     * + canonical rows); per-suite cleanup is whack-a-mole because the victim is never the
+     * polluter. Cleared per test, BEFORE file-level beforeEach hooks, so a suite's own admin
+     * seeding still lands on a clean slate. `library`/`nodes`/`users` are deliberately NOT
+     * wiped — fixtures there are name-randomised per the username-identity gate, and wiping
+     * them would break suites that legitimately accumulate user books across a file.
+     */
+    foreach (['bibliography', 'footnotes', 'canonical_source', 'hypercites'] as $table) {
+        \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table($table)->delete();
+    }
 })->in('Feature', 'Canonical');
 
 // Canonical version-control suite (tests/Canonical): same Laravel TestCase

@@ -49,7 +49,22 @@ function hxCleanup(): void
     hxDb()->table('journal_sources')->where('display_name', 'LIKE', 'HX %')->delete();
 }
 
-beforeEach(fn () => hxCleanup());
+beforeEach(function () {
+    hxCleanup();
+
+    // ...and again on the way OUT, or this file's `pgsql_admin` rows outlive the run and pollute
+    // every later suite that queries globally. They did: DocuverseEndpointTest asserts edge counts
+    // against the whole graph, and leftover `HX %` canonicals showed up as two phantom
+    // `citation_auto` edges, so four of its tests failed standalone and PASSED when this file ran
+    // first (its beforeEach was scrubbing the previous session's garbage).
+    //
+    // An admin DELETE straight from afterEach deadlocks against the still-open RefreshDatabase
+    // transaction, which is why this was beforeEach-only. Registering the same cleanup as a
+    // beforeApplicationDestroyed callback sidesteps that entirely: the callbacks run FIFO and
+    // RefreshDatabase registers its rollback during setUp, so by the time this one fires the
+    // transaction is already closed and there is nothing left to block on.
+    $this->beforeApplicationDestroyed(fn () => hxCleanup());
+});
 
 function hxSeedJournal(array $opts = []): object
 {

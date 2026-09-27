@@ -67,6 +67,9 @@ __pycache__/
 *.pyc
 # Real-content conversion fixtures kept local-only (proprietary books not for public repo)
 tests/conversion/fixtures-local/
+# Citation-ladder characterisation goldens: a cassette holds real fetched page bodies, so it is
+# local-only for the same reason. Record yours with `citation:ladder:golden <book> --record`.
+tests/fixtures-local/
 # Co-evolution corpus: local problem files + their converted artifacts, runs, post-mortems, cache.
 # README.md (the contract) is the only tracked thing under corpus/.
 tests/conversion/corpus/*

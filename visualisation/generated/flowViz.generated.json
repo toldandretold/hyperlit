@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1941,
-    "moduleCount": 408,
+    "fnCount": 1943,
+    "moduleCount": 409,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3974,
+    "edgeCount": 3980,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12300,6 +12300,22 @@
       "leaf": true
     },
     {
+      "id": "lazyLoader/citationPathRenderer:renderCitationPaths",
+      "label": "renderCitationPaths",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/citationPathRenderer",
+      "leaf": false
+    },
+    {
+      "id": "lazyLoader/citationPathRenderer:renderReviewMethod",
+      "label": "renderReviewMethod",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/citationPathRenderer",
+      "leaf": false
+    },
+    {
       "id": "lazyLoader/encryptedImages:clearImageBlobCache",
       "label": "clearImageBlobCache",
       "kind": "fn",
@@ -21037,6 +21053,16 @@
         "lazyLoader/chunkRender:normalizeHyperciteElements",
         "lazyLoader/chunkRender:renderMathElements",
         "lazyLoader/chunkRender:throttle"
+      ]
+    },
+    {
+      "id": "lazyLoader/citationPathRenderer",
+      "label": "lazyLoader/citationPathRenderer",
+      "stage": "lazyLoader",
+      "band": "capture",
+      "fnIds": [
+        "lazyLoader/citationPathRenderer:renderCitationPaths",
+        "lazyLoader/citationPathRenderer:renderReviewMethod"
       ]
     },
     {
@@ -32150,6 +32176,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__lazyLoader/citationPathRenderer:renderCitationPaths",
+      "source": "dom",
+      "target": "lazyLoader/citationPathRenderer:renderCitationPaths",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__lazyLoader/citationPathRenderer:renderReviewMethod",
+      "source": "dom",
+      "target": "lazyLoader/citationPathRenderer:renderReviewMethod",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__lazyLoader/encryptedImages:hydrateEncryptedImages",
       "source": "dom",
       "target": "lazyLoader/encryptedImages:hydrateEncryptedImages",
@@ -40313,6 +40351,18 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/citationPathRenderer:renderCitationPaths",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/citationPathRenderer:renderCitationPaths",
+      "rel": "call"
+    },
+    {
+      "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/citationPathRenderer:renderReviewMethod",
+      "source": "lazyLoader/chunkRender:createChunkElement",
+      "target": "lazyLoader/citationPathRenderer:renderReviewMethod",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/chunkRender:createChunkElement__call__lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
       "source": "lazyLoader/chunkRender:createChunkElement",
       "target": "lazyLoader/footnoteSelfHeal:applyDynamicFootnoteNumbers",
@@ -40359,6 +40409,18 @@
     {
       "id": "lazyLoader/chunkRender:renderMathElements__domwrite__dom",
       "source": "lazyLoader/chunkRender:renderMathElements",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/citationPathRenderer:renderCitationPaths__domwrite__dom",
+      "source": "lazyLoader/citationPathRenderer:renderCitationPaths",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "lazyLoader/citationPathRenderer:renderReviewMethod__domwrite__dom",
+      "source": "lazyLoader/citationPathRenderer:renderReviewMethod",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -52199,6 +52261,11 @@
     {
       "source": "lazyLoader/chunkRender",
       "target": "lazyLoader/chartRenderer",
+      "kind": "static"
+    },
+    {
+      "source": "lazyLoader/chunkRender",
+      "target": "lazyLoader/citationPathRenderer",
       "kind": "static"
     },
     {

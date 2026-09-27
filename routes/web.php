@@ -39,7 +39,14 @@ Route::get('/{book}/hyperlights', [TextController::class, 'showHyperlightsHTML']
 Route::get('/{book}/AIreview', function (Request $request, $book) {
     $book = \App\Helpers\BookSlugHelper::resolve($book);
     $subBookId = "{$book}/AIreview";
-    if (! DB::table('nodes')->where('book', $subBookId)->exists()) {
+    // Existence is checked on pgsql_admin because the DEFAULT connection is RLS-subject: for an
+    // anonymous visitor a private book's nodes are invisible, so this exists() was false and a
+    // review that EXISTS 404'd — where the parent book's route correctly renders the reader and
+    // lets the access screen ("you can't see this — home or log in") do its job when the content
+    // API refuses. This check answers only "is there an AIreview at all"; ACCESS stays with RLS
+    // downstream, exactly like every other private book. Same trap as the /{identifier} user
+    // redirect below (an RLS-subject probe reading as nonexistence).
+    if (! DB::connection('pgsql_admin')->table('nodes')->where('book', $subBookId)->exists()) {
         abort(404, 'AI Review not found for this book.');
     }
 

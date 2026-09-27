@@ -14,16 +14,13 @@ use App\Models\PgLibrary;
 use App\Services\CanonicalSourceMatcher;
 use App\Services\ContentFetchService;
 use App\Services\OpenAlexService;
-use App\Services\OpenLibraryService;
 use App\Services\LlmService;
 use App\Services\WebFetchService;
-use App\Services\SemanticScholarService;
-use App\Services\BraveSearchService;
 use App\Services\CitationReview\Support\SourceWorkMismatch;
 use App\Services\CitationReview\Support\SourceTypeClassifier;
 use App\Services\WebContent\WebTextAcquirer;
 
-class CitationScanBibliographyJob implements ShouldQueue
+class CitationScanBibliographyJob implements ShouldQueue, \App\Services\CitationPipeline\Resolution\ResolutionHost
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -529,1095 +526,37 @@ class CitationScanBibliographyJob implements ShouldQueue
                 'skipped_recent_no_match' => $skippedRecent,
             ]);
 
-            // ── Wave 1: DOI extraction (regex — instant, then merge LLM-extracted DOIs) ──
-            foreach ($pool as $refId => &$item) {
-                $item['doi'] = $openAlex->extractDoi($item['content']);
-            }
-            unset($item);
+            // ── THE RESOLUTION LADDER ─────────────────────────────────────────────────
+            // Every wave lives in its own class under Resolution/Waves/ (see ResolutionWave for
+            // the contract and the naming rule), and the ORDER lives in ResolutionLadder::waves()
+            // — the one list both this runner and the published ResolutionLadderMap read, so the
+            // map cannot disagree with what actually runs. The extraction was performed one wave
+            // per step, each verified against a 132-decision characterisation golden
+            // (`php artisan citation:ladder:golden <book> --verify`); this method had NO
+            // execution coverage before that harness existed, and its failure mode is a citation
+            // silently resolving to a DIFFERENT source.
+            $ctx = new \App\Services\CitationPipeline\Resolution\ResolutionContext($this, $openAlex, $db);
+            $ctx->pool             = $pool;
+            $ctx->results          = $results;
+            $ctx->newlyResolved    = $newlyResolved;
+            $ctx->enrichedExisting = $enrichedExisting;
+            $ctx->failedToResolve  = $failedToResolve;
 
-            // Merge LLM-extracted DOIs for entries where regex found nothing
-            foreach ($pool as $refId => &$item) {
-                if (!$item['doi'] && !empty($item['llmMetadata']['doi'])) {
-                    $item['doi'] = $item['llmMetadata']['doi'];
-                }
-            }
-            unset($item);
+            // The epilogue below (no_match marking, saveScanResults) still reads these under
+            // their old names; bound by reference so both names are the same storage.
+            $pool             = &$ctx->pool;
+            $results          = &$ctx->results;
+            $newlyResolved    = &$ctx->newlyResolved;
+            $enrichedExisting = &$ctx->enrichedExisting;
+            $failedToResolve  = &$ctx->failedToResolve;
+            $nearMisses       = &$ctx->nearMisses;
+            $waveResults      = &$ctx->waveResults;
 
-            // ── Wave 2a: Local library DOI lookup (DB only — no HTTP) ──
-            $doisToLookup = [];
-            foreach ($pool as $refId => $item) {
-                if ($item['doi']) {
-                    $doisToLookup[$refId] = $item['doi'];
-                }
-            }
-            if (!empty($doisToLookup)) {
-                Log::info('Wave 2a: Local DOI lookup', ['count' => count($doisToLookup)]);
-                $localDoiMatches = $db->table('library')
-                    ->whereIn('doi', array_values($doisToLookup))
-                    // `year` rides along for the doi_mismatch flag — the divergence is most
-                    // legible as "cited 2008, record says 2024", and without it the flag would
-                    // always report a null record year.
-                    ->get(['book', 'title', 'year', 'doi', 'openalex_id', 'open_library_key', 'canonical_source_id'])
-                    ->keyBy('doi');
-
-                foreach ($doisToLookup as $refId => $doi) {
-                    if (!isset($pool[$refId])) continue;
-                    $match = $localDoiMatches->get($doi);
-                    if ($match) {
-                        $item = $pool[$refId];
-                        // `match_method` is PERSISTED here, not just reported in $results — this
-                        // wave never wrote it, so a local-DOI resolution reached the claim with
-                        // match_method NULL and was invisible as a DOI match to everything
-                        // downstream: the workbench's match line, the report's method label, and
-                        // the identity check that asks "did the identifier name another work?".
-                        // Measured: peer-review-2027-pdf resolves "Scientists split on ethics of
-                        // AI use" to a different Nature article this way, verdict `likely`.
-                        $updateData = $item['isLinked']
-                            ? ['foundation_source' => $match->book, 'match_method' => 'local_doi']
-                            : ['source_id' => $match->book, 'foundation_source' => $match->book,
-                               'match_method' => 'local_doi'];
-                        // Carry the matched row's existing canonical link through
-                        $updateData = array_merge($updateData, $this->canonicalColumnFor($match->canonical_source_id));
-                        // Same declaration Wave 2b makes: the DOI settles WHICH work, but if the
-                        // record it names describes something other than the citation, say so.
-                        // This wave writes its columns directly, so it never reached the check in
-                        // resolveWithNormalised().
-                        $doiDivergence = SourceWorkMismatch::compare(
-                            $item['llmMetadata']['title'] ?? null,
-                            $match->title ?? null,
-                            isset($item['llmMetadata']['year']) ? (int) $item['llmMetadata']['year'] : null,
-                            isset($match->year) && $match->year !== null ? (int) $match->year : null,
-                        );
-                        if ($doiDivergence !== null) {
-                            $updateData['match_diagnostics'] = json_encode(['doi_mismatch' => $doiDivergence]);
-                            Log::warning('Local DOI record describes a different work than the citation', [
-                                'refId' => $refId, 'book' => $match->book,
-                            ] + $doiDivergence);
-                        }
-
-                        $this->updateSourceEntry($db, $refId, $updateData);
-
-                        $results[] = [
-                            'referenceId'         => $refId,
-                            'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
-                            'match_method'        => 'local_doi',
-                            'searched_title'      => $item['searchedTitle'],
-                            'result_title'        => $match->title,
-                            'openalex_id'         => $match->openalex_id,
-                            'open_library_key'    => $match->open_library_key,
-                            'foundation_book_id'  => $match->book,
-                            'canonical_source_id' => $match->canonical_source_id,
-                            'llm_metadata'        => $item['llmMetadata'],
-                        ];
-                        $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
-                        $this->removeRelatedPoolEntries($pool, $refId, $db, $match->book);
-                        unset($doisToLookup[$refId]);
-                    }
-                }
-
-                Log::info('Wave 2a: Local DOI matches', [
-                    'found'     => $localDoiMatches->count(),
-                    'remaining' => count($doisToLookup),
-                ]);
-            }
-
-            // ── Wave 2b: DOI lookup on OpenAlex — only DOIs not found locally ──
-            if (!empty($doisToLookup)) {
-                Log::info('Wave 2b: OpenAlex DOI lookup', ['count' => count($doisToLookup)]);
-                $doiResults = $openAlex->fetchByDoiBatch($doisToLookup);
-                foreach ($doiResults as $refId => $normalised) {
-                    if ($normalised && isset($pool[$refId])) {
-                        $result = $this->resolveWithNormalised($pool[$refId], $normalised, 'doi', null, $openAlex, $db);
-                        if ($result) {
-                            $results[] = $result;
-                            match ($result['status']) {
-                                'newly_resolved' => $newlyResolved++,
-                                'enriched'       => $enrichedExisting++,
-                                default          => $failedToResolve++,
-                            };
-                            $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                        }
-                    }
-                }
-            }
-
-            $nearMisses = []; // refId => best sub-threshold candidate across all waves
-            $waveResults = []; // refId => per-wave outcome for diagnostics
-
-            // ── Wave 3: Local library table search (DB queries — no HTTP) ──
-            if (!empty($pool)) {
-                Log::info('Wave 3: Library table search', ['remaining' => count($pool)]);
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
-                        continue;
-                    }
-                    $localNearMiss = null;
-                    $localMatch = $this->searchLibraryTable($item['searchedTitle'], $item['llmMetadata'], $openAlex, $db, $localNearMiss);
-                    if ($localMatch) {
-                        // URL-FIRST, same rule the external title-search waves follow: the
-                        // citation prints an address the author vouches for, so park this match
-                        // and let Wave 6 read it. Deferral cannot LOSE the match — if the URL
-                        // yields nothing that carries article text, the parked match is applied
-                        // below, before any search money is spent.
-                        if ($this->deferLibraryMatchForPrintedUrl($refId, $item, $localMatch)) {
-                            continue;
-                        }
-                        $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
-                        $updateData = $item['isLinked']
-                            ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
-                            : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson];
-                        // Carry the matched row's existing canonical link through
-                        $updateData = array_merge($updateData, $this->canonicalColumnFor($localMatch['canonical_source_id'] ?? null));
-
-                        $this->updateSourceEntry($db, $refId, $updateData);
-
-                        $results[] = [
-                            'referenceId'         => $refId,
-                            'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
-                            'match_method'        => 'library',
-                            'searched_title'      => $item['searchedTitle'],
-                            'result_title'        => $localMatch['title'],
-                            'similarity_score'    => $localMatch['score'],
-                            'openalex_id'         => $localMatch['openalex_id'] ?? null,
-                            'open_library_key'    => $localMatch['open_library_key'] ?? null,
-                            'foundation_book_id'  => $localMatch['book'],
-                            'canonical_source_id' => $localMatch['canonical_source_id'] ?? null,
-                            'llm_metadata'        => $item['llmMetadata'],
-                        ];
-                        $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
-                        $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
-                    } elseif ($localNearMiss && $localNearMiss['score'] > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                        $nearMisses[$refId] = $localNearMiss;
-                    }
-                }
-            }
-
-            // ── Wave 3.5: Closed-pool match against the parent work's referenced_works ──
-            // When the scanned book is itself linked to a canonical with an
-            // openalex_id (always true for harvested auto-versions), OpenAlex
-            // already knows the closed set of works it cites. Scoring the
-            // still-unresolved entries against that pool is cheaper and more
-            // precise than open title search — especially for noisy OCR'd
-            // bibliographies. Entries the pool misses fall through to the
-            // normal waves unchanged.
-            if (!empty($pool)) {
-                $parentOpenAlexId = $this->parentWorkOpenAlexId($db);
-                $referencedIds = $parentOpenAlexId ? $openAlex->fetchReferencedWorkIds($parentOpenAlexId) : [];
-                if (!empty($referencedIds)) {
-                    Log::info('Wave 3.5: referenced_works closed pool', [
-                        'parent'     => $parentOpenAlexId,
-                        'referenced' => count($referencedIds),
-                        'remaining'  => count($pool),
-                    ]);
-                    $poolWorks = $openAlex->fetchByIdsBatch($referencedIds);
-
-                    foreach ($pool as $refId => $item) {
-                        if (!$item['searchedTitle']) {
-                            continue;
-                        }
-
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($poolWorks as $candidate) {
-                            if (!$openAlex->isCitableWork($candidate)) {
-                                continue;
-                            }
-                            // metadataScore's title floor rejects (and skips
-                            // logging) most of the pool cheaply per entry.
-                            $scoreResult = $item['llmMetadata']
-                                ? $openAlex->metadataScore($item['llmMetadata'], $candidate)
-                                : ['score' => $openAlex->titleSimilarity($item['searchedTitle'], $candidate['title'] ?? '')];
-                            if ($scoreResult['score'] > $bestScore) {
-                                $bestScore = $scoreResult['score'];
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-
-                        // Same accept gates as Wave 4 — the closed pool raises
-                        // precision, it doesn't lower the bar.
-                        if (
-                            $bestMatch && $bestScore > 0.3
-                            && $this->hasTitleConfidence($bestDiagnostics, $bestScore)
-                            && !$this->hasYearMismatchRejection($item['llmMetadata'], $bestMatch, $bestScore)
-                        ) {
-                            $result = $this->resolveWithNormalised($item, $bestMatch, 'openalex_referenced', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                                continue;
-                            }
-                        }
-
-                        if ($bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'openalex_referenced',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        $waveResults[$refId]['openalex_referenced'] = $bestMatch
-                            ? 'best_score:' . round($bestScore, 3)
-                            : 'no_candidates';
-                    }
-                }
-            }
-
-            // ── Phase A: Full-title searches (all APIs) ──
-            $storedCandidates = [];
-
-            // ── Wave 4: OpenAlex title search (Http::pool) ──
-            if (!empty($pool)) {
-                $titlesToSearch = [];
-                foreach ($pool as $refId => $item) {
-                    if ($item['searchedTitle'] && $item['isAcademic']) {
-                        $titlesToSearch[$refId] = $item['searchedTitle'];
-                    }
-                }
-                if (!empty($titlesToSearch)) {
-                    Log::info('Wave 4: OpenAlex title search', ['count' => count($titlesToSearch)]);
-                    $yearFilters = [];
-                    foreach ($pool as $refId => $item) {
-                        if ($item['searchedTitle'] && !empty($item['llmMetadata']['year'])) {
-                            $yearFilters[$refId] = $item['llmMetadata']['original_year'] ?? $item['llmMetadata']['year'];
-                        }
-                    }
-                    $oaResults = $openAlex->searchBatch($titlesToSearch, 5, $yearFilters);
-                    foreach ($oaResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        // Store candidates for shortened-title re-scoring
-                        $storedCandidates[$refId]['openalex'] = $candidates;
-
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            if (!$openAlex->isCitableWork($candidate)) {
-                                Log::debug('Wave 4: rejected non-citable type', [
-                                    'refId' => $refId,
-                                    'title' => $candidate['title'] ?? null,
-                                    'type'  => $candidate['type'] ?? null,
-                                ]);
-                                continue;
-                            }
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $scoreResult = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore <= 0.3) {
-                            Log::info('Wave 4: best candidate below threshold', [
-                                'refId'         => $refId,
-                                'bestScore'     => $bestScore,
-                                'bestTitle'     => $bestMatch['title'] ?? null,
-                                'searchedTitle' => $pool[$refId]['searchedTitle'],
-                            ]);
-                        }
-                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
-                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
-                                Log::info('Wave 4: year mismatch rejection', [
-                                    'refId'          => $refId,
-                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
-                                    'resultTitle'    => $bestMatch['title'] ?? null,
-                                    'score'          => round($bestScore, 3),
-                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
-                                    'candidate_year' => $bestMatch['year'] ?? null,
-                                ]);
-                                $nearMisses[$refId] = [
-                                    'score'           => round($bestScore, 3),
-                                    'title'           => $bestMatch['title'] ?? null,
-                                    'author'          => $bestMatch['author'] ?? null,
-                                    'year'            => $bestMatch['year'] ?? null,
-                                    'source'          => 'openalex',
-                                    'diagnostics'     => $bestDiagnostics,
-                                    'rejected_reason' => 'year_mismatch',
-                                ];
-                            } else {
-                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                                if ($result) {
-                                    $results[] = $result;
-                                    match ($result['status']) {
-                                        'newly_resolved' => $newlyResolved++,
-                                        'enriched'       => $enrichedExisting++,
-                                        default          => $failedToResolve++,
-                                    };
-                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                                }
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'openalex',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['openalex'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-
-            }
-
-            // ── Wave 5: Open Library search (Http::pool) ──
-            if (!empty($pool)) {
-                $openLibrary = app(OpenLibraryService::class);
-
-                $olQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle'] || !$item['isAcademic']) {
-                        continue;
-                    }
-                    $olAuthor = null;
-                    if (!empty($item['llmMetadata']['authors'][0])) {
-                        $parts = explode(',', $item['llmMetadata']['authors'][0], 2);
-                        $olAuthor = trim($parts[0]);
-                    }
-                    $olQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $olAuthor];
-                }
-                if (!empty($olQueries)) {
-                    Log::info('Wave 5: Open Library search', ['count' => count($olQueries)]);
-                    $olResults = $openLibrary->searchBatch($olQueries, 5);
-                    foreach ($olResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        // Store candidates for shortened-title re-scoring
-                        $storedCandidates[$refId]['openlibrary'] = $candidates;
-
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $scoreResult = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
-                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
-                                Log::info('Wave 5: year mismatch rejection', [
-                                    'refId'          => $refId,
-                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
-                                    'resultTitle'    => $bestMatch['title'] ?? null,
-                                    'score'          => round($bestScore, 3),
-                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
-                                    'candidate_year' => $bestMatch['year'] ?? null,
-                                ]);
-                                $nearMisses[$refId] = [
-                                    'score'           => round($bestScore, 3),
-                                    'title'           => $bestMatch['title'] ?? null,
-                                    'author'          => $bestMatch['author'] ?? null,
-                                    'year'            => $bestMatch['year'] ?? null,
-                                    'source'          => 'open_library',
-                                    'diagnostics'     => $bestDiagnostics,
-                                    'rejected_reason' => 'year_mismatch',
-                                ];
-                            } else {
-                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                                if ($result) {
-                                    $results[] = $result;
-                                    match ($result['status']) {
-                                        'newly_resolved' => $newlyResolved++,
-                                        'enriched'       => $enrichedExisting++,
-                                        default          => $failedToResolve++,
-                                    };
-                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                                }
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'open_library',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['open_library'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-
-            }
-
-            // ── Wave 7: Semantic Scholar search (chunked, rate-limited) ──
-            if (!empty($pool)) {
-                $semanticScholar = app(SemanticScholarService::class);
-
-                $ssQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle'] || !$item['isAcademic']) {
-                        continue;
-                    }
-                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
-                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
-                        : null;
-                    $ssQueries[$refId] = ['title' => $item['searchedTitle'], 'author' => $ssAuthor];
-                }
-                if (!empty($ssQueries)) {
-                    Log::info('Wave 7: Semantic Scholar search', ['count' => count($ssQueries)]);
-                    $ssResults = $semanticScholar->searchBatch($ssQueries, 5);
-                    foreach ($ssResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        // Store candidates for shortened-title re-scoring
-                        $storedCandidates[$refId]['semantic_scholar'] = $candidates;
-
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['searchedTitle'];
-                            $scoreResult = $llmMeta
-                                ? $openAlex->metadataScore($llmMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.3 && $this->hasTitleConfidence($bestDiagnostics, $bestScore)) {
-                            if ($this->hasYearMismatchRejection($pool[$refId]['llmMetadata'], $bestMatch, $bestScore)) {
-                                Log::info('Wave 7: year mismatch rejection', [
-                                    'refId'          => $refId,
-                                    'searchedTitle'  => $pool[$refId]['searchedTitle'],
-                                    'resultTitle'    => $bestMatch['title'] ?? null,
-                                    'score'          => round($bestScore, 3),
-                                    'llm_year'       => $pool[$refId]['llmMetadata']['year'] ?? null,
-                                    'candidate_year' => $bestMatch['year'] ?? null,
-                                ]);
-                                $nearMisses[$refId] = [
-                                    'score'           => round($bestScore, 3),
-                                    'title'           => $bestMatch['title'] ?? null,
-                                    'author'          => $bestMatch['author'] ?? null,
-                                    'year'            => $bestMatch['year'] ?? null,
-                                    'source'          => 'semantic_scholar',
-                                    'diagnostics'     => $bestDiagnostics,
-                                    'rejected_reason' => 'year_mismatch',
-                                ];
-                            } else {
-                                $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                                if ($result) {
-                                    $results[] = $result;
-                                    match ($result['status']) {
-                                        'newly_resolved' => $newlyResolved++,
-                                        'enriched'       => $enrichedExisting++,
-                                        default          => $failedToResolve++,
-                                    };
-                                    $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                                }
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'semantic_scholar',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['semantic_scholar'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-            }
-
-            // ── Phase B: Shortened-title retries ──
-            if (!empty($pool)) {
-                // Generate shortened titles for entries with subtitle separators
-                foreach ($pool as $refId => &$item) {
-                    if (!$item['searchedTitle']) {
-                        continue;
-                    }
-                    if (preg_match('/^(.{10,}?)\s*[:\x{2013}\x{2014}]\s/u', $item['searchedTitle'], $m)) {
-                        $shortened = trim($m[1]);
-                        if ($shortened !== $item['searchedTitle'] && strlen($shortened) >= 10) {
-                            $item['shortenedTitle'] = $shortened;
-                        }
-                    }
-                }
-                unset($item);
-
-                // Re-score stored candidates from Phase A using shortened titles
-                foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle']) || empty($storedCandidates[$refId])) {
-                        continue;
-                    }
-                    $shortened = $item['shortenedTitle'];
-                    $bestMatch = null;
-                    $bestScore = 0.0;
-                    $bestSource = null;
-                    $bestDiagnostics = null;
-
-                    foreach ($storedCandidates[$refId] as $source => $candidates) {
-                        foreach ($candidates as $candidate) {
-                            if ($source === 'openalex' && !$openAlex->isCitableWork($candidate)) {
-                                continue;
-                            }
-                            $scoreMeta = $item['llmMetadata'];
-                            if ($scoreMeta) {
-                                $scoreMeta['title'] = $shortened;
-                            }
-                            $scoreResult = $scoreMeta
-                                ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($shortened, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestSource = $source;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                    }
-
-                    $sourceToMethod = [
-                        'openalex'         => 'openalex',
-                        'openlibrary'      => 'open_library',
-                        'semantic_scholar' => 'semantic_scholar',
-                    ];
-
-                    if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($item['llmMetadata'], $bestMatch)) {
-                        $matchMethod = $sourceToMethod[$bestSource] ?? $bestSource;
-                        Log::info('Shortened-title re-score: matched from stored candidates', [
-                            'refId'          => $refId,
-                            'shortenedTitle' => $shortened,
-                            'resultTitle'    => $bestMatch['title'] ?? null,
-                            'score'          => $bestScore,
-                            'source'         => $bestSource,
-                        ]);
-                        $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, $matchMethod, round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                        if ($result) {
-                            $results[] = $result;
-                            match ($result['status']) {
-                                'newly_resolved' => $newlyResolved++,
-                                'enriched'       => $enrichedExisting++,
-                                default          => $failedToResolve++,
-                            };
-                            $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                        }
-                    }
-                    if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                        $nearMisses[$refId] = [
-                            'score'       => round($bestScore, 3),
-                            'title'       => $bestMatch['title'] ?? null,
-                            'author'      => $bestMatch['author'] ?? null,
-                            'year'        => $bestMatch['year'] ?? null,
-                            'source'      => $sourceToMethod[$bestSource] ?? $bestSource,
-                            'diagnostics' => $bestDiagnostics,
-                        ];
-                    }
-                }
-
-                // API calls for entries still unresolved after re-scoring
-
-                // ── Wave 4b: OpenAlex retry with shortened titles ──
-                $retryTitles = [];
-                $retryYearFilters = [];
-                foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
-                        continue;
-                    }
-                    $retryTitles[$refId] = $item['shortenedTitle'];
-                    if (!empty($item['llmMetadata']['year'])) {
-                        $retryYearFilters[$refId] = $item['llmMetadata']['year'];
-                    }
-                }
-                if (!empty($retryTitles)) {
-                    Log::info('Wave 4b: OpenAlex retry with shortened titles', ['count' => count($retryTitles)]);
-                    $oaRetryResults = $openAlex->searchBatch($retryTitles, 5, $retryYearFilters);
-                    foreach ($oaRetryResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            if (!$openAlex->isCitableWork($candidate)) {
-                                continue;
-                            }
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $retryTitles[$refId];
-                            $scoreMeta = $llmMeta;
-                            if ($scoreMeta) {
-                                $scoreMeta['title'] = $title;
-                            }
-                            $scoreResult = $scoreMeta
-                                ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
-                            Log::info('Wave 4b: matched with shortened title', [
-                                'refId'          => $refId,
-                                'shortenedTitle' => $retryTitles[$refId],
-                                'resultTitle'    => $bestMatch['title'] ?? null,
-                                'score'          => $bestScore,
-                            ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'openalex', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'openalex',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['openalex_short'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-
-                // ── Wave 5b: Open Library retry with shortened titles ──
-                if (!isset($openLibrary)) {
-                    $openLibrary = app(OpenLibraryService::class);
-                }
-                $olRetryQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
-                        continue;
-                    }
-                    $olAuthor = null;
-                    if (!empty($item['llmMetadata']['authors'][0])) {
-                        $parts = explode(',', $item['llmMetadata']['authors'][0], 2);
-                        $olAuthor = trim($parts[0]);
-                    }
-                    $olRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $olAuthor];
-                }
-                if (!empty($olRetryQueries)) {
-                    Log::info('Wave 5b: Open Library retry with shortened titles', ['count' => count($olRetryQueries)]);
-                    $olRetryResults = $openLibrary->searchBatch($olRetryQueries, 5);
-                    foreach ($olRetryResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['shortenedTitle'];
-                            $scoreMeta = $llmMeta;
-                            if ($scoreMeta) {
-                                $scoreMeta['title'] = $title;
-                            }
-                            $scoreResult = $scoreMeta
-                                ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
-                            Log::info('Wave 5b: matched with shortened title', [
-                                'refId'          => $refId,
-                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
-                                'resultTitle'    => $bestMatch['title'] ?? null,
-                                'score'          => $bestScore,
-                            ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'open_library', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'open_library',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['open_library_short'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-
-                // ── Wave 7b: Semantic Scholar retry with shortened titles ──
-                if (!isset($semanticScholar)) {
-                    $semanticScholar = app(SemanticScholarService::class);
-                }
-                $ssRetryQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (empty($item['shortenedTitle']) || !$item['isAcademic']) {
-                        continue;
-                    }
-                    $ssAuthor = !empty($item['llmMetadata']['authors'][0])
-                        ? trim(explode(',', $item['llmMetadata']['authors'][0], 2)[0])
-                        : null;
-                    $ssRetryQueries[$refId] = ['title' => $item['shortenedTitle'], 'author' => $ssAuthor];
-                }
-                if (!empty($ssRetryQueries)) {
-                    Log::info('Wave 7b: Semantic Scholar retry with shortened titles', ['count' => count($ssRetryQueries)]);
-                    $ssRetryResults = $semanticScholar->searchBatch($ssRetryQueries, 5);
-                    foreach ($ssRetryResults as $refId => $candidates) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $bestMatch = null;
-                        $bestScore = 0.0;
-                        $bestDiagnostics = null;
-                        foreach ($candidates as $candidate) {
-                            $llmMeta = $pool[$refId]['llmMetadata'];
-                            $title   = $pool[$refId]['shortenedTitle'];
-                            $scoreMeta = $llmMeta;
-                            if ($scoreMeta) {
-                                $scoreMeta['title'] = $title;
-                            }
-                            $scoreResult = $scoreMeta
-                                ? $openAlex->metadataScore($scoreMeta, $candidate)
-                                : ['score' => $openAlex->titleSimilarity($title, $candidate['title'] ?? '')];
-                            $score = $scoreResult['score'];
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $candidate;
-                                $bestDiagnostics = $scoreResult;
-                            }
-                        }
-                        if ($bestMatch && $bestScore > 0.5 && $this->hasTitleConfidence($bestDiagnostics, $bestScore) && $this->hasAuthorOrYearConfirmation($pool[$refId]['llmMetadata'], $bestMatch)) {
-                            Log::info('Wave 7b: matched with shortened title', [
-                                'refId'          => $refId,
-                                'shortenedTitle' => $pool[$refId]['shortenedTitle'],
-                                'resultTitle'    => $bestMatch['title'] ?? null,
-                                'score'          => $bestScore,
-                            ]);
-                            $result = $this->resolveWithNormalised($pool[$refId], $bestMatch, 'semantic_scholar', round($bestScore, 3), $openAlex, $db, $bestDiagnostics);
-                            if ($result) {
-                                $results[] = $result;
-                                match ($result['status']) {
-                                    'newly_resolved' => $newlyResolved++,
-                                    'enriched'       => $enrichedExisting++,
-                                    default          => $failedToResolve++,
-                                };
-                                $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                            }
-                        }
-                        if (isset($pool[$refId]) && $bestMatch && $bestScore > ($nearMisses[$refId]['score'] ?? 0.0)) {
-                            $nearMisses[$refId] = [
-                                'score'       => round($bestScore, 3),
-                                'title'       => $bestMatch['title'] ?? null,
-                                'author'      => $bestMatch['author'] ?? null,
-                                'year'        => $bestMatch['year'] ?? null,
-                                'source'      => 'semantic_scholar',
-                                'diagnostics' => $bestDiagnostics,
-                            ];
-                        }
-                        if (isset($pool[$refId])) {
-                            $waveResults[$refId]['semantic_scholar_short'] = $bestMatch
-                                ? 'best_score:' . round($bestScore, 3)
-                                : 'no_candidates';
-                        }
-                    }
-                }
-            }
-
-            // ── Phase C: Remaining waves ──
-
-            // ── Wave 6: Web fetch for entries with URLs (Http::pool) ──
-            if (!empty($pool)) {
-                $webFetch = app(WebFetchService::class);
-                $urlItems = [];
-                $llmUrlEntries = [];
-                foreach ($pool as $refId => $item) {
-                    $url = $webFetch->extractUrl($item['content']);
-
-                    // Fallback: use LLM-extracted URL (with protocol typo fix)
-                    if (!$url && !empty($item['llmMetadata']['url'])) {
-                        $llmUrl = $item['llmMetadata']['url'];
-                        $llmUrl = preg_replace('#^htts://#i', 'https://', $llmUrl);
-                        $llmUrl = preg_replace('#^htp://#i', 'http://', $llmUrl);
-                        $llmUrl = preg_replace('#^htps://#i', 'https://', $llmUrl);
-                        if (preg_match('#^https?://#i', $llmUrl)) {
-                            $url = $llmUrl;
-                            $llmUrlEntries[$refId] = true;
-                        }
-                    }
-
-                    if ($url) {
-                        $urlItems[$refId] = [
-                            'url'   => $url,
-                            'title' => $item['searchedTitle'] ?? 'Web Source',
-                        ];
-                    }
-                }
-                if (!empty($urlItems)) {
-                    Log::info('Wave 6: Web fetch', ['count' => count($urlItems)]);
-                    $fetchResults = $webFetch->fetchAndValidateBatch($urlItems);
-                    foreach ($fetchResults as $refId => $fetched) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $text = $fetched['text'] ?? null;
-                        $staged = ($fetched['grade'] ?? null) === \App\Services\WebContent\WebTextAcquirer::GRADE_PDF_STAGED;
-                        if (!$text && !$staged) {
-                            // Record WHY, in the same wave_results structure the
-                            // other waves use, so it reaches match_diagnostics.
-                            // Wave 6 was the ONLY wave that recorded nothing on
-                            // failure, which is how a reference with a live URL
-                            // ended up diagnosed `no_candidates_all_waves` —
-                            // indistinguishable from a fabricated reference.
-                            $waveResults[$refId]['web_fetch'] = [
-                                'url'         => $urlItems[$refId]['url'],
-                                'outcome'     => $fetched['grade'] ?? 'unknown',
-                                'reason'      => $fetched['reason'] ?? null,
-                                'http_status' => $fetched['http_status'] ?? null,
-                                'channel'     => $fetched['channel'] ?? null,
-                            ];
-                            // A refusal can still confirm the reference is REAL — a
-                            // foreign-language video or a paywall interstitial declares
-                            // the work's title without a word of its content.
-                            if (!empty($fetched['title'])) {
-                                $waveResults[$refId]['web_fetch']['title'] = $fetched['title'];
-                            }
-                            continue;
-                        }
-                        $item = $pool[$refId];
-
-                        // A ref holding a PARKED LIBRARY MATCH is only surrendered to a fetch
-                        // that actually read the article. Wave 6's own success test
-                        // (WebTextAcquirer::isResolved) is any non-null text, so without this a
-                        // 400-character "Subscribe now" teaser would evict a real library copy
-                        // of the work. A staged PDF counts — the conversion lane reads it.
-                        if (isset($this->urlDeferredLibraryMatches[$refId])
-                            && !$staged
-                            && !in_array($fetched['grade'] ?? '', self::GRADES_CARRYING_ARTICLE_TEXT, true)
-                        ) {
-                            $waveResults[$refId]['url_first'] = 'url_text_too_weak_kept_library_match';
-                            Log::info('Printed URL read, but not as the article — keeping the library match', [
-                                'refId' => $refId, 'grade' => $fetched['grade'] ?? null,
-                                'url' => $urlItems[$refId]['url'] ?? null,
-                            ]);
-                            continue;
-                        }
-
-                        $stubTitle  = $item['searchedTitle'] ?? 'Web Source';
-                        $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
-                        $stubYear   = $item['llmMetadata']['year'] ?? null;
-                        $url        = $urlItems[$refId]['url'];
-
-                        // NB: full web-source VERIFICATION (identity check against the
-                        // cited title, canonical eligibility) still runs in the VACUUM
-                        // stage via importWebSource. What this wave now does do is
-                        // ESCALATE an unreadable page to the browser — because vacuum
-                        // only ever re-fetched sources that already had a stub, so a URL
-                        // whose cheap fetch failed here never got a browser at all and
-                        // resolved as "source not found" however alive it was.
-                        // A cited PDF goes down the REAL conversion lane: the file is
-                        // staged and the pipeline's OCR step (3/4) converts it with
-                        // footnotes and headings intact. Writing plain text here
-                        // instead would bypass the pipeline the whole app is built
-                        // around, and the row would be invisible to that step.
-                        $stubBookId = $staged
-                            ? $webFetch->createPdfSourceStub(
-                                $db, $stubTitle, $stubAuthor, $stubYear,
-                                (string) $fetched['staged_path'], $url, (int) ($fetched['prose_blocks'] ?? 0),
-                            )
-                            : $webFetch->createWebStubWithNodes(
-                                $db, $stubTitle, $stubAuthor, $stubYear, $text, $url,
-                                $fetched['grade'] ?? null, $fetched['staged_page'] ?? null,
-                            );
-                        if ($stubBookId) {
-                            $result = $this->resolveWithStub($item, $stubBookId, 'web_fetch', $db);
-                            $result['url'] = $url;
-                            $result['url_flags'] = $item['llmMetadata']['url_flags'] ?? null;
-                            $results[] = $result;
-                            match ($result['status']) {
-                                'newly_resolved' => $newlyResolved++,
-                                'enriched'       => $enrichedExisting++,
-                                default          => $failedToResolve++,
-                            };
-                            $this->removeRelatedPoolEntries($pool, $refId, $db, $stubBookId);
-                        }
-                    }
-                }
-            }
-
-            // ── Deferred-metadata fallback: the printed URL has now been ASSESSED (Wave 6). ──
-            // A ref still in the pool here means its URL did not yield the source (dead, blocked,
-            // different work) — apply the parked title-search match, so URL-first never LOSES a
-            // resolution, it only orders content ahead of a content-free stub. Runs before Brave
-            // so no search money is spent on refs that already hold a corroborated match.
-            // Parked LIBRARY matches first — same contract, different apply path (the book
-            // already exists, so this re-runs the Wave 3 write rather than minting a stub).
-            if (!empty($this->urlDeferredLibraryMatches)) {
-                foreach ($this->urlDeferredLibraryMatches as $refId => $stash) {
-                    if (!isset($pool[$refId])) {
-                        continue; // the URL won — it carried the article
-                    }
-                    $item = $stash['item'];
-                    $localMatch = $stash['match'];
-                    $diagJson = !empty($localMatch['diagnostics']) ? json_encode($localMatch['diagnostics']) : null;
-                    $updateData = $item['isLinked']
-                        ? ['foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson]
-                        : ['source_id' => $localMatch['book'], 'foundation_source' => $localMatch['book'], 'match_method' => 'library', 'match_score' => $localMatch['score'], 'match_diagnostics' => $diagJson];
-                    $updateData = array_merge($updateData, $this->canonicalColumnFor($localMatch['canonical_source_id'] ?? null));
-                    $this->updateSourceEntry($db, $refId, $updateData);
-
-                    $waveResults[$refId]['url_first'] ??= 'url_unusable_fell_back_to_library';
-                    $results[] = [
-                        'referenceId'         => $refId,
-                        'status'              => $item['isLinked'] ? 'enriched' : 'newly_resolved',
-                        'match_method'        => 'library',
-                        'searched_title'      => $item['searchedTitle'],
-                        'result_title'        => $localMatch['title'],
-                        'similarity_score'    => $localMatch['score'],
-                        'openalex_id'         => $localMatch['openalex_id'] ?? null,
-                        'open_library_key'    => $localMatch['open_library_key'] ?? null,
-                        'foundation_book_id'  => $localMatch['book'],
-                        'canonical_source_id' => $localMatch['canonical_source_id'] ?? null,
-                        'llm_metadata'        => $item['llmMetadata'],
-                    ];
-                    $item['isLinked'] ? $enrichedExisting++ : $newlyResolved++;
-                    $this->removeRelatedPoolEntries($pool, $refId, $db, $localMatch['book']);
-                }
-            }
-
-            if (!empty($this->urlDeferredMatches)) {
-                foreach ($this->urlDeferredMatches as $refId => $stash) {
-                    if (!isset($pool[$refId])) {
-                        continue; // the URL fetch won — the stub carries actual content
-                    }
-                    $result = $this->resolveWithNormalised(
-                        $pool[$refId], $stash['normalised'], $stash['matchMethod'], $stash['score'],
-                        $openAlex, $db, $stash['diagnostics'], allowUrlDeferral: false,
-                    );
-                    if ($result) {
-                        $waveResults[$refId]['url_first'] = 'url_unusable_fell_back_to_' . $stash['matchMethod'];
-                        $results[] = $result;
-                        match ($result['status']) {
-                            'newly_resolved' => $newlyResolved++,
-                            'enriched'       => $enrichedExisting++,
-                            default          => $failedToResolve++,
-                        };
-                        $this->removeRelatedPoolEntries($pool, $refId, $db, $result['foundation_book_id'] ?? null);
-                    }
-                }
-            }
-
-            // ── Wave 8: Brave Search (Http::pool) ──
-            if (!empty($pool) && config('services.brave_search.api_key')) {
-                $braveQueries = [];
-                foreach ($pool as $refId => $item) {
-                    if (!$item['searchedTitle']) {
-                        continue;
-                    }
-                    $braveTitle = $item['searchedTitle'];
-                    $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
-                    // The URL the citation PRINTS, so a title hit on a different host can be
-                    // refused. By this wave the printed URL has already been tried and failed
-                    // (Wave 6) — usually a 403, which says the host refused US, not that the
-                    // work is elsewhere. Searching the title then accepting whatever shares it
-                    // is how "Social Security Guide" on guides.dss.gov.au became a US financial
-                    // planning blog. See BraveSearchService::hostAgreesWithCitedUrl.
-                    $citedUrl = app(WebFetchService::class)->extractUrl((string) ($item['content'] ?? ''))
-                        ?: ($item['llmMetadata']['url'] ?? null);
-                    $braveQueries[$refId] = [
-                        'title'     => $braveTitle,
-                        'author'    => $stubAuthor,
-                        'year'      => $item['llmMetadata']['year'] ?? null,
-                        'cited_url' => is_string($citedUrl) && $citedUrl !== '' ? $citedUrl : null,
-                    ];
-                }
-                if (!empty($braveQueries)) {
-                    Log::info('Wave 8: Brave Search', ['count' => count($braveQueries)]);
-                    $braveSearch = app(BraveSearchService::class);
-                    $braveResults = $braveSearch->searchAndFetchBatch($braveQueries, $db);
-                    foreach ($braveResults as $refId => $stubBookId) {
-                        if (!isset($pool[$refId])) {
-                            continue;
-                        }
-                        $result = $this->resolveWithStub($pool[$refId], $stubBookId, 'brave_search', $db);
-                        $result['url_flags'] = $pool[$refId]['llmMetadata']['url_flags'] ?? null;
-                        $results[] = $result;
-                        match ($result['status']) {
-                            'newly_resolved' => $newlyResolved++,
-                            'enriched'       => $enrichedExisting++,
-                            default          => $failedToResolve++,
-                        };
-                        $this->removeRelatedPoolEntries($pool, $refId, $db, $stubBookId);
-                    }
-                }
+            // The tracer wraps every wave, so the per-citation trace is structural: a wave that
+            // does not record is unrepresentable. See WaveTracer for how outcomes are derived.
+            $tracer = new \App\Services\CitationPipeline\Resolution\WaveTracer($ctx);
+            foreach (\App\Services\CitationPipeline\Resolution\ResolutionLadder::waves() as $wave) {
+                $tracer->runTraced($wave);
             }
 
             // ── Mark remaining as no_match ──
@@ -1674,6 +613,12 @@ class CitationScanBibliographyJob implements ShouldQueue
                 ];
                 $failedToResolve++;
             }
+
+            // Persist the per-citation trace under match_diagnostics.trace for EVERY citation
+            // that entered the ladder — resolved and unresolved alike. Runs after the no_match
+            // write above, because that write REPLACES match_diagnostics with the near-miss
+            // envelope; this pass merges into whatever is now stored.
+            $this->persistTraces($db, $ctx->trace);
 
             // Flush per-sub-citation outcomes onto the parents' cached metadata
             $this->persistSubResolutions($db, $llmMetadataMap);
@@ -1768,6 +713,79 @@ class CitationScanBibliographyJob implements ShouldQueue
     ];
 
     /**
+     * Write each citation's trace under `match_diagnostics.trace`, merging with whatever the
+     * waves or the no_match epilogue already stored there — never replacing it. Sub-citation
+     * steps (`{refId}::subN`) have no row of their own, so they fold under the PARENT's trace
+     * as `subs[subKey]`, the same convention persistSubResolutions uses for outcomes.
+     *
+     * This runs for EVERY ladder entrant, which is the point: before it, whether a citation had
+     * any diagnostics at all depended on WHICH wave failed it (measured: 73 of 119 rows carried
+     * something, 46 nothing), and "ran and found nothing" was indistinguishable from "never
+     * reached". Rows scanned before this existed simply lack the key — consumers must render
+     * that as "not recorded", never as "did not run".
+     */
+    private function persistTraces($db, array $trace): void
+    {
+        if ($trace === []) {
+            return;
+        }
+
+        // Fold sub-citation traces under their parents.
+        $byRow = [];
+        foreach ($trace as $refId => $steps) {
+            if (str_contains($refId, '::sub')) {
+                [$parent, $subKey] = explode('::', $refId, 2);
+                $byRow[$parent]['subs'][$subKey] = $steps;
+            } else {
+                $byRow[$refId]['steps'] = $steps;
+            }
+        }
+
+        $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
+        $existing = $db->table($this->sourceTable)
+            ->where('book', $this->bookId)
+            ->whereIn($idColumn, array_keys($byRow))
+            ->pluck('match_diagnostics', $idColumn);
+
+        foreach ($byRow as $refId => $record) {
+            if (!isset($existing[$refId]) && !$existing->has($refId)) {
+                continue; // a pool key with no row (defensive; sub-only parents always have one)
+            }
+
+            $diagnostics = json_decode((string) $existing[$refId], true);
+            if (!is_array($diagnostics)) {
+                $diagnostics = [];
+            }
+            $diagnostics['trace'] = $record;
+
+            $db->table($this->sourceTable)
+                ->where('book', $this->bookId)
+                ->where($idColumn, $refId)
+                ->update([
+                    'match_diagnostics' => json_encode($diagnostics),
+                    'updated_at'        => now(),
+                ]);
+        }
+    }
+
+    // ── ResolutionHost accessors for the extracted waves ─────────────────────
+
+    public function gradeCarriesArticleText(?string $grade): bool
+    {
+        return in_array($grade ?? '', self::GRADES_CARRYING_ARTICLE_TEXT, true);
+    }
+
+    public function urlDeferredLibraryMatches(): array
+    {
+        return $this->urlDeferredLibraryMatches;
+    }
+
+    public function urlDeferredMatches(): array
+    {
+        return $this->urlDeferredMatches;
+    }
+
+    /**
      * Should this Wave-3 library match stand aside so Wave 6 can read the citation's own URL?
      *
      * Yes whenever a URL is printed and we lack POSITIVE evidence that this library copy is the
@@ -1778,7 +796,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * metadata stub. So "ungraded" is not a rare edge here, it is the norm, and a printed URL is
      * better evidence than a title match against an unexamined row.
      */
-    private function deferLibraryMatchForPrintedUrl(string $refId, array $item, array $localMatch): bool
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function deferLibraryMatchForPrintedUrl(string $refId, array $item, array $localMatch): bool
     {
         $printedUrl = app(WebFetchService::class)->extractUrl($item['content'] ?? '')
             ?: ($item['llmMetadata']['url'] ?? null);
@@ -1801,7 +820,9 @@ class CitationScanBibliographyJob implements ShouldQueue
         return true;
     }
 
-    private function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, $db, ?array $matchDiagnostics = null, bool $allowUrlDeferral = true): ?array
+    // Public to satisfy ResolutionHost — the extracted waves call it. Not part of the job's own
+    // API; see ResolutionHost for why the interface exists and why it should shrink.
+    public function resolveWithNormalised(array $poolItem, array $normalised, string $matchMethod, ?float $score, OpenAlexService $openAlex, mixed $db, ?array $matchDiagnostics = null, bool $allowUrlDeferral = true): ?array
     {
         $refId    = $poolItem['referenceId'];
         $isLinked = $poolItem['isLinked'];
@@ -2009,7 +1030,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * bibliography carries canonical_source_id; footnotes does not — there the
      * canonical is reachable via the foundation library row's link instead.
      */
-    private function canonicalColumnFor(?string $canonicalId): array
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function canonicalColumnFor(?string $canonicalId): array
     {
         return ($canonicalId && $this->sourceTable === 'bibliography')
             ? ['canonical_source_id' => $canonicalId]
@@ -2385,7 +1407,8 @@ class CitationScanBibliographyJob implements ShouldQueue
         }
     }
 
-    private function resolveWithStub(array $poolItem, string $stubBookId, string $matchMethod, $db): array
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function resolveWithStub(array $poolItem, string $stubBookId, string $matchMethod, mixed $db): array
     {
         $refId    = $poolItem['referenceId'];
         $isLinked = $poolItem['isLinked'];
@@ -2638,7 +1661,8 @@ class CitationScanBibliographyJob implements ShouldQueue
     /**
      * Write back to the correct source table (bibliography or footnotes).
      */
-    private function updateSourceEntry($db, string $refId, array $data): void
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function updateSourceEntry($db, string $refId, array $data): void
     {
         $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
         $db->table($this->sourceTable)
@@ -2652,7 +1676,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Only returns stubs that have been verified (have openalex_id or open_library_key).
      * Returns ['book' => uuid, 'title' => ..., 'score' => float] or null.
      */
-    private function searchLibraryTable(string $title, ?array $llmMetadata, OpenAlexService $openAlex, $db, ?array &$nearMiss = null): ?array
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function searchLibraryTable(string $title, ?array $llmMetadata, OpenAlexService $openAlex, $db, ?array &$nearMiss = null): ?array
     {
         $candidates = $db->table('library')
             ->whereRaw("title ILIKE ?", ['%' . mb_substr($title, 0, 50) . '%'])
@@ -2751,7 +1776,9 @@ class CitationScanBibliographyJob implements ShouldQueue
      * When the scorer ran title-only (no LLM metadata), the composite IS the
      * title similarity, so the floor falls back to it.
      */
-    private function hasTitleConfidence(?array $diagnostics, float $score): bool
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised. Destined for a
+    // CandidateScorer collaborator once the search waves have all moved.
+    public function hasTitleConfidence(?array $diagnostics, float $score): bool
     {
         $titleScore = $diagnostics['titleScore'] ?? $score;
 
@@ -2764,7 +1791,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * library row's. Null when the book has no OpenAlex identity (the wave
      * is skipped and everything falls through to the open-search waves).
      */
-    private function parentWorkOpenAlexId($db): ?string
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function parentWorkOpenAlexId($db): ?string
     {
         $row = $db->table('library as l')
             ->leftJoin('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
@@ -3011,7 +2039,8 @@ class CitationScanBibliographyJob implements ShouldQueue
         return (float) ($diagnostics['titleScore'] ?? 0) >= 0.9;
     }
 
-    private function hasYearMismatchRejection(?array $llmMeta, array $candidate, float $score): bool
+    // Public to satisfy ResolutionHost — destined for CandidateScorer with hasTitleConfidence.
+    public function hasYearMismatchRejection(?array $llmMeta, array $candidate, float $score): bool
     {
         if (!$llmMeta || $score >= 0.6) {
             return false; // High-scoring matches pass through (editions/reprints)
@@ -3041,7 +2070,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Remove all related pool entries (parent + sub-citations) when any citation resolves.
      * When a sub-citation resolves, also writes foundation_source back to the parent footnote.
      */
-    private function removeRelatedPoolEntries(array &$pool, string $resolvedRefId, $db, ?string $stubBookId = null): void
+    // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
+    public function removeRelatedPoolEntries(array &$pool, string $resolvedRefId, mixed $db, ?string $stubBookId = null): void
     {
         $parentRefId = $pool[$resolvedRefId]['parentRefId'] ?? null;
         $baseRefId = $parentRefId ?? $resolvedRefId;
@@ -3108,7 +2138,8 @@ class CitationScanBibliographyJob implements ShouldQueue
      * Check whether a candidate has at least author OR year confirmation against LLM metadata.
      * Used as an extra guard for shortened-title "b" waves to prevent false positives.
      */
-    private function hasAuthorOrYearConfirmation(?array $llmMeta, array $candidate): bool
+    // Public to satisfy ResolutionHost — destined for CandidateScorer with the other two gates.
+    public function hasAuthorOrYearConfirmation(?array $llmMeta, array $candidate): bool
     {
         if (!$llmMeta) {
             return false;

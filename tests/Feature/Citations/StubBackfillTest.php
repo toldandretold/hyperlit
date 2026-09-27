@@ -62,10 +62,16 @@ test('deletes orphan stubs and creates canonicals (force matcher promotion)', fu
 
     Artisan::call('library:backfill-citation-stubs');
 
+    // The canonical is read on the DEFAULT connection because that is where the code under test
+    // writes it: CanonicalSourceMatcher does everything via pgsql_admin EXCEPT
+    // CanonicalSource::create(), which rides the default connection — inside RefreshDatabase's
+    // transaction here, so an admin-connection read can never see it. This assertion used to be
+    // admin-side and passed anyway, satisfied by a COMMITTED W_BACKFILL leftover from an earlier
+    // run — pollution masking a mis-wired assertion (caught when Pest.php's per-test
+    // citation-graph wipe landed, 2026-09-27).
     expect(backfillDb()->table('library')->where('book', $stub)->count())->toBe(0, 'stub library row should be deleted')
-        ->and(backfillDb()->table('canonical_source')
-            ->where('openalex_id', backfillDb()->table('canonical_source')->where('openalex_id', 'like', 'W_BACKFILL_%')->value('openalex_id'))
-            ->count())->toBeGreaterThanOrEqual(1, 'canonical_source row should exist');
+        ->and(DB::table('canonical_source')->where('openalex_id', 'like', 'W_BACKFILL_%')->count())
+        ->toBeGreaterThanOrEqual(1, 'canonical_source row should exist');
 });
 
 test('rewrites bibliography source_id to canonical_source_id', function () {

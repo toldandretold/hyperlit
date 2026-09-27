@@ -857,3 +857,65 @@ body {
    visibly secondary so an off-record choice is a deliberate act. */
 .st-choice-offtopic { opacity: 0.55; border-style: dashed; }
 .st-choice-more { opacity: 0.7; font-style: italic; }
+
+/* ── Resolution path — the citation's lit rail through the ladder ─────────────
+   Semantic hues borrowed from the data-flow map's REL_COLOR palette (visualisation/js/collect.ts)
+   so this reads as a sibling of that map: green = wrote a resolution, orange = pushed aside
+   (skipped), purple = pulled out by a relative, teal = handed off (routed), dim = nothing. */
+.st-path-rail {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  position: relative;
+}
+.st-path-rail::before {
+  /* The rail itself — one continuous line the dots sit on, so the eye reads a PATH. */
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+.st-path-step { position: relative; padding: 0.18rem 0 0.18rem 1.25rem; }
+.st-path-head { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.st-path-dot {
+  position: absolute;
+  left: 0;
+  top: 0.42rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #8b93a7;
+  border: 2px solid transparent;
+}
+.st-path-title { font-weight: 550; font-size: 0.86rem; }
+.st-path-outcome { font-size: 0.78rem; opacity: 0.75; }
+.st-path-code { font-size: 0.75rem; text-decoration: none; opacity: 0.7; }
+.st-path-code:hover { opacity: 1; text-decoration: underline; }
+.st-path-reason { font-size: 0.78rem; margin: 0.05rem 0 0; }
+.st-path-detail summary { font-size: 0.75rem; opacity: 0.7; cursor: pointer; }
+.st-path-detail pre {
+  font-size: 0.72rem;
+  overflow-x: auto;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.4rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.st-path-sub { margin-top: 0.4rem; }
+.st-path-sub > summary { font-size: 0.8rem; cursor: pointer; }
+
+/* Outcome hues — REL_COLOR semantics. The resolved dot is a filled write-green ring so the
+   step where the journey ENDED is findable at a glance. */
+.st-path-resolved .st-path-dot { background: #54c98a; box-shadow: 0 0 0 3px color-mix(in srgb, #54c98a 25%, transparent); }
+.st-path-resolved .st-path-outcome { color: #54c98a; opacity: 1; }
+.st-path-nomatch .st-path-dot { background: color-mix(in srgb, #8b93a7 55%, transparent); }
+.st-path-routed .st-path-dot { background: #5fb3a3; }
+.st-path-skipped .st-path-dot { background: #e0a44b; }
+.st-path-skipped .st-path-outcome { color: #e0a44b; opacity: 1; }
+.st-path-retired .st-path-dot { background: #b07ad6; }
+.st-path-excluded .st-path-dot { background: #e06a9a; }
+.st-path-excluded .st-path-outcome { color: #e06a9a; opacity: 1; }

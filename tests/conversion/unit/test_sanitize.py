@@ -34,3 +34,19 @@ def test_sanitize_url_blocks_dangerous():
 
 def test_sanitize_url_allows_http():
     assert sanitize_url('https://example.org/page') == 'https://example.org/page'
+
+
+def test_preserves_citation_path_marker_table():
+    # The review report's "how this citation was checked" block travels as a data-chart marker
+    # table (ClaimMarkdownFormatter::buildPathTableMd); the client renderer keys the outcome chip
+    # off data-recorded and the row colours off data-band/data-kind. An allowlist silently drops
+    # anything it has not been told about — these WERE dropped on first ship (2026-09-28), and
+    # every traced citation rendered as "not recorded".
+    html = ('<table data-chart="citation-path" data-recorded="1"><tbody>'
+            '<tr data-band="ladder" data-kind="resolved"><td>Which work is it?</td>'
+            '<td>Identified <a href="https://github.com/x" rel="noopener">code</a></td></tr>'
+            '</tbody></table>')
+    out = sanitize_html(html)
+    for attr in ('data-chart="citation-path"', 'data-recorded="1"',
+                 'data-band="ladder"', 'data-kind="resolved"', 'rel="noopener"'):
+        assert attr in out, f'sanitizer dropped {attr}'

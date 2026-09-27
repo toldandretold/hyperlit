@@ -116,10 +116,19 @@ class WorkbenchData
         $anchorYears = $this->anchorYearsByReference($manifest->bookIdFor($slug));
         $entryYears = $this->entryYearsByReference($manifest->bookIdFor($slug));
         $storedText = $this->storedSourceText($claims);
+        $liveTraces = $this->liveTraces($manifest->bookIdFor($slug));
 
         $rows = [];
         $flagged = 0;
         foreach ($claims as $claim) {
+            // The claims snapshot is frozen at review time, but the TRACE describes the SCAN,
+            // which is free to re-run — so a run made before per-wave tracing landed gets the
+            // live row's trace rather than none at all (same pattern as $storedText: live DB
+            // state joined onto the frozen run where the live answer is the truer one).
+            if (empty($claim['match_diagnostics']['trace']) && isset($liveTraces[$claim['referenceId'] ?? ''])) {
+                $claim['match_diagnostics'] = (array) ($claim['match_diagnostics'] ?? []);
+                $claim['match_diagnostics']['trace'] = $liveTraces[$claim['referenceId']];
+            }
             $ref = $claim['referenceId'] ?? null;
             $gt = $this->joiner->resolveLabel($claim, $ref, $bibLevel, $snippetLevel);
             $verdict = $this->verdict($claim);
@@ -148,6 +157,11 @@ class WorkbenchData
                 // Rendered by the same helper as the report, because the console and the
                 // report disagreeing about what a citation refers to is worse than neither.
                 'short_form_of' => ShortFormReference::describe($claim),
+                // The citation's PATH through resolution — the WaveTracer ledger decorated with
+                // the map's labels and code links, or the honest inference for pre-routed and
+                // pre-trace rows (recorded: false ⇒ render "not recorded", never "did not run").
+                // Same builder the reader-facing report uses; the two surfaces cannot disagree.
+                'path' => \App\Services\CitationReview\Support\CitationPath::build($claim),
                 'llm_metadata' => $claim['llm_metadata'] ?? null,
                 'llm_verdict' => $claim['llm_verdict'] ?? null,
                 'source' => [
@@ -232,6 +246,18 @@ class WorkbenchData
      * @param  list<array<string, mixed>>  $claims
      * @return array<string, array{nodes: int, chars: int}>
      */
+    /**
+     * The live rows' per-wave traces, keyed by referenceId — via LiveTraceJoiner, the ONE
+     * implementation of this join (the report's regenerate path uses the same one, so the
+     * workbench and the report cannot disagree about whether a path was recorded).
+     *
+     * @return array<string, array> refId => trace record ({steps, subs})
+     */
+    private function liveTraces(string $bookId): array
+    {
+        return (new \App\Services\CitationReview\Support\LiveTraceJoiner())->forBook($bookId);
+    }
+
     private function storedSourceText(array $claims): array
     {
         $books = array_values(array_unique(array_filter(

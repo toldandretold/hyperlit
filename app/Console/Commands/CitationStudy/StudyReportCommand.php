@@ -73,8 +73,18 @@ class StudyReportCommand extends Command
             $metrics->toMarkdown($summary, $manifest->corpus, $runId)
         );
 
+        // The corpus flow figure — every citation, resolution route → source → verdict → human
+        // label, as the study's one-picture answer to "where do citations actually end up".
+        // Built purely from the joined rows (no pipeline calls); counts conserve column to
+        // column, so the figure is checkable against summary.md rather than an illustration.
+        $figure = new \App\Services\CitationStudy\CorpusFlowFigure();
+        $flow = $figure->build($joined['rows']);
+        file_put_contents("{$outDir}/flow.json", json_encode($flow, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n");
+        file_put_contents("{$outDir}/flow.html", $figure->toHtml($flow, $manifest->corpus, $runId));
+
         $this->info("Dataset: {$csvPath} (" . count($joined['rows']) . ' rows)');
         $this->info("Summary: {$outDir}/summary.json + summary.md");
+        $this->info("Flow figure: {$outDir}/flow.html (+ flow.json)");
 
         $orphans = $joined['diagnostics']['orphan_gt'];
         $defaulted = $joined['diagnostics']['defaulted_claims'];

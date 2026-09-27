@@ -244,6 +244,13 @@ class CitationReviewService
     {
         $progress = $onProgress ?? fn() => null;
 
+        // A claims file frozen before per-wave tracing landed carries no path — but the trace
+        // describes the SCAN, which is free to re-run, so the live rows can fill the gap and the
+        // report shows the real path instead of "not recorded". Same join the workbench does
+        // (LiveTraceJoiner is the ONE implementation); a claim's own trace always wins.
+        $joiner = new \App\Services\CitationReview\Support\LiveTraceJoiner();
+        $claims = $joiner->merge($claims, $joiner->forBook($bookId));
+
         $highlightCount = $this->verificationHighlighter->createVerificationHighlights($claims, $bookId);
         $progress('highlights', "Created {$highlightCount} verification highlights");
 

@@ -48,6 +48,11 @@ interface FigureViewerOptions {
    *  background, never `opacity` on the overlay — opacity scales the
    *  backdrop blur away (the overlay-opacity-scales-backdrop-blur bug). */
   glassOverlay?: boolean;
+  /** Called with the DISPLAYED figure once it is mounted in the overlay. The
+   *  viewer shows a CLONE (cloneNode drops event listeners), so an interactive
+   *  figure — the review-method chart's expandable bands — must re-wire its
+   *  behaviour on the copy; this is the handle to do it with. */
+  onMount?: (shown: Figure) => void;
 }
 
 const ZOOM_STEP = 1.25;
@@ -224,6 +229,7 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   stage.appendChild(shown);
   scroller.appendChild(stage);
   overlay.appendChild(scroller);
+  options.onMount?.(shown);
 
   const fitWidth = (): number => Math.max(window.innerWidth - 48, 320);
   // 'contain' also respects the padded viewport HEIGHT so the whole figure is
@@ -278,10 +284,13 @@ export function openFigureViewer(figure: Figure, options: FigureViewerOptions = 
   let dragStart = { x: 0, y: 0, left: 0, top: 0 };
   scroller.addEventListener('pointerdown', (e: PointerEvent) => {
     if (e.button !== 0 || e.pointerType === 'touch') return;
-    // Links inside the figure stay clickable: pointer CAPTURE redirects the
-    // ensuing click to the scroller, which silently killed anchor navigation
-    // (the journal network's nodes). Drag starts from non-link space only.
-    if ((e.target as Element).closest?.('a')) return;
+    // Interactive elements inside the figure stay clickable: pointer CAPTURE redirects the
+    // ensuing click to the scroller, which silently killed anchor navigation (the journal
+    // network's nodes) and then, identically, the review-method chart's expand/collapse
+    // toggles — SVG <text> nodes, so the anchor exemption alone never covered them. Any figure
+    // element that wants clicks marks itself `data-figure-interactive`; drag starts from inert
+    // space only.
+    if ((e.target as Element).closest?.('a, button, [data-figure-interactive]')) return;
     dragging = true;
     dragStart = { x: e.clientX, y: e.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
     scroller.style.cursor = 'grabbing';

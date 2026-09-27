@@ -183,6 +183,8 @@ class WebFetchService
         if ($result['text'] === null || ! in_array($result['grade'], WebTextAcquirer::USABLE_GRADES, true)) {
             // A staged PDF has no text yet — there is nothing to screen, and it
             // is already resolved.
+            $result['screen'] = 'not_run';
+
             return $result;
         }
 
@@ -198,7 +200,15 @@ class WebFetchService
             $result['text']   = null;
             $result['grade']  = WebTextAcquirer::GRADE_IRRELEVANT;
             $result['reason'] = 'page content is not this work (relevance screen)';
+            $result['screen'] = 'rejected';
+
+            return $result;
         }
+
+        // Stamped explicitly because a PASSING screen used to leave no trace at all — "screened
+        // and passed" and "never screened" were indistinguishable, and the screen is the ONLY
+        // identity check a readable page gets. The trace needs to be able to say which happened.
+        $result['screen'] = 'passed';
 
         return $result;
     }

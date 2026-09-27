@@ -6,6 +6,7 @@ import { applyGateFilter } from "../components/utilities/gateFilter";
 import { isNewlyCreatedHighlight } from "../utilities/operationState";
 import { renderCharts } from './chartRenderer';
 import { renderHarvestNetworks } from './graphRenderer';
+import { renderCitationPaths, renderReviewMethod } from './citationPathRenderer';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { applyDynamicFootnoteNumbers, queueRenderHeal } from './footnoteSelfHeal';
 import { stripTransientNodeClasses } from '../utilities/transientClasses';
@@ -279,6 +280,8 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     renderMathElements(temp);
     renderCharts(temp);
     renderHarvestNetworks(temp);
+    renderCitationPaths(temp);
+    renderReviewMethod(temp);
     // Dims BEFORE handleBrokenImages: its settle-compensation belt skips imgs
     // that already carry width/height attrs — a sized img needs no chasing.
     applyImageDims(temp);

@@ -179,6 +179,21 @@ class BraveSearchService
      * @param mixed $db Database connection
      * @return array Stub book IDs keyed by referenceId (only resolved entries)
      */
+    /**
+     * What the LAST searchAndFetchBatch call decided, per refId: the query sent, the candidates
+     * refused and why (host_differs_from_cited_url is the one that matters), and what was chosen.
+     * Read by the Brave wave straight after the batch call, recorded into the citation's trace.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    private array $lastBatchDecisions = [];
+
+    /** @return array<string, array<string, mixed>> */
+    public function lastBatchDecisions(): array
+    {
+        return $this->lastBatchDecisions;
+    }
+
     public function searchAndFetchBatch(array $queries, $db): array
     {
         $apiKey = config('services.brave_search.api_key');
@@ -224,10 +239,21 @@ class BraveSearchService
             }
         }
 
-        // Step 2: Pick best URL for each entry
+        // Step 2: Pick best URL for each entry. Every decision is RECORDED into
+        // $lastBatchDecisions — the query we actually sent, what came back, why each candidate
+        // was refused, and which one (if any) was taken. Before this, a passing host check and
+        // a never-run host check looked identical, and the query itself was thrown away; the
+        // hamiltonfinancialplanning.com swap was undiagnosable without re-running the search.
+        $this->lastBatchDecisions = [];
         $urlsToFetch = [];
         $failedStatuses = [];
         foreach ($queries as $key => $q) {
+            $decision = [
+                'query'   => $this->buildQuery($q['title'], $q['author'] ?? null, $q['year'] ?? null),
+                'chosen'  => null,
+                'refused' => [],
+            ];
+
             $response = $allSearchResponses[$key] ?? null;
             // Http::pool does not THROW connection-level failures — it puts the exception OBJECT
             // in the results array, and ->successful() on a ConnectionException is a fatal Error
@@ -239,10 +265,13 @@ class BraveSearchService
                     ? $response->status()
                     : ($response instanceof \Throwable ? class_basename($response) : 'no-response');
                 $failedStatuses[$status] = ($failedStatuses[$status] ?? 0) + 1;
+                $decision['search_failed'] = $status;
+                $this->lastBatchDecisions[$key] = $decision;
                 continue;
             }
 
             $results = $response->json('web.results') ?? [];
+            $decision['results'] = count($results);
             foreach ($results as $result) {
                 $url = $result['url'] ?? null;
                 if (!$url) {
@@ -251,25 +280,38 @@ class BraveSearchService
 
                 $path = strtolower(parse_url($url, PHP_URL_PATH) ?? '');
                 if (str_ends_with($path, '.pdf')) {
+                    $decision['refused'][] = ['url' => $url, 'why' => 'pdf_path'];
                     continue;
                 }
 
                 $host = parse_url($url, PHP_URL_HOST) ?? '';
                 if ($this->isBlockedDomain($host)) {
+                    $decision['refused'][] = ['url' => $url, 'why' => 'blocked_domain'];
                     continue;
                 }
 
                 $pageTitle = $result['title'] ?? '';
                 if ($this->pageTitleSimilarity($q['title'], $pageTitle) < 0.3) {
+                    $decision['refused'][] = ['url' => $url, 'why' => 'weak_title'];
                     continue;
                 }
                 if (!$this->hostAgreesWithCitedUrl($q['cited_url'] ?? null, $url)) {
+                    // THE decision this record exists for: a page sharing the title on a host
+                    // the citation never named. Refusing it silently is correct; refusing it
+                    // invisibly is how it took a database console to find.
+                    $decision['refused'][] = ['url' => $url, 'why' => 'host_differs_from_cited_url'];
                     continue;
                 }
 
                 $urlsToFetch[$key] = $url;
+                $decision['chosen'] = $url;
                 break; // Take first good match
             }
+
+            // The refusal list is diagnostic, not an archive — cap it so a query matching a
+            // whole SERP of junk does not bloat every citation row it lands on.
+            $decision['refused'] = array_slice($decision['refused'], 0, 4);
+            $this->lastBatchDecisions[$key] = $decision;
         }
 
         // A failing SEARCH must never masquerade as "source not found". The
@@ -306,6 +348,7 @@ class BraveSearchService
         foreach ($fetchResults as $key => $fetched) {
             $text = $fetched['text'] ?? null;
             $staged = ($fetched['grade'] ?? null) === \App\Services\WebContent\WebTextAcquirer::GRADE_PDF_STAGED;
+            $this->lastBatchDecisions[$key]['fetch'] = $fetched['grade'] ?? 'unknown';
             if (!$text && !$staged) {
                 // A search HIT whose page we could not read is a different
                 // fact from "the search found nothing", and both used to
