@@ -85,6 +85,23 @@
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
             "evidenced_by": null
+        },
+        "ref:seq1_Fn1790378634221_0003::sub1": {
+            "gt_id": null,
+            "referenceId": "seq1_Fn1790378634221_0003::sub1",
+            "run_id": "20260925_233337_b55ce8dd",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": null,
+            "note": null,
+            "found_url": "https://www.legislation.gov.au/F2018L00795/latest/text",
+            "reference_exists": true,
+            "evidence": "ct means the Social Security (Administration) Act 1999.\ndemerit means a record on the Employment Department’s Information Technology System that the person has committed a mutual obligation failure without a valid reason.\nDHS assessment means an assessment by the Human Services Department to assess whether the person’s employment pathway plan is suitable for them.\nmutual obligation failure means a mutual obligation failure under subsection 42AC of the Social Security (Administration) Act 1999.\nrelevant failure means the relevant failure described in subsection 42AF(1) of the Act.",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-09-29T03:00:14+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-09-29T03:00:14+00:00",
+            "evidenced_by": "encryptER"
         }
     }
 }

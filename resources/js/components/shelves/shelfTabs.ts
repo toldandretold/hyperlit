@@ -129,6 +129,18 @@ export async function openShelf(shelfId: any, shelfName: any, sort = 'recent') {
         return;
     }
 
+    // A server-rendered visitor pill for this shelf IS its tab — click it
+    // (homepageDisplayUnit resolves it, owner endpoint included) instead of
+    // minting a duplicate dynamic tab beside it.
+    const visitorPill = document.querySelector(`.visitor-shelf-tab[data-shelf-id="${shelfId}"]`) as HTMLElement | null;
+    if (visitorPill) {
+        // click() is a no-op on an already-active pill (the handler returns
+        // early), so re-resolve explicitly by clearing active state first.
+        visitorPill.classList.remove('active');
+        visitorPill.click();
+        return;
+    }
+
     // Create a new tab button
     const btn = createTabButton(shelfId, shelfName, sort, true);
     if (btn) {
@@ -271,12 +283,14 @@ export function closeTab(btn: any) {
             const nextTab = remaining[Math.min(idx, remaining.length) - 1] || remaining[0];
             activateTab(nextTab);
         } else {
-            // No shelf tabs left — activate Public
+            // No shelf tabs left — activate the Library pill. (The blade's
+            // filters are 'library' and 'shelf'; the old 'public' filter no
+            // longer exists, so that fallback left the page with no active tab.)
             localStorage.removeItem(ACTIVE_SHELF_KEY);
             clearActiveTabFromHistory();
-            const publicBtn = document.querySelector('.arranger-button[data-filter="public"]') as HTMLElement | null;
-            if (publicBtn) {
-                publicBtn.click();
+            const libraryBtn = document.querySelector('.arranger-button[data-filter="library"]') as HTMLElement | null;
+            if (libraryBtn) {
+                libraryBtn.click();
             }
         }
     }

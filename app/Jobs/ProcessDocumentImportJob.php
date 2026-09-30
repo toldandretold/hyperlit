@@ -1032,6 +1032,16 @@ class ProcessDocumentImportJob implements ShouldQueue
                 'book' => $this->bookId,
                 'fields' => array_keys($updates),
             ]);
+
+            // The extracted title/author are card-relevant: refresh (or mint —
+            // updateBookOnUserPage upserts) the user-page card so the feed
+            // doesn't show "Untitled" until the next freshness-guard regen.
+            // Queue-worker context: syncHomepage's updateBookOnUserPage writes
+            // via pgsql_admin, so RLS is not in play here.
+            $refreshed = PgLibrary::where('book', $this->bookId)->first();
+            if ($refreshed && $refreshed->creator) {
+                app(\App\Services\LibraryService::class)->syncHomepage($refreshed->creator, $refreshed);
+            }
         }
     }
 }

@@ -128,6 +128,28 @@ export interface PathStep {
   detail?: Record<string, unknown>;
 }
 
+/**
+ * WHICH WORK a rail was chasing. A multi-work footnote runs several independent ladders that
+ * look identical on screen, so every rail is headed by its work. `searched` is TRI-STATE:
+ * true = a rail was recorded, false = it definitively never ran (no title ⇒ skipped by pool
+ * expansion, see `skipped`), null = unknown (pre-trace row, or a resolving parent retired its
+ * subs) — null must never render as "never searched".
+ */
+export interface PathWork {
+  position: number;
+  total: number;
+  /** Pre-composed heading: `Author (Year) “Title”`, elided past 110 chars. */
+  label: string;
+  title: string | null;
+  author: string | null;
+  year: string | null;
+  type: string | null;
+  searched: boolean | null;
+  skipped: string | null;
+  /** The sub's persisted outcome (`matched` | `no_match`), when the scan recorded one. */
+  status: string | null;
+}
+
 export interface ClaimRow {
   key: string;
   referenceId: string | null;
@@ -151,6 +173,8 @@ export interface ClaimRow {
     steps: PathStep[];
     subs: Record<string, PathStep[]>;
     recorded: boolean;
+    /** Rail key ('steps' | 'subN') => the work that rail resolved. Empty for single-work entries. */
+    works: Record<string, PathWork>;
   };
   llm_metadata: Record<string, unknown> | null;
   llm_verdict: { support?: string; summary?: string; reasoning?: string } | null;

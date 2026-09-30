@@ -46,43 +46,62 @@ final class CitationPath
     ];
 
     /**
+     * A work label longer than this is elided — the rail heading names the work, it does not
+     * reproduce the citation (the full text sits above it in the "citation as printed" pane).
+     */
+    private const LABEL_MAX = 110;
+
+    /**
      * @param array $claim a claim/citation row: is_citation, match_method, llm_metadata,
      *                     match_diagnostics (decoded), source_book_id …
-     * @return array{steps: list<array<string, mixed>>, subs: array<string, list<array<string, mixed>>>, recorded: bool}
+     * @return array{steps: list<array<string, mixed>>, subs: array<string, list<array<string, mixed>>>, recorded: bool, works: array<string, array<string, mixed>>}
      */
     public static function build(array $claim): array
     {
+        $path = self::buildRails($claim);
+        $path['works'] = self::works($claim, array_keys($path['subs']));
+
+        return $path;
+    }
+
+    /** The rails themselves — one for the entry, one per sub-citation that traversed the ladder. */
+    private static function buildRails(array $claim): array
+    {
         $stages = self::stagesById();
+        $trace = $claim['match_diagnostics']['trace'] ?? null;
+
+        // Sub rails are independent of the ENTRY's route. Pre-routing only ever describes the
+        // primary work, and a legal instrument cited alongside a searchable work is the house
+        // style of the corpus this serves ("… Determination 2018 (No 1) (Cth); … Social Security
+        // Guide …"): returning early with no subs deleted the rail of the ONLY work that was
+        // actually searched, leaving a two-work footnote looking like one excluded citation.
+        $subs = [];
+        foreach ((is_array($trace) ? $trace['subs'] ?? [] : []) as $subKey => $subSteps) {
+            $subs[$subKey] = array_map(fn (array $s) => self::decorate($stages, $s, recorded: true), $subSteps);
+        }
 
         // ── Pre-routing: journeys that END before the ladder ─────────────────
         if (($claim['is_citation'] ?? true) === false) {
-            return self::single($stages, 'classify', 'not_a_citation', recorded: true);
+            return self::single($stages, 'classify', 'not_a_citation', recorded: true, subs: $subs);
         }
 
         $method = $claim['match_method'] ?? null;
 
         if ($method === 'short_form_antecedent') {
-            return self::single($stages, 'short_form', 'inherited_antecedent', recorded: true);
+            return self::single($stages, 'short_form', 'inherited_antecedent', recorded: true, subs: $subs);
         }
         if ($method === 'bibliography_pointer') {
-            return self::single($stages, 'pointer', 'matched_own_bibliography', recorded: true);
+            return self::single($stages, 'pointer', 'matched_own_bibliography', recorded: true, subs: $subs);
         }
 
         $type = $claim['llm_metadata']['type'] ?? null;
         if ($method === null && in_array($type, ['legislation', 'case-law'], true)) {
-            return self::single($stages, 'legal_excluded', 'excluded_by_design', recorded: true);
+            return self::single($stages, 'legal_excluded', 'excluded_by_design', recorded: true, subs: $subs);
         }
 
         // ── The ladder: the trace when we have it ────────────────────────────
-        $trace = $claim['match_diagnostics']['trace'] ?? null;
-
         if (is_array($trace) && !empty($trace['steps'])) {
             $steps = array_map(fn (array $s) => self::decorate($stages, $s, recorded: true), $trace['steps']);
-
-            $subs = [];
-            foreach ($trace['subs'] ?? [] as $subKey => $subSteps) {
-                $subs[$subKey] = array_map(fn (array $s) => self::decorate($stages, $s, recorded: true), $subSteps);
-            }
 
             return ['steps' => $steps, 'subs' => $subs, 'recorded' => true];
         }
@@ -100,7 +119,7 @@ final class CitationPath
                     $step['score'] = round((float) $claim['match_score'], 3);
                 }
 
-                return ['steps' => [$step], 'subs' => [], 'recorded' => false];
+                return ['steps' => [$step], 'subs' => $subs, 'recorded' => false];
             }
         }
 
@@ -223,6 +242,124 @@ final class CitationPath
         ];
     }
 
+    /**
+     * WHICH WORK each rail was chasing — keyed by rail ('steps' for the entry's own rail, 'subN'
+     * for each sub-citation's), so a surface can put a name on a path instead of leaving the
+     * reviewer to reverse-engineer it from a Brave query buried in a step's evidence.
+     *
+     * A multi-work footnote ("… Determination 2018 (No 1) (Cth); … Social Security Guide …")
+     * runs several independent ladders that LOOK identical — same stations, same "no match" dots
+     * — and the workbench rendered the parent's rail unlabelled with the subs' rails under "the
+     * path for this one". Nothing on screen said which "one". Two failures then read as one
+     * failure of an unidentified thing, which is exactly the shape of confusion that makes a
+     * reviewer distrust a correct result.
+     *
+     * Keyed off RAW `sub_citations`, never SourceTypeClassifier::works(): that accessor drops
+     * subs the scan already MATCHED (right for a not-found assessment, wrong here — a matched
+     * sub still ran a ladder and still owns a rail), and its indices would no longer line up
+     * with the 1-based `subN` keys the resolver mints.
+     *
+     * @param  list<string> $railKeys the sub rails the trace actually recorded
+     * @return array<string, array<string, mixed>>
+     */
+    private static function works(array $claim, array $railKeys): array
+    {
+        $meta = $claim['llm_metadata'] ?? null;
+        if (!is_array($meta) || $meta === []) {
+            return [];
+        }
+
+        $subs = is_array($meta['sub_citations'] ?? null) ? $meta['sub_citations'] : [];
+
+        // A work SPLIT OUT of a multi-work citation by the review's fan-out carries its siblings'
+        // count but not their metadata — it is one work on its own row, and its rail is its own.
+        if ($subs === [] && !empty($claim['cited_work_total'])) {
+            return ['steps' => self::work(
+                $meta,
+                (int) ($claim['cited_work_position'] ?? 1),
+                (int) $claim['cited_work_total'],
+                searched: true,
+            )];
+        }
+
+        if ($subs === []) {
+            return []; // single-work entry: the rail can only be about the one work
+        }
+
+        $total = 1 + count($subs);
+        $works = ['steps' => self::work($meta, 1, $total, searched: true)];
+
+        foreach ($subs as $i => $sub) {
+            if (!is_array($sub)) {
+                continue;
+            }
+            $key = 'sub' . ($i + 1);
+            // Pool expansion skips a title-less sub outright, so it has no rail and never will —
+            // report that as its own outcome rather than letting the work vanish from the list.
+            $titleless = empty($sub['title']);
+            // Tri-state on purpose. A title-less sub definitively never ran (pool expansion
+            // skips it); a rail proves one did. A titled sub with NO rail is genuinely unknown —
+            // the row may predate tracing, or a resolving PARENT may have retired its subs
+            // (removeRelatedPoolEntries) — and "unknown" must not be rendered as "never ran".
+            $searched = $titleless ? false : (in_array($key, $railKeys, true) ? true : null);
+            $works[$key] = self::work(
+                $sub,
+                $i + 2,
+                $total,
+                searched: $searched,
+                skipped: $titleless ? 'No title was extracted for this work, so it never entered the resolver.' : null,
+                status: $sub['resolution']['status'] ?? null,
+            );
+        }
+
+        return $works;
+    }
+
+    /** One work, as a rail heading: who/when/what, plus whether a ladder ever ran for it. */
+    private static function work(
+        array $meta,
+        int $position,
+        int $total,
+        ?bool $searched,
+        ?string $skipped = null,
+        ?string $status = null,
+    ): array {
+        $authors = $meta['authors'] ?? null;
+        if (is_string($authors)) {
+            $authors = [$authors];
+        }
+        $author = is_array($authors) ? (string) ($authors[0] ?? '') : '';
+        if (is_array($authors) && count($authors) > 1) {
+            $author .= ' et al.';
+        }
+
+        $title = trim((string) ($meta['title'] ?? ''));
+        $year  = $meta['year'] ?? null;
+
+        $label = $title !== '' ? '“' . $title . '”' : '(no title extracted)';
+        if ($author !== '') {
+            $label = $author . ($year ? " ({$year})" : '') . ' ' . $label;
+        } elseif ($year) {
+            $label .= " ({$year})";
+        }
+        if (mb_strlen($label) > self::LABEL_MAX) {
+            $label = mb_substr($label, 0, self::LABEL_MAX - 1) . '…';
+        }
+
+        return [
+            'position' => $position,
+            'total'    => $total,
+            'label'    => $label,
+            'title'    => $title !== '' ? $title : null,
+            'author'   => $author !== '' ? $author : null,
+            'year'     => $year !== null && $year !== '' ? (string) $year : null,
+            'type'     => $meta['type'] ?? null,
+            'searched' => $searched,
+            'skipped'  => $skipped,
+            'status'   => $status,
+        ];
+    }
+
     // ── Internals ────────────────────────────────────────────────────────────
 
     /** @return array<string, array<string, mixed>> station id => map entry */
@@ -239,11 +376,16 @@ final class CitationPath
         return $byId;
     }
 
-    private static function single(array $stages, string $stageId, string $outcome, bool $recorded): array
-    {
+    private static function single(
+        array $stages,
+        string $stageId,
+        string $outcome,
+        bool $recorded,
+        array $subs = [],
+    ): array {
         return [
             'steps'    => [self::decorate($stages, ['stage' => $stageId, 'outcome' => $outcome], $recorded)],
-            'subs'     => [],
+            'subs'     => $subs,
             'recorded' => $recorded,
         ];
     }

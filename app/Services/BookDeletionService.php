@@ -147,11 +147,14 @@ class BookDeletionService
                     ->whereIn('book', [$publicHome, $privateHome, $allHome])
                     ->update(['timestamp' => $nowMs]);
 
-                // Invalidate sorted variants (the deleted card may appear in any of them)
-                foreach (['public', 'private', 'all'] as $v) {
-                    $db->table('nodes')->where('book', 'LIKE', $sanitizedCreator . '_' . $v . '_%')->delete();
-                    $db->table('library')->where('book', 'LIKE', $sanitizedCreator . '_' . $v . '_%')->delete();
-                }
+                // Invalidate sorted variants (the deleted card may appear in
+                // any of them). Explicit names, never LIKE — a real book whose
+                // slug contains underscores must not match. Stays on $db (the
+                // open delete transaction), not ShelfCacheInvalidator's
+                // pgsql_admin connection.
+                $variantNames = \App\Support\UserHomeBookNames::sortedVariantNames($sanitizedCreator);
+                $db->table('nodes')->whereIn('book', $variantNames)->delete();
+                $db->table('library')->whereIn('book', $variantNames)->delete();
             }
 
             // 5. Mark hypercites as dead for ALL descendants (both categories)

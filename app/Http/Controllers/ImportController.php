@@ -372,6 +372,14 @@ class ImportController extends Controller
                 ]
             );
 
+            // Put the new book's card on the owner's user page (this create
+            // path bypasses bulkCreate, which is where the card insert
+            // normally happens; without this the book only appeared in the
+            // live-queried sorted views until the freshness guard tripped).
+            if ($createdRecord->creator) {
+                app(\App\Services\LibraryService::class)->syncHomepage($createdRecord->creator, $createdRecord);
+            }
+
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => true,
@@ -417,6 +425,12 @@ class ImportController extends Controller
                 'raw_json' => json_encode($request->all())
             ]
         );
+
+        // Put the new book's card on the owner's user page — see the no-file
+        // branch above for why (bulkCreate is bypassed here).
+        if ($createdRecord->creator) {
+            app(\App\Services\LibraryService::class)->syncHomepage($createdRecord->creator, $createdRecord);
+        }
 
         // Write initial progress.json
         File::put("{$path}/progress.json", json_encode([

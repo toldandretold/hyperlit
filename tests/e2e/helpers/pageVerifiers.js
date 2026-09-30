@@ -252,13 +252,20 @@ export async function verifyUserPage(page, spa) {
   expect(userFileName).toBe('tour-user.md');
   await closeImportFormIfOpen(page);
 
-  // Tabs (Library / Account) exist
+  // Tabs exist: the Library pill plus >=1 visitor shelf pill. NOTE this is
+  // load-bearing on the fixture account having a public shelf ticked in
+  // pill_shelves — `php artisan e2e:seed-user-shelves` guarantees it.
   const tabCount = await page.locator('.arranger-button').count();
   expect(tabCount).toBeGreaterThanOrEqual(2);
 
   // Post-nav interactive probes: .book-actions menu still wired (user-page
-  // handler this time), plus drop listener balance.
-  await probeBookActionsMenu(page, spa, { expectPage: 'user', clickPreview: false });
+  // handler this time), plus drop listener balance. The hero defers the
+  // feed, so OPEN it first — with zero cards the probe returned
+  // { skipped: true } and the user-page rebind check had been dead since
+  // the hero redesign.
+  await spa.openHomeFeed(page);
+  const bookActionsProbe = await probeBookActionsMenu(page, spa, { expectPage: 'user', clickPreview: false });
+  expect(bookActionsProbe?.skipped, 'book-actions probe must actually run on the user page (feed open, cards present)').toBeFalsy();
   await probeDropListenerBalance(page);
 
   spa.assertHealthy(await spa.healthCheck(page));

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1943,
-    "moduleCount": 409,
+    "fnCount": 1949,
+    "moduleCount": 410,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3980,
+    "edgeCount": 3988,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -845,6 +845,30 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/shelfTabRouting:isPersistableContentId",
+      "label": "isPersistableContentId",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/shelfTabRouting",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/shelfTabRouting:resolveShelfClickMode",
+      "label": "resolveShelfClickMode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/shelfTabRouting",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/shelfTabRouting:shelfRenderUrl",
+      "label": "shelfRenderUrl",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/shelfTabRouting",
       "leaf": true
     },
     {
@@ -2152,6 +2176,14 @@
     {
       "id": "components/shelves/shelfHeader:removeShelfHeader",
       "label": "removeShelfHeader",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfHeader",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfHeader:renderLibrarySorted",
+      "label": "renderLibrarySorted",
       "kind": "fn",
       "stage": "components",
       "module": "components/shelves/shelfHeader",
@@ -4184,6 +4216,22 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/userContainer/forms",
+      "leaf": false
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager._clampAnchorToViewport",
+      "label": "UserContainerManager._clampAnchorToViewport",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
+      "leaf": true
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager._clampIntoViewport",
+      "label": "UserContainerManager._clampIntoViewport",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/index",
       "leaf": false
     },
     {
@@ -17631,6 +17679,17 @@
       ]
     },
     {
+      "id": "components/homepage/shelfTabRouting",
+      "label": "components/homepage/shelfTabRouting",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/shelfTabRouting:isPersistableContentId",
+        "components/homepage/shelfTabRouting:resolveShelfClickMode",
+        "components/homepage/shelfTabRouting:shelfRenderUrl"
+      ]
+    },
+    {
       "id": "components/logoNav/logoNav",
       "label": "components/logoNav/logoNav",
       "stage": "components",
@@ -18173,6 +18232,7 @@
       "band": "components",
       "fnIds": [
         "components/shelves/shelfHeader:removeShelfHeader",
+        "components/shelves/shelfHeader:renderLibrarySorted",
         "components/shelves/shelfHeader:showShelfHeader"
       ]
     },
@@ -18803,6 +18863,8 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/userContainer/index:UserContainerManager._clampAnchorToViewport",
+        "components/userContainer/index:UserContainerManager._clampIntoViewport",
         "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
         "components/userContainer/index:UserContainerManager.closeContainer",
         "components/userContainer/index:UserContainerManager.constructor",
@@ -23092,10 +23154,35 @@
       "dataPath": true
     },
     {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/shelfTabRouting:isPersistableContentId",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/shelfTabRouting:isPersistableContentId",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/shelfTabRouting:resolveShelfClickMode",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/shelfTabRouting:resolveShelfClickMode",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/shelfTabRouting:shelfRenderUrl",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/homepage/shelfTabRouting:shelfRenderUrl",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/shelves/shelfHeader:removeShelfHeader",
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "components/shelves/shelfHeader:removeShelfHeader",
       "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/shelves/shelfHeader:renderLibrarySorted",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "components/shelves/shelfHeader:renderLibrarySorted",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/shelves/shelfHeader:showShelfHeader",
@@ -24944,6 +25031,13 @@
       "source": "components/shelves/shelfHeader:showShelfHeader",
       "target": "components/shelves/shelfHeader:removeShelfHeader",
       "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfHeader:renderLibrarySorted",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfHeader:renderLibrarySorted",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfTabs:closeTab",
@@ -30259,6 +30353,12 @@
       "id": "dom__domread__components/userContainer/forgotPassword:showForgotPasswordForm",
       "source": "dom",
       "target": "components/userContainer/forgotPassword:showForgotPasswordForm",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/userContainer/index:UserContainerManager._clampIntoViewport",
+      "source": "dom",
+      "target": "components/userContainer/index:UserContainerManager._clampIntoViewport",
       "rel": "domread"
     },
     {
@@ -41328,6 +41428,12 @@
       "rel": "call"
     },
     {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
       "source": "pageLoad/loadHyperText:loadHyperText",
       "target": "pageLoad/firstChunkPromise:getFirstChunkLoadedResolver",
@@ -46896,6 +47002,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/shelves/shelfHeader:renderLibrarySorted",
+      "source": "store:localStorage",
+      "target": "components/shelves/shelfHeader:renderLibrarySorted",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__components/shelves/shelfHeader:showShelfHeader",
       "source": "store:localStorage",
       "target": "components/shelves/shelfHeader:showShelfHeader",
@@ -48312,6 +48424,11 @@
       "source": "components/homepage/homepage",
       "target": "components/userButton/userButton",
       "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "components/homepage/shelfTabRouting",
+      "kind": "static"
     },
     {
       "source": "components/homepage/homepageDisplayUnit",

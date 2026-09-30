@@ -142,10 +142,16 @@ class BeaconSyncController extends Controller
                         }
                     }
                     
-                    PgLibrary::updateOrCreate(
+                    $beaconRecord = PgLibrary::updateOrCreate(
                         ['book' => $bookId],
                         $libraryData
                     );
+
+                    // Keep the owner's user-page card in step (upsert — a book
+                    // first created through beacon sync had no card at all).
+                    if ($beaconRecord->creator) {
+                        app(\App\Services\LibraryService::class)->syncHomepage($beaconRecord->creator, $beaconRecord);
+                    }
 
                     // Stamp the write id ONLY when the beacon's timestamp actually became
                     // the row's clock (not the preserved-newer branch): the token must

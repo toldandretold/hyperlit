@@ -254,6 +254,14 @@ class UrlImportController extends Controller
             ]
         );
 
+        // Put the new book's card on the owner's user page (this create path
+        // bypasses bulkCreate's card insert; without this the book only
+        // appeared in the live-queried sorted views until the freshness
+        // guard tripped).
+        if ($createdRecord->creator) {
+            app(\App\Services\LibraryService::class)->syncHomepage($createdRecord->creator, $createdRecord);
+        }
+
         // Promote OpenAlex metadata into a canonical_source row + link this library
         // version to it. We already have the normalised work in hand from the
         // inspect step, so this is essentially free (no extra API call).

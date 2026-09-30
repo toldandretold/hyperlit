@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\UserHomeBookNames;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -33,18 +34,41 @@ class ShelfCacheInvalidator
     }
 
     /**
-     * Flush system shelf synthetic books for a user (public/private home pages).
-     * Called when a book is deleted to ensure the home page reflects the change.
+     * Flush system shelf synthetic books for a user (public/private/All home
+     * pages). Called when a book is deleted to ensure the home page reflects
+     * the change.
      */
     public function flushUserHomeShelves(string $username): void
     {
-        $sanitized = str_replace(' ', '', $username);
+        $sanitized = UserHomeBookNames::sanitize($username);
 
         // Regeneration is handled by UserHomeServerController on next visit,
-        // but we bump the timestamp to signal staleness.
+        // but we bump the timestamp to signal staleness. {u}All included —
+        // it used to be missed, leaving the owner's default Library view
+        // stale while public/private refreshed.
         DB::connection('pgsql_admin')->table('library')
-            ->whereIn('book', [$sanitized, $sanitized . 'Private'])
+            ->whereIn('book', [$sanitized, $sanitized . 'Private', $sanitized . 'All'])
             ->update(['timestamp' => round(microtime(true) * 1000)]);
+
+        $this->flushUserHomeSortedVariants($username);
+    }
+
+    /**
+     * Delete the rendered sorted-feed variants ({u}_{vis}_{sort}) for a user,
+     * so the next sorted render rebuilds from live data. Set-based, explicit
+     * names (never LIKE — a real book containing underscores must not match).
+     * renderSortedFeed's cache check is nodes-existence, but the library rows
+     * go too so a stale row can never be mistaken for a feed member.
+     */
+    public function flushUserHomeSortedVariants(string $username, ?array $visibilities = null): void
+    {
+        $sanitized = UserHomeBookNames::sanitize($username);
+        $names = $visibilities === null
+            ? UserHomeBookNames::sortedVariantNames($sanitized)
+            : UserHomeBookNames::sortedVariantNamesFor($sanitized, $visibilities);
+
+        DB::connection('pgsql_admin')->table('nodes')->whereIn('book', $names)->delete();
+        DB::connection('pgsql_admin')->table('library')->whereIn('book', $names)->delete();
     }
 
     /**

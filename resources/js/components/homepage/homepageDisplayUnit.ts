@@ -3,6 +3,8 @@ import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/in
 import { log, verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 import { formatAuthorsForReference } from '../../utilities/authorList';
+import { resolveShelfClickMode, shelfRenderUrl, isPersistableContentId } from './shelfTabRouting';
+import type { ShelfClickMode } from './shelfTabRouting';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
@@ -22,6 +24,86 @@ function persistActiveTabToHistory(filter: any, content: any, shelfId = null) {
     );
   } catch (e) {
     // replaceState can throw in rare cross-origin / sandboxed contexts; fail silently
+  }
+}
+
+// Resolve a shelf-filter arranger button (server-rendered visitor pill or
+// journal feed button) into a rendered feed. The ONE implementation for both
+// the click handler and the boot/restore path — the branch decision lives in
+// shelfTabRouting.ts. Owner resolution mirrors shelfTabs.activateTab (authed
+// endpoint, owner shelf header, same shelf_{id}_{sort} content id); everything
+// else rides the public endpoint. Returns true when the button was handled
+// (even on a failed fetch — the caller must NOT fall through to the generic
+// data-content path, whose empty '' target is the dead-pill bug).
+async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist: boolean): Promise<void> {
+  const shelfId = btn.dataset.shelfId;
+  const sort = btn.dataset.sort || 'recent';
+  const shelfName = btn.dataset.shelfName
+    || btn.querySelector?.('.shelf-tab-name')?.textContent
+    || 'Shelf';
+  const shelfSlug = btn.dataset.shelfSlug || null;
+  let bookId = btn.dataset.content;
+
+  if (!bookId) {
+    const url = shelfRenderUrl(mode, shelfId, sort);
+    if (!url) return;
+    const init: RequestInit | undefined = mode === 'owner-shelf'
+      ? {
+          headers: {
+            'Accept': 'application/json',
+            'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
+          },
+          credentials: 'include',
+        }
+      : undefined;
+    const resp = await fetch(url, init);
+    const data = await resp.json();
+    if (data.bookId) {
+      bookId = data.bookId;
+      btn.dataset.content = bookId;
+    }
+  }
+
+  if (!bookId) {
+    log.error(`Shelf render returned no bookId for shelf ${shelfId}`, '/components/homepage/homepageDisplayUnit.ts');
+    return;
+  }
+
+  await transitionToBookContent(bookId, true);
+
+  if ((window as any).isUserPage && document.body.dataset.page !== 'journal') {
+    const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
+    if (mode === 'owner-shelf') {
+      // Owner header: real visibility/slug from the owner's shelf list, the
+      // same lookup shelfTabs.activateTab does. A server-rendered pill is a
+      // PUBLIC shelf, hence the fallback.
+      const shelf = ((window as any).userShelves || []).find((s: any) => s.id == shelfId);
+      showShelfHeader({
+        shelfId,
+        shelfName,
+        visibility: shelf?.visibility || 'public',
+        currentSort: sort,
+        isSystemShelf: false,
+        isOwner: true,
+        username: (window as any).username,
+        slug: shelf?.slug || shelfSlug,
+      });
+    } else {
+      showShelfHeader({
+        shelfId,
+        shelfName,
+        visibility: 'public',
+        currentSort: sort,
+        isSystemShelf: false,
+        isOwner: false,
+        username: (window as any).username,
+        slug: shelfSlug,
+      });
+    }
+  }
+
+  if (persist) {
+    persistActiveTabToHistory('shelf', bookId, shelfId);
   }
 }
 
@@ -145,7 +227,13 @@ export async function initializeHomepageButtons() {
   // Restore saved active tab — prefer history.state (per-entry, survives back/forward)
   // over localStorage (cross-session fallback).
   const histActiveTab = history.state?.userPageActiveTab || null;
-  const savedActiveButton = localStorage.getItem(STORAGE_KEY_ACTIVE_BUTTON);
+  let savedActiveButton = localStorage.getItem(STORAGE_KEY_ACTIVE_BUTTON);
+  // Recover users carrying a poisoned '' from the pre-fix dead-pill bug —
+  // an empty stored value can never match a button and just wedges restores.
+  if (savedActiveButton === '') {
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_BUTTON);
+    savedActiveButton = null;
+  }
 
   // Owner shelf tabs are dynamic — created later by initializeShelfTabs. Only
   // defer when (a) the current page actually hosts shelf tabs (the picker is
@@ -207,43 +295,27 @@ export async function initializeHomepageButtons() {
   if (activeButton) {
     const filter = activeButton.dataset.filter;
 
-    // Visitor shelf tab (user page) or journal feed button: load via public API.
-    // Journal pages reuse the exact same public-shelf render path but get no
-    // shelf header (its sort dropdown would fight the three feed buttons).
-    // NOTE: the journal check must NOT look at window.isOwner — that global is
-    // stamped true by the user page and leaks across SPA transitions (visiting
-    // My Library and coming back silently killed the feed buttons), and a
-    // journal feed is a public shelf where owner-ness is irrelevant anyway.
-    if (filter === 'shelf'
-        && (document.body.dataset.page === 'journal'
-            || (!(window as any).isOwner && (window as any).isUserPage))) {
-      const shelfId = activeButton.dataset.shelfId;
-      const sort = activeButton.dataset.sort || 'recent';
-      const shelfName = activeButton.dataset.shelfName || 'Shelf';
-      const shelfSlug = activeButton.dataset.shelfSlug || null;
+    // Visitor shelf pill / journal feed button / OWNER's own visitor pill:
+    // all resolved through the one shelfTabRouting decision. Journal pages
+    // reuse the public-shelf render path but get no shelf header (its sort
+    // dropdown would fight the three feed buttons) — and the journal check
+    // must NOT look at window.isOwner: that global is stamped true by the
+    // user page and leaks across SPA transitions (visiting My Library and
+    // coming back silently killed the feed buttons). On the USER page the
+    // owner resolves via the authed endpoint — the old `!isOwner` guard here
+    // made the owner fall through to the generic path and load '' as a book.
+    const bootShelfMode = resolveShelfClickMode({
+      filter,
+      page: document.body.dataset.page,
+      isOwner: (window as any).isOwner === true,
+      isUserPage: (window as any).isUserPage === true,
+    });
+    if (bootShelfMode !== 'generic') {
       runBootFeedLoad(async () => {
         try {
-          const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
-          const data = await resp.json();
-          if (data.bookId) {
-            activeButton.dataset.content = data.bookId;
-            await transitionToBookContent(data.bookId, true);
-            if ((window as any).isUserPage) {
-              const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-              showShelfHeader({
-                shelfId,
-                shelfName,
-                visibility: 'public',
-                currentSort: sort,
-                isSystemShelf: false,
-                isOwner: false,
-                username: (window as any).username,
-                slug: shelfSlug,
-              });
-            }
-          }
+          await resolveAndOpenShelfButton(activeButton, bootShelfMode, false);
         } catch (err) {
-          log.error('Failed to load public shelf', '/components/homepage/homepageDisplayUnit.ts', err as any);
+          log.error('Failed to load shelf feed', '/components/homepage/homepageDisplayUnit.ts', err as any);
           // Fall back to public content
           const mainContent = document.querySelector('.main-content');
           if (mainContent && mainContent.id) {
@@ -265,13 +337,27 @@ export async function initializeHomepageButtons() {
       }
 
       runBootFeedLoad(async () => {
-        await transitionToBookContent(initialTargetId, true);
+        // Honour the OWNER's saved sort: the dropdown label used to show it
+        // while the content silently loaded the recent snapshot — label and
+        // content must agree (visitors always start on recent; their sort
+        // choice is per-visit and never persisted).
+        const isOwnerLibrary = (window as any).isUserPage && (window as any).isOwner && filter === 'library';
+        const savedSort = isOwnerLibrary
+          ? (localStorage.getItem('user_shelf_sort_library') || 'recent')
+          : 'recent';
+        let targetId = initialTargetId;
+        if (savedSort !== 'recent') {
+          const { renderLibrarySorted } = await import('../shelves/shelfHeader') as any;
+          const sortedId = await renderLibrarySorted(savedSort);
+          if (sortedId) targetId = sortedId;
+        }
+
+        await transitionToBookContent(targetId, true);
 
         // Show shelf header for initial Library tab on user page
         if ((window as any).isUserPage) {
           if (filter === 'library') {
             const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-            const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
             showShelfHeader({
               shelfId: null,
               shelfName: 'Library',
@@ -323,49 +409,21 @@ export async function initializeHomepageButtons() {
 
       const filter = this.dataset.filter;
 
-      // Visitor shelf tab click (user page) or journal feed button click —
-      // same public-shelf render path; journal pages skip the shelf header
-      // (its sort dropdown would fight the three feed buttons). Journal check
-      // is deliberately isOwner-blind — see the restore-path comment above.
-      if (filter === 'shelf'
-          && (document.body.dataset.page === 'journal'
-              || (!(window as any).isOwner && (window as any).isUserPage))) {
-        const shelfId = this.dataset.shelfId;
-        const sort = this.dataset.sort || 'recent';
-        const shelfName = this.dataset.shelfName || 'Shelf';
-        const shelfSlug = this.dataset.shelfSlug || null;
-        let bookId = this.dataset.content;
-
-        if (!bookId) {
-          try {
-            const resp = await fetch(`/api/public/shelves/${encodeURIComponent(shelfId)}/render?sort=${encodeURIComponent(sort)}`);
-            const data = await resp.json();
-            if (data.bookId) {
-              bookId = data.bookId;
-              this.dataset.content = bookId;
-            }
-          } catch (err) {
-            console.error('Failed to load public shelf:', err);
-            return;
-          }
-        }
-
-        if (bookId) {
-          await transitionToBookContent(bookId, true);
-          if ((window as any).isUserPage) {
-            const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-            showShelfHeader({
-              shelfId,
-              shelfName,
-              visibility: 'public',
-              currentSort: sort,
-              isSystemShelf: false,
-              isOwner: false,
-              username: (window as any).username,
-              slug: shelfSlug,
-            });
-          }
-          persistActiveTabToHistory('shelf', bookId, shelfId);
+      // Shelf-filter buttons (visitor pill, journal feed button, or the
+      // OWNER's own visitor pill) resolve through the one shelfTabRouting
+      // decision — see the restore-path comment above for why the journal
+      // check is isOwner-blind and why the owner needs the authed endpoint.
+      const shelfMode = resolveShelfClickMode({
+        filter,
+        page: document.body.dataset.page,
+        isOwner: (window as any).isOwner === true,
+        isUserPage: (window as any).isUserPage === true,
+      });
+      if (shelfMode !== 'generic') {
+        try {
+          await resolveAndOpenShelfButton(this, shelfMode, true);
+        } catch (err) {
+          log.error('Failed to load shelf feed', '/components/homepage/homepageDisplayUnit.ts', err as any);
         }
         return;
       }
@@ -382,8 +440,14 @@ export async function initializeHomepageButtons() {
         }
       }
 
-      // Save active button to localStorage and history.state (per-entry restore)
-      localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, this.dataset.content);
+      // Save active button to localStorage and history.state (per-entry
+      // restore) — but NEVER persist an empty content id: it replays on
+      // reload/back as transitionToBookContent('') and cascades into loading
+      // the username as a book id (the dead-visitor-pill bug's fallout).
+      if (isPersistableContentId(this.dataset.content)) {
+        localStorage.setItem(STORAGE_KEY_ACTIVE_BUTTON, this.dataset.content);
+        persistActiveTabToHistory(filter, this.dataset.content, this.dataset.shelfId || null);
+      }
       // Switching to a non-shelf tab (Library/Account) clears the remembered
       // shelf, so a later FRESH load (no per-entry history state) doesn't restore
       // a stale shelf over the tab the user actually left on. (The shelf path
@@ -391,7 +455,18 @@ export async function initializeHomepageButtons() {
       if (filter !== 'shelf') {
         localStorage.removeItem('homepage_active_shelf_id');
       }
-      persistActiveTabToHistory(filter, this.dataset.content, this.dataset.shelfId || null);
+
+      // Honour the OWNER's saved sort so the Library pill loads the feed the
+      // dropdown label names — see the boot path's twin of this block.
+      const isOwnerLibrary = (window as any).isUserPage && (window as any).isOwner && filter === 'library';
+      const savedSort = isOwnerLibrary
+        ? (localStorage.getItem('user_shelf_sort_library') || 'recent')
+        : 'recent';
+      if (savedSort !== 'recent') {
+        const { renderLibrarySorted } = await import('../shelves/shelfHeader') as any;
+        const sortedId = await renderLibrarySorted(savedSort);
+        if (sortedId) targetId = sortedId;
+      }
 
       await transitionToBookContent(targetId, true);
 
@@ -399,7 +474,6 @@ export async function initializeHomepageButtons() {
       if ((window as any).isUserPage) {
         if (filter === 'library') {
           const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
-          const savedSort = localStorage.getItem('user_shelf_sort_library') || 'recent';
           showShelfHeader({
             shelfId: null,
             shelfName: 'Library',
@@ -451,6 +525,14 @@ let transitionChain: Promise<void> = Promise.resolve();
 let transitionSeq = 0;
 
 export function transitionToBookContent(bookId: any, showLoader = true): Promise<void> {
+  // A falsy bookId must never reach the loader: loadHyperText's `bookId || book`
+  // fallback would silently substitute the page-level book — the USERNAME on a
+  // user page — and the lazy loader then errors hunting for a container with
+  // that id. Refuse loudly here instead (log.error trips the e2e console gate).
+  if (!bookId) {
+    log.error('transitionToBookContent called with empty bookId — refusing to load', '/components/homepage/homepageDisplayUnit.ts');
+    return Promise.resolve();
+  }
   const seq = ++transitionSeq;
   const prev = transitionChain;
   const run = (async () => {

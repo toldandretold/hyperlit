@@ -25,7 +25,7 @@ import { registerBookOpen } from "../utilities/BroadcastListener";
 
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from '../footnotes/FootnoteNumberingService';
 
-import { isBackgroundDownloadInProgress } from './backgroundDownload';
+import { isBackgroundDownloadInProgress, waitForBackgroundDownload } from './backgroundDownload';
 import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedResolver } from './firstChunkPromise';
 import { setupOnlineSyncListener } from './onlineRetry';
 import { primeImageDims } from '../lazyLoader/imageDims';
@@ -515,13 +515,23 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     return;
   }
 
-  // Skip if THIS book's background download is in progress (it will bring fresh
-  // data). Scoped by book: another book's download says nothing about this
-  // one's freshness, and the old global flag silently skipped the check
-  // whenever a previous page's download outlived the navigation.
+  // THIS book's background download in progress: wait for it, then compare
+  // anyway. Scoped by book: another book's download says nothing about this
+  // one's freshness (the old global flag silently skipped the check whenever
+  // a previous page's download outlived the navigation). Waiting — not
+  // SKIPPING, which this used to do — matters because a download carries data
+  // as-of its START: a metadata write landing DURING it (a rename while a
+  // big aggregate feed book is still streaming) would otherwise stay stale
+  // until some later navigation happened to re-check. The compare after the
+  // wait is two record reads and a no-op when the download really was fresh.
   if (isBackgroundDownloadInProgress(bookId)) {
-    verbose.content(`⏳ Background download in progress, skipping timestamp check for ${bookId}`, '/pageLoad/loadHyperText.ts');
-    return;
+    verbose.content(`⏳ Background download in progress — deferring timestamp check for ${bookId}`, '/pageLoad/loadHyperText.ts');
+    await waitForBackgroundDownload(String(bookId));
+    // The reader may have moved on while we waited — nothing on screen to
+    // refresh, and the IDB write already happened book-keyed in the download.
+    if (lazyLoader?.container && !lazyLoader.container.isConnected) {
+      return;
+    }
   }
 
   // A brand-new book isn't on the server yet, so there is no server timestamp to
@@ -564,7 +574,18 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     }
 
     const serverTimestamp = serverRecord.timestamp || 0;
-    const localTimestamp = localRecord.timestamp || 0;
+    // Clamp a local timestamp that sits in the FUTURE: the user-home feed
+    // books used to inherit a client-skewed member timestamp (one clock ten
+    // days fast inflated {u}All.timestamp), and an IndexedDB copy carrying
+    // that value would refuse the server's now-sane (lower) timestamp
+    // forever — the feed could never refresh. Anything more than a day
+    // ahead of this device's clock cannot be a legitimate server write.
+    const FUTURE_SKEW_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+    const rawLocalTimestamp = localRecord.timestamp || 0;
+    const localTimestamp = rawLocalTimestamp > Date.now() + FUTURE_SKEW_TOLERANCE_MS ? 0 : rawLocalTimestamp;
+    if (localTimestamp !== rawLocalTimestamp) {
+      verbose.content(`⏰ Local timestamp for ${bookId} is future-skewed (${rawLocalTimestamp}) — treating as stale`, '/pageLoad/loadHyperText.ts');
+    }
     const serverAnnotationsTs = serverRecord.annotations_updated_at || 0;
     const localAnnotationsTs = localRecord.annotations_updated_at || 0;
 

@@ -264,6 +264,45 @@ def test_quote_glyph_direction_is_left_to_the_ocr():
     assert out is None
 
 
+def test_a_semicolon_the_document_does_not_print_is_repaired():
+    """...but ';' and ',' are STRUCTURE, not typography, and the flip above is what kept them
+    from ever being corrected.
+
+    deloitte note 4 prints "Department of Employment and Workplace Relations (Cth), Statement of
+    Work – …" — ONE work. The OCR read the comma as a semicolon, so the extractor read TWO: a
+    title-less "work 1" that ran the whole ladder for something that does not exist, and the real
+    work carrying half the citation. Both came back insufficient. The two renderings agreed 0.9945
+    and the repair still declined, because the only token that differed did so in punctuation.
+    """
+    from ingestion.pdf.recovery import _respace_from_pypdf
+    ocr = ('Department of Employment and Workplace Relations (Cth); *Statement of Work – Statement '
+           'of Assurance on the Operations of the Targeted Compliance Framework* '
+           '(ESE24/1263, 28 November 2024) (copy on file with author).')
+    out, ratio = _respace_from_pypdf(
+        ocr,
+        'Department of Employm en t and Workp lace Relations (Cth), Statement of Work – Statement '
+        'of Assurance on t he Operat ions of t he Targeted Compliance Framework '
+        '(ESE24/1263, 28 November 2024) (co py on file with author).')
+    assert ratio > 0.99
+    assert out is not None and 'Relations (Cth), *Statement of Work' in out
+    # ONLY the separator moved: the layer's own broken spacing stays out, and the OCR's emphasis
+    # (which the text layer has no notion of) survives the substitution.
+    assert out == ocr.replace('(Cth);', '(Cth),')
+
+
+def test_the_missing_semicolon_is_repaired_in_the_other_direction_too():
+    """The mirror failure, and the worse one: OCR reads a printed ';' as ',' and two cited works
+    are silently read as one, so the second is never searched at all (SourceTypeClassifier's
+    possiblyUnsplitMultiWork exists to warn about exactly this after the fact)."""
+    from ingestion.pdf.recovery import _respace_from_pypdf
+    out, _ratio = _respace_from_pypdf(
+        'Commonwealth Ombudsman, How to Make a Complaint (Web Page, 2024), '
+        'Administrative Review Tribunal, Centrelink (Web Page).',
+        'Commonwealth Ombudsman, How to Make a Complaint (Web Page, 2024); '
+        'Administrative Review Tribunal, Centrelink (Web Page).')
+    assert out is not None and '(Web Page, 2024); Administrative' in out
+
+
 def test_trailing_page_chrome_is_never_appended():
     """The extractor's continuation glue can carry a copyright footer onto a definition. Because the
     repair walks the OCR's OWN tokens, there is nothing to append it to (fixture 7fa30289)."""

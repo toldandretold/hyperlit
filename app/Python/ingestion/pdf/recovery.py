@@ -788,6 +788,16 @@ _REPAIR_CONFIRMED_MIN_SIMILARITY = 0.40
 
 _DASHES = '-‐‑‒–—'
 
+# Punctuation that is STRUCTURE, not typography. In a citation ';' separates WORKS and ','
+# separates fields inside one work, so a flip between them changes HOW MANY THINGS are cited —
+# and the text layer, whose glyphs are exact, is the better witness for which one is printed.
+# deloitte note 4 is printed "Department of Employment and Workplace Relations (Cth), Statement
+# of Work – …" and shipped with a semicolon: the extractor duly read two works, minting a
+# title-less "work 1" that ran the whole ladder for something that does not exist and holding
+# the real work's claim against half a citation. The two renderings agreed 0.9945 and the
+# repair still declined, because the only token that differed did so in punctuation.
+_STRUCTURAL_PUNCT = ',;'
+
 
 def _strip_tokens(text):
     """Whitespace-free character stream plus a map back to the original tokens.
@@ -818,7 +828,7 @@ def _strip_tokens(text):
     return ''.join(chars), tokens
 
 
-def _comparable(s):
+def _comparable(s, keep=''):
     """Fold a token to what a SUBSTANTIVE difference would show up in.
 
     Drops case, whitespace and punctuation, so a repair is never triggered by
@@ -837,6 +847,11 @@ def _comparable(s):
     "caranana" against "carana" and substituted one encoding for the other —
     invisible in the text, but it broke a citation anchor (fixture a7fc96d5,
     citations_linked 86 -> 85).
+
+    `keep` exempts punctuation the caller holds to be STRUCTURAL rather than
+    typographic (see _STRUCTURAL_PUNCT). Default empty: the seam and witness
+    callers are asking "is this the same run of words?", where punctuation is
+    noise; only the substitution decision cares which separator is printed.
     """
     import unicodedata
     # Dashes are folded to ASCII '-' FIRST: the ascii('ignore') step below drops
@@ -847,7 +862,9 @@ def _comparable(s):
         folded = folded.replace(dash, '-')
     folded = unicodedata.normalize('NFKD', folded).encode('ascii', 'ignore').decode('ascii').lower()
     folded = re.sub(r'(?<![0-9])-|-(?![0-9])', '', folded)
-    return re.sub(r'[^a-z0-9-]+', '', folded)
+    # '-' is escaped rather than trailing: appending `keep` after it would turn "9-," into a
+    # reversed character RANGE and raise, rather than keeping a literal hyphen.
+    return re.sub('[^a-z0-9\\-%s]+' % re.escape(keep), '', folded)
 
 
 def _plausible_substitution(candidate, token_len):
@@ -1033,7 +1050,8 @@ def _respace_from_pypdf(ocr_text, pdf_text, min_similarity=_REPAIR_MIN_SIMILARIT
         if j1 is None or j2 is None or j2 < j1:
             continue
         candidate = pdf_chars[j1:j2]
-        if not candidate or _comparable(candidate) == _comparable(token):
+        if not candidate or (_comparable(candidate, _STRUCTURAL_PUNCT)
+                             == _comparable(token, _STRUCTURAL_PUNCT)):
             continue
         if not _plausible_substitution(candidate, strip_end - strip_start):
             continue

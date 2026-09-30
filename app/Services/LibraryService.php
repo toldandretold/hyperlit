@@ -152,9 +152,12 @@ class LibraryService
     }
 
     /**
-     * Sync book to user's homepage.
+     * Sync book to user's homepage. PUBLIC: the one seam every creation/update
+     * path that doesn't ride bulkCreate calls (imports, URL imports, beacon
+     * sync, the import job's metadata pass) — updateBookOnUserPage upserts, so
+     * a book with no card yet gets one instead of the old silent no-op.
      */
-    protected function syncHomepage(string $username, PgLibrary $library): void
+    public function syncHomepage(string $username, PgLibrary $library): void
     {
         // updateBookOnUserPage writes the owner's home book via pgsql_admin — a
         // SEPARATE connection from the DEFAULT transaction that update()/create()

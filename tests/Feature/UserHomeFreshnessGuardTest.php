@@ -141,6 +141,77 @@ test('a CONTENT edit (timestamp bump, no metadata change) does NOT trip the guar
     expect(hbNodeFingerprint($username))->toBe($fpBefore); // no rebuild
 });
 
+/** The All-book guard, invoked the way show() does, drained like terminating. */
+function hbInvokeAllGuard(string $username): void
+{
+    $controller = app(UserHomeServerController::class);
+    $m = (new ReflectionClass($controller))->getMethod('generateAllUserHomeBookIfNeeded');
+    $m->setAccessible(true);
+    $m->invoke($controller, $username);
+    $controller->runDeferredRegens();
+}
+
+test('a future-skewed member timestamp cannot inflate the home book timestamp', function () {
+    $seed = hbSeedUserWithBooks(1, 0);
+    $username = $seed['username'];
+    $allBook = $username . 'All';
+
+    // One client with a clock ten days fast syncs a book. The generators used
+    // to write home.timestamp = max(now, max member timestamp), so this single
+    // row pushed {u}All.timestamp ten days into the future — and every later
+    // silently-added book compared BELOW it, making the missing card permanent.
+    $skewed = hbInsertBook($username, $username . '_skewed', 'public', 'Skewed clock');
+    hbAdmin()->table('library')->where('book', $skewed->book)
+        ->update(['timestamp' => (int) (microtime(true) * 1000) + 10 * 24 * 3600 * 1000]);
+
+    app(UserHomeServerController::class)->generateAllUserHomeBook($username);
+
+    $homeTs = (int) hbAdmin()->table('library')->where('book', $allBook)->value('timestamp');
+    expect($homeTs)->toBeLessThan((int) (microtime(true) * 1000) + 60_000); // server clock, not the skewed one
+    expect(hbCardsIn($allBook))->toContain($skewed->book);
+});
+
+test('the count term repairs a card missing behind an inflated home timestamp', function () {
+    $seed = hbSeedUserWithBooks(2, 0);
+    $username = $seed['username'];
+    $allBook = $username . 'All';
+
+    // Reproduce the historical damage: home timestamp inflated far into the
+    // future (pre-fix data), then a book lands with NO card (a bypassing
+    // creation path). The timestamp compare can never see it — this is the
+    // reported "book missing from Library but present under author a-z".
+    hbAdmin()->table('library')->where('book', $allBook)
+        ->update(['timestamp' => (int) (microtime(true) * 1000) + 365 * 24 * 3600 * 1000]);
+    $orphan = hbInsertBook($username, $username . '_orphan', 'public', 'No card');
+    expect(hbCardsIn($allBook))->not->toContain($orphan->book);
+
+    hbInvokeAllGuard($username);
+
+    expect(hbCardsIn($allBook))->toContain($orphan->book);
+
+    // And it settles: the regen wrote a sane server-clock timestamp.
+    $fp = hbNodeFingerprint($allBook);
+    hbInvokeAllGuard($username);
+    expect(hbNodeFingerprint($allBook))->toBe($fp);
+});
+
+test('the count term repairs a card that outlived its deleted book', function () {
+    $seed = hbSeedUserWithBooks(2, 0);
+    $username = $seed['username'];
+    $allBook = $username . 'All';
+    $deleted = $seed['public'][0];
+
+    // A deletion that skipped the card removal, behind an inflated timestamp.
+    hbAdmin()->table('library')->where('book', $allBook)
+        ->update(['timestamp' => (int) (microtime(true) * 1000) + 365 * 24 * 3600 * 1000]);
+    hbAdmin()->table('library')->where('book', $deleted)->delete();
+    expect(hbCardsIn($allBook))->toContain($deleted);
+
+    hbInvokeAllGuard($username);
+
+    expect(hbCardsIn($allBook))->not->toContain($deleted);
+});
+
 test('a stale rebuild is DEFERRED: the response serves the current feed, the drain rebuilds it', function () {
     $seed = hbSeedUserWithBooks(2, 1);
     $username = $seed['username'];

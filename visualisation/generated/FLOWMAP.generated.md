@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1943 functions in 409 modules · 10 object stores · 10 PG tables · 3980 edges
+**MarkdownDB** schema v28 · 1949 functions in 410 modules · 10 object stores · 10 PG tables · 3988 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -97,6 +97,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LavaLampBackground.toggleAdjuster` | `components/homepage/lavaLampBackground` | — | — | read/write | — |
 | `setLavaCeiling` | `components/homepage/lavaLampBackground` | — | — | — | — |
 | `setLavaRise` | `components/homepage/lavaLampBackground` | — | — | — | — |
+| `isPersistableContentId` | `components/homepage/shelfTabRouting` | — | — | — | — |
+| `resolveShelfClickMode` | `components/homepage/shelfTabRouting` | — | — | — | — |
+| `shelfRenderUrl` | `components/homepage/shelfTabRouting` | — | — | — | — |
 | `destroyLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
@@ -258,6 +261,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
 | `showLoginPromptMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | — |
 | `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
+| `renderLibrarySorted` | `components/shelves/shelfHeader` | `localStorage` | — | — | — |
 | `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` | read/write | `↓route:/api/shelves` |
 | `hideShelfPreview` | `components/shelves/shelfPreview` | — | — | write | — |
 | `showShelfPreview` | `components/shelves/shelfPreview` | — | — | read/write | — |
@@ -504,6 +508,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getTransferConfirmationHTML` | `components/userContainer/forms` | — | — | — | — |
 | `getTransferPromptHTML` | `components/userContainer/forms` | — | — | — | — |
 | `getVerifyEmailHTML` | `components/userContainer/forms` | — | — | write | — |
+| `UserContainerManager._clampAnchorToViewport` | `components/userContainer/index` | — | — | — | — |
+| `UserContainerManager._clampIntoViewport` | `components/userContainer/index` | — | — | read | — |
 | `UserContainerManager.attachProfileButtonListeners` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.closeContainer` | `components/userContainer/index` | — | — | write | — |
 | `UserContainerManager.constructor` | `components/userContainer/index` | — | — | read | — |

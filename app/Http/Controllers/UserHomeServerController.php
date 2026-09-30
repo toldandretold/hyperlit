@@ -11,6 +11,8 @@ use App\Models\PgLibrary;
 use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Connections\ConnectionRefresher;
 use App\Services\LibraryCardGenerator;
+use App\Services\ShelfCacheInvalidator;
+use App\Support\UserHomeBookNames;
 use App\Support\UsernameKey;
 use Illuminate\Http\Request;
 
@@ -416,28 +418,25 @@ class UserHomeServerController extends Controller
     }
 
     /**
-     * Largest `timestamp` among the user's REAL library books (excludes the
-     * generated home/shelf books). Backs the cheap freshness guard below —
-     * no `raw_json`, no per-node decode.
+     * The ONE feed-membership predicate: the user's REAL library books —
+     * excludes the generated system books AND the rendered sorted-feed
+     * variants (both via UserHomeBookNames), sub-books (`%/%`) and shelf
+     * renders. Every home-book generator, sorted render and freshness guard
+     * builds on this, so "what belongs in the feed" cannot drift per caller.
+     * (The sorted-variant exclusion is load-bearing: a rendered
+     * `{u}_all_author` row has creator = username, no slash and no shelf_
+     * prefix, so without it the variants showed up as phantom cards AND
+     * their fresh timestamps tripped the freshness guards.)
      */
-    private function maxRealBookTimestamp(string $username, array $visibilities): ?int
+    private function realBooksQuery(string $username): \Illuminate\Database\Query\Builder
     {
         $sanitizedUsername = $this->sanitizeUsername($username);
-        $max = DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $username)
-            ->whereNotIn('book', [
-                $sanitizedUsername,
-                $sanitizedUsername . 'Private',
-                $sanitizedUsername . 'All',
-                $sanitizedUsername . 'Account',
-                $sanitizedUsername . 'About',
-            ])
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
-            ->whereIn('visibility', $visibilities)
-            ->max('timestamp');
 
-        return $max !== null ? (int) $max : null;
+        return DB::connection('pgsql_admin')->table('library')
+            ->where('creator', $username)
+            ->whereNotIn('book', UserHomeBookNames::allGeneratedNames($sanitizedUsername))
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where('book', 'NOT LIKE', 'shelf_%');
     }
 
     /**
@@ -453,19 +452,7 @@ class UserHomeServerController extends Controller
      */
     private function maxRealBookMetaTimestamp(string $username, array $visibilities): ?int
     {
-        $sanitizedUsername = $this->sanitizeUsername($username);
-
-        $max = DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $username)
-            ->whereNotIn('book', [
-                $sanitizedUsername,
-                $sanitizedUsername . 'Private',
-                $sanitizedUsername . 'All',
-                $sanitizedUsername . 'Account',
-                $sanitizedUsername . 'About',
-            ])
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
+        $max = $this->realBooksQuery($username)
             ->whereIn('visibility', $visibilities)
             ->selectRaw('max(COALESCE(meta_updated_at, timestamp)) AS ts')
             ->value('ts');
@@ -474,10 +461,35 @@ class UserHomeServerController extends Controller
     }
 
     /**
+     * How many real books the feed SHOULD hold vs how many cards it DOES.
+     * The count term of the freshness guards: a creation path that skipped
+     * the incremental card insert (or a deletion that skipped the removal)
+     * is invisible to the timestamp compare — a future-skewed book timestamp
+     * once inflated the home book's timestamp past every later addition, and
+     * the missing card was permanent. Card counts are self-maintaining under
+     * the incremental paths (they insert/delete card nodes), so this needs
+     * no stored signal.
+     */
+    private function realBookCount(string $username, array $visibilities): int
+    {
+        return $this->realBooksQuery($username)
+            ->whereIn('visibility', $visibilities)
+            ->count();
+    }
+
+    private function homeBookCardCount(string $bookName): int
+    {
+        return DB::connection('pgsql_admin')->table('nodes')
+            ->where('book', $bookName)
+            ->where('node_id', '!=', $bookName . '_empty_card')
+            ->count();
+    }
+
+    /**
      * Newest billing input for the Account book, in epoch ms: the latest
      * `billing_ledger.created_at` for the user, and `users.updated_at` (which
      * updateTier bumps so tier changes count as billing input too). Backs the
-     * Account-book freshness guard the same way maxRealBookTimestamp backs the
+     * Account-book freshness guard the same way maxRealBookMetaTimestamp backs the
      * home-book guards.
      */
     private function maxAccountInputTimestamp(string $username): ?int
@@ -595,6 +607,18 @@ class UserHomeServerController extends Controller
                 'home_book_ts' => $home->timestamp,
             ]);
             $this->deferRegen($bookName, fn () => $this->generateUserHomeBook($username, $isOwner, $visibility));
+
+            return;
+        }
+
+        // Count term: catches memberships the timestamp compare cannot see
+        // (a creation path that skipped the card insert, a deletion that
+        // skipped the removal — see realBookCount).
+        if ($this->realBookCount($username, [$visibility]) !== $this->homeBookCardCount($bookName)) {
+            Log::info('Regenerating ' . $visibility . ' home book after response: card count does not match the library.', [
+                'username' => $username,
+            ]);
+            $this->deferRegen($bookName, fn () => $this->generateUserHomeBook($username, $isOwner, $visibility));
         }
     }
 
@@ -617,6 +641,18 @@ class UserHomeServerController extends Controller
                 'home_book_ts' => $home->timestamp,
             ]);
             $this->deferRegen($bookName, fn () => $this->generateAllUserHomeBook($username));
+
+            return;
+        }
+
+        // Count term: catches memberships the timestamp compare cannot see —
+        // this is the guard that repairs "book missing from Library but
+        // present under author a-z" (the sorted views query live).
+        if ($this->realBookCount($username, ['public', 'private']) !== $this->homeBookCardCount($bookName)) {
+            Log::info('Regenerating All home book after response: card count does not match the library.', [
+                'username' => $username,
+            ]);
+            $this->deferRegen($bookName, fn () => $this->generateAllUserHomeBook($username));
         }
     }
 
@@ -625,27 +661,24 @@ class UserHomeServerController extends Controller
         $sanitizedUsername = $this->sanitizeUsername($username);
         $bookName = $sanitizedUsername . 'All';
 
-        // Query ALL books (public + private)
-        $records = DB::connection('pgsql_admin')->table('library')
+        // Query ALL books (public + private) — realBooksQuery is the one
+        // membership predicate (system books, sorted variants, sub-books and
+        // shelf renders excluded).
+        $records = $this->realBooksQuery($username)
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'visibility'])
-            ->where('creator', $username)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'All')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', '!=', $sanitizedUsername . 'About')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
             ->whereIn('visibility', ['public', 'private'])
             // NULLS LAST: Postgres DESC defaults to NULLS FIRST, so a row a raw
             // insert path forgot to stamp would pin to the top of the feed.
             ->orderByRaw('created_at DESC NULLS LAST')
             ->get();
 
-        // Home book timestamp must be >= the newest book it incorporates, so the
-        // freshness guard (maxRealBookTimestamp > home.timestamp) is self-stable
-        // even if a book carries a client-skewed `timestamp`.
-        $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, ['public', 'private']) ?? 0);
+        // Server clock, NEVER maxed with the members' client-supplied
+        // `timestamp`: one future-skewed book used to inflate the home
+        // timestamp past every later addition, permanently defeating the
+        // timestamp guard (the guard compares server-stamped meta_updated_at,
+        // and the count term catches membership drift, so the old inflation
+        // no longer buys any stability).
+        $homeTs = (int) round(microtime(true) * 1000);
 
         $chunks = [];
         $positionId = 100;
@@ -677,9 +710,13 @@ class UserHomeServerController extends Controller
 
             DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
 
-            // Invalidate sorted "all" variants
-            DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
-            DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_all_%')->delete();
+            // Invalidate ALL sorted variants (explicit names, never LIKE): a
+            // regen means membership or metadata changed, which stales the
+            // public/private variants just as much as the 'all' ones — the
+            // old one-directional delete left the others stale forever.
+            $variantNames = UserHomeBookNames::sortedVariantNames($sanitizedUsername);
+            DB::connection('pgsql_admin')->table('nodes')->whereIn('book', $variantNames)->delete();
+            DB::connection('pgsql_admin')->table('library')->whereIn('book', $variantNames)->delete();
 
             foreach (array_chunk($chunks, 500) as $batch) {
                 DB::connection('pgsql_admin')->table('nodes')->insert($batch);
@@ -856,19 +893,12 @@ class UserHomeServerController extends Controller
         // Determine book name based on visibility - use sanitized username
         $bookName = $visibility === 'private' ? $sanitizedUsername . 'Private' : $sanitizedUsername;
 
-        // Query database using actual username for creator field
-        // Use admin connection to bypass RLS - trusted backend operation
-        // (RLS blocks private books when called from auth controller after token transfer)
-        $records = DB::connection('pgsql_admin')->table('library')
+        // Query database using actual username for creator field.
+        // realBooksQuery uses the admin connection to bypass RLS - trusted
+        // backend operation (RLS blocks private books when called from auth
+        // controller after token transfer).
+        $records = $this->realBooksQuery($username)
             ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at'])
-            ->where('creator', $username)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'All')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', '!=', $sanitizedUsername . 'About')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%')
             ->where('visibility', $visibility)
             // NULLS LAST: Postgres DESC defaults to NULLS FIRST, so a row a raw
             // insert path forgot to stamp would pin to the top of the feed.
@@ -881,9 +911,10 @@ class UserHomeServerController extends Controller
 
         // User home pages use admin connection - trusted backend operation
         // Safe because: PHP controls book name, only affects user home pages, user verified above
-        // Home book timestamp must be >= the newest book it incorporates so the
-        // freshness guard is self-stable even under client-skewed timestamps.
-        $homeTs = max((int) round(microtime(true) * 1000), $this->maxRealBookTimestamp($username, [$visibility]) ?? 0);
+        // Server clock, never maxed with client-supplied member timestamps —
+        // see generateAllUserHomeBook for why the old inflation defeated the
+        // freshness guard.
+        $homeTs = (int) round(microtime(true) * 1000);
 
         // The public home book row doubles as the user's PROFILE row: its
         // title/note back the editable "{user}'s library" heading and bio, and
@@ -928,9 +959,13 @@ class UserHomeServerController extends Controller
 
             DB::connection('pgsql_admin')->table('nodes')->where('book', $bookName)->delete();
 
-            // Invalidate sorted variants when the default book is regenerated
-            DB::connection('pgsql_admin')->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
-            DB::connection('pgsql_admin')->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $visibility . '_%')->delete();
+            // Invalidate ALL sorted variants when the default book is
+            // regenerated (explicit names, never LIKE; a change to this
+            // visibility stales the 'all' variants too — the old
+            // one-directional delete left them stale forever).
+            $variantNames = UserHomeBookNames::sortedVariantNames($sanitizedUsername);
+            DB::connection('pgsql_admin')->table('nodes')->whereIn('book', $variantNames)->delete();
+            DB::connection('pgsql_admin')->table('library')->whereIn('book', $variantNames)->delete();
 
             foreach (array_chunk($chunks, 500) as $batch) {
                 DB::connection('pgsql_admin')->table('nodes')->insert($batch);
@@ -972,7 +1007,10 @@ class UserHomeServerController extends Controller
         } else {
             $chunk = $this->generateLibraryCardChunk($bookRecord, $bookName, $newStartLine, $isOwner, false, -1);
             $admin->table('nodes')->insert($chunk);
-            $admin->table('library')->where('book', $bookName)->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
+            // Server clock only — maxing with the book's client-supplied
+            // timestamp let one skewed clock inflate the home timestamp past
+            // every later addition (permanently defeating the freshness guard).
+            $admin->table('library')->where('book', $bookName)->update(['timestamp' => (int) $nowMs]);
         }
 
         // 2. Insert into the All book (only if it already exists; otherwise next-visit regen handles it)
@@ -999,15 +1037,12 @@ class UserHomeServerController extends Controller
                     $bookRecord, $allBookName, $allNewStartLine, $isOwner, false, -1, 'public', false, $isPrivate
                 );
                 $admin->table('nodes')->insert($allChunk);
-                $admin->table('library')->where('book', $allBookName)->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
+                $admin->table('library')->where('book', $allBookName)->update(['timestamp' => (int) $nowMs]);
             }
         }
 
         // 3. Invalidate sorted variants for both this visibility and 'all'
-        foreach ([$visibility, 'all'] as $v) {
-            $admin->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
-            $admin->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
-        }
+        (new ShelfCacheInvalidator())->flushUserHomeSortedVariants($username, [$visibility, 'all']);
 
         return ['success' => true];
     }
@@ -1097,18 +1132,33 @@ class UserHomeServerController extends Controller
             ]);
         }
 
-        // 4. Bump library timestamps so client IndexedDB caches refetch
+        // 4. Bump library timestamps so client IndexedDB caches refetch.
+        // Server clock only — see addBookToUserPage.
         $admin->table('library')
             ->whereIn('book', [$oldHome, $newHome, $allHome])
-            ->update(['timestamp' => max((int) $nowMs, (int) ($bookRecord->timestamp ?? 0))]);
+            ->update(['timestamp' => (int) $nowMs]);
 
         // 5. Invalidate sorted variants for both visibilities and 'all'
-        foreach ([$oldVisibility, $newVisibility, 'all'] as $v) {
-            $admin->table('nodes')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
-            $admin->table('library')->where('book', 'LIKE', $sanitizedUsername . '_' . $v . '_%')->delete();
-        }
+        (new ShelfCacheInvalidator())->flushUserHomeSortedVariants($username, [$oldVisibility, $newVisibility, 'all']);
 
         return ['success' => true];
+    }
+
+    /**
+     * Does this library row belong in the user's home feeds at all? Mirrors
+     * realBooksQuery's predicate for a single record. Guards the upsert arm
+     * of updateBookOnUserPage — without it, syncing a sub-book or a generated
+     * book would MINT a feed card for it.
+     */
+    private function qualifiesForUserFeed(string $sanitizedUsername, PgLibrary $bookRecord): bool
+    {
+        $book = (string) $bookRecord->book;
+        $visibility = $bookRecord->visibility ?? 'public';
+
+        return !str_contains($book, '/')
+            && !str_starts_with($book, 'shelf_')
+            && !in_array($book, UserHomeBookNames::allGeneratedNames($sanitizedUsername), true)
+            && in_array($visibility, ['public', 'private'], true);
     }
 
     public function updateBookOnUserPage(string $username, PgLibrary $bookRecord)
@@ -1133,6 +1183,23 @@ class UserHomeServerController extends Controller
             ->where('node_id', $expectedNodeId)
             ->first();
 
+        // UPSERT: no card yet means this book was created by a path that
+        // bypassed addBookToUserPage (imports, URL imports, beacon sync,
+        // LibraryService::create — whose syncHomepage lands here and used to
+        // no-op). Delegate to addBookToUserPage, which inserts into both home
+        // books and flushes the sorted variants. First drop any stray card in
+        // the OTHER visibility's home book (a visibility change that skipped
+        // moveBookBetweenHomeBooks would otherwise leave a duplicate).
+        if (!$chunkToUpdate && $this->qualifiesForUserFeed($sanitizedUsername, $bookRecord)) {
+            $otherBook = $visibility === 'private' ? $sanitizedUsername : $sanitizedUsername . 'Private';
+            DB::connection('pgsql_admin')->table('nodes')
+                ->where('book', $otherBook)
+                ->where('node_id', $otherBook . '_' . $bookRecord->book . '_card')
+                ->delete();
+
+            return $this->addBookToUserPage($username, $bookRecord);
+        }
+
         if ($chunkToUpdate) {
             $isOwner = Auth::check() && $this->sanitizeUsername(Auth::user()->name) === $sanitizedUsername;
             $newContent = $this->generateLibraryCardHtml($bookRecord, $chunkToUpdate->startLine, $isOwner, $expectedNodeId);
@@ -1144,9 +1211,10 @@ class UserHomeServerController extends Controller
                 'updated_at' => now(),
             ]);
 
+            // Server clock only — see addBookToUserPage.
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $bookName)
-                ->update(['timestamp' => max((int) round(microtime(true) * 1000), (int) ($bookRecord->timestamp ?? 0))]);
+                ->update(['timestamp' => (int) round(microtime(true) * 1000)]);
         }
 
         // Also update the card in the "All" book if it exists
@@ -1169,9 +1237,18 @@ class UserHomeServerController extends Controller
                 'updated_at' => now(),
             ]);
 
+            // Server clock only — see addBookToUserPage.
             DB::connection('pgsql_admin')->table('library')
                 ->where('book', $allBookName)
-                ->update(['timestamp' => max((int) round(microtime(true) * 1000), (int) ($bookRecord->timestamp ?? 0))]);
+                ->update(['timestamp' => (int) round(microtime(true) * 1000)]);
+        }
+
+        // A card update means card-relevant metadata changed, and the sorted
+        // variants cache rendered cards — flush them or `{u}_all_author`
+        // keeps the old title/author (and the old ordering) forever
+        // (title/author variants never self-expire; only connected/lit do).
+        if ($chunkToUpdate || $allChunk) {
+            (new ShelfCacheInvalidator())->flushUserHomeSortedVariants($username, [$visibility, 'all']);
         }
 
         return ['success' => true];
@@ -1405,17 +1482,11 @@ class UserHomeServerController extends Controller
             return response()->json(['bookId' => $syntheticBookId]);
         }
 
-        // Fetch + sort
-        $query = DB::connection('pgsql_admin')->table('library')
-            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_highlights', 'hypercite_connections', 'reference_connections', 'visibility'])
-            ->where('creator', $username)
-            ->where('book', '!=', $sanitizedUsername)
-            ->where('book', '!=', $sanitizedUsername . 'Private')
-            ->where('book', '!=', $sanitizedUsername . 'All')
-            ->where('book', '!=', $sanitizedUsername . 'Account')
-            ->where('book', '!=', $sanitizedUsername . 'About')
-            ->where('book', 'NOT LIKE', '%/%')
-            ->where('book', 'NOT LIKE', 'shelf_%');
+        // Fetch + sort — realBooksQuery is the one membership predicate
+        // (crucially it also excludes the OTHER sorted-variant rows, which
+        // used to render as phantom "…'s library (title)" cards here).
+        $query = $this->realBooksQuery($username)
+            ->select(['book', 'title', 'author', 'year', 'publisher', 'journal', 'bibtex', 'created_at', 'total_highlights', 'hypercite_connections', 'reference_connections', 'visibility']);
 
         if ($visibility === 'all') {
             $query->whereIn('visibility', ['public', 'private']);

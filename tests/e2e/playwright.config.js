@@ -35,6 +35,16 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8000',
+    // Playwright's defaults for these are 0 = WAIT FOREVER, so any action that
+    // never becomes actionable eats the whole test budget and reports only
+    // "Test timeout of Nms exceeded" — the cause is buried in the call log and
+    // the run loses minutes per failure. A panel that opened off the bottom of
+    // the screen cost 300s and named nothing (notifications.spec, 2026-09-30).
+    // Bounded, a stuck action fails in 30s saying WHY ("element is outside of
+    // the viewport", "intercepts pointer events"). Both are far above anything
+    // a healthy run needs — this is a diagnosability floor, not a deadline.
+    actionTimeout: 30_000,
+    navigationTimeout: 60_000,
     // Herd serves hyperlit.test over https with a locally-signed cert. Chrome
     // trusts it via the macOS keychain, but Playwright's Node-side request
     // context does not — API calls in specs die on TLS without this.

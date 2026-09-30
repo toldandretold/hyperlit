@@ -20,6 +20,7 @@ import {
   type BookSummary,
   type ClaimRow,
   type PathStep,
+  type PathWork,
 } from './api';
 
 const FLAGGED = new Set(['rejected', 'unlikely', 'source_not_found', 'insufficient']);
@@ -697,17 +698,58 @@ function pathSection(claim: ClaimRow): HTMLElement {
       + 'stored columns testify to; re-scan the book to record the full path.'));
   }
 
+  const works = path.works ?? {};
+
+  // A multi-work footnote runs one ladder per work, and the rails are indistinguishable without
+  // their subject — same stations, same dots. Name the work ABOVE its rail; the reviewer should
+  // never have to infer it from a Brave query inside a collapsed step.
+  if (works.steps) sec.append(workHeading(works.steps));
   sec.append(pathRail(path.steps));
 
   // Sub-citations traverse the ladder as their own entries; their rails nest under the parent.
   for (const [subKey, steps] of Object.entries(path.subs ?? {})) {
+    const work = works[subKey];
     const det = el('details', 'st-path-sub');
-    det.append(el('summary', undefined, `${subKey} — this footnote cites several works; the path for this one`));
+    det.append(el('summary', undefined, work
+      ? `Work ${work.position} of ${work.total} — ${work.label}`
+      : `${subKey} — this footnote cites several works; the path for this one`));
+    if (work) det.append(workHeading(work, { nested: true }));
     det.append(pathRail(steps));
     sec.append(det);
   }
 
+  // A cited work with NO rail is invisible otherwise — and a work that was never searched is a
+  // fact about our pipeline masquerading as a citation that could not be found.
+  for (const [key, work] of Object.entries(works)) {
+    if (key === 'steps' || path.subs?.[key]) continue;
+    const det = el('details', 'st-path-sub st-path-sub-norail');
+    det.append(el('summary', undefined, `Work ${work.position} of ${work.total} — ${work.label}`));
+    det.append(el('p', 'st-muted', work.searched === false
+      ? (work.skipped ?? 'This work never entered the resolver.')
+      : 'No path recorded for this work — it may predate per-step tracing, or its search may have '
+        + 'been retired when another work in the same footnote resolved. Re-scan the book to find out.'));
+    sec.append(det);
+  }
+
   return sec;
+}
+
+/**
+ * The work a rail is about: position within the footnote, then who/when/what. Rendered only for
+ * MULTI-work entries (the builder returns no works for a single-work citation, where the rail
+ * can only be about the one work and a heading would be noise).
+ */
+function workHeading(work: PathWork, opts: { nested?: boolean } = {}): HTMLElement {
+  const box = el('div', 'st-path-work');
+
+  if (!opts.nested) {
+    box.append(el('span', 'st-path-work-pos', `Work ${work.position} of ${work.total}`));
+  }
+  box.append(el('span', 'st-path-work-label', work.label));
+  if (work.type) box.append(el('span', 'st-path-work-type', work.type.replace(/-/g, ' ')));
+  if (work.status === 'matched') box.append(el('span', 'st-path-work-status', 'resolved'));
+
+  return box;
 }
 
 function pathRail(steps: PathStep[]): HTMLElement {

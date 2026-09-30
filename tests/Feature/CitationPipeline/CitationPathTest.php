@@ -94,6 +94,133 @@ test('sub-citation traces ride along, decorated the same way', function () {
         ->and($path['subs']['sub1'][0]['label_plain'])->not->toBe('openalex_title_search');
 });
 
+/**
+ * Every rail must NAME the work it chased. deloitte-2025-pdf/c06 cites two works in one footnote
+ * — a Cth legislative instrument and the DSS Social Security Guide — and ran two independent
+ * ladders with identical stations and identical "no match" dots. Nothing on screen said which
+ * rail was about which work, so two distinct failures read as one failure of an unidentified
+ * thing, and the only evidence of the subject was a Brave query inside a collapsed step.
+ */
+test('each rail of a multi-work footnote names its own work', function () {
+    $path = CitationPath::build([
+        'match_method' => null,
+        'llm_metadata' => [
+            'title'   => 'Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth)',
+            'authors' => ['Social Security Administration'],
+            'year'    => 2018,
+            // No type: on the live row the extractor did NOT classify this instrument as
+            // legislation, so it ran the full ladder (Brave returned 0 results for the quoted
+            // title). The legislation-typed variant is the pre-routing test below.
+            'sub_citations' => [
+                ['title' => 'Social Security Guide', 'authors' => ['Department of Social Services'],
+                 'year' => 2025, 'type' => 'website'],
+            ],
+        ],
+        'match_diagnostics' => [
+            'trace' => [
+                'steps' => [['stage' => 'brave_search_fallback', 'outcome' => 'no_match']],
+                'subs'  => ['sub1' => [['stage' => 'brave_search_fallback', 'outcome' => 'no_match']]],
+            ],
+        ],
+    ]);
+
+    // The entry's own rail is work 1; the sub's rail is work 2. Both carry a human label.
+    expect($path['works']['steps']['position'])->toBe(1)
+        ->and($path['works']['steps']['total'])->toBe(2)
+        ->and($path['works']['steps']['label'])->toContain('Non-Compliance')
+        ->and($path['works']['steps']['searched'])->toBeTrue()
+        ->and($path['works']['sub1']['position'])->toBe(2)
+        ->and($path['works']['sub1']['label'])->toContain('Social Security Guide')
+        ->and($path['works']['sub1']['label'])->toContain('Department of Social Services')
+        ->and($path['works']['sub1']['searched'])->toBeTrue();
+});
+
+test('a pre-routed primary keeps its subs rails — the excluded work is not the whole footnote', function () {
+    // The AGLC house style of this corpus cites an instrument alongside a searchable work
+    // ("… Determination 2018 (No 1) (Cth); … Social Security Guide …"). Legislation pre-routes
+    // (counted, never searched), and returning there with no subs deleted the rail of the ONLY
+    // work that WAS searched — a two-work footnote rendering as one excluded citation.
+    $path = CitationPath::build([
+        'match_method' => null,
+        'llm_metadata' => [
+            'title' => 'Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth)',
+            'type'  => 'legislation',
+            'year'  => 2018,
+            'sub_citations' => [
+                ['title' => 'Social Security Guide', 'authors' => ['Department of Social Services'],
+                 'year' => 2025, 'type' => 'website'],
+            ],
+        ],
+        'match_diagnostics' => [
+            'trace' => ['subs' => ['sub1' => [['stage' => 'brave_search_fallback', 'outcome' => 'no_match']]]],
+        ],
+    ]);
+
+    expect($path['steps'][0]['outcome'])->toBe('excluded_by_design')
+        ->and($path['subs'])->toHaveKey('sub1')
+        ->and($path['works']['sub1']['label'])->toContain('Social Security Guide')
+        ->and($path['works']['sub1']['searched'])->toBeTrue();
+});
+
+test('a single-work citation gets no work headings — the rail can only be about the one work', function () {
+    $path = CitationPath::build([
+        'match_method' => 'openalex',
+        'llm_metadata' => ['title' => 'Capital', 'authors' => ['Marx'], 'year' => 1867],
+    ]);
+
+    expect($path['works'])->toBe([]);
+});
+
+test('a title-less sub is reported as never searched, not as a work that could not be found', function () {
+    // Pool expansion skips a sub with no title outright (CitationScanBibliographyJob), so it has
+    // no rail and never will. Dropping it from the list would hide a pipeline failure entirely.
+    $path = CitationPath::build([
+        'match_method' => null,
+        'llm_metadata' => [
+            'title' => 'A Report', 'year' => 2020,
+            'sub_citations' => [['authors' => ['Someone'], 'year' => 2021]],
+        ],
+        'match_diagnostics' => ['trace' => ['steps' => [['stage' => 'brave_search_fallback', 'outcome' => 'no_match']]]],
+    ]);
+
+    expect($path['works']['sub1']['searched'])->toBeFalse()
+        ->and($path['works']['sub1']['skipped'])->toContain('never entered the resolver')
+        ->and($path['works']['sub1']['label'])->toContain('no title extracted');
+});
+
+test('a titled sub with no rail is UNKNOWN, never "never searched"', function () {
+    // A resolving PARENT retires its subs (removeRelatedPoolEntries), and pre-trace rows have no
+    // sub rails at all — rendering either as "never ran" states more than the record supports.
+    $path = CitationPath::build([
+        'match_method' => 'openalex',
+        'llm_metadata' => [
+            'title' => 'A Report', 'year' => 2020,
+            'sub_citations' => [['title' => 'A Second Work', 'year' => 2021,
+                                 'resolution' => ['status' => 'matched']]],
+        ],
+        'match_diagnostics' => ['trace' => ['steps' => [['stage' => 'openalex_title_search', 'outcome' => 'newly_resolved']]]],
+    ]);
+
+    expect($path['works']['sub1']['searched'])->toBeNull()
+        ->and($path['works']['sub1']['skipped'])->toBeNull()
+        // A MATCHED sub still owns a work slot — SourceTypeClassifier::works() drops it (right
+        // for a not-found assessment, wrong here), and its indices would desync from subN.
+        ->and($path['works']['sub1']['status'])->toBe('matched')
+        ->and($path['works']['sub1']['position'])->toBe(2);
+});
+
+test('a work split onto its own row by the review fan-out still says which of N it is', function () {
+    $path = CitationPath::build([
+        'match_method' => null,
+        'cited_work_position' => 2,
+        'cited_work_total' => 3,
+        'llm_metadata' => ['title' => 'Social Security Guide', 'year' => 2025, 'split_from' => 'c06'],
+    ]);
+
+    expect($path['works']['steps']['position'])->toBe(2)
+        ->and($path['works']['steps']['total'])->toBe(3);
+});
+
 test('every legacy match_method in the database maps to a real map station', function () {
     // The mapping bridges rows scanned before tracing to the diagram; a method it does not
     // know renders as a bare no_match, silently wrong for that row.

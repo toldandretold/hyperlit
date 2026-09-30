@@ -250,6 +250,7 @@ export class UserContainerManager extends (ContainerManager as any) {
 
     if (this.button) {
       const rect = this.button.getBoundingClientRect();
+      const panelW = parseInt(width, 10) || 280;
       const navWrapper = this.button.closest("#logoNavMenu")
         ? document.getElementById("logoNavWrapper")
         : null;
@@ -259,7 +260,6 @@ export class UserContainerManager extends (ContainerManager as any) {
         // Clamped to the viewport: on narrow screens the panel slides left just
         // enough to fit, overlapping the nav slightly — the same "stacked and
         // shifted right" idiom as stacked hyperlit-containers.
-        const panelW = parseInt(width, 10) || 280;
         // +4 = flush against the nav's glass pill (it extends 4px past the
         // wrapper) so the two surfaces read as one connected thing.
         const desired = navWrapper.getBoundingClientRect().right + 4;
@@ -271,6 +271,16 @@ export class UserContainerManager extends (ContainerManager as any) {
         this.container.style.left = `${rect.left}px`;
       }
       this.container.style.transform = "";
+      // The anchor is read ONCE, from a trigger whose rect is only trustworthy
+      // once the page's CSS has applied — pre-CSS the corner buttons are still
+      // in normal flow, and a rect read in that window parks the panel off the
+      // bottom of the screen. Nothing repositions it afterwards, so the panel
+      // stays there: visible, focus-trapped, and completely unreachable (the
+      // e2e signup sat clicking a "Switch to Register" button that was 1200px
+      // down the page until the test timeout, 2026-09-30). Clamp now so the
+      // panel always starts on screen; _clampIntoViewport re-runs below with
+      // the real measured box.
+      this._clampAnchorToViewport(panelW);
     } else {
       this.container.style.top = "50%";
       this.container.style.left = "50%";
@@ -307,6 +317,10 @@ export class UserContainerManager extends (ContainerManager as any) {
 
       this.container.addEventListener("transitionend", () => {
         this.isAnimating = false;
+        // Height is `auto`, so the panel's real extent only exists once the
+        // content has laid out at full width — that is the first moment the
+        // "does it fit below the trigger" question can be answered honestly.
+        this._clampIntoViewport();
       }, { once: true });
 
       // Fallback timeout
@@ -314,8 +328,49 @@ export class UserContainerManager extends (ContainerManager as any) {
         if (this.isAnimating) {
           this.isAnimating = false;
         }
+        this._clampIntoViewport(); // transitionend can be skipped (no property changed)
       }, 1000);
     });
+  }
+
+  /**
+   * Cheap pre-measurement guard: whatever the trigger's rect said, the panel's
+   * top-left corner starts inside the viewport with room for a row of content.
+   * Runs BEFORE the panel has a height (it is still `.hidden`/zero-sized here),
+   * so it can only bound the anchor — _clampIntoViewport does the real fit.
+   */
+  _clampAnchorToViewport(panelW: number) {
+    const margin = 8;
+    const maxTop = Math.max(margin, window.innerHeight - 120);
+    const maxLeft = Math.max(margin, window.innerWidth - panelW - margin);
+    const top = parseFloat(this.container.style.top) || 0;
+    const left = parseFloat(this.container.style.left) || 0;
+    this.container.style.top = `${Math.min(Math.max(top, margin), maxTop)}px`;
+    this.container.style.left = `${Math.min(Math.max(left, margin), maxLeft)}px`;
+  }
+
+  /**
+   * Keep the WHOLE panel on screen once it has a measurable box: a panel that
+   * doesn't fit below its trigger is lifted so its bottom edge sits inside the
+   * viewport (never above the top edge — a tall panel clips at the bottom
+   * rather than losing its heading). Same for the right edge. No-op when the
+   * panel is closed or centred (transform-positioned).
+   */
+  _clampIntoViewport() {
+    if (!this.isOpen || !this.container || this.container.style.transform) return;
+    const margin = 8;
+    const rect = this.container.getBoundingClientRect();
+    if (!rect.height || !rect.width) return; // nothing measurable yet
+    const top = parseFloat(this.container.style.top);
+    const left = parseFloat(this.container.style.left);
+    if (!Number.isFinite(top) || !Number.isFinite(left)) return;
+
+    const maxTop = window.innerHeight - rect.height - margin;
+    const maxLeft = window.innerWidth - rect.width - margin;
+    const nextTop = Math.max(margin, Math.min(top, maxTop));
+    const nextLeft = Math.max(margin, Math.min(left, maxLeft));
+    if (nextTop !== top) this.container.style.top = `${nextTop}px`;
+    if (nextLeft !== left) this.container.style.left = `${nextLeft}px`;
   }
 
   closeContainer() {

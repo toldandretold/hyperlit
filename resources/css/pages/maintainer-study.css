@@ -907,6 +907,39 @@ body {
 }
 .st-path-sub { margin-top: 0.4rem; }
 .st-path-sub > summary { font-size: 0.8rem; cursor: pointer; }
+.st-path-sub-norail > summary { opacity: 0.75; }
+
+/* The work a rail is chasing. Sits directly above its rail because a multi-work footnote's
+   rails are otherwise identical — same stations, same dots, different subject. */
+.st-path-work {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0.15rem 0 0.5rem;
+  padding: 0.4rem 0.55rem;
+  border-left: 2px solid color-mix(in srgb, #5fb3a3 55%, transparent);
+  background: color-mix(in srgb, #5fb3a3 7%, transparent);
+  border-radius: 0 4px 4px 0;
+}
+.st-path-work-pos {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5fb3a3;
+  white-space: nowrap;
+}
+.st-path-work-label { font-size: 0.82rem; line-height: 1.35; }
+.st-path-work-type,
+.st-path-work-status {
+  font-size: 0.68rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  background: color-mix(in srgb, #8b93a7 18%, transparent);
+  color: #8b93a7;
+}
+.st-path-work-status { background: color-mix(in srgb, #54c98a 18%, transparent); color: #54c98a; }
 
 /* Outcome hues — REL_COLOR semantics. The resolved dot is a filled write-green ring so the
    step where the journey ENDED is findable at a glance. */

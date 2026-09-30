@@ -6,6 +6,7 @@
 
 import { fixHeaderSpacing, transitionToBookContent } from '../homepage/homepageDisplayUnit';
 import { drainResponse } from '../../utilities/drainResponse';
+import { log } from '../../utilities/logger';
 import DOMPurify from 'dompurify';
 
 let currentHeader: any = null;
@@ -32,6 +33,44 @@ const FILTER_DROPDOWN_ID = 'library-filter-dropdown';
 
 function getXsrf() {
     return decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '');
+}
+
+/**
+ * Keep the Library pill's data-content in step with the feed a sort change
+ * just loaded — without this the NEXT pill click snapped back to the recent
+ * snapshot while the dropdown still named the chosen sort.
+ */
+function updateLibraryPillContent(bookId: string): void {
+    const pill = document.querySelector('.arranger-button.active[data-filter="library"]') as HTMLElement | null;
+    if (pill) pill.dataset.content = bookId;
+}
+
+/**
+ * Render the OWNER's Library in a non-recent sort and return the synthetic
+ * book id ({u}_{vis}_{sort}), honouring the saved All/Public/Private filter.
+ * The one implementation behind both the sort dropdown and the Library
+ * boot/click paths in homepageDisplayUnit — before this, the saved sort was
+ * applied to the dropdown LABEL only while the content silently loaded the
+ * recent snapshot, which is how "Library is missing books that author a-z
+ * shows" presented (the recent snapshot was the stale one).
+ * Returns null for 'recent' (the base books ARE the recent feeds) or on error.
+ */
+export async function renderLibrarySorted(sort: string): Promise<string | null> {
+    if (!sort || sort === 'recent') return null;
+    const visibility = localStorage.getItem('user_library_filter') || 'all';
+    try {
+        const resp = await fetch('/api/user-home/render', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
+            credentials: 'include',
+            body: JSON.stringify({ visibility, sort }),
+        });
+        const data = await resp.json();
+        return data.bookId || null;
+    } catch (err) {
+        log.error('Failed to render sorted library', '/components/shelves/shelfHeader.ts', err as any);
+        return null;
+    }
 }
 
 /**
@@ -395,26 +434,33 @@ export function showShelfHeader(opts: any) {
                 const data = await resp.json();
                 if (data.bookId) {
                     await transitionToBookContent(data.bookId, true);
+                    updateLibraryPillContent(data.bookId);
                 }
             } catch (err) {
                 console.error('Failed to sort system shelf:', err);
             }
         } else if (isSystemShelf) {
-            // Owner on system shelf: render sorted via backend
+            // Owner on system shelf: render sorted via backend. The saved sort
+            // is honoured on the next Library load (homepageDisplayUnit calls
+            // renderLibrarySorted), so label and content stay in agreement.
             localStorage.setItem('user_shelf_sort_library', newSort);
-            try {
-                const resp = await fetch('/api/user-home/render', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
-                    credentials: 'include',
-                    body: JSON.stringify({ visibility, sort: newSort }),
-                });
-                const data = await resp.json();
-                if (data.bookId) {
-                    await transitionToBookContent(data.bookId, true);
+            if (newSort === 'recent') {
+                // The base books ARE the recent feeds — no render round trip.
+                const bookId = visibility === 'all'
+                    ? (window as any).allBook
+                    : visibility === 'private'
+                        ? (window as any).userPageBook + 'Private'
+                        : (window as any).userPageBook;
+                if (bookId) {
+                    await transitionToBookContent(bookId, true);
+                    updateLibraryPillContent(bookId);
                 }
-            } catch (err) {
-                console.error('Failed to sort system shelf:', err);
+            } else {
+                const bookId = await renderLibrarySorted(newSort);
+                if (bookId) {
+                    await transitionToBookContent(bookId, true);
+                    updateLibraryPillContent(bookId);
+                }
             }
         } else if (!isOwner) {
             // Visitor on custom shelf: re-render via public API
@@ -444,8 +490,13 @@ export function showShelfHeader(opts: any) {
                 }));
                 // Re-render the shelf by calling openShelf
                 const { openShelf } = await import('./shelfTabs');
-                // Update the tab's sort data attribute
-                const tab = document.querySelector(`.shelf-tab[data-shelf-id="${shelfId}"]`) as HTMLElement | null;
+                // Update the tab's sort data attribute — the tab may be a
+                // dynamic .shelf-tab OR a server-rendered .visitor-shelf-tab
+                // (openShelf activates the pill when one exists), and a stale
+                // sort/content on it would re-render the OLD sort.
+                const tab = document.querySelector(
+                    `.shelf-tab[data-shelf-id="${shelfId}"], .visitor-shelf-tab[data-shelf-id="${shelfId}"]`
+                ) as HTMLElement | null;
                 if (tab) {
                     tab.dataset.sort = newSort;
                     tab.dataset.content = ''; // Clear to force re-render
