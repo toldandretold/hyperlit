@@ -1497,8 +1497,8 @@ class UserHomeServerController extends Controller
         $records = $query->get();
 
         $records = match ($sort) {
-            'title' => $records->sortBy(fn($r) => mb_strtolower($r->title ?? '')),
-            'author' => $records->sortBy(fn($r) => mb_strtolower($r->author ?? '')),
+            'title' => $records->sortBy(fn($r) => \App\Support\FeedSortKey::for($r->title)),
+            'author' => $records->sortBy(fn($r) => \App\Support\FeedSortKey::for($r->author)),
             // Same definition as the shelf feeds — see ConnectionCountQuery.
             'connected' => ConnectionCountQuery::sortConnected($records),
             'lit' => ConnectionCountQuery::sortLit($records),

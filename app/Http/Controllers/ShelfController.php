@@ -517,8 +517,8 @@ class ShelfController extends Controller
 
         // Apply sort
         $items = match ($sort) {
-            'title' => $items->sortBy(fn($i) => mb_strtolower($i->title ?? '')),
-            'author' => $items->sortBy(fn($i) => mb_strtolower($i->author ?? '')),
+            'title' => $items->sortBy(fn($i) => \App\Support\FeedSortKey::for($i->title)),
+            'author' => $items->sortBy(fn($i) => \App\Support\FeedSortKey::for($i->author)),
             'views' => $items->sortByDesc('total_views'),
             // Docuverse connectedness, both directions — ConnectionCountQuery owns
             // the definition and the tie-breaking so all four sort sites agree.

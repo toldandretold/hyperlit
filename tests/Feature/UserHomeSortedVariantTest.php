@@ -83,6 +83,47 @@ test('rendered sorted-variant rows are never themselves feed members', function 
     expect($authorVariant)->not->toBe($titleVariant);
 });
 
+/** Cards of a feed book in RENDER order (renderSortedFeed positions by startLine). */
+function usvCardsInOrder(string $feedBook): array
+{
+    return hbAdmin()->table('nodes')
+        ->where('book', $feedBook)
+        ->where('node_id', '!=', $feedBook . '_empty_card')
+        ->orderBy('startLine')
+        ->pluck('content')
+        ->map(fn ($html) => preg_match('/data-book="([^"]+)"/', (string) $html, $m) ? $m[1] : null)
+        ->filter()
+        ->values()
+        ->all();
+}
+
+test('title sort ignores leading punctuation (library-catalog collation)', function () {
+    $seed = hbSeedUserWithBooks(0, 0);
+    $username = $seed['username'];
+
+    // Raw codepoint order would run: quote (') < digit < bracket ([) < letters
+    // — which read as "Title A–Z is broken" on the live page. FeedSortKey
+    // files each under its first real letter; digits still lead.
+    $books = [
+        'b_quote' => "'Real Socialism' in Historical Perspective",
+        'b_bracket' => '[selected] Records of the General Conference',
+        'b_digit' => '2026 Census Field Recruitment',
+        'b_plain' => 'Apple Studies',
+    ];
+    foreach ($books as $suffix => $title) {
+        hbInsertBook($username, $username . '_' . $suffix, 'public', $title);
+    }
+
+    $variant = usvRenderSorted($username, 'all', 'title');
+
+    expect(usvCardsInOrder($variant))->toBe([
+        $username . '_b_digit',   // 2026 …
+        $username . '_b_plain',   // Apple …
+        $username . '_b_quote',   // (')Real … → under R
+        $username . '_b_bracket', // ([)selected … → under S
+    ]);
+});
+
 test('a metadata edit through updateBookOnUserPage flushes the cached sorted variants', function () {
     $seed = hbSeedUserWithBooks(2, 0);
     $username = $seed['username'];
