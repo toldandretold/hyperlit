@@ -17,6 +17,7 @@ vi.mock('../../../resources/js/utilities/auth', () => ({
 }));
 
 import { installFreshIndexedDB, seedStore, readOne } from './idbHarness.js';
+import { openDatabase } from '../../../resources/js/indexedDB/core/connection';
 import {
   cleanLibraryItemForStorage,
   prepareLibraryForIndexedDB,
@@ -327,5 +328,57 @@ describe('core/library.js (characterization)', () => {
 
     const books = await getAllOfflineAvailableBooks();
     expect(books.map(b => b.book)).toEqual(['new', 'old']);
+  });
+
+  // The Open flyout calls this on EVERY open, and the nodes store holds every
+  // cached book's every row (~1.4M in a well-used cache). A plain key cursor
+  // steps once per NODE, each step its own main-thread IDB task — that walk was
+  // the entire cost of opening the flyout. 'nextunique' skips to the next
+  // DISTINCT book, so the walk is O(books). The test above can't catch a
+  // regression: it seeds ONE node per book, where both modes step identically.
+  it('getAllOfflineAvailableBooks walks the nodes index once per BOOK, not once per node', async () => {
+    const BOOKS = ['b1', 'b2', 'b3'];
+    const NODES_PER_BOOK = 40;
+    await seedStore('library', BOOKS.map((book, i) => ({ book, title: book, timestamp: 100 + i })));
+    await seedStore('nodes', BOOKS.flatMap(book =>
+      Array.from({ length: NODES_PER_BOOK }, (_, n) => ({
+        book, startLine: 100 + n, chunk_id: 0, content: 'x',
+      })),
+    ));
+
+    const directions = [];
+    let steps = 0;
+    // fake-indexeddb exposes no global IDBIndex — reach the prototype through a
+    // live index instance instead.
+    const indexProto = Object.getPrototypeOf(
+      (await openDatabase()).transaction('nodes', 'readonly').objectStore('nodes').index('book'),
+    );
+    const openKeyCursor = indexProto.openKeyCursor;
+    const spy = vi.spyOn(indexProto, 'openKeyCursor').mockImplementation(
+      function (range, direction) {
+        directions.push(direction);
+        const request = openKeyCursor.call(this, range, direction);
+        // Count the cursor positions actually visited — the real cost metric.
+        Object.defineProperty(request, 'onsuccess', {
+          configurable: true,
+          set(handler) {
+            this.addEventListener('success', () => { if (request.result) steps += 1; });
+            this.addEventListener('success', handler);
+          },
+        });
+        return request;
+      },
+    );
+
+    try {
+      const books = await getAllOfflineAvailableBooks();
+      expect(books.map(b => b.book)).toEqual(['b3', 'b2', 'b1']);
+      expect(directions).toEqual(['nextunique']);
+      // One step per book (+ the final null position isn't counted).
+      expect(steps).toBe(BOOKS.length);
+      expect(steps).toBeLessThan(BOOKS.length * NODES_PER_BOOK);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

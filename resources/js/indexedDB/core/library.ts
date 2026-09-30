@@ -545,14 +545,20 @@ export async function getAllOfflineAvailableBooks(): Promise<LibraryRecord[]> {
       && !isSyntheticFeedBook(r.book)
       && !isUserHomeVariantBook(r.book, userPageBook));
 
-    // Get all unique book IDs from nodes store
+    // Get all unique book IDs from nodes store.
+    // 'nextunique' is load-bearing, not a micro-optimisation: a plain key cursor
+    // steps once per NODE ROW (~1.4M rows across a well-used cache), and every
+    // step is its own IDB task on the main thread — that walk was the whole cost
+    // of opening the Open flyout, which calls this on every open. With
+    // 'nextunique' the cursor skips straight to the next DISTINCT index key, so
+    // it steps once per BOOK (tens, not hundreds of thousands).
     const booksWithNodes = await new Promise<Set<IDBValidKey>>((resolve, reject) => {
       const tx = db.transaction("nodes", "readonly");
       const store = tx.objectStore("nodes");
       const index = store.index("book");
       const bookIds = new Set<IDBValidKey>();
 
-      const cursorRequest = index.openKeyCursor();
+      const cursorRequest = index.openKeyCursor(null, "nextunique");
       cursorRequest.onsuccess = () => {
         const cursor = cursorRequest.result;
         if (cursor) {
