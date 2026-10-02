@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1949,
+    "fnCount": 1950,
     "moduleCount": 410,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3988,
+    "edgeCount": 3992,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3637,6 +3637,14 @@
     {
       "id": "components/toast/toast:showTargetNotFoundToast",
       "label": "showTargetNotFoundToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/toast/toast",
+      "leaf": false
+    },
+    {
+      "id": "components/toast/toast:showTranslationBlockedToast",
+      "label": "showTranslationBlockedToast",
       "kind": "fn",
       "stage": "components",
       "module": "components/toast/toast",
@@ -18678,7 +18686,8 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
-        "components/toast/toast:showTargetNotFoundToast"
+        "components/toast/toast:showTargetNotFoundToast",
+        "components/toast/toast:showTranslationBlockedToast"
       ]
     },
     {
@@ -26698,6 +26707,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/toast/toast:showTranslationBlockedToast__domwrite__dom",
+      "source": "components/toast/toast:showTranslationBlockedToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/tocContainer/bookmark:updateOrInsertBookmark__call__scrolling/readingAnchor:getFreshAnchor",
       "source": "components/tocContainer/bookmark:updateOrInsertBookmark",
       "target": "scrolling/readingAnchor:getFreshAnchor",
@@ -30191,6 +30206,12 @@
       "id": "dom__domread__components/toast/toast:showTargetNotFoundToast",
       "source": "dom",
       "target": "components/toast/toast:showTargetNotFoundToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/toast/toast:showTranslationBlockedToast",
+      "source": "dom",
+      "target": "components/toast/toast:showTranslationBlockedToast",
       "rel": "domread"
     },
     {
@@ -35322,6 +35343,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__components/toast/toast:showTranslationBlockedToast",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "components/toast/toast:showTranslationBlockedToast",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/calculations:calculateCleanTextOffset",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/calculations:calculateCleanTextOffset",
@@ -35518,6 +35545,12 @@
       "source": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "target": "store:nodes",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__components/toast/toast:showTranslationBlockedToast",
+      "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
+      "target": "components/toast/toast:showTranslationBlockedToast",
+      "rel": "call"
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromHyperlights",
@@ -50697,6 +50730,11 @@
     },
     {
       "source": "hyperlights/createHighlight",
+      "target": "components/toast/toast",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlights/createHighlight",
       "target": "hyperlitContainer/selectionContext",
       "kind": "lazy"
     },
@@ -50729,6 +50767,11 @@
       "source": "hyperlights/deleteHighlight",
       "target": "indexedDB/types",
       "kind": "static"
+    },
+    {
+      "source": "hyperlights/deleteHighlight",
+      "target": "components/toast/toast",
+      "kind": "lazy"
     },
     {
       "source": "hyperlights/deleteHighlight",
@@ -53775,6 +53818,6 @@
       ]
     ],
     "breakerCount": 6,
-    "lazyCount": 299
+    "lazyCount": 301
   }
 }

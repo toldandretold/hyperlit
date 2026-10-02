@@ -52,6 +52,16 @@ Charged after success, never before, into `billing_ledger` with category `transl
 
 The endpoint is synchronous, so the queue-worker RLS trap does not apply here. **It will apply the moment a whole-book translation job exists**: `BillingService::charge()` sets `app.current_user` but the `users` policy also needs `app.current_token`, which HTTP middleware provides and a worker does not — a worker-side charge silently no-ops. Use the restoring pattern in `CitationReviewCommand::billReview`, not the blanking variant.
 
+## External (browser) translation
+
+Separate from everything above, and the only translation Hyperlit actually ships today: Chrome's, Edge's and Safari's own translators, which rewrite the rendered DOM in place. There is no provider seam involved and nothing to configure — but there IS an invariant, because the reader writes back to IndexedDB from the live DOM. The full account lives in CLAUDE.md §"The DOM is not a source of truth for content"; in short:
+
+- **It can corrupt a book, and it was designed to be undetectable.** Read-mode self-heals (footnote renumber, transient-class strip) take node content from the live DOM and sync it to Postgres. `contentProcessor` unwraps `<font>` on save, and `<font style="vertical-align: inherit;">` is Chrome Translate's whole footprint — so the write launders the translation into clean prose and the integrity verifier then reports DOM↔IDB agreement. Guarded by `BatchUpdateOptions.source` plus `integrity/canonicalText.domMatchesStored`.
+- **"Is this page translated?" has one accessor** — `resources/js/utilities/externalTranslation.ts`. Vendor markers only, latched sticky for the page's lifetime, and it is what refuses edit mode and annotation writes. Safari leaves no marker at all, which is why the text-match gate rather than the marker is the data-safety layer.
+- **A page must have prose to translate.** Chrome detects a page's language from its content at load. A reader page whose `BookCache` is cold ships an empty `<main>`, so no translation is ever offered (and a crawler sees the same nothing) — hence the warm-on-miss in `TextController::show`.
+- **Footnote markers, hypercite arrows and `<latex>` are marked `translate="no"`** at render time. A translated footnote *number* breaks the link to its definition, and in a language with its own numerals stops matching anything.
+- **Open question, needs a live browser:** whether Chrome re-translates chunks that the lazy loader removes and re-renders on scroll-back (`MAX_LOADED_CHUNKS = 7`). Its translator does observe mutations, so appended content should be handled automatically and only removal/replacement would hurt. Measure before adding a windowing suspension — if it re-translates, no change is needed.
+
 ## What is deliberately missing
 
 - **Per-node translation cache.** A `node_translations` table keyed `(book, node_id, target_lang)` with `source_hash` staleness, cloning the `book_audio` precedent. Held back until the model choice is settled, because the `source_hash` derivation freezes the moment rows exist.

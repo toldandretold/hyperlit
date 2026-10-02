@@ -275,7 +275,11 @@ export class SaveQueue implements IntegritySurface {
           for (const [bookId, records] of recordsByBookId) {
             // PendingNode[] satisfies BatchRecord[] (it carries the required `id`);
             // the extra action/bookId fields are ignored by the writer. No cast needed.
-            await batchUpdateIndexedDBRecords(records, bookId ? { bookId } : {});
+            // source: 'edit' — this IS the editor's save path, so the live DOM is
+            // the user's intent and outranks what is stored. Without it the write
+            // defaults to 'heal' and is refused whenever the DOM has changed,
+            // which is every save. (batch.ts → domIsTrustworthyForContent)
+            await batchUpdateIndexedDBRecords(records, bookId ? { bookId, source: 'edit' } : { source: 'edit' });
           }
 
           verbose.content('saveNodeToDatabase: IndexedDB save complete', 'divEditor/saveQueue/index.ts');

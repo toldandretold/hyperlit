@@ -703,7 +703,9 @@ class ImportController extends Controller
                     'node_id' => $nodeId,
                     'content' => $content,
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
-                    'plainText' => $chunk['plainText'] ?? '',
+                    // Derive when the converter omits/empties the key ('' = a hole FTS
+                    // and embeddings can never see; plainTextFor also nulls for E2EE).
+                    'plainText' => \App\Services\E2ee\EncryptedBookGuard::plainTextFor($bookId, $content, $chunk['plainText'] ?? null),
                     'type' => $chunk['type'] ?? 'p',
                     'created_at' => $now,
                     'updated_at' => $now

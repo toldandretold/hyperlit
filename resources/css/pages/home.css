@@ -60,6 +60,13 @@
 @import url('../components/alert.css');
 @import url('../base/layout.css');
 @import url('../components/homepage.css');
+/* The hypercite-network figure at the end of .welcome-copy (JournalHyperciteMap)
+   — its map rules are scoped to `.welcome-copy`, which covers this page, the
+   journal hero and the user hero alike; everything else in that sheet is
+   body[data-page="journal"]-scoped and inert here. Without this import the
+   figure renders with bare UA styles: no legend swatches, no sizing.
+   Same trade-off pages/user.css already documents for the same sheet. */
+@import url('../components/journalHome.css');
 /* Custom scrollbar engages once an arranger collection loads a lazy loader into
    the home feed wrapper (native scrollbar in the bare feed). */
 @import url('../components/customScrollbar.css');

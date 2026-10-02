@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Exceptions\PermanentImportException;
 use App\Helpers\SubBookIdHelper;
+use App\Jobs\DetectBookLanguageJob;
 use App\Mail\ImportCompleteMail;
 use App\Mail\ImportFailedMail;
 use App\Models\PgLibrary;
@@ -308,6 +309,10 @@ class ProcessDocumentImportJob implements ShouldQueue
             // so the resolver can't pick them. Best-effort — never fail the import.
             app(\App\Services\CanonicalVersions\CanonicalVersionSync::class)
                 ->syncForBook($this->bookId);
+
+            // Detect the book's language from its fresh content (feeds <html lang>
+            // only — never the bibliographic metadata). Best-effort queued job.
+            DetectBookLanguageJob::dispatch($this->bookId);
 
             // Bill OCR cost for PDF imports
             $this->billOcrAsWorker($path, $billing);
@@ -670,7 +675,10 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'node_id' => $nodeId,
                     'content' => $content,
                     'footnotes' => json_encode($chunk['footnotes'] ?? []),
-                    'plainText' => $chunk['plainText'] ?? '',
+                    // Derive when the converter omits/empties the key — '' here used to
+                    // ship permanently-unsearchable nodes (FTS/embeddings read plainText
+                    // only, and the nightly backfill's predecessor skipped '' rows).
+                    'plainText' => \App\Services\E2ee\EncryptedBookGuard::plainTextFor($bookId, $content, $chunk['plainText'] ?? null),
                     'type' => $chunk['type'] ?? 'p',
                     'created_at' => $now,
                     'updated_at' => $now,

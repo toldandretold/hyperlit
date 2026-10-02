@@ -1099,12 +1099,14 @@ class EditToolbar {
 
     // `updateSingleIndexedDBRecord` will handle parsing ID, processing HTML, and calling `queueForSync`.
     // The history payload for this action will be built by `debouncedMasterSync`.
+    // source: 'edit' — every caller of this helper is a toolbar formatting
+    // action, i.e. a deliberate change the stored copy has not seen yet.
     await updateSingleIndexedDBRecord({
       id: id,
       html: html,
       action: "update", // This action type is used internally by updateSingleIndexedDBRecord
       book: bookId,
-    } as any, options);
+    } as any, { ...options, source: 'edit' });
   }
 
   /**

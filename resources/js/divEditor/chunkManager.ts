@@ -355,7 +355,9 @@ export async function handleChunkOverflow(currentChunk: HTMLElement, mutations: 
           html: currentHtml,
           chunk_id: asChunkId(parseFloat(newChunkId)),
           action: "update" // Change to 'update' to ensure upsert behavior if ID exists
-        } as any).catch((error: any) => console.error(`Error updating node ${id}:`, error))
+          // source: 'edit' — a chunk-overflow move re-homes a node the editor
+          // just changed; the DOM is authoritative here.
+        } as any, { source: 'edit' }).catch((error: any) => console.error(`Error updating node ${id}:`, error))
       );
     });
 

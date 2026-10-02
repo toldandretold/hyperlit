@@ -1,5 +1,22 @@
 @extends('layout')
 
+{{-- This page is Hyperlit's own English UI (not book content), so it declares
+     its language. The layout emits no `lang` unless a page sets this — see the
+     comment there. --}}
+@php($htmlLang = 'en')
+
+{{-- ProfilePage + Person structured data (UserHomeServerController::buildUserJsonLd).
+     Same @section shape as reader.blade.php; the array is built in the
+     controller because Blade's @json() cannot parse a multi-line array
+     literal argument. --}}
+@if(isset($jsonLd))
+@section('structured_data')
+<script type="application/ld+json">
+@json($jsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+</script>
+@endsection
+@endif
+
 {{-- User page (/u/{username}): the homepage's lava-lamp hero scoped to one
      user's library, owner-customizable via page_settings. Same design
      invariants as home.blade.php (guarded by tests/Feature/UserPageSeoTest.php):
@@ -173,13 +190,11 @@
            component (registered for user pages too) is generic over them. --}}
       @if($hyperciteMap ?? null)
         <div class="journal-hypercite-map">
+          {{-- figcaption + legend + the <details> text alternative all come from
+               JournalHyperciteMap now, with this page's nouns ("book", "beyond
+               this library") passed as vocabulary — the legend used to be a
+               hand-copy of the journal one with the words swapped. --}}
           {!! $hyperciteMap !!}
-          <ul class="journal-map-legend" aria-label="Hypercite network legend">
-            <li><span class="jml-dot jml-lit"></span>hypercited book <em>(bigger = more connections)</em></li>
-            <li><span class="jml-dot jml-plain"></span>book</li>
-            <li><span class="jml-line"></span>books hypercited together</li>
-            <li><span class="jml-dot jml-ext"></span>hypercited book beyond this library</li>
-          </ul>
           <div class="journal-map-actions">
             <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
           </div>

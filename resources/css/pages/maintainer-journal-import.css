@@ -447,7 +447,11 @@ body.ji-detail {
 }
 
 /* Labels the selects need for screen readers but that would only add noise on screen — the
-   visible text of each option already says what it is ("next 5", "HTML"). */
+   visible text of each option already says what it is ("next 5", "HTML").
+
+   Declares its own copy on purpose: this page @vites ONLY this stylesheet, not
+   app.css, so it cannot reach base/foundation.css's .visually-hidden. New call
+   sites on pages that DO load app.css should use that instead of copying this. */
 .ji-visually-hidden {
   position: absolute;
   width: 1px;

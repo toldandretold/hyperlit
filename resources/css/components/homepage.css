@@ -290,6 +290,15 @@ body[data-page="user"] #app-container.lava-lamp-background #logoNavWrapper {
   margin: 0 0 0.5em;
 }
 
+/* The hypercite-network figure at the end of .welcome-copy is styled by
+   components/journalHome.css (imported by pages/home.css). It replaced the
+   invisible .seo-crawl-link anchor that used to be the homepage's only crawl
+   path into the corpus.
+
+   The link to /books lives in the map's own action row (journalHome.css styles
+   .journal-map-actions), not as a line of hero copy — as standalone copy it
+   reads as a marketing CTA, which the hero is not for. */
+
 .welcome-copy a {
   /* pink text vanishes over the pink lava — black with a thick pink underline
      stays legible over both the white backdrop and the hills */

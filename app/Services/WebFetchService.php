@@ -797,6 +797,10 @@ class WebFetchService
         // web_* stubs are public content and belong in embedding retrieval.
         \App\Jobs\QueueBookEmbeddings::dispatch($bookId);
 
+        // Detect the stub's language from its content (feeds <html lang> only —
+        // never the bibliographic metadata). Best-effort queued job.
+        \App\Jobs\DetectBookLanguageJob::dispatch($bookId);
+
         Log::info('WebFetchService created nodes', [
             'book' => $bookId,
             'count' => count($insertData),

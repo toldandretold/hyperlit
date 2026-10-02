@@ -441,7 +441,9 @@ export class SelectionDeletionHandler {
         // Fallback to direct batch update
         import('../indexedDB/index').then(module => {
           if (module.batchUpdateIndexedDBRecords) {
-            module.batchUpdateIndexedDBRecords(nodesToUpdate);
+            // source: 'edit' — a selection delete reshapes the boundary nodes, so
+            // the DOM deliberately differs from what is stored.
+            module.batchUpdateIndexedDBRecords(nodesToUpdate, { source: 'edit' });
           } else {
             console.error('❌ batchUpdateIndexedDBRecords function not found');
           }

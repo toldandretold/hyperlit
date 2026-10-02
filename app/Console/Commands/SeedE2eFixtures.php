@@ -128,7 +128,12 @@ class SeedE2eFixtures extends Command
     private function seedA11yBook($admin, object $user): void
     {
         $book = self::A11Y_BOOK;
-        $admin->table('library')->updateOrInsert(['book' => $book], $this->libraryRow($user, $book, 'E2E A11y Fixture'));
+        // Declared language: the a11y suite's axe scans include html-has-lang
+        // (WCAG 2.2 A), and the fixture's prose IS English — declare it rather
+        // than depending on detection having run against the dev DB.
+        $admin->table('library')->updateOrInsert(['book' => $book], $this->libraryRow($user, $book, 'E2E A11y Fixture', [
+            'language' => 'en',
+        ]));
 
         // RESET nodes (not just upsert): app runs against these books can sync
         // edits back (e.g. opening a then-empty footnote bootstraps an empty

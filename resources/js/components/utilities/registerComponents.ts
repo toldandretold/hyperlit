@@ -621,8 +621,11 @@ export function registerAllComponents() {
     name: 'journalHyperciteMap',
     initFn: initJournalHyperciteMap,
     destroyFn: destroyJournalHyperciteMap,
-    // user pages render the same map for the user's public library (opt-in)
-    pages: ['journal', 'user'],
+    // Every page that renders the map: the journal hero, a user's public library
+    // (opt-in), and the homepage (the docuverse's connected core). initFn is
+    // pure document-level delegation + one singleton tooltip, so it is inert
+    // where no map exists.
+    pages: ['home', 'journal', 'user'],
     dependencies: [],
     required: false
   });

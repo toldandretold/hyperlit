@@ -18,6 +18,13 @@ use Illuminate\Console\Command;
  * - PostgreSQL full-text search (tsvector) needs plainText for accurate searching
  * - HTML content in 'content' column needs to be stripped to plain text
  *
+ * ENCRYPTED BOOKS ARE EXCLUDED (library.encrypted tree + hlenc envelope rows):
+ * their plainText is NULL by design and must stay NULL — see docs/e2ee.md.
+ * This command is scheduled nightly (routes/console.php) as the self-heal for
+ * write paths that minted NULL/'' plainText; the derivation is deliberately
+ * bare strip_tags(content), because annotation charStart/charEnd coordinates
+ * live in html_entity_decode(plainText) space and must not shift.
+ *
  * USAGE:
  * php artisan nodes:backfill-plaintext              # Backfill all missing
  * php artisan nodes:backfill-plaintext {book}       # Backfill specific book
@@ -76,6 +83,19 @@ class BackfillNodePlainText extends Command
             ->whereNotNull('content')
             ->where('content', '!=', '');
 
+        // E2EE guard — an encrypted book's nodes are EXACTLY this command's target
+        // shape (ciphertext content, NULL plainText, nulled at encrypt time by
+        // setEncryption), so without this the backfill would fill them with
+        // strip_tags(ciphertext) and then queue embeddings over garbage.
+        // Two layers: the library flag for the whole tree (sub-books match on the
+        // root segment), plus a row-level envelope check that also catches the
+        // mid-publish window where the flag is already false but a node's content
+        // is still ciphertext (the client decrypt/re-upload hasn't reached it yet).
+        $query->whereRaw(
+            "NOT EXISTS (SELECT 1 FROM library l WHERE l.encrypted = true AND (l.book = nodes.book OR nodes.book LIKE l.book || '/%'))"
+        );
+        $query->where('content', 'NOT LIKE', \App\Services\E2ee\EncryptedBookGuard::ENVELOPE_PREFIX.'%');
+
         if (!$force) {
             // Only target nodes with empty/null plainText
             $query->where(function ($q) {
@@ -120,8 +140,10 @@ class BackfillNodePlainText extends Command
             return 0;
         }
 
-        // Confirm before proceeding
-        if (!$this->confirm("Process {$totalCount} nodes?", true)) {
+        // Confirm before proceeding — skipped entirely under --no-interaction
+        // (the nightly scheduler run) rather than relying on confirm()'s
+        // default-answer behaviour, which the test harness can't drive either.
+        if ($this->input->isInteractive() && !$this->confirm("Process {$totalCount} nodes?", true)) {
             $this->info('Cancelled');
             return 1;
         }

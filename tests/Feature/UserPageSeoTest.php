@@ -350,3 +350,53 @@ test('tampered page_settings values never reach the rendered page', function () 
     expect($html)->not->toContain('body{display:none}');
     expect($html)->not->toContain('<script>alert');
 });
+
+/**
+ * User pages emitted NO structured data at all, so a profile was an untyped
+ * page that happened to mention a name — nothing connected the person to the
+ * texts they published. Entity resolution is the live problem for this site
+ * ("hyperlit" is contested by several unrelated software projects), so a typed
+ * identity is not decoration.
+ */
+test('user page emits ProfilePage + Person structured data', function () {
+    $user = makeUpseoUser();
+    $profileUrl = url('/u/' . $user->name);
+
+    $html = $this->get('/u/' . rawurlencode($user->name))->assertStatus(200)->getContent();
+
+    expect($html)->toContain('application/ld+json');
+
+    preg_match('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $m);
+    $ld = json_decode(trim($m[1] ?? ''), true);
+
+    expect($ld)->not->toBeNull();
+    expect($ld['@type'])->toBe('ProfilePage');
+    expect($ld['mainEntity']['@type'])->toBe('Person');
+    expect($ld['mainEntity']['name'])->toBe($user->name);
+    // the Person's identity is always the BARE profile, never a deep link
+    expect($ld['mainEntity']['url'])->toBe($profileUrl);
+    // and it is bound to the one WebSite node the homepage declares
+    expect($ld['isPartOf']['@id'])->toBe(url('/') . '#website');
+    expect($ld['breadcrumb']['@type'])->toBe('BreadcrumbList');
+});
+
+test('a shelf deep link never advertises itself as the person identity', function () {
+    $user = makeUpseoUser();
+    $shelfSlug = 'sd-shelf-' . strtolower(Str::random(6));
+
+    upseoAdminConn()->table('shelves')->insert([
+        'creator' => $user->name, 'name' => 'A Shelf', 'slug' => $shelfSlug,
+        'visibility' => 'public', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $html = $this->get('/u/' . rawurlencode($user->name) . '/shelf/' . $shelfSlug)
+        ->assertStatus(200)->getContent();
+
+    preg_match('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $m);
+    $ld = json_decode(trim($m[1] ?? ''), true);
+
+    // the PAGE url is the shelf (it resolved, so it is canonical)...
+    expect($ld['url'])->toContain('/shelf/');
+    // ...but the PERSON is still the profile
+    expect($ld['mainEntity']['url'])->toBe(url('/u/' . $user->name));
+});

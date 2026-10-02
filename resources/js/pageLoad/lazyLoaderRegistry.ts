@@ -2,6 +2,7 @@ import { asBookId, parseChunkId, LATEST, type BookId } from "../indexedDB/types"
 import { book } from '../app';
 import { verbose } from '../utilities/logger';
 import { navigateToInternalId } from '../scrolling/index';
+import { startExternalTranslationWatch } from '../utilities/externalTranslation';
 
 import {
   createLazyLoader,
@@ -168,6 +169,13 @@ export async function initializeLazyLoader(openHyperlightID: any, bookId: BookId
       isNavigatingToInternalId: !!targetId,
       onFirstChunkLoaded: getFirstChunkLoadedResolver()
     }));
+
+    // Watch for a browser translator rewriting the rendered prose. Started here
+    // (idempotent) rather than as a module side-effect so it is alive for every
+    // reader entry, full load AND in-SPA book open. Everything downstream only
+    // ASKS — see `utilities/externalTranslation.ts` for why the page's text
+    // being rewritten must never be mistaken for the user's own edits.
+    startExternalTranslationWatch();
 
     // Ghost-highlight ledger (deferred + idempotent; dynamic import keeps the
     // hyperlights UI out of the eager reader bundle).

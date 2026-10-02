@@ -117,7 +117,8 @@ export async function handleHeadingFormat(self: BlockCommandContext, isTextSelec
         self.selectionManager.currentSelection = window.getSelection();
 
         if (recordsToUpdate.length > 0) {
-          batchUpdateIndexedDBRecords(recordsToUpdate);
+          // source: 'edit' — a heading conversion rewrites the element.
+          batchUpdateIndexedDBRecords(recordsToUpdate, { source: 'edit' });
         }
 
         return { modifiedElementId, newElement };

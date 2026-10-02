@@ -8,6 +8,13 @@
  *   - hyperlight/hypercite extraction into the normalized stores (charData schema)
  *   - sync queueing (pendingSyncs entries incl. originalData for undo)
  *
+ * Every call here passes `source: 'edit'` because this file characterizes the
+ * EDITOR's write path, where the live DOM is the user's intent and outranks the
+ * stored copy. The default (`'heal'`) is the read-mode path, which refuses to
+ * persist a DOM whose text no longer matches what is stored — see
+ * `batch.ts → domIsTrustworthyForContent` and the companion suite
+ * `readModeWriteBackRefusal.test.js`.
+ *
  * Heavy app modules are mocked at the import seam ONLY (saveQueue → app.js,
  * postgreSQL.js, editIndicator, integrity reporter) — everything inside
  * resources/js/indexedDB runs for real against fake-indexeddb.
@@ -65,7 +72,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         </div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '200' }]);
+    await batchUpdateIndexedDBRecords([{ id: '200' }], { source: 'edit' });
 
     const stored = await readOne('nodes', ['bookA', 200]);
     expect(stored).toEqual({
@@ -99,7 +106,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         <div class="chunk" data-chunk-id="0"><p id="300" data-node-id="bookA-n300">alpha <mark id="HL_1" class="HL_1">beta</mark> gamma <u id="hypercite_x1">delta</u> end</p></div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '300' }]);
+    await batchUpdateIndexedDBRecords([{ id: '300' }], { source: 'edit' });
 
     // Normalized hyperlight record: per-node char ranges live in charData (the vestigial top-level
     // startChar/endChar were removed — never a DB column, never synced, never read). startLine stays.
@@ -166,7 +173,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         </div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '200' }]);
+    await batchUpdateIndexedDBRecords([{ id: '200' }], { source: 'edit' });
 
     const subRecord = await readOne('nodes', ['book_parent_book/Fn7', 200]);
     expect(subRecord).toMatchObject({
@@ -183,7 +190,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         <div class="chunk" data-chunk-id="0"><p id="400" data-node-id="bookA-n400" style="color: red;">x <span style="font-weight: bold;">y</span> <font color="red">z</font></p></div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '400' }]);
+    await batchUpdateIndexedDBRecords([{ id: '400' }], { source: 'edit' });
 
     const stored = await readOne('nodes', ['bookA', 400]);
     expect(stored.content).not.toContain('<span');
@@ -193,13 +200,32 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
     expect(stored.content).toBe('<p id="400" data-node-id="bookA-n400">x y z</p>');
   });
 
+  it('strips render-time translate="no" so it never reaches the database', async () => {
+    // chunkRender marks footnote markers / hypercite arrows / <latex> as
+    // translate="no" so a browser translator leaves those glyphs alone. That is
+    // a render-time artifact exactly like tabindex: persisting it would mutate
+    // stored content and churn the integrity comparison. NodeHtmlSanitizer is
+    // DENYLIST-based (event handlers + dangerous URL schemes only), so nothing
+    // server-side would catch a leak — this strip is the only thing stopping it.
+    document.body.innerHTML = `
+      <div class="main-content" id="bookA">
+        <div class="chunk" data-chunk-id="0"><p id="460" data-node-id="bookA-n460" translate="no">a<sup fn-count-id="1" id="Fn1" translate="no">1</sup></p></div>
+      </div>`;
+
+    await batchUpdateIndexedDBRecords([{ id: '460' }], { source: 'edit' });
+
+    const stored = await readOne('nodes', ['bookA', 460]);
+    expect(stored.content).not.toContain('translate');
+    expect(stored.content).toContain('fn-count-id="1"');
+  });
+
   it('preserves --*-intensity custom properties when stripping the root style', async () => {
     document.body.innerHTML = `
       <div class="main-content" id="bookA">
         <div class="chunk" data-chunk-id="0"><p id="450" data-node-id="bookA-n450" style="color: red; --highlight-intensity: 0.6;">glow</p></div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '450' }]);
+    await batchUpdateIndexedDBRecords([{ id: '450' }], { source: 'edit' });
 
     const stored = await readOne('nodes', ['bookA', 450]);
     expect(stored.content).toContain('--highlight-intensity');
@@ -226,7 +252,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         </div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '500' }]);
+    await batchUpdateIndexedDBRecords([{ id: '500' }], { source: 'edit' });
 
     const stored = await readOne('nodes', ['bookA', 500]);
     expect(stored.content).toBe('<p id="500" data-node-id="bookA-n500">new text</p>');
@@ -255,7 +281,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
         <div class="chunk" data-chunk-id="0"><p id="600" data-node-id="bookA-n600"><mark id="HL_back" class="HL_back">back</mark> again</p></div>
       </div>`;
 
-    await batchUpdateIndexedDBRecords([{ id: '600' }]);
+    await batchUpdateIndexedDBRecords([{ id: '600' }], { source: 'edit' });
 
     const healed = await readOne('hyperlights', ['bookA', 'HL_back']);
     expect(healed._orphaned_at).toBeUndefined();
@@ -270,7 +296,7 @@ describe('batchUpdateIndexedDBRecords (characterization)', () => {
   it('rejects non-numeric ids: writes nothing, reports an integrity failure', async () => {
     document.body.innerHTML = '<div class="main-content" id="bookA"></div>';
 
-    await batchUpdateIndexedDBRecords([{ id: 'not-a-number' }]);
+    await batchUpdateIndexedDBRecords([{ id: 'not-a-number' }], { source: 'edit' });
 
     expect(await readAll('nodes')).toEqual([]);
     expect(pendingSyncs.has('nodes-bookA-0')).toBe(false);

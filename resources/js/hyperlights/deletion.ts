@@ -7,6 +7,8 @@ import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueFor
 import { removeHighlightFromHyperlights, removeHighlightFromNodes, removeHighlightFromNodesWithDeletion } from './database';
 import { attachMarkListeners } from './listeners';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
+import { verbose } from '../utilities/logger';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 import { getCascadeOriginId } from '../scrolling/index';
 import { buildSubBookId } from '../utilities/subBookIdHelper';
 import { deleteBookFromIndexedDB } from '../indexedDB/utilities/cleanup';
@@ -303,6 +305,20 @@ export async function hideHighlightById(highlightId: string): Promise<HighlightA
  */
 export async function reprocessHighlightsForNodes(bookId: BookId, affectedIDnumericals: string[], preloadedNodes: any[] | null = null): Promise<void> {
   console.log(`🔄 Reprocessing highlights for nodes:`, affectedIDnumericals);
+
+  // Highlights are reapplied by CHARACTER OFFSET (`charStart`/`charEnd`) against
+  // the node's live `innerHTML`, and the result is written back into the DOM.
+  // A browser translator changes the text and therefore every offset, so the
+  // marks would land on the wrong words — and because this is reached on normal
+  // read-mode load (loadHyperText → reapplyAnnotationsToVisibleNodes), a later
+  // authorized save would persist that mis-segmentation. Leave the DOM alone.
+  if (isExternallyTranslated()) {
+    verbose.content(
+      'Skipping highlight reprocess: page is externally translated (offsets would not line up)',
+      '/hyperlights/deletion.ts',
+    );
+    return;
+  }
 
   try {
     const { applyHighlights } = await import('../lazyLoader/index');

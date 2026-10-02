@@ -1,5 +1,10 @@
 @extends('layout')
 
+{{-- This page is Hyperlit's own English UI (not book content), so it declares
+     its language. The layout emits no `lang` unless a page sets this — see the
+     comment there. --}}
+@php($htmlLang = 'en')
+
 {{-- Journal home page (/j/{slug}): the homepage's lava-lamp hero scoped to one
      journal. Same design invariants as home.blade.php (guarded by
      tests/Feature/JournalRegistry/JournalPageTest.php):
@@ -127,13 +132,14 @@
            Server-rendered inline SVG — see JournalHyperciteMap. --}}
       @if($hyperciteMap ?? null)
         <div class="journal-hypercite-map">
+          {{-- The <figure> now carries the svg, a figcaption describing what the
+               diagram encodes, the legend, and a <details> text alternative
+               listing every node as a real link — all emitted by
+               JournalHyperciteMap so the journal and user versions cannot
+               diverge (the legend used to be hand-copied into both blades with
+               the nouns swapped). That list is also the only keyboard and
+               screen-reader route to the dots, which keep tabindex="-1". --}}
           {!! $hyperciteMap !!}
-          <ul class="journal-map-legend" aria-label="Hypercite network legend">
-            <li><span class="jml-dot jml-lit"></span>hypercited article <em>(bigger = more connections)</em></li>
-            <li><span class="jml-dot jml-plain"></span>article</li>
-            <li><span class="jml-line"></span>articles hypercited together</li>
-            <li><span class="jml-dot jml-ext"></span>hypercited book beyond the journal</li>
-          </ul>
           {{-- The yield report's action pair: expand overlay (wired by
                components/journalHyperciteMap → figureViewer, glass surround) +
                the 3D deep link. target="_blank": the 3D page is standalone

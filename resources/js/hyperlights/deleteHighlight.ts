@@ -12,6 +12,7 @@ import { removeHighlightFromHyperlights, removeHighlightFromNodesWithDeletion } 
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
 import { setProgrammaticUpdateInProgress } from '../utilities/operationState';
 import { isBookStaleForEdit } from '../utilities/staleBookGate';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 // queueNodeForSave loaded lazily (edit-only, below) so this read-mode highlight module doesn't
 // statically pull the divEditor (editor) chunk into the eager bundle.
 
@@ -33,6 +34,16 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
       undefined,
       { softReload: true },
     );
+    return;
+  }
+
+  // Browser-translation gate: deleting re-saves the node's HTML from the live
+  // DOM, and the match that decides WHICH highlight to remove is made against
+  // translated text — so this could unwrap the wrong mark and then persist the
+  // translation as the node's content.
+  if (isExternallyTranslated()) {
+    const { showTranslationBlockedToast } = await import('../components/toast/toast');
+    showTranslationBlockedToast('change highlights');
     return;
   }
 

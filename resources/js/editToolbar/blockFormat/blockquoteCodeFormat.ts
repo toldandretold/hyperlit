@@ -288,7 +288,8 @@ export async function unwrapBlock(self: BlockCommandContext, blockToUnwrap: Elem
 
     setCursorAtTextOffset(newElement, currentOffset);
 
-    await batchUpdateIndexedDBRecords([{ id: asLineId(newElement.id), html: newElement.outerHTML }]);
+    // source: 'edit' — a blockquote/code conversion rewrites the element.
+    await batchUpdateIndexedDBRecords([{ id: asLineId(newElement.id), html: newElement.outerHTML }], { source: 'edit' });
 
     return { modifiedElementId, newElement };
   }

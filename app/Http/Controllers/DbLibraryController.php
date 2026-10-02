@@ -1370,6 +1370,39 @@ class DbLibraryController extends Controller
                 ->delete();
         }
 
+        // Publish FINALIZE: the one point where the tree's content is guaranteed
+        // plaintext (the client decrypted, re-uploaded everything, and is now
+        // confirming), so heal the plainText the encrypt branch nulled. Earlier
+        // (at the flag-flip) content is STILL ciphertext — deriving there would
+        // mint plainText = strip_tags(ciphertext). Row guards keep any straggler
+        // envelope rows out; PHP strip_tags (not a SQL regexp) because stored
+        // annotation charStart/charEnd coordinates live in strip_tags space.
+        // Post-commit + pgsql_admin, same as the scrub above (deadlock pattern).
+        if (! $encrypting && $request->boolean('finalize')) {
+            $admin = DB::connection('pgsql_admin');
+            $healed = 0;
+            $admin->table('nodes')
+                ->where(function ($q) use ($book) {
+                    $q->where('book', $book)->orWhere('book', 'like', $book.'/%');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('plainText')->orWhere('plainText', '');
+                })
+                ->whereNotNull('content')->where('content', '!=', '')
+                ->where('content', 'NOT LIKE', \App\Services\E2ee\EncryptedBookGuard::ENVELOPE_PREFIX.'%')
+                ->chunkById(500, function ($rows) use ($admin, &$healed) {
+                    foreach ($rows as $row) {
+                        $admin->table('nodes')->where('id', $row->id)
+                            ->update(['plainText' => strip_tags($row->content)]);
+                        $healed++;
+                    }
+                });
+            if ($healed > 0) {
+                \App\Jobs\QueueBookEmbeddings::dispatch($book);
+                Log::info('Publish finalize: plainText healed', ['book' => $book, 'nodes' => $healed]);
+            }
+        }
+
         \App\Services\E2ee\EncryptedBookGuard::forget($book);
         $library->refresh();
 
@@ -1458,66 +1491,16 @@ class DbLibraryController extends Controller
                 ]);
             }
 
-            // Validate slug format: lowercase alphanumeric + hyphens, 3-60 chars
-            if (! preg_match('/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/', $slug)) {
+            // ONE definition of a valid slug — App\Support\SlugRules. This
+            // gauntlet (format, reserved routes, reserved usernames, the
+            // username impersonation guard, book-id and slug collisions) used
+            // to be inlined here; library:backfill-slugs now mints slugs in
+            // bulk and must apply the IDENTICAL rules, and two copies of an
+            // impersonation check is how one quietly stops matching the other.
+            if ($reason = \App\Support\SlugRules::rejectionReason($slug, $bookId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Slug must be 3-60 characters, lowercase alphanumeric and hyphens only, cannot start or end with a hyphen',
-                ], 422);
-            }
-
-            // Check collision with reserved routes. The list lives in
-            // config/reserved-routes.php and is gated by
-            // tests/Feature/Routing/ReservedRoutesTest — a root route with no
-            // entry there fails the suite, which is what stops this drifting
-            // out of sync with the route table (it used to be a local array
-            // here, and never learned about /q, /3d or /maintainer).
-            if (in_array($slug, config('reserved-routes'), true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is reserved and cannot be used',
-                ], 422);
-            }
-
-            // A slug is reachable at /{slug}, so it can impersonate exactly as a
-            // username can — check the same identity blocklist
-            // (config/reserved-usernames.php). Slug is already lowercased by the
-            // format regex above, so a plain in_array is correct.
-            if (in_array($slug, config('reserved-usernames'), true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is reserved and cannot be used',
-                ], 422);
-            }
-
-            // Check collision with existing usernames.
-            //
-            // findByNamePublic, not User::where: that ran on the RLS-subject
-            // default connection where users_select_policy limits SELECT to
-            // your OWN row, so this impersonation guard saw nobody else and
-            // was inert. It also matches case-insensitively now, which is the
-            // point — a slug `marx` when a user `Marx` exists would be
-            // permanently shadowed by the /{identifier} → /u/ redirect.
-            if (\App\Models\User::findByNamePublic($slug) !== null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug collides with an existing username',
-                ], 422);
-            }
-
-            // Check collision with existing book IDs
-            if (DB::table('library')->where('book', $slug)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug collides with an existing book ID',
-                ], 422);
-            }
-
-            // Check collision with other slugs (unique index will also enforce this)
-            if (DB::table('library')->where('slug', $slug)->where('book', '!=', $bookId)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is already in use by another book',
+                    'message' => $reason,
                 ], 422);
             }
 

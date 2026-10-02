@@ -262,6 +262,20 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     // Render-time only; the save path (contentProcessor) strips tabindex.
     temp.querySelectorAll('a[href]').forEach(a => a.setAttribute('tabindex', '-1'));
 
+    // 🚫 NEVER TRANSLATE: a footnote MARKER is a number, not prose. Translating
+    // it breaks the apparatus outright (and for targets with their own numerals
+    // — Arabic-Indic, Devanagari — the marker stops matching its definition).
+    // It also fights `applyDynamicFootnoteNumbers` below, which rewrites the
+    // anchor's text whenever it disagrees with the stored attribute: translate
+    // the digit → we rewrite it to Latin → the translator rewrites it again, a
+    // loop only the one-attempt heal latch currently stops by accident.
+    // The hypercite arrow and <latex> are the same kind of thing: glyphs whose
+    // meaning is positional/mathematical, not linguistic. (<latex>'s truth is
+    // its data-math attribute; KaTeX only injects display glyphs.)
+    // Render-time only; the save path (contentProcessor) strips translate.
+    temp.querySelectorAll('sup[fn-count-id], sup[fn-count-id] a, .open-icon, latex, latex-block')
+      .forEach(el => el.setAttribute('translate', 'no'));
+
     // 📝 DYNAMIC FOOTNOTE NUMBERING: Apply display numbers from FootnoteNumberingService
     // This replaces the old static fn-count-id with dynamically calculated numbers.
     // Pass the node's startLine + bookId so any mutation triggers a deferred

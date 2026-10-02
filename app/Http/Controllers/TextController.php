@@ -97,6 +97,28 @@ class TextController extends Controller
                 $seoData['jsonLd']['articleBody'] = \Illuminate\Support\Str::limit($prerender['text'], 5000);
             }
 
+            // A prerender MISS means `<main>` ships EMPTY — no article body for a
+            // crawler, nothing for a browser's translator to detect a language
+            // from, and no instant first paint. Measured 2026-10-02: 4 of 10
+            // random public books with >40 nodes served zero characters inside
+            // `<main>`, because nothing on the HTML path had ever warmed their
+            // cache. The only warm trigger was a MISS on the NODES API
+            // (DatabaseToIndexedDBController::warmAsync), i.e. after a JS reader
+            // had already fetched chunks — so a book's first server render was
+            // always empty, and stayed empty until a human opened it with JS.
+            // Crawlers never get that far.
+            //
+            // Warming here closes the loop: this response is still empty, but
+            // every later visit to that book is prerendered. It also repairs the
+            // permanently-stale case (`ted2018the`'s cache sat 1053ms behind its
+            // library row, which `isFresh` correctly refuses forever with nothing
+            // to rebuild it). afterResponse so the warm never costs the reader
+            // latency; the job is ShouldBeUnique + lock-guarded, so a crawl burst
+            // collapses to one rebuild per book.
+            if (! $prerender) {
+                $this->warmBookCacheAsync($book);
+            }
+
             $response = response()->view('reader', array_merge([
                 'html' => '',
                 'prerenderHtml' => $prerender['html'] ?? null,
@@ -186,6 +208,9 @@ class TextController extends Controller
             'dataSource'           => 'database',
             'pageType'             => 'timemachine',
             'timeMachineTimestamp'  => $timestamp,
+            // A historical view OF a book, not a work. Indexing it competes
+            // with the book's own page on near-identical text.
+            'noindex'              => true,
         ]);
     }
 
@@ -199,13 +224,31 @@ class TextController extends Controller
             abort(404, 'Sub-book not found.');
         }
 
-        return view('reader', [
+        // These URLs are IN the sitemap but used to ship <title>Hyperlit</title>
+        // and a self-canonical, because this method never called buildSeoData()
+        // — a sub-book is real content (a footnote apparatus, a pasted source),
+        // so it gets the same treatment as any book rather than a noindex.
+        $seoData = $this->buildSeoData($subBookId);
+
+        // canonicalUrl/ogUrl MUST be overridden: buildSeoData builds url('/' .
+        // $id), and a sub-book id contains a slash, so that yields the NESTED
+        // route (/book_x/Fn1 — the parent with a container auto-opened), not
+        // this standalone page. /based/… is the form the sitemap offers, so it
+        // is the one canonical URL for the standalone view.
+        $canonical = url('/based/' . $subBookId);
+        $seoData['canonicalUrl'] = $canonical;
+        $seoData['ogUrl'] = $canonical;
+        if (!empty($seoData['jsonLd']) && is_array($seoData['jsonLd'])) {
+            $seoData['jsonLd']['url'] = $canonical;
+        }
+
+        return view('reader', array_merge([
             'html'       => '',
             'book'       => $subBookId,
             'editMode'   => $request->boolean('edit'),
             'dataSource' => 'database',
             'pageType'   => 'reader',
-        ]);
+        ], $seoData));
     }
 
     /**
@@ -440,13 +483,59 @@ class TextController extends Controller
             ->value('book');
     }
 
+    /**
+     * The brand suffix every public page title ends with. Em dash, matching
+     * journal-index / archive-index / the homepage — book and user titles used
+     * a hyphen, so one SERP showed the site branding itself two ways.
+     */
+    private const TITLE_SUFFIX = ' — Hyperlit';
+
+    /** Google displays ~60 chars of <title>; past that it truncates mid-word. */
+    private const TITLE_MAX = 60;
+
+    /**
+     * "{title} by {author}{suffix}", trimmed to fit, with the author dropped
+     * when it IS the brand (see the call site for why) or when keeping it
+     * would cost the title itself.
+     */
+    private function composePageTitle(string $title, ?string $author): string
+    {
+        $title = trim($title);
+        $author = trim((string) $author);
+
+        // A book credited to the site reads "… by Hyperlit — Hyperlit"
+        if ($author !== '' && strcasecmp($author, 'hyperlit') === 0) {
+            $author = '';
+        }
+
+        $budget = self::TITLE_MAX - mb_strlen(self::TITLE_SUFFIX);
+
+        // The title is the part that must survive; the author is the first
+        // thing dropped, and only then is the title itself shortened.
+        if ($author !== '') {
+            $withAuthor = "{$title} by {$author}";
+            if (mb_strlen($withAuthor) <= $budget) {
+                return $withAuthor . self::TITLE_SUFFIX;
+            }
+        }
+
+        if (mb_strlen($title) > $budget) {
+            // rtrim the cut so the ellipsis never follows a space or comma
+            $title = rtrim(mb_substr($title, 0, $budget - 1), " \t\n\r\0\x0B.,;:—-") . '…';
+        }
+
+        return $title . self::TITLE_SUFFIX;
+    }
+
     private function buildSeoData(string $bookId): array
     {
         $library = DB::table('library')
             ->select([
                 'title', 'author', 'abstract', 'year', 'publisher', 'journal',
-                'volume', 'issue', 'pages', 'doi', 'language', 'editor',
+                'volume', 'issue', 'pages', 'doi', 'language', 'language_detected', 'editor',
                 'booktitle', 'school', 'type', 'cited_by_count', 'slug',
+                // openalex_id: for the JSON-LD sameAs (see externalIdentityUrls)
+                'openalex_id',
             ])
             ->where('book', $bookId)
             ->first();
@@ -463,8 +552,18 @@ class TextController extends Controller
         // must canonicalize to ONE URL, or ranking signals fragment across them.
         $canonicalUrl = BookSlugHelper::canonicalUrl($bookId, $library->slug);
 
-        // Page title
-        $pageTitle = $author ? "{$title} by {$author} - Hyperlit" : "{$title} - Hyperlit";
+        // Page title. Three rules, all learned from live SERP output:
+        //
+        //  - the brand suffix is an EM DASH, matching the journal, archive and
+        //    homepage titles; book and user pages used a hyphen, so the site
+        //    presented itself two ways in one result page;
+        //  - an author equal to the brand is DROPPED — /welcome and /stats are
+        //    authored by "Hyperlit"/"hyperlit" and read as "Welcome to the
+        //    hyperlit docuverse by Hyperlit — Hyperlit";
+        //  - the whole thing is capped, because Google displays ~60 characters
+        //    and long academic titles pushed both the author and the brand out
+        //    of view entirely.
+        $pageTitle = $this->composePageTitle($title, $author);
 
         // Description — rich citation string
         $pageDescription = '';
@@ -509,7 +608,12 @@ class TextController extends Controller
         if ($library->volume) $citationMeta['citation_volume'] = $library->volume;
         if ($library->issue) $citationMeta['citation_issue'] = $library->issue;
         if ($library->doi) $citationMeta['citation_doi'] = $library->doi;
-        if ($library->language) $citationMeta['citation_language'] = $library->language;
+        // Normalised like `htmlLang`: a junk value that is correctly REJECTED for
+        // <html lang> must not sail through to Google Scholar instead. Stays
+        // DECLARED-only — this is a bibliographic claim about the work, so it
+        // must keep ignoring `library.language_detected` (that guess feeds
+        // <html lang> only, below).
+        if ($lang = self::normalizeLang($library->language)) $citationMeta['citation_language'] = $lang;
         if ($library->pages) {
             $citationMeta['citation_pages'] = $library->pages;
             // Try to extract first/last page
@@ -555,7 +659,9 @@ class TextController extends Controller
         }
         if ($library->year) $jsonLd['datePublished'] = $library->year;
         if ($library->abstract) $jsonLd['abstract'] = \Illuminate\Support\Str::limit(strip_tags($library->abstract), 500);
-        if ($library->language) $jsonLd['inLanguage'] = $library->language;
+        // Normalised, and DECLARED-only, for the same reason as citation_language
+        // — must keep ignoring `library.language_detected`.
+        if ($lang = self::normalizeLang($library->language)) $jsonLd['inLanguage'] = $lang;
         if ($library->doi) $jsonLd['identifier'] = ['@type' => 'PropertyValue', 'propertyID' => 'DOI', 'value' => $library->doi];
         if ($library->pages) $jsonLd['pagination'] = $library->pages;
         if ($isArticle && $library->journal) {
@@ -569,9 +675,125 @@ class TextController extends Controller
         if ($library->editor) $jsonLd['editor'] = ['@type' => 'Person', 'name' => $library->editor];
         if ($library->cited_by_count) $jsonLd['citationCount'] = $library->cited_by_count;
 
+        // Where this page sits in the site. Google renders it as the breadcrumb
+        // trail in place of the raw URL, which matters most here: two thirds of
+        // the corpus is still at an opaque /book_1790421435416, and a result
+        // reading "Hyperlit › Books › Capital" is legible where that URL is not.
+        $jsonLd['breadcrumb'] = $this->buildBreadcrumb($title, $canonicalUrl);
+
+        // The same work's identity elsewhere (doi.org, OpenAlex). These links
+        // DO exist on the page already — in the source container's citation
+        // line — but that panel renders EMPTY until a user opens it, so a
+        // crawler never sees them. sameAs states the same thing in the channel
+        // machines actually read, without server-rendering a hidden panel.
+        if ($sameAs = $this->externalIdentityUrls($library)) {
+            $jsonLd['sameAs'] = $sameAs;
+        }
+
         $seo['jsonLd'] = $jsonLd;
 
+        // <html lang>. The layout hardcoded "en" while library.language held the
+        // real ISO code — telling every crawler and screen reader that a German
+        // or Spanish work is English. Declared wins; the detected value
+        // (BookLanguageDetector, confidence-floored) fills the hole — `lang` is
+        // a statement about THIS PAGE's text, so a high-confidence detection is
+        // honest here even though the bibliographic fields above must never
+        // carry it. Still absent when neither exists: a wrong lang is worse
+        // than none.
+        $lang = self::normalizeLang($library->language)
+            ?? self::normalizeLang($library->language_detected ?? null);
+        if ($lang) {
+            $seo['htmlLang'] = $lang;
+        }
+
         return $seo;
+    }
+
+    /**
+     * Resolvable URLs for this work's identity in external authorities, for the
+     * JSON-LD `sameAs`.
+     *
+     * The DOI is normalised rather than concatenated: `library.doi` is bare
+     * `10.x` across the corpus today, but it is a free-text column fed by
+     * several harvest paths, and `'https://doi.org/' . $doi` on an
+     * already-resolved value yields `https://doi.org/https://doi.org/10…`.
+     * Anything that is not DOI-shaped is dropped — a malformed sameAs asserts a
+     * false identity, which is worse than asserting none.
+     *
+     * NOTE `citation_doi` deliberately keeps the BARE doi: Scholar's tag wants
+     * the identifier, not a link.
+     *
+     * @return array<int, string>
+     */
+    private function externalIdentityUrls(object $library): array
+    {
+        $urls = [];
+
+        $doi = preg_replace(
+            '#^(?:doi:\s*|https?://(?:dx\.)?doi\.org/)#i',
+            '',
+            trim((string) ($library->doi ?? ''))
+        );
+        if ($doi !== '' && preg_match('#^10\.\d{4,9}/\S+$#', $doi)) {
+            $urls[] = 'https://doi.org/' . $doi;
+        }
+
+        // Stored as the bare OpenAlex work id ("W101716117").
+        $openalex = trim((string) ($library->openalex_id ?? ''));
+        if ($openalex !== '' && preg_match('#^[WwAaSsIiCcPpFf]\d+$#', $openalex)) {
+            $urls[] = 'https://openalex.org/' . $openalex;
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Hyperlit › Books › {title}.
+     *
+     * Deliberately NOT journal-aware: a journal name in the trail would have to
+     * link to /j/{slug}, and `library.journal` is a free-text string with no
+     * guaranteed registry row — a breadcrumb pointing at a 404 is worse than a
+     * shallower one.
+     */
+    private function buildBreadcrumb(string $title, string $canonicalUrl): array
+    {
+        return [
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                [
+                    '@type' => 'ListItem',
+                    'position' => 1,
+                    'name' => 'Hyperlit',
+                    'item' => url('/'),
+                ],
+                [
+                    '@type' => 'ListItem',
+                    'position' => 2,
+                    'name' => 'Books',
+                    'item' => url('/books'),
+                ],
+                [
+                    '@type' => 'ListItem',
+                    'position' => 3,
+                    'name' => $title,
+                    'item' => $canonicalUrl,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * A `library.language` value safe to emit as an HTML lang attribute, or
+     * null. The column holds clean two-letter ISO codes today ("de", "en",
+     * "es", "it", "nl"), but it is free text — anything that is not a plausible
+     * BCP-47 tag is dropped rather than guessed at, because a malformed lang
+     * attribute is worse than the "en" default.
+     */
+    private static function normalizeLang(?string $language): ?string
+    {
+        $lang = strtolower(trim((string) $language));
+
+        return preg_match('/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/', $lang) ? $lang : null;
     }
 
     /**
@@ -589,6 +811,34 @@ class TextController extends Controller
      *
      * @return array{html: string, text: string, chunkId: float, private: bool}|null
      */
+    /**
+     * Schedule a background (re)warm of a book's file cache after a prerender
+     * MISS, so the next render of this book can ship its article body.
+     *
+     * Mirrors `DatabaseToIndexedDBController::warmAsync` — same job, same
+     * afterResponse dispatch, same fallback to an inline warm when the queue is
+     * unavailable (e.g. the sync driver mid-request). Kept as its own small
+     * method rather than reaching into that controller: both are thin wrappers
+     * over one job, and coupling two controllers to share four lines would be
+     * worse than the duplication. Always best-effort — a book that cannot be
+     * warmed must still render.
+     */
+    private function warmBookCacheAsync(string $book): void
+    {
+        try {
+            \App\Jobs\WarmBookCacheJob::dispatch($book)->afterResponse();
+        } catch (\Throwable $e) {
+            try {
+                app(BookCache::class)->warm($book);
+            } catch (\Throwable $inner) {
+                Log::warning('Inline BookCache warm failed after prerender miss', [
+                    'book' => $book,
+                    'error' => $inner->getMessage(),
+                ]);
+            }
+        }
+    }
+
     private function buildFirstChunkPrerender(string $book, ?string $target = null, ?Request $request = null): ?array
     {
         try {
@@ -650,6 +900,11 @@ class TextController extends Controller
             // Render-time only; stored node content is never touched.
             $html = $this->injectImageDimensions($book, $html);
 
+            // Same render-time marking the client does in chunkRender, applied here
+            // so the pre-JS window is covered too: a browser translator acts on
+            // first paint, which for a prerendered chunk is BEFORE our JS runs.
+            $html = $this->markUntranslatableGlyphs($html);
+
             return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId, 'private' => $private];
         } catch (\Throwable $e) {
             // SEO prerender is best-effort — never let it break the page render.
@@ -658,6 +913,52 @@ class TextController extends Controller
                 'error' => $e->getMessage(),
             ]);
             return null;
+        }
+    }
+
+    /**
+     * Stamp `translate="no"` on the glyphs in a prerendered chunk that are not
+     * prose: footnote markers (`sup[fn-count-id]`), hypercite arrows
+     * (`.open-icon`) and `<latex>` / `<latex-block>`.
+     *
+     * A footnote marker is a NUMBER. Translating it breaks the link between
+     * marker and definition, and for a target language with its own numerals
+     * (Arabic-Indic, Devanagari) the marker stops matching anything at all.
+     * `translate="no"` inherits, so marking the `<sup>` covers its inner anchor.
+     *
+     * Render-time only, exactly like `injectImageDimensions` — stored node
+     * content is never touched, and the client's `contentProcessor` strips the
+     * attribute again on any save path. Mirrors the pass in
+     * `resources/js/lazyLoader/chunkRender.ts`; keep the two selectors in step.
+     * Best-effort: any failure returns the HTML unchanged.
+     */
+    private function markUntranslatableGlyphs(string $html): string
+    {
+        if ($html === '') {
+            return $html;
+        }
+        try {
+            $out = preg_replace_callback('/<(sup|a|span|latex|latex-block)\b[^>]*>/i', function (array $m) {
+                $tag = $m[0];
+                if (preg_match('/\btranslate\s*=/i', $tag)) {
+                    return $tag;
+                }
+                $isMarker = (bool) preg_match('/\bfn-count-id\s*=/i', $tag);
+                $isArrow = (bool) preg_match('/\bclass\s*=\s*["\'][^"\']*\bopen-icon\b/i', $tag);
+                $isLatex = (bool) preg_match('/^<latex(-block)?\b/i', $tag);
+                if (! $isMarker && ! $isArrow && ! $isLatex) {
+                    return $tag;
+                }
+                $insert = ' translate="no"';
+
+                return str_ends_with($tag, '/>')
+                    ? substr($tag, 0, -2) . $insert . ' />'
+                    : substr($tag, 0, -1) . $insert . '>';
+            }, $html);
+
+            return $out ?? $html;
+        } catch (\Throwable) {
+            return $html;
         }
     }
 

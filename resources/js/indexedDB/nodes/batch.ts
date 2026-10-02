@@ -27,6 +27,10 @@ import { updateHyperlightRecords, updateHyperciteRecords } from './annotationUps
 import { collectAbsenceCandidates, scheduleAbsenceReconciliation, type AbsenceCandidate } from './absenceReconciler';
 import { asBookId, LATEST, type BookId, type ChunkId, type HyperciteRecord, type HyperlightRecord, type NodeRecord } from '../types';
 import { asLineId, type LineId } from '../../utilities/idHelpers';
+// Both are zero-import leaves, so neither can re-enter this module's cycle.
+// `domMatchesStored` is the SAME canonicalisation the integrity verifier uses.
+import { domMatchesStored } from '../../integrity/canonicalText';
+import { isExternallyTranslated, externalTranslationEvidence } from '../../utilities/externalTranslation';
 
 export { resolveBookIdForBatch };
 
@@ -58,12 +62,83 @@ export interface BatchUpdateOptions {
   skipHistory?: boolean;
   /** Explicit book override (sub-book support) */
   bookId?: BookId;
+  /**
+   * WHO is asking for this node's content to be taken from the live DOM?
+   *
+   * - `'edit'` — an authorized edit session (divEditor save queue, paste,
+   *   highlight creation). The DOM is the user's intent, so it wins.
+   * - `'heal'` — a read-mode self-heal (footnote renumber, transient-class
+   *   strip). These run for ANY reader with no auth gate, so the DOM is only
+   *   trustworthy while it still says what is stored.
+   *
+   * Defaults to `'heal'` deliberately: a caller that forgets to declare itself
+   * gets the SAFE behaviour, not the privileged one. See `assertDomIsFaithful`.
+   */
+  source?: 'edit' | 'heal';
 }
 
 // A valid node id is purely numeric (optionally one decimal, e.g. "100" or "100.5").
 // Validate with this BEFORE parseNodeId — parseNodeId maps garbage to 0 (never NaN),
 // so an isNaN check on its result can never fire.
 const NUMERIC_NODE_ID = /^\d+(\.\d+)?$/;
+
+/**
+ * THE GATE: may this node's content be derived from the live DOM?
+ *
+ * Content-bearing writes here are reachable in plain READ mode with no auth
+ * gate — `lazyLoader/footnoteSelfHeal.ts`'s render heal calls this on every
+ * chunk render — and they flow straight on to IndexedDB and `queueForSync`.
+ * So a browser translator (or any extension that rewrites prose) could have its
+ * output saved as the book's real content. `contentProcessor` then unwraps the
+ * `<font>` wrappers that were the only evidence, leaving a clean, laundered
+ * forgery the integrity verifier reports as healthy.
+ *
+ * Two independent reasons to refuse, in order:
+ *
+ *  1. A translator was positively detected. Refuse whatever the source — an
+ *     authorized edit session on a translated DOM is WORSE, not better, because
+ *     it would save every untouched paragraph in the chunk in the target
+ *     language. That is logged loudly: Stage 1d blocks edit-mode entry, so
+ *     reaching here with `source: 'edit'` means a gate upstream has a hole.
+ *  2. The DOM no longer says what is stored. This is the broad backstop that
+ *     catches translators leaving no marker at all (Safari) and rewriting
+ *     extensions generally. It only applies to a heal, because for an edit the
+ *     whole point is that the DOM has legitimately changed.
+ *
+ * A `false` is NOT a diagnosis — see `integrity/canonicalText.ts`. Several
+ * render passes legitimately rewrite text (a chart node's `<table>` becomes an
+ * `<svg>`), so refusing a heal is routine and cheap; the only cost is that the
+ * node's stored copy keeps whatever it already had.
+ */
+function domIsTrustworthyForContent(
+  node: HTMLElement,
+  existing: NodeRecord | undefined,
+  source: 'edit' | 'heal',
+  idForLog: string,
+): boolean {
+  if (isExternallyTranslated()) {
+    if (source === 'edit') {
+      log.error(
+        `Refusing to save node ${idForLog} from a DOM rewritten by a browser translator (${externalTranslationEvidence()}) — an edit session should never have started`,
+        '/indexedDB/nodes/batch.ts',
+      );
+    } else {
+      verbose.content(
+        `Skipping read-mode heal of node ${idForLog}: page is externally translated (${externalTranslationEvidence()})`,
+        '/indexedDB/nodes/batch.ts',
+      );
+    }
+    return false;
+  }
+  if (source === 'edit') return true;
+  if (!existing) return false;
+  if (domMatchesStored(node, existing.content)) return true;
+  verbose.content(
+    `Skipping read-mode heal of node ${idForLog}: live DOM text no longer matches stored content`,
+    '/indexedDB/nodes/batch.ts',
+  );
+  return false;
+}
 
 // Dependencies that change per-book
 let book: BookId | null | undefined;
@@ -256,9 +331,32 @@ export async function batchUpdateIndexedDBRecords(recordsToProcess: BatchRecord[
       const finalNumericNodeId = parseNodeId(IDnumerical); // Use the final valid ID
       const existing = originalNodeStates.get(finalNumericNodeId);
       const existingHypercites = existing?.hypercites || [];
-      const processedData = node
+      // THE GATE (see domIsTrustworthyForContent): decided BEFORE the content is
+      // extracted, so a refused node never even builds a payload from the DOM.
+      const domTrusted = node
+        ? domIsTrustworthyForContent(node, existing, options.source ?? 'heal', IDnumerical)
+        : false;
+      const processedData = node && domTrusted
         ? processNodeContentHighlightsAndCites(node, existingHypercites)
         : null;
+
+      // A rendered node we refused to read, whose caller supplied no explicit
+      // HTML, has nothing left to write — so skip it rather than re-put it.
+      // Two reasons, both load-bearing:
+      //   - with NO stored record, the new-record branch below would store
+      //     `content: ""`, replacing a node we merely declined to look at with
+      //     an empty one.
+      //   - with one, re-putting unchanged content still runs
+      //     `updateBookTimestamp`, which bumps `library.timestamp` and thereby
+      //     makes the book's file cache STALE — and a stale cache means
+      //     `TextController::buildFirstChunkPrerender` serves an empty `<main>`.
+      //     A refused read-mode heal must not cost the book its prerender.
+      // Scoped to `node && record.html === undefined` on purpose: when the node
+      // isn't in the DOM, or the caller passed HTML of its own, the content does
+      // not come from the live DOM and this gate is not about it.
+      if (node && !domTrusted && record.html === undefined) {
+        return;
+      }
 
       // ✅ EXTRACT node_id from data-node-id attribute
       const nodeIdFromDOM = node ? node.getAttribute('data-node-id') : null;

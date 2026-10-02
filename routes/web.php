@@ -20,6 +20,13 @@ Route::get('/home', [HomeController::class, 'index']);
 // Sitemap
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
+// /books — the crawlable index of the public library. The sitemap's human
+// twin, and the only path a crawler has from / into the corpus (the homepage
+// feed tabs are <button>s). See BookIndexController. The `books` segment was
+// already reserved in config/reserved-routes.php, so no book is shadowed.
+Route::get('/books', [\App\Http\Controllers\BookIndexController::class, 'index'])
+    ->name('books.index');
+
 // Per-book Open Graph card (link-preview image)
 Route::get('/og/{book}.png', [\App\Http\Controllers\OgImageController::class, 'show'])
     ->where('book', '[A-Za-z0-9_-]+')
@@ -56,6 +63,10 @@ Route::get('/{book}/AIreview', function (Request $request, $book) {
         'editMode' => false,
         'dataSource' => 'database',
         'pageType' => 'reader',
+        // A generated review OF a book's citations, not a work. It was
+        // crawlable with a bare <title>Hyperlit</title> and a self-canonical;
+        // noindex+follow keeps its links to the book walkable.
+        'noindex' => true,
     ]);
 })->where('book', '[A-Za-z0-9_-]+')->name('book.aireview');
 

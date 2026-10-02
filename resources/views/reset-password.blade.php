@@ -1,5 +1,10 @@
 @extends('layout')
 
+{{-- This page is Hyperlit's own English UI (not book content), so it declares
+     its language. The layout emits no `lang` unless a page sets this — see the
+     comment there. --}}
+@php($htmlLang = 'en')
+
 @section('styles')
     @vite(['resources/css/app.css', 'resources/css/pages/auth.css'])
 @endsection

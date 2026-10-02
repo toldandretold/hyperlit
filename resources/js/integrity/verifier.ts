@@ -12,6 +12,13 @@
 import { openDatabase } from '../indexedDB/core/connection';
 import { INLINE_SKIP_TAGS, BLOCK_ELEMENT_TAGS, isImageNodeElement } from '../utilities/blockElements';
 import { asLineId, isDuplicateId, getNextDecimalForBase, generateDataNodeId, generateUniqueId, compareDecimalStrings, type LineId, type BookId } from '../utilities/idHelpers';
+// The ONE canonicalisation, shared with the read-mode heal gate in
+// `indexedDB/nodes/batch.ts` so both sides of the DOM↔IDB comparison agree.
+// NOTE the verifier uses the STRICT variant (the default): a changed footnote
+// number IS a divergence it is meant to see, which is why it must never pass
+// `ignoreFootnoteMarkers` — that option exists only for the heal gate.
+import { normaliseText, textContentCanonical, textFromStoredHTML } from './canonicalText';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 
 /** First-difference descriptor between DOM text and stored IDB text. */
 export interface TextDiff {
@@ -74,32 +81,6 @@ export interface IntegrityResult {
 }
 
 /**
- * Normalise text for comparison: trim and collapse all whitespace runs
- * to a single space. This makes the check resilient to minor formatting
- * differences between live DOM and stored HTML.
- */
-function normaliseText(str: any) {
-  return (str || '').replace(/[\u200B\u2060]/g, '').replace(/\s+/g, ' ').trim();
-}
-
-/**
- * Extract textContent from an element while canonicalising <latex> and
- * <latex-block> elements. KaTeX renders math by injecting visible glyphs +
- * accessibility annotations *inside* the `<latex>` element, so live-DOM
- * textContent diverges from stored HTML (which keeps the element empty with
- * the LaTeX source in `data-math`). We replace either side with the same
- * stable string \u2014 the data-math attribute \u2014 so the comparison is consistent.
- */
-function textContentCanonical(node: any) {
-  if (!node) return '';
-  const clone = node.cloneNode(true);
-  clone.querySelectorAll('latex, latex-block').forEach((el: any) => {
-    el.textContent = el.getAttribute('data-math') || '';
-  });
-  return clone.textContent || '';
-}
-
-/**
  * Find the first character index where two strings diverge.
  * Returns an object with the diff index and ~50-char snippets around it.
  */
@@ -143,19 +124,6 @@ function buildCodesAroundDiff(rawDom: string, rawIdb: string): DiffCharCodes {
   const dom = charCodesAt(rawDom, i);
   const idb = charCodesAt(rawIdb, i);
   return { domCodes: dom.codes, idbCodes: idb.codes, domSlice: dom.slice, idbSlice: idb.slice };
-}
-
-/**
- * Parse stored HTML content and extract its textContent using DOMParser.
- * This mirrors what the browser would render, minus any inline artefacts
- * that batch.js strips on save. Uses textContentCanonical so <latex>
- * elements are compared by their data-math attribute, not rendered output.
- */
-function textFromStoredHTML(html: any) {
-  if (!html) return '';
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  const el = doc.body.firstElementChild;
-  return textContentCanonical(el || doc.body);
 }
 
 /**
@@ -599,6 +567,21 @@ export function findOutOfOrderNodes(containerEl: any): any[] {
 export async function runIntegritySweep(bookId: any, containerEl: any, trigger = 'unknown') : Promise<any> {
   if (!bookId || !containerEl) {
     return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [] };
+  }
+
+  // Under a browser translator this sweep is meaningless AND harmful. Every
+  // node's text now differs from its stored copy, so EVERY node mismatches —
+  // and a mismatch carries `rawDomHtml`/`rawIdbHtml`, which `reporter.ts` POSTs
+  // to /api/integrity/report. Running it would flood telemetry with a whole
+  // book of translated prose and describe a healthy book as totally corrupt.
+  // `healVerbatimDuplicates` is skipped with it: it DELETES DOM nodes it judges
+  // duplicates, and that judgement is made on translated text.
+  if (isExternallyTranslated()) {
+    return {
+      ok: true,
+      skipped: 'externally-translated',
+      mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [],
+    };
   }
 
   // 1. Heal duplicates BEFORE counting (so the verifier sees the cleaned DOM):

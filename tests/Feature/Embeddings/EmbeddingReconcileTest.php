@@ -284,6 +284,21 @@ it('reconcile scrubs stray embeddings on ineligible books and keeps eligible one
         ->and(embAdminDb()->table('nodes')->where('book', $report)->whereNotNull('embedding')->count())->toBe(0);
 });
 
+it('reconcile reports nodes invisible to eligibility for lack of plainText (the blind spot)', function () {
+    // The eligibility predicate filters ON plainText, so a node with real content
+    // but NULL/'' plainText is invisible to the MISSING sweep — it would never be
+    // embedded and never be REPORTED as missing. This line makes the blind spot
+    // visible in the nightly output (the heal itself is nodes:backfill-plaintext).
+    Queue::fake();
+
+    $book = embSeedBook([]);
+    embSeedNode($book, ['content' => '<p>real content whose plainText hole hides it from eligibility</p>', 'plainText' => '']);
+
+    $this->artisan('embeddings:reconcile')
+        ->expectsOutputToContain('invisible to eligibility for lack of plainText')
+        ->assertSuccessful();
+});
+
 it('bulk upsert NULLs the embedding when content changes and keeps it when unchanged', function () {
     Queue::fake();
 
