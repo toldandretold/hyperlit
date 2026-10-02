@@ -291,7 +291,7 @@ class UserHomeServerController extends Controller
                 // text alternative). This cache stores RENDERED markup, so a
                 // markup change is invisible on every warm page until the key
                 // moves.
-                "user-hypercite-map:{$sanitizedUsername}:v4",
+                "user-hypercite-map:{$sanitizedUsername}:v5",
                 [900, 86400],
                 function () use ($actualUsername, $sanitizedUsername, $title) {
                     $mapCorpus = DB::connection('pgsql_admin')->table('library')

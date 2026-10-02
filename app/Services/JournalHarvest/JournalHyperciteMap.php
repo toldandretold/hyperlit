@@ -89,10 +89,11 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         $cached = Cache::flexible(
-            // v9: the figure wrapper (figcaption + legend + the <details> text
-            // alternative). The cache stores RENDERED markup, so a markup change
-            // is invisible to every warm page until this key moves.
-            "journal-hypercite-map:{$journal->id}:v9",
+            // v10: figure wrapper + figcaption + legend, with the legend rows
+            // now conditional on what was actually drawn. The cache stores
+            // RENDERED markup, so a markup change is invisible to every warm
+            // page until this key moves — bump it whenever emit() changes.
+            "journal-hypercite-map:{$journal->id}:v10",
             [self::CACHE_TTL, self::CACHE_STALE_TTL],
             fn () => ['svg' => $this->buildFromCorpus(
                 $this->journalArticles($journal),
@@ -512,10 +513,14 @@ class JournalHyperciteMap
 
         // Blob dots: hypercited articles solid ink, sized by degree; the rest
         // faint ink.
+        $plainDrawn = 0;
         foreach ($inBlob as $book => $_) {
             [$x, $y] = $pos[$book];
             $deg = $degree[$book] ?? 0;
             $lit = $deg > 0;
+            if (! $lit) {
+                $plainDrawn++;
+            }
             $r = $lit
                 ? min($rLitBase + 0.8 * $k * ($deg - 1), self::R_LIT_CAP_PX * $k)
                 : $rPlain;
@@ -527,10 +532,14 @@ class JournalHyperciteMap
 
         // External partners: aqua dots, no inline labels — titles surface in
         // the hover/tap card, which is what lets the network fill the width.
+        // Counted, because the legend must not advertise a key for a symbol the
+        // diagram does not contain (see legend()).
+        $beyondDrawn = 0;
         foreach ($external as $book => $meta) {
             if (!isset($pos[$book])) {
                 continue;
             }
+            $beyondDrawn++;
             [$x, $y] = $pos[$book];
             $s[] = $this->anchorOpen($book, $meta, 'beyond', 0, $intro[$book] ?? null)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($rExternal) . '"'
@@ -557,8 +566,8 @@ class JournalHyperciteMap
         return '<figure class="hypercite-figure">'
             . implode('', $s)
             . '<figcaption class="hypercite-figcaption">'
-            . '<p class="hypercite-encoding">' . e($this->encodingSentence($vocab)) . '</p>'
-            . $this->legend($vocab)
+            . '<p class="hypercite-encoding">' . e($this->encodingSentence($vocab, $beyondDrawn > 0, $plainDrawn > 0)) . '</p>'
+            . $this->legend($vocab, $beyondDrawn > 0, $plainDrawn > 0)
             . '</figcaption>'
             . '</figure>';
     }
@@ -572,12 +581,21 @@ class JournalHyperciteMap
      * different on purpose — how big the network is — because identical text in
      * both would be announced twice for one graphic.
      */
-    private function encodingSentence(array $vocab): string
+    private function encodingSentence(array $vocab, bool $hasBeyond = true, bool $hasPlain = true): string
     {
-        return 'Each dot is one ' . $vocab['noun'] . '; the larger solid dots are hypercited, '
-            . 'sized by how many connections they have. A line joins two ' . $vocab['plural']
-            . ' that are hypercited together, and the outer ring holds works '
-            . $vocab['beyond'] . '.';
+        // With no faint dots (connected-core mode) EVERY dot is hypercited, so
+        // "the larger solid dots are hypercited" describes a distinction the
+        // diagram does not draw. Size still means degree, which is the part a
+        // reader cannot infer.
+        $dots = $hasPlain
+            ? 'Each dot is one ' . $vocab['noun'] . '; the larger solid dots are hypercited, '
+                . 'sized by how many connections they have.'
+            : 'Each dot is one ' . $vocab['noun'] . ', sized by how many connections it has.';
+
+        return $dots
+            . ' A line joins two ' . $vocab['plural'] . ' that are hypercited together'
+            . ($hasBeyond ? ', and the outer ring holds works ' . $vocab['beyond'] : '')
+            . '.';
     }
 
     /**
@@ -588,17 +606,34 @@ class JournalHyperciteMap
      * `journal-map-legend`).
      *
      * aria-hidden: every swatch is a colour sample whose meaning the
-     * <figcaption> and the text alternative already state in words — read aloud
-     * it is four fragments about dots, which is noise, not information.
+     * <figcaption> already states in words — read aloud it is four fragments
+     * about dots, which is noise, not information.
+     *
+     * Both flags suppress a row rather than describe one, because a key for a
+     * symbol the diagram does not contain is worse than no key:
+     *
+     *  - $hasBeyond: on the HOMEPAGE the collection is everything public on
+     *    Hyperlit, so nothing is "beyond" it. Claiming otherwise is what made a
+     *    Hyperlit article read as an external work (PublicBookCorpus::forHyperciteMap).
+     *  - $hasPlain: in connected-core mode every dot is hypercited, so
+     *    "hypercited X" vs "X" is a distinction with nothing on either side of
+     *    it. One row stating that size means connections is the whole key.
      */
-    private function legend(array $vocab): string
+    private function legend(array $vocab, bool $hasBeyond = true, bool $hasPlain = true): string
     {
+        $rows = $hasPlain
+            ? '<li><span class="jml-dot jml-lit"></span>hypercited ' . e($vocab['noun'])
+                . ' <em>(bigger = more connections)</em></li>'
+                . '<li><span class="jml-dot jml-plain"></span>' . e($vocab['noun']) . '</li>'
+            : '<li><span class="jml-dot jml-lit"></span>' . e($vocab['noun'])
+                . ' <em>(bigger = more connections)</em></li>';
+
         return '<ul class="journal-map-legend" aria-hidden="true">'
-            . '<li><span class="jml-dot jml-lit"></span>hypercited ' . e($vocab['noun'])
-            . ' <em>(bigger = more connections)</em></li>'
-            . '<li><span class="jml-dot jml-plain"></span>' . e($vocab['noun']) . '</li>'
+            . $rows
             . '<li><span class="jml-line"></span>' . e($vocab['plural']) . ' hypercited together</li>'
-            . '<li><span class="jml-dot jml-ext"></span>hypercited work ' . e($vocab['beyond']) . '</li>'
+            . ($hasBeyond
+                ? '<li><span class="jml-dot jml-ext"></span>hypercited work ' . e($vocab['beyond']) . '</li>'
+                : '')
             . '</ul>';
     }
 

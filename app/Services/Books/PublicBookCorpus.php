@@ -71,6 +71,24 @@ class PublicBookCorpus
      * The corpus shaped for JournalHyperciteMap: `book => {title, author, year,
      * slug}`. `slug` rides along so every node links at its CANONICAL url.
      *
+     * NOT `listed`-gated, and that is the whole point. The map draws anything
+     * outside its corpus as an aqua "work beyond this collection" node — so with
+     * a listed-only corpus the HOMEPAGE drew Hyperlit's own unlisted books as if
+     * they were external works. Measured on prod 2026-10-02: 9 such nodes, one
+     * of them a journal article sitting in the library the map claims to depict.
+     * The collection the homepage depicts IS everything public on Hyperlit, so
+     * that is what it must be given.
+     *
+     * It does not inflate the map, because the caller pairs this with
+     * connectedOnly: the corpus went 323 → 3572 and the rendered dots went
+     * 179 → 200, while the mislabelled ring went to 0. The 21 extra books are
+     * hypercited ones that happen not to be `listed` — a human minted a
+     * hypercite on them, which is a stronger signal than the review flag.
+     *
+     * Deliberately different from query()/sitemapQuery(), which DO honour
+     * `listed`: being drawn in a diagram of the network is not the same as being
+     * submitted to a search engine as approved work.
+     *
      * Admin connection because the caller caches the rendered SVG and serves it
      * to every visitor.
      *
@@ -78,8 +96,12 @@ class PublicBookCorpus
      */
     public function forHyperciteMap(): array
     {
-        return $this->queryAsAdmin()
+        return DB::connection('pgsql_admin')->table('library')
+            ->where('visibility', 'public')
             ->where('has_nodes', true)
+            ->whereNotNull('title')
+            ->where('title', '!=', '')
+            ->where('book', 'not like', '%/%')
             ->get(['book', 'title', 'author', 'year', 'slug'])
             ->keyBy('book')
             ->map(fn ($r) => [

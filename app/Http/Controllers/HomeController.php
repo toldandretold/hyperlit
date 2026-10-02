@@ -97,7 +97,7 @@ class HomeController extends Controller
     private function hyperciteMap(PublicBookCorpus $corpus): ?string
     {
         $cached = Cache::flexible(
-            'home-hypercite-map:v1',
+            'home-hypercite-map:v2',
             [900, 86400],
             fn () => ['svg' => app(\App\Services\JournalHarvest\JournalHyperciteMap::class)
                 ->buildSvgForBooks(
