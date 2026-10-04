@@ -165,6 +165,18 @@ class HomeController extends Controller
                     '@id' => url('/') . '#app',
                     'name' => 'Hyperlit',
                     'url' => url('/'),
+                    // The software's DOI (Zenodo concept DOI — resolves to the
+                    // latest release). On the WebApplication node, NOT the
+                    // Organization: the DOI identifies the software, and mixing
+                    // the two entities muddies the disambiguation sameAs exists
+                    // for. Same identifier pattern the book pages use for THEIR
+                    // DOIs (TextController::buildSeoData).
+                    'sameAs' => ['https://doi.org/10.5281/zenodo.23133502'],
+                    'identifier' => [
+                        '@type' => 'PropertyValue',
+                        'propertyID' => 'DOI',
+                        'value' => '10.5281/zenodo.23133502',
+                    ],
                     'applicationCategory' => 'EducationalApplication',
                     'operatingSystem' => 'Web',
                     'featureList' => [

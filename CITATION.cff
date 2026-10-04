@@ -31,6 +31,10 @@ abstract: >-
   writing and publishing platform with two-way hyperlink citations
   (hypercites), collaborative highlighting (hyperlights), AI citation
   review, and PDF, Word and EPUB conversion to hypertext.
+# The CONCEPT doi: resolves to the latest version, every release. The
+# per-version DOIs (…23133503 for v0.9.0) live on Zenodo; this one is the
+# citable identity of the project.
+doi: 10.5281/zenodo.23133502
 license: AGPL-3.0
 repository-code: "https://github.com/toldandretold/hyperlit"
 url: "https://hyperlit.io"
