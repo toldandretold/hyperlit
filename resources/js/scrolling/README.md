@@ -100,7 +100,7 @@ Restoration and navigation must yield to manual input. Two time windows and one 
 The header offset **192** appears in three places and they must stay in sync:
 - `scrollHelpers.ts` `headerOffset` default (where nav lands a target).
 - `.reader-content-wrapper { scroll-padding-top: 192px }` in CSS (fragment-nav alignment).
-- `selectionAutoScroll.ts` zeroes that `scroll-padding-top` **during a drag-select**, because the browser's native selection auto-scroll treats the padding band as a scroll-into-view zone and races the reader upward (see the `selectionAutoScroll.ts` docstring for the measured mechanism). It restores it on pointer-up.
+- `selectionAutoScroll.ts` zeroes that `scroll-padding-top` **during a drag-select AND around edit-mode keystrokes**, because the browser honours the padding band for every native scroll-into-view: the selection auto-scroll races the reader upward during a drag, and the UA caret-reveal after typing yanks a caret sitting in the top 192px down to the 192px line (see the `selectionAutoScroll.ts` docstring for the measured mechanism). It restores on pointer-up / a short typing-idle hold.
 
 ## Module map
 

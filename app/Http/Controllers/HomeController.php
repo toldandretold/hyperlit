@@ -146,7 +146,19 @@ class HomeController extends Controller
                     'name' => 'Hyperlit',
                     'url' => url('/'),
                     'logo' => ['@type' => 'ImageObject', 'url' => asset('images/og-card.png')],
-                    'sameAs' => ['https://github.com/toldandretold/hyperlit'],
+                    // Every page that IS this organization elsewhere — how Google
+                    // consolidates the entity instead of ranking the repo above
+                    // the site for its own name. ORGANIZATION accounts only: the
+                    // founder's personal LinkedIn is a Person, a different
+                    // entity, and claiming the org is the person muddies the
+                    // exact disambiguation this exists to win. Add the LinkedIn
+                    // COMPANY page (linkedin.com/company/…) and the Wikidata
+                    // item here when their URLs are to hand.
+                    'sameAs' => [
+                        'https://github.com/toldandretold/hyperlit',
+                        'https://www.instagram.com/hyperlit.io/',
+                        'https://www.youtube.com/@hyperlit-io',
+                    ],
                 ],
                 [
                     '@type' => 'WebApplication',
