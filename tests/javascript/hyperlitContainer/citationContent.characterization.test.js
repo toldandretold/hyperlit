@@ -20,6 +20,16 @@ vi.mock('../../../resources/js/indexedDB/hypercites/index', () => ({ getHypercit
 vi.mock('../../../resources/js/utilities/bibtexProcessor', () => ({ formatBibtexToCitation: vi.fn(async (b) => `CITE(${b})`) }));
 vi.mock('../../../resources/js/utilities/auth/index', () => ({ canUserEditBook: vi.fn() }));
 vi.mock('../../../resources/js/hyperlitContainer/utils', () => ({ fetchLibraryFromServer: vi.fn().mockResolvedValue(null) }));
+// The IDB-miss server fallback MUST be mocked: unmocked it issues a REAL fetch
+// (happy-dom resolves it to http://localhost:3000), so the test's outcome
+// depended on whatever happened to be listening on that port — green while it
+// was free (network error → neutral-alive), red the day an unrelated local
+// app answered 404 (→ not_found → "record no longer exists"). Default to
+// 'error', the neutral outcome the pinned expectations were written against.
+vi.mock('../../../resources/js/indexedDB/hypercites/helpers', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, fetchHyperciteRecord: vi.fn().mockResolvedValue({ status: 'error' }) };
+});
 
 import {
   buildCitationContent,
@@ -28,6 +38,7 @@ import {
   resolveCitationButtonStatus,
 } from '../../../resources/js/hyperlitContainer/contentBuilders/displayCitations';
 import { getHyperciteFromIndexedDB } from '../../../resources/js/indexedDB/hypercites/index';
+import { fetchHyperciteRecord } from '../../../resources/js/indexedDB/hypercites/helpers';
 import { canUserEditBook } from '../../../resources/js/utilities/auth/index';
 import { fetchLibraryFromServer } from '../../../resources/js/hyperlitContainer/utils';
 
@@ -45,6 +56,7 @@ describe('displayCitations (characterization)', () => {
     document.body.innerHTML = '';
     getHyperciteFromIndexedDB.mockResolvedValue(null);
     fetchLibraryFromServer.mockResolvedValue(null);
+    fetchHyperciteRecord.mockResolvedValue({ status: 'error' });
   });
   afterEach(() => vi.clearAllMocks());
 
@@ -172,6 +184,14 @@ describe('displayCitations (characterization)', () => {
     const html = await buildHyperciteCitationContent({ targetBook: 'targetbook', targetHyperciteId: 'hypercite_1', targetUrl: '/x' });
     expect(html).toContain('source deleted');
     expect(parse(html).querySelector('.deleted-icon')).toBeTruthy();
+  });
+
+  it('hypercite-citation NOT_FOUND on the server fallback → "record no longer exists" + disabled button', async () => {
+    await seedStore('library', [{ book: 'targetbook', visibility: 'public', bibtex: 'BIB' }]);
+    fetchHyperciteRecord.mockResolvedValue({ status: 'not_found' });
+    const html = await buildHyperciteCitationContent({ targetBook: 'targetbook', targetHyperciteId: 'hypercite_1', targetUrl: '/x' });
+    expect(html).toContain('This citation record no longer exists');
+    expect(parse(html).querySelector('.see-in-source-btn').getAttribute('data-missing')).toBe('true');
   });
 
   it('hypercite-citation GHOST → "View ghost in source" + cited-text-deleted notice', async () => {
