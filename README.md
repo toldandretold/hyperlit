@@ -1,5 +1,5 @@
 ![hyperlit](/public/images/titleLogo.png)
-
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23133502.svg)](https://doi.org/10.5281/zenodo.23133502)
 # Hyperlit: the open source future of open access research.
 
 Read and self-publish hypertext literature. 
