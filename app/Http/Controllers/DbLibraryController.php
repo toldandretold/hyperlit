@@ -1532,13 +1532,33 @@ class DbLibraryController extends Controller
                 'slug' => $slug,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
+            // The DB backstop (partial unique index idx_library_slug, SQLSTATE
+            // 23505 + trigger trg_check_slug_book_collision, P0001) catching a
+            // race the SlugRules probe missed. Answer exactly as the validator
+            // would have — NOT a 500, and never the raw PG error, whose
+            // "Key (slug)=(…) already exists" detail is an existence oracle.
+            if (in_array($e->getCode(), ['23505', 'P0001'], true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug is already in use by another book',
+                ], 422);
+            }
+
             Log::error('Set slug failed: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to set slug',
-                'error' => $e->getMessage(),
+            ], 500);
+        } catch (\Exception $e) {
+            // Log the detail, never return it — raw exception text in a
+            // response body is internals disclosure (ErrorDisclosure suite).
+            Log::error('Set slug failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to set slug',
             ], 500);
         }
     }

@@ -241,6 +241,32 @@ test('GET /api/db/library/slug-check runs the full SlugRules gauntlet, not a bar
         ->assertStatus(200)->assertJson(['available' => false]);
 });
 
+test('slug validation sees PRIVATE books — the namespace is global, and the refusal is clean', function () {
+    // Another user's PRIVATE book owns a slug. RLS hides that row from the
+    // prober's default connection, but /{slug} still resolves for everyone
+    // (BookSlugHelper::resolve is admin-side), so the slug is NOT available —
+    // and saying "taken" leaks nothing the public URL doesn't already answer.
+    // Before SlugRules moved its collision probes to pgsql_admin, validation
+    // said "available" here and the submit died on the unique index with a raw
+    // 500 whose PG detail WAS a private-existence oracle.
+    $owner = $this->apiUser();
+    $privateSlug = 'apitest-private-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->makeBook($owner, ['visibility' => 'private', 'slug' => $privateSlug]);
+
+    $me = $this->loginUser();
+    $mine = $this->makeBook($me);
+
+    $this->getJson('/api/db/library/slug-check?slug=' . $privateSlug)
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    $resp = $this->postJson('/api/db/library/set-slug', ['book' => $mine, 'slug' => $privateSlug]);
+    $resp->assertStatus(422);
+    // The raw exception detail must never reach the body (existence oracle +
+    // internals disclosure) — on ANY error path of this endpoint.
+    expect($resp->json('error'))->toBeNull();
+    $this->assertDatabaseHas('library', ['book' => $mine, 'slug' => null]);
+});
+
 test('GET /api/db/library/slug-info reports an encrypted book as not claimable', function () {
     $user = $this->loginUser();
     $book = $this->makeBook($user, ['encrypted' => true]);

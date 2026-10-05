@@ -65,11 +65,22 @@ class SlugRules
             return 'This slug collides with an existing username';
         }
 
-        if (DB::table('library')->where('book', $slug)->exists()) {
+        // Collision checks run on pgsql_admin (RLS-bypassing), NOT the default
+        // connection, because the slug namespace is GLOBAL: a PRIVATE book's
+        // slug/id still owns /{slug} for everyone (BookSlugHelper::resolve is
+        // admin-side; an anonymous visitor gets the access screen, not a 404).
+        // Under RLS these probes couldn't see other users' private books, so
+        // validation said "available", the partial unique index / trigger then
+        // threw, and the caller got a raw 500 — and the backfill command (CLI,
+        // no RLS session vars) had the same blind spot. Revealing "taken" here
+        // leaks nothing: /{slug} already answers that question to anyone.
+        $admin = DB::connection('pgsql_admin');
+
+        if ($admin->table('library')->where('book', $slug)->exists()) {
             return 'This slug collides with an existing book ID';
         }
 
-        $clash = DB::table('library')->where('slug', $slug);
+        $clash = $admin->table('library')->where('slug', $slug);
         if ($forBook !== null) {
             $clash->where('book', '!=', $forBook);
         }
