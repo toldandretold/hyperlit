@@ -6,7 +6,7 @@
     "moduleCount": 412,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4025,
+    "edgeCount": 4026,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -6185,6 +6185,24 @@
         "volume",
         "wrapped_dek",
         "year"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@checkSlug",
+      "label": "checkSlug",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DbLibraryController",
+      "method": "checkSlug",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "available",
+        "message",
+        "slug",
+        "success"
       ]
     },
     {
@@ -44007,6 +44025,12 @@
       "id": "pg:library__pull__controller:DbHyperlightController@find",
       "source": "pg:library",
       "target": "controller:DbHyperlightController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DbLibraryController@checkSlug",
+      "source": "pg:library",
+      "target": "controller:DbLibraryController@checkSlug",
       "rel": "pull"
     },
     {

@@ -1612,4 +1612,39 @@ class DbLibraryController extends Controller
             'suggestion' => $suggestion,
         ]);
     }
+
+    /**
+     * Live availability probe for the Book URL input (the slug counterpart of
+     * validateBookId). Runs the REAL SlugRules gauntlet so the inline message
+     * is always the exact verdict setSlug would return — a second, looser
+     * check here is how a "live" indicator drifts into lying.
+     */
+    public function checkSlug(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+            ], 401);
+        }
+
+        $slug = $request->input('slug');
+        if (! is_string($slug) || $slug === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Slug is required',
+            ], 400);
+        }
+
+        $forBook = $request->input('book');
+        $reason = \App\Support\SlugRules::rejectionReason($slug, is_string($forBook) ? $forBook : null);
+
+        return response()->json([
+            'success' => true,
+            'slug' => $slug,
+            'available' => $reason === null,
+            'message' => $reason,
+        ]);
+    }
 }

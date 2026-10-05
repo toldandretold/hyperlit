@@ -203,6 +203,44 @@ test('GET /api/db/library/slug-info offers a suggestion while unset, then report
         ]);
 });
 
+/* ─── slug-check (the live availability probe) ────────────────────── */
+
+test('GET /api/db/library/slug-check requires a logged-in user and a slug', function () {
+    $this->assertApiError($this->getJson('/api/db/library/slug-check?slug=whatever'), 401);
+    $this->loginUser();
+    $this->assertApiError($this->getJson('/api/db/library/slug-check'), 400);
+});
+
+test('GET /api/db/library/slug-check runs the full SlugRules gauntlet, not a bare existence probe', function () {
+    $user = $this->loginUser();
+
+    // Free + well-formed → available.
+    $free = 'apitest-free-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->getJson('/api/db/library/slug-check?slug=' . $free)
+        ->assertStatus(200)->assertJson(['success' => true, 'available' => true, 'message' => null]);
+
+    // A reserved ROUTE word is refused even though no book owns it.
+    $this->getJson('/api/db/library/slug-check?slug=maintainer')
+        ->assertStatus(200)->assertJson(['available' => false])
+        ->assertJsonPath('message', fn ($m) => str_contains($m, 'reserved'));
+
+    // An existing USERNAME is refused (the impersonation guard).
+    $this->getJson('/api/db/library/slug-check?slug=' . strtolower(str_replace(' ', '', $user->name)))
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    // A slug already owned by another book is refused.
+    // (Book-id collisions and the rest of the gauntlet are pinned in
+    // SlugBackfillTest — this endpoint only delegates to SlugRules.)
+    $otherSlug = 'apitest-taken-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->makeBook($user, ['slug' => $otherSlug]);
+    $this->getJson('/api/db/library/slug-check?slug=' . $otherSlug)
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    // Malformed input is a verdict, not an error.
+    $this->getJson('/api/db/library/slug-check?slug=' . urlencode('NOT VALID!'))
+        ->assertStatus(200)->assertJson(['available' => false]);
+});
+
 test('GET /api/db/library/slug-info reports an encrypted book as not claimable', function () {
     $user = $this->loginUser();
     $book = $this->makeBook($user, ['encrypted' => true]);

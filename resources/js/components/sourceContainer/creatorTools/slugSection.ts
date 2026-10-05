@@ -25,6 +25,16 @@ const URL_CSS = 'font-size: var(--sc-13); color: var(--color-text-secondary); ma
 const LABEL_CSS = 'font-size: var(--sc-11); color: var(--color-text-faint); margin: 0 0 2px 0;';
 const NOTE_CSS = 'font-size: var(--sc-11); color: var(--color-text-faint); margin-top: 6px;';
 
+/** Client mirror of SlugRules::FORMAT — pre-screens before the live server probe. */
+const SLUG_FORMAT = /^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/;
+const SLUG_FORMAT_MESSAGE = '3–60 characters: lowercase letters, numbers and hyphens, no leading/trailing hyphen';
+const CHECK_DEBOUNCE_MS = 500;
+
+/** The one normalization applied before checking and before submitting. */
+function normalizeSlug(raw: string): string {
+  return raw.replace(/[\r\n]+/g, '').trim().toLowerCase();
+}
+
 export async function loadSlugSection(self: any) {
   const section = self.container.querySelector('#book-url-section');
   if (!section) return;
@@ -77,6 +87,7 @@ function render(section: HTMLElement, info: SlugInfo) {
       <p style="${LABEL_CSS} margin-top: 8px;">Change to:</p>
       <p style="${URL_CSS} margin-bottom: 2px;">${escapeHtml(window.location.origin)}/</p>
       <textarea id="book-url-slug-input" rows="1" placeholder="your-book-title" maxlength="60" autocomplete="off" spellcheck="false" style="display: block; width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: var(--sc-13); font-family: inherit; line-height: 1.4; resize: none; overflow: hidden; word-break: break-all;">${escapeHtml(info.suggestion ?? '')}</textarea>
+      <p id="book-url-check" class="validation-message" style="display: none; margin-top: 4px;"></p>
       <button type="button" id="book-url-set-btn" style="display: block; width: 100%; margin-top: 6px; padding: 6px 12px; font-size: var(--sc-13); color: var(--hyperlit-orange); border: 1px solid rgba(239,141,52,0.4); background: transparent; border-radius: 4px; cursor: pointer;">Set URL</button>
       <p id="book-url-status" style="font-size: var(--sc-12); color: var(--color-danger); margin-top: 6px; display: none;"></p>
       <p style="${NOTE_CSS}">Claim a readable address for sharing and search engines. One-time: once set, it can never be changed. Your current link keeps working.</p>`;
@@ -95,8 +106,62 @@ function wire(section: HTMLElement, info: SlugInfo) {
     input.style.height = 'auto';
     input.style.height = `${input.scrollHeight}px`;
   };
-  input.addEventListener('input', autoGrow);
   autoGrow();
+
+  // Live availability check (the slug counterpart of the cite-form's book-id
+  // probe): local format screen first, then a debounced server check through
+  // the REAL SlugRules gauntlet — reserved routes/usernames, username
+  // impersonation, book-id and slug collisions — so the inline verdict is
+  // exactly what Set URL would say. A sequence counter drops stale responses
+  // (debounced fetches can resolve out of order).
+  const check = section.querySelector('#book-url-check') as HTMLElement;
+  let checkTimer: ReturnType<typeof setTimeout> | undefined;
+  let checkSeq = 0;
+  const showCheck = (ok: boolean, msg: string) => {
+    check.textContent = msg;
+    check.className = `validation-message ${ok ? 'success' : 'error'}`;
+    check.style.display = '';
+  };
+  const runCheck = async (slug: string) => {
+    const seq = ++checkSeq;
+    try {
+      const resp = await fetch(
+        `/api/db/library/slug-check?slug=${encodeURIComponent(slug)}&book=${encodeURIComponent(book)}`,
+        { credentials: 'include' },
+      );
+      const result = await resp.json(); // always read — an unconsumed body leaks the connection
+      if (seq !== checkSeq) return; // a newer keystroke superseded this probe
+      if (!resp.ok || !result?.success) {
+        check.style.display = 'none'; // can't verify — the submit path still enforces
+        return;
+      }
+      showCheck(result.available, result.available ? 'Available' : result.message);
+    } catch (e) {
+      if (seq === checkSeq) check.style.display = 'none';
+      log.error('Slug availability check failed:', e);
+    }
+  };
+  const scheduleCheck = () => {
+    clearTimeout(checkTimer);
+    checkSeq++; // invalidate any in-flight probe for the old value
+    const slug = normalizeSlug(input.value);
+    if (!slug) {
+      check.style.display = 'none';
+      return;
+    }
+    if (!SLUG_FORMAT.test(slug)) {
+      showCheck(false, SLUG_FORMAT_MESSAGE);
+      return;
+    }
+    checkTimer = setTimeout(() => { runCheck(slug); }, CHECK_DEBOUNCE_MS);
+  };
+  input.addEventListener('input', () => {
+    autoGrow();
+    scheduleCheck();
+  });
+  // The prefilled suggestion was minted available server-side, but verify it
+  // live anyway — it can be claimed by another book between panel loads.
+  if (normalizeSlug(input.value)) scheduleCheck();
 
   const status = section.querySelector('#book-url-status') as HTMLElement;
   const showStatus = (msg: string) => {
@@ -106,8 +171,7 @@ function wire(section: HTMLElement, info: SlugInfo) {
 
   const submit = async () => {
     status.style.display = 'none';
-    // Enter submits (keydown below), but a paste can still carry newlines.
-    const slug = input.value.replace(/[\r\n]+/g, '').trim().toLowerCase();
+    const slug = normalizeSlug(input.value);
     if (!slug) {
       showStatus('Enter a slug first.');
       return;
