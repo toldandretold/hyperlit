@@ -20,6 +20,7 @@ import {
 import { attachVisibilityControlListeners } from "./visibilityControl";
 import { initReaderActions } from "./readerActions";
 import { loadCreatorTools } from "./creatorTools/index";
+import { loadSlugSection } from "./creatorTools/slugSection";
 import { loadVersionHistory } from "./creatorTools/versionHistory";
 import { loadReconvertInfo, handleReconvert, _awaitReconvert } from "./creatorTools/reconvert";
 import { handleReupload } from "./creatorTools/reupload";
@@ -368,6 +369,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
 
   // creatorTools
   loadCreatorTools() { return loadCreatorTools(this); }
+  loadSlugSection() { return loadSlugSection(this); }
   loadVersionHistory() { return loadVersionHistory(this); }
   loadReconvertInfo() { return loadReconvertInfo(this); }
   handleReconvert() { return handleReconvert(this); }

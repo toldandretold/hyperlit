@@ -122,6 +122,101 @@ test('POST /api/db/library/set-slug rejects an invalid slug format (422, before 
     );
 });
 
+test('POST /api/db/library/set-slug is set-once: first set succeeds, overwrite and clear both 422', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $slug = 'apitest-' . strtolower(\Illuminate\Support\Str::random(10));
+
+    // First set succeeds (the creator, slug currently null).
+    $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'slug' => $slug]);
+    $this->assertDatabaseHas('library', ['book' => $book, 'slug' => $slug]);
+
+    // Overwriting is refused — a slug is a permanent public address.
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug . '-v2']),
+        422
+    );
+
+    // Clearing is refused too (removal kills external links just the same).
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => '']),
+        422
+    );
+
+    $this->assertDatabaseHas('library', ['book' => $book, 'slug' => $slug]);
+});
+
+test('POST /api/db/library/set-slug 403s for a non-creator', function () {
+    // Public, or RLS hides the row from the non-creator and the test would
+    // exercise the 404 branch instead of the creator check.
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'public']);
+    $this->loginUser(); // somebody else
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => 'apitest-stolen-slug']),
+        403
+    );
+});
+
+/* ─── slug-info ───────────────────────────────────────────────────── */
+
+test('GET /api/db/library/slug-info requires a logged-in user', function () {
+    $this->assertApiError($this->getJson('/api/db/library/slug-info?book=apitest_x'), 401);
+});
+
+test('GET /api/db/library/slug-info 403s for a non-creator', function () {
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'public']);
+    $this->loginUser();
+    $this->assertApiError($this->getJson('/api/db/library/slug-info?book=' . $book), 403);
+});
+
+test('GET /api/db/library/slug-info offers a suggestion while unset, then reports the slug as locked', function () {
+    $user = $this->loginUser();
+    $token = strtolower(\Illuminate\Support\Str::random(12));
+    $book = $this->makeBook($user, ['title' => "Apitest {$token} Slug Fixture"]);
+
+    // Slug-less: claimable, with a collision-free suggestion from the title
+    // (the same generator library:backfill-slugs uses).
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => null,
+            'canSet' => true,
+            'encrypted' => false,
+            'suggestion' => "apitest-{$token}-slug-fixture",
+        ]);
+
+    // Once set, slug-info reports it locked and stops suggesting.
+    $slug = 'apitest-' . strtolower(\Illuminate\Support\Str::random(10));
+    $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug])->assertStatus(200);
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => $slug,
+            'canSet' => false,
+            'suggestion' => null,
+        ]);
+});
+
+test('GET /api/db/library/slug-info reports an encrypted book as not claimable', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['encrypted' => true]);
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => null,
+            'encrypted' => true,
+            'canSet' => false,
+            'suggestion' => null,
+        ]);
+});
+
 /* ─── destroy ─────────────────────────────────────────────────────── */
 
 test('DELETE /api/books/{book} requires authentication', function () {

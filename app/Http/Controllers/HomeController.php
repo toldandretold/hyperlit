@@ -36,7 +36,11 @@ class HomeController extends Controller
             // always carries a disambiguating qualifier, which is what makes
             // "hyperlit docuverse" / "open access docuverse" winnable while
             // brand authority is still being built.
-            'pageTitle' => 'Hyperlit — the open-access docuverse for hypertext research',
+            // The qualifier is the USER'S brand phrase verbatim (hero statement,
+            // CITATION.cff) — never paraphrase it: "open-source docuverse for
+            // open-access research". An invented variant shipped once and
+            // reached Google's index before being caught.
+            'pageTitle' => 'Hyperlit — an open-source docuverse for open-access research',
             // Google truncates the SERP snippet around 160 chars. The previous
             // string was 247 (and the comment claiming ~155 was simply wrong),
             // so the differentiating half was never shown — and it shipped the
@@ -158,6 +162,11 @@ class HomeController extends Controller
                         'https://github.com/toldandretold/hyperlit',
                         'https://www.instagram.com/hyperlit.io/',
                         'https://www.youtube.com/@hyperlit-io',
+                        // The Wikidata entity — the record Google's Knowledge
+                        // Graph reads when deciding that "hyperlit" means this
+                        // site and not the npm package. It cites the DOI and
+                        // points back here, closing the identity loop.
+                        'https://www.wikidata.org/wiki/Q141644822',
                     ],
                 ],
                 [

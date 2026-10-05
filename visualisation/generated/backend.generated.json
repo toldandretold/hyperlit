@@ -766,6 +766,28 @@
             ]
         },
         {
+            "id": "controller:DbLibraryController@getSlugInfo",
+            "label": "DbLibraryController@getSlugInfo",
+            "kind": "controller",
+            "dir": "pull",
+            "controller": "DbLibraryController",
+            "method": "getSlugInfo",
+            "tables": [
+                "library"
+            ],
+            "shape": [
+                "book",
+                "canSet",
+                "encrypted",
+                "slug",
+                "success",
+                "suggestion"
+            ],
+            "endpoints": [
+                "/api/db/library/slug-info"
+            ]
+        },
+        {
             "id": "controller:DbLibraryController@setEncryption",
             "label": "DbLibraryController@setEncryption",
             "kind": "controller",
@@ -1473,6 +1495,11 @@
             "rel": "read"
         },
         {
+            "source": "pg:library",
+            "target": "controller:DbLibraryController@getSlugInfo",
+            "rel": "read"
+        },
+        {
             "source": "pg:nodes",
             "target": "controller:DatabaseToIndexedDBController@getBookDataBatch",
             "rel": "read"
@@ -1538,6 +1565,7 @@
         "/api/db/hyperlights/upsert": "controller:DbHyperlightController@upsert",
         "/api/db/library/bulk-create": "controller:DbLibraryController@bulkCreate",
         "/api/db/library/set-slug": "controller:DbLibraryController@setSlug",
+        "/api/db/library/slug-info": "controller:DbLibraryController@getSlugInfo",
         "/api/db/library/update-timestamp": "controller:DbLibraryController@updateTimestamp",
         "/api/db/library/upsert": "controller:DbLibraryController@upsert",
         "/api/db/library/{}/encryption": "controller:DbLibraryController@setEncryption",

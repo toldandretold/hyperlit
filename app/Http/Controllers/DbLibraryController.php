@@ -1479,6 +1479,19 @@ class DbLibraryController extends Controller
                 ], 422);
             }
 
+            // Set-once: a slug is a PERMANENT public address. Changing it
+            // kills every external link to /{slug} (there is no slug history
+            // and no redirect — the freed slug is even claimable by another
+            // book), so once set it can be neither replaced nor cleared via
+            // the API. The operator escape hatch is library:backfill-slugs
+            // --undo, which writes the column directly.
+            if ($library->slug !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This book already has a permanent URL and it cannot be changed',
+                ], 422);
+            }
+
             // Allow clearing the slug
             if ($slug === null || $slug === '') {
                 $library->update(['slug' => null]);
@@ -1528,5 +1541,75 @@ class DbLibraryController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Creator-only read for the Book URL section of Creator Tools: the book's
+     * current slug (null = it lives at /{bookId}), whether a slug can still be
+     * claimed (set-once — see setSlug), and a ready collision-free suggestion
+     * minted by the same generator the backfill command uses.
+     *
+     * Deliberately a dedicated read rather than a field on the library payload:
+     * LibraryRecord round-trips through IndexedDB and back up via upsert, and a
+     * slug riding in that record could stale-clobber past SlugRules.
+     */
+    public function getSlugInfo(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+            ], 401);
+        }
+
+        $bookId = $request->input('book');
+        if (! $bookId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book ID is required',
+            ], 400);
+        }
+
+        $library = PgLibrary::where('book', $bookId)->first();
+        if (! $library) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found',
+            ], 404);
+        }
+
+        if ($library->creator !== $user->name) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the book creator can view slug info',
+            ], 403);
+        }
+
+        $canSet = $library->slug === null && ! $library->encrypted;
+
+        $suggestion = null;
+        if ($canSet) {
+            // library.year is a loose column (and holds ciphertext for
+            // encrypted books, excluded above) — only trust a numeric value.
+            $year = is_numeric($library->year) ? (int) $library->year : null;
+            $candidate = \App\Support\SlugRules::candidateFrom(
+                (string) ($library->title ?? ''),
+                $library->author,
+                $year
+            );
+            if ($candidate !== null) {
+                $suggestion = \App\Support\SlugRules::uniqueFrom($candidate, $bookId);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'book' => $bookId,
+            'slug' => $library->slug,
+            'encrypted' => (bool) $library->encrypted,
+            'canSet' => $canSet,
+            'suggestion' => $suggestion,
+        ]);
     }
 }

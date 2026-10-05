@@ -68,7 +68,7 @@ class BookIndexController extends Controller
 
         return view('book-index', [
             'books' => $books,
-            'pageTitle' => "Books on Hyperlit{$pageSuffix} — the open-access docuverse",
+            'pageTitle' => "Books on Hyperlit{$pageSuffix} — an open-source docuverse",
             'pageDescription' => 'Browse every text published on Hyperlit — open-access books, '
                 . 'journal articles and archives, readable with two-way citations, '
                 . 'highlights and footnotes.',

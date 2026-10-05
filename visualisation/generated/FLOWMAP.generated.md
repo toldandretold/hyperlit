@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1950 functions in 410 modules · 10 object stores · 10 PG tables · 3992 edges
+**MarkdownDB** schema v28 · 1965 functions in 412 modules · 10 object stores · 10 PG tables · 4025 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -113,6 +113,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `sanitizeTitleForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
 | `sanitizeYearForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
 | `yearMax` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
+| `clearAllAutofilledMarks` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `clearAutofilledFields` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `getAutofilledFieldIds` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `isNewFileSelection` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `markFieldAutofilled` | `components/newbookContainer/citeForm/autofillTracking` | — | — | write | — |
+| `resetFileSelectionTracking` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `restoreAutofilledMarks` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `setFieldFromDocument` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `watchForManualFieldEdits` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `withDocumentWrite` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -137,15 +147,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupFormSubmissionHandler` | `components/newbookContainer/citeForm/index` | — | — | — | — |
 | `setupModeSwitching` | `components/newbookContainer/citeForm/modes` | — | — | — | — |
 | `switchImportMode` | `components/newbookContainer/citeForm/modes` | — | — | write | — |
+| `clearSavedFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
 | `loadFormData` | `components/newbookContainer/citeForm/persistence` | `localStorage` | — | write | — |
 | `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
-| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | write | — |
+| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | — | write | — |
 | `setupFormPersistence` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
 | `setupImportSearch` | `components/newbookContainer/citeForm/search` | — | — | read/write | — |
 | `setupSourceToggle` | `components/newbookContainer/citeForm/sourceToggle` | — | — | write | — |
 | `getAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
 | `setAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
-| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | — | `sessionStorage` | read/write | — |
+| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | `localStorage` | `localStorage` `sessionStorage` | read/write | — |
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
@@ -342,6 +353,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
 | `loadReconvertInfo` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
 | `handleReupload` | `components/sourceContainer/creatorTools/reupload` | — | — | read/write | — |
+| `loadSlugSection` | `components/sourceContainer/creatorTools/slugSection` | — | — | read/write | — |
 | `loadVersionHistory` | `components/sourceContainer/creatorTools/versionHistory` | — | — | read/write | — |
 | `downloadAllForBook` | `components/sourceContainer/downloads` | — | — | write | — |
 | `downloadMarkdown` | `components/sourceContainer/downloads` | — | — | write | — |
@@ -400,6 +412,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.loadHarvestSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadResearchWorkflows` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadSlugSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewConfirm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
@@ -1390,6 +1403,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `selectNextChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `selectPrevChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `fillViewport` | `lazyLoader/utilities/fillViewport` | — | — | read | — |
+| `currentChunkBudget` | `lazyLoader/utilities/windowChunks` | — | — | — | — |
 | `isWithinViewport` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
 | `removeChunk` | `lazyLoader/utilities/windowChunks` | — | — | read/write | — |
 | `trimWindow` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
@@ -1801,6 +1815,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LinkNavigationHandler.removeGlobalHandlers` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.shouldSkipLinkHandling` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
 | `LinkNavigationHandler.trackRecentLinkClick` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.urlNamesRenderedBook` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `loadInitialChunkLocal` | `SPA/navigation/loadInitialChunkLocal` | `footnotes` | — | — | — |
 | `isImportedBookEntry` | `SPA/navigation/localContentEntry` | `sessionStorage` | — | — | — |
 | `isLocalContentEntry` | `SPA/navigation/localContentEntry` | — | — | — | — |

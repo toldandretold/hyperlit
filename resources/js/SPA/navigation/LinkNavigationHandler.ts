@@ -571,6 +571,25 @@ export class LinkNavigationHandler {
   }
 
   /**
+   * Does a URL's book segment name the RENDERED book? The ONE slug-aware
+   * same-book test: a vanity-slug book renders `<main id="book_123…"
+   * data-slug="welcome">` while the address bar shows `/welcome`, so the raw
+   * id and the slug are BOTH that book's name. Comparing against `main.id`
+   * alone is the slug-vs-mainid cross-book bug (every container close on a
+   * slug URL misread as cross-book and full-reloaded the same book). Shared by
+   * domMatchesUrl and the popstate cross-book decision so the two sites can
+   * never drift apart again.
+   */
+  static urlNamesRenderedBook(
+    urlBookId: string | null,
+    renderedId: string | null,
+    renderedSlug: string | null,
+  ): boolean {
+    return !!urlBookId
+      && (urlBookId === renderedId || (!!renderedSlug && urlBookId === renderedSlug));
+  }
+
+  /**
    * Does the currently-rendered DOM structure/book match the live browser URL?
    * Used by handlePopstate to detect a stale-transition desync after a rapid
    * back/forward burst and reconcile until the two agree.
@@ -599,7 +618,7 @@ export class LinkNavigationHandler {
       const main: any = document.querySelector('.main-content');
       const renderedId = main?.id || null;
       const renderedSlug = main?.getAttribute?.('data-slug') || null;
-      return urlBookId === renderedId || (!!renderedSlug && urlBookId === renderedSlug);
+      return this.urlNamesRenderedBook(urlBookId, renderedId, renderedSlug);
     }
     // Unknown shape — don't force a reconcile we can't reason about.
     return true;
@@ -665,8 +684,7 @@ export class LinkNavigationHandler {
     const renderedBookId = readerMainEl?.id || null;
     const renderedSlug = readerMainEl?.getAttribute?.('data-slug') || null;
     const differsFromRendered = !!renderedBookId
-      && urlBookId !== renderedBookId
-      && !(renderedSlug && urlBookId === renderedSlug);
+      && !this.urlNamesRenderedBook(urlBookId, renderedBookId, renderedSlug);
     const effectiveSlug = _bookSlug || renderedSlug;
     // STRUCTURE MISMATCH: the URL names a book (reader) but the page currently
     // rendered isn't a reader at all. This is the rapid back/forward reconcile

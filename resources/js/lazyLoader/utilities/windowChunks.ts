@@ -22,6 +22,9 @@
  *     at flush, so removing it first would lose the edit. Let the debounce flush it; a later trim
  *     removes it safely.
  *  E. never trim while a selection / paste / chunk-overflow / user-deletion is in progress.
+ *  F. while a browser translator is active, hold a LARGER window (MAX_LOADED_CHUNKS_TRANSLATED) —
+ *     a re-rendered chunk comes back as fresh untranslated HTML, so trimming at the normal budget
+ *     makes translation visibly decay on scroll-back. Bounded, not disabled: see below.
  */
 import { captureScrollAnchor, restoreScrollAnchor } from '../../utilities/scrollAnchor';
 import {
@@ -33,10 +36,52 @@ import { isSelectionDragActive } from '../../scrolling/selectionAutoScroll';
 import { isPasteOperationActive } from '../../paste/pasteState';
 import { getCurrentChunk } from '../../utilities/chunkState';
 import { parseChunkId } from '../../indexedDB/types';
+// Zero-import leaf — safe to reach into from here (seam F).
+import { isExternallyTranslated } from '../../utilities/externalTranslation';
 
 /** Max chunk divs kept in the DOM at once. Tunable; the buffer also keeps a removed end chunk far
  *  from the active sentinel so removal can't immediately re-trigger a reload. */
 export const MAX_LOADED_CHUNKS = 7;
+
+/**
+ * The budget while a browser translator is active (seam F).
+ *
+ * Trimming a chunk drops it from `currentlyLoadedChunks` so the observer
+ * re-renders it from IndexedDB on scroll-back — and that re-render produces
+ * FRESH, UNTRANSLATED html. At the normal budget of 7 a reader scrolling
+ * through a long book watches their translation come apart behind them.
+ *
+ * Raised rather than disabled, deliberately. The windowing budget exists to
+ * keep the div editor and the custom scrollbar's geometry tractable, and books
+ * here run to thousands of nodes (`capital` is 5,661), so an unbounded window
+ * is not an acceptable trade even for a translating reader. 24 chunks is
+ * roughly 0.5–0.8MB of HTML plus the translator's own duplicated original-text
+ * bookkeeping — fine on desktop, which is where the built-in translators that
+ * announce themselves (Chrome, Edge) live.
+ *
+ * Everyone who has NOT turned translation on still pays the normal budget.
+ *
+ * UNVERIFIED (2026-10-05): Chrome's translator runs its own MutationObserver
+ * and re-translates content that is INSERTED into the page, so it is possible
+ * it re-translates a re-rendered chunk unaided and this seam is unnecessary.
+ * That could not be measured (no browser available). If a live check shows
+ * re-rendered chunks come back translated on their own, DELETE this seam rather
+ * than keeping it — it would be pure cost. The check: translate a long book,
+ * scroll past ~7 chunks, scroll back, see which language you get.
+ */
+export const MAX_LOADED_CHUNKS_TRANSLATED = 24;
+
+/**
+ * How many chunk divs may sit in the DOM right now (seam F).
+ *
+ * The ONE definition, so a caller deciding "am I over budget?" can never
+ * disagree with what `trimWindow` would actually do. `customScrollbar` gates its
+ * belt-and-braces trim on this; a hardcoded `MAX_LOADED_CHUNKS` there would call
+ * `trimWindow` for a translated reader only for it to decline, every jump.
+ */
+export function currentChunkBudget(): number {
+  return isExternallyTranslated() ? MAX_LOADED_CHUNKS_TRANSLATED : MAX_LOADED_CHUNKS;
+}
 
 /** Match the IntersectionObserver's rootMargin so "off-screen" agrees with "won't reload yet". */
 const OFFSCREEN_MARGIN = 150;
@@ -152,8 +197,15 @@ export async function trimWindow(instance: any, direction: 'up' | 'down'): Promi
     }
   }
 
+  // F. A browser translator rewrote the rendered prose. Removing a chunk means
+  //    re-rendering it from IndexedDB on scroll-back, which brings it back
+  //    UNTRANSLATED — so hold a larger window. Bounded, not disabled: past the
+  //    translated ceiling trimming resumes, because an unbounded window on a
+  //    5,000-node book is worse than a re-translated chunk.
+  const budget = currentChunkBudget();
+
   let ids = loadedChunkIdsSorted(instance);
-  while (ids.length > MAX_LOADED_CHUNKS) {
+  while (ids.length > budget) {
     const victim = direction === 'down' ? ids[0] : ids[ids.length - 1];
     if (victim === undefined) break;
 
