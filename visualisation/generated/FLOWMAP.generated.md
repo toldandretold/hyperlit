@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1949 functions in 410 modules · 10 object stores · 10 PG tables · 3988 edges
+**MarkdownDB** schema v28 · 1960 functions in 412 modules · 10 object stores · 10 PG tables · 4012 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -311,6 +311,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `scanHeadings` | `components/sourceContainer/autoMetadata/local` | — | — | read/write | — |
 | `byoActive` | `components/sourceContainer/autoMetadata/remote` | — | — | — | — |
 | `requestAiMetadata` | `components/sourceContainer/autoMetadata/remote` | — | — | read | — |
+| `formatEstimate` | `components/sourceContainer/bookTranslation` | — | — | — | — |
+| `initBookTranslation` | `components/sourceContainer/bookTranslation` | — | — | read/write | — |
+| `stopWatching` | `components/sourceContainer/bookTranslation` | — | — | — | — |
+| `watchTranslation` | `components/sourceContainer/bookTranslation` | — | — | read | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |
@@ -1073,6 +1077,13 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
 | `handleSelection` | `hyperlights/selectionToolbar` | — | — | read/write | — |
 | `initializeHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
+| `closeTranslation` | `hyperlights/translateSelection` | — | — | write | — |
+| `defaultTarget` | `hyperlights/translateSelection` | `localStorage` | — | — | — |
+| `formatCost` | `hyperlights/translateSelection` | — | — | — | — |
+| `looksChinese` | `hyperlights/translateSelection` | — | — | — | — |
+| `readableText` | `hyperlights/translateSelection` | — | — | read/write | — |
+| `translateInBrowser` | `hyperlights/translateSelection` | — | — | — | — |
+| `translateSelection` | `hyperlights/translateSelection` | — | `localStorage` | read/write | — |
 | `attachPlaceholderBehavior` | `hyperlights/utils` | — | — | read/write | — |
 | `generateHighlightID` | `hyperlights/utils` | — | — | — | — |
 | `openHighlightById` | `hyperlights/utils` | — | — | read | — |
@@ -1962,7 +1973,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 299
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 300
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -1972,11 +1983,13 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - (2 modules) `components/utilities/containerManager`, `hyperlitContainer/core`
 - (10 modules) `hypercites/database`, `hypercites/deletion`, `indexedDB/index`, `indexedDB/nodes/absenceReconciler`, `indexedDB/nodes/batch`, `indexedDB/serverSync/loaders`, `indexedDB/serverSync/pull`, `indexedDB/syncQueue/master`, `indexedDB/syncQueue/selfConflictContentCheck`, `indexedDB/syncQueue/unload`
 - (3 modules) `hyperlitContainer/containerSwap`, `hyperlitContainer/highlightNav`, `hyperlitContainer/postOpen`
+- (9 modules) `SPA/navigation/NavigationManager`, `SPA/navigation/pathways/DifferentTemplateTransition`, `SPA/navigation/utils/cleanupHelpers`, `SPA/navigation/utils/initHelpers`, `SPA/viewManager`, `components/cloudRef/cloudRefButton`, `components/sourceContainer/bookTranslation`, `components/sourceContainer/index`, `components/utilities/registerComponents`
 - (2 modules) `SPA/navigation/ProgressOverlayEnactor`, `SPA/navigation/RevealGate`
 
 ### Dynamic cycle-breakers (debt — could become one-way via events/DI)
 - `SPA/navigation/ProgressOverlayEnactor` → `SPA/navigation/RevealGate`
 - `components/homepage/homepageDisplayUnit` → `components/shelves/shelfHeader`
+- `components/sourceContainer/bookTranslation` → `SPA/navigation/NavigationManager`
 - `components/utilities/containerManager` → `hyperlitContainer/core`
 - `hyperlitContainer/postOpen` → `hyperlitContainer/highlightNav`
 - `indexedDB/nodes/absenceReconciler` → `hypercites/deletion`
@@ -2061,6 +2074,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/shelves/shelfTabs` → `components/shelves/shelfHeader`
 - `components/sourceContainer/aiReview/pipelineViz` → `hyperlights/deletion`
 - `components/sourceContainer/aiReview/pipelineViz` → `indexedDB/core/library`
+- `components/sourceContainer/bookTranslation` → `components/shelves/addToShelfMenu`
 - `components/sourceContainer/creatorTools/deleteBook` → `indexedDB/index`
 - `components/sourceContainer/creatorTools/reconvert` → `indexedDB/index`
 - `components/sourceContainer/readerActions` → `components/shelves/addToShelfMenu`

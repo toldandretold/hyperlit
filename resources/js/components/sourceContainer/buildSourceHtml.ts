@@ -364,6 +364,17 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   </button>` : ''}
     </div>
 
+    ${(!isSyntheticBook(book) && !accessDenied) ? `
+    <!-- Translate this book (Chinese ↔ English, into a private copy). Rendered
+         hidden; bookTranslation.ts reveals it for a logged-in reader when this
+         book can be translated, and drives its states. -->
+    <div id="book-translation-section" style="margin-top: 15px; padding-top: 15px;" hidden>
+      <h3>Translate</h3>
+      <button type="button" class="book-translation-btn"></button>
+      <a class="book-translation-open" hidden></a>
+      <p class="book-translation-note" aria-live="polite"></p>
+    </div>` : ''}
+
     ${researchWorkflowsSectionHtml(record, canEdit)}
 
     ${(canEdit && !accessDenied) ? `

@@ -1,0 +1,101 @@
+/*
+  Translate button (in #hyperlight-buttons) and the card it opens
+  (resources/js/hyperlights/translateSelection.ts).
+  Colours come from the theme variables, so it follows light/dark/sepia.
+*/
+
+/* Button icon — stroked like the brain button (lucide languages) */
+#hyperlight-buttons #translate-hyperlight svg .translate-icon-path,
+#edit-toolbar #hyperlight-buttons #translate-hyperlight svg .translate-icon-path {
+  stroke: var(--icon-stroke-primary);
+  fill: none;
+}
+#hyperlight-buttons #translate-hyperlight:hover,
+#edit-toolbar #hyperlight-buttons #translate-hyperlight:hover {
+  background: var(--icon-hover-background);
+}
+#hyperlight-buttons #translate-hyperlight:hover svg .translate-icon-path,
+#edit-toolbar #hyperlight-buttons #translate-hyperlight:hover svg .translate-icon-path {
+  stroke: var(--icon-hover-stroke);
+}
+
+/* The card */
+#translation-popover {
+  position: absolute;
+  z-index: 10000; /* above #hyperlight-buttons (9999) */
+  width: min(420px, calc(100vw - 16px));
+  max-height: min(60vh, 480px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background);
+  color: var(--color-text);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius-md, 8px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  font-size: 0.95rem;
+}
+
+/* Placed above the selection: anchor its bottom edge rather than its top */
+#translation-popover.tp-above {
+  transform: translateY(-100%);
+}
+
+#translation-popover .tp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+#translation-popover .tp-target {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+#translation-popover .tp-close {
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+#translation-popover .tp-body {
+  padding: 10px 12px;
+  overflow-y: auto;
+  white-space: pre-wrap; /* keep the paragraph breaks the server preserves */
+  line-height: 1.5;
+  user-select: text;
+}
+
+#translation-popover .tp-body[data-state="loading"] {
+  color: var(--color-text-faint);
+  font-style: italic;
+}
+
+#translation-popover .tp-body[data-state="error"] {
+  color: var(--color-text-secondary);
+}
+
+#translation-popover .tp-note {
+  padding: 0 12px 8px;
+  font-size: 0.75rem;
+  color: var(--color-text-faint);
+}
+
+#translation-popover .tp-note:empty {
+  display: none;
+}
+
+#translation-popover .tp-note.tp-warning {
+  color: var(--color-text);
+}

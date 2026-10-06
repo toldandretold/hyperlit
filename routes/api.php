@@ -169,6 +169,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/translate', [\App\Http\Controllers\TranslationController::class, 'translate']);
     Route::get('/translate/languages', [\App\Http\Controllers\TranslationController::class, 'languages']);
 
+    // Whole-book translation into a new private copy (Chinese ↔ English, Kimi K3),
+    // requester-pays — queued on the `translation` queue. (Its status read is
+    // public, below, so a guest can be shown "Log in to translate".)
+    Route::post('/book-translation/{book}', [\App\Http\Controllers\BookTranslationController::class, 'start']);
+
     // Auto metadata — the AI tier of the source panel's wand: read a document's
     // opening and recover its title/author/year. Owner-only, requester-pays,
     // refuses encrypted books. The FREE tier runs entirely in the browser and
@@ -257,6 +262,9 @@ Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(
     Route::get('/book-audio/{book}/progress', [\App\Http\Controllers\BookAudioController::class, 'progress']);
     Route::get('/book-audio/{book}/manifest', [\App\Http\Controllers\BookAudioController::class, 'manifest']);
     Route::get('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'audiobookStatus']);
+    // What "Translate this book" should say — public so a guest sees "Log in to
+    // translate"; a reader's own copy and progress are only in it when logged in.
+    Route::get('/book-translation/{book}', [\App\Http\Controllers\BookTranslationController::class, 'status']);
 });
 
 // Packaging the .m4b: no throttle — the per-book cache lock prevents

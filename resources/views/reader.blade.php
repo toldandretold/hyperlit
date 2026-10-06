@@ -181,6 +181,18 @@
       <path class="brain-icon-path" d="M19.967 17.484A4 4 0 0 1 18 18"/>
     </svg>
   </button>
+
+  <!-- Translate Button (lucide languages) -->
+  <button id="translate-hyperlight" type="button" aria-label="Translate selection" title="Translate">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path class="translate-icon-path" d="m5 8 6 6"/>
+      <path class="translate-icon-path" d="m4 14 6-6 2-3"/>
+      <path class="translate-icon-path" d="M2 5h12"/>
+      <path class="translate-icon-path" d="M7 2h1"/>
+      <path class="translate-icon-path" d="m22 22-5-10-5 10"/>
+      <path class="translate-icon-path" d="M14 18h6"/>
+    </svg>
+  </button>
 </div>
 
 <div id="word-count-display" style="display: none;"></div>

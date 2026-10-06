@@ -19,6 +19,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
 /**
@@ -30,10 +31,19 @@ use Illuminate\Support\Str;
  * DO, and `charData`'s per-node character ranges have to be realigned before a
  * translated node can stand in for the original.
  *
- * BILLING SHAPE: charged AFTER the work succeeds, never before, matching every
- * other paid feature. Waived under BYO (the user's own key paid) and for
- * providers that cost us nothing per token — a local Ollama, or a dedicated
- * endpoint billed by the GPU-hour where no honest per-token rate exists.
+ * WHO CALLS THIS: the selection popover, as the fallback when the reader's
+ * browser can't translate on-device (Safari, Firefox, phones, or a pair desktop
+ * Chrome/Edge doesn't have) — those are free and never reach the server.
+ *
+ * Requester-pays by default. services.translation.passages_free makes it free
+ * instead (Hyperlit absorbs a fraction of a cent a passage), and then a
+ * per-user daily cap bounds what that can cost.
+ *
+ * BILLING SHAPE when paid: charged AFTER the work succeeds,
+ * never before, matching every other paid feature. Waived under BYO (the
+ * user's own key paid) and for providers that cost us nothing per token — a
+ * local Ollama, or a dedicated endpoint billed by the GPU-hour where no honest
+ * per-token rate exists.
  *
  * NO QUEUE WORKER HERE, so the RLS trap that has shipped twice does not apply:
  * BillingService::charge() sets app.current_user but the users policy also needs
@@ -101,7 +111,10 @@ class TranslationController extends Controller
             : $translation;
 
         $provider = $service->provider();
-        $billable = $provider->isBillable() && ! $clientInference;
+        // Free mode: the tokens are ours to absorb, not the reader's to pay.
+        $costsUs = $provider->isBillable() && ! $clientInference;
+        $free = $costsUs && (bool) config('services.translation.passages_free', true);
+        $billable = $costsUs && ! $free;
 
         if ($billable && ! $billingService->canProceed($user)) {
             return response()->json(['success' => false, 'message' => 'Insufficient balance'], 402);
@@ -113,6 +126,21 @@ class TranslationController extends Controller
                 'success' => false,
                 'message' => 'Nothing translatable in the supplied text.',
             ], 422);
+        }
+
+        // The cap is what bounds an absorbed cost, so it only applies when we
+        // absorb one — and it is counted after validation, so a rejected
+        // request never spends a reader's allowance.
+        if ($free) {
+            $limitKey = 'free-passage-translation:'.$user->id;
+            $limit = max(1, (int) config('services.translation.free_daily_limit', 200));
+            if (RateLimiter::tooManyAttempts($limitKey, $limit)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "You've used today's {$limit} free translations. More become available within a day.",
+                ], 429);
+            }
+            RateLimiter::hit($limitKey, 86400);
         }
 
         // Usage is read AFTER the call to price it; reset first so a previous

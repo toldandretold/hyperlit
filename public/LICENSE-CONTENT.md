@@ -28,13 +28,15 @@ Content on this platform with the default license MAY NOT be used for:
 
 ### What This Means
 
-✅ **Content CAN be used by:**
+This restricts **training**, not use. Running content through an AI system to read, search, cite, summarise or translate it (inference) is not training and is not restricted — including Hyperlit's own AI features. What is prohibited is using the content to build, train or improve a model, unless the conditions above are met.
+
+✅ **Content CAN be used to train AI by:**
 - Fully open-source AI projects with copyleft licenses
 - Academic research with published, reproducible results
 - Non-commercial AI trained exclusively on copyleft-licensed data
 - Community-driven AI projects that release everything openly
 
-❌ **Content CANNOT be used by:**
+❌ **Content CANNOT be used to train AI by:**
 - OpenAI (GPT models) - Proprietary
 - Anthropic (Claude models) - Proprietary
 - Google (Gemini, Bard, PaLM) - Proprietary
@@ -60,6 +62,7 @@ Check each book's license notice for specific terms.
 
 ✅ Read, share, and redistribute with attribution
 ✅ Create derivative works (must share under same license - ShareAlike)
+✅ Translate it, by hand or with AI tools — a translation is a derivative work, so share it under the same license, with attribution
 ✅ Use for research, education, and non-commercial purposes
 ✅ Quote and cite in academic or journalistic work
 ✅ Archive and preserve for posterity
@@ -99,4 +102,6 @@ For questions about licensing, contact the Hyperlit project or the individual co
 
 ---
 
-**Last Updated:** 2025-01-15
+**Last Updated:** 2026-10-06
+
+**Changes:** 2026-10-06 — clarified that the AI restriction covers *training*, as the AI Training Prohibition's terms state: the "What This Means" examples now say "cannot be used to train AI by" rather than "cannot be used by", and translation is listed as a permitted derivative use. Using AI tools on content (inference) is not restricted.

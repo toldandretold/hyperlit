@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1949,
-    "moduleCount": 410,
+    "fnCount": 1960,
+    "moduleCount": 412,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 3988,
+    "edgeCount": 4012,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2610,6 +2610,38 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/autoMetadata/remote",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:formatEstimate",
+      "label": "formatEstimate",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookTranslation",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "label": "initBookTranslation",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookTranslation",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:stopWatching",
+      "label": "stopWatching",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookTranslation",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:watchTranslation",
+      "label": "watchTranslation",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookTranslation",
       "leaf": false
     },
     {
@@ -9845,6 +9877,62 @@
       "kind": "fn",
       "stage": "hyperlights",
       "module": "hyperlights/selectionToolbar",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/translateSelection:closeTranslation",
+      "label": "closeTranslation",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/translateSelection:defaultTarget",
+      "label": "defaultTarget",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/translateSelection:formatCost",
+      "label": "formatCost",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": true
+    },
+    {
+      "id": "hyperlights/translateSelection:looksChinese",
+      "label": "looksChinese",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": true
+    },
+    {
+      "id": "hyperlights/translateSelection:readableText",
+      "label": "readableText",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/translateSelection:translateInBrowser",
+      "label": "translateInBrowser",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
+      "leaf": true
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection",
+      "label": "translateSelection",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/translateSelection",
       "leaf": false
     },
     {
@@ -18389,6 +18477,18 @@
       ]
     },
     {
+      "id": "components/sourceContainer/bookTranslation",
+      "label": "components/sourceContainer/bookTranslation",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/bookTranslation:formatEstimate",
+        "components/sourceContainer/bookTranslation:initBookTranslation",
+        "components/sourceContainer/bookTranslation:stopWatching",
+        "components/sourceContainer/bookTranslation:watchTranslation"
+      ]
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml",
       "label": "components/sourceContainer/buildSourceHtml",
       "stage": "components",
@@ -20172,6 +20272,21 @@
         "hyperlights/selectionToolbar:cleanupHighlightingControls",
         "hyperlights/selectionToolbar:handleSelection",
         "hyperlights/selectionToolbar:initializeHighlightingControls"
+      ]
+    },
+    {
+      "id": "hyperlights/translateSelection",
+      "label": "hyperlights/translateSelection",
+      "stage": "hyperlights",
+      "band": "sync",
+      "fnIds": [
+        "hyperlights/translateSelection:closeTranslation",
+        "hyperlights/translateSelection:defaultTarget",
+        "hyperlights/translateSelection:formatCost",
+        "hyperlights/translateSelection:looksChinese",
+        "hyperlights/translateSelection:readableText",
+        "hyperlights/translateSelection:translateInBrowser",
+        "hyperlights/translateSelection:translateSelection"
       ]
     },
     {
@@ -25595,6 +25710,37 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation__call__components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "source": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation__call__components/sourceContainer/bookTranslation:formatEstimate",
+      "source": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "target": "components/sourceContainer/bookTranslation:formatEstimate",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation__call__components/sourceContainer/bookTranslation:watchTranslation",
+      "source": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "target": "components/sourceContainer/bookTranslation:watchTranslation",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation__domwrite__dom",
+      "source": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:watchTranslation__call__components/sourceContainer/bookTranslation:stopWatching",
+      "source": "components/sourceContainer/bookTranslation:watchTranslation",
+      "target": "components/sourceContainer/bookTranslation:stopWatching",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
@@ -26223,6 +26369,13 @@
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/audiobookDownload:initAudiobookDownload",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/audiobookDownload:initAudiobookDownload",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/bookTranslation:initBookTranslation",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/bookTranslation:initBookTranslation",
       "rel": "call",
       "dataPath": true
     },
@@ -29978,6 +30131,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/bookTranslation:initBookTranslation",
+      "source": "dom",
+      "target": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/bookTranslation:watchTranslation",
+      "source": "dom",
+      "target": "components/sourceContainer/bookTranslation:watchTranslation",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/checkSource:handleCheckSource",
       "source": "dom",
       "target": "components/sourceContainer/checkSource:handleCheckSource",
@@ -31703,6 +31868,18 @@
       "id": "dom__domread__hyperlights/selectionToolbar:initializeHighlightingControls",
       "source": "dom",
       "target": "hyperlights/selectionToolbar:initializeHighlightingControls",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlights/translateSelection:readableText",
+      "source": "dom",
+      "target": "hyperlights/translateSelection:readableText",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlights/translateSelection:translateSelection",
+      "source": "dom",
+      "target": "hyperlights/translateSelection:translateSelection",
       "rel": "domread"
     },
     {
@@ -36009,6 +36186,12 @@
       "dataPath": true
     },
     {
+      "id": "hyperlights/selectionToolbar:cleanupHighlightingControls__call__hyperlights/translateSelection:closeTranslation",
+      "source": "hyperlights/selectionToolbar:cleanupHighlightingControls",
+      "target": "hyperlights/translateSelection:closeTranslation",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/selectionToolbar:handleSelection__call__hyperlitContainer/containerActions:isStackPopping",
       "source": "hyperlights/selectionToolbar:handleSelection",
       "target": "hyperlitContainer/containerActions:isStackPopping",
@@ -36066,10 +36249,84 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlights/translateSelection:translateSelection",
+      "source": "hyperlights/selectionToolbar:initializeHighlightingControls",
+      "target": "hyperlights/translateSelection:translateSelection",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "hyperlights/selectionToolbar:initializeHighlightingControls__call__hyperlitContainer/utilities/activeContext:getActiveBook",
       "source": "hyperlights/selectionToolbar:initializeHighlightingControls",
       "target": "hyperlitContainer/utilities/activeContext:getActiveBook",
       "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:closeTranslation__domwrite__dom",
+      "source": "hyperlights/translateSelection:closeTranslation",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/translateSelection:defaultTarget__call__hyperlights/translateSelection:looksChinese",
+      "source": "hyperlights/translateSelection:defaultTarget",
+      "target": "hyperlights/translateSelection:looksChinese",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:readableText__domwrite__dom",
+      "source": "hyperlights/translateSelection:readableText",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateInBrowser__call__hyperlights/translateSelection:looksChinese",
+      "source": "hyperlights/translateSelection:translateInBrowser",
+      "target": "hyperlights/translateSelection:looksChinese",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__call__hyperlights/translateSelection:closeTranslation",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "hyperlights/translateSelection:closeTranslation",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__call__hyperlights/translateSelection:defaultTarget",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "hyperlights/translateSelection:defaultTarget",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__call__hyperlights/translateSelection:formatCost",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "hyperlights/translateSelection:formatCost",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__call__hyperlights/translateSelection:readableText",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "hyperlights/translateSelection:readableText",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__call__hyperlights/translateSelection:translateInBrowser",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "hyperlights/translateSelection:translateInBrowser",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__domwrite__dom",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/translateSelection:translateSelection__write__store:localStorage",
+      "source": "hyperlights/translateSelection:translateSelection",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "hyperlights/utils:attachPlaceholderBehavior__domwrite__dom",
@@ -47062,6 +47319,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__hyperlights/translateSelection:defaultTarget",
+      "source": "store:localStorage",
+      "target": "hyperlights/translateSelection:defaultTarget",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__hyperlights/visibilityDefault:getDefaultHighlightVisibility",
       "source": "store:localStorage",
       "target": "hyperlights/visibilityDefault:getDefaultHighlightVisibility",
@@ -49076,6 +49339,16 @@
       "kind": "static"
     },
     {
+      "source": "components/sourceContainer/bookTranslation",
+      "target": "SPA/navigation/NavigationManager",
+      "kind": "breaker"
+    },
+    {
+      "source": "components/sourceContainer/bookTranslation",
+      "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
       "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/autoMetadata/card",
       "kind": "static"
@@ -49233,6 +49506,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/autoMetadata/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/bookTranslation",
       "kind": "static"
     },
     {
@@ -50903,6 +51181,11 @@
     {
       "source": "hyperlights/selectionToolbar",
       "target": "hyperlights/listeners",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/selectionToolbar",
+      "target": "hyperlights/translateSelection",
       "kind": "static"
     },
     {
@@ -53770,11 +54053,22 @@
         "hyperlitContainer/postOpen"
       ],
       [
+        "SPA/navigation/NavigationManager",
+        "SPA/navigation/pathways/DifferentTemplateTransition",
+        "SPA/navigation/utils/cleanupHelpers",
+        "SPA/navigation/utils/initHelpers",
+        "SPA/viewManager",
+        "components/cloudRef/cloudRefButton",
+        "components/sourceContainer/bookTranslation",
+        "components/sourceContainer/index",
+        "components/utilities/registerComponents"
+      ],
+      [
         "SPA/navigation/ProgressOverlayEnactor",
         "SPA/navigation/RevealGate"
       ]
     ],
-    "breakerCount": 6,
-    "lazyCount": 299
+    "breakerCount": 7,
+    "lazyCount": 300
   }
 }

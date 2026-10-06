@@ -30,8 +30,11 @@ class LlmService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('services.llm.base_url', ''), '/');
-        $this->apiKey  = config('services.llm.api_key', '');
+        $this->baseUrl = rtrim(config('services.llm.base_url') ?? '', '/');
+        // ?? not a config() default: an unset LLM_API_KEY is a PRESENT null, and
+        // a null here was a TypeError on every resolve rather than the intended
+        // "no key → every call returns null" below.
+        $this->apiKey  = config('services.llm.api_key') ?? '';
         $this->model   = config('services.llm.model');
         $this->extractionModel   = config('services.llm.extraction_model');
         $this->verificationModel = config('services.llm.verification_model');

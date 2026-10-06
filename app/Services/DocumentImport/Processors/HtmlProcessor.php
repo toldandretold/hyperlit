@@ -87,7 +87,7 @@ class HtmlProcessor implements ProcessorInterface
             $ar5ivStart = microtime(true);
             $ar5ivScriptPath = base_path('app/Python/ar5iv_preprocessor.py');
             $ar5ivProcess = new Process([
-                'python3',
+                $this->getPythonPath(), // was bare python3 — missing bs4 off the prod box
                 $ar5ivScriptPath,
                 $workPath,
                 $outputPath,
@@ -190,6 +190,13 @@ class HtmlProcessor implements ProcessorInterface
     {
         if (file_exists(self::VENV_PYTHON)) {
             return self::VENV_PYTHON;
+        }
+        // Off the prod box: PYTHON_PATH (a local venv, as PandocConversionJob and
+        // VibeConversionJob already use) before PATH python3, which on a dev
+        // machine usually lacks the digestion package's bs4/PIL/bleach.
+        $configured = env('PYTHON_PATH');
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
         }
         return 'python3';
     }

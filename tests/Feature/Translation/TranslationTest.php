@@ -325,6 +325,7 @@ it('charges the hosted path after success and records the cost basis', function 
     Http::fake(['*/chat/completions' => Http::response(fakeChatReply('संचय बढ़ता है।'))]);
 
     config([
+        'services.translation.passages_free' => false, // requester-pays mode
         'services.translation.provider' => 'hosted',
         'services.translation.hosted.model' => 'accounts/fireworks/models/gpt-oss-120b',
     ]);
@@ -371,11 +372,60 @@ it('does not charge when the local provider did the work', function () {
     expect(DB::table('billing_ledger')->where('category', 'translation')->count())->toBe($before);
 });
 
+it('charges for passages by default — the free route is on-device translation in the browser', function () {
+    Http::fake(['*/chat/completions' => Http::response(fakeChatReply('संचय बढ़ता है।'))]);
+    config(['services.translation.provider' => 'hosted']);
+    app()->forgetInstance(TranslationProviderInterface::class);
+    $broke = $this->seedUser(['status' => 'budget', 'credits' => 0, 'debits' => 0]);
+
+    $this->actingAs($broke)
+        ->postJson('/api/translate', ['text' => 'Accumulation grows.', 'target_lang' => 'hi'])
+        ->assertStatus(402);
+    Http::assertNothingSent();
+});
+
+it('translates passages free when free mode is on: no balance needed, nothing charged', function () {
+    Http::fake(['*/chat/completions' => Http::response(fakeChatReply('संचय बढ़ता है।'))]);
+    config(['services.translation.provider' => 'hosted', 'services.translation.passages_free' => true]);
+    app()->forgetInstance(TranslationProviderInterface::class);
+    $user = $this->seedUser(['status' => 'budget', 'credits' => 0, 'debits' => 0]);
+
+    $this->actingAs($user)
+        ->postJson('/api/translate', ['text' => 'Accumulation grows.', 'target_lang' => 'hi'])
+        ->assertOk()
+        ->assertJsonPath('translation.text', 'संचय बढ़ता है।')
+        ->assertJsonPath('cost', null);
+
+    actAsTranslationUser($user);
+    expect(DB::table('billing_ledger')->where('user_id', $user->id)->where('category', 'translation')->exists())->toBeFalse();
+});
+
+it('caps free passage translation per user per day, counting only accepted requests', function () {
+    Http::fake(['*/chat/completions' => Http::response(fakeChatReply('संचय बढ़ता है।'))]);
+    config(['services.translation.provider' => 'hosted', 'services.translation.passages_free' => true, 'services.translation.free_daily_limit' => 2]);
+    app()->forgetInstance(TranslationProviderInterface::class);
+    $user = $this->seedUser();
+    $other = $this->seedUser();
+
+    // A request rejected before translation doesn't spend the allowance.
+    $this->actingAs($user)->postJson('/api/translate', ['text' => '<img src="x.png">', 'target_lang' => 'hi'])->assertStatus(422);
+
+    $this->actingAs($user)->postJson('/api/translate', ['text' => 'One.', 'target_lang' => 'hi'])->assertOk();
+    $this->actingAs($user)->postJson('/api/translate', ['text' => 'Two.', 'target_lang' => 'hi'])->assertOk();
+    $this->actingAs($user)->postJson('/api/translate', ['text' => 'Three.', 'target_lang' => 'hi'])
+        ->assertStatus(429)
+        ->assertJsonPath('message', "You've used today's 2 free translations. More become available within a day.");
+
+    // Per user, not global.
+    $this->actingAs($other)->postJson('/api/translate', ['text' => 'One.', 'target_lang' => 'hi'])->assertOk();
+    Http::assertSentCount(3);
+});
+
 it('blocks the hosted path on an empty balance but not a local one', function () {
     Http::fake(['*/chat/completions' => Http::response(fakeChatReply('संचय बढ़ता है।'))]);
     $user = $this->seedUser(['status' => 'budget', 'credits' => 0, 'debits' => 0]);
 
-    config(['services.translation.provider' => 'hosted']);
+    config(['services.translation.provider' => 'hosted', 'services.translation.passages_free' => false]);
     app()->forgetInstance(TranslationProviderInterface::class);
     $this->actingAs($user)
         ->postJson('/api/translate', ['text' => 'Hello', 'target_lang' => 'hi'])

@@ -123,6 +123,9 @@ return [
             // Retired on Fireworks — kept for cost lookup on historical ledger rows
             'accounts/fireworks/models/deepseek-v4-pro-0813'    => ['input' => 1.74, 'output' => 3.48],
             'accounts/fireworks/models/deepseek-v4-pro'         => ['input' => 1.74, 'output' => 3.48],
+            // Book/HTML translation default (services.translation.html). Serverless;
+            // cached input is $0.30. Verified on fireworks.ai/models 2026-10-01.
+            'accounts/fireworks/models/kimi-k3'                 => ['input' => 3.00, 'output' => 15.00],
             'accounts/fireworks/models/kimi-k2p6'               => ['input' => 0.95, 'output' => 4.00],
             'accounts/fireworks/models/kimi-k2p5'               => ['input' => 0.60, 'output' => 3.00],
             'accounts/fireworks/models/glm-5p1'                 => ['input' => 1.40, 'output' => 4.40],
@@ -257,6 +260,15 @@ return [
     'translation' => [
         'provider' => env('TRANSLATION_PROVIDER', 'hosted'),
 
+        // Passage translation (POST /api/translate — the selection popover's
+        // server fallback) is requester-pays, ≈$0.0003–0.0005 a passage on
+        // gpt-oss-120b. It's free in desktop Chrome/Edge, which translate on the
+        // reader's device and never call this. true makes the server route free
+        // too (Hyperlit absorbs the tokens), bounded per user by the daily cap,
+        // which applies only then. Whole-book translation is always paid.
+        'passages_free' => (bool) env('TRANSLATION_PASSAGES_FREE', false),
+        'free_daily_limit' => (int) env('TRANSLATION_FREE_DAILY_LIMIT', 200),
+
         'batch_size' => 30,                 // texts per LLM batch (mirrors the citation-metadata chunking)
         'concurrency' => 5,                 // parallel provider requests per batch
         'max_chars_per_request' => (int) env('TRANSLATION_MAX_CHARS', 4000),
@@ -300,6 +312,39 @@ return [
             // there is no honest per-token rate to bill. Left null deliberately: the
             // controller waives the charge rather than invent a number.
             'pricing' => null,
+        ],
+
+        // Whole-document translation (HtmlTranslator, `php artisan translate:html`).
+        // A different shape from the passage providers above: several paragraphs
+        // per request as a JSON object, the previous few translations as context,
+        // sections in parallel but strictly in order within one. Always rides
+        // services.llm.* (Fireworks) — only the model differs. Kimi K3 is ~20x
+        // gpt-oss-120b per token; it was chosen on output quality for fiction.
+        'html' => [
+            'model' => env('TRANSLATION_HTML_MODEL', 'accounts/fireworks/models/kimi-k3'),
+            // null = 'low' for kimi-k3, the model's own default for anything else
+            // (not every model accepts the parameter).
+            'reasoning_effort' => env('TRANSLATION_HTML_EFFORT'),
+            'temperature' => 0.4,
+            'max_tokens' => 32000,          // reasoning tokens share this; Fireworks' default 2048 truncates
+            'batch_chars' => 4000,          // source characters per request
+            'context_paragraphs' => 3,      // previous translations sent as context
+            'section_chars' => 40000,       // a heading-less document still splits into parallel sections
+            'workers' => 6,                 // sections in flight at once
+            'timeout' => 600,
+            'max_attempts' => 4,            // per paragraph: missing from the reply, broken placeholders
+            'retry_backoff' => 5,           // seconds, doubling, after a request fails outright
+            // In-app "Translate this book" estimate (BookTranslationService::estimate),
+            // for the reservation and the confirm dialog only — the charge is the
+            // tokens actually used. cost ≈ chars × rate[target] + requests × per_request.
+            // zh→en calibrated on a real Kimi K3 run (4,702 chars of a Chinese novel,
+            // ~3 requests: $0.1255 charged, $0.13 estimated). en→zh is NOT yet
+            // calibrated: derived from tokens (English ~4 chars/token in; Chinese out
+            // with Kimi K3's reasoning) and rounded up. Recalibrate from real runs.
+            'estimate' => [
+                'per_million_chars' => ['en' => 15.0, 'zh-Hans' => 9.0], // keyed by TARGET
+                'per_request' => 0.02, // reasoning + resent prompt and context
+            ],
         ],
     ],
 

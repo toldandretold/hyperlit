@@ -10,6 +10,7 @@ import { ContainerManager } from "../utilities/containerManager";
 import { book } from "../../app";
 import { buildSourceHtml } from "./buildSourceHtml";
 import { initAudiobookDownload } from "./audiobookDownload";
+import { initBookTranslation } from "./bookTranslation";
 import { exportBookAsMarkdown, exportBookAsDocxStyled, exportBookAsEpub, downloadAllForBook } from "./downloads";
 import {
   handleEditClick, showEditForm, populateEditForm, showOptionalFieldsForType,
@@ -42,6 +43,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.button = document.getElementById(buttonId);
     this.isInEditMode = false; // Track if we're currently in edit mode
     this.audiobookDownload = null; // set by attachInternalListeners
+    this.bookTranslation = null; // likewise
   }
 
   rebindElements() {
@@ -98,6 +100,9 @@ export class SourceContainerManager extends (ContainerManager as any) {
     // tear the previous one down or its poll timer outlives its button.
     this.audiobookDownload?.destroy();
     this.audiobookDownload = initAudiobookDownload(this.container, book);
+    // Same lifecycle for the Translate section (it polls a running job).
+    this.bookTranslation?.destroy();
+    this.bookTranslation = initBookTranslation(this.container, book);
 
     const downloadAllBtn = this.container.querySelector("#download-all");
     if (downloadAllBtn && !downloadAllBtn._listenerAttached) {
@@ -324,6 +329,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.stopHarvestPolling();
     this.audiobookDownload?.destroy(); // its poll timer must not outlive the panel
     this.audiobookDownload = null;
+    this.bookTranslation?.destroy();
+    this.bookTranslation = null;
     this.closeHarvestVizOverlay();
     this.isOpen = false;
     (window as any).activeContainer = "main-content";

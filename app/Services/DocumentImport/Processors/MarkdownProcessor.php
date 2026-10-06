@@ -223,6 +223,13 @@ class MarkdownProcessor implements ProcessorInterface
         if (file_exists(self::VENV_PYTHON)) {
             return self::VENV_PYTHON;
         }
+        // Off the prod box: PYTHON_PATH (a local venv, as PandocConversionJob and
+        // VibeConversionJob already use) before PATH python3, which on a dev
+        // machine usually lacks the digestion package's bs4/PIL/bleach.
+        $configured = env('PYTHON_PATH');
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
         return 'python3';
     }
 }

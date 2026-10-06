@@ -3,11 +3,12 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  * Selection toolbar — the on-select popup controller.
  *
  * Manages the SHARED `#hyperlight-buttons` popup that appears when the user
- * selects text. The popup hosts four buttons; each feature wires its OWN:
+ * selects text. The popup hosts five buttons; each feature wires its OWN:
  * this module shows/positions/hides the popup, toggles the delete button,
  * dims the brain button, and wires the three HYPERLIGHT buttons
- * (copy → create, delete, brain). The `copy-hypercite` button is wired
- * separately in hypercites/listeners.js — not here.
+ * (copy → create, delete, brain) plus translate (translateSelection.ts).
+ * The `copy-hypercite` button is wired separately in hypercites/listeners.js
+ * — not here.
  *
  * Split out of the old selection.js monster (2026-06).
  */
@@ -16,6 +17,7 @@ import { isContentLink } from './deletion';
 import { addTouchAndClickListener } from './listeners';
 import { createHighlightHandler, openBrainFromSelection } from './createHighlight';
 import { deleteHighlightHandler } from './deleteHighlight';
+import { translateSelection, closeTranslation } from './translateSelection';
 import { getActiveBook, setActiveBook, clearActiveBook } from '../hyperlitContainer/utilities/activeContext';
 import { isStackPopping } from '../hyperlitContainer/containerActions';
 import { log, verbose } from '../utilities/logger';
@@ -59,10 +61,11 @@ export function handleSelection(): void {
   if (selection.rangeCount > 0) {
     const selectionRange = selection.getRangeAt(0);
 
-    // Suppress buttons when selecting inside citation/reference containers
+    // Suppress buttons when selecting inside citation/reference containers,
+    // or inside the translation card (selecting its text to copy it).
     const anchor = selectionRange.commonAncestorContainer;
     const anchorEl = (anchor.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor) as HTMLElement | null;
-    if (anchorEl?.closest('.hypercites-section, .citations-section, .hypercite-citation-section')) {
+    if (anchorEl?.closest('.hypercites-section, .citations-section, .hypercite-citation-section, #translation-popover')) {
       document.getElementById("hyperlight-buttons")!.style.display = "none";
       return;
     }
@@ -243,6 +246,16 @@ export function initializeHighlightingControls(currentBookId: string): void {
     log.error('🧠 Brain button #brain-hyperlight not found in DOM', 'hyperlights/selection.js');
   }
 
+  // Translate button — translates the selection into a card under it.
+  // Reader-only, like the brain button, so its absence elsewhere is normal.
+  const translateButton = document.getElementById("translate-hyperlight");
+  if (translateButton) {
+    addTouchAndClickListener(translateButton, (event) => {
+      event.preventDefault();
+      return translateSelection();
+    });
+  }
+
   // Prevent iOS from cancelling selection
   buttonsContainer.addEventListener("touchstart", function (event) {
     event.preventDefault();
@@ -267,7 +280,9 @@ export function cleanupHighlightingControls(): void {
   const copyButton = document.getElementById("copy-hyperlight");
   const deleteButton = document.getElementById("delete-hyperlight");
   const brainBtn = document.getElementById("brain-hyperlight");
-  [copyButton, deleteButton, brainBtn].forEach(btn => {
+  const translateBtn = document.getElementById("translate-hyperlight");
+  closeTranslation();
+  [copyButton, deleteButton, brainBtn, translateBtn].forEach(btn => {
     if (!btn) return;
     const b = btn as any;
     if (b._wrappedHandler) {

@@ -50,7 +50,8 @@ namespace App\Services\Translation;
  * inline tags, math held verbatim, annotation offsets realigned) is a distinct
  * and harder problem, deliberately left to the reading-mode work. Do not build
  * a whole-book replacement view on top of this function without solving that
- * first.
+ * first. (HtmlTranslator now solves the markup half — markers, math and inline
+ * formatting survive — but annotation offsets are still not realigned.)
  */
 final class TranslatableText
 {

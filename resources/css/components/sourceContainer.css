@@ -876,3 +876,40 @@
 .delete-highlight-btn:hover svg path {
   stroke: var(--color-background);
 }
+
+/* Translate section (bookTranslation.ts): one outlined action + a quiet note.
+   The <a> takes the same shape once a translation exists. */
+#source-container .book-translation-btn,
+#source-container .book-translation-open {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--border-radius-md, 8px);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--sc-14); /* a step under the panel's 16 — the progress text runs long */
+  text-decoration: none;
+  cursor: pointer;
+}
+/* The display above outranks the UA's [hidden] rule — restore it, or the
+   hidden "Open the translation" link renders as an empty box. */
+#source-container .book-translation-btn[hidden],
+#source-container .book-translation-open[hidden] {
+  display: none;
+}
+#source-container .book-translation-btn:hover:not(:disabled),
+#source-container .book-translation-open:hover {
+  background: var(--icon-hover-background);
+}
+#source-container .book-translation-btn:disabled {
+  cursor: progress;
+  color: var(--color-text-secondary);
+}
+#source-container .book-translation-note {
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: var(--color-text-faint);
+}
+#source-container .book-translation-note:empty {
+  display: none;
+}
