@@ -10,6 +10,7 @@ import { showFieldsForType } from './fields';
 import { populateFieldsFromBibtex, setupBibtexModeAutoReveal } from './bibtex';
 import { setupFormSubmission } from './submission';
 import { setupClearButton, setupFormPersistence, loadFormData } from './persistence';
+import { watchForManualFieldEdits } from './autofillTracking';
 import { setupRealTimeValidation } from './validation';
 import { setupModeSwitching } from './modes';
 import { setupImportSearch } from './search';
@@ -93,6 +94,9 @@ export function initializeCitationFormListeners() {
   setupFormSubmission();
   setupClearButton();
   setupRealTimeValidation();
+  // Before setupFormPersistence: a user keystroke must drop the "this came from
+  // the document" mark BEFORE the draft that records those marks is re-saved.
+  watchForManualFieldEdits();
   setupFormPersistence();
   loadFormData();
 

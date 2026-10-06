@@ -590,9 +590,15 @@ class DbNodeController extends Controller
                             'node_id' => $item['node_id'] ?? ($existingChunk ? $existingChunk->node_id : null),
                             'content' => $updatedContent,
                             'footnotes' => $item['footnotes'] ?? ($existingChunk ? $existingChunk->footnotes : []),
+                            // plainTextFor semantics: non-empty client value → derive from
+                            // content → fall back to the existing row's value. A client ''
+                            // must not be preserved (it's a hole, not a value). Encrypted
+                            // books short-circuit to null BEFORE the existing-row fallback —
+                            // resurrecting a stale plaintext on an encrypted book would leak.
                             'plainText' => EncryptedBookGuard::isEncrypted($bookId)
                                 ? null
-                                : ($item['plainText'] ?? ($updatedContent ? strip_tags($updatedContent) : ($existingChunk ? $existingChunk->plainText : null))),
+                                : (EncryptedBookGuard::plainTextFor($bookId, $updatedContent, $item['plainText'] ?? null)
+                                    ?? ($existingChunk ? $existingChunk->plainText : null)),
                             'type' => $item['type'] ?? ($existingChunk ? $existingChunk->type : null),
                         ];
                     }

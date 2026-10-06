@@ -96,13 +96,23 @@ body[data-page="journal"] .journal-about .journal-about-counts {
 
 /* ---------- hypercite network (inline SVG from JournalHyperciteMap) ---------- */
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-hypercite-map {
+/* Scoped to `.welcome-copy`, NOT per page. The same figure renders in three
+   places and every one of them is already inside that section —
+   `welcome-copy journal-about`, `welcome-copy user-about`, and the homepage
+   copy — so one arm covers all three. It used to be
+   `:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about)`
+   repeated across fifteen selectors, which meant adding the homepage was a
+   fifteen-place edit. Safe to widen: `.journal-hypercite-map`, `.hypercite-*`
+   and `.jml-*` exist nowhere else in the app.
+   (The one deliberate page-scoped exception stays where it is:
+   userPageHero.css's backing card for the owner's "No art" dark-theme case.) */
+.welcome-copy .journal-hypercite-map {
   margin: 2em 0 1em;
 }
 
 /* Mini legend under the network. Swatch colors mirror the SVG's fixed hero
    palette (ink + darkened aqua) — see JournalHyperciteMap's docblock. */
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-legend {
+.welcome-copy .journal-map-legend {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -115,34 +125,34 @@ body[data-page="journal"] .journal-about .journal-about-counts {
   opacity: 0.85;
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-legend li {
+.welcome-copy .journal-map-legend li {
   display: flex;
   align-items: center;
   gap: 0.45em;
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-legend em {
+.welcome-copy .journal-map-legend em {
   font-style: normal;
   opacity: 0.65;
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .jml-dot {
+.welcome-copy .jml-dot {
   width: 0.7em;
   height: 0.7em;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .jml-lit { background: #221f20; }
+.welcome-copy .jml-lit { background: #221f20; }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .jml-plain { background: rgba(34, 31, 32, 0.5); }
+.welcome-copy .jml-plain { background: rgba(34, 31, 32, 0.5); }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .jml-ext {
+.welcome-copy .jml-ext {
   background: #2e7d80;
   box-shadow: 0 0 0 1px rgba(34, 31, 32, 0.5);
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .jml-line {
+.welcome-copy .jml-line {
   width: 1.1em;
   height: 0;
   border-top: 2px solid rgba(34, 31, 32, 0.6);
@@ -153,15 +163,15 @@ body[data-page="journal"] .journal-about .journal-about-counts {
 /* Action pair under the network — the yield report's expand/3D buttons, in
    the hero's fixed ink (the reader-theme vars graphRenderer uses would go
    light-on-light here). */
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-actions {
+.welcome-copy .journal-map-actions {
   display: flex;
   gap: 10px;
   justify-content: center;
   margin: 1.25em 0 0.5em;
 }
 
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-actions button,
-:is(body[data-page="journal"] .journal-about, body[data-page="user"] .user-about) .journal-map-actions a {
+.welcome-copy .journal-map-actions button,
+.welcome-copy .journal-map-actions a {
   font: 0.9rem/1 sans-serif;
   padding: 0.5em 0.9em;
   border: 1px solid rgba(34, 31, 32, 0.45);
@@ -171,3 +181,42 @@ body[data-page="journal"] .journal-about .journal-about-counts {
   text-decoration: none;
   cursor: pointer;
 }
+
+/* The <figure> wrapper JournalHyperciteMap emits (svg + figcaption + legend).
+   <figure> carries a UA margin that would double up with
+   .journal-hypercite-map's own.
+
+   content-visibility: auto is what makes this affordable on the HOMEPAGE: the
+   markup still ships in the HTML (so every dot stays a crawlable link — the
+   whole point), but the browser skips its layout and paint until it is scrolled
+   near. That matters because the hero runs a requestAnimationFrame lava morph,
+   and the real cost of this figure is DOM/paint, not bytes (gzipped it is ~7kB).
+   contain-intrinsic-size reserves a plausible box so the scrollbar doesn't jump
+   when it does render; the SVG is width-capped at 680px and roughly square. */
+.welcome-copy .hypercite-figure {
+  margin: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 680px;
+}
+
+/* The <figcaption> is a plain container: it holds the encoding sentence and the
+   legend, because HTML requires the caption to be the figure's first or last
+   child and both describe the one graphic. Each part carries its own type
+   styles. */
+.welcome-copy .hypercite-figcaption {
+  margin: 0;
+}
+
+/* The one-sentence explanation of what the diagram encodes. Visible on purpose:
+   it is the only place a reader is told that dot size means connection count,
+   and being real visible text is also what makes it worth anything to a
+   crawler. Sits between the network and the legend. */
+.welcome-copy .hypercite-encoding {
+  max-width: 44em;
+  margin: 1.1em auto 0;
+  font-size: clamp(0.85rem, 1.5vw, 1rem);
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0.8;
+}
+

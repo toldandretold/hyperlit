@@ -39,6 +39,18 @@ import {
 
 const flush = () => new Promise((r) => setTimeout(r, 5));
 
+/**
+ * Deterministic flip-completion wait: `vis-busy` is added synchronously on the
+ * option click and removed in applyHighlightVisibility's `finally` on BOTH the
+ * success and failure paths. A fixed-ms flush loses the race under load (the
+ * chain is fetch → json → two mocked-IDB timeout hops → repaint), and worse, a
+ * test that asserts early leaves the apply IN FLIGHT — its late
+ * setDefaultHighlightVisibility write then lands AFTER the next test's
+ * localStorage.clear() (the "expected null, received 'private'" pollution).
+ */
+const awaitFlipSettled = (control) =>
+  vi.waitFor(() => expect(control.classList.contains('vis-busy')).toBe(false));
+
 function mountContainer(state = 'public') {
   const host = document.createElement('div');
   host.id = 'hyperlit-container';
@@ -164,7 +176,7 @@ describe('applying a flip', () => {
     control.querySelector('.visibility-trigger').click();
 
     control.querySelector('.visibility-option[data-target="private"]').click();
-    await flush();
+    await awaitFlipSettled(control);
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, opts] = fetchSpy.mock.calls[0];
@@ -184,7 +196,7 @@ describe('applying a flip', () => {
     control.querySelector('.visibility-trigger').click();
 
     control.querySelector('.visibility-option[data-target="private"]').click();
-    await flush();
+    await awaitFlipSettled(control);
 
     expect(control.dataset.state).toBe('public');
     expect(localStorage.getItem('hyperlit_default_hl_visibility')).toBeNull();

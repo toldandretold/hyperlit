@@ -11,6 +11,8 @@ export async function loadCreatorTools(self: any) {
 
   // Build the HTML for version history, reconvert placeholder, reupload, and delete
   const html = `
+      <div id="book-url-section" style="margin-top: 10px; display: none;"></div>
+
       <div id="version-history-section" style="margin-top: 10px;">
         <h3>Version History</h3>
         <div id="version-history-list" style="font-size: var(--sc-13); color: var(--color-text-secondary);">Loading...</div>
@@ -88,6 +90,7 @@ export async function loadCreatorTools(self: any) {
   }
 
   // Fire off lazy API calls (harvest lives in Research Workflows now).
+  self.loadSlugSection();
   self.loadVersionHistory();
   self.loadReconvertInfo();
 }

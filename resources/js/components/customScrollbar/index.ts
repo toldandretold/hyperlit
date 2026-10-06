@@ -32,7 +32,7 @@ import { isPaginatorEngaged } from '../../scrolling/paginator';
 import { scrollElementWithConsistentMethod } from '../../scrolling/scrollHelpers';
 import { parseChunkId } from '../../indexedDB/types';
 import type { NodeRecord } from '../../indexedDB/types';
-import { MAX_LOADED_CHUNKS, trimWindow } from '../../lazyLoader/utilities/windowChunks';
+import { MAX_LOADED_CHUNKS, currentChunkBudget, trimWindow } from '../../lazyLoader/utilities/windowChunks';
 import {
   buildVirtualMap,
   indexAtVirtual,
@@ -991,7 +991,10 @@ async function commitJump(idx: number, vPos: number): Promise<void> {
     if (generation === bindGeneration) {
       // Belt-and-braces: bare loadChunk never trims; sentinel loads right after a
       // jump can momentarily exceed the budget.
-      if (instance.currentlyLoadedChunks.size > MAX_LOADED_CHUNKS) {
+      // currentChunkBudget(), not MAX_LOADED_CHUNKS — a translated page holds a
+      // larger window (windowChunks seam F), and a hardcoded budget here would
+      // call trimWindow on every jump only for it to decline.
+      if (instance.currentlyLoadedChunks.size > currentChunkBudget()) {
         void trimWindow(instance, 'down').catch(() => {});
       }
       // Edge landing: make sure short chunks still cover the viewport.

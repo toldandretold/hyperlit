@@ -71,6 +71,27 @@ Schedule::command('storage:scan')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Language detection stale sweep: re-detect books whose content changed since
+// the last attempt (and first-attempt any book the import hooks missed). The
+// detected value feeds <html lang> only — bibliographic metadata stays
+// declared-only. Weekly is plenty: a book changing language is rare, and a
+// fresh import detects via DetectBookLanguageJob at conversion time.
+Schedule::command('library:detect-language --stale --apply --no-interaction')
+    ->weeklyOn(0, '05:00')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// plainText self-heal: fill NULL/'' plainText from strip_tags(content) for
+// non-encrypted nodes. Runs BEFORE 04:30 embeddings:reconcile so freshly
+// healed nodes become visible to its eligibility predicate the same night
+// (the command dispatches QueueBookEmbeddings itself for affected books).
+// Cost: one filtered scan over nodes — same class as reconcile's own scans.
+// --no-interaction makes the confirm() deterministic under the scheduler.
+Schedule::command('nodes:backfill-plaintext --no-interaction')
+    ->dailyAt('04:10')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Embedding reconciliation: converge to the EmbeddingEligibility definition —
 // queue books with missing embeddings (write paths that forgot to dispatch,
 // 3-strikes API failures, content edits that nulled a stale vector) and scrub

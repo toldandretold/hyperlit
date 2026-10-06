@@ -14,6 +14,7 @@ import {
 } from './cursor';
 import { replaceEditButtonWithLock, updateEditButtonVisibility } from './lock';
 import { isBookStaleForEdit } from '../../utilities/staleBookGate';
+import { isExternallyTranslated } from '../../utilities/externalTranslation';
 // Paginated reading mode round-trip: editing always happens in the scroll flow
 // (contenteditable inside CSS columns is a browser-bug minefield), so the edit
 // button suspends pagination at the current anchor and exiting edit re-engages.
@@ -73,6 +74,25 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
   // those edits, so entering edit mode here would save stale content over
   // them. Reading stays free — only the write entry pays: refresh first.
   // (Soft reload: shared IndexedDB already holds the latest.)
+  // Browser-translation gate: the rendered prose is the translator's, not the
+  // author's, and the editor saves FROM the live DOM. Entering edit mode here
+  // would save every paragraph in the chunk in the target language — including
+  // the ones the user never touched — and `contentProcessor` unwraps the <font>
+  // wrappers that were the only evidence, so the damage would be invisible
+  // afterwards (see utilities/externalTranslation.ts). Blocked at the entrance
+  // because that is the only point where the user can still act on it: a
+  // refusal mid-typing would just lose their work. No auto-reload offered —
+  // reloading re-translates when "always translate this language" is set, so
+  // the translator genuinely has to be turned off.
+  if (isExternallyTranslated()) {
+    await showCustomAlert(
+      'Translation is on',
+      'Your browser is translating this page, so the text on screen is the translation rather than the book. Turn translation off and reload before editing — otherwise the translated text would be saved as the book\'s real content.',
+      { showReadButton: true },
+    );
+    return;
+  }
+
   if (isBookStaleForEdit(book)) {
     const { showStaleTabOverlay } = await import('../../utilities/BroadcastListener');
     showStaleTabOverlay(
@@ -191,6 +211,13 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
         enforceEditableState();
 
         editableDiv.contentEditable = "true";
+        // Declarative preventative: ask the browser not to translate the book
+        // while it is editable. The real protections are the entry gate above
+        // and batch.ts's refusal — this just reduces the chance of ever needing
+        // them, since the divEditor MutationObserver watches `characterData` as
+        // a deliberate catch-all and would ingest a translator's rewrites as
+        // typing. Removed again on exit so reading-mode translation still works.
+        editableDiv.setAttribute('translate', 'no');
 
         // ✅ Dynamically import edit toolbar
         const { getEditToolbar } = await import('../../editToolbar/index');
@@ -311,6 +338,8 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
 
   enforceEditableState();
   editableDiv.contentEditable = "false";
+  // Back to a readable book — let the browser translate it again.
+  editableDiv.removeAttribute('translate');
 
   // Re-engage paginated mode if the preference still says so (no-op otherwise;
   // also clears the suspended flag when the user changed the preference mid-edit).
@@ -480,6 +509,10 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
 // Store handler references for proper cleanup (like logoNav pattern)
 let editClickHandler: any = null;
 let editTouchHandler: any = null;
+// Attach-once: initializeEditButtonListeners re-runs on every reader entry
+// (ButtonRegistry), but this listener is on `window` and has no button to
+// dedupe against, so it needs its own latch or it would stack per navigation.
+let translationListenerAttached = false;
 
 export function initializeEditButtonListeners() {
   const editBtn = document.getElementById("editButton") as any;
@@ -523,6 +556,29 @@ export function initializeEditButtonListeners() {
     editBtn.addEventListener("click", editClickHandler);
     editBtn.addEventListener("touchend", editTouchHandler);
     editBtn.dataset.listenersAttached = 'true';
+  }
+
+  // Translation switched on DURING an edit session. The entry gate in
+  // enableEditMode can't catch this, and from here on every keystroke the
+  // editor queues would be refused by batch.ts (which is what keeps the data
+  // safe), so staying in edit mode would just silently drop the user's typing.
+  // Stand the session down instead and say why.
+  //
+  // `skipPersistence: true` is deliberate: the normal exit flushes the save
+  // queue, and flushing now would push nodes read from a DOM the translator has
+  // already rewritten. Anything typed before translation started was already
+  // persisted by the 3s debounce; anything after it was never safe to save.
+  if (!translationListenerAttached) {
+    translationListenerAttached = true;
+    window.addEventListener('hyperlit:external-translation', () => {
+      if (!(window as any).isEditing) return;
+      disableEditMode({ skipPersistence: true });
+      void showCustomAlert(
+        'Translation turned on — editing stopped',
+        'Your browser started translating this page, so the text on screen is no longer the book. Editing has been switched off and nothing further was saved. Turn translation off and reload to carry on editing.',
+        { showReadButton: true },
+      );
+    });
   }
 }
 

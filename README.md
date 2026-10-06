@@ -1,10 +1,16 @@
 ![hyperlit](/public/images/titleLogo.png)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23133502.svg)](https://doi.org/10.5281/zenodo.23133502)
+# Hyperlit: the open source future of open access research.
 
 Read and self-publish hypertext literature. 
 
+Enjoy advanced, semi-automated workflows.
+
 [https://hyperlit.io](https://hyperlit.io)
 
-## [Why?](https://hyperlit.io/welcome)
+## Why?
+
+### Inception
 
 I am a historian. I made this site to publish research with two-way hyperlink citations.[^1]
 
@@ -12,24 +18,45 @@ I import sources to read. I cite by copying passages and pasting them into my ow
 
 This means readers of my work can be taken directly to the cited passages in the source material.
 
-You might want to use it for something else.
-
 [Read more here](https://hyperlit.io/welcome)
+
+### Mission
+
+Right now, academic publishing monopolies are combining unevenly with Big AI Tech.
+
+This is an existential problem for open science.
+
+Before, the problem was simply getting access to text. Now, the problem is getting access to advanced workflows, to new means of digital knowledge production. 
+
+The solution is to combine the open access movement with free and open source software. To create open platforms with full data sovereignty. To outcompete the monopolists, at least in terms of usefulness. 
+
+That is the mission of hyperlit:
+
+to resist digital enclosure by augmenting the knowledge commons.
+
+[Read more here](https://hyperlit.io/book_1788397849708)
+
 
 ## Features
 ### Free features
-- **hypercites**: automatic, two-way hyperlink citations (Copy text with hypercite button. Paste it. Hypercited!)
+- **hypercites**: automatic, two-way hyperlink citations 
+
+ If you see a citation to a quote from an open access text, you can be taken directly to the quoted text. This also works in reverse. You can see that a text has been cited, and be taken directly to those citations.
 - **hyperlights**: any-user can highlight any word
-- **word .doc** import and export conversion (with dynamic footnotes and citations)
-- **markdown .md** import and export conversion (with dynamic footnotes and citations)
-- **automatic copy-paste conversion** of major academic journals (with dynamic footnotes and citations)
+- **Conversion:** import and export conversion (with dynamic footnotes and citations): markdown.md, word.doc, .epub, plus copy-and-paste content from major academic journals
+- **semantic search**: search the entire hyperlit library, your own personal library, or a custom shelf (like a playlist) by *meaning*. 
+
 
 ### Paid features
 *These cost money for tokens, or compute. However, you are free to run this locally and use your own APIs or local LLMs though. Eventually might add feature to add your own API keys, but for now don't have any secure way of doing so.*
 
-- **PDF conversion**: Mistral OCR converts PDF, and the resulting .json is converted to markdwon preserving academic referencing (being ironed out as I read more. Not perfect by any means. But once converted can easily download all raw files including markdown)
-- **AI Archivist**: Select text to request archival research assistance. The selected text is turned into a vector embedding (numbers), and compared to vector embeddings of public text nodes in the hyperlit database. A small Qwen model is used to determine the scope of the vector search. For example: if user is just asking about the specific statement, might only draw vector comparisons on nodes in that book. But if user asks about a literature review of sources related to the content of the selected text, then vector comparison will be drawn on all nodes in the database. The results are sent to DeepSeek (hosted with no data capture on fireworks.ai). Because DeepSeek is prompted to use these known sources, it is able to respond with analysis that hypercites back to the original source material.
-- **AI Citation Review**: a small open-weight LLM extracts citation data and truth claims for each in-text citation. Relevant data from the sources is vacuumed up via APIs to open access research metadata (OpenAlex, Open Library, Semantic Scholar, etc). Any pdfs available are fetched and converted with Mistral OCR. Then, text search is used to pull relevant text for each source, and this is sent to DeepSeek (hosted with no data capture on Fireworks.ai), which assesses the likelihood that each truth claim is supported by the source. A report is generated, and highlights are added to the reviewed text. An email is sent to notify when review is complete.
+- **PDF conversion**: Mistral OCR converts PDF, and the resulting .json is converted to markdwon preserving academic referencing (being ironed out as I read more. Not perfect by any means.)
+- **Generation of Audio books**: convert your hypertext into audio books. These read the text for you. While listening, you can still highlight the text as per usual. This makes it easy to listen to work, but still make notes, or create citations, whenver you need to. Can also download the audio book as a file to play in any audio-book player.
+- **AI Citation Review**: compares citations with their alleged truth claims. It draws on open science databases and open weight models in order to produce a transparent report that augments human review.
+- **AI Archivist**: answers questions by drawing on your library, shelf, or all of hyperlit. It's answers hypercite back to the referenced source material. Not to the document, but to the actually cited words.
+- **In text study assistance**: Select text to ask contextualised questions to open weight models. Select text of the response to ask further, clarifying questions, endlessly. 
+- **Knowledge Commons Harvester**:  vacuums up all the open access texts cited by an article. It puts them in a "shelf" in your personal library.
+
 
 ## How to use?
 
@@ -53,22 +80,49 @@ Users have full sovereignty of their data.
 
 By default, published work comes with a copyleft inspired license that aims to protect text from being used to train non-free LLMs. See: [default license](https://hyperlit.io/license2025content). Ironically, the LLM slave that wrote this license tells me that it is unlikely to be legally binding.
 
-## WARNING!
+## Warning
 
-I created this website using LLMs. I have gradually gotten better at programming, but I am still largely dependent on LLMs. I'm sure both lovers and haters of vibez will find fucked shit in this code. 
+I created this website using LLMs. I have gradually gotten better at programming, but I am still largely dependent on LLMs. 
 
-It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for **publishing** text that you want others to read freely.
+It is for this reason that it is stronlgy advised that the website is **not used for any personal notes**, or anything that you would not want leaked to the internet. This is intended for **publishing** open access text that you want others to read freely.
 
-That said, I am a historian of global political economy who created this website in order to use it. I am using it to write and publish, and hope that -- eventually -- it will become reliable enough for others' trust. Now, though, it is clearly in need of "peer review".
+That said, the software production workflow relies on full end-to-end testing using playwright. Furthermore, you can submit fully encrypted text. This requires that you first set up a pass key.
 
 ## Built With
 
-- Typescript
-- Laravel
+- TypeScript
+- Laravel (Fortify, Sanctum, Reverb)
 - IndexedDB
-- PostgreSQL
-- Rangy highlighter
+- PostgreSQL + pgvector
 - Python
+- three.js, KaTeX, DOMPurify, marked, Rangy
+- pandoc, ffmpeg, Playwright / patchright
+- BeautifulSoup, lxml, Pillow, python-docx
+- smalot/pdfparser, HTMLPurifier, CommonMark, WebAuthn
+
+## Open scholarly infrastructure
+
+Hyperlit's citation resolution and source harvesting draw on the knowledge commons.
+
+- [OpenAlex](https://openalex.org) — the open index of scholarly works; the backbone of canonical-source identity.
+- [Crossref](https://www.crossref.org) — DOI metadata.
+- [DOAJ](https://doaj.org) — the authority on which journals are genuinely diamond open access (no APC).
+- [Unpaywall](https://unpaywall.org) — green-OA locations; the richest source of repository PDFs.
+- [CORE](https://core.ac.uk) — OA aggregation and full-text cache.
+- [arXiv](https://arxiv.org) / [ar5iv](https://ar5iv.labs.arxiv.org) — preprints, and their HTML renderings.
+- [OpenLibrary](https://openlibrary.org) — book metadata.
+- [ORCID](https://orcid.org) — author identity.
+- [Semantic Scholar](https://www.semanticscholar.org) and [PubMed Central](https://pmc.ncbi.nlm.nih.gov) — further metadata and full text.
+
+## Commercial services
+
+Each sits behind a swappable interface — none is required to run hyperlit, and the open-weight options are preferred where they exist.
+
+- Inference — [Fireworks AI](https://fireworks.ai) (gpt-oss-120b, DeepSeek), or any OpenAI-compatible endpoint, or local [Ollama](https://ollama.com).
+- OCR — [Mistral](https://mistral.ai), or Apple Vision on macOS hosts.
+- Text to speech — [DeepIm) serving open-weight[Kokoro-82M](https://hugg82M).
+- Web search — [Brave Search/api/).
+- Payments — [Stripe](https://stripe.com).
 
 ## Getting Started **locally**
 

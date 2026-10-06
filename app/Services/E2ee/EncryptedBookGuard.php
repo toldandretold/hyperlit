@@ -76,8 +76,27 @@ class EncryptedBookGuard
 
     /**
      * plainText derivation that respects encryption: NULL for encrypted books,
-     * otherwise the client-sent value or strip_tags($content) (the historical
-     * precedence at every plainText-computing site).
+     * otherwise — in precedence order — a NON-EMPTY client-sent value, then
+     * strip_tags($content), then NULL.
+     *
+     * An empty-string client value is treated as MISSING, not as a value: the
+     * client never computes plainText (the import lanes minted '' as a default
+     * for months, and the paste lanes echo whole IDB rows back), so '' is only
+     * ever a hole being re-asserted — preserving it was how holes survived the
+     * 2026-08 IS NULL-only backfill. A NON-empty client value is preserved
+     * because some lanes store plainText that legitimately differs from
+     * strip_tags(content): home-book library cards (plainText = the citation
+     * text, content = the card HTML) and citation-review nodes (crafted
+     * "Verdict:" summaries). Never "upgrade" this to always-derive.
+     *
+     * Accepted residual: a non-empty STALE client value (content edited
+     * locally, plainText never recomputed client-side) is preserved too. Low
+     * risk — the live editor sync derives server-side on every save.
+     *
+     * The derivation itself must stay bare strip_tags: every stored
+     * hyperlight/hypercite charStart/charEnd is a coordinate in
+     * html_entity_decode(plainText) space, so a cleverer derivation would
+     * shift annotation offsets corpus-wide.
      */
     public static function plainTextFor(string $book, ?string $content, ?string $clientPlainText = null): ?string
     {
@@ -85,7 +104,11 @@ class EncryptedBookGuard
             return null;
         }
 
-        return $clientPlainText ?? ($content !== null && $content !== '' ? strip_tags($content) : null);
+        if ($clientPlainText !== null && $clientPlainText !== '') {
+            return $clientPlainText;
+        }
+
+        return $content !== null && $content !== '' ? strip_tags($content) : null;
     }
 
     /**

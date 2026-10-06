@@ -287,7 +287,11 @@ class UserHomeServerController extends Controller
         if ($showMap) {
             $timing->start('map');
             $mapCached = Cache::flexible(
-                "user-hypercite-map:{$sanitizedUsername}:v3",
+                // v4: the figure wrapper (figcaption + legend + the <details>
+                // text alternative). This cache stores RENDERED markup, so a
+                // markup change is invisible on every warm page until the key
+                // moves.
+                "user-hypercite-map:{$sanitizedUsername}:v5",
                 [900, 86400],
                 function () use ($actualUsername, $sanitizedUsername, $title) {
                     $mapCorpus = DB::connection('pgsql_admin')->table('library')
@@ -304,14 +308,27 @@ class UserHomeServerController extends Controller
                         ->where('book', 'NOT LIKE', '%/%')
                         ->where('book', 'NOT LIKE', 'shelf_%')
                         ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('user_home', 'user_home_sorted', 'user_account', 'user_about')")
-                        ->get(['book', 'title', 'author', 'year'])
+                        // slug: the map's text alternative links every node at
+                        // its CANONICAL url (BookSlugHelper::canonicalPath), so
+                        // a slugged book is never linked from its owner's page
+                        // at a URL that canonicalizes elsewhere.
+                        ->get(['book', 'title', 'author', 'year', 'slug'])
                         ->keyBy('book')
-                        ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
+                        ->map(fn ($r) => [
+                            'title' => (string) $r->title,
+                            'author' => $r->author,
+                            'year' => $r->year,
+                            'slug' => $r->slug,
+                        ])
                         ->all();
 
                     return ['svg' => app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->buildSvgForBooks(
                         $mapCorpus,
                         'Hypercite network of ' . $title,
+                        // This page's nouns for the figcaption, legend and list.
+                        // The legend used to be a hand-copy of the journal one in
+                        // user.blade.php with "article" swapped for "book".
+                        ['noun' => 'book', 'plural' => 'books', 'beyond' => 'beyond this library'],
                     )];
                 },
             );
@@ -319,8 +336,10 @@ class UserHomeServerController extends Controller
             $timing->stop('map');
         }
 
-        // SEO data for user pages
-        $pageTitle = "{$title} - Hyperlit";
+        // SEO data for user pages. Em-dash suffix, matching the book, journal,
+        // archive and homepage titles — this was the last hyphen, and a mixed
+        // separator makes one SERP look like two different sites.
+        $pageTitle = "{$title} — Hyperlit";
         $pageDescription = $bio ? \Illuminate\Support\Str::limit(strip_tags($bio), 160) : "{$actualUsername}'s library on Hyperlit";
 
         // Fetch user's shelves if owner
@@ -401,6 +420,12 @@ class UserHomeServerController extends Controller
             'pageTitle' => $pageTitle,
             'pageDescription' => $pageDescription,
             'ogType' => 'profile',
+            // User pages emitted NO structured data at all, so a profile was
+            // just an untyped page to a crawler. ProfilePage + Person is what
+            // makes it an identity Google can attach a library to.
+            'jsonLd' => $this->buildUserJsonLd(
+                $actualUsername, $title, $pageDescription, $canonicalUrl
+            ),
             'shelves' => $shelves,
             'publicShelves' => $publicShelves,
             'activeShelfId' => $activeShelfId,
@@ -1540,6 +1565,65 @@ class UserHomeServerController extends Controller
         }
 
         return response()->json(['bookId' => $syntheticBookId]);
+    }
+
+    /**
+     * ProfilePage wrapping a Person, for a /u/{name} page.
+     *
+     * User pages carried no structured data at all, so to a crawler a profile
+     * was an untyped page that happened to mention a name — nothing tied the
+     * person to the texts they published. ProfilePage + Person is the type that
+     * does, and it is where a creator's own external links would belong once
+     * they exist as a field.
+     *
+     * `url` is the canonical already computed by the caller, so a shelf deep
+     * link never advertises itself as the person's identity; the Person's own
+     * @id always points at the bare profile.
+     */
+    private function buildUserJsonLd(
+        string $username,
+        ?string $title,
+        string $description,
+        string $canonicalUrl,
+    ): array {
+        $profileUrl = url(UsernameKey::profileUrl($username));
+
+        return [
+            '@context' => 'https://schema.org',
+            '@type' => 'ProfilePage',
+            'url' => $canonicalUrl,
+            'name' => $title ?: $username,
+            'description' => $description,
+            'mainEntity' => [
+                '@type' => 'Person',
+                '@id' => $profileUrl . '#person',
+                'name' => $username,
+                'url' => $profileUrl,
+            ],
+            'isPartOf' => [
+                '@type' => 'WebSite',
+                '@id' => url('/') . '#website',
+                'url' => url('/'),
+                'name' => 'Hyperlit',
+            ],
+            'breadcrumb' => [
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => [
+                    [
+                        '@type' => 'ListItem',
+                        'position' => 1,
+                        'name' => 'Hyperlit',
+                        'item' => url('/'),
+                    ],
+                    [
+                        '@type' => 'ListItem',
+                        'position' => 2,
+                        'name' => $title ?: $username,
+                        'item' => $profileUrl,
+                    ],
+                ],
+            ],
+        ];
     }
 
 }

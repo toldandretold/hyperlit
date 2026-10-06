@@ -65,6 +65,20 @@ class ReconcileEmbeddings extends Command
         }
         $this->info(($dryRun ? '[dry-run] would dispatch' : 'Dispatched') . " QueueBookEmbeddings for {$missing->count()} books ({$missingNodes} nodes missing embeddings)");
 
+        // BLIND SPOT counter (report-only): nodes this reconcile CANNOT see
+        // because they lack the plainText its node predicate filters on —
+        // real content, no plainText, not ciphertext. Non-zero here means a
+        // write path is minting plainText holes faster than the nightly
+        // nodes:backfill-plaintext (04:10) heals them.
+        $blind = (int) ($admin->selectOne(
+            'SELECT count(*) AS c FROM nodes n JOIN library l ON n.book = l.book'
+            . " WHERE {$bookSql}"
+            . ' AND (n."plainText" IS NULL OR n."plainText" = \'\')'
+            . " AND n.content IS NOT NULL AND n.content != '' AND n.content NOT LIKE ?",
+            [\App\Services\E2ee\EncryptedBookGuard::ENVELOPE_PREFIX.'%']
+        )->c ?? 0);
+        $this->info("{$blind} nodes invisible to eligibility for lack of plainText (healed nightly by nodes:backfill-plaintext)");
+
         // STRAY: vectors on ineligible books (NOT bookSql), on orphan nodes
         // whose book has no library row at all, or on ineligible NODES within
         // an eligible book (NOT nodeSql) — too-short text and reference matter.

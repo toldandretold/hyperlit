@@ -195,6 +195,50 @@ it('publish clears the flags + wrapped DEK on the whole tree and plainText regen
         ->toBe('republished words');
 });
 
+it('publish finalize backfills plainText for already-plaintext nodes and leaves ciphertext stragglers alone', function () {
+    // The encrypt branch nulls the tree's plainText; the client then decrypts and
+    // re-uploads content, and only finalize=true is the point where content is
+    // guaranteed plaintext — so that is where the server heals the holes (a node
+    // re-uploaded through a path that didn't derive would otherwise stay
+    // invisible to FTS/embeddings until the nightly backfill). A straggler row
+    // whose content is still an hlenc envelope must NOT be "healed" into
+    // plainText = strip_tags(ciphertext).
+    //
+    // Seeded directly in the post-encrypt state (encrypted flag + DEK on the
+    // library row, NULL plainText on nodes) rather than driving the encrypt
+    // endpoint: the encrypt scrub UPDATEs nodes on the DEFAULT connection, and
+    // this test's uncommitted transaction would then hold row locks that the
+    // heal's pgsql_admin UPDATE would block on (the cross-connection pattern).
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_heal', [
+        'encrypted' => true, 'wrapped_dek' => 'hlenc.v1.A.B',
+        'visibility' => 'private', 'listed' => false,
+    ]));
+    $this->seedLibrary(ownedBookAttrs($user, 'e2ee_heal/Fn1', [
+        'type' => 'sub_book', 'encrypted' => true,
+        'visibility' => 'private', 'listed' => false,
+    ]));
+    // Already decrypted + re-uploaded (plaintext content, plainText hole):
+    $this->seedNode(['book' => 'e2ee_heal', 'startLine' => 100, 'content' => '<p>now plaintext again</p>', 'plainText' => null]);
+    $this->seedNode(['book' => 'e2ee_heal/Fn1', 'startLine' => 100, 'content' => '<p>sub plaintext</p>', 'plainText' => '']);
+    // Straggler the client's re-push hasn't reached:
+    $this->seedNode(['book' => 'e2ee_heal', 'startLine' => 200, 'content' => 'hlenc.v1.IV.CIPHERTEXT', 'plainText' => null]);
+
+    EncryptedBookGuard::forget();
+    $this->postJson('/api/db/library/e2ee_heal/encryption', ['encrypted' => false, 'finalize' => true])
+        ->assertOk()->assertJsonPath('encrypted', false);
+
+    // The heal writes on pgsql_admin (post-commit path) — read it there.
+    $admin = DB::connection('pgsql_admin');
+    expect($admin->table('nodes')->where('book', 'e2ee_heal')->where('startLine', 100)->value('plainText'))
+        ->toBe('now plaintext again');
+    expect($admin->table('nodes')->where('book', 'e2ee_heal/Fn1')->where('startLine', 100)->value('plainText'))
+        ->toBe('sub plaintext');
+    expect($admin->table('nodes')->where('book', 'e2ee_heal')->where('startLine', 200)->value('plainText'))
+        ->toBeNull();
+});
+
 it('encrypt migrates an un-migrated book\'s legacy images into the store instead of destroying them', function () {
     // Correctness proof (docs/e2ee.md): the encrypt scrub deletes the legacy
     // image dirs; without migrate-on-encrypt this would delete the ONLY copies.

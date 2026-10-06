@@ -1370,6 +1370,39 @@ class DbLibraryController extends Controller
                 ->delete();
         }
 
+        // Publish FINALIZE: the one point where the tree's content is guaranteed
+        // plaintext (the client decrypted, re-uploaded everything, and is now
+        // confirming), so heal the plainText the encrypt branch nulled. Earlier
+        // (at the flag-flip) content is STILL ciphertext — deriving there would
+        // mint plainText = strip_tags(ciphertext). Row guards keep any straggler
+        // envelope rows out; PHP strip_tags (not a SQL regexp) because stored
+        // annotation charStart/charEnd coordinates live in strip_tags space.
+        // Post-commit + pgsql_admin, same as the scrub above (deadlock pattern).
+        if (! $encrypting && $request->boolean('finalize')) {
+            $admin = DB::connection('pgsql_admin');
+            $healed = 0;
+            $admin->table('nodes')
+                ->where(function ($q) use ($book) {
+                    $q->where('book', $book)->orWhere('book', 'like', $book.'/%');
+                })
+                ->where(function ($q) {
+                    $q->whereNull('plainText')->orWhere('plainText', '');
+                })
+                ->whereNotNull('content')->where('content', '!=', '')
+                ->where('content', 'NOT LIKE', \App\Services\E2ee\EncryptedBookGuard::ENVELOPE_PREFIX.'%')
+                ->chunkById(500, function ($rows) use ($admin, &$healed) {
+                    foreach ($rows as $row) {
+                        $admin->table('nodes')->where('id', $row->id)
+                            ->update(['plainText' => strip_tags($row->content)]);
+                        $healed++;
+                    }
+                });
+            if ($healed > 0) {
+                \App\Jobs\QueueBookEmbeddings::dispatch($book);
+                Log::info('Publish finalize: plainText healed', ['book' => $book, 'nodes' => $healed]);
+            }
+        }
+
         \App\Services\E2ee\EncryptedBookGuard::forget($book);
         $library->refresh();
 
@@ -1446,6 +1479,19 @@ class DbLibraryController extends Controller
                 ], 422);
             }
 
+            // Set-once: a slug is a PERMANENT public address. Changing it
+            // kills every external link to /{slug} (there is no slug history
+            // and no redirect — the freed slug is even claimable by another
+            // book), so once set it can be neither replaced nor cleared via
+            // the API. The operator escape hatch is library:backfill-slugs
+            // --undo, which writes the column directly.
+            if ($library->slug !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This book already has a permanent URL and it cannot be changed',
+                ], 422);
+            }
+
             // Allow clearing the slug
             if ($slug === null || $slug === '') {
                 $library->update(['slug' => null]);
@@ -1458,66 +1504,16 @@ class DbLibraryController extends Controller
                 ]);
             }
 
-            // Validate slug format: lowercase alphanumeric + hyphens, 3-60 chars
-            if (! preg_match('/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/', $slug)) {
+            // ONE definition of a valid slug — App\Support\SlugRules. This
+            // gauntlet (format, reserved routes, reserved usernames, the
+            // username impersonation guard, book-id and slug collisions) used
+            // to be inlined here; library:backfill-slugs now mints slugs in
+            // bulk and must apply the IDENTICAL rules, and two copies of an
+            // impersonation check is how one quietly stops matching the other.
+            if ($reason = \App\Support\SlugRules::rejectionReason($slug, $bookId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Slug must be 3-60 characters, lowercase alphanumeric and hyphens only, cannot start or end with a hyphen',
-                ], 422);
-            }
-
-            // Check collision with reserved routes. The list lives in
-            // config/reserved-routes.php and is gated by
-            // tests/Feature/Routing/ReservedRoutesTest — a root route with no
-            // entry there fails the suite, which is what stops this drifting
-            // out of sync with the route table (it used to be a local array
-            // here, and never learned about /q, /3d or /maintainer).
-            if (in_array($slug, config('reserved-routes'), true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is reserved and cannot be used',
-                ], 422);
-            }
-
-            // A slug is reachable at /{slug}, so it can impersonate exactly as a
-            // username can — check the same identity blocklist
-            // (config/reserved-usernames.php). Slug is already lowercased by the
-            // format regex above, so a plain in_array is correct.
-            if (in_array($slug, config('reserved-usernames'), true)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is reserved and cannot be used',
-                ], 422);
-            }
-
-            // Check collision with existing usernames.
-            //
-            // findByNamePublic, not User::where: that ran on the RLS-subject
-            // default connection where users_select_policy limits SELECT to
-            // your OWN row, so this impersonation guard saw nobody else and
-            // was inert. It also matches case-insensitively now, which is the
-            // point — a slug `marx` when a user `Marx` exists would be
-            // permanently shadowed by the /{identifier} → /u/ redirect.
-            if (\App\Models\User::findByNamePublic($slug) !== null) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug collides with an existing username',
-                ], 422);
-            }
-
-            // Check collision with existing book IDs
-            if (DB::table('library')->where('book', $slug)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug collides with an existing book ID',
-                ], 422);
-            }
-
-            // Check collision with other slugs (unique index will also enforce this)
-            if (DB::table('library')->where('slug', $slug)->where('book', '!=', $bookId)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'This slug is already in use by another book',
+                    'message' => $reason,
                 ], 422);
             }
 
@@ -1536,14 +1532,139 @@ class DbLibraryController extends Controller
                 'slug' => $slug,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\QueryException $e) {
+            // The DB backstop (partial unique index idx_library_slug, SQLSTATE
+            // 23505 + trigger trg_check_slug_book_collision, P0001) catching a
+            // race the SlugRules probe missed. Answer exactly as the validator
+            // would have — NOT a 500, and never the raw PG error, whose
+            // "Key (slug)=(…) already exists" detail is an existence oracle.
+            if (in_array($e->getCode(), ['23505', 'P0001'], true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This slug is already in use by another book',
+                ], 422);
+            }
+
             Log::error('Set slug failed: '.$e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to set slug',
-                'error' => $e->getMessage(),
+            ], 500);
+        } catch (\Exception $e) {
+            // Log the detail, never return it — raw exception text in a
+            // response body is internals disclosure (ErrorDisclosure suite).
+            Log::error('Set slug failed: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to set slug',
             ], 500);
         }
+    }
+
+    /**
+     * Creator-only read for the Book URL section of Creator Tools: the book's
+     * current slug (null = it lives at /{bookId}), whether a slug can still be
+     * claimed (set-once — see setSlug), and a ready collision-free suggestion
+     * minted by the same generator the backfill command uses.
+     *
+     * Deliberately a dedicated read rather than a field on the library payload:
+     * LibraryRecord round-trips through IndexedDB and back up via upsert, and a
+     * slug riding in that record could stale-clobber past SlugRules.
+     */
+    public function getSlugInfo(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+            ], 401);
+        }
+
+        $bookId = $request->input('book');
+        if (! $bookId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book ID is required',
+            ], 400);
+        }
+
+        $library = PgLibrary::where('book', $bookId)->first();
+        if (! $library) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Book not found',
+            ], 404);
+        }
+
+        if ($library->creator !== $user->name) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only the book creator can view slug info',
+            ], 403);
+        }
+
+        $canSet = $library->slug === null && ! $library->encrypted;
+
+        $suggestion = null;
+        if ($canSet) {
+            // library.year is a loose column (and holds ciphertext for
+            // encrypted books, excluded above) — only trust a numeric value.
+            $year = is_numeric($library->year) ? (int) $library->year : null;
+            $candidate = \App\Support\SlugRules::candidateFrom(
+                (string) ($library->title ?? ''),
+                $library->author,
+                $year
+            );
+            if ($candidate !== null) {
+                $suggestion = \App\Support\SlugRules::uniqueFrom($candidate, $bookId);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'book' => $bookId,
+            'slug' => $library->slug,
+            'encrypted' => (bool) $library->encrypted,
+            'canSet' => $canSet,
+            'suggestion' => $suggestion,
+        ]);
+    }
+
+    /**
+     * Live availability probe for the Book URL input (the slug counterpart of
+     * validateBookId). Runs the REAL SlugRules gauntlet so the inline message
+     * is always the exact verdict setSlug would return — a second, looser
+     * check here is how a "live" indicator drifts into lying.
+     */
+    public function checkSlug(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required',
+            ], 401);
+        }
+
+        $slug = $request->input('slug');
+        if (! is_string($slug) || $slug === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Slug is required',
+            ], 400);
+        }
+
+        $forBook = $request->input('book');
+        $reason = \App\Support\SlugRules::rejectionReason($slug, is_string($forBook) ? $forBook : null);
+
+        return response()->json([
+            'success' => true,
+            'slug' => $slug,
+            'available' => $reason === null,
+            'message' => $reason,
+        ]);
     }
 }

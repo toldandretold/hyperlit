@@ -6,14 +6,25 @@
 # Content: CC BY-SA 4.0 + AI Training Prohibition (unless creator specifies otherwise) - See /LICENSE-CONTENT.md
 # By accessing this site, you agree to these license terms.
 
-# Block all AI scrapers and commercial crawlers
+# THE RULE WE APPLY BELOW
+# Two different things get called "AI crawlers" and they deserve opposite answers:
+#   1. TRAINING crawlers hoover the corpus into a model's weights. Blocked.
+#      The texts here are the commons; they are not raw material.
+#   2. RETRIEVAL crawlers fetch a page because a person asked a question right
+#      now, and answer them with a citation and a link back. Allowed.
+# Blocking (2) does not protect the commons — it just means nobody using an
+# assistant to find open-access research is ever told this place exists.
+# Agent names below are the ones the vendors actually publish; the split only
+# works if they are current, so check before adding to either list.
+
+# ---------------------------------------------------------------------------
+# BLOCKED: bulk training corpora
+# ---------------------------------------------------------------------------
+
 User-agent: GPTBot
 Disallow: /
 
-User-agent: ChatGPT-User
-Disallow: /
-
-User-agent: CCBot
+User-agent: ClaudeBot
 Disallow: /
 
 User-agent: anthropic-ai
@@ -22,16 +33,16 @@ Disallow: /
 User-agent: Claude-Web
 Disallow: /
 
-User-agent: Google-Extended
+User-agent: CCBot
 Disallow: /
 
-User-agent: PerplexityBot
-Disallow: /
-
-User-agent: Omgilibot
+User-agent: Applebot-Extended
 Disallow: /
 
 User-agent: Meta-ExternalAgent
+Disallow: /
+
+User-agent: Bytespider
 Disallow: /
 
 User-agent: Diffbot
@@ -40,17 +51,49 @@ Disallow: /
 User-agent: cohere-ai
 Disallow: /
 
-User-agent: Bytespider
-Disallow: /
-
-User-agent: ImagesiftBot
+User-agent: Omgilibot
 Disallow: /
 
 User-agent: Omgili
 Disallow: /
 
+User-agent: ImagesiftBot
+Disallow: /
+
 User-agent: YouBot
 Disallow: /
+
+# ---------------------------------------------------------------------------
+# ALLOWED: retrieval and AI search indexes — these cite and link back
+# ---------------------------------------------------------------------------
+
+# OpenAI: user-initiated fetch, and the ChatGPT search index
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+# Anthropic: user-initiated fetch, and the Claude search index
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+# Perplexity: its search index, and user-initiated fetches
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Google's AI surfaces (Gemini grounding, AI Mode). NOTE, and revisit if the
+# stance changes: Google-Extended is NOT a clean split — the same token governs
+# grounding (the discovery we want) and Gemini/Vertex model improvement (the
+# training we don't). It has no effect on classic Googlebot ranking either way.
+User-agent: Google-Extended
+Allow: /
 
 # Allow link preview bots (iMessage, WhatsApp, Facebook Messenger)
 User-agent: facebookexternalhit

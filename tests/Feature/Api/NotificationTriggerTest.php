@@ -16,6 +16,7 @@
 
 use App\Services\Connections\ConnectionRefresher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 beforeEach(function () {
     // The hypercite upsert's afterCommit connection-score recompute runs on
@@ -167,19 +168,28 @@ test('highlighting a HIGHLIGHT (sub-book) notifies the sub-book\'s creator with 
 });
 
 test('a book owned by an anonymous session gets no notification (v1: logged-in recipients only)', function () {
-    $anonToken = '00000000-0000-4000-8000-00000000abcd';
+    // The token is RANDOM, and the row is removed in a finally below, because
+    // this INSERT is on pgsql_admin — it COMMITS, escaping RefreshDatabase. With
+    // a fixed token and cleanup only on the happy path, any interrupted or
+    // failing run left the row behind and then every later run of this test died
+    // on `anonymous_sessions_token_unique` — a permanent, self-inflicted red that
+    // says nothing about the code under test. (Same shape as the fixed-name user
+    // fixtures that silently accumulated ~1700 duplicate rows.)
+    $anonToken = (string) Str::uuid();
     DB::connection('pgsql_admin')->table('anonymous_sessions')->insert([
         'token' => $anonToken, 'created_at' => now(), 'last_used_at' => now(),
     ]);
-    $book = $this->makeBook($anonToken, ['visibility' => 'public']);
-    $this->loginUser();
+    try {
+        $book = $this->makeBook($anonToken, ['visibility' => 'public']);
+        $this->loginUser();
 
-    $this->postJson('/api/db/hyperlights/upsert', hyperlightPayload($book, 'hyperlight_anonowner'))
-        ->assertStatus(200);
+        $this->postJson('/api/db/hyperlights/upsert', hyperlightPayload($book, 'hyperlight_anonowner'))
+            ->assertStatus(200);
 
-    expect(DB::connection('pgsql_admin')->table('notifications')->where('book', $book)->count())->toBe(0);
-
-    DB::connection('pgsql_admin')->table('anonymous_sessions')->where('token', $anonToken)->delete();
+        expect(DB::connection('pgsql_admin')->table('notifications')->where('book', $book)->count())->toBe(0);
+    } finally {
+        DB::connection('pgsql_admin')->table('anonymous_sessions')->where('token', $anonToken)->delete();
+    }
 });
 
 test('a PRIVATE highlight stays silent — private activity is never reported to the owner', function () {

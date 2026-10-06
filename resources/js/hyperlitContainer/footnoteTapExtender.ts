@@ -98,6 +98,22 @@ export function initFootnoteTapExtender(): { destroy(): void } {
       return;
     }
 
+    // ONLY extend taps that physically land on book content (the reader's
+    // main content or an open hyperlit container). The coordinate search
+    // below is blind to stacking: with any panel on top — the user/account
+    // menu, a new-book flyout, the TOC, a toolbar, a full-screen overlay —
+    // the browser's hit test correctly targets that chrome, but the old code
+    // still found the COVERED footnote/citation by coordinates, then
+    // preventDefault'ed the touchend (suppressing the synthetic click the
+    // chrome's own button needed) and opened the citation THROUGH the panel.
+    // That was the "tapping a menu button presses the link beneath it" bug.
+    // Allowlist of content contexts, not a denylist of chrome: new overlay
+    // surfaces are added constantly and must not need to know about this.
+    if (!touchTarget?.closest?.('.main-content, #hyperlit-container, .hyperlit-container-stacked')) {
+      touchState = null;
+      return;
+    }
+
     // If the touch directly hit a footnote/citation element, let the existing
     // click handler in footnotesCitations.ts deal with it — return null target.
     const directHit = touchTarget?.closest?.('sup[fn-count-id], a.in-text-citation, a.citation-ref, a[id^="hypercite_"]');

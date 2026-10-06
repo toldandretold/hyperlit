@@ -223,6 +223,16 @@ export function processNodeContentHighlightsAndCites(
   contentClone.querySelectorAll('[tabindex]').forEach(el => el.removeAttribute('tabindex'));
   if (contentClone.hasAttribute('tabindex')) contentClone.removeAttribute('tabindex');
 
+  // 🚫 STRIP translate — a render-time artifact like tabindex. chunkRender marks
+  // footnote markers, hypercite arrows and <latex> as translate="no" so a
+  // browser translator leaves those glyphs alone; persisting the attribute would
+  // mutate stored content and churn the integrity comparison. NOTE
+  // NodeHtmlSanitizer is DENYLIST-based (it only strips event handlers and
+  // dangerous URL schemes), so nothing server-side would catch a leak — this
+  // strip is the only thing keeping it out of the database.
+  contentClone.querySelectorAll('[translate]').forEach(el => el.removeAttribute('translate'));
+  if (contentClone.hasAttribute('translate')) contentClone.removeAttribute('translate');
+
   // 🔗 NORMALIZE WORD JOINER before hypercite anchors (prevents line breaks)
   // Ensures all hypercite anchors have a word joiner character (\u2060) immediately before them
   // This prevents the arrow from being orphaned on its own line when text wraps

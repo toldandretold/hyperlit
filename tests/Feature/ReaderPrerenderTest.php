@@ -82,6 +82,57 @@ test('COLD cache → reader <main> stays empty (graceful fallback, no prerender)
     expect($html)->not->toContain('<p>Alpha opening line</p>');
 });
 
+test('a prerender MISS schedules a cache warm, so the book is not empty forever', function () {
+    // THE BUG: nothing on the HTML path ever warmed the cache. The only warm
+    // trigger was a MISS on the NODES API, i.e. after a JS reader had already
+    // fetched chunks — so a book's FIRST server render was always empty, and
+    // stayed empty until a human opened it with JS. Crawlers and browser
+    // translators never get that far. Measured 2026-10-02: 4 of 10 random
+    // public books with >40 nodes served ZERO characters inside <main>.
+    //
+    // The miss response is still empty (we don't block the reader on a rebuild);
+    // what matters is that a warm is scheduled so every LATER visit is whole.
+    Illuminate\Support\Facades\Queue::fake();
+
+    $book = seedPrerenderBook($this);
+    $this->get("/{$book}")->assertStatus(200);
+
+    Illuminate\Support\Facades\Queue::assertPushed(
+        App\Jobs\WarmBookCacheJob::class,
+        fn ($job) => $job->bookId === $book,
+    );
+});
+
+test('a STALE cache also schedules a warm — the permanently-stale case self-heals', function () {
+    // `ted2018the` in production had a cache sitting 1053ms behind its library
+    // row: `isFresh` correctly refuses it forever, and before this nothing on
+    // the read path would ever rebuild it. A silent, permanent loss of the
+    // article body for that book.
+    Illuminate\Support\Facades\Queue::fake();
+
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);
+    DB::connection('pgsql_admin')->table('library')->where('book', $book)->update(['timestamp' => 5000]);
+
+    $this->get("/{$book}")->assertStatus(200);
+
+    Illuminate\Support\Facades\Queue::assertPushed(App\Jobs\WarmBookCacheJob::class);
+});
+
+test('a prerender HIT schedules NOTHING — no warm on the happy path', function () {
+    // Otherwise every read of every healthy book would queue a pointless
+    // rebuild, which on a crawl would be a self-inflicted load problem.
+    Illuminate\Support\Facades\Queue::fake();
+
+    $book = seedPrerenderBook($this);
+    app(BookCache::class)->warm($book);
+
+    $html = $this->get("/{$book}")->assertStatus(200)->getContent();
+    expect($html)->toContain('data-prerendered="true"');
+
+    Illuminate\Support\Facades\Queue::assertNotPushed(App\Jobs\WarmBookCacheJob::class);
+});
+
 test('STALE cache → no prerender (content changed, cache not rebuilt yet)', function () {
     $book = seedPrerenderBook($this);
     app(BookCache::class)->warm($book);

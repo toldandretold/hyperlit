@@ -113,6 +113,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `sanitizeTitleForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
 | `sanitizeYearForAutofill` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
 | `yearMax` | `components/newbookContainer/citeForm/autofillRules` | — | — | — | — |
+| `clearAllAutofilledMarks` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `clearAutofilledFields` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `getAutofilledFieldIds` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `isNewFileSelection` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `markFieldAutofilled` | `components/newbookContainer/citeForm/autofillTracking` | — | — | write | — |
+| `resetFileSelectionTracking` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `restoreAutofilledMarks` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `setFieldFromDocument` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `watchForManualFieldEdits` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
+| `withDocumentWrite` | `components/newbookContainer/citeForm/autofillTracking` | — | — | — | — |
 | `checkBibtexAndReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `populateFieldsFromBibtex` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
 | `setupBibtexModeAutoReveal` | `components/newbookContainer/citeForm/bibtex` | — | — | — | — |
@@ -137,15 +147,16 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupFormSubmissionHandler` | `components/newbookContainer/citeForm/index` | — | — | — | — |
 | `setupModeSwitching` | `components/newbookContainer/citeForm/modes` | — | — | — | — |
 | `switchImportMode` | `components/newbookContainer/citeForm/modes` | — | — | write | — |
+| `clearSavedFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
 | `loadFormData` | `components/newbookContainer/citeForm/persistence` | `localStorage` | — | write | — |
 | `saveFormData` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | — | — |
-| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | `localStorage` | write | — |
+| `setupClearButton` | `components/newbookContainer/citeForm/persistence` | — | — | write | — |
 | `setupFormPersistence` | `components/newbookContainer/citeForm/persistence` | — | — | — | — |
 | `setupImportSearch` | `components/newbookContainer/citeForm/search` | — | — | read/write | — |
 | `setupSourceToggle` | `components/newbookContainer/citeForm/sourceToggle` | — | — | write | — |
 | `getAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
 | `setAllowedResubmitBookId` | `components/newbookContainer/citeForm/state` | — | — | — | — |
-| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | — | `sessionStorage` | read/write | — |
+| `setupFormSubmission` | `components/newbookContainer/citeForm/submission` | `localStorage` | `localStorage` `sessionStorage` | read/write | — |
 | `getCiteFormHTML` | `components/newbookContainer/citeForm/template` | — | — | read | — |
 | `setupUrlImport` | `components/newbookContainer/citeForm/urlImport` | — | — | read/write | — |
 | `setupRealTimeValidation` | `components/newbookContainer/citeForm/validation` | — | — | read/write | — |
@@ -346,6 +357,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleReconvert` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
 | `loadReconvertInfo` | `components/sourceContainer/creatorTools/reconvert` | — | — | read/write | — |
 | `handleReupload` | `components/sourceContainer/creatorTools/reupload` | — | — | read/write | — |
+| `loadSlugSection` | `components/sourceContainer/creatorTools/slugSection` | — | — | read/write | — |
 | `loadVersionHistory` | `components/sourceContainer/creatorTools/versionHistory` | — | — | read/write | — |
 | `downloadAllForBook` | `components/sourceContainer/downloads` | — | — | write | — |
 | `downloadMarkdown` | `components/sourceContainer/downloads` | — | — | write | — |
@@ -404,6 +416,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.loadHarvestSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadReconvertInfo` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadResearchWorkflows` | `components/sourceContainer/index` | — | — | — | — |
+| `SourceContainerManager.loadSlugSection` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.loadVersionHistory` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewConfirm` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.openAiReviewVizOverlay` | `components/sourceContainer/index` | — | — | — | — |
@@ -440,6 +453,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildVisibilityControlHtml` | `components/sourceContainer/visibilityControl` | — | — | — | — |
 | `deriveVisibilityState` | `components/sourceContainer/visibilityControl` | — | — | — | — |
 | `showTargetNotFoundToast` | `components/toast/toast` | — | — | read/write | — |
+| `showTranslationBlockedToast` | `components/toast/toast` | — | — | read/write | — |
 | `setInitialBookmarkPosition` | `components/tocContainer/bookmark` | — | — | read | — |
 | `updateOrInsertBookmark` | `components/tocContainer/bookmark` | — | — | read/write | — |
 | `buildDisplayEntries` | `components/tocContainer/hyperlightsTab` | `library` | — | — | — |
@@ -1400,6 +1414,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `selectNextChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `selectPrevChunkId` | `lazyLoader/utilities/chunkSelection` | — | — | — | — |
 | `fillViewport` | `lazyLoader/utilities/fillViewport` | — | — | read | — |
+| `currentChunkBudget` | `lazyLoader/utilities/windowChunks` | — | — | — | — |
 | `isWithinViewport` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
 | `removeChunk` | `lazyLoader/utilities/windowChunks` | — | — | read/write | — |
 | `trimWindow` | `lazyLoader/utilities/windowChunks` | — | — | read | — |
@@ -1811,6 +1826,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `LinkNavigationHandler.removeGlobalHandlers` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `LinkNavigationHandler.shouldSkipLinkHandling` | `SPA/navigation/LinkNavigationHandler` | — | — | read | — |
 | `LinkNavigationHandler.trackRecentLinkClick` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
+| `LinkNavigationHandler.urlNamesRenderedBook` | `SPA/navigation/LinkNavigationHandler` | — | — | — | — |
 | `loadInitialChunkLocal` | `SPA/navigation/loadInitialChunkLocal` | `footnotes` | — | — | — |
 | `isImportedBookEntry` | `SPA/navigation/localContentEntry` | `sessionStorage` | — | — | — |
 | `isLocalContentEntry` | `SPA/navigation/localContentEntry` | — | — | — | — |
@@ -1973,7 +1989,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
+<<<<<<< HEAD
 **Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 300
+=======
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 301
+>>>>>>> main
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2126,7 +2146,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `footnotes/FootnoteNumberingService` → `indexedDB/nodes/batch`
 - `footnotes/FootnoteNumberingService` → `indexedDB/syncQueue/queue`
 - `hypercites/deletion` → `hyperlights/index`
+- `hyperlights/createHighlight` → `components/toast/toast`
 - `hyperlights/createHighlight` → `hyperlitContainer/selectionContext`
+- `hyperlights/deleteHighlight` → `components/toast/toast`
 - `hyperlights/deleteHighlight` → `divEditor/index`
 - `hyperlights/deletion` → `hyperlights/myHighlights/ghostLedger`
 - `hyperlights/deletion` → `lazyLoader/index`

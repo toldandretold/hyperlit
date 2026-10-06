@@ -22,6 +22,7 @@ import {
 } from './emergencyBackup';
 import { isLoggedIn } from '../utilities/auth/index';
 import { drainResponse } from '../utilities/drainResponse';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 // Type-only import — verifier imports reporter dynamically, so this back-reference
 // is erased at runtime and introduces no static cycle.
 import type { NodeMismatch, MissingNode, DuplicateId } from './verifier';
@@ -785,6 +786,22 @@ function _showModal(bookId: any, payload: any, selfHealed = false, localCacheLos
           statusEl.className = 'integrity-status integrity-status-error';
           statusEl.style.display = 'block';
           statusEl.textContent = 'No nodes found in book container.';
+          rectifyBtn.disabled = false;
+          rectifyBtn.textContent = 'Emergency Rectify';
+          return;
+        }
+
+        // Emergency Rectify re-saves EVERY rendered node from the live DOM — the
+        // single most destructive thing to do on a translated page, since it
+        // would write the translator's prose over the whole book in one go.
+        // Refused LOUDLY rather than silently: this is a deliberate operator
+        // action, so a no-op that looked like success would be worse than an
+        // error. (batch.ts would refuse the writes anyway; this explains why.)
+        if (isExternallyTranslated()) {
+          statusEl.className = 'integrity-status integrity-status-error';
+          statusEl.style.display = 'block';
+          statusEl.textContent =
+            'Your browser is translating this page. Turn translation off and reload before rectifying — otherwise the translated text would be saved as the book.';
           rectifyBtn.disabled = false;
           rectifyBtn.textContent = 'Emergency Rectify';
           return;

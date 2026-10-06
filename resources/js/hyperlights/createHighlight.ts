@@ -22,6 +22,7 @@ import { generateHighlightID, openHighlightById } from './utils';
 import { STRUCTURAL_BLOCK_TAGS } from '../utilities/blockElements';
 import { withPending, addNewlyCreatedHighlight, removeNewlyCreatedHighlight } from '../utilities/operationState';
 import { isBookStaleForEdit } from '../utilities/staleBookGate';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 import { verbose } from '../utilities/logger';
 
 // rangy is a global loaded via a <script> tag in the blade layout.
@@ -258,6 +259,17 @@ export async function createHighlightHandler(event: Event, bookId: BookId, optio
       undefined,
       { softReload: true },
     );
+    return;
+  }
+
+  // Browser-translation gate: a highlight is stored as character offsets into
+  // the node's text, and the selection was measured against the TRANSLATED
+  // text — so the mark would be anchored to the wrong span of the real content
+  // and reappear around different words once translation is off. Creating the
+  // highlight also re-saves the node's HTML from the live DOM.
+  if (isExternallyTranslated()) {
+    const { showTranslationBlockedToast } = await import('../components/toast/toast');
+    showTranslationBlockedToast('highlight');
     return;
   }
 

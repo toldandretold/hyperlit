@@ -6,6 +6,8 @@
 import { $ } from './dom';
 import { getAllowedResubmitBookId, setAllowedResubmitBookId } from './state';
 import { validateFileInput, showInsufficientBalanceBanner } from './fileUpload';
+import { clearSavedFormData } from './persistence';
+import { resetFileSelectionTracking } from './autofillTracking';
 import { updateBookUrlPreview } from './bookId';
 import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer';
@@ -78,6 +80,10 @@ export function setupFormSubmission() {
       if (plan.kind === 'batch') {
         form._submitting = false;
         const label = plan.folderName || `Import ${new Date().toISOString().slice(0, 10)}`;
+        // The documents are on their way — this draft describes none of them, so
+        // it must not come back the next time the form opens.
+        clearSavedFormData();
+        resetFileSelectionTracking();
         // Close the form now and let the queue widget (already expanded, with
         // an indeterminate bar) be the progress UI from the first moment.
         (window as any).newBookManager?.closeContainer();
@@ -294,6 +300,18 @@ export function setupFormSubmission() {
 async function submitToLaravelAndLoad(formData: any, submitButton: any) {
   console.log("Submitting to Laravel controller for file processing...");
 
+  // Create Book was pressed: this draft now belongs to a book being made, not to
+  // the NEXT one, so drop it up front rather than relying on the success paths
+  // (a closed container cancels the poller, and the import still completes). The
+  // snapshot is a plain string, restored verbatim on failure — re-reading the DOM
+  // would not work, since the progress UI has replaced the form's markup by then.
+  const draftSnapshot = (() => { try { return localStorage.getItem('formData'); } catch { return null; } })();
+  const restoreDraft = () => {
+    try { if (draftSnapshot !== null) localStorage.setItem('formData', draftSnapshot); } catch { /* non-fatal */ }
+  };
+  clearSavedFormData();
+  resetFileSelectionTracking();
+
   try {
     // Use the new ImportBookTransition pathway
     const { ImportBookTransition } = await import('../../../SPA/navigation/pathways/ImportBookTransition');
@@ -309,6 +327,10 @@ async function submitToLaravelAndLoad(formData: any, submitButton: any) {
 
   } catch (error: any) {
     console.error("❌ Import failed:", error);
+
+    // Nothing was created — give the user their metadata back so a retry (or a
+    // reopen after closing the failure modal) does not start from an empty form.
+    restoreDraft();
 
     // Re-enable the button only on failure, since on success we navigate away.
     if (submitButton) {

@@ -6,6 +6,8 @@
 import { $ } from './dom';
 import { isLoggedIn } from '../../../utilities/auth/index';
 import { escapeHtml } from '../../../paste/utils/normalizer';
+import { clearSavedFormData } from './persistence';
+import { resetFileSelectionTracking } from './autofillTracking';
 
 export function setupUrlImport() {
   const urlInput = $('import-url-input');
@@ -253,6 +255,9 @@ export function setupUrlImport() {
         resetButton();
         return;
       }
+      // The book exists — the draft describes it, not the next import.
+      clearSavedFormData();
+      resetFileSelectionTracking();
       window.location.href = `/${data.bookId}`;
     } catch (e) {
       console.error(e);

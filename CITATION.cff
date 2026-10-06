@@ -1,0 +1,47 @@
+# Citation metadata for Hyperlit (Citation File Format, citation-file-format.github.io).
+#
+# Three consumers read this file:
+#   - GitHub: renders the "Cite this repository" button (APA + BibTeX)
+#   - Zenodo: uses it for the DOI record's title/authors/abstract/license,
+#     instead of guessing from the GitHub account and release notes
+#   - citation managers ingest it directly
+#
+# Keep `version` in step with the release tag when cutting a release, and add
+# `doi: 10.5281/zenodo.XXXXXXX` (the CONCEPT doi, which always resolves to the
+# latest version) once Zenodo mints it.
+#
+# Authorship: significant contributors are listed here; smaller contributions
+# are acknowledged in the README. Adding an author later is a one-line edit
+# that rides into the next release — each release carries the author list as
+# it stood at that snapshot.
+cff-version: 1.2.0
+message: "If you use or cite Hyperlit, please cite it as below."
+# Descriptive title on purpose: in reference lists, DataCite and OpenAlex this
+# string appears with zero context, next to an npm package named plain
+# "hyperlit" — the subtitle is the disambiguation (and the software-paper
+# convention: "Name: what it is").
+title: "Hyperlit: an open-source docuverse for open-access research"
+type: software
+authors:
+  - family-names: Nicholls
+    given-names: Samuel
+    orcid: "https://orcid.org/0000-0002-0204-5427"
+abstract: >-
+  Hyperlit is an open-source docuverse for open-access text: a research,
+  writing and publishing platform with two-way hyperlink citations
+  (hypercites), collaborative highlighting (hyperlights), AI citation
+  review, and PDF, Word and EPUB conversion to hypertext.
+# The CONCEPT doi: resolves to the latest version, every release. The
+# per-version DOIs (…23133503 for v0.9.0) live on Zenodo; this one is the
+# citable identity of the project.
+doi: 10.5281/zenodo.23133502
+license: AGPL-3.0
+repository-code: "https://github.com/toldandretold/hyperlit"
+url: "https://hyperlit.io"
+keywords:
+  - hypertext
+  - open access
+  - digital commons
+  - scholarly publishing
+  - citation analysis
+version: 0.9.0

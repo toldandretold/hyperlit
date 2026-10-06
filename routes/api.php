@@ -469,6 +469,16 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [DbLibraryController::class, 'setSlug']
     );
 
+    Route::get(
+        '/db/library/slug-info',
+        [DbLibraryController::class, 'getSlugInfo']
+    );
+
+    Route::get(
+        '/db/library/slug-check',
+        [DbLibraryController::class, 'checkSlug']
+    );
+
     // E2EE transition (docs/e2ee.md): mark a book encrypted (client re-uploads
     // ciphertext) or published (flags off; client re-uploads plaintext).
     Route::post(

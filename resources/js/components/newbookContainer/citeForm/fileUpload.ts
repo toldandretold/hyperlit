@@ -10,6 +10,12 @@ import { showImportFailureModal } from '../../../conversion/bugReportModal.js';
 import { attachFilesToInput } from '../../utilities/fileImportHelpers';
 import { isNativeShell } from '../../../utilities/nativeBridge';
 import { sanitizeYearForAutofill, sanitizeTitleForAutofill } from './autofillRules';
+import {
+  setFieldFromDocument,
+  clearAutofilledFields,
+  isNewFileSelection,
+  resetFileSelectionTracking,
+} from './autofillTracking';
 import { createTopUpLink } from '../../../utilities/billing/topUp';
 
 // ─── PDF Cost Estimate ───────────────────────────────────────────────
@@ -88,13 +94,11 @@ async function showPdfCostEstimate(file: any) {
     }
     pdf.destroy();
 
-    // Auto-fill empty form fields from PDF metadata
+    // Auto-fill empty form fields from PDF metadata (marked as the document's,
+    // so swapping in a different PDF can re-derive them — see autofillTracking).
     const setIfEmpty = (id: string, val: any) => {
       const elx = $(id);
-      if (elx && !elx.value.trim() && val) {
-        elx.value = val;
-        elx.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (elx && !elx.value.trim() && val) setFieldFromDocument(elx, val);
     };
     setIfEmpty('title', pdfTitle);
     setIfEmpty('author', pdfAuthor);
@@ -110,9 +114,8 @@ async function showPdfCostEstimate(file: any) {
         // (multi-second with _v2 retry phases) and the user may have typed
         // their own id meanwhile — an unconditional assign here clobbered it.
         if (!bookField.value.trim()) {
-          bookField.value = availableId;
           updateBookUrlPreview(availableId);
-          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+          setFieldFromDocument(bookField, availableId);
         }
       }
     }
@@ -224,9 +227,29 @@ export function handlePdfCostEstimate(fileInput: any) {
 
 export async function handleFileMetadataExtraction(fileInput: any) {
   if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    resetFileSelectionTracking();
     hidePdfCostEstimate();
     return;
   }
+
+  // A DIFFERENT document is being imported — discard the fields the previous one
+  // filled in (directly, or carried back by the restored draft) so this file's own
+  // metadata can land. Without this the setIfEmpty autofill below finds every field
+  // occupied and declines, and the new book ships under the old book's title/slug.
+  if (isNewFileSelection(fileInput)) {
+    const cleared = clearAutofilledFields();
+    if (cleared.includes('book')) {
+      updateBookUrlPreview('');
+      const bookValidation = $('book-validation');
+      if (bookValidation) {
+        bookValidation.textContent = '';
+        bookValidation.className = 'validation-message';
+      }
+    }
+    // The draft's "Previously selected: … (please reselect)" note is answered now.
+    $('file-restore-note')?.remove();
+  }
+
   const file = fileInput.files[0];
   const name = file.name.toLowerCase();
 
@@ -248,10 +271,7 @@ export async function handleFileMetadataExtraction(fileInput: any) {
 
     const setIfEmpty = (id: string, val: any) => {
       const el = $(id);
-      if (el && !el.value.trim() && val) {
-        el.value = val;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-      }
+      if (el && !el.value.trim() && val) setFieldFromDocument(el, val);
     };
     const metaTitle = sanitizeTitleForAutofill(meta.title);
     const metaYear = sanitizeYearForAutofill(meta.year);
@@ -268,9 +288,8 @@ export async function handleFileMetadataExtraction(fileInput: any) {
         // Re-check AFTER the await (server probe): the user may have typed
         // their own id meanwhile — an unconditional assign clobbered it.
         if (!bookField.value.trim()) {
-          bookField.value = availableId;
           updateBookUrlPreview(availableId);
-          bookField.dispatchEvent(new Event('input', { bubbles: true }));
+          setFieldFromDocument(bookField, availableId);
         }
       }
     }

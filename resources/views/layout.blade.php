@@ -1,5 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+{{-- lang comes from the book's own library.language when it has one (see
+     TextController::normalizeLang) — this was hardcoded "en", which told every
+     crawler and screen reader that a German or Spanish work was English. --}}
+{{-- `lang` is emitted ONLY when we actually know the language. It used to
+     default to "en", which asserted English for ~10,000 of ~10,600 top-level
+     books whose `library.language` is NULL (295k rows if you count annotation
+     sub-books) — on no evidence. A WRONG lang is worse than none: it fights
+     the browser's own content-based language detection (which is what decides
+     whether a translation is offered) and misleads screen readers. "Know"
+     means DECLARED (library.language — import metadata / the owner) or
+     DETECTED (library.language_detected — BookLanguageDetector, confidence-
+     floored, null over a guess); declared wins, and the detected value feeds
+     THIS attribute only, never citation_language / inLanguage. Pages that
+     genuinely ARE English app chrome declare it for themselves — see
+     `@php($htmlLang = 'en')` at the top of home/user/journal/archive/
+     reset-password. The reader declares only what it knows of the book. --}}
+@php($langAttr = !empty($htmlLang) ? ' lang="' . e($htmlLang) . '"' : '')
+<html{!! $langAttr !!}>
 <head>
     <script>
         // Console banner
@@ -62,6 +79,16 @@
     <meta name="description" content="{{ $pageDescription ?? 'Read, write and publish hypertext literature' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{ $canonicalUrl ?? url()->current() }}">
+
+    {{-- App surfaces that are not content: the time machine, the AI citation
+         review and the hyperlights listing are views OF a book, not works, and
+         each was crawlable with a bare <title>Hyperlit</title> and a
+         self-canonical — spending crawl budget on near-duplicates of the book
+         itself. "follow" is deliberate: don't index the view, but DO let the
+         crawler walk its links back to the real book. --}}
+    @if(!empty($noindex))
+    <meta name="robots" content="noindex, follow">
+    @endif
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}?v=2">
     <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}?v=2">
 
@@ -161,7 +188,11 @@
     <a href="#main-start" class="skip-link">Skip to content</a>
 
     <!-- Navigation overlay for immediate display - show by default, hide for special cases -->
-    <div id="initial-navigation-overlay" class="navigation-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000; pointer-events: none; display: block;">
+    {{-- translate="no": the loading chrome is app UI, and its strings are
+         rewritten from JS as the load progresses — a translator racing those
+         writes is churn for no benefit. The BOOK itself (<main>) is never
+         marked, so reading-mode translation still works. --}}
+    <div id="initial-navigation-overlay" class="navigation-overlay" translate="no" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.3); z-index: 10000; pointer-events: none; display: block;">
         <div id="progress-overlay-wrapper" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: transparent; padding: 2em; width: 400px; max-width: 70vw;">
             <p class="progress-text" id="page-load-progress-text" style="color: #CBCCCC; text-align: center; margin: 0 0 1em 0; font-size: 16px;">Loading...</p>
             <div class="progress-bar-container" style="width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 1em 0;">

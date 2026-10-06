@@ -10,7 +10,7 @@
  *      same stale content renders again
  *   2. an empty node context (offscreen measurement copies) never queues at all
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { applyDynamicFootnoteNumbers } from '../../../resources/js/lazyLoader/footnoteSelfHeal';
 import { batchUpdateIndexedDBRecords } from '../../../resources/js/indexedDB/nodes/batch';
 
@@ -87,5 +87,47 @@ describe('applyDynamicFootnoteNumbers self-heal queueing', () => {
 
     await settle();
     expect(batchUpdateIndexedDBRecords).not.toHaveBeenCalled();
+  });
+
+  describe('browser-translation gate', () => {
+    afterEach(() => {
+      document.documentElement.className = '';
+      delete window.__hyperlitExternalTranslation;
+    });
+
+    it('never queues a write-back while the page is externally translated', async () => {
+      // The heal persists from the LIVE DOM, which under a translator is the
+      // translator's prose — and contentProcessor's <font> unwrap would launder
+      // it into clean, indistinguishable content. This is the hottest entry
+      // point (once per node per chunk render), so it is gated here.
+      document.documentElement.classList.add('translated-ltr');
+
+      const el = staleNodeElement();
+      applyDynamicFootnoteNumbers(el, { startLine: 300, bookId: 'bookC' });
+
+      // The rendered copy is still corrected — the reader sees right numbers.
+      expect(el.querySelector('sup').getAttribute('fn-count-id')).toBe('7');
+
+      await settle();
+      expect(batchUpdateIndexedDBRecords).not.toHaveBeenCalled();
+    });
+
+    it('does not spend the one-attempt latch on a refusal', async () => {
+      // Translation can be turned off and the page reloaded; the heal must work
+      // normally then. If the refusal consumed the per-session latch, the node
+      // would be permanently unhealable for that (bookId, startLine).
+      document.documentElement.classList.add('translated-ltr');
+      applyDynamicFootnoteNumbers(staleNodeElement(), { startLine: 400, bookId: 'bookD' });
+      await settle();
+      expect(batchUpdateIndexedDBRecords).not.toHaveBeenCalled();
+
+      // Same node, translation gone.
+      document.documentElement.className = '';
+      delete window.__hyperlitExternalTranslation;
+      applyDynamicFootnoteNumbers(staleNodeElement(), { startLine: 400, bookId: 'bookD' });
+
+      await waitForCalls(1);
+      expect(batchUpdateIndexedDBRecords).toHaveBeenCalledTimes(1);
+    });
   });
 });

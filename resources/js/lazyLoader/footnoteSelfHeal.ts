@@ -1,5 +1,7 @@
 import { verbose } from '../utilities/logger';
 import { getDisplayNumber } from '../footnotes/FootnoteNumberingService';
+// Zero-import leaf, so it cannot re-enter the lazyLoader↔indexedDB cycle.
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 
 // Module-level self-heal queue. When a chunk renders and the renderer detects
 // that the stored sup `fn-count-id` disagrees with the dynamic map, it queues
@@ -52,6 +54,20 @@ export async function flushRenderHeal(): Promise<void> {
 async function _drainRenderHealQueue(): Promise<void> {
   if (_renderHealQueue.size === 0) return;
 
+  // Translation can latch BETWEEN the enqueue and this deferred drain, so the
+  // check at queue time is not sufficient on its own. Discard rather than drain:
+  // these entries persist from the LIVE DOM, which is now the translator's text.
+  // (batch.ts refuses them too — this just avoids the pointless round trip and
+  // keeps the one-attempt-per-node latch from being spent on a refusal.)
+  if (isExternallyTranslated()) {
+    _renderHealQueue.clear();
+    verbose.content(
+      '[render-heal] discarded queue: page is externally translated',
+      'lazyLoaderFactory.js',
+    );
+    return;
+  }
+
   // Snapshot + clear so concurrent appends accumulate to a fresh queue
   const snapshot: any[] = [];
   for (const [bookId, set] of _renderHealQueue) {
@@ -95,6 +111,13 @@ async function _drainRenderHealQueue(): Promise<void> {
  */
 export function queueRenderHeal(bookId: any, startLine: any): void {
   if (startLine == null || !bookId) return;
+  // A browser translator has rewritten the rendered text, so persisting "the
+  // live DOM" would persist its output as the book. Checked here — the hottest
+  // entry point, hit once per node per chunk render — so a translated page
+  // never even builds a queue. NOTE this must NOT consume the one-attempt
+  // latch below: translation can be switched off and the page reloaded, and the
+  // heal should work normally then.
+  if (isExternallyTranslated()) return;
   const attemptKey = `${bookId}|${startLine}`;
   if (_healAttempted.has(attemptKey)) return;
   _healAttempted.add(attemptKey);

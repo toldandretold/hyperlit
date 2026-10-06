@@ -1,5 +1,10 @@
 @extends('layout')
 
+{{-- This page is Hyperlit's own English UI (not book content), so it declares
+     its language. The layout emits no `lang` unless a page sets this — see the
+     comment there. --}}
+@php($htmlLang = 'en')
+
 {{-- Homepage: lava-lamp animated background + centered glass hero.
      Design invariants (guarded by tests/Feature/HomeSeoTest.php +
      tests/e2e/specs/smoke/home-lava-homepage.spec.js):
@@ -156,6 +161,48 @@
             @endforeach
           </ul>
         @endif
+
+        {{-- The docuverse itself: the CONNECTED CORE of the public library as the
+             same server-rendered SVG the journal and user heroes use
+             (JournalHyperciteMap, via HomeController::hyperciteMap).
+
+             It is also the homepage's crawl path. Googlebot reaches a page by
+             following links, and the three arranger tabs above are <button>s it
+             cannot click — so before this the homepage was a dead end and every
+             book was sitemap-only, which is how 2 of 324 URLs came to be indexed.
+             This replaced a 1x1 clipped anchor that did the same job invisibly;
+             real content a reader can see is the honest version of it.
+
+             Every dot is an <a href> (tabindex="-1" — contentHopper's n/j keys
+             are the keyboard route, and .welcome-copy is one of its roots).
+             Hidden with the rest of the hero when a feed opens, via
+             #app-container.content-active .welcome-copy { display: none }. --}}
+        @if ($hyperciteMap ?? null)
+          <div class="journal-hypercite-map">
+            {!! $hyperciteMap !!}
+            <div class="journal-map-actions">
+              <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
+            </div>
+          </div>
+        @endif
+
+        {{-- CRAWLER ONLY. There is NO visible link to /books on this page and
+             there must not be one: the feeds and the map above are the reader's
+             way into the texts, and a "browse all texts" link sends them to a
+             flat list that is worse UX than either. It has been added visibly
+             twice by mistake — don't.
+
+             It exists at all because Googlebot reaches a page by following
+             links, and the three arranger tabs are <button>s it cannot click.
+             The map's dots are followable, but the map only renders once
+             something is hypercited, so this is the path that is always there.
+
+             Clipped, NOT display:none — clipped content stays in the
+             accessibility tree and is treated as real content, where
+             display:none links are discounted hardest.
+
+             Guarded by HomeSeoTest (present, hidden, and never visible copy). --}}
+        <a class="seo-crawl-link" href="/books">All texts on Hyperlit</a>
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content
          inside .home-content-wrapper when an arranger button is pressed. --}}

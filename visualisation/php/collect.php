@@ -223,16 +223,57 @@ function normalizeUri(array $prefix, string $uri): string
 /* ───────────────────────── 3. per-method data-flow ───────────────────────── */
 
 /**
+ * Tables touched by each app/Support helper class (short name → tables), so a
+ * controller method that delegates ALL its DB work to one (checkSlug →
+ * SlugRules::rejectionReason) still maps to the tables the helper reads.
+ * Derived exactly like controller tables — DB::table/join literals, Pg model
+ * statics, raw SQL — never hand-coded. Attribution is read-only (the `write`
+ * flag stays a controller-body concern; no support class writes today).
+ */
+function buildSupportTableMap($parser, array $modelTable): array
+{
+    $map = [];
+    foreach (glob(REPO_ROOT . '/app/Support/*.php') ?: [] as $file) {
+        $ast = $parser->parse(file_get_contents($file)) ?? [];
+        $tables = [];
+        foreach ($ast as $node) {
+            walk($node, function (Node $b) use (&$tables, $modelTable) {
+                if (($b instanceof Node\Expr\MethodCall || $b instanceof Node\Expr\StaticCall)
+                    && in_array(callName($b), ['table', 'from', 'join', 'leftJoin', 'rightJoin'], true)
+                    && ($t = firstStringArg($b)) !== null) {
+                    $tables[$t] = true;
+                }
+                if ($b instanceof Node\Expr\StaticCall) {
+                    $cls = shortName($b->class);
+                    if ($cls && isset($modelTable[$cls])) {
+                        $tables[$modelTable[$cls]] = true;
+                    }
+                }
+                foreach (rawSqlTables($b) as $t) {
+                    $tables[$t['table']] = true;
+                }
+            });
+        }
+        if ($tables) {
+            $map[basename($file, '.php')] = array_keys($tables);
+        }
+    }
+    ksort($map);
+    return $map;
+}
+
+/**
  * Parse one controller file into a per-method summary:
  *   methodName → { tables: set, write: bool, calls: set(privateMethodNames), shape: [keys] }
- * Tables come from DB::table('x') / join literals, Pg model statics, and raw SQL strings.
+ * Tables come from DB::table('x') / join literals, Pg model statics, raw SQL strings,
+ * and static delegation into app/Support helpers ($supportTables).
  */
-function analyzeController(string $file, $parser, array $modelTable): array
+function analyzeController(string $file, $parser, array $modelTable, array $supportTables = []): array
 {
     $methods = [];
     $ast = $parser->parse(file_get_contents($file)) ?? [];
     foreach ($ast as $node) {
-        walk($node, function (Node $n) use (&$methods, $modelTable) {
+        walk($node, function (Node $n) use (&$methods, $modelTable, $supportTables) {
             if (!$n instanceof Node\Stmt\ClassMethod || !$n->stmts) {
                 return;
             }
@@ -243,7 +284,7 @@ function analyzeController(string $file, $parser, array $modelTable): array
             $shape = [];
 
             foreach ($n->stmts as $s) {
-                walk($s, function (Node $b) use (&$tables, &$write, &$calls, &$shape, $modelTable) {
+                walk($s, function (Node $b) use (&$tables, &$write, &$calls, &$shape, $modelTable, $supportTables) {
                     // intra-class private-helper calls: $this->getHyperlights(...)
                     if ($b instanceof Node\Expr\MethodCall
                         && $b->var instanceof Node\Expr\Variable
@@ -266,6 +307,13 @@ function analyzeController(string $file, $parser, array $modelTable): array
                             $tables[$modelTable[$cls]] = true;
                             if (isWriteCall(callName($b))) {
                                 $write = true;
+                            }
+                        }
+                        // cross-class delegation into an app/Support helper
+                        // (SlugRules::rejectionReason): its tables are ours.
+                        if ($cls && isset($supportTables[$cls])) {
+                            foreach ($supportTables[$cls] as $t) {
+                                $tables[$t] = true;
                             }
                         }
                     }
@@ -416,6 +464,7 @@ function buildBackendMap(): array
 {
     $parser = (new ParserFactory())->createForNewestSupportedVersion();
     $modelTable = buildModelTableMap($parser);
+    $supportTables = buildSupportTableMap($parser, $modelTable);
     $routes = collectRoutes($parser);
 
     // route methods grouped by controller, restricted to the data-spine allowlist
@@ -437,7 +486,7 @@ function buildBackendMap(): array
         if (!is_file($file)) {
             continue;
         }
-        $methods = analyzeController($file, $parser, $modelTable);
+        $methods = analyzeController($file, $parser, $modelTable, $supportTables);
 
         // collapse routes to unique controller methods (a method may serve >1 uri)
         $perMethod = [];

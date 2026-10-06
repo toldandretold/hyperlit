@@ -25,11 +25,25 @@ import { getSavedAnchor } from '../../scrolling/readingAnchor';
 const CARD_ID = 'journal-map-card';
 const OFFSET = 14;
 
-const KIND_LABELS: Record<string, string> = {
-  lit: 'Hypercited article',
-  article: 'Article',
-  beyond: 'Hypercited book beyond this collection',
-};
+/**
+ * The node-kind label, built from the VOCABULARY the server put on the <svg>
+ * (`data-map-noun` / `data-map-noun-beyond`, see JournalHyperciteMap::emit).
+ *
+ * These used to be hard-coded as "Hypercited article" / "Article" / "…beyond
+ * this collection", which was wrong on every page except a journal: a book on
+ * /u/{name} read "HYPERCITED ARTICLE". The PHP side was parameterised and the
+ * JS was missed. Fallbacks keep the journal wording for an SVG rendered before
+ * these attributes existed (a warm 15-minute cache entry mid-deploy).
+ */
+function kindLabel(node: HTMLElement, kindKey: string): string {
+  const svg = node.closest('svg');
+  const noun = svg?.getAttribute('data-map-noun') ?? 'article';
+  const beyond = svg?.getAttribute('data-map-noun-beyond') ?? 'beyond this collection';
+
+  if (kindKey === 'beyond') return `Hypercited work ${beyond}`;
+  if (kindKey === 'lit') return `Hypercited ${noun}`;
+  return noun.charAt(0).toUpperCase() + noun.slice(1);
+}
 
 let card: HTMLDivElement | null = null;
 let wired = false;
@@ -68,7 +82,7 @@ function fillCard(el: HTMLDivElement, node: HTMLElement, linked: boolean): void 
   const kind = document.createElement('div');
   const kindKey = node.getAttribute('data-map-node') ?? 'article';
   const connections = node.getAttribute('data-connections');
-  kind.textContent = (KIND_LABELS[kindKey] ?? KIND_LABELS.article!)
+  kind.textContent = kindLabel(node, kindKey)
     + (connections ? ` · ${connections} connection${connections === '1' ? '' : 's'}` : '');
   Object.assign(kind.style, {
     fontSize: '10px',
@@ -79,7 +93,9 @@ function fillCard(el: HTMLDivElement, node: HTMLElement, linked: boolean): void 
   } satisfies Partial<CSSStyleDeclaration>);
   el.appendChild(kind);
 
-  const titleText = node.getAttribute('data-title') ?? '';
+  // aria-label, not a separate data-title: they were always the same string, and
+  // emitting both duplicated the title on every node (19% of the SVG's bytes).
+  const titleText = node.getAttribute('aria-label') ?? '';
   if (linked) {
     const link = document.createElement('a');
     link.href = effectiveHref(node);

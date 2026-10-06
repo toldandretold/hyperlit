@@ -9,7 +9,25 @@ import { switchImportMode } from './modes';
 import { updateBookUrlPreview } from './bookId';
 import { hidePdfCostEstimate, hideInsufficientBalanceBanner } from './fileUpload';
 import { setAllowedResubmitBookId } from './state';
+import {
+  getAutofilledFieldIds,
+  restoreAutofilledMarks,
+  clearAllAutofilledMarks,
+  resetFileSelectionTracking,
+  withDocumentWrite,
+} from './autofillTracking';
 import { getImportEncryptIntent } from '../encryptIntent';
+
+/** The ONE place the draft is dropped — the Clear button, a hand-off to the
+ *  importer, and a committed URL import all go through here. */
+export function clearSavedFormData(): void {
+  try {
+    localStorage.removeItem('formData');
+    localStorage.removeItem('newbook-form-data');
+  } catch {
+    // Private-mode / quota — nothing to do.
+  }
+}
 
 export function saveFormData() {
   const selectedType = qs('input[name="type"]:checked');
@@ -31,7 +49,10 @@ export function saveFormData() {
     chapter: $('chapter')?.value || '',
     editor: $('editor')?.value || '',
     type: selectedType ? selectedType.value : '',
-    import_mode: qs('input[name="import_mode"]:checked')?.value || 'search'
+    import_mode: qs('input[name="import_mode"]:checked')?.value || 'search',
+    // Which values the uploaded document wrote rather than the user — restoring
+    // this is what lets a later file swap re-derive them (see autofillTracking).
+    autofilled: getAutofilledFieldIds()
   };
 
   // File inputs can't be restored, but remember the filename so the user gets a "please
@@ -58,12 +79,28 @@ export function loadFormData() {
       }
     }
 
+    // A file is ALREADY attached when the form was opened by a drag-drop onto the
+    // page: the overlay fires `change` on the input before this module runs, so the
+    // new document's own metadata is being extracted right now. Restoring the
+    // previous attempt's document-derived values over the top is exactly the bug —
+    // leave those fields to the file that is actually being imported.
+    const fileAlreadyAttached = (($('markdown_file')?.files?.length as number) || 0) > 0;
+    const documentDerived = new Set<string>(
+      Array.isArray(formData.autofilled) ? formData.autofilled : []
+    );
+
     Object.entries(formData).forEach(([key, value]) => {
+      if (fileAlreadyAttached && documentDerived.has(key)) return;
       const element = $(key);
       if (element && value) {
         element.value = value;
       }
     });
+
+    // Re-stamp the document-derived marks AFTER the values are in, so dropping a
+    // different file onto a restored draft still re-derives this attempt's
+    // title/author/year/citation-id instead of inheriting them.
+    if (!fileAlreadyAttached) restoreAutofilledMarks(formData.autofilled);
 
     if (formData.type) {
       const radio = qs(`input[name="type"][value="${formData.type}"]`);
@@ -74,8 +111,9 @@ export function loadFormData() {
     }
 
     // A previously selected file can't be restored — show a note prompting reselection
-    // (carried over from the old container draft system).
-    if (formData.selectedFileName) {
+    // (carried over from the old container draft system). Pointless, and misleading,
+    // when a file is already sitting in the input.
+    if (formData.selectedFileName && !fileAlreadyAttached) {
       const fileInput = $('markdown_file');
       if (fileInput) {
         const existingNote = $('file-restore-note');
@@ -91,29 +129,34 @@ export function loadFormData() {
       }
     }
 
-    // After restoring values, trigger validations so the user sees status immediately
+    // After restoring values, trigger validations so the user sees status
+    // immediately. Inside a document-write window: these are OUR events, and the
+    // manual-edit watcher would otherwise read them as the user claiming the
+    // fields and drop the marks that were just restored above.
     setTimeout(() => {
       try {
-        const title = $('title');
-        const fileInput = $('markdown_file');
+        withDocumentWrite(() => {
+          const title = $('title');
+          const fileInput = $('markdown_file');
 
-        // Kick title validators (immediate UX feedback)
-        if (title) {
-          title.dispatchEvent(new Event('input', { bubbles: true }));
-          title.dispatchEvent(new Event('blur', { bubbles: true }));
-        }
+          // Kick title validators (immediate UX feedback)
+          if (title) {
+            title.dispatchEvent(new Event('input', { bubbles: true }));
+            title.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
 
-        // Kick citation-id validators (server check runs once on blur if value exists)
-        const bookField = $('book');
-        if (bookField) {
-          bookField.dispatchEvent(new Event('input', { bubbles: true }));
-          bookField.dispatchEvent(new Event('blur', { bubbles: true }));
-        }
+          // Kick citation-id validators (server check runs once on blur if value exists)
+          const bookField = $('book');
+          if (bookField) {
+            bookField.dispatchEvent(new Event('input', { bubbles: true }));
+            bookField.dispatchEvent(new Event('blur', { bubbles: true }));
+          }
 
-        // Show file validation message (will indicate reselect if empty)
-        if (fileInput) {
-          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+          // Show file validation message (will indicate reselect if empty)
+          if (fileInput) {
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        });
       } catch (e) {
         console.warn('Initial validation trigger failed', e);
       }
@@ -175,9 +218,11 @@ export function setupClearButton() {
         submitButton.textContent = 'Create Book';
       }
 
-      // Clear any persisted form data (both keys used across modules)
-      localStorage.removeItem('formData');
-      localStorage.removeItem('newbook-form-data');
+      // Clear any persisted form data (both keys used across modules) and the
+      // document-derived bookkeeping that described it.
+      clearSavedFormData();
+      clearAllAutofilledMarks();
+      resetFileSelectionTracking();
 
       // Reset re-submit bypass so normal validation applies again
       setAllowedResubmitBookId(null);

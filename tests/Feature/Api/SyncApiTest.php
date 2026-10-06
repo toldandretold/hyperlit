@@ -129,6 +129,60 @@ test('POST /api/db/unified-sync derives plainText from content on the bulk path 
     expect($node->plainText)->toBe('The New International Economic Order');
 });
 
+test('POST /api/db/nodes/upsert treats a client plainText of \'\' as missing and derives', function () {
+    // The paste lanes POST raw IDB rows to the nuclear upsert, and those rows can
+    // carry plainText = '' (the import lanes minted '' as a default for months).
+    // plainTextFor must treat '' as a HOLE, not a value — preserving it was how
+    // holes survived the 2026-08 IS NULL-only backfill and stayed invisible to
+    // FTS and embeddings forever.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nodeId = $book.'_100_aaaa';
+
+    $this->postJson('/api/db/nodes/upsert', [
+        'book' => $book,
+        'data' => [[
+            'book'      => $book,
+            'startLine' => 1,
+            'chunk_id'  => 0,
+            'node_id'   => $nodeId,
+            'content'   => '<p data-node-id="'.$nodeId.'">Derived, not empty</p>',
+            'plainText' => '', // the hole being echoed back
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    $node = \Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('node_id', $nodeId)->first();
+    expect($node->plainText)->toBe('Derived, not empty');
+});
+
+test('POST /api/db/nodes/upsert preserves a NON-empty client plainText (crafted lanes)', function () {
+    // Some plainText legitimately differs from strip_tags(content): home-book
+    // library cards store the citation text while content is the full card HTML,
+    // and citation-review nodes store crafted "Verdict:" summaries. Clients echo
+    // those rows back through the paste lanes — this pins that a non-empty client
+    // value survives, so nobody "upgrades" plainTextFor to always-derive.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nodeId = $book.'_100_bbbb';
+
+    $this->postJson('/api/db/nodes/upsert', [
+        'book' => $book,
+        'data' => [[
+            'book'      => $book,
+            'startLine' => 1,
+            'chunk_id'  => 0,
+            'node_id'   => $nodeId,
+            'content'   => '<div class="library-card"><span>Card furniture</span></div>',
+            'plainText' => 'Author, Title (2020) — the crafted citation text',
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    $node = \Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('node_id', $nodeId)->first();
+    expect($node->plainText)->toBe('Author, Title (2020) — the crafted citation text');
+});
+
 /* ─── optimistic-concurrency (base_timestamp) stale guard ─────────── */
 
 test('POST /api/db/unified-sync 409s when base_timestamp is older than the server version', function () {

@@ -1,5 +1,10 @@
 @extends('layout')
 
+{{-- This page is Hyperlit's own English UI (not book content), so it declares
+     its language. The layout emits no `lang` unless a page sets this — see the
+     comment there. --}}
+@php($htmlLang = 'en')
+
 {{-- Archive home page (/a/{slug}): journal-home.blade.php adapted to an
      archive_sources row over a public shelf (see docs/web-scrape-import.md).
      Same design invariants as home.blade.php / journal-home.blade.php:

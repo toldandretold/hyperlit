@@ -976,6 +976,86 @@
       "leaf": true
     },
     {
+      "id": "components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks",
+      "label": "clearAllAutofilledMarks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+      "label": "clearAutofilledFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds",
+      "label": "getAutofilledFieldIds",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:isNewFileSelection",
+      "label": "isNewFileSelection",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "label": "markFieldAutofilled",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "label": "resetFileSelectionTracking",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+      "label": "restoreAutofilledMarks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "label": "setFieldFromDocument",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits",
+      "label": "watchForManualFieldEdits",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "label": "withDocumentWrite",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/autofillTracking",
+      "leaf": true
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "label": "checkBibtexAndReveal",
       "kind": "fn",
@@ -1165,6 +1245,14 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/newbookContainer/citeForm/modes",
+      "leaf": false
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "label": "clearSavedFormData",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/newbookContainer/citeForm/persistence",
       "leaf": false
     },
     {
@@ -2914,6 +3002,14 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "label": "loadSlugSection",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/creatorTools/slugSection",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "label": "loadVersionHistory",
       "kind": "fn",
@@ -3387,6 +3483,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadSlugSection",
+      "label": "SourceContainerManager.loadSlugSection",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/index",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "label": "SourceContainerManager.loadVersionHistory",
       "kind": "fn",
@@ -3669,6 +3773,14 @@
     {
       "id": "components/toast/toast:showTargetNotFoundToast",
       "label": "showTargetNotFoundToast",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/toast/toast",
+      "leaf": false
+    },
+    {
+      "id": "components/toast/toast:showTranslationBlockedToast",
+      "label": "showTranslationBlockedToast",
       "kind": "fn",
       "stage": "components",
       "module": "components/toast/toast",
@@ -6108,6 +6220,24 @@
       ]
     },
     {
+      "id": "controller:DbLibraryController@checkSlug",
+      "label": "checkSlug",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DbLibraryController",
+      "method": "checkSlug",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "available",
+        "message",
+        "slug",
+        "success"
+      ]
+    },
+    {
       "id": "controller:DbLibraryController@destroy",
       "label": "destroy",
       "kind": "controller",
@@ -6121,6 +6251,26 @@
       "shape": [
         "message",
         "success"
+      ]
+    },
+    {
+      "id": "controller:DbLibraryController@getSlugInfo",
+      "label": "getSlugInfo",
+      "kind": "controller",
+      "dir": "pull",
+      "cls": "DbLibraryController",
+      "method": "getSlugInfo",
+      "group": "content",
+      "tables": [
+        "library"
+      ],
+      "shape": [
+        "book",
+        "canSet",
+        "encrypted",
+        "slug",
+        "success",
+        "suggestion"
       ]
     },
     {
@@ -12671,6 +12821,14 @@
       "leaf": false
     },
     {
+      "id": "lazyLoader/utilities/windowChunks:currentChunkBudget",
+      "label": "currentChunkBudget",
+      "kind": "fn",
+      "stage": "lazyLoader",
+      "module": "lazyLoader/utilities/windowChunks",
+      "leaf": true
+    },
+    {
       "id": "lazyLoader/utilities/windowChunks:isWithinViewport",
       "label": "isWithinViewport",
       "kind": "fn",
@@ -16191,6 +16349,14 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.urlNamesRenderedBook",
+      "label": "LinkNavigationHandler.urlNamesRenderedBook",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/LinkNavigationHandler",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/loadInitialChunkLocal:loadInitialChunkLocal",
       "label": "loadInitialChunkLocal",
       "kind": "fn",
@@ -17831,6 +17997,24 @@
       ]
     },
     {
+      "id": "components/newbookContainer/citeForm/autofillTracking",
+      "label": "components/newbookContainer/citeForm/autofillTracking",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks",
+        "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+        "components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds",
+        "components/newbookContainer/citeForm/autofillTracking:isNewFileSelection",
+        "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+        "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+        "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+        "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+        "components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits",
+        "components/newbookContainer/citeForm/autofillTracking:withDocumentWrite"
+      ]
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex",
       "label": "components/newbookContainer/citeForm/bibtex",
       "stage": "components",
@@ -17916,6 +18100,7 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/newbookContainer/citeForm/persistence:clearSavedFormData",
         "components/newbookContainer/citeForm/persistence:loadFormData",
         "components/newbookContainer/citeForm/persistence:saveFormData",
         "components/newbookContainer/citeForm/persistence:setupClearButton",
@@ -18608,6 +18793,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/creatorTools/slugSection",
+      "label": "components/sourceContainer/creatorTools/slugSection",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/creatorTools/slugSection:loadSlugSection"
+      ]
+    },
+    {
       "id": "components/sourceContainer/creatorTools/versionHistory",
       "label": "components/sourceContainer/creatorTools/versionHistory",
       "stage": "components",
@@ -18702,6 +18896,7 @@
         "components/sourceContainer/index:SourceContainerManager.loadHarvestSection",
         "components/sourceContainer/index:SourceContainerManager.loadReconvertInfo",
         "components/sourceContainer/index:SourceContainerManager.loadResearchWorkflows",
+        "components/sourceContainer/index:SourceContainerManager.loadSlugSection",
         "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewConfirm",
         "components/sourceContainer/index:SourceContainerManager.openAiReviewVizOverlay",
@@ -18778,7 +18973,8 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
-        "components/toast/toast:showTargetNotFoundToast"
+        "components/toast/toast:showTargetNotFoundToast",
+        "components/toast/toast:showTranslationBlockedToast"
       ]
     },
     {
@@ -21355,6 +21551,7 @@
       "stage": "lazyLoader",
       "band": "capture",
       "fnIds": [
+        "lazyLoader/utilities/windowChunks:currentChunkBudget",
         "lazyLoader/utilities/windowChunks:isWithinViewport",
         "lazyLoader/utilities/windowChunks:removeChunk",
         "lazyLoader/utilities/windowChunks:trimWindow"
@@ -22469,7 +22666,8 @@
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.preserveSlugInUrl",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.removeGlobalHandlers",
         "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.shouldSkipLinkHandling",
-        "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.trackRecentLinkClick"
+        "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.trackRecentLinkClick",
+        "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.urlNamesRenderedBook"
       ]
     },
     {
@@ -23519,6 +23717,66 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields__call__components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "source": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+      "target": "components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled__domwrite__dom",
+      "source": "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks__call__components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "source": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+      "target": "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument__call__components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "source": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "target": "components/newbookContainer/citeForm/autofillTracking:markFieldAutofilled",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument__call__components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "source": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "target": "components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits__call__components/newbookContainer/citeForm/dom:$",
+      "source": "components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits",
+      "target": "components/newbookContainer/citeForm/dom:$",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/bibtex:checkBibtexAndReveal",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -23653,6 +23911,30 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillTracking:clearAutofilledFields",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillTracking:isNewFileSelection",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillTracking:isNewFileSelection",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
+      "target": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction__call__components/newbookContainer/citeForm/bookId:findAvailableBookId",
       "source": "components/newbookContainer/citeForm/fileUpload:handleFileMetadataExtraction",
       "target": "components/newbookContainer/citeForm/bookId:findAvailableBookId",
@@ -23705,6 +23987,12 @@
       "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
       "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
       "target": "components/newbookContainer/citeForm/autofillRules:sanitizeYearForAutofill",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate__call__components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
+      "source": "components/newbookContainer/citeForm/fileUpload:handlePdfCostEstimate",
+      "target": "components/newbookContainer/citeForm/autofillTracking:setFieldFromDocument",
       "rel": "call"
     },
     {
@@ -23809,6 +24097,12 @@
       "source": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits",
+      "source": "components/newbookContainer/citeForm/index:initializeCitationFormListeners",
+      "target": "components/newbookContainer/citeForm/autofillTracking:watchForManualFieldEdits",
+      "rel": "call"
     },
     {
       "id": "components/newbookContainer/citeForm/index:initializeCitationFormListeners__call__components/newbookContainer/citeForm/bibtex:populateFieldsFromBibtex",
@@ -23957,6 +24251,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/citeForm/persistence:clearSavedFormData__write__store:localStorage",
+      "source": "components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/autofillTracking:restoreAutofilledMarks",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "source": "components/newbookContainer/citeForm/persistence:loadFormData",
+      "target": "components/newbookContainer/citeForm/autofillTracking:withDocumentWrite",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/persistence:loadFormData__call__components/newbookContainer/citeForm/dom:$",
       "source": "components/newbookContainer/citeForm/persistence:loadFormData",
       "target": "components/newbookContainer/citeForm/dom:$",
@@ -23987,6 +24299,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/citeForm/persistence:saveFormData__call__components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds",
+      "source": "components/newbookContainer/citeForm/persistence:saveFormData",
+      "target": "components/newbookContainer/citeForm/autofillTracking:getAutofilledFieldIds",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/persistence:saveFormData__call__components/newbookContainer/citeForm/dom:$",
       "source": "components/newbookContainer/citeForm/persistence:saveFormData",
       "target": "components/newbookContainer/citeForm/dom:$",
@@ -24003,6 +24321,18 @@
       "source": "components/newbookContainer/citeForm/persistence:saveFormData",
       "target": "store:localStorage",
       "rel": "write"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/autofillTracking:clearAllAutofilledMarks",
+      "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "rel": "call"
     },
     {
       "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
@@ -24047,6 +24377,13 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
+      "target": "components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/newbookContainer/citeForm/persistence:setupClearButton__call__components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
       "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
       "target": "components/newbookContainer/citeForm/state:setAllowedResubmitBookId",
@@ -24063,12 +24400,6 @@
       "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
       "target": "dom",
       "rel": "domwrite"
-    },
-    {
-      "id": "components/newbookContainer/citeForm/persistence:setupClearButton__write__store:localStorage",
-      "source": "components/newbookContainer/citeForm/persistence:setupClearButton",
-      "target": "store:localStorage",
-      "rel": "write"
     },
     {
       "id": "components/newbookContainer/citeForm/persistence:setupFormPersistence__call__components/newbookContainer/citeForm/dom:$",
@@ -24162,6 +24493,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "components/newbookContainer/citeForm/bookId:updateBookUrlPreview",
@@ -24184,6 +24521,13 @@
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "components/newbookContainer/citeForm/fileUpload:validateFileInput",
       "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__call__components/newbookContainer/citeForm/state:getAllowedResubmitBookId",
@@ -24222,6 +24566,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__write__store:localStorage",
+      "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/newbookContainer/citeForm/submission:setupFormSubmission__write__store:sessionStorage",
       "source": "components/newbookContainer/citeForm/submission:setupFormSubmission",
       "target": "store:sessionStorage",
@@ -24240,10 +24590,23 @@
       "rel": "call"
     },
     {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "components/newbookContainer/citeForm/autofillTracking:resetFileSelectionTracking",
+      "rel": "call"
+    },
+    {
       "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/dom:$",
       "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
       "target": "components/newbookContainer/citeForm/dom:$",
       "rel": "call"
+    },
+    {
+      "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "source": "components/newbookContainer/citeForm/urlImport:setupUrlImport",
+      "target": "components/newbookContainer/citeForm/persistence:clearSavedFormData",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/newbookContainer/citeForm/urlImport:setupUrlImport__call__components/userButton/userButton:initializeUserContainer",
@@ -26073,6 +26436,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/creatorTools/slugSection:loadSlugSection__domwrite__dom",
+      "source": "components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory__call__components/sourceContainer/helpers:formatRelativeTime",
       "source": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "target": "components/sourceContainer/helpers:formatRelativeTime",
@@ -26604,6 +26973,13 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.loadSlugSection__call__components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "source": "components/sourceContainer/index:SourceContainerManager.loadSlugSection",
+      "target": "components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory__call__components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "source": "components/sourceContainer/index:SourceContainerManager.loadVersionHistory",
       "target": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
@@ -26847,6 +27223,12 @@
     {
       "id": "components/toast/toast:showTargetNotFoundToast__domwrite__dom",
       "source": "components/toast/toast:showTargetNotFoundToast",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/toast/toast:showTranslationBlockedToast__domwrite__dom",
+      "source": "components/toast/toast:showTranslationBlockedToast",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -30245,6 +30627,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "source": "dom",
+      "target": "components/sourceContainer/creatorTools/slugSection:loadSlugSection",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
       "source": "dom",
       "target": "components/sourceContainer/creatorTools/versionHistory:loadVersionHistory",
@@ -30356,6 +30744,12 @@
       "id": "dom__domread__components/toast/toast:showTargetNotFoundToast",
       "source": "dom",
       "target": "components/toast/toast:showTargetNotFoundToast",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/toast/toast:showTranslationBlockedToast",
+      "source": "dom",
+      "target": "components/toast/toast:showTranslationBlockedToast",
       "rel": "domread"
     },
     {
@@ -35499,6 +35893,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/createHighlight:createHighlightHandler__call__components/toast/toast:showTranslationBlockedToast",
+      "source": "hyperlights/createHighlight:createHighlightHandler",
+      "target": "components/toast/toast:showTranslationBlockedToast",
+      "rel": "call"
+    },
+    {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/calculations:calculateCleanTextOffset",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/calculations:calculateCleanTextOffset",
@@ -35695,6 +36095,12 @@
       "source": "hyperlights/database:removeHighlightFromNodesWithDeletion",
       "target": "store:nodes",
       "rel": "write"
+    },
+    {
+      "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__components/toast/toast:showTranslationBlockedToast",
+      "source": "hyperlights/deleteHighlight:deleteHighlightHandler",
+      "target": "components/toast/toast:showTranslationBlockedToast",
+      "rel": "call"
     },
     {
       "id": "hyperlights/deleteHighlight:deleteHighlightHandler__call__hyperlights/database:removeHighlightFromHyperlights",
@@ -41191,6 +41597,12 @@
       "rel": "call"
     },
     {
+      "id": "lazyLoader/utilities/windowChunks:trimWindow__call__lazyLoader/utilities/windowChunks:currentChunkBudget",
+      "source": "lazyLoader/utilities/windowChunks:trimWindow",
+      "target": "lazyLoader/utilities/windowChunks:currentChunkBudget",
+      "rel": "call"
+    },
+    {
       "id": "lazyLoader/utilities/windowChunks:trimWindow__call__lazyLoader/utilities/windowChunks:removeChunk",
       "source": "lazyLoader/utilities/windowChunks:trimWindow",
       "target": "lazyLoader/utilities/windowChunks:removeChunk",
@@ -43870,6 +44282,18 @@
       "id": "pg:library__pull__controller:DbHyperlightController@find",
       "source": "pg:library",
       "target": "controller:DbHyperlightController@find",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DbLibraryController@checkSlug",
+      "source": "pg:library",
+      "target": "controller:DbLibraryController@checkSlug",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:library__pull__controller:DbLibraryController@getSlugInfo",
+      "source": "pg:library",
+      "target": "controller:DbLibraryController@getSlugInfo",
       "rel": "pull"
     },
     {
@@ -47181,6 +47605,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "source": "store:localStorage",
+      "target": "components/newbookContainer/citeForm/submission:setupFormSubmission",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__components/newbookContainer/debugLog:debugLog",
       "source": "store:localStorage",
       "target": "components/newbookContainer/debugLog:debugLog",
@@ -48744,6 +49174,11 @@
       "kind": "lazy"
     },
     {
+      "source": "components/newbookContainer/citeForm/autofillTracking",
+      "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
       "source": "components/newbookContainer/citeForm/bibtex",
       "target": "components/newbookContainer/citeForm/autofillRules",
       "kind": "static"
@@ -48775,6 +49210,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/fileUpload",
+      "target": "components/newbookContainer/citeForm/autofillTracking",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/fileUpload",
       "target": "components/newbookContainer/citeForm/bookId",
       "kind": "static"
     },
@@ -48792,6 +49232,11 @@
       "source": "components/newbookContainer/citeForm/fileUpload",
       "target": "components/utilities/fileMetadataExtractor",
       "kind": "lazy"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/index",
+      "target": "components/newbookContainer/citeForm/autofillTracking",
+      "kind": "static"
     },
     {
       "source": "components/newbookContainer/citeForm/index",
@@ -48875,6 +49320,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/persistence",
+      "target": "components/newbookContainer/citeForm/autofillTracking",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/persistence",
       "target": "components/newbookContainer/citeForm/bookId",
       "kind": "static"
     },
@@ -48950,6 +49400,11 @@
     },
     {
       "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/autofillTracking",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
       "target": "components/newbookContainer/citeForm/bookId",
       "kind": "static"
     },
@@ -48961,6 +49416,11 @@
     {
       "source": "components/newbookContainer/citeForm/submission",
       "target": "components/newbookContainer/citeForm/fileUpload",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/submission",
+      "target": "components/newbookContainer/citeForm/persistence",
       "kind": "static"
     },
     {
@@ -49000,7 +49460,17 @@
     },
     {
       "source": "components/newbookContainer/citeForm/urlImport",
+      "target": "components/newbookContainer/citeForm/autofillTracking",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/urlImport",
       "target": "components/newbookContainer/citeForm/dom",
+      "kind": "static"
+    },
+    {
+      "source": "components/newbookContainer/citeForm/urlImport",
+      "target": "components/newbookContainer/citeForm/persistence",
       "kind": "static"
     },
     {
@@ -49556,6 +50026,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/creatorTools/reupload",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/creatorTools/slugSection",
       "kind": "static"
     },
     {
@@ -50975,6 +51450,11 @@
     },
     {
       "source": "hyperlights/createHighlight",
+      "target": "components/toast/toast",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlights/createHighlight",
       "target": "hyperlitContainer/selectionContext",
       "kind": "lazy"
     },
@@ -51007,6 +51487,11 @@
       "source": "hyperlights/deleteHighlight",
       "target": "indexedDB/types",
       "kind": "static"
+    },
+    {
+      "source": "hyperlights/deleteHighlight",
+      "target": "components/toast/toast",
+      "kind": "lazy"
     },
     {
       "source": "hyperlights/deleteHighlight",

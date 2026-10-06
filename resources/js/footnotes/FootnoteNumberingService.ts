@@ -16,6 +16,7 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
 
 import { log, verbose } from '../utilities/logger';
 import { asLineId } from '../utilities/idHelpers';
+import { isExternallyTranslated } from '../utilities/externalTranslation';
 import { buildFootnoteMap, getMapSize } from './footnoteCache';
 import { updateFootnoteNumbersInDOM, applyFootnoteMapToStoredHTML } from './footnoteDom';
 
@@ -165,6 +166,20 @@ async function reconcileStoredFootnoteContent(bookId: BookId, skipStartLines: Se
  */
 async function persistRenumberedNodes(bookId: BookId, affectedStartLines: Set<string>): Promise<void> {
   if (affectedStartLines.size === 0) return;
+
+  // This runs on READ-mode page load (backgroundDownload), and it extracts each
+  // node's HTML from the live DOM. Under a browser translator that DOM is the
+  // translator's prose, so persisting it would store the translation as the
+  // book. The in-DOM renumber above is still correct and still happened — only
+  // the write-back is refused, so the numbers the reader sees are right while
+  // the stored copy stays untouched until they read untranslated.
+  if (isExternallyTranslated()) {
+    verbose.content(
+      'Skipping renumber persist: page is externally translated',
+      'FootnoteNumberingService.js',
+    );
+    return;
+  }
 
   try {
     const { batchUpdateIndexedDBRecords } = await import('../indexedDB/nodes/batch');

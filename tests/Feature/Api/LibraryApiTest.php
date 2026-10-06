@@ -122,6 +122,165 @@ test('POST /api/db/library/set-slug rejects an invalid slug format (422, before 
     );
 });
 
+test('POST /api/db/library/set-slug is set-once: first set succeeds, overwrite and clear both 422', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user);
+    $slug = 'apitest-' . strtolower(\Illuminate\Support\Str::random(10));
+
+    // First set succeeds (the creator, slug currently null).
+    $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'slug' => $slug]);
+    $this->assertDatabaseHas('library', ['book' => $book, 'slug' => $slug]);
+
+    // Overwriting is refused — a slug is a permanent public address.
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug . '-v2']),
+        422
+    );
+
+    // Clearing is refused too (removal kills external links just the same).
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => '']),
+        422
+    );
+
+    $this->assertDatabaseHas('library', ['book' => $book, 'slug' => $slug]);
+});
+
+test('POST /api/db/library/set-slug 403s for a non-creator', function () {
+    // Public, or RLS hides the row from the non-creator and the test would
+    // exercise the 404 branch instead of the creator check.
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'public']);
+    $this->loginUser(); // somebody else
+    $this->assertApiError(
+        $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => 'apitest-stolen-slug']),
+        403
+    );
+});
+
+/* ─── slug-info ───────────────────────────────────────────────────── */
+
+test('GET /api/db/library/slug-info requires a logged-in user', function () {
+    $this->assertApiError($this->getJson('/api/db/library/slug-info?book=apitest_x'), 401);
+});
+
+test('GET /api/db/library/slug-info 403s for a non-creator', function () {
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'public']);
+    $this->loginUser();
+    $this->assertApiError($this->getJson('/api/db/library/slug-info?book=' . $book), 403);
+});
+
+test('GET /api/db/library/slug-info offers a suggestion while unset, then reports the slug as locked', function () {
+    $user = $this->loginUser();
+    $token = strtolower(\Illuminate\Support\Str::random(12));
+    $book = $this->makeBook($user, ['title' => "Apitest {$token} Slug Fixture"]);
+
+    // Slug-less: claimable, with a collision-free suggestion from the title
+    // (the same generator library:backfill-slugs uses).
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => null,
+            'canSet' => true,
+            'encrypted' => false,
+            'suggestion' => "apitest-{$token}-slug-fixture",
+        ]);
+
+    // Once set, slug-info reports it locked and stops suggesting.
+    $slug = 'apitest-' . strtolower(\Illuminate\Support\Str::random(10));
+    $this->postJson('/api/db/library/set-slug', ['book' => $book, 'slug' => $slug])->assertStatus(200);
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => $slug,
+            'canSet' => false,
+            'suggestion' => null,
+        ]);
+});
+
+/* ─── slug-check (the live availability probe) ────────────────────── */
+
+test('GET /api/db/library/slug-check requires a logged-in user and a slug', function () {
+    $this->assertApiError($this->getJson('/api/db/library/slug-check?slug=whatever'), 401);
+    $this->loginUser();
+    $this->assertApiError($this->getJson('/api/db/library/slug-check'), 400);
+});
+
+test('GET /api/db/library/slug-check runs the full SlugRules gauntlet, not a bare existence probe', function () {
+    $user = $this->loginUser();
+
+    // Free + well-formed → available.
+    $free = 'apitest-free-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->getJson('/api/db/library/slug-check?slug=' . $free)
+        ->assertStatus(200)->assertJson(['success' => true, 'available' => true, 'message' => null]);
+
+    // A reserved ROUTE word is refused even though no book owns it.
+    $this->getJson('/api/db/library/slug-check?slug=maintainer')
+        ->assertStatus(200)->assertJson(['available' => false])
+        ->assertJsonPath('message', fn ($m) => str_contains($m, 'reserved'));
+
+    // An existing USERNAME is refused (the impersonation guard).
+    $this->getJson('/api/db/library/slug-check?slug=' . strtolower(str_replace(' ', '', $user->name)))
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    // A slug already owned by another book is refused.
+    // (Book-id collisions and the rest of the gauntlet are pinned in
+    // SlugBackfillTest — this endpoint only delegates to SlugRules.)
+    $otherSlug = 'apitest-taken-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->makeBook($user, ['slug' => $otherSlug]);
+    $this->getJson('/api/db/library/slug-check?slug=' . $otherSlug)
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    // Malformed input is a verdict, not an error.
+    $this->getJson('/api/db/library/slug-check?slug=' . urlencode('NOT VALID!'))
+        ->assertStatus(200)->assertJson(['available' => false]);
+});
+
+test('slug validation sees PRIVATE books — the namespace is global, and the refusal is clean', function () {
+    // Another user's PRIVATE book owns a slug. RLS hides that row from the
+    // prober's default connection, but /{slug} still resolves for everyone
+    // (BookSlugHelper::resolve is admin-side), so the slug is NOT available —
+    // and saying "taken" leaks nothing the public URL doesn't already answer.
+    // Before SlugRules moved its collision probes to pgsql_admin, validation
+    // said "available" here and the submit died on the unique index with a raw
+    // 500 whose PG detail WAS a private-existence oracle.
+    $owner = $this->apiUser();
+    $privateSlug = 'apitest-private-' . strtolower(\Illuminate\Support\Str::random(8));
+    $this->makeBook($owner, ['visibility' => 'private', 'slug' => $privateSlug]);
+
+    $me = $this->loginUser();
+    $mine = $this->makeBook($me);
+
+    $this->getJson('/api/db/library/slug-check?slug=' . $privateSlug)
+        ->assertStatus(200)->assertJson(['available' => false]);
+
+    $resp = $this->postJson('/api/db/library/set-slug', ['book' => $mine, 'slug' => $privateSlug]);
+    $resp->assertStatus(422);
+    // The raw exception detail must never reach the body (existence oracle +
+    // internals disclosure) — on ANY error path of this endpoint.
+    expect($resp->json('error'))->toBeNull();
+    $this->assertDatabaseHas('library', ['book' => $mine, 'slug' => null]);
+});
+
+test('GET /api/db/library/slug-info reports an encrypted book as not claimable', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['encrypted' => true]);
+    $this->getJson('/api/db/library/slug-info?book=' . $book)
+        ->assertStatus(200)
+        ->assertJson([
+            'success' => true,
+            'slug' => null,
+            'encrypted' => true,
+            'canSet' => false,
+            'suggestion' => null,
+        ]);
+});
+
 /* ─── destroy ─────────────────────────────────────────────────────── */
 
 test('DELETE /api/books/{book} requires authentication', function () {

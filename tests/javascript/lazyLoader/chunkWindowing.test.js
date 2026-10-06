@@ -10,7 +10,7 @@
  * second island or a stray chunk breaks everything. Phase 1 pins the CURRENT behaviour (no prod
  * changes) so the upcoming removal feature can't silently violate it.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Same mock seam as createLazyLoader.test.js — instantiate the factory in happy-dom.
 vi.mock('../../../resources/js/utilities/logger', () => ({
@@ -76,7 +76,7 @@ vi.mock('../../../resources/js/paste/pasteState', () => ({ isPasteOperationActiv
 vi.mock('../../../resources/js/divEditor/index', () => ({ getPendingSaveNodeIds: vi.fn(() => new Set()) }));
 
 import { createLazyLoader, loadNextChunkFixed, loadPreviousChunkFixed, repositionSentinels } from '../../../resources/js/lazyLoader/index';
-import { MAX_LOADED_CHUNKS, trimWindow } from '../../../resources/js/lazyLoader/utilities/windowChunks';
+import { MAX_LOADED_CHUNKS, MAX_LOADED_CHUNKS_TRANSLATED, currentChunkBudget, trimWindow } from '../../../resources/js/lazyLoader/utilities/windowChunks';
 import { fillViewport } from '../../../resources/js/lazyLoader/utilities/fillViewport';
 import { isCacheDirty } from '../../../resources/js/lazyLoader/utilities/cacheState';
 import { setProgrammaticUpdateInProgress } from '../../../resources/js/utilities/operationState';
@@ -340,6 +340,92 @@ describe('DOM windowing — chunk cleanup on scroll (Phase 2)', () => {
     await trimWindow(inst, 'down');
 
     expect(assertSingleOrderedBlock(inst).length).toBe(10); // all kept
+  });
+});
+
+describe('DOM windowing — seam F: a translated page holds a larger window', () => {
+  // Trimming drops the chunk from `currentlyLoadedChunks` so the observer
+  // re-renders it from IndexedDB on scroll-back — and that re-render produces
+  // FRESH, UNTRANSLATED html. At the normal budget of 7 a reader scrolling
+  // through a long book watches their translation come apart behind them.
+  //
+  // Raised, NOT disabled: the budget exists to keep the div editor and the
+  // scrollbar geometry tractable, and books here run to thousands of nodes.
+  const HUGE_NODES = [];
+  for (let ch = 0; ch <= 29; ch++) {
+    HUGE_NODES.push(node(ch, ch * 2, `H${ch}a`), node(ch, ch * 2 + 1, `H${ch}b`));
+  }
+
+  function translate() {
+    document.documentElement.classList.add('translated-ltr');
+  }
+
+  beforeEach(() => {
+    document.documentElement.className = '';
+    delete window.__hyperlitExternalTranslation;
+  });
+
+  afterEach(() => {
+    // The latch is window-backed and STICKY — it must not leak into the
+    // untranslated tests above/below, which expect the budget of 7.
+    document.documentElement.className = '';
+    delete window.__hyperlitExternalTranslation;
+  });
+
+  it('reports the raised budget only while translated', () => {
+    expect(currentChunkBudget()).toBe(MAX_LOADED_CHUNKS);
+    translate();
+    expect(currentChunkBudget()).toBe(MAX_LOADED_CHUNKS_TRANSLATED);
+  });
+
+  it('does NOT trim at the normal budget while translated (translation survives scroll-back)', async () => {
+    const { inst } = makeLoader({ nodes: BIG_NODES });
+    await loadChunks(inst, 9);
+    setGeometry(inst, { offscreen: true });
+    translate();
+
+    await trimWindow(inst, 'down');
+
+    // 10 chunks is over the normal budget of 7 but under the translated 24.
+    expect(assertSingleOrderedBlock(inst)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(inst.currentlyLoadedChunks.has(0)).toBe(true);
+  });
+
+  it('STILL trims past the translated ceiling — the window stays bounded', async () => {
+    // The whole point of raising rather than removing the budget: an unbounded
+    // window on a 5,000-node book is worse than a re-translated chunk.
+    const { inst } = makeLoader({ nodes: HUGE_NODES });
+    await loadChunks(inst, 29);
+    setGeometry(inst, { offscreen: true });
+    translate();
+
+    await trimWindow(inst, 'down');
+
+    const ids = assertSingleOrderedBlock(inst);
+    expect(ids.length).toBe(MAX_LOADED_CHUNKS_TRANSLATED);
+    expect(ids[0]).toBe(30 - MAX_LOADED_CHUNKS_TRANSLATED); // lowest removed, as when untranslated
+  });
+
+  it('an UNTRANSLATED reader still pays the normal budget (seam F costs them nothing)', async () => {
+    const { inst } = makeLoader({ nodes: BIG_NODES });
+    await loadChunks(inst, 9);
+    setGeometry(inst, { offscreen: true });
+
+    await trimWindow(inst, 'down');
+
+    expect(assertSingleOrderedBlock(inst)).toEqual([3, 4, 5, 6, 7, 8, 9]);
+  });
+
+  it('seams A–E still outrank F: a held selection blocks the trim even when translated', async () => {
+    const { inst } = makeLoader({ nodes: HUGE_NODES });
+    await loadChunks(inst, 29);
+    setGeometry(inst, { offscreen: true });
+    translate();
+    isSelectionDragActive.mockReturnValue(true);
+
+    await trimWindow(inst, 'down');
+
+    expect(assertSingleOrderedBlock(inst).length).toBe(30); // all kept
   });
 });
 

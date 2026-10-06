@@ -2,6 +2,7 @@
 
 namespace App\Services\JournalHarvest;
 
+use App\Helpers\BookSlugHelper;
 use App\Models\JournalSource;
 use App\Services\CanonicalVersions\BestVersionService;
 use Illuminate\Support\Facades\Cache;
@@ -88,11 +89,16 @@ class JournalHyperciteMap
     public function svg(JournalSource $journal): ?string
     {
         $cached = Cache::flexible(
-            "journal-hypercite-map:{$journal->id}:v8",
+            // v10: figure wrapper + figcaption + legend, with the legend rows
+            // now conditional on what was actually drawn. The cache stores
+            // RENDERED markup, so a markup change is invisible to every warm
+            // page until this key moves — bump it whenever emit() changes.
+            "journal-hypercite-map:{$journal->id}:v10",
             [self::CACHE_TTL, self::CACHE_STALE_TTL],
             fn () => ['svg' => $this->buildFromCorpus(
                 $this->journalArticles($journal),
                 'Hypercite network of ' . $journal->display_name,
+                ['noun' => 'article', 'plural' => 'articles', 'beyond' => 'beyond the journal'],
             )],
         );
 
@@ -100,19 +106,35 @@ class JournalHyperciteMap
     }
 
     /**
-     * Corpus-agnostic entry: any `book => {title, author, year}` map (e.g. a
-     * USER's public library on /u/{username}) renders the same network. The
+     * The vocabulary the figure describes itself with. The same network renders
+     * for a journal (whose nodes are "articles" with partners "beyond the
+     * journal") and for a user's library on /u/{username} ("books", "beyond
+     * this library") — the legend used to be hand-copied into each blade with
+     * the nouns swapped, which is exactly how two copies drift.
+     *
+     * @var array{noun: string, plural: string, beyond: string}
+     */
+    private const DEFAULT_VOCAB = [
+        'noun' => 'text',
+        'plural' => 'texts',
+        'beyond' => 'beyond this collection',
+    ];
+
+    /**
+     * Corpus-agnostic entry: any `book => {title, author, year, slug}` map (e.g.
+     * a USER's public library on /u/{username}) renders the same network. The
      * corpus MUST be public-visibility only when the result is cached — the
      * SVG is served to every viewer of the page.
      *
-     * @param  array<string, array{title:string, author:?string, year:mixed}>  $articles
+     * @param  array<string, array{title:string, author:?string, year:mixed, slug?:?string}>  $articles
+     * @param  array{noun?:string, plural?:string, beyond?:string}  $vocab
      */
-    public function svgForBooks(array $articles, string $ariaLabel, string $cacheKey): ?string
+    public function svgForBooks(array $articles, string $ariaLabel, string $cacheKey, array $vocab = []): ?string
     {
         return Cache::remember(
             $cacheKey,
             self::CACHE_TTL,
-            fn () => $this->buildFromCorpus($articles, $ariaLabel),
+            fn () => $this->buildFromCorpus($articles, $ariaLabel, $vocab),
         );
     }
 
@@ -122,26 +144,71 @@ class JournalHyperciteMap
      * stale-while-revalidate entry (UserHomeServerController::show), so the
      * expensive whole-hypercites-table edge walk runs after the response is
      * sent instead of inline for whichever visitor hits the 15-min expiry.
+     *
+     * @param  array{noun?:string, plural?:string, beyond?:string}  $vocab
+     * @param  bool  $connectedOnly  See buildFromCorpus.
      */
-    public function buildSvgForBooks(array $articles, string $ariaLabel): ?string
-    {
-        return $this->buildFromCorpus($articles, $ariaLabel);
+    public function buildSvgForBooks(
+        array $articles,
+        string $ariaLabel,
+        array $vocab = [],
+        bool $connectedOnly = false,
+    ): ?string {
+        return $this->buildFromCorpus($articles, $ariaLabel, $vocab, $connectedOnly);
     }
 
     // ── data ─────────────────────────────────────────────────────────────────
 
-    private function buildFromCorpus(array $articles, string $ariaLabel): ?string
-    {
+    /**
+     * $connectedOnly drops texts with NO hypercite edge from the blob, leaving
+     * the wired core plus its partners.
+     *
+     * Default false, and that default is load-bearing for the journal and user
+     * pages: the class docblock records that a hypercited-only variant was built
+     * and compared, and the all-articles shape won — the full blob is what reads
+     * as "the journal". The HOMEPAGE is the opposite case, which is why this is a
+     * per-caller choice rather than a change of default: its corpus is the whole
+     * public library, where unconnected dots are the overwhelming majority, so
+     * all-articles would be a field of ~300 dots with a handful of lines, and
+     * would also run into MAX_BLOB_DOTS truncation as the library grows.
+     *
+     * The corpus still has to be passed in FULL — the edge walk is what
+     * discovers which books are connected, so the filter can only happen after
+     * it, in draw().
+     */
+    private function buildFromCorpus(
+        array $articles,
+        string $ariaLabel,
+        array $vocab = [],
+        bool $connectedOnly = false,
+    ): ?string {
         if ($articles === []) {
             return null;
         }
 
         [$internalEdges, $spokes, $external, $intro] = $this->edges($articles);
 
-        return $this->draw($ariaLabel, $articles, $internalEdges, $spokes, $external, $intro);
+        return $this->draw(
+            $ariaLabel,
+            $articles,
+            $internalEdges,
+            $spokes,
+            $external,
+            $intro,
+            array_merge(self::DEFAULT_VOCAB, array_filter($vocab)),
+            $connectedOnly,
+        );
     }
 
-    /** The journal's readable PUBLIC articles: book => {title, author, year}. */
+    /**
+     * The journal's readable PUBLIC articles: book => {title, author, year, slug}.
+     *
+     * `slug` rides along so the text alternative can link each node at its
+     * CANONICAL url. Without it the list would hard-code `/{book_id}`, and a
+     * slugged article would be linked from its own journal page at a URL that
+     * canonicalizes elsewhere — fragmenting the signal this whole exercise is
+     * meant to concentrate.
+     */
     private function journalArticles(JournalSource $journal): array
     {
         $best = BestVersionService::sqlCoalesceExpression('cs');
@@ -151,9 +218,14 @@ class JournalHyperciteMap
             ->where('cs.journal_source_id', $journal->id)
             ->where('l.has_nodes', true)
             ->where('l.visibility', 'public')
-            ->get(['l.book', 'l.title', 'l.author', 'l.year'])
+            ->get(['l.book', 'l.title', 'l.author', 'l.year', 'l.slug'])
             ->keyBy('book')
-            ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year])
+            ->map(fn ($r) => [
+                'title' => (string) $r->title,
+                'author' => $r->author,
+                'year' => $r->year,
+                'slug' => $r->slug,
+            ])
             ->all();
     }
 
@@ -230,9 +302,16 @@ class JournalHyperciteMap
             ->whereIn('book', array_keys($outside))
             ->where('has_nodes', true)
             ->where('visibility', 'public')
-            ->get(['book', 'title', 'author', 'year'])
+            // slug: same reason as journalArticles() — the text alternative
+            // links every node at its canonical url, partners included.
+            ->get(['book', 'title', 'author', 'year', 'slug'])
             ->keyBy('book')
-            ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year]);
+            ->map(fn ($r) => [
+                'title' => (string) $r->title,
+                'author' => $r->author,
+                'year' => $r->year,
+                'slug' => $r->slug,
+            ]);
 
         $internalEdges = [];
         $spokes = [];
@@ -273,6 +352,8 @@ class JournalHyperciteMap
         array $spokes,
         array $external,
         array $intro,
+        array $vocab,
+        bool $connectedOnly = false,
     ): string {
         // Degree per article (any hypercite edge) drives ordering + emphasis.
         $degree = [];
@@ -290,7 +371,9 @@ class JournalHyperciteMap
         $title = fn (string $book): string => $articles[$book]['title'] ?? '';
         $connected = array_keys($degree);
         usort($connected, fn ($x, $y) => [$degree[$y], $title($x)] <=> [$degree[$x], $title($y)]);
-        $plain = array_diff(array_keys($articles), $connected);
+        // connectedOnly: the wired core only. The homepage's corpus is the whole
+        // public library, where unconnected texts dominate — see buildFromCorpus.
+        $plain = $connectedOnly ? [] : array_diff(array_keys($articles), $connected);
         usort($plain, fn ($x, $y) => strcmp($title($x), $title($y)));
         $blob = array_slice(array_merge($connected, $plain), 0, self::MAX_BLOB_DOTS);
         if ($blob === []) {
@@ -337,7 +420,7 @@ class JournalHyperciteMap
             $pos[$partner] = [$ringR * cos($angle), $ringR * sin($angle), $angle];
         }
 
-        return $this->emit($ariaLabel, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR, $intro);
+        return $this->emit($ariaLabel, $articles, $external, $pos, $inBlob, $degree, $internalEdges, $spokes, $blobRadius, $ringR, $intro, $vocab);
     }
 
     private function emit(
@@ -352,6 +435,7 @@ class JournalHyperciteMap
         float $blobRadius,
         float $ringR,
         array $intro,
+        array $vocab,
     ): string {
         // ── Solve the viewBox↔pixel scale ──
         // The blob/ring geometry is fixed viewBox units; dots/strokes are
@@ -381,10 +465,36 @@ class JournalHyperciteMap
         // violation (WCAG 4.1.2, serious) that the user-page a11y scan caught. A
         // labelled group keeps the one-line name for the diagram while letting the
         // node links stay legitimately in the accessibility tree.
+        // data-map-noun / data-map-noun-beyond carry the VOCABULARY to the JS
+        // hover card (components/journalHyperciteMap). Without them the card
+        // hard-codes journal nouns and a book on /u/{name} reads "Hypercited
+        // ARTICLE" — a live bug for as long as the PHP side was parameterised
+        // and the JS side was not. Any new render surface gets correct labels by
+        // passing $vocab; nothing has to be edited in the JS.
         $s = [];
         $s[] = '<svg viewBox="' . $this->n($minX) . ' ' . $this->n($minY) . ' ' . $this->n($width) . ' ' . $this->n($height) . '"'
             . ' role="group" aria-label="' . e($ariaLabel) . '"'
+            . ' data-map-noun="' . e($vocab['noun']) . '"'
+            . ' data-map-noun-beyond="' . e($vocab['beyond']) . '"'
             . ' style="display:block;width:100%;max-width:' . $this->n(self::RENDER_WIDTH_PX) . 'px;height:auto;margin:0 auto">';
+
+        // <desc>, and deliberately NOT <title>: aria-label already supplies the
+        // accessible name, and a <title> child renders a native browser tooltip
+        // on hover — which would fight the hover/tap card the whole visual is
+        // built around (components/journalHyperciteMap). <desc> is announced by
+        // screen readers and draws nothing.
+        //
+        // It says how BIG the network is and where to read it — deliberately
+        // NOT the same sentence as the <figcaption>, which explains what the
+        // shapes MEAN. Duplicating them would make a screen reader announce the
+        // same text twice for one graphic.
+        $nodeCount = count($inBlob) + count($external);
+        $edgeCount = count($internalEdges) + count($spokes);
+        $s[] = '<desc>' . e(
+            'A network diagram of ' . $nodeCount . ' ' . ($nodeCount === 1 ? $vocab['noun'] : $vocab['plural'])
+            . ' and ' . $edgeCount . ' hypercite connection' . ($edgeCount === 1 ? '' : 's')
+            . '. Every one is listed in full after the diagram.'
+        ) . '</desc>';
 
         // Edges first, under the dots. Internal pairs bow toward the blob
         // centre; spokes bow gently outward on their way to the ring.
@@ -403,10 +513,14 @@ class JournalHyperciteMap
 
         // Blob dots: hypercited articles solid ink, sized by degree; the rest
         // faint ink.
+        $plainDrawn = 0;
         foreach ($inBlob as $book => $_) {
             [$x, $y] = $pos[$book];
             $deg = $degree[$book] ?? 0;
             $lit = $deg > 0;
+            if (! $lit) {
+                $plainDrawn++;
+            }
             $r = $lit
                 ? min($rLitBase + 0.8 * $k * ($deg - 1), self::R_LIT_CAP_PX * $k)
                 : $rPlain;
@@ -418,10 +532,14 @@ class JournalHyperciteMap
 
         // External partners: aqua dots, no inline labels — titles surface in
         // the hover/tap card, which is what lets the network fill the width.
+        // Counted, because the legend must not advertise a key for a symbol the
+        // diagram does not contain (see legend()).
+        $beyondDrawn = 0;
         foreach ($external as $book => $meta) {
             if (!isset($pos[$book])) {
                 continue;
             }
+            $beyondDrawn++;
             [$x, $y] = $pos[$book];
             $s[] = $this->anchorOpen($book, $meta, 'beyond', 0, $intro[$book] ?? null)
                 . '<circle cx="' . $this->n($x) . '" cy="' . $this->n($y) . '" r="' . $this->n($rExternal) . '"'
@@ -430,29 +548,136 @@ class JournalHyperciteMap
 
         $s[] = '</svg>';
 
-        return implode('', $s);
+        // <figcaption> holds the sentence AND the legend, and is the LAST child:
+        // HTML's content model for <figure> is flow content followed by at most
+        // one <figcaption> (or a <figcaption> first), so a caption in the MIDDLE
+        // is invalid — and both parts describe the one graphic, so the caption is
+        // where they belong rather than loose siblings.
+        //
+        // There was briefly a <details> "view as a list" text alternative here
+        // too. It was removed deliberately, and should not come back on either
+        // of its original justifications: the KEYBOARD route is contentHopper
+        // (see anchorOpen), which already reaches these dots, and its <summary>
+        // was a native Tab stop inside .welcome-copy — i.e. it BROKE the
+        // homepage's chrome-only Tab loop (WCAG 2.4.3) rather than helping.
+        // Its only real benefit was giving a crawler the title as anchor text,
+        // which did not justify ~1,200 DOM elements and a 150-row list under
+        // the hero on the site's busiest page.
+        return '<figure class="hypercite-figure">'
+            . implode('', $s)
+            . '<figcaption class="hypercite-figcaption">'
+            . '<p class="hypercite-encoding">' . e($this->encodingSentence($vocab, $beyondDrawn > 0, $plainDrawn > 0)) . '</p>'
+            . $this->legend($vocab, $beyondDrawn > 0, $plainDrawn > 0)
+            . '</figcaption>'
+            . '</figure>';
+    }
+
+    /**
+     * One sentence explaining what the diagram ENCODES — the thing a sighted
+     * reader cannot infer from the picture (that dot SIZE is connection count)
+     * and a screen-reader user cannot get at all.
+     *
+     * Rendered as the visible <figcaption>. The SVG's <desc> says something
+     * different on purpose — how big the network is — because identical text in
+     * both would be announced twice for one graphic.
+     */
+    private function encodingSentence(array $vocab, bool $hasBeyond = true, bool $hasPlain = true): string
+    {
+        // With no faint dots (connected-core mode) EVERY dot is hypercited, so
+        // "the larger solid dots are hypercited" describes a distinction the
+        // diagram does not draw. Size still means degree, which is the part a
+        // reader cannot infer.
+        $dots = $hasPlain
+            ? 'Each dot is one ' . $vocab['noun'] . '; the larger solid dots are hypercited, '
+                . 'sized by how many connections they have.'
+            : 'Each dot is one ' . $vocab['noun'] . ', sized by how many connections it has.';
+
+        return $dots
+            . ' A line joins two ' . $vocab['plural'] . ' that are hypercited together'
+            . ($hasBeyond ? ', and the outer ring holds works ' . $vocab['beyond'] : '')
+            . '.';
+    }
+
+    /**
+     * The visual key. Lives here rather than in the two blades that render this
+     * figure: it was hand-copied into both with the nouns swapped, so the
+     * journal and user versions could silently diverge. Class names are
+     * unchanged (journalHome.css styles them, and the page tests assert
+     * `journal-map-legend`).
+     *
+     * aria-hidden: every swatch is a colour sample whose meaning the
+     * <figcaption> already states in words — read aloud it is four fragments
+     * about dots, which is noise, not information.
+     *
+     * Both flags suppress a row rather than describe one, because a key for a
+     * symbol the diagram does not contain is worse than no key:
+     *
+     *  - $hasBeyond: on the HOMEPAGE the collection is everything public on
+     *    Hyperlit, so nothing is "beyond" it. Claiming otherwise is what made a
+     *    Hyperlit article read as an external work (PublicBookCorpus::forHyperciteMap).
+     *  - $hasPlain: in connected-core mode every dot is hypercited, so
+     *    "hypercited X" vs "X" is a distinction with nothing on either side of
+     *    it. One row stating that size means connections is the whole key.
+     */
+    private function legend(array $vocab, bool $hasBeyond = true, bool $hasPlain = true): string
+    {
+        $rows = $hasPlain
+            ? '<li><span class="jml-dot jml-lit"></span>hypercited ' . e($vocab['noun'])
+                . ' <em>(bigger = more connections)</em></li>'
+                . '<li><span class="jml-dot jml-plain"></span>' . e($vocab['noun']) . '</li>'
+            : '<li><span class="jml-dot jml-lit"></span>' . e($vocab['noun'])
+                . ' <em>(bigger = more connections)</em></li>';
+
+        return '<ul class="journal-map-legend" aria-hidden="true">'
+            . $rows
+            . '<li><span class="jml-line"></span>' . e($vocab['plural']) . ' hypercited together</li>'
+            . ($hasBeyond
+                ? '<li><span class="jml-dot jml-ext"></span>hypercited work ' . e($vocab['beyond']) . '</li>'
+                : '')
+            . '</ul>';
     }
 
     /**
      * The opening <a> for a node: link + the data the hover card reads
      * (components/journalHyperciteMap). No SVG <title> child — the native
      * tooltip would double up with the card. aria-label keeps the node named
-     * for screen readers; tabindex="-1" is the welcome-copy keyboard model.
+     * for screen readers.
+     *
+     * tabindex="-1" STAYS, and these links are still keyboard-reachable: the
+     * route is contentHopper (components/contentHopper), whose n/j/p/k keys hop
+     * every `a[href]` inside its roots — `.main-content` and `.welcome-copy`.
+     * This figure IS inside `.welcome-copy` on all three pages that render it
+     * (`welcome-copy journal-about`, `welcome-copy user-about`, and the homepage
+     * copy), so the dots are covered by the site-wide keyboard model described
+     * in docs/a11y-findings.md: Tab never enters content, n/p always does.
+     *
+     * An earlier version of this comment claimed the opposite — that
+     * contentHopper could not reach the figure — and a <details> list was added
+     * to compensate. That was simply wrong, and the list's <summary> then broke
+     * the homepage's chrome-only Tab loop by being a native Tab stop inside
+     * `.welcome-copy`. Don't make 400 dots tab stops either; that buries the
+     * page behind hundreds of presses, which is why tabindex="-1" is correct.
      *
      * data-intro carries the FIRST hypercite's URL fragment: the click handler
      * appends it for visitors with no saved reading position, so their first
      * landing opens on hypercited text — the system introducing itself.
      *
-     * @param  ?array{title:string, author:?string, year:mixed}  $meta
+     * @param  ?array{title:string, author:?string, year:mixed, slug?:?string}  $meta
      */
     private function anchorOpen(string $book, ?array $meta, string $kind, int $degree, ?string $introFragment = null): string
     {
         $title = $meta['title'] ?? $book;
 
-        return '<a href="/' . e(rawurlencode($book)) . '" tabindex="-1"'
+        // Canonical path (slug preferred), root-relative so the SPA link handler
+        // treats it like any in-page link — a slugged work must not be linked
+        // from its own collection page at a URL that canonicalizes elsewhere.
+        // aria-label is the title, and the hover card reads it from there — there
+        // used to be an identical `data-title` alongside, which was 19% of the
+        // whole SVG (11kB on the prod journal page) for a second copy of the same
+        // string. One attribute, two consumers.
+        return '<a href="' . e(BookSlugHelper::canonicalPath($book, $meta['slug'] ?? null)) . '" tabindex="-1"'
             . ' aria-label="' . e($title) . '"'
             . ' data-map-node="' . $kind . '"'
-            . ' data-title="' . e($title) . '"'
             . ($meta !== null && $meta['author'] !== null && $meta['author'] !== '' ? ' data-author="' . e((string) $meta['author']) . '"' : '')
             . ($meta !== null && ($meta['year'] ?? null) ? ' data-year="' . e((string) $meta['year']) . '"' : '')
             . ($degree > 0 ? ' data-connections="' . $degree . '"' : '')

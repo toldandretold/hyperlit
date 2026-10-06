@@ -287,6 +287,19 @@ export class UserContainerManager extends (ContainerManager as any) {
       this.container.style.transform = "translate(-50%, -50%)";
     }
 
+    // FULL SIZE IMMEDIATELY, fade opacity only (same pattern as
+    // newbookContainer/openClose.ts). The old width/height 0→N grow left a
+    // ~300ms window where the panel's hit-box was still tiny, so a click
+    // aimed at a menu row landed on the transparent full-screen #user-overlay
+    // — which silently CLOSED the menu, and the user's retry click then hit
+    // whatever content (footnote/citation/link) sat beneath the vanished
+    // panel. Coming from `.hidden` (display:none) these synchronous size
+    // writes don't transition, so the panel renders at its final box on the
+    // first frame and every row is clickable immediately.
+    this.container.style.opacity = "0";
+    this.container.style.width = width;
+    this.container.style.height = height;
+
     this.container.classList.remove("hidden");
     this.container.style.visibility = "visible";
     this.container.style.display = "";
@@ -311,15 +324,13 @@ export class UserContainerManager extends (ContainerManager as any) {
 
     requestAnimationFrame(() => {
       if (this.animationType !== "open") return; // a close interrupted before this frame
-      this.container.style.width = width;
-      this.container.style.height = height;
       this.container.style.opacity = "1";
+      // The box is already final-size (set synchronously above), so the
+      // viewport fit can be answered NOW instead of after the fade.
+      this._clampIntoViewport();
 
       this.container.addEventListener("transitionend", () => {
         this.isAnimating = false;
-        // Height is `auto`, so the panel's real extent only exists once the
-        // content has laid out at full width — that is the first moment the
-        // "does it fit below the trigger" question can be answered honestly.
         this._clampIntoViewport();
       }, { once: true });
 

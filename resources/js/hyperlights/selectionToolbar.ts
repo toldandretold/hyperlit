@@ -25,6 +25,24 @@ import { log, verbose } from '../utilities/logger';
 // Track whether document listeners are attached
 let documentListenersAttached = false;
 
+// Debounced selectionchange → handleSelection. iOS extends/shrinks a selection
+// by dragging the native handles WITHOUT firing mouseup/touchend, so without
+// this the toolbar's state (position, delete visibility, brain dim) froze at
+// whatever the initial long-press selected. Trailing debounce: selectionchange
+// fires continuously during a handle drag, run once it settles.
+let selectionChangeTimer: ReturnType<typeof setTimeout> | null = null;
+function handleSelectionChangeDebounced(): void {
+  if (selectionChangeTimer) clearTimeout(selectionChangeTimer);
+  selectionChangeTimer = setTimeout(() => {
+    // Cheap gate: edit-mode typing fires selectionchange on every caret move
+    // with a collapsed selection — don't run the mark-intersection sweep
+    // unless there's a selection to show for or a visible toolbar to update.
+    const hasSelection = !(window.getSelection()?.isCollapsed ?? true);
+    const toolbarVisible = document.getElementById("hyperlight-buttons")?.style.display === "flex";
+    if (hasSelection || toolbarVisible) handleSelection();
+  }, 200);
+}
+
 /**
  * Handle text selection and show/hide highlight buttons
  */
@@ -178,16 +196,18 @@ export function handleSelection(): void {
       document.getElementById("delete-hyperlight")!.style.display = "none";
     }
 
-    // Dim brain button if selection is too short for AI query
+    // Dim brain button if selection is too short for AI query. VISUAL only —
+    // no pointer-events:none: openBrainFromSelection already refuses <5 chars,
+    // and on iOS the dim state can be STALE (extending a selection by dragging
+    // the native handles fires selectionchange but no touchend, so this
+    // function didn't re-run). A stale pointer-events:none made the first tap
+    // on a perfectly valid selection fall through dead — the "greyed out but
+    // works when I press it anyway" bug: the dead tap's touchend re-ran
+    // handleSelection, un-dimmed the button, and the SECOND tap worked.
     const brainBtn = document.getElementById("brain-hyperlight");
     if (brainBtn) {
-      if (selectedText.trim().length < 5) {
-        brainBtn.style.opacity = "0.3";
-        brainBtn.style.pointerEvents = "none";
-      } else {
-        brainBtn.style.opacity = "";
-        brainBtn.style.pointerEvents = "";
-      }
+      brainBtn.style.pointerEvents = "";
+      brainBtn.style.opacity = selectedText.trim().length < 5 ? "0.3" : "";
     }
   } else {
     verbose.content("No text selected. Hiding buttons.", 'hyperlights/selection.js');
@@ -223,6 +243,7 @@ export function initializeHighlightingControls(currentBookId: string): void {
   if (!documentListenersAttached) {
     document.addEventListener("mouseup", handleSelection);
     document.addEventListener("touchend", () => setTimeout(handleSelection, 100));
+    document.addEventListener("selectionchange", handleSelectionChangeDebounced);
     documentListenersAttached = true;
   }
 
@@ -274,6 +295,11 @@ export function cleanupHighlightingControls(): void {
   if (documentListenersAttached) {
     document.removeEventListener("mouseup", handleSelection);
     // Note: Cannot remove the touchend listener since it was added as an anonymous function
+    document.removeEventListener("selectionchange", handleSelectionChangeDebounced);
+    if (selectionChangeTimer) {
+      clearTimeout(selectionChangeTimer);
+      selectionChangeTimer = null;
+    }
     documentListenersAttached = false;
   }
   // Actually remove button listeners, then reset guards so reinit can re-attach
