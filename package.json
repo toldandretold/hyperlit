@@ -8,7 +8,7 @@
     "queue:import": "php artisan queue:work --queue=imports,default --timeout=1800",
     "queue:citation": "php artisan queue:work --queue=citation-pipeline --timeout=7200",
     "queue:vibe": "php artisan queue:work --queue=vibe --timeout=1800",
-    "queue:translation": "php artisan queue:work --queue=translation --timeout=3700",
+    "queue:translation": "php artisan queue:work --queue=translation --timeout=3600",
     "queue:audio": "php artisan queue:work --queue=audio --timeout=3600",
     "queue:audio-package": "php artisan queue:work --queue=audio-package --timeout=3600",
     "queue:embeddings": "php artisan queue:work --queue=embeddings --timeout=300",

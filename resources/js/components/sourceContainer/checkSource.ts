@@ -211,20 +211,16 @@ export function librarianHtml(record: LibraryRecord): string {
   }
 
   return `
-    <h3>Librarian</h3>
     <p style="font-size: var(--sc-12); color: var(--color-text-secondary); margin: 0;">${inner}</p>
     ${commonsFeedbackNoteHtml(record)}`;
 }
 
-/** The inner content of the source-status section (pills/button + Librarian) — also used on re-render. */
+/** The inner content of the source-status section (pills/button) — also used on re-render. */
 function sourceStatusInnerHtml(record: LibraryRecord, canEdit: boolean): string {
-  let top = '';
   if (isCitationLinked(record)) {
-    top = categoriesHtml(record);
-  } else if (canEdit) {
-    top = checkButtonHtml();
+    return categoriesHtml(record);
   }
-  return `${top}<div id="source-librarian" style="margin-top: 12px; padding-top: 10px">${librarianHtml(record)}</div>`;
+  return canEdit ? checkButtonHtml() : '';
 }
 
 /** The #check-source-section block injected by buildSourceHtml. */
@@ -235,6 +231,20 @@ export function sourceStatusSectionHtml(
 ): string {
   if (!record || accessDenied) return '';
   return `<div id="check-source-section" style="margin-top: 12px; padding-top: 2px">${sourceStatusInnerHtml(record, !!canEdit)}</div>`;
+}
+
+/**
+ * The Librarian block, a SIBLING of #check-source-section rather than part
+ * of it (so the verify flow's innerHTML re-render of the status section
+ * never touches it — that refresh targets the inner #source-librarian).
+ */
+export function librarianSectionHtml(record: LibraryRecord | null, accessDenied: boolean): string {
+  if (!record || accessDenied) return '';
+  return `
+    <div id="source-librarian-section" style="margin-top: 15px; padding-top: 15px;">
+      <h3>Librarian</h3>
+      <div id="source-librarian">${librarianHtml(record)}</div>
+    </div>`;
 }
 
 // ── The verify action (button → lookup → confirm → verify → re-render) ─────────
@@ -309,11 +319,17 @@ export async function handleCheckSource(self: any): Promise<void> {
         mount.innerHTML = '<p style="font-size: var(--sc-12); color: var(--color-label); margin: 8px 0 0 0;">Linking…</p>';
         const verified = await verifySource(book, candidate);
         if (verified.success) {
-          // Re-render the section from the now-linked record (verifySource merged it into IDB).
+          // Re-render the section from the now-linked record (verifySource
+          // merged it into IDB) — and the Librarian sibling too, since its
+          // provider line can change once the record is canonical-linked.
+          const librarian = document.getElementById('source-librarian');
           try {
             const db = await openDatabase();
             const record = await getRecord(db, 'library', book);
-            if (record) section.innerHTML = sourceStatusInnerHtml(record, true);
+            if (record) {
+              section.innerHTML = sourceStatusInnerHtml(record, true);
+              if (librarian) librarian.innerHTML = librarianHtml(record);
+            }
           } catch {
             section.innerHTML = sourceStatusInnerHtml({ book } as LibraryRecord, true);
           }

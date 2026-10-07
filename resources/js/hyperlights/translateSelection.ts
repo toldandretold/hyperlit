@@ -1,4 +1,5 @@
 import { ensureCsrfToken } from '../utilities/auth/csrf';
+import { promptLogin, promptRegister } from '../utilities/auth/promptLogin';
 
 /**
  * Translate button — translates the current selection into a small card
@@ -236,7 +237,8 @@ async function request(target: string): Promise<void> {
     if (controller !== inFlight) return;
 
     if (!response.ok || !data.success) {
-      setBody(errorMessage(response.status, data), 'error', target);
+      if (response.status === 401) setAuthRequiredBody();
+      else setBody(errorMessage(response.status, data), 'error', target);
       return;
     }
 
@@ -326,9 +328,9 @@ export function formatCost(cost: number): string {
 }
 
 function errorMessage(status: number, data: any): string {
-  // Only the server fallback needs an account and credit; a browser that
-  // translates on-device never gets here.
-  if (status === 401) return `Log in to translate in this browser — it uses a little credit. It’s free in ${FREE_BROWSERS}, which translate on your device.`;
+  // 401 is NOT here: it needs real log-in / register links, so it is rendered
+  // as DOM by setAuthRequiredBody(). Only the server fallback needs an account
+  // and credit at all; a browser that translates on-device never gets here.
   if (status === 419) return 'Your session expired — reload the page and try again.';
   if (status === 402) return `Not enough credit. Translating in this browser costs a fraction of a cent a passage — it’s free in ${FREE_BROWSERS}.`;
   return data?.message || `Translation failed (${status}).`;
@@ -387,6 +389,49 @@ function setBody(text: string, state: 'loading' | 'done' | 'error', target?: str
     body.removeAttribute('lang');
     body.removeAttribute('dir');
   }
+}
+
+/**
+ * The 401 body: the same "log in or register" affordance the rest of the site
+ * offers a guest (promptLogin / promptRegister — the AI Archivist's auth gate,
+ * the import form, the shelf menu). Built as DOM rather than through setBody,
+ * which stays text-only because what it normally carries is model output.
+ */
+function setAuthRequiredBody(): void {
+  const body = card?.querySelector<HTMLElement>('.tp-body');
+  if (!body) return;
+
+  body.textContent = '';
+  body.dataset.state = 'error';
+  body.removeAttribute('lang');
+  body.removeAttribute('dir');
+  body.append(
+    'You need to ',
+    authLink('log in', promptLogin),
+    ' or ',
+    authLink('register', promptRegister),
+    ` to translate in this browser — it uses a little credit. It’s free in ${FREE_BROWSERS}, which translate on your device.`,
+  );
+}
+
+/** A link that closes the card (the user panel takes over) and opens a form. */
+function authLink(label: string, open: () => Promise<void>): HTMLAnchorElement {
+  const link = document.createElement('a');
+  link.className = 'tp-auth-link';
+  link.textContent = label;
+  link.setAttribute('role', 'button');
+  link.tabIndex = 0;
+
+  const activate = (event: Event) => {
+    event.preventDefault();
+    closeTranslation();
+    void open();
+  };
+  link.addEventListener('click', activate);
+  link.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') activate(event);
+  });
+  return link;
 }
 
 function setNote(text: string, warning: boolean): void {

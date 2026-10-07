@@ -16,6 +16,13 @@ vi.mock('../../../resources/js/utilities/auth/csrf', () => ({
   ensureCsrfToken: vi.fn(async () => 'xsrf'),
 }));
 
+const promptLogin = vi.fn(async () => {});
+const promptRegister = vi.fn(async () => {});
+vi.mock('../../../resources/js/utilities/auth/promptLogin', () => ({
+  promptLogin: (...args) => promptLogin(...args),
+  promptRegister: (...args) => promptRegister(...args),
+}));
+
 import {
   translateSelection,
   closeTranslation,
@@ -55,6 +62,8 @@ beforeEach(() => {
       <div data-book-id="book_1/Fn1"><p id="en">Wages stagnated.</p></div>
     </main>`;
   localStorage.clear();
+  promptLogin.mockClear();
+  promptRegister.mockClear();
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -176,7 +185,6 @@ describe('translateSelection', () => {
   });
 
   it.each([
-    [401, {}, 'Log in to translate in this browser — it uses a little credit. It’s free in desktop Chrome and Edge, which translate on your device.'],
     [419, {}, 'Your session expired — reload the page and try again.'],
     [402, { success: false, message: 'Insufficient balance' }, 'Not enough credit. Translating in this browser costs a fraction of a cent a passage — it’s free in desktop Chrome and Edge.'],
     [403, { success: false, message: 'Encrypted books cannot use server-side translation' }, 'Encrypted books cannot use server-side translation'],
@@ -189,6 +197,33 @@ describe('translateSelection', () => {
 
     expect(card().querySelector('.tp-body').textContent).toBe(message);
     expect(card().querySelector('.tp-body').dataset.state).toBe('error');
+  });
+
+  it('offers a guest real log-in and register links, like the rest of the site', async () => {
+    fetchMock.mockResolvedValue(reply(401, {}));
+    select(document.getElementById('en'));
+
+    await translateSelection();
+
+    const body = card().querySelector('.tp-body');
+    expect(body.dataset.state).toBe('error');
+    expect(body.textContent).toBe(
+      'You need to log in or register to translate in this browser — it uses a little credit.'
+      + ' It’s free in desktop Chrome and Edge, which translate on your device.',
+    );
+
+    const [login, register] = body.querySelectorAll('.tp-auth-link');
+    expect([login.textContent, register.textContent]).toEqual(['log in', 'register']);
+
+    // The card gets out of the way — the user panel takes the screen.
+    register.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(card()).toBeNull();
+    expect(promptRegister).toHaveBeenCalled();
+    expect(promptLogin).not.toHaveBeenCalled();
+
+    await translateSelection();
+    card().querySelector('.tp-auth-link').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(promptLogin).toHaveBeenCalled();
   });
 
   it('closes on Escape and on a click outside the card', async () => {

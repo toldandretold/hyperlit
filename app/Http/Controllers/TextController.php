@@ -73,6 +73,30 @@ class TextController extends Controller
             $seoData['ogUrl'] = $userCanonical;
         }
 
+        // Legacy URL forms (raw /book_<id>, pre-slug human-readable ids) 301 to
+        // the slug — the canonical tag alone left Google holding two live URLs
+        // per work (GSC "Alternative page with proper canonical tag", 2026-10).
+        // Every clause is load-bearing:
+        //  - $username === null: user pseudo-books keep their /u/ canonicalization;
+        //  - $slug !== '': a slugless book's raw id IS its canonical URL;
+        //  - $urlSlug !== $slug: never fire on the canonical URL itself (no loop:
+        //    resolve($slug) matches the slug column and getSlug returns that same
+        //    stored value);
+        //  - !empty($seoData): the PRIVACY gate. getSlug() reads pgsql_admin, but
+        //    buildSeoData is RLS-subject — empty means this viewer may not see the
+        //    row, and an anonymous 301 to a title-derived slug would leak it.
+        //    (Accepted edge: a PUBLIC book with neither title nor author also
+        //    yields [] and keeps the old canonical-tag behaviour.)
+        // The SPA's reader-HTML fetch follows this transparently with ?target=
+        // intact, and fetchHtml returns finalUrl so pushState lands on the slug.
+        if ($username === null && $slug !== '' && $urlSlug !== $slug && !empty($seoData)) {
+            $suffix = $request->routeIs('book.edit') ? '/edit'
+                : ($hl !== null ? '/' . $hl : ($fn !== null ? '/' . $fn : ''));
+            $qs = $request->getQueryString();
+
+            return redirect('/' . $slug . $suffix . ($qs ? "?{$qs}" : ''), 301);
+        }
+
         // Check all possible data sources
         $bookExistsInDB = DB::table('nodes')->where('book', $book)->exists();
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
@@ -119,6 +143,21 @@ class TextController extends Controller
                 $this->warmBookCacheAsync($book);
             }
 
+            // Discovery link for the deep-section pages (/{book}/text?page=N) —
+            // the only route from the book page into the crawlable body. PUBLIC
+            // non-encrypted books only (showTextPage 404s everything else), and
+            // never user pseudo-books. The admin read is deliberate: "is this
+            // book public" is viewer-independent, and the link must not flicker
+            // with the viewer's RLS session.
+            $fullTextPath = null;
+            if ($username === null) {
+                $pub = DB::connection('pgsql_admin')->table('library')
+                    ->where('book', $book)->first(['visibility', 'encrypted']);
+                if ($pub && $pub->visibility === 'public' && empty($pub->encrypted)) {
+                    $fullTextPath = BookSlugHelper::canonicalPath($book, $slug ?: null) . '/text';
+                }
+            }
+
             $response = response()->view('reader', array_merge([
                 'html' => '',
                 'prerenderHtml' => $prerender['html'] ?? null,
@@ -127,7 +166,8 @@ class TextController extends Controller
                 'slug' => $slug,
                 'editMode' => $editMode,
                 'dataSource' => 'database',
-                'pageType' => 'reader'
+                'pageType' => 'reader',
+                'fullTextPath' => $fullTextPath,
             ], $seoData));
 
             // A bookmark-derived prerender is PER-USER for the same /{book} URL — never let a
@@ -179,10 +219,23 @@ class TextController extends Controller
         return view('reader', array_merge([
             'html' => '',
             'book' => $book,
-            'slug' => $slug,
+            // getSlug() reads pgsql_admin, so for a PRIVATE book this shell
+            // would stamp a title-derived slug into data-slug for a viewer RLS
+            // refuses — only emit it when the RLS-subject buildSeoData saw the
+            // row. (Local-only/unknown books have no slug; nothing changes.)
+            'slug' => !empty($seoData) ? $slug : '',
             'editMode' => $editMode,
             'dataSource' => 'indexeddb', // Frontend will check IndexedDB
-            'pageType' => 'reader'
+            'pageType' => 'reader',
+            // The server can't see this book: a typo, a deleted book, a private
+            // book under RLS, or a local-only (unsynced IndexedDB) creation. The
+            // 200 is deliberate — the local-first create flow needs the shell to
+            // render — but every such shell is byte-identical (<title>Hyperlit</title>,
+            // empty <main>), and Google was indexing the pile and electing its own
+            // canonical among them (GSC "Duplicate, Google chose different
+            // canonical than user", 2026-10). noindex kills the whole class;
+            // crawlers are always anonymous, so a real book never lands here.
+            'noindex' => true,
         ], $seoData));
     }
 
@@ -252,6 +305,136 @@ class TextController extends Controller
     }
 
     /**
+     * Deep-section pages: /{book}/text?page=N — the crawlable form of chunks
+     * 2..N, which otherwise have NO URL (only the first chunk of a book was
+     * ever server-rendered, so long-tail exact-phrase search over the body was
+     * structurally unavailable; Capital Vol I exposed 622 chars of a ~2M-char
+     * book). One page = one manifest chunk (ordinal, 1-based), served as the
+     * NORMAL reader view with that chunk prerendered — a human landing from a
+     * search result gets the actual reader seated at the passage; a crawler
+     * gets the same HTML plus hidden prev/next <a> links to walk the book.
+     * Same HTML for both, so no cloaking. Discovery: a hidden link on the book
+     * page (NOT the sitemap — these earn their indexing via links).
+     *
+     * An early inline script replaceStates the address bar to the canonical
+     * book path before any module JS reads location.pathname, so the SPA,
+     * history stack and deep-link machinery all see a plain book URL.
+     */
+    public function showTextPage(Request $request, string $book)
+    {
+        $urlSlug = $book;
+        $book = BookSlugHelper::resolve($book);
+        $slug = BookSlugHelper::getSlug($book) ?? '';
+
+        // Crawler-facing and viewer-independent, so the gate runs on pgsql_admin
+        // (an RLS-shaped read here would let one viewer's view leak into shared
+        // caches — same reasoning as PublicBookCorpus::queryAsAdmin). 404 for
+        // private and unknown ALIKE: existence must not be revealed. Encrypted
+        // books hold ciphertext; user pseudo-books (public library rows keyed by
+        // a username) would otherwise serve /{username}/text.
+        $row = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $book)
+            ->first(['visibility', 'encrypted', 'raw_json', 'title', 'author']);
+        $pseudoType = $row ? (json_decode($row->raw_json ?? '{}', true)['type'] ?? '') : '';
+        if (! $row
+            || $row->visibility !== 'public'
+            || ! empty($row->encrypted)
+            || in_array($pseudoType, ['user_home', 'user_home_sorted', 'user_account', 'user_about'], true)
+        ) {
+            abort(404);
+        }
+
+        // Legacy raw-id form → the slug, like the book page itself.
+        if ($slug !== '' && $urlSlug !== $slug) {
+            $qs = $request->getQueryString();
+
+            return redirect('/' . $slug . '/text' . ($qs ? "?{$qs}" : ''), 301);
+        }
+
+        // A cold or stale cache has nothing to serve and — unlike /{book},
+        // where the empty shell still boots the reader — an empty text page is
+        // pointless. Warm it and tell crawlers to retry; never loosen
+        // BookCache::isFresh instead (stale prose is worse than a 503).
+        $cache = app(BookCache::class);
+        if (! $cache->isFresh($book, $cache->freshTimestamp($book))) {
+            $this->warmBookCacheAsync($book);
+            $bookUrl = BookSlugHelper::canonicalUrl($book, $slug ?: null);
+
+            return response(
+                '<p>This page is being prepared. <a href="' . e($bookUrl) . '">Read the book</a>.</p>',
+                503,
+                ['Retry-After' => '300']
+            );
+        }
+
+        $manifest = $cache->getManifest($book);
+        if (empty($manifest)) {
+            abort(404);
+        }
+
+        $page = max(1, (int) $request->query('page', 1));
+        $lastPage = count($manifest);
+        if ($page > $lastPage) {
+            abort(404);
+        }
+
+        $entry = $manifest[$page - 1];
+        $prerender = $this->renderChunkPrerender($book, (float) $entry['chunk_id'], $cache);
+        if ($prerender === null) {
+            abort(404);
+        }
+
+        // The replaceState tidy URL. Page 1 is the book's own top — a bare book
+        // path boots exactly like /{book}. A DEEPER page appends the chunk's
+        // first node id as a #hash: resolveBootstrapTarget (priority 1) then
+        // drives the WHOLE existing deep-link pathway — targeted initial fetch
+        // (so the prerendered chunk's nodes are in it and render-in-place
+        // adopts rather than orphaning), no eager chunk-0 load, scroll to the
+        // node. A numeric hash is already a recognized content target (the
+        // blade flash-guard regex; the cache index maps startLine → chunk).
+        $firstLineId = rtrim(rtrim(number_format((float) ($entry['first_line'] ?? 0), 6, '.', ''), '0'), '.');
+        $tidyPath = BookSlugHelper::canonicalPath($book, $slug ?: null)
+            . ($page > 1 ? '#' . $firstLineId : '');
+
+        $basePath = BookSlugHelper::canonicalPath($book, $slug ?: null) . '/text';
+        // Page 1 canonicalizes to the bare /text, not ?page=1 (the /books rule).
+        $pageUrl = fn (int $p) => url($basePath . ($p > 1 ? '?page=' . $p : ''));
+
+        $seoData = $this->buildSeoData($book);
+        // These pages are body text, not bibliographic records: the book page
+        // owns the Scholar citation_* tags and the ScholarlyArticle JSON-LD —
+        // repeating them here would register N duplicate records per work.
+        unset($seoData['citationMeta'], $seoData['jsonLd']);
+
+        $title = trim((string) $row->title) !== '' ? trim((string) $row->title) : 'Untitled';
+        $pagePart = $page > 1 ? ", page {$page}" : '';
+        $budget = self::TITLE_MAX - mb_strlen(self::TITLE_SUFFIX) - mb_strlen(" — full text{$pagePart}");
+        if (mb_strlen($title) > $budget) {
+            $title = rtrim(mb_substr($title, 0, max(1, $budget - 1)), " \t\n\r\0\x0B.,;:—-") . '…';
+        }
+        $seoData['pageTitle'] = "{$title} — full text{$pagePart}" . self::TITLE_SUFFIX;
+        $byAuthor = trim((string) $row->author) !== '' ? ' by ' . trim((string) $row->author) : '';
+        $seoData['pageDescription'] = 'Full text of ' . trim((string) $row->title) . $byAuthor
+            . ", page {$page} of {$lastPage}. Read with citations and highlights on Hyperlit.";
+        $seoData['canonicalUrl'] = $pageUrl($page);
+        $seoData['ogUrl'] = $seoData['canonicalUrl'];
+
+        return view('reader', array_merge([
+            'html' => '',
+            'prerenderHtml' => $prerender['html'],
+            'prerenderChunkId' => $prerender['chunkId'],
+            'book' => $book,
+            'slug' => $slug,
+            'editMode' => false,
+            'dataSource' => 'database',
+            'pageType' => 'reader',
+            'textPagePrev' => $page > 1 ? $pageUrl($page - 1) : null,
+            'textPageNext' => $page < $lastPage ? $pageUrl($page + 1) : null,
+            'textPageCanonicalBookPath' => $tidyPath,
+        ], $seoData));
+    }
+
+    /**
      * Nested mode: load parent book with an auto-open chain for sequential container opening.
      * URL: /{book}/{rest}  where rest = "2/Fn.../HL_..."
      */
@@ -290,14 +473,21 @@ class TextController extends Controller
             // needs the login prompt, not a bounce to a book they equally can't see.
             $bookInfo = DB::selectOne('SELECT * FROM check_book_visibility(?)', [$book]);
             if ($bookInfo && $bookInfo->visibility === 'private') {
+                $privateSeo = $this->buildSeoData($book); // RLS-subject: [] for a viewer who can't see the row
                 return view('reader', array_merge([
                     'html'       => '',
                     'book'       => $book,
-                    'slug'       => $slug,
+                    // Only emit the (admin-fetched) slug when this viewer may see
+                    // the library row — same leak guard as show()'s fallthrough.
+                    'slug'       => !empty($privateSeo) ? $slug : '',
                     'editMode'   => false,
                     'dataSource' => 'database',
                     'pageType'   => 'reader',
-                ], $this->buildSeoData($book)));
+                    // Same soft-404 shape as show()'s IndexedDB fallthrough, at a
+                    // /{book}/{rest} URL: a crawler gets the generic empty shell
+                    // here, so it must not be indexable either.
+                    'noindex'    => true,
+                ], $privateSeo));
             }
 
             // The requested sub-book no longer exists — deleting a highlight destroys its
@@ -877,35 +1067,12 @@ class TextController extends Controller
                     }
                 }
             }
-            $nodes = $cache->getChunk($book, $chunkId);
-            if (empty($nodes)) {
+            $rendered = $this->renderChunkPrerender($book, $chunkId, $cache);
+            if ($rendered === null) {
                 return null;
             }
 
-            $html = '';
-            $text = '';
-            foreach ($nodes as $node) {
-                $html .= $node['content'] ?? '';
-                $plain = $node['plainText'] ?? '';
-                if ($plain !== '') {
-                    $text .= $plain . ' ';
-                }
-            }
-
-            // Layout-shift guard: stamp width/height onto attr-less media <img>
-            // tags from book_images dims. The prerendered chunk paints BEFORE any
-            // JS runs, so an unsized figure decoding above the restored reading
-            // position shoves the page with no compensator awake — dims reserve
-            // the box up front (`img { height:auto }` derives the ratio).
-            // Render-time only; stored node content is never touched.
-            $html = $this->injectImageDimensions($book, $html);
-
-            // Same render-time marking the client does in chunkRender, applied here
-            // so the pre-JS window is covered too: a browser translator acts on
-            // first paint, which for a prerendered chunk is BEFORE our JS runs.
-            $html = $this->markUntranslatableGlyphs($html);
-
-            return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId, 'private' => $private];
+            return $rendered + ['private' => $private];
         } catch (\Throwable $e) {
             // SEO prerender is best-effort — never let it break the page render.
             Log::warning('First-chunk prerender failed (serving empty <main>)', [
@@ -914,6 +1081,46 @@ class TextController extends Controller
             ]);
             return null;
         }
+    }
+
+    /**
+     * Render ONE cached chunk as prerender HTML — the shared core between
+     * buildFirstChunkPrerender (which picks the chunk from target/resume/lowest)
+     * and showTextPage (which picks it from the ?page= ordinal).
+     *
+     * @return array{html: string, text: string, chunkId: float}|null
+     */
+    private function renderChunkPrerender(string $book, float $chunkId, BookCache $cache): ?array
+    {
+        $nodes = $cache->getChunk($book, $chunkId);
+        if (empty($nodes)) {
+            return null;
+        }
+
+        $html = '';
+        $text = '';
+        foreach ($nodes as $node) {
+            $html .= $node['content'] ?? '';
+            $plain = $node['plainText'] ?? '';
+            if ($plain !== '') {
+                $text .= $plain . ' ';
+            }
+        }
+
+        // Layout-shift guard: stamp width/height onto attr-less media <img>
+        // tags from book_images dims. The prerendered chunk paints BEFORE any
+        // JS runs, so an unsized figure decoding above the restored reading
+        // position shoves the page with no compensator awake — dims reserve
+        // the box up front (`img { height:auto }` derives the ratio).
+        // Render-time only; stored node content is never touched.
+        $html = $this->injectImageDimensions($book, $html);
+
+        // Same render-time marking the client does in chunkRender, applied here
+        // so the pre-JS window is covered too: a browser translator acts on
+        // first paint, which for a prerendered chunk is BEFORE our JS runs.
+        $html = $this->markUntranslatableGlyphs($html);
+
+        return ['html' => $html, 'text' => trim($text), 'chunkId' => $chunkId];
     }
 
     /**

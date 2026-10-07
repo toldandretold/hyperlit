@@ -22,14 +22,17 @@ export async function loadReconvertInfo(self: any) {
     if (!section && info.canAdminReconvert) {
       // Maintainer loop: Creator Tools render only for the OWNER, but an
       // admin may reconvert ANY book (the endpoint enforces the same bypass
-      // server-side) — give admins a standalone section under the source
-      // status block so flagged auto-imports can be fixed from the reader.
-      const host = self.container.querySelector('#check-source-section');
-      if (host) {
+      // server-side) — give admins a standalone section so flagged
+      // auto-imports can be fixed from the reader. Seated AFTER the
+      // Librarian block (its own sibling, not inside the status section —
+      // right under the verified pill it read as a feature for everyone).
+      const anchor = self.container.querySelector('#source-librarian-section')
+        ?? self.container.querySelector('#check-source-section');
+      if (anchor) {
         section = document.createElement('div');
         section.id = 'reconvert-section';
         section.style.cssText = 'margin-top: 15px; padding-top: 15px;';
-        host.appendChild(section);
+        anchor.after(section);
       }
     }
     if (!section) return;

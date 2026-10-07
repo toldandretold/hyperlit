@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1960 functions in 412 modules · 10 object stores · 10 PG tables · 4012 edges
+**MarkdownDB** schema v28 · 1983 functions in 416 modules · 10 object stores · 10 PG tables · 4069 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -102,6 +102,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `shelfRenderUrl` | `components/homepage/shelfTabRouting` | — | — | — | — |
 | `destroyLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `initializeLogoNav` | `components/logoNav/logoNav` | — | — | read/write | — |
+| `openLogoNavMenu` | `components/logoNav/logoNav` | — | — | read/write | — |
 | `destroyNewBookContainer` | `components/newBookButton/newBookButton` | — | — | — | — |
 | `initializeNewBookContainer` | `components/newBookButton/newBookButton` | — | — | read | — |
 | `armTransition` | `components/newbookContainer/animation` | — | — | — | — |
@@ -326,12 +327,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `initBookTranslation` | `components/sourceContainer/bookTranslation` | — | — | read/write | — |
 | `stopWatching` | `components/sourceContainer/bookTranslation` | — | — | — | — |
 | `watchTranslation` | `components/sourceContainer/bookTranslation` | — | — | read | — |
+| `initBookVersions` | `components/sourceContainer/bookVersions` | — | — | read/write | — |
+| `modelLabel` | `components/sourceContainer/bookVersions` | — | — | — | — |
 | `buildSourceHtml` | `components/sourceContainer/buildSourceHtml` | — | `library` | — | `↓route:/api/database-to-indexeddb/books/{}/library` |
 | `externalSourceLink` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `handleCheckSource` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `isCitationLinked` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `isOfficialSourceText` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `librarianHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
+| `librarianSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `sourceStatusSectionHtml` | `components/sourceContainer/checkSource` | — | — | — | — |
 | `wireSourceStatus` | `components/sourceContainer/checkSource` | — | — | read/write | — |
 | `commonsFeedbackNoteHtml` | `components/sourceContainer/commonsFeedback` | — | — | — | — |
@@ -448,6 +452,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
 | `researchWorkflowsSectionHtml` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
+| `closeTranslationVizOverlay` | `components/sourceContainer/translationViz` | — | — | read/write | — |
+| `openTranslationVizOverlay` | `components/sourceContainer/translationViz` | — | — | read/write | — |
+| `updateTranslationViz` | `components/sourceContainer/translationViz` | — | — | read/write | — |
 | `applyVisibilityState` | `components/sourceContainer/visibilityControl` | — | `library` | read/write | — |
 | `attachVisibilityControlListeners` | `components/sourceContainer/visibilityControl` | — | — | read/write | — |
 | `buildVisibilityControlHtml` | `components/sourceContainer/visibilityControl` | — | — | — | — |
@@ -1989,11 +1996,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-<<<<<<< HEAD
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 300
-=======
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 5 · dynamic cycle-breakers (debt): 6 · lazy-loads (code-split): 301
->>>>>>> main
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 302
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 

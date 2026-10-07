@@ -38,6 +38,13 @@ vi.mock('../../../resources/js/SPA/navigation/NavigationManager', () => ({
   NavigationManager: { navigateByStructure },
 }));
 
+const { vizOpen, vizClose } = vi.hoisted(() => ({ vizOpen: vi.fn(async () => {}), vizClose: vi.fn() }));
+vi.mock('../../../resources/js/components/sourceContainer/translationViz', () => ({
+  openTranslationVizOverlay: vizOpen,
+  closeTranslationVizOverlay: vizClose,
+  updateTranslationViz: vi.fn(),
+}));
+
 import { initBookTranslation, formatEstimate, stopWatching } from '../../../resources/js/components/sourceContainer/bookTranslation';
 
 const OFFER = {
@@ -62,6 +69,8 @@ beforeEach(() => {
   document.body.innerHTML = '<main class="main-content" id="book_1"></main>';
   navigateByStructure.mockClear();
   showLoginPromptMenu.mockClear();
+  vizOpen.mockClear();
+  vizClose.mockClear();
   container = document.createElement('div');
   container.innerHTML = `
     <div id="book-translation-section" hidden>
@@ -151,10 +160,12 @@ describe('initBookTranslation', () => {
     fetchMock.mockResolvedValue(reply(200, { ...OFFER, existing: { book: 'book_99', title: '长相思 (English)' } }));
     handle = initBookTranslation(container, 'book_1');
 
-    await vi.waitFor(() => expect(link().hidden).toBe(false));
-    expect(link().getAttribute('href')).toBe('/book_99');
-    expect(link().textContent).toBe('Open the English translation');
-    expect(button().hidden).toBe(true);
+    // The Versions/Translations rail surfaces finished translations; the
+    // Translate section disappears rather than duplicating an open-link.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(section().hidden).toBe(true);
+    expect(link().hidden).toBe(true);
   });
 
   it('asks first, starts the job, shows progress and polls until the copy exists', async () => {
@@ -180,8 +191,7 @@ describe('initBookTranslation', () => {
     expect(button().textContent).toBe('Translating text into English… 42%');
 
     await vi.advanceTimersByTimeAsync(5000);
-    expect(link().hidden).toBe(false);
-    expect(link().getAttribute('href')).toBe('/book_99');
+    expect(section().hidden).toBe(true); // the rail owns the finished state
     // Still on the book it came from, so it opens by itself.
     await vi.waitFor(() => expect(navigateByStructure).toHaveBeenCalledWith(expect.objectContaining({ fromBook: 'book_1', toBook: 'book_99' })));
   });
@@ -213,7 +223,7 @@ describe('initBookTranslation', () => {
     expect(button().disabled).toBe(false);
   });
 
-  it('turns a "you already have one" refusal into the link', async () => {
+  it('treats a "you already have one" refusal as the finished state', async () => {
     fetchMock
       .mockResolvedValueOnce(reply(200, OFFER))
       .mockResolvedValueOnce(reply(409, { success: false, existing: { book: 'book_99', title: '长相思 (English)' } }));
@@ -222,8 +232,7 @@ describe('initBookTranslation', () => {
 
     button().click();
 
-    await vi.waitFor(() => expect(link().hidden).toBe(false));
-    expect(link().getAttribute('href')).toBe('/book_99');
+    await vi.waitFor(() => expect(section().hidden).toBe(true));
   });
 
   it('shows why the last run failed and lets it be retried', async () => {
@@ -275,7 +284,9 @@ describe('when a translation finishes', () => {
     fetchMock.mockResolvedValue(reply(200, DONE));
     handle = initBookTranslation(container, 'book_1');
 
-    await vi.waitFor(() => expect(link().hidden).toBe(false));
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(section().hidden).toBe(true);
     vi.useFakeTimers();
     await vi.advanceTimersByTimeAsync(20000);
 
@@ -297,5 +308,43 @@ describe('when a translation finishes', () => {
     await vi.advanceTimersByTimeAsync(20000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(navigateByStructure).not.toHaveBeenCalled();
+  });
+});
+
+describe('the live-progress row', () => {
+  const RUNNING = { ...OFFER, running: true, estimated_cost: null, progress: { status: 'running', phase: 'text', percent: 0.5, error: null, stage: 'text' } };
+  const row = () => container.querySelector('#book-translation-live');
+
+  it('appears while a run is live and opens the overlay, fed by the run watch', async () => {
+    fetchMock.mockResolvedValue(reply(200, RUNNING));
+    handle = initBookTranslation(container, 'book_1');
+    await vi.waitFor(() => expect(row()).not.toBeNull());
+
+    row().querySelector('.book-translation-viz-toggle').click();
+    expect(vizOpen).toHaveBeenCalledTimes(1);
+    const [status, follow] = vizOpen.mock.calls[0];
+    expect(status.running).toBe(true);
+    // The follow hook subscribes to the SAME module-level watch and hands
+    // back an unsubscribe — the overlay outlives this panel, not the watch.
+    const listener = vi.fn();
+    const unfollow = follow(listener);
+    expect(typeof unfollow).toBe('function');
+    unfollow();
+
+    // No stray requests: the map fetch belongs to the overlay module (mocked).
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('is removed when the run ends, and never exists for a plain offer', async () => {
+    fetchMock
+      .mockResolvedValueOnce(reply(200, RUNNING))
+      .mockResolvedValue(reply(200, { ...OFFER, progress: { status: 'failed', phase: 'text', percent: 0.4, error: 'It broke.' } }));
+    vi.useFakeTimers();
+    handle = initBookTranslation(container, 'book_1');
+    await vi.waitFor(() => expect(row()).not.toBeNull());
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(row()).toBeNull();
+    expect(vizOpen).not.toHaveBeenCalled();
   });
 });

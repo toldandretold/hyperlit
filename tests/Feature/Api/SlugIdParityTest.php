@@ -110,8 +110,11 @@ test('every DB→IndexedDB read returns an identical payload for slug and id', f
 test('the reader page renders the SAME shell for slug and id URLs: raw id in <main id>, slug in data-slug', function () {
     [$book, $slug] = seedParityBook();
 
+    // The raw-id URL now 301s to the slug (LegacyBookUrlRedirectTest owns the
+    // redirect itself) — the shell invariant is what this test asserts, so
+    // follow the redirect and assert on what actually renders.
     foreach (["/{$slug}", "/{$book}"] as $variant) {
-        $html = $this->get($variant)->assertStatus(200)->getContent();
+        $html = $this->followingRedirects()->get($variant)->assertStatus(200)->getContent();
         // The SPA's book identity comes from <main id> — it must be the RAW id
         // even when the address bar shows the slug (slug-vs-mainid invariant)…
         expect($html)->toContain('id="' . $book . '"');

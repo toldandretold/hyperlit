@@ -262,9 +262,17 @@ Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(
     Route::get('/book-audio/{book}/progress', [\App\Http\Controllers\BookAudioController::class, 'progress']);
     Route::get('/book-audio/{book}/manifest', [\App\Http\Controllers\BookAudioController::class, 'manifest']);
     Route::get('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioController::class, 'audiobookStatus']);
+    // The translation stage chain for the live-progress overlay. MUST be
+    // registered ABOVE /book-translation/{book} — route order is match order,
+    // so below it the literal `map` would be captured as a book id.
+    Route::get('/book-translation/map', [\App\Http\Controllers\BookTranslationController::class, 'map']);
     // What "Translate this book" should say — public so a guest sees "Log in to
     // translate"; a reader's own copy and progress are only in it when logged in.
     Route::get('/book-translation/{book}', [\App\Http\Controllers\BookTranslationController::class, 'status']);
+    // Other visible editions of a work for the source panel's Versions rail:
+    // its translation family (translated_from lineage) + other library
+    // versions of the same canonical_source. Public; RLS trims the list.
+    Route::get('/book-versions/{book}', [\App\Http\Controllers\BookVersionsController::class, 'index']);
 });
 
 // Packaging the .m4b: no throttle — the per-book cache lock prevents

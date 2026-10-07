@@ -11,6 +11,8 @@ import { book } from "../../app";
 import { buildSourceHtml } from "./buildSourceHtml";
 import { initAudiobookDownload } from "./audiobookDownload";
 import { initBookTranslation } from "./bookTranslation";
+import { initBookVersions } from "./bookVersions";
+import { closeTranslationVizOverlay } from "./translationViz";
 import { exportBookAsMarkdown, exportBookAsDocxStyled, exportBookAsEpub, downloadAllForBook } from "./downloads";
 import {
   handleEditClick, showEditForm, populateEditForm, showOptionalFieldsForType,
@@ -45,6 +47,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.isInEditMode = false; // Track if we're currently in edit mode
     this.audiobookDownload = null; // set by attachInternalListeners
     this.bookTranslation = null; // likewise
+    this.bookVersions = null; // likewise
   }
 
   rebindElements() {
@@ -104,6 +107,10 @@ export class SourceContainerManager extends (ContainerManager as any) {
     // Same lifecycle for the Translate section (it polls a running job).
     this.bookTranslation?.destroy();
     this.bookTranslation = initBookTranslation(this.container, book);
+    // And the Versions rail (one lazy fetch; renders only when there is
+    // another visible edition of this work).
+    this.bookVersions?.destroy();
+    this.bookVersions = initBookVersions(this.container, book);
 
     const downloadAllBtn = this.container.querySelector("#download-all");
     if (downloadAllBtn && !downloadAllBtn._listenerAttached) {
@@ -332,7 +339,10 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.audiobookDownload = null;
     this.bookTranslation?.destroy();
     this.bookTranslation = null;
+    this.bookVersions?.destroy();
+    this.bookVersions = null;
     this.closeHarvestVizOverlay();
+    closeTranslationVizOverlay(); // the RUN keeps going (module-level watch)
     this.isOpen = false;
     (window as any).activeContainer = "main-content";
     this.updateState(); // Removes .open class via parent's updateState()

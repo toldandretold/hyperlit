@@ -897,9 +897,13 @@
 #source-container .book-translation-open[hidden] {
   display: none;
 }
+/* --icon-hover-background is the FULL-INVERSION color (= the text color's
+   base token in every theme), so the label must flip to the background
+   color with it — background alone makes a solid unreadable slab. */
 #source-container .book-translation-btn:hover:not(:disabled),
 #source-container .book-translation-open:hover {
   background: var(--icon-hover-background);
+  color: var(--color-background);
 }
 #source-container .book-translation-btn:disabled {
   cursor: progress;
@@ -912,4 +916,77 @@
 }
 #source-container .book-translation-note:empty {
   display: none;
+}
+
+/* Live-progress row under a running translation (bookTranslation.ts):
+   a quiet "See live progress ▸" link that opens the stage-chain overlay
+   (translationViz.ts — the overlay itself is inline-styled, like harvestViz). */
+#source-container .book-translation-live-row {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: var(--sc-12);
+}
+#source-container .book-translation-viz-toggle {
+  background: none;
+  border: none;
+  color: var(--hyperlit-aqua, #4EACAE);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--sc-12);
+}
+
+/* Versions / Translations rail (bookVersions.ts): a quiet list of this
+   work's other visible editions, each with a provenance line — machine
+   translations always name the model and their commissioner/co-translator. */
+#source-container .book-versions-list {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+}
+#source-container .book-version-entry {
+  margin: 0 0 10px 0;
+}
+#source-container a.book-version-title {
+  color: var(--hyperlit-aqua, #4EACAE);
+  font-size: var(--sc-14);
+  text-decoration: underline;
+}
+/* The translate glyph in the Versions/Translations HEADING. */
+#source-container .book-versions-heading .book-version-translate-icon {
+  width: 15px;
+  height: 15px;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+#source-container a.book-version-title:hover {
+  color: var(--color-text);
+}
+#source-container .book-version-meta {
+  margin: 2px 0 0 0;
+  font-size: 0.85em;
+  color: var(--color-text-faint);
+}
+#source-container .book-version-stale {
+  margin: 2px 0 0 0;
+  font-size: 0.8em;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* MT provenance under the citation (bookVersions.ts fills it on a
+   translation copy). No `display` property on purpose — the [hidden]
+   attribute must keep working natively. */
+#source-container .citation-translation-note {
+  margin: 2px 0 0 0;
+  font-size: var(--sc-12);
+  color: var(--color-text-faint);
+  line-height: 1.5;
+}
+#source-container .citation-translation-note a {
+  color: var(--hyperlit-aqua, #4EACAE);
+  text-decoration: underline;
 }

@@ -451,6 +451,17 @@ Route::get('/{book}/timemachine', [TextController::class, 'showTimeMachine'])
     ->where('book', '[A-Za-z0-9_-]+')
     ->name('book.timemachine');
 
+// Deep-section pages: the crawlable form of chunks 2..N (?page=N, 1-based
+// manifest ordinal). Placed before the /{book}/{rest|hl|fn} catch-alls as
+// defence in depth — today their constraints cannot match a literal "text"
+// (rest needs [0-9]+/, hl needs HL_, fn needs a literal Fn), but a loosened
+// constraint must not silently swallow this. `text` thereby joins
+// timemachine/edit/hyperlights as second-segment words a sub-book item id can
+// never be (item ids are Fn…/HL_…, so that is already true).
+Route::get('/{book}/text', [TextController::class, 'showTextPage'])
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->name('book.text');
+
 // Book edit route
 Route::get('/{book}/edit', [TextController::class, 'show'])
     ->where('book', '[A-Za-z0-9_-]+')

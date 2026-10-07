@@ -48,14 +48,25 @@ money.
 
 ## Files
 
-| File | Tag | Needs | What it checks |
-|---|---|---|---|
-| `webhook-credit.spec.js` | — | — | Valid top-up credits 1:1 + ledger row; idempotency; bad signature → 400; missing metadata → 400; non-checkout event → 200 no-credit; cross-user isolation. |
-| `spend-gates.spec.js` | — | — | Every paid feature refuses on a zero balance (402 "Insufficient balance") and writes no debit. |
-| `failure-no-charge.spec.js` | — | — | A process that fails after the balance gate leaves credits intact (post-success model); citation pipeline never debits. |
-| `checkout-ui.spec.js` | `@stripe-ui` | network → checkout.stripe.com | Real test card 4242 pays → redirect → webhook credits; 4000…0002 declines → no charge; off-site `return_url` rejected (422). |
-| `spend-live.spec.js` | — | `RUN_LIVE_SPEND=1` + LLM key | Real vibe-css generation actually debits the user + writes a `vibe_css` ledger row. **Costs money.** |
-| `helpers/billing.js` | — | — | `provisionUser`, `getBalance`, `getLedger`, `buildSignedWebhook`, `sendWebhook`, `creditViaWebhook`. |
+- **`webhook-credit.spec.js`** — Valid top-up credits 1:1 + ledger row; idempotency; bad signature → 400; missing metadata → 400; non-checkout event → 200 no-credit; cross-user isolation.
+- **`spend-gates.spec.js`** — Every paid feature refuses on a zero balance (402 "Insufficient balance") and writes no debit. (Whole-book translation's 402 lives in `translation-billing.spec.js` instead — its gate needs a TRANSLATABLE book, which this table's probe payloads can't provide.)
+- **`failure-no-charge.spec.js`** — A process that fails after the balance gate leaves credits intact (post-success model); citation pipeline never debits.
+- **`translation-billing.spec.js`** — Whole-book translation END TO END through the real pipeline (reservation → `TranslateBookJob` → copy → charge → hold release) against a FAKE Fireworks; see the section below. 402 gate, exact token charge, and the fail/retry economics (a failed run pays only for the paragraphs it translated; the retry re-sends only the remainder).
+- **`checkout-ui.spec.js`** (`@stripe-ui`; needs network → checkout.stripe.com) — Real test card 4242 pays → redirect → webhook credits; 4000…0002 declines → no charge; off-site `return_url` rejected (422).
+- **`spend-live.spec.js`** (needs `RUN_LIVE_SPEND=1` + LLM key) — Real vibe-css generation actually debits the user + writes a `vibe_css` ledger row. **Costs money.**
+- **`helpers/billing.js`** — `provisionUser`, `getBalance`, `getLedger`, `buildSignedWebhook`, `sendWebhook`, `creditViaWebhook`.
+
+## The translation-billing harness (fake Fireworks + a spec-spawned worker)
+
+`translation-billing.spec.js` is the one suite here that runs a QUEUE JOB for real. Three pieces:
+
+- **Fake Fireworks** — `tests/e2e/fixtures/fake-fireworks.mjs`, an OpenAI-compatible server started IN the Playwright process. It answers HtmlTranslator's batch prompts from a literal map keyed to the fixture book's node text, with fixed usage (1000/500 tokens per request) so the expected charge is exactly computable, plus `setOmit()` fault injection and a request log the assertions read.
+- **The fixture book** — `php artisan e2e:seed-translation-fixture` (run in `beforeEach`): a public Chinese book whose text IS the fake's answers map. Every seed purges prior translation copies, run dirs and stale queued/reserved jobs — the commons dedupe (one visible translation blocks a second) would otherwise 409 re-runs.
+- **The worker** — the spec spawns `php artisan queue:work --queue=translation --once` with `LLM_BASE_URL` pointed at the fake. Spawn ASYNC, never `execFileSync`: the fake lives in this process, and a synchronous wait blocks the event loop so the fake can never answer the worker (a deadlock that burns the whole test timeout).
+
+Two skip guards, both load-bearing: the suite SKIPS when a long-lived translation worker is already running (`dev:all`'s TRAN pane would grab the job with the REAL Fireworks key and bill real money — stop it first), and when the Laravel config is cached (the spawned worker would ignore `LLM_BASE_URL`; run `php artisan config:clear`).
+
+Possible follow-up (not built): an opt-in `RUN_LIVE_TRANSLATION=1` case against real Kimi K3, following `spend-live.spec.js`'s pattern. The fake path already covers the full pipeline, so the live case would only verify Fireworks itself.
 
 ## Cleanup
 

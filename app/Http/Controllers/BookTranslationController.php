@@ -6,6 +6,7 @@ use App\Jobs\TranslateBookJob;
 use App\Models\PgLibrary;
 use App\Services\BillingService;
 use App\Services\Translation\BookTranslationService;
+use App\Services\Translation\TranslationMap;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -23,12 +24,20 @@ use Illuminate\Support\Facades\Log;
  *
  * Requester-pays, like audio: a hold for the estimate is reserved here, the job
  * charges the tokens actually used and releases the hold. The result is a NEW
- * private book owned by the requester (BookTranslationService explains why).
+ * book owned by the requester whose visibility inherits the original's — a
+ * public book's translation is public, the commons rule (BookTranslationService
+ * explains why, and why one visible translation blocks a second).
  */
 class BookTranslationController extends Controller
 {
     /** A run that hasn't heartbeat for this long is presumed dead and may be restarted. */
     private const STALE_AFTER_MINUTES = 20;
+
+    /** The static stage chain for the live-progress overlay (TranslationMap). */
+    public function map(): JsonResponse
+    {
+        return response()->json(['success' => true, 'stages' => TranslationMap::stages()]);
+    }
 
     public function status(string $book, BookTranslationService $service): JsonResponse
     {
@@ -36,7 +45,8 @@ class BookTranslationController extends Controller
         // other optional-auth reads).
         $user = Auth::guard('sanctum')->user();
         // RLS visibility: an invisible book reads as nonexistent.
-        if (! PgLibrary::where('book', $book)->exists()) {
+        $library = PgLibrary::where('book', $book)->first(['book', 'visibility']);
+        if (! $library) {
             return response()->json(['success' => false, 'message' => 'Book not found.'], 404);
         }
 
@@ -55,7 +65,10 @@ class BookTranslationController extends Controller
         $target = $direction['target'];
         $progress = $user ? $service->readProgress($book, $target, $user->id) : null;
         $running = $this->isRunning($progress);
-        $existing = $user ? $service->existingCopy($book, $user, $target) : null;
+        // Unconditional: the commons dedupe. ANY translation this viewer can
+        // see (their own, or anyone's public one) becomes the open-link —
+        // including for guests — instead of a paid button.
+        $existing = $service->existingCopy($book, $user, $target);
 
         // Estimating reads the whole book — skip it while polling a run.
         $estimate = $running ? null : $service->estimate($book, $target);
@@ -71,14 +84,33 @@ class BookTranslationController extends Controller
                 ? null
                 : round($estimate['cost'] * ($user?->getBillingMultiplier() ?? 1.0), 2),
             'logged_in' => $user !== null,
+            // The commons rule, for honest button copy: a public book's
+            // translation will be public (unless this user's publish gate
+            // clamps it — a guest is told the public outcome, since logging
+            // in precedes starting anyway).
+            'will_be_public' => $library->visibility === 'public'
+                && ($user === null || \App\Services\Publishing\PublishGate::check($user)['allowed']),
             'running' => $running,
             'progress' => $progress === null ? null : [
                 'status' => $progress['status'] ?? null,
                 'phase' => $progress['phase'] ?? null,
                 'percent' => $progress['percent'] ?? 0,
                 'error' => $progress['error'] ?? null,
+                // Additive keys for the staged-progress overlay.
+                'stage' => $progress['stage'] ?? null,
+                'stages' => $progress['stages'] ?? null,
+                'new_book' => $progress['new_book'] ?? null,
+                'publish_clamped' => $progress['publish_clamped'] ?? null,
             ],
-            'existing' => $existing ? ['book' => $existing->book, 'title' => $existing->title] : null,
+            // Bounded boundary log (stage transitions + section starts).
+            'telemetry' => $progress['events'] ?? [],
+            'existing' => $existing ? [
+                'book' => $existing->book,
+                'title' => $existing->title,
+                // So the UI can say "in your library" vs "translated by X".
+                'own' => $user !== null && $existing->creator === $user->name,
+                'creator' => $existing->creator,
+            ] : null,
         ]);
     }
 
@@ -101,10 +133,14 @@ class BookTranslationController extends Controller
         $target = $direction['target'];
 
         if ($existing = $service->existingCopy($book, $user, $target)) {
+            $own = $existing->creator === $user->name;
+
             return response()->json([
                 'success' => false,
-                'message' => 'You already have a translation of this book.',
-                'existing' => ['book' => $existing->book, 'title' => $existing->title],
+                'message' => $own
+                    ? 'You already have a translation of this book.'
+                    : 'A translation of this book already exists.',
+                'existing' => ['book' => $existing->book, 'title' => $existing->title, 'own' => $own, 'creator' => $existing->creator],
             ], 409);
         }
 
@@ -141,9 +177,13 @@ class BookTranslationController extends Controller
         // or the book is unstartable until the TTL and the user is debited for
         // a job that never ran.
         try {
-            $service->writeProgress($book, $target, $user->id, [
-                'status' => 'queued', 'phase' => 'text', 'percent' => 0, 'error' => null, 'new_book' => null,
-            ]);
+            // A fresh attempt starts a fresh chain: reset the stage map and
+            // boundary log from any previous run before recording 'queued'.
+            $service->record($book, $target, $user->id, [
+                'status' => 'queued', 'phase' => 'text', 'percent' => 0, 'error' => null,
+                'new_book' => null, 'publish_clamped' => null, 'stages' => [], 'events' => [],
+            ], stage: 'queued', stagePatch: ['status' => 'started'],
+                event: ['stage' => 'queued', 'status' => 'started', 'detail' => 'Waiting for the translation worker']);
             TranslateBookJob::dispatch($book, $user->id, $target, $reservation?->id);
         } catch (\Throwable $e) {
             $lock->forceRelease();

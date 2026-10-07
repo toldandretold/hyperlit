@@ -174,6 +174,41 @@ test.describe('modal surfaces keep the keyboard contract', () => {
   });
 });
 
+/* Translation live-progress overlay: a real gesture (source panel → "See
+   live progress ▸"), but a run must be LIVE for the row to exist — so the
+   translation status API is mocked (service workers blocked for page.route;
+   the ai-archivist precedent). The overlay itself is the real thing. */
+test.describe('translation viz overlay keeps the keyboard contract', () => {
+  test.use({ serviceWorkers: 'block' });
+
+  test('translation live-progress overlay (reader, mocked running status)', async ({ page }) => {
+    const RUNNING = {
+      success: true, available: true, target_lang: 'zh-Hans', target_label: 'Chinese',
+      characters: null, estimated_cost: null, logged_in: true, running: true,
+      progress: { status: 'running', phase: 'text', percent: 0.4, error: null, stage: 'text', stages: { queued: { status: 'completed' }, text: { status: 'progress' } }, new_book: null },
+      telemetry: [], existing: null,
+    };
+    await page.route(/\/api\/book-translation\/(?!map($|\?))[^/?]+(\?.*)?$/, (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(RUNNING) })
+        : route.fallback());
+
+    await gotoReader(page);
+    const cloud = page.locator('#cloudRef');
+    test.skip(!(await cloud.isVisible().catch(() => false)), 'no visible #cloudRef');
+    await cloud.click();
+    await page.waitForSelector('#source-container.open', { timeout: 8000 });
+    await page.waitForSelector('#book-translation-live .book-translation-viz-toggle', { timeout: 10_000 });
+    await page.click('#book-translation-live .book-translation-viz-toggle');
+
+    await assertKeyboardContract(page, {
+      containerSel: '#translation-viz-overlay',
+      tabs: 6,
+      returnFocusSel: '#book-translation-live .book-translation-viz-toggle',
+    });
+  });
+});
+
 /* ══ Section 2: direct-invoke surfaces (raw vite import; dev only) ══════ */
 
 test.describe('deep-state modal surfaces (direct invoke)', () => {

@@ -1,6 +1,6 @@
 # Translation
 
-Machine translation of passages. **This is plumbing only** — a provider seam, a language/script registry, and an endpoint. There is no UI, no cache table, and no whole-book mode, because those depend on a product decision that has not been made and on a technical problem that has not been solved (see "What is deliberately missing").
+Machine translation, in two shapes. **Passage translation** is a provider seam, a language/script registry, and a synchronous endpoint (`POST /api/translate`), surfaced by the selection toolbar's Translate popover — free on-device in desktop Chrome/Edge via the browser Translator API, server-paid everywhere else. **Whole-book translation** (`TranslateBookJob`, Chinese ↔ English on Kimi K3) translates a book into a NEW copy — see "Whole-book translation" below. What remains deliberately missing is in-place whole-book *reading modes* (see "What is deliberately missing").
 
 ## Why the shape is what it is
 
@@ -50,7 +50,17 @@ It is deliberately a **separate class from `SpeakableText`, not a reuse of it**.
 
 Charged after success, never before, into `billing_ledger` with category `translation`. Waived under BYO (the user's own key paid) and for providers that cost us nothing per token. Cost comes from `LlmService::getUsageStats()` priced against `services.llm.pricing`; a model with no pricing entry logs loudly rather than under-billing silently.
 
-The endpoint is synchronous, so the queue-worker RLS trap does not apply here. **It will apply the moment a whole-book translation job exists**: `BillingService::charge()` sets `app.current_user` but the `users` policy also needs `app.current_token`, which HTTP middleware provides and a worker does not — a worker-side charge silently no-ops. Use the restoring pattern in `CitationReviewCommand::billReview`, not the blanking variant.
+The passage endpoint is synchronous, so the queue-worker RLS trap does not apply there. It DOES apply to `TranslateBookJob`: `BillingService::charge()` sets `app.current_user` but the `users` policy also needs `app.current_token`, which HTTP middleware provides and a worker does not — a worker-side charge silently no-ops. The job's `asUser()` sets BOTH and restores them (the pattern from `CitationReviewCommand::billReview`).
+
+## Whole-book translation
+
+"Translate this book" in the source container: Chinese ↔ English (direction auto-detected from the text's script), fixed on Kimi K3 (`services.translation.html`), requester-pays. The result is a NEW book owned by the requester — translating in place would orphan every hyperlight and hypercite, which address character offsets in the original text. The copy keeps every `node_id`, `startLine` and `footnoteId` (only the `book` column moves), unwraps hypercite markers and stray `<mark>`s, and copies the bibliography untranslated so in-text citations still resolve. Rendered reference-LIST nodes (`data-static-content="bibliography"`, the paste lane's marker) are kept verbatim for the same reason — a citation is a bibliographic claim, not prose — and because their dense nested-span markup is precisely what breaks placeholder rebuilds (a real run's only failures were 11 consecutive reference entries).
+
+- **Pipeline:** `BookTranslationController` (status GET is public; start POST reserves credit) → `TranslateBookJob` on the dedicated `translation` queue → `BookTranslationService::run` → `HtmlTranslator` (sections at h1–h3, ~4,000-char JSON batches with rolling context, inline elements swapped for placeholders so ids/hrefs never pass through the model).
+- **Worker:** `deploy/supervisor/hyperlit-translation.conf` (`--queue=translation --timeout=3600`, `stopwaitsecs 3610`, `retry_after` 7500 — invariant #1 in `deploy/supervisor/README.md`: nothing listening on the queue means jobs silently never run). Local dev: `npm run queue:translation`, included in `dev:all` as **TRAN**.
+- **Resumable by design:** every finished paragraph lands in `storage/app/book-translations/*/cache.json`; the job hands off to a fresh job before its timeout (`WORK_BUDGET_SECONDS`), and a retry re-bills nothing already done. Progress heartbeats into `progress.json` beside it.
+- **Billing:** reservation for the estimate at start, charge for the tokens actually used per run, release in `finally`/`failed()` — with both RLS vars set and restored (above). A FAILED run charges for the paragraphs that did translate (they're cached; a retry re-sends and re-bills only the remainder) — see docs/billing.md §"Whole-book translation".
+- **Test coverage:** `tests/Feature/Translation/BookTranslationTest.php` (copy mechanics, commons rules, reservation lifecycle, exact charges) + `BookVersionsTest.php` (the versions rail API) + vitest `tests/javascript/sourceContainer/{bookTranslation,translationViz,bookVersions}.test.js` (UI states) + Playwright `tests/e2e/specs/reader/translation-ui.spec.js` (real gestures, mocked API), `tests/e2e/specs/stripe/translation-billing.spec.js` (real pipeline against a fake Fireworks — see that suite's README), and the overlay's keyboard contract in `tests/e2e/specs/a11y/modal-surfaces.spec.js`.
 
 ## External (browser) translation
 
@@ -65,9 +75,8 @@ Separate from everything above, and the only translation Hyperlit actually ships
 
 ## What is deliberately missing
 
-- **Per-node translation cache.** A `node_translations` table keyed `(book, node_id, target_lang)` with `source_hash` staleness, cloning the `book_audio` precedent. Held back until the model choice is settled, because the `source_hash` derivation freezes the moment rows exist.
-- **Any UI.** No toolbar button, no settings-panel entry.
-- **Book source language.** Not recorded anywhere; belongs on `library`, not `nodes`. Until then it is passed by the caller or detected.
+- **Per-node translation cache.** A `node_translations` table keyed `(book, node_id, target_lang)` with `source_hash` staleness, cloning the `book_audio` precedent. Held back until the model choice is settled, because the `source_hash` derivation freezes the moment rows exist. (The whole-book copy sidesteps this: its cache is per-run and deleted once the copy is written.)
+- **Book source language detection for translation routing.** `BookTranslationService::direction()` script-counts the opening nodes per request; nothing durable is recorded beyond `library.language` on the copy.
 - **Whole-book reading modes**, and with them the only genuinely hard problem here. Annotations are node-anchored, not book-anchored: `AnnotationRecordBase` is `node_id: string[]` plus `charData: Record<nodeId, CharRange>`, with no top-level offset. Because translation is per-node, node membership survives for free and only the offsets *within* a node break — and `highlightedText`/`highlightedHTML` are stored, so realignment is "find this substring in the translated paragraph" rather than offset arithmetic. Note that *peek* (a popover) and *interlinear* (original plus translation, original left in the DOM) need **no** remapping at all; only full replacement does.
 
 ## Evaluating models

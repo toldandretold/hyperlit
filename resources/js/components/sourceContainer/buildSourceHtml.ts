@@ -9,7 +9,7 @@ import { formatBibtexToCitation, doiToUrl } from '../../utilities/bibtexProcesso
 import { book } from '../../app';
 import { canUserEditBook, getAuthContextSync } from '../../utilities/auth/index';
 import { getRecord, isSyntheticBook } from './helpers';
-import { sourceStatusSectionHtml, isCitationLinked } from './checkSource';
+import { sourceStatusSectionHtml, librarianSectionHtml, isCitationLinked } from './checkSource';
 import { autoMetaIconHtml, proposalMountHtml } from './autoMetadata/card';
 import { buildVisibilityControlHtml, CHECK_SVG } from './visibilityControl';
 import { researchWorkflowsSectionHtml } from './researchWorkflows';
@@ -238,6 +238,11 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
     <div class="resize-edge resize-left" title="Resize width"></div>
     <div class="scroller" id="source-content">
     <p class="citation" style="padding-bottom: 5px">${citation}${showWand ? autoMetaIconHtml() : ''}</p>
+    <!-- MT provenance, directly under the citation: a translation copy must
+         say so WHERE the citation is read — the citation (and any Citation
+         Verified badge below) describe the ORIGINAL work, not this rendering.
+         Hidden; bookVersions.ts fills it when this book IS a translation. -->
+    <p class="citation-translation-note" hidden></p>
     ${licenseHtml}
     ${completenessHtml}
     ${showWand ? proposalMountHtml() : ''}
@@ -364,10 +369,22 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   </button>` : ''}
     </div>
 
+    ${librarianSectionHtml(record, accessDenied)}
+
     ${(!isSyntheticBook(book) && !accessDenied) ? `
-    <!-- Translate this book (Chinese ↔ English, into a private copy). Rendered
-         hidden; bookTranslation.ts reveals it for a logged-in reader when this
-         book can be translated, and drives its states. -->
+    <!-- Other visible editions of this work: its translation family + other
+         versions of the same canonical source. Rendered hidden;
+         bookVersions.ts fills and reveals it only when there IS another
+         edition. (Not .version-history-* — that's Creator Tools' snapshots.) -->
+    <div id="book-versions-section" style="margin-top: 15px; padding-top: 15px;" hidden>
+      <h3 class="book-versions-heading">Versions</h3>
+      <ul class="book-versions-list"></ul>
+    </div>
+
+    <!-- Translate this book (Chinese ↔ English, into a new copy whose
+         visibility inherits the original's). Rendered hidden;
+         bookTranslation.ts reveals it when this book can be translated,
+         and drives its states. -->
     <div id="book-translation-section" style="margin-top: 15px; padding-top: 15px;" hidden>
       <h3>Translate</h3>
       <button type="button" class="book-translation-btn"></button>

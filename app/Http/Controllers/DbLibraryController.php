@@ -190,33 +190,11 @@ class DbLibraryController extends Controller
      */
     private function publishPermission(array $creatorInfo): array
     {
-        $cutoffRaw = config('publishing.verified_email_required_after');
-
-        // No cutoff configured → the publish gate is OFF. This is the dev/e2e
-        // default (config/publishing.php only sets a cutoff in production), and
-        // it restores the exact pre-gate behaviour: anyone, INCLUDING anon, may
-        // publish. Feature tests that exercise the gate set the cutoff explicitly.
-        if (empty($cutoffRaw)) {
-            return ['allowed' => true, 'reason' => null];
-        }
-
-        $user = Auth::user();
-
-        // Anonymous: creator is null (an anon write carries a creator_token, not a name).
-        if (! $user) {
-            return ['allowed' => false, 'reason' => 'anonymous'];
-        }
-
-        // Grandfathered: accounts created before the cutoff predate the rule.
-        if ($user->created_at && $user->created_at->lt(\Illuminate\Support\Carbon::parse($cutoffRaw))) {
-            return ['allowed' => true, 'reason' => null];
-        }
-
-        if ($user->email_verified_at !== null) {
-            return ['allowed' => true, 'reason' => null];
-        }
-
-        return ['allowed' => false, 'reason' => 'unverified_email'];
+        // The rule lives in PublishGate so TranslateBookJob (a queue worker
+        // with no Auth context) applies the SAME gate when minting a public
+        // translation copy. Anonymous: creator is null (an anon write carries
+        // a creator_token, not a name) — Auth::user() is null, gate refuses.
+        return \App\Services\Publishing\PublishGate::check(Auth::user());
     }
 
     // In app/Http/Controllers/DbLibraryController.php

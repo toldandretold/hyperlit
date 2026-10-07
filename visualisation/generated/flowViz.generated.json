@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1960,
-    "moduleCount": 412,
+    "fnCount": 1983,
+    "moduleCount": 416,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4012,
+    "edgeCount": 4069,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -882,6 +882,14 @@
     {
       "id": "components/logoNav/logoNav:initializeLogoNav",
       "label": "initializeLogoNav",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/logoNav/logoNav",
+      "leaf": false
+    },
+    {
+      "id": "components/logoNav/logoNav:openLogoNavMenu",
+      "label": "openLogoNavMenu",
       "kind": "fn",
       "stage": "components",
       "module": "components/logoNav/logoNav",
@@ -2733,6 +2741,22 @@
       "leaf": false
     },
     {
+      "id": "components/sourceContainer/bookVersions:initBookVersions",
+      "label": "initBookVersions",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookVersions",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/bookVersions:modelLabel",
+      "label": "modelLabel",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/bookVersions",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "label": "buildSourceHtml",
       "kind": "fn",
@@ -2790,6 +2814,17 @@
     {
       "id": "components/sourceContainer/checkSource:librarianHtml",
       "label": "librarianHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/checkSource",
+      "leaf": true,
+      "types": [
+        "LibraryRecord"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/checkSource:librarianSectionHtml",
+      "label": "librarianSectionHtml",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/checkSource",
@@ -3737,6 +3772,30 @@
       "stage": "components",
       "module": "components/sourceContainer/researchWorkflows",
       "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "label": "closeTranslationVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/translationViz",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "label": "openTranslationVizOverlay",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/translationViz",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/translationViz:updateTranslationViz",
+      "label": "updateTranslationViz",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/translationViz",
+      "leaf": false
     },
     {
       "id": "components/sourceContainer/visibilityControl:applyVisibilityState",
@@ -17950,7 +18009,8 @@
       "band": "components",
       "fnIds": [
         "components/logoNav/logoNav:destroyLogoNav",
-        "components/logoNav/logoNav:initializeLogoNav"
+        "components/logoNav/logoNav:initializeLogoNav",
+        "components/logoNav/logoNav:openLogoNavMenu"
       ]
     },
     {
@@ -18674,6 +18734,16 @@
       ]
     },
     {
+      "id": "components/sourceContainer/bookVersions",
+      "label": "components/sourceContainer/bookVersions",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/bookVersions:initBookVersions",
+        "components/sourceContainer/bookVersions:modelLabel"
+      ]
+    },
+    {
       "id": "components/sourceContainer/buildSourceHtml",
       "label": "components/sourceContainer/buildSourceHtml",
       "stage": "components",
@@ -18693,6 +18763,7 @@
         "components/sourceContainer/checkSource:isCitationLinked",
         "components/sourceContainer/checkSource:isOfficialSourceText",
         "components/sourceContainer/checkSource:librarianHtml",
+        "components/sourceContainer/checkSource:librarianSectionHtml",
         "components/sourceContainer/checkSource:sourceStatusSectionHtml",
         "components/sourceContainer/checkSource:wireSourceStatus"
       ]
@@ -18953,6 +19024,17 @@
         "components/sourceContainer/researchWorkflows:isCommonsBook",
         "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
         "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/translationViz",
+      "label": "components/sourceContainer/translationViz",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+        "components/sourceContainer/translationViz:openTranslationVizOverlay",
+        "components/sourceContainer/translationViz:updateTranslationViz"
       ]
     },
     {
@@ -23651,6 +23733,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/logoNav/logoNav:openLogoNavMenu__domwrite__dom",
+      "source": "components/logoNav/logoNav:openLogoNavMenu",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/newbookContainer/animation:armTransition__call__components/newbookContainer/animation:resetAnimationState",
       "source": "components/newbookContainer/animation:armTransition",
       "target": "components/newbookContainer/animation:resetAnimationState",
@@ -26092,6 +26180,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/bookTranslation:initBookTranslation__call__components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "source": "components/sourceContainer/bookTranslation:initBookTranslation",
+      "target": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/bookTranslation:initBookTranslation__domwrite__dom",
       "source": "components/sourceContainer/bookTranslation:initBookTranslation",
       "target": "dom",
@@ -26102,6 +26197,24 @@
       "source": "components/sourceContainer/bookTranslation:watchTranslation",
       "target": "components/sourceContainer/bookTranslation:stopWatching",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/bookTranslation:watchTranslation__call__components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "source": "components/sourceContainer/bookTranslation:watchTranslation",
+      "target": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/bookVersions:initBookVersions__call__components/sourceContainer/bookVersions:modelLabel",
+      "source": "components/sourceContainer/bookVersions:initBookVersions",
+      "target": "components/sourceContainer/bookVersions:modelLabel",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/bookVersions:initBookVersions__domwrite__dom",
+      "source": "components/sourceContainer/bookVersions:initBookVersions",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/autoMetadata/card:autoMetaIconHtml",
@@ -26119,6 +26232,12 @@
       "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:isCitationLinked",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
       "target": "components/sourceContainer/checkSource:isCitationLinked",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/checkSource:librarianSectionHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/checkSource:librarianSectionHtml",
       "rel": "call"
     },
     {
@@ -26232,6 +26351,12 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/checkSource:librarianSectionHtml__call__components/sourceContainer/checkSource:librarianHtml",
+      "source": "components/sourceContainer/checkSource:librarianSectionHtml",
+      "target": "components/sourceContainer/checkSource:librarianHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:externalSourceLink",
       "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "target": "components/sourceContainer/checkSource:externalSourceLink",
@@ -26247,12 +26372,6 @@
       "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:isOfficialSourceText",
       "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
       "target": "components/sourceContainer/checkSource:isOfficialSourceText",
-      "rel": "call"
-    },
-    {
-      "id": "components/sourceContainer/checkSource:sourceStatusSectionHtml__call__components/sourceContainer/checkSource:librarianHtml",
-      "source": "components/sourceContainer/checkSource:sourceStatusSectionHtml",
-      "target": "components/sourceContainer/checkSource:librarianHtml",
       "rel": "call"
     },
     {
@@ -26749,6 +26868,13 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/bookVersions:initBookVersions",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/bookVersions:initBookVersions",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/checkSource:wireSourceStatus",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/checkSource:wireSourceStatus",
@@ -26818,6 +26944,12 @@
       "id": "components/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay__call__components/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
       "source": "components/sourceContainer/index:SourceContainerManager.closeAiReviewVizOverlay",
       "target": "components/sourceContainer/aiReview/pipelineViz:closeAiReviewVizOverlay",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/index:SourceContainerManager.closeContainer__call__components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "source": "components/sourceContainer/index:SourceContainerManager.closeContainer",
+      "target": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
       "rel": "call"
     },
     {
@@ -27175,6 +27307,36 @@
       "source": "components/sourceContainer/researchWorkflows:researchWorkflowsSectionHtml",
       "target": "components/sourceContainer/researchWorkflows:isCommonsBook",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/translationViz:closeTranslationVizOverlay__domwrite__dom",
+      "source": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/translationViz:openTranslationVizOverlay__call__components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "source": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "target": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/translationViz:openTranslationVizOverlay__call__components/sourceContainer/translationViz:updateTranslationViz",
+      "source": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "target": "components/sourceContainer/translationViz:updateTranslationViz",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/translationViz:openTranslationVizOverlay__domwrite__dom",
+      "source": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/translationViz:updateTranslationViz__domwrite__dom",
+      "source": "components/sourceContainer/translationViz:updateTranslationViz",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/visibilityControl:applyVisibilityState__call__components/sourceContainer/helpers:getRecord",
@@ -27840,6 +28002,12 @@
       "id": "components/userContainer/index:UserContainerManager.navigateToUserBooks__call__SPA/navigation/navigationRegistry:navigateByStructure",
       "source": "components/userContainer/index:UserContainerManager.navigateToUserBooks",
       "target": "SPA/navigation/navigationRegistry:navigateByStructure",
+      "rel": "call"
+    },
+    {
+      "id": "components/userContainer/index:UserContainerManager.openContainer__call__components/logoNav/logoNav:openLogoNavMenu",
+      "source": "components/userContainer/index:UserContainerManager.openContainer",
+      "target": "components/logoNav/logoNav:openLogoNavMenu",
       "rel": "call"
     },
     {
@@ -30003,6 +30171,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/logoNav/logoNav:openLogoNavMenu",
+      "source": "dom",
+      "target": "components/logoNav/logoNav:openLogoNavMenu",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/newBookButton/newBookButton:initializeNewBookContainer",
       "source": "dom",
       "target": "components/newBookButton/newBookButton:initializeNewBookContainer",
@@ -30525,6 +30699,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/bookVersions:initBookVersions",
+      "source": "dom",
+      "target": "components/sourceContainer/bookVersions:initBookVersions",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/checkSource:handleCheckSource",
       "source": "dom",
       "target": "components/sourceContainer/checkSource:handleCheckSource",
@@ -30726,6 +30906,24 @@
       "id": "dom__domread__components/sourceContainer/researchWorkflows:loadResearchWorkflows",
       "source": "dom",
       "target": "components/sourceContainer/researchWorkflows:loadResearchWorkflows",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "source": "dom",
+      "target": "components/sourceContainer/translationViz:closeTranslationVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "source": "dom",
+      "target": "components/sourceContainer/translationViz:openTranslationVizOverlay",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/translationViz:updateTranslationViz",
+      "source": "dom",
+      "target": "components/sourceContainer/translationViz:updateTranslationViz",
       "rel": "domread"
     },
     {
@@ -49810,6 +50008,11 @@
     },
     {
       "source": "components/sourceContainer/bookTranslation",
+      "target": "components/sourceContainer/translationViz",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/bookTranslation",
       "target": "SPA/navigation/NavigationManager",
       "kind": "breaker"
     },
@@ -49817,6 +50020,11 @@
       "source": "components/sourceContainer/bookTranslation",
       "target": "components/shelves/addToShelfMenu",
       "kind": "lazy"
+    },
+    {
+      "source": "components/sourceContainer/bookVersions",
+      "target": "hyperlights/translateSelection",
+      "kind": "static"
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
@@ -49985,6 +50193,11 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/bookVersions",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/buildSourceHtml",
       "kind": "static"
     },
@@ -50056,6 +50269,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/researchWorkflows",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/translationViz",
       "kind": "static"
     },
     {
@@ -50221,6 +50439,11 @@
     {
       "source": "components/userContainer/index",
       "target": "SPA/navigation/navigationRegistry",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/index",
+      "target": "components/logoNav/logoNav",
       "kind": "static"
     },
     {
@@ -54554,6 +54777,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 300
+    "lazyCount": 302
   }
 }

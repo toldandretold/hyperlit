@@ -50,7 +50,7 @@ class QueueTopologyProbeCommand extends Command
     /** @var Process[] */
     private array $workers = [];
 
-    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'audio', 'audio-package', 'embeddings', 'search-supplement', 'archive-export'];
+    private const QUEUES = ['default', 'citation-pipeline', 'vibe', 'audio', 'audio-package', 'translation', 'embeddings', 'search-supplement', 'archive-export'];
 
     public function handle(): int
     {
@@ -222,6 +222,7 @@ class QueueTopologyProbeCommand extends Command
             'vibe',
             'audio',
             'audio-package',
+            'translation',
             'embeddings',
             'search-supplement',
             'archive-export',

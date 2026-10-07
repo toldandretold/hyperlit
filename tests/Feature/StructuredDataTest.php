@@ -53,6 +53,30 @@ afterEach(function () {
     }
 });
 
+// Admin-connection user fixture (commits escape RefreshDatabase): random name,
+// cleaned up in beforeEach — the UserPageSeoTest pattern. A real users row is
+// required because RLS matches ownership on user_token, not the name.
+beforeEach(function () {
+    DB::connection('pgsql_admin')->table('users')
+        ->where('email', 'like', '%@sdtest.test')->delete();
+});
+
+function seedSdOwner(): \App\Models\User
+{
+    $unique = 'sdowner_'.\Illuminate\Support\Str::random(8);
+    $id = DB::connection('pgsql_admin')->table('users')->insertGetId([
+        'name'       => $unique,
+        'email'      => $unique.'@sdtest.test',
+        'password'   => bcrypt('x'),
+        'user_token' => (string) \Illuminate\Support\Str::uuid(),
+        'status'     => 'budget',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return \App\Models\User::on('pgsql_admin')->find($id);
+}
+
 /** Every JSON-LD block on the page, decoded. */
 function jsonLdBlocks(object $test, string $url): array
 {
@@ -246,6 +270,51 @@ test('a real book page is NOT noindexed', function () {
     $book = seedSdBook(['title' => 'Indexable Work']);
 
     expect($this->get("/{$book}")->getContent())->not->toContain('name="robots"');
+});
+
+/*
+ * The soft-404 shell class (GSC "Duplicate, Google chose different canonical
+ * than user", 2026-10): any identifier the server can't see — a typo, a deleted
+ * book, a private book under RLS — used to serve a byte-identical indexable 200
+ * shell. The 200 stays (the local-first create flow renders through this
+ * branch); the shell itself is noindexed.
+ */
+
+test('an unknown identifier serves the shell with noindex (soft-404 class)', function () {
+    $html = $this->get('/zz-no-such-book-'.bin2hex(random_bytes(4)))
+        ->assertStatus(200)->getContent();
+
+    expect($html)->toContain('<meta name="robots" content="noindex, follow">');
+});
+
+test('a PRIVATE book is an unserveable shell for an anonymous visitor → noindex', function () {
+    $book = seedSdBook(['visibility' => 'private', 'creator' => 'sd_owner_1']);
+
+    $html = $this->get("/{$book}")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('<meta name="robots" content="noindex, follow">');
+});
+
+test('the OWNER of a private book gets the real page, never noindex', function () {
+    // RLS matches ownership on users.user_token (resolved by the session-context
+    // middleware from a real users row), so the owner's session sees the nodes
+    // and takes the database branch.
+    $owner = seedSdOwner();
+    $book = seedSdBook(['visibility' => 'private', 'creator' => $owner->name]);
+
+    $html = $this->actingAs($owner)->get("/{$book}")->assertStatus(200)->getContent();
+
+    expect($html)->not->toContain('name="robots"');
+});
+
+test('showNested serves a private book\'s shell with noindex too (/{book}/{rest})', function () {
+    // Same soft-404 shape at a deep URL: the chain cannot resolve under RLS, so
+    // the generic shell is served — it must not be indexable either.
+    $book = seedSdBook(['visibility' => 'private', 'creator' => 'sd_owner_1']);
+
+    $html = $this->get("/{$book}/1/Fn123")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('<meta name="robots" content="noindex, follow">');
 });
 
 test('a book with a DOI declares its external identity via sameAs', function () {

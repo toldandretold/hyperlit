@@ -86,6 +86,13 @@
   color: var(--color-text-secondary);
 }
 
+/* "log in" / "register" in the 401 body — matches .brain-auth-message a */
+#translation-popover .tp-auth-link {
+  color: var(--icon-stroke-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 #translation-popover .tp-note {
   padding: 0 12px 8px;
   font-size: 0.75rem;

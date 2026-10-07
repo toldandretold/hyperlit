@@ -65,6 +65,12 @@ This is the map of every dollar that moves through hyperlit: what we charge for,
 - **Reservation** — the generate endpoint takes an atomic `reserveCredits()` hold (estimate × multiplier, row-locked) so N simultaneous requests can't all pass the non-locking balance gate. The hold is NOT the charge: `GenerateBookAudioJob` releases it in a `finally` (and in `failed()`), then `chargeFor()` bills only the characters actually synthesized. A leaked hold was the pre-2026-07 double-debit bug — `releaseReservation()` is idempotent and refuses to touch non-reservation rows.
 - **Partial runs bill partially** — per-node hash-skip makes re-runs bill only the gap; a fully failed run (zero chars) bills nothing.
 
+### Whole-book translation (`category: translation`, hold: `tts_reservation`)
+
+- **Rate** — the tokens actually used (Kimi K3 pinned by `TranslateBookJob::MODEL`), priced per model from `services.llm.pricing` by `BookTranslationService::costOf()`, × tier multiplier. The passage popover (`POST /api/translate`) bills the same way under `category: translation` unless `TRANSLATION_PASSAGES_FREE` absorbs it.
+- **Reservation** — the start endpoint takes an atomic `reserveCredits()` hold for the ESTIMATE (reservation rows share the fossil-named `tts_reservation` category); `TranslateBookJob` releases it in `finally`/`failed()` and charges only the tokens each run used.
+- **Failed runs charge for work done** — a deliberate exception to "no success, no charge" (below): finished paragraphs are CACHED and a retry never re-sends or re-bills them, so a failed run's charge buys real progress. The retry pays only for the remainder. Pinned by `tests/Feature/Translation/BookTranslationTest.php` (exact amounts, hold release on success/failure, premium ledger-only, lock-409) and end-to-end by `tests/e2e/specs/stripe/translation-billing.spec.js` (real worker against a fake Fireworks).
+
 ### Free features (deliberately unbilled)
 
 - **Vibe convert** (the AI re-conversion fixer) is FREE — it's an experimental dead end that rarely produces a usable fix, so charging was removed 2026-07 (`VibeConversionJob`). The `canProceed` gate stays (it still costs hyperlit LLM money, so zero-balance accounts can't spam it).
@@ -83,7 +89,7 @@ This is the map of every dollar that moves through hyperlit: what we charge for,
 
 ## Failure semantics
 
-- The universal rule: **no successful work, no charge.** Gates reject up-front (402), and every charge site sits AFTER the success point of its feature, so a crash/timeout/validation failure simply never reaches `charge()`.
+- The universal rule: **no successful work, no charge.** Gates reject up-front (402), and every charge site sits AFTER the success point of its feature, so a crash/timeout/validation failure simply never reaches `charge()`. (One deliberate exception: whole-book translation charges per RUN for tokens used, because its paragraph cache makes that work durable — see its section above.)
 - **Failed PDF import** — not charged by default, even though the Mistral OCR call may have already cost us money (we eat it). The env toggle `BILLING_CHARGE_OCR_ON_FAILED_IMPORT=true` (`services.billing.charge_ocr_on_failed_import`) flips this: `ProcessDocumentImportJob::failed()` then bills the OCR that actually ran — marker-idempotent, and a crash BEFORE the OCR still bills nothing (no `ocr_response.json` = nothing to charge). The failure email tells the user which way it went ("You were not charged" vs the OCR amount).
 - **No refunds exist** — the ledger is append-only and nothing reverses a posted charge; correctness relies on charging after success. The one reversal-like operation is `releaseReservation`, which only undoes reservation HOLDS, never real debits.
 

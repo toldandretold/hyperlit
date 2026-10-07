@@ -2,8 +2,11 @@
 //
 // A Chinese book translates into English and an English book into Chinese,
 // on Kimi K3, paid for by whoever presses the button. The result is a NEW
-// private book in their library (translating in place would orphan every
-// highlight and hypercite, which point at character offsets in the original).
+// book in their library (translating in place would orphan every highlight
+// and hypercite, which point at character offsets in the original). The
+// commons rule: a PUBLIC book's translation is public — one reader pays and
+// everyone else gets the open-link instead of the paid button — while a
+// private book's translation stays private.
 //
 // The section is a small state machine driven by GET /api/book-translation/{book}:
 //   hidden    — a book that can't be translated
@@ -22,8 +25,10 @@
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
 import { isLoggedIn } from '../../utilities/auth/session';
+import { openTranslationVizOverlay, closeTranslationVizOverlay } from './translationViz';
 
 const SECTION_ID = 'book-translation-section';
+const PROGRESS_ROW_ID = 'book-translation-live';
 const POLL_MS = 5000;
 /** A long novel takes about an hour; stop polling an abandoned tab after three. */
 const MAX_POLLS = 2160;
@@ -37,10 +42,25 @@ export interface BookTranslationStatus {
   characters?: number | null;
   estimated_cost?: number | null;
   running?: boolean;
-  progress?: { status: string | null; phase: string | null; percent: number; error: string | null } | null;
-  existing?: { book: string; title: string } | null;
+  progress?: {
+    status: string | null;
+    phase: string | null;
+    percent: number;
+    error: string | null;
+    /** Current TranslationMap stage id, for the live-progress overlay. */
+    stage?: string | null;
+    /** Latest-state map per stage id (status + live signals). */
+    stages?: Record<string, { status?: string; [signal: string]: unknown }> | null;
+    new_book?: string | null;
+    publish_clamped?: string | null;
+  } | null;
+  /** Bounded boundary log (stage transitions + section starts). */
+  telemetry?: Array<{ t: string; stage?: string; status?: string; detail?: string }>;
+  existing?: { book: string; title: string; own?: boolean; creator?: string } | null;
   /** False for a guest — the endpoint is public so the button can say "Log in". */
   logged_in?: boolean;
+  /** The commons rule: a public book's translation will itself be public. */
+  will_be_public?: boolean;
 }
 
 export interface BookTranslationHandle {
@@ -105,6 +125,8 @@ async function openBook(bookId: string): Promise<void> {
 }
 
 async function openWhenReady(sourceBook: string, copy: { book: string; title: string }): Promise<void> {
+  // The overlay must not outlive the page it narrates.
+  closeTranslationVizOverlay();
   if (currentBookId() === sourceBook) {
     await openBook(copy.book);
 
@@ -185,6 +207,33 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
     runs.get(rootBook)?.listeners.add(apply);
   };
 
+  /**
+   * The running-state row under the button: "See live progress ▸" opens the
+   * stage-chain overlay (pattern: harvestNetwork's ensureHarvestRunningRow).
+   * Idempotent — created once, wired once; removed when the run ends. The
+   * overlay subscribes to the SAME module-level watch, so it keeps updating
+   * after this panel is destroyed.
+   */
+  const ensureProgressRow = (): void => {
+    if (section!.querySelector(`#${PROGRESS_ROW_ID}`)) return;
+    const row = document.createElement('div');
+    row.id = PROGRESS_ROW_ID;
+    row.className = 'book-translation-live-row';
+    row.innerHTML = '<button type="button" class="book-translation-viz-toggle">See live progress ▸</button>';
+    section!.appendChild(row);
+    row.querySelector('.book-translation-viz-toggle')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!latest) return;
+      void openTranslationVizOverlay(latest, (vizListener) => {
+        watchTranslation(rootBook);
+        runs.get(rootBook)?.listeners.add(vizListener);
+
+        return () => runs.get(rootBook)?.listeners.delete(vizListener);
+      });
+    });
+  };
+
   function apply(status: BookTranslationStatus | null): void {
     if (destroyed || !status) return;
     latest = status;
@@ -197,12 +246,17 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
     section!.hidden = false;
     const language = status.target_label ?? 'the other language';
 
+    if (!status.running) {
+      section!.querySelector(`#${PROGRESS_ROW_ID}`)?.remove();
+    }
+
     if (status.existing) {
-      button!.hidden = true;
-      link!.hidden = false;
-      link!.href = `/${encodeURIComponent(status.existing.book)}`;
-      link!.textContent = `Open the ${language} translation`;
-      note!.textContent = `“${status.existing.title}” is in your library (private).`;
+      // A finished translation is the Versions/Translations rail's job to
+      // surface (it sits with the citation, where identity facts belong) —
+      // repeating an open-link here would be noise, so the whole section
+      // goes away. The module-level watch still reads `existing` to know a
+      // run it followed just finished.
+      section!.hidden = true;
 
       return;
     }
@@ -222,6 +276,7 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
           ? `Translating into ${language}… first results in a minute or two`
           : `Translating ${what} into ${language}… ${percent}%`;
       note!.textContent = 'It opens by itself when it’s done. A long book takes about an hour — you can close this panel meanwhile.';
+      ensureProgressRow();
       follow();
 
       return;
@@ -235,9 +290,12 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
       : failed ? `Try again: translate into ${language}` : `Translate into ${language}`;
     const estimate = formatEstimate(status.estimated_cost);
     const cost = estimate ? `Kimi K3, ${estimate}, charged for what's used.` : 'Kimi K3, charged for what\'s used.';
+    const what = status.will_be_public
+      ? `Makes a public ${language} translation anyone can read — you pay once, nobody pays again.`
+      : `Makes a private copy in ${language} for you.`;
     note!.textContent = failed && status.progress?.error
       ? `${status.progress.error} ${cost}`
-      : `Makes a private copy in ${language} for you. ${cost}`;
+      : `${what} ${cost}`;
   }
 
   const onClick = async (event: Event): Promise<void> => {
@@ -263,7 +321,9 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
     const { confirmDialog, alertDialog } = await import('../dialog/dialog');
     const ok = await confirmDialog({
       title: `Translate into ${language}?`,
-      message: `This makes a private ${language} copy of the book in your library, translated by Kimi K3.`
+      message: (latest.will_be_public
+        ? `This makes a public ${language} translation of the book, by Kimi K3, in your library — everyone can read it, so nobody pays for it twice.`
+        : `This makes a private ${language} copy of the book in your library, translated by Kimi K3.`)
         + (estimate ? ` It should cost ${estimate}; you're charged for what's actually used.` : '')
         + ' It opens by itself when it’s done; a long book takes about an hour.',
       confirmLabel: 'Translate',

@@ -30,10 +30,6 @@ Before, the problem was simply getting access to text. Now, the problem is getti
 
 The solution is to combine the open access movement with free and open source software. To create open platforms with full data sovereignty. To outcompete the monopolists, at least in terms of usefulness. 
 
-That is the mission of hyperlit:
-
-to resist digital enclosure by augmenting the knowledge commons.
-
 [Read more here](https://hyperlit.io/book_1788397849708)
 
 

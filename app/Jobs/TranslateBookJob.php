@@ -73,7 +73,10 @@ class TranslateBookJob implements ShouldQueue
             'services.translation.html.reasoning_effort' => 'low',
         ]);
         $llm->resetUsageStats();
-        $service->writeProgress($this->bookId, $this->target, $this->userId, ['status' => 'running', 'error' => null]);
+        $service->record($this->bookId, $this->target, $this->userId,
+            ['status' => 'running', 'error' => null],
+            stage: 'queued', stagePatch: ['status' => 'completed'],
+            event: ['stage' => 'queued', 'status' => 'completed', 'detail' => 'Picked up by the translation worker']);
 
         $continuing = false;
         try {
@@ -82,9 +85,7 @@ class TranslateBookJob implements ShouldQueue
                 $this->target,
                 $user,
                 deadline: $started + self::WORK_BUDGET_SECONDS,
-                onProgress: fn (array $p) => $service->writeProgress($this->bookId, $this->target, $this->userId, [
-                    'status' => 'running', 'phase' => $p['phase'], 'percent' => round($p['percent'], 3),
-                ]),
+                onProgress: fn (array $p) => $this->recordProgress($service, $p),
             );
 
             match ($outcome['status']) {
@@ -99,6 +100,11 @@ class TranslateBookJob implements ShouldQueue
 
             if ($outcome['status'] === 'continue') {
                 $continuing = true;
+                $stage = $service->readProgress($this->bookId, $this->target, $this->userId)['stage'] ?? 'text';
+                $service->record($this->bookId, $this->target, $this->userId, [], stage: $stage, event: [
+                    'stage' => $stage, 'status' => 'progress',
+                    'detail' => 'Handing off to a fresh worker — everything translated so far is kept',
+                ]);
                 self::dispatch($this->bookId, $this->userId, $this->target);
             }
         } finally {
@@ -118,10 +124,63 @@ class TranslateBookJob implements ShouldQueue
             $this->releaseReservation($user);
         }
         Cache::lock(BookTranslationService::lockKey($this->bookId, $this->target, $this->userId))->forceRelease();
-        app(BookTranslationService::class)->writeProgress($this->bookId, $this->target, $this->userId, [
+        $service = app(BookTranslationService::class);
+        $stage = $service->readProgress($this->bookId, $this->target, $this->userId)['stage'] ?? 'queued';
+        $service->record($this->bookId, $this->target, $this->userId, [
             'status' => 'failed',
             'error' => 'Translation stopped unexpectedly. Press Translate again to pick up where it left off.',
+        ], stage: $stage, stagePatch: ['status' => 'failed'], event: [
+            'stage' => $stage, 'status' => 'failed', 'detail' => 'The run stopped unexpectedly',
         ]);
+    }
+
+    /**
+     * Fold a translator progress payload ({phase, percent, event}) into
+     * progress.json: percent + a latest-state patch of the stage map on every
+     * batch (O(1) overwrite), a boundary EVENT only at section edges — never
+     * per batch, or a long book floods the bounded log.
+     */
+    private function recordProgress(BookTranslationService $service, array $p): void
+    {
+        $fields = ['status' => 'running', 'phase' => $p['phase']];
+        if (($p['percent'] ?? null) !== null) {
+            $fields['percent'] = round($p['percent'], 3);
+        }
+
+        $event = $p['event'] ?? null;
+        $patch = ['status' => 'progress'];
+        $boundary = null;
+        if (($event['type'] ?? null) === 'batch') {
+            $patch += [
+                'section' => $event['section'] ?? null,
+                'sections' => $event['sections'] ?? null,
+                'chars_done' => $event['done'] ?? null,
+                'chars_total' => $event['total'] ?? null,
+            ];
+            if (($event['retried'] ?? 0) > 0) {
+                $patch['retried'] = $event['retried'];
+            }
+        } elseif (($event['type'] ?? null) === 'section') {
+            $title = trim((string) ($event['title'] ?? ''));
+            $patch += [
+                'section' => $event['section'] ?? null,
+                'sections' => $event['sections'] ?? null,
+                'title' => $title !== '' ? $title : null,
+                'paragraphs' => $event['paragraphs'] ?? null,
+            ];
+            $boundary = [
+                'stage' => $p['phase'], 'status' => 'progress',
+                'detail' => "Section {$event['section']}/{$event['sections']}".($title !== '' ? ": {$title}" : ''),
+            ];
+        } elseif (($event['type'] ?? null) === 'section_done') {
+            $boundary = [
+                'stage' => $p['phase'], 'status' => 'progress',
+                'detail' => "Section {$event['section']}/{$event['sections']} finished",
+            ];
+        }
+
+        $service->record($this->bookId, $this->target, $this->userId, $fields,
+            stage: $p['phase'], stagePatch: $patch, event: $boundary);
     }
 
     private function charge(User $user, array $usage): void

@@ -27,6 +27,18 @@
       document.documentElement.classList.add('dl-pending');})();
 </script>
 
+@if(!empty($textPageCanonicalBookPath ?? null))
+{{-- Deep-section entry (/{book}/text?page=N): tidy the address bar to the
+     canonical book path BEFORE any module JS runs. Inline parse-time script
+     beats every deferred @vite module, so app.ts, LinkNavigationHandler's
+     extractBookSlugFromPath, loadHyperText's first-segment read and the
+     popstate convergence all see a plain /{slug} URL — the SPA, history stack
+     and deep-link machinery run on home turf with zero JS changes. Crawlers
+     attribute the content to the URL they FETCHED; this is post-delivery URL
+     tidying of identical content, not cloaking. --}}
+<script>history.replaceState(null, '', @json($textPageCanonicalBookPath));</script>
+@endif
+
 
 <div id="app-container">
 
@@ -128,6 +140,20 @@
       <div id="keyboard-spacer"></div>
       </div>
       <div class="spacer"></div>
+
+{{-- Crawler-facing links, deliberately OUTSIDE <main>: the SPA adopts/replaces
+     main's children, and these must survive the render. Crawlers follow <a href>
+     (never buttons, never scroll), so this is how a bot walks a book the way a
+     human scrolls it. .visually-hidden = clip-path pattern in base/foundation.css. --}}
+@if(!empty($fullTextPath ?? null))
+  <a class="visually-hidden" href="{{ $fullTextPath }}">Full text of {{ $pageTitle ?? 'this book' }}</a>
+@endif
+@if(!empty($textPagePrev ?? null))
+  <a class="visually-hidden" href="{{ $textPagePrev }}">Previous page of {{ $pageTitle ?? 'this book' }}</a>
+@endif
+@if(!empty($textPageNext ?? null))
+  <a class="visually-hidden" href="{{ $textPageNext }}">Next page of {{ $pageTitle ?? 'this book' }}</a>
+@endif
 
 <!-- In reader.blade.php -->
 

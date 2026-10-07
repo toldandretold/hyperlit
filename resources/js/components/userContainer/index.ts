@@ -8,6 +8,7 @@
 // (rebindElements), not here. Registry lifecycle + the default-export singleton
 // live in ../userButton/userButton.
 import { ContainerManager } from "../utilities/containerManager";
+import { openLogoNavMenu } from "../logoNav/logoNav";
 import { navigateByStructure } from '../../SPA/navigation/navigationRegistry';
 import { book } from "../../app";
 import { getCurrentUser, getCsrfTokenFromCookie } from "../../utilities/auth/index";
@@ -225,6 +226,14 @@ export class UserContainerManager extends (ContainerManager as any) {
 
   openContainer(mode = "login") {
     if (this.isAnimating) return;
+
+    // Opened by CODE (an auth gate, a "log in to do this" link) rather than by
+    // a click on the Account row: bring its nav column up with it, so the panel
+    // reads as the end of the path the user would have taken — logo → Account,
+    // the row highlighted below — instead of floating beside a hidden menu.
+    // A real click has the menu open already, so this is a no-op there, and on
+    // the homepage (no logo nav) there is nothing to open.
+    if (this.button?.closest("#logoNavMenu")) openLogoNavMenu();
 
     // One flyout at a time: opening this panel swaps out an open new-book /
     // open-book panel (level-1 nav rows stay clickable while a flyout is open).

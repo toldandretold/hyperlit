@@ -50,8 +50,10 @@ test('slugged book: raw id, slug, /edit and HL deep link ALL canonicalize to the
     $canonicalTag = '<link rel="canonical" href="' . $canonical . '">';
     $ogTag = '<meta property="og:url" content="' . $canonical . '">';
 
+    // Raw-id variants now 301 to the slug (LegacyBookUrlRedirectTest owns the
+    // redirect mechanics); following them must land on the SAME canonical tags.
     foreach (["/{$book}", "/{$slug}", "/{$slug}/edit", "/{$book}/HL_zz1"] as $variant) {
-        $html = $this->get($variant)->assertStatus(200)->getContent();
+        $html = $this->followingRedirects()->get($variant)->assertStatus(200)->getContent();
         expect($html)->toContain($canonicalTag);
         expect($html)->toContain($ogTag);
     }
@@ -72,7 +74,8 @@ test('JSON-LD url uses the canonical URL, not the requested variant', function (
     $slug = 'canonical-ld-' . strtolower(Str::random(6));
     $book = seedCanonicalBook($this, $slug);
 
-    $html = $this->get("/{$book}/HL_zz1")->assertStatus(200)->getContent();
+    // The raw-id deep link 301s to /{slug}/HL_zz1 first (deliberate).
+    $html = $this->followingRedirects()->get("/{$book}/HL_zz1")->assertStatus(200)->getContent();
 
     expect($html)->toContain('"url":"' . url('/' . $slug) . '"');
 });

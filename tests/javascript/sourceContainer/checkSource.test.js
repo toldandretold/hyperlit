@@ -25,6 +25,7 @@ import {
   isOfficialSourceText,
   externalSourceLink,
   librarianHtml,
+  librarianSectionHtml,
   sourceStatusSectionHtml,
   handleCheckSource,
   wireSourceStatus,
@@ -126,13 +127,20 @@ describe('librarianHtml', () => {
 });
 
 describe('sourceStatusSectionHtml', () => {
-  it('linked book shows the Citation Verified pill + Librarian (no button)', () => {
-    const html = sourceStatusSectionHtml(
-      { book: 'b', creator: 'alice', canonical_source_id: 'c1', canonical_match_method: 'openalex_doi', doi: '10.1/x' }, true, false,
-    );
+  it('linked book shows the Citation Verified pill (no button); Librarian is its own sibling block', () => {
+    const record = { book: 'b', creator: 'alice', canonical_source_id: 'c1', canonical_match_method: 'openalex_doi', doi: '10.1/x' };
+    const html = sourceStatusSectionHtml(record, true, false);
     expect(html).toContain('Citation Verified');
-    expect(html).toContain('Librarian');
+    // Librarian moved OUT of this section so the Versions/Translations rail
+    // can sit between them (and so the verify re-render can't wipe the rail).
+    expect(html).not.toContain('Librarian');
     expect(html).not.toContain('check-source-btn');
+
+    const librarian = librarianSectionHtml(record, false);
+    expect(librarian).toContain('source-librarian');
+    expect(librarian).toContain('Librarian');
+    expect(librarian).toContain('/u/alice');
+    expect(librarianSectionHtml(record, true)).toBe(''); // access denied
   });
 
   it('auto-version book shows Source Text Verified', () => {

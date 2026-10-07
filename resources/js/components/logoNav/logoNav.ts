@@ -60,6 +60,40 @@ function toggleLogoNav() {
 }
 
 /**
+ * Open the menu from code rather than from a click on the logo.
+ *
+ * A flyout (the login panel, the new-book panel) hangs off a row in this
+ * column, so when something OTHER than the user opens one — an auth gate, a
+ * "you need an account" link — the column has to come with it. Otherwise the
+ * panel floats beside a nav that isn't showing, and the reader never sees the
+ * path they would have taken themselves: logo → Account.
+ *
+ * No-op where there is no logo nav (the homepage renders the buttons loose)
+ * or when the menu is already open.
+ */
+export function openLogoNavMenu() {
+  const logoBtn = document.getElementById('logoContainer');
+  const navMenu = document.getElementById('logoNavMenu');
+  if (!logoBtn || !navMenu) return;
+  if (isOpen && !navMenu.classList.contains('hidden')) return;
+
+  // Re-arming from a desynced state (isOpen true, menu hidden): drop the old
+  // listeners first so openLogoNav doesn't orphan a set that can never be
+  // removed — the module keeps ONE reference to each.
+  if (clickOutsideHandler) {
+    document.removeEventListener('click', clickOutsideHandler, true);
+    clickOutsideHandler = null;
+  }
+  if (escapeHandler) {
+    document.removeEventListener('keydown', escapeHandler);
+    escapeHandler = null;
+  }
+
+  isOpen = true;
+  openLogoNav(logoBtn, navMenu);
+}
+
+/**
  * Open logo navigation menu
  */
 function openLogoNav(logoBtn: any, navMenu: any) {

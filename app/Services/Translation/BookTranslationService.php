@@ -6,6 +6,7 @@ use App\Http\Controllers\UserHomeServerController;
 use App\Models\PgLibrary;
 use App\Models\User;
 use App\Services\E2ee\EncryptedBookGuard;
+use App\Services\Publishing\PublishGate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,13 @@ use Illuminate\Support\Facades\Log;
  *
  * WHY A COPY, never an in-place rewrite: hyperlights and hypercites address
  * character offsets in the original text, so a translated node can't stand
- * in for it. The copy is a private book owned by whoever asked for it.
+ * in for it. The copy is owned by whoever asked for it, and its VISIBILITY
+ * INHERITS THE ORIGINAL'S (clamped by PublishGate): translating a public
+ * book makes a public translation — the requester pays once and nobody else
+ * has to — while a private book's translation stays private. Lineage lives
+ * in the translated_from / translation_target COLUMNS (raw_json carries a
+ * display mirror, but raw_json is rebuilt on every metadata save, so the
+ * columns are the only durable record and the only thing queries may use).
  *
  * WHY THE IDS DON'T CHANGE: nodes are unique per (book, startLine) and
  * (book, node_id), footnotes per (book, footnoteId). So the copy keeps every
@@ -90,7 +97,11 @@ final class BookTranslationService
         return null;
     }
 
-    /** Characters of text across the book, its footnotes and their sub-books. */
+    /**
+     * Characters of text across the book, its footnotes and their sub-books —
+     * excluding reference-list nodes, which are never sent to the model
+     * (see run()), so the estimate doesn't quote for them.
+     */
     public function characterCount(string $book): int
     {
         $db = DB::connection('pgsql_admin');
@@ -101,11 +112,24 @@ final class BookTranslationService
             $db->table('nodes')->where('book', 'like', $this->likePrefix($book))->pluck('content'),
         ] as $contents) {
             foreach ($contents as $content) {
+                if ($this->isBibliographyNode((string) $content)) {
+                    continue;
+                }
                 $count += mb_strlen(strip_tags((string) $content));
             }
         }
 
         return $count;
+    }
+
+    /**
+     * A rendered reference-list entry (the paste lane marks them). Citations
+     * stay in their source language: author names and titles are claims
+     * about works, and a reader chases them in the original.
+     */
+    private function isBibliographyNode(string $content): bool
+    {
+        return str_contains($content, 'data-static-content="bibliography"');
     }
 
     /**
@@ -147,15 +171,23 @@ final class BookTranslationService
         return max(1, $headings) + $notes;
     }
 
-    /** The requester's existing translation of this book into $target, if any. */
-    public function existingCopy(string $book, User $user, string $target): ?object
+    /**
+     * A translation of this book into $target that THIS VIEWER can see —
+     * their own (public or private) or anyone's public one. The commons
+     * dedupe: one visible translation means nobody pays for a second.
+     *
+     * Deliberately the DEFAULT (RLS) connection: "what may this caller see"
+     * is exactly RLS's question, so someone else's PRIVATE copy reads as
+     * absent and that user may still commission their own. The viewer's own
+     * copy outranks a stranger's so "open your translation" stays theirs.
+     */
+    public function existingCopy(string $book, ?User $user, string $target): ?object
     {
-        return DB::connection('pgsql_admin')->table('library')
-            ->where('creator', $user->name)
-            ->whereRaw("raw_json->>'translated_from' = ?", [$book])
-            ->whereRaw("raw_json->>'translation_target' = ?", [$target])
-            ->orderByDesc('created_at')
-            ->first(['book', 'title']);
+        return PgLibrary::query()
+            ->where('translated_from', $book)
+            ->where('translation_target', $target)
+            ->orderByRaw('(creator = ?) DESC, created_at DESC', [$user?->name ?? ''])
+            ->first(['book', 'title', 'creator']);
     }
 
     public static function lockKey(string $book, string $target, int $userId): string
@@ -178,14 +210,58 @@ final class BookTranslationService
     /** Merge $fields into the progress file, stamping updated_at (the heartbeat). */
     public function writeProgress(string $book, string $target, int $userId, array $fields): array
     {
+        return $this->record($book, $target, $userId, $fields);
+    }
+
+    /**
+     * Progress + stage telemetry in ONE read-modify-write of progress.json
+     * (which happens on EVERY batch, so this must stay O(1) per write).
+     *
+     *   $fields     top-level merge (writeProgress semantics).
+     *   $stage      sets the current stage and PATCHES stages.{id} — a
+     *               fixed-size latest-state map, one object per TranslationMap
+     *               stage, never an append. Batch events just overwrite it.
+     *   $event      appends to the BOUNDED boundary log (stage transitions,
+     *               section starts, hand-offs) — NEVER per-batch; a long book
+     *               emits thousands of those and the file must stay a few KB.
+     */
+    public function record(string $book, string $target, int $userId, array $fields = [], ?string $stage = null, array $stagePatch = [], ?array $event = null): array
+    {
+        $progress = array_merge($this->readProgress($book, $target, $userId) ?? [], $fields);
+        if ($stage !== null) {
+            $progress['stage'] = $stage;
+            $stages = is_array($progress['stages'] ?? null) ? $progress['stages'] : [];
+            $stages[$stage] = array_merge($stages[$stage] ?? [], $stagePatch, ['updated_at' => now()->toIso8601String()]);
+            $progress['stages'] = $stages;
+        }
+        if ($event !== null) {
+            $events = is_array($progress['events'] ?? null) ? $progress['events'] : [];
+            $events[] = array_merge(['t' => now()->toIso8601String()], $event);
+            $progress['events'] = $this->capEvents($events);
+        }
+        $progress['updated_at'] = now()->toIso8601String();
+
         $dir = $this->dir($book, $target, $userId);
         File::ensureDirectoryExists($dir, 0755);
-        $progress = array_merge($this->readProgress($book, $target, $userId) ?? [], $fields, [
-            'updated_at' => now()->toIso8601String(),
-        ]);
         File::put("{$dir}/progress.json", json_encode($progress, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
         return $progress;
+    }
+
+    /** HarvestTelemetry's head+tail trick, sized for boundary events only. */
+    private function capEvents(array $events): array
+    {
+        $head = 20;
+        $tail = 99;
+        if (count($events) <= $head + $tail + 1) {
+            return $events;
+        }
+
+        return array_merge(
+            array_slice($events, 0, $head),
+            [['t' => now()->toIso8601String(), 'truncated' => true]],
+            array_slice($events, -$tail),
+        );
     }
 
     /**
@@ -212,14 +288,29 @@ final class BookTranslationService
         $about = trim('the book "'.$library->title.'"'.($library->author ? ' by '.$library->author : ''));
 
         // Pass 1, the text: one document, so chapters become sections and
-        // context runs across node boundaries.
+        // context runs across node boundaries. Reference-LIST nodes are left
+        // out: a citation is a bibliographic claim about the work, not prose
+        // (the same rule that copies the bibliography table untranslated so
+        // in-text citations resolve) — and their span-thicket markup is
+        // exactly what breaks placeholder rebuilds (measured: a run's only
+        // failures were 11 consecutive reference entries). writeCopy's
+        // `?? $n->content` carries them into the copy verbatim.
+        $fragments = $nodes->mapWithKeys(fn ($n, $i) => [$i => (string) $n->content])
+            ->reject(fn (string $content) => $this->isBibliographyNode($content));
+        $this->record($book, $target, $user->id, [], stage: 'text',
+            stagePatch: ['status' => 'started', 'paragraphs' => $fragments->count()],
+            event: ['stage' => 'text', 'status' => 'started']);
         $body = $this->translator->translateFragments(
-            $nodes->mapWithKeys(fn ($n, $i) => [$i => (string) $n->content])->all(),
+            $fragments->all(),
             $target, $source, about: $about, cachePath: $cache, deadline: $deadline,
             onProgress: $this->percentReporter($onProgress, 'text'),
         );
         if ($body->pending > 0) {
             return ['status' => 'continue'];
+        }
+        if ($body->failed === 0) {
+            $this->record($book, $target, $user->id, [], stage: 'text',
+                stagePatch: ['status' => 'completed'], event: ['stage' => 'text', 'status' => 'completed']);
         }
 
         // Pass 2, the notes: footnote bodies and their sub-books' nodes.
@@ -230,27 +321,51 @@ final class BookTranslationService
         foreach ($subNodes as $i => $n) {
             $notes["sub{$i}"] = (string) $n->content;
         }
-        $notesResult = $notes === [] ? null : $this->translator->translateFragments(
-            $notes, $target, $source, about: $about, cachePath: $cache, deadline: $deadline,
-            onProgress: $this->percentReporter($onProgress, 'notes'),
-        );
-        if ($notesResult !== null && $notesResult->pending > 0) {
-            return ['status' => 'continue'];
+        if ($notes === []) {
+            $notesResult = null;
+            $this->record($book, $target, $user->id, [], stage: 'notes',
+                stagePatch: ['status' => 'skipped'], event: ['stage' => 'notes', 'status' => 'skipped', 'detail' => 'No footnotes to translate']);
+        } else {
+            $this->record($book, $target, $user->id, [], stage: 'notes',
+                stagePatch: ['status' => 'started', 'paragraphs' => count($notes)],
+                event: ['stage' => 'notes', 'status' => 'started']);
+            $notesResult = $this->translator->translateFragments(
+                $notes, $target, $source, about: $about, cachePath: $cache, deadline: $deadline,
+                onProgress: $this->percentReporter($onProgress, 'notes'),
+            );
+            if ($notesResult->pending > 0) {
+                return ['status' => 'continue'];
+            }
+            if ($notesResult->failed === 0) {
+                $this->record($book, $target, $user->id, [], stage: 'notes',
+                    stagePatch: ['status' => 'completed'], event: ['stage' => 'notes', 'status' => 'completed']);
+            }
         }
 
         $failed = $body->failed + ($notesResult->failed ?? 0);
         if ($failed > 0) {
+            $failedStage = $body->failed > 0 ? 'text' : 'notes';
+            $this->record($book, $target, $user->id, [], stage: $failedStage,
+                stagePatch: ['status' => 'failed'],
+                event: ['stage' => $failedStage, 'status' => 'failed', 'detail' => "{$failed} paragraph(s) could not be translated"]);
+
             return [
                 'status' => 'failed',
                 'message' => "{$failed} paragraph(s) could not be translated. Press Translate again to retry — you won't be charged twice for what's already done.",
             ];
         }
 
+        $this->record($book, $target, $user->id, [], stage: 'write',
+            stagePatch: ['status' => 'started', 'nodes' => $nodes->count(), 'footnotes' => $footnotes->count()],
+            event: ['stage' => 'write', 'status' => 'started']);
         $copy = $this->writeCopy(
             $library, $user, $target, $nodes, $body->fragments,
             $footnotes, $subNodes, $notesResult?->fragments ?? [],
         );
         File::delete($cache); // the copy holds the translation now
+        $this->record($book, $target, $user->id, [], stage: 'write',
+            stagePatch: ['status' => 'completed', 'new_book' => $copy],
+            event: ['stage' => 'write', 'status' => 'completed', 'signals' => ['new_book' => $copy]]);
 
         return ['status' => 'done', 'book' => $copy];
     }
@@ -277,7 +392,12 @@ final class BookTranslationService
         return $total;
     }
 
-    /** Wraps a progress callback so the job sees one 0–1 figure per pass. */
+    /**
+     * Wraps a progress callback: one 0–1 figure per pass from the batch
+     * events, plus the RAW translator event ('section' / 'batch' /
+     * 'section_done') so the job can patch the stage map and log section
+     * boundaries. percent is null on non-batch events — don't clobber.
+     */
     private function percentReporter(?callable $onProgress, string $phase): ?callable
     {
         if ($onProgress === null) {
@@ -285,12 +405,12 @@ final class BookTranslationService
         }
 
         return function (array $event) use ($onProgress, $phase) {
-            if ($event['type'] !== 'batch') {
-                return;
-            }
             $onProgress([
                 'phase' => $phase,
-                'percent' => $event['total'] > 0 ? min(1, $event['done'] / $event['total']) : 1,
+                'percent' => $event['type'] === 'batch'
+                    ? ($event['total'] > 0 ? min(1, $event['done'] / $event['total']) : 1)
+                    : null,
+                'event' => $event,
             ]);
         };
     }
@@ -318,25 +438,54 @@ final class BookTranslationService
         $title = mb_substr(($library->title ?: 'Untitled').self::TARGETS[$target], 0, 255);
 
         $row = (array) $library;
+        // canonical_source_id deliberately SURVIVES this list: a translation
+        // is a version of the same work, so it joins the canonical's
+        // versions() family. The match provenance does not — how the ORIGINAL
+        // was matched is its history, not the copy's.
         foreach (['search_vector', 'slug', 'openalex_id', 'open_library_key', 'doi', 'access_granted',
-            'wrapped_dek', 'last_sync_token', 'gate_defaults', 'page_settings', 'canonical_source_id',
+            'wrapped_dek', 'last_sync_token', 'gate_defaults', 'page_settings',
             'canonical_match_score', 'canonical_match_method', 'canonical_matched_at', 'canonical_matched_by',
             'canonical_metadata_score', 'is_publisher_uploaded', 'human_reviewed_at'] as $dropped) {
             unset($row[$dropped]); // identity, sharing, matching and search state belong to the original
         }
+
+        // The commons rule: a public book's translation is public (the
+        // requester paid so nobody else has to) — CLAMPED to private when
+        // this user may not publish (never a 422; the reason is surfaced via
+        // progress.json). A private original always begets a private copy.
+        $perm = PublishGate::check($user);
+        $visibility = ($library->visibility === 'public' && $perm['allowed']) ? 'public' : 'private';
+        if ($library->visibility === 'public' && ! $perm['allowed']) {
+            $this->writeProgress($library->book, $target, $user->id, ['publish_clamped' => $perm['reason']]);
+        }
+
         $row = array_merge($row, [
             'book' => $newBook,
             'title' => $title,
             'language' => $target,
             'creator' => $user->name,
             'creator_token' => $user->user_token,
-            'visibility' => 'private',
-            'listed' => false,
+            'visibility' => $visibility,
+            'listed' => $visibility === 'public' ? (bool) $library->listed : false,
             'has_nodes' => true,
             'encrypted' => false,
+            // NOT a SYSTEM_CONVERSION_METHODS value, and must never become
+            // one: that list makes a row eligible to be a canonical's
+            // auto_version_book, and a machine translation is not the
+            // canonical's own text. Overwrites whatever the original carried.
+            'conversion_method' => 'book_translation',
+            // The durable lineage (raw_json below is just a display mirror —
+            // it gets rebuilt on every metadata save). Explicitly overwriting
+            // the merged row also means a translation OF a translation points
+            // at its immediate parent, never the grandparent.
+            'translated_from' => $library->book,
+            'translation_target' => $target,
             'timestamp' => (int) floor(microtime(true) * 1000),
+            // Fresh book, fresh counters. The SUPERSEDED inbound-citation
+            // count column is deliberately not mentioned here — nothing reads
+            // it any more (ConnectionScoreSingleDefinitionTest), and the
+            // ConnectionRefresher call below recomputes the real ones.
             'total_views' => 0,
-            'total_citations' => 0,
             'total_highlights' => 0,
             'total_likes' => 0,
             'hypercite_connections' => 0,
@@ -349,7 +498,7 @@ final class BookTranslationService
             'book' => $newBook,
             'title' => $title,
             'creator' => $user->name,
-            'visibility' => 'private',
+            'visibility' => $visibility,
             'translated_from' => $library->book,
             'translation_target' => $target,
             'translation_model' => config('services.translation.html.model'),
@@ -405,6 +554,17 @@ final class BookTranslationService
             }
         } catch (\Throwable $e) {
             Log::warning('BookTranslation: homepage sync failed', ['book' => $newBook, 'error' => $e->getMessage()]);
+        }
+
+        // The copy carries the original's bibliography, so it may have real
+        // reference edges the moment it exists (it's public when the original
+        // is). ONE refresh per mint, after the transaction — the review-gate
+        // rule for any write path that creates edges. Best-effort: a missed
+        // recompute self-heals on the next library:recompute-connections.
+        try {
+            app(\App\Services\Connections\ConnectionRefresher::class)->refresh([$newBook]);
+        } catch (\Throwable $e) {
+            Log::warning('BookTranslation: connection refresh failed', ['book' => $newBook, 'error' => $e->getMessage()]);
         }
 
         return $newBook;
