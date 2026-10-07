@@ -311,7 +311,16 @@
                 // load — so a new SW (skipWaiting+claim) takes over immediately
                 // instead of a stale one lingering. A stale CacheFirst SW serving
                 // mutated /media/ bytes broke the E2EE image passes + render.
-                navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+                // The `?v=` is the CACHE BUSTER, and it is derived from the
+                // published build (App\Support\BuildVersion = the manifest's
+                // mtime) rather than hand-bumped in sw.js — a constant someone
+                // has to remember is not a mechanism, and it went unbumped for
+                // 41 front-end commits while users sat wedged on poisoned
+                // caches. A new build = a new script URL = a new worker =
+                // every previous `hyperlit-*` cache deleted on activate.
+                // Registration stays at scope '/' so this REPLACES the
+                // existing worker; it does not add a second one.
+                navigator.serviceWorker.register('/sw.js?v={{ \App\Support\BuildVersion::current() }}', { scope: '/', updateViaCache: 'none' })
                     .then((registration) => {
                         // register() can resolve WITHOUT a registration when the
                         // environment refuses service workers (blocked by policy,

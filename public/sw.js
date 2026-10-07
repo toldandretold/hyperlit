@@ -3,7 +3,24 @@
  * Enables offline access to previously visited pages
  */
 
-const CACHE_VERSION = 'v45'; // media/audio SW bypass (iOS cookie drop on proxied <img> → RLS 404)
+// CACHE_VERSION is DERIVED FROM THE BUILD, never hand-maintained.
+// layout.blade.php registers this worker as `/sw.js?v=<build id>`
+// (App\Support\BuildVersion — the published manifest's mtime), so every
+// published front-end build is a DIFFERENT script URL: the browser installs a
+// new worker, and the activate handler below deletes every `hyperlit-*` cache
+// that isn't this version's. A hand-bumped constant lived here until
+// 2026-10-08 and was missed on 41 consecutive front-end commits (last bump
+// 2026-09-09, v45) — which is exactly the month in which clients sat wedged on
+// a poisoned CacheFirst asset ("Loading… / Initializing…" forever) with no way
+// out but Clear Site Data. The deploy script could only WARN about the missing
+// bump, and a warning in a 200-line deploy log is not a mechanism.
+// The `v45` fallback is for a registration carrying no `?v=` (stale HTML
+// running the old registration snippet): it keeps that client on today's cache
+// names rather than minting a third set.
+const RAW_VERSION = new URL(self.location.href).searchParams.get('v') || 'v45';
+// Cache names are built by interpolation — keep the id to a safe alphabet so a
+// junk query string can't shape them.
+const CACHE_VERSION = RAW_VERSION.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 32) || 'v45';
 const STATIC_CACHE = `hyperlit-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `hyperlit-dynamic-${CACHE_VERSION}`;
 

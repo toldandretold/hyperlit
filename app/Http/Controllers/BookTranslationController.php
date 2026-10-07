@@ -70,19 +70,19 @@ class BookTranslationController extends Controller
         // including for guests — instead of a paid button.
         $existing = $service->existingCopy($book, $user, $target);
 
-        // Estimating reads the whole book — skip it while polling a run.
-        $estimate = $running ? null : $service->estimate($book, $target);
-
         return response()->json([
             'success' => true,
             'available' => true,
             'source_lang' => $direction['source'],
             'target_lang' => $target,
             'target_label' => $target === 'en' ? 'English' : 'Chinese',
-            'characters' => $estimate['characters'] ?? null,
-            'estimated_cost' => $estimate === null
-                ? null
-                : round($estimate['cost'] * ($user?->getBillingMultiplier() ?? 1.0), 2),
+            // Deliberately absent: estimating is the one step here that reads
+            // the whole book, and the section used to stay INVISIBLE behind it
+            // (it ships hidden and only the status response reveals it), so a
+            // long book cost the reader a visible pop-in on every panel open.
+            // The price comes from estimate() below and fills in after.
+            'characters' => null,
+            'estimated_cost' => null,
             'logged_in' => $user !== null,
             // The commons rule, for honest button copy: a public book's
             // translation will be public (unless this user's publish gate
@@ -111,6 +111,41 @@ class BookTranslationController extends Controller
                 'own' => $user !== null && $existing->creator === $user->name,
                 'creator' => $existing->creator,
             ] : null,
+        ]);
+    }
+
+    /**
+     * What translating this book would cost — split off `status()` because it
+     * is the only step that reads the whole book, and the Translate section
+     * must not stay hidden behind it. Public, like `status()`: a guest is
+     * shown the price before being asked to log in.
+     *
+     * The service caches the RAW figure (keyed on the book's content
+     * timestamp); the tier multiplier is applied per user here, so one
+     * reader's multiplier can never be served to another.
+     */
+    public function estimate(string $book, BookTranslationService $service): JsonResponse
+    {
+        $user = Auth::guard('sanctum')->user();
+        // RLS visibility: an invisible book reads as nonexistent.
+        if (! PgLibrary::where('book', $book)->exists()) {
+            return response()->json(['success' => false, 'message' => 'Book not found.'], 404);
+        }
+        if ($service->unavailableReason($book) !== null) {
+            return response()->json(['success' => true, 'characters' => null, 'estimated_cost' => null]);
+        }
+        $direction = $service->direction($book);
+        if ($direction === null) {
+            return response()->json(['success' => true, 'characters' => null, 'estimated_cost' => null]);
+        }
+
+        $estimate = $service->estimate($book, $direction['target']);
+
+        return response()->json([
+            'success' => true,
+            'target_lang' => $direction['target'],
+            'characters' => $estimate['characters'],
+            'estimated_cost' => round($estimate['cost'] * ($user?->getBillingMultiplier() ?? 1.0), 2),
         ]);
     }
 

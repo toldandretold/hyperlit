@@ -7,6 +7,7 @@ use App\Models\PgLibrary;
 use App\Models\User;
 use App\Services\E2ee\EncryptedBookGuard;
 use App\Services\Publishing\PublishGate;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -43,6 +44,18 @@ final class BookTranslationService
         'en' => ' (English)',
         'zh-Hans' => '（中文）',
     ];
+
+    /** SQL LIKE pattern for the marker isBibliographyNode() looks for. */
+    private const BIBLIOGRAPHY_LIKE = '%data-static-content="bibliography"%';
+
+    /**
+     * An HTML tag, as PHP's strip_tags understands one: `<` opens a tag only
+     * when a letter, `/`, `!` or `?` follows it. See textMetrics().
+     */
+    private const TAG_RE = '<[a-zA-Z/!?][^>]*>';
+
+    /** Per-request memo for textMetrics(), keyed by book. */
+    private array $textMetricsMemo = [];
 
     public function __construct(private readonly HtmlTranslator $translator) {}
 
@@ -104,22 +117,66 @@ final class BookTranslationService
      */
     public function characterCount(string $book): int
     {
-        $db = DB::connection('pgsql_admin');
-        $count = 0;
-        foreach ([
-            $db->table('nodes')->where('book', $book)->pluck('content'),
-            $db->table('footnotes')->where('book', $book)->pluck('content'),
-            $db->table('nodes')->where('book', 'like', $this->likePrefix($book))->pluck('content'),
-        ] as $contents) {
-            foreach ($contents as $content) {
-                if ($this->isBibliographyNode((string) $content)) {
-                    continue;
-                }
-                $count += mb_strlen(strip_tags((string) $content));
-            }
-        }
+        return $this->textMetrics($book)['characters'];
+    }
 
-        return $count;
+    /**
+     * Billable characters + the heading count, counted IN POSTGRES.
+     *
+     * This used to be three `pluck('content')` calls — every node of the book,
+     * every footnote and every sub-book node — shipped into PHP so that
+     * `mb_strlen(strip_tags(...))` could reduce megabytes of HTML to one
+     * integer. On a long book that was seconds of transfer on a path the
+     * reader waits for, and the sub-book `LIKE` had no index to use (see the
+     * nodes_book_pattern_idx migration), so it seq-scanned the whole table.
+     *
+     * The character length is derived with `regexp_replace`, NOT from
+     * `nodes."plainText"`: that column prefers a CLIENT-SUPPLIED value
+     * (EncryptedBookGuard::plainTextFor), and a figure the browser can
+     * influence must never set a billing reservation.
+     *
+     * TAG_RE mirrors PHP's strip_tags rather than the looser `<[^>]*>` the
+     * plainText backfill used, and the difference is load-bearing: strip_tags
+     * only opens a tag on `<` followed by a letter, `/`, `!` or `?`, so in
+     * LaTeX prose (`$ a < b $ … $ c > d $`) the loose pattern deletes the
+     * whole span between an inequality and the next `>`. Measured on
+     * basic-mathematics (9,083 rows): the loose pattern under-counted by 351
+     * characters across 8 nodes, this one is character-exact.
+     *
+     * @return array{characters: int, headings: int, hasNotes: bool}
+     */
+    private function textMetrics(string $book): array
+    {
+        if (isset($this->textMetricsMemo[$book])) {
+            return $this->textMetricsMemo[$book];
+        }
+        $db = DB::connection('pgsql_admin');
+        // A reference-list node contributes nothing, but is still counted as a
+        // heading if it is one: sectionCount has always counted headings over
+        // ALL the book's nodes, and the two must not be conflated.
+        $len = 'char_length(regexp_replace(content, \''.self::TAG_RE.'\', \'\', \'g\'))';
+        $billable = "COALESCE(SUM(CASE WHEN content LIKE ? THEN 0 ELSE {$len} END), 0)";
+
+        $own = $db->selectOne(
+            "SELECT {$billable} AS characters,
+                    COUNT(*) FILTER (WHERE ltrim(content) ~* '^<h[1-3][ >]') AS headings
+               FROM nodes WHERE book = ?",
+            [self::BIBLIOGRAPHY_LIKE, $book]
+        );
+        $notes = $db->selectOne(
+            "SELECT {$billable} AS characters, COUNT(*) AS note_rows FROM footnotes WHERE book = ?",
+            [self::BIBLIOGRAPHY_LIKE, $book]
+        );
+        $subs = $db->selectOne(
+            "SELECT {$billable} AS characters FROM nodes WHERE book LIKE ?",
+            [self::BIBLIOGRAPHY_LIKE, $this->likePrefix($book)]
+        );
+
+        return $this->textMetricsMemo[$book] = [
+            'characters' => (int) $own->characters + (int) $notes->characters + (int) $subs->characters,
+            'headings' => (int) $own->headings,
+            'hasNotes' => (int) $notes->note_rows > 0,
+        ];
     }
 
     /**
@@ -129,7 +186,7 @@ final class BookTranslationService
      */
     private function isBibliographyNode(string $content): bool
     {
-        return str_contains($content, 'data-static-content="bibliography"');
+        return str_contains($content, trim(self::BIBLIOGRAPHY_LIKE, '%'));
     }
 
     /**
@@ -144,9 +201,27 @@ final class BookTranslationService
      * holds a little too much is released; a quote that's too low is a broken
      * promise.
      *
+     * RAW, so the caller applies its own tier multiplier — which is also why
+     * this is safe to cache across users. The key carries library.timestamp
+     * (bumped by every content write), so an edited book re-quotes by itself
+     * and nothing has to remember to invalidate; the TTL only bounds growth.
+     *
      * @return array{characters: int, cost: float}
      */
     public function estimate(string $book, string $target): array
+    {
+        $version = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $book)->value('timestamp');
+
+        return Cache::remember(
+            "book-translation-estimate:v1:{$book}:{$target}:{$version}",
+            now()->addDay(),
+            fn () => $this->computeEstimate($book, $target)
+        );
+    }
+
+    /** @return array{characters: int, cost: float} */
+    private function computeEstimate(string $book, string $target): array
     {
         $characters = $this->characterCount($book);
         $config = config('services.translation.html.estimate');
@@ -163,12 +238,9 @@ final class BookTranslationService
     /** Sections the translator will make: one per h1–h3 heading node, plus one for the footnotes. */
     private function sectionCount(string $book): int
     {
-        $db = DB::connection('pgsql_admin');
-        $headings = $db->table('nodes')->where('book', $book)
-            ->whereRaw("ltrim(content) ~* '^<h[1-3][ >]'")->count();
-        $notes = $db->table('footnotes')->where('book', $book)->exists() ? 1 : 0;
+        $metrics = $this->textMetrics($book);
 
-        return max(1, $headings) + $notes;
+        return max(1, $metrics['headings']) + ($metrics['hasNotes'] ? 1 : 0);
     }
 
     /**

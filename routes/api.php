@@ -269,6 +269,10 @@ Route::middleware('throttle:120,1')->where(['book' => '[a-zA-Z0-9_-]+'])->group(
     // What "Translate this book" should say — public so a guest sees "Log in to
     // translate"; a reader's own copy and progress are only in it when logged in.
     Route::get('/book-translation/{book}', [\App\Http\Controllers\BookTranslationController::class, 'status']);
+    // The price, split off `status` because estimating reads the whole book and
+    // the Translate section ships hidden until its status read lands. Two
+    // segments, so `{book}` above can never shadow it.
+    Route::get('/book-translation/{book}/estimate', [\App\Http\Controllers\BookTranslationController::class, 'estimate']);
     // Other visible editions of a work for the source panel's Versions rail:
     // its translation family (translated_from lineage) + other library
     // versions of the same canonical_source. Public; RLS trims the list.

@@ -25,6 +25,7 @@
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
 import { isLoggedIn } from '../../utilities/auth/session';
+import { drainResponse } from '../../utilities/drainResponse';
 import { openTranslationVizOverlay, closeTranslationVizOverlay } from './translationViz';
 
 const SECTION_ID = 'book-translation-section';
@@ -63,6 +64,13 @@ export interface BookTranslationStatus {
   will_be_public?: boolean;
 }
 
+/** The second, slower half of the status read: what a run would cost. */
+export interface BookTranslationEstimate {
+  success: boolean;
+  characters?: number | null;
+  estimated_cost?: number | null;
+}
+
 export interface BookTranslationHandle {
   destroy(): void;
 }
@@ -80,13 +88,39 @@ const runs = new Map<string, RunWatch>();
 
 async function fetchStatus(bookId: string): Promise<BookTranslationStatus | null> {
   try {
-    const resp = await fetch(`/api/book-translation/${encodeURIComponent(bookId)}`, {
+    // Drained: 401/404 are ROUTINE here, and an unread body holds the
+    // connection open so the page never reaches network-idle.
+    const resp = await drainResponse(await fetch(`/api/book-translation/${encodeURIComponent(bookId)}`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
-    });
+    }));
     if (!resp.ok) return null; // 401 logged out, 404 not visible — leave it hidden
 
     return (await resp.json()) as BookTranslationStatus;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The price, on its own request.
+ *
+ * Estimating is the one thing the server does here that reads the whole book,
+ * and the section ships `hidden` — so while the estimate rode the status
+ * response, nothing about Translate appeared until the slowest query in it
+ * finished. The copy for a missing price was always there (`apply` and the
+ * confirm dialog both drop the cost clause), so the price can simply arrive
+ * second.
+ */
+async function fetchEstimate(bookId: string): Promise<BookTranslationEstimate | null> {
+  try {
+    const resp = await drainResponse(await fetch(`/api/book-translation/${encodeURIComponent(bookId)}/estimate`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    }));
+    if (!resp.ok) return null;
+
+    return (await resp.json()) as BookTranslationEstimate;
   } catch {
     return null;
   }
@@ -196,6 +230,11 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
   const rootBook = String(bookId).split('/')[0] ?? String(bookId);
   let destroyed = false;
   let latest: BookTranslationStatus | null = null;
+  // The price is held HERE rather than merged into `latest`: a poll's status
+  // response legitimately carries `estimated_cost: null`, so merging it would
+  // have every tick wipe the cost clause back out of the note.
+  let costEstimate: BookTranslationEstimate | null = null;
+  let estimatePromise: Promise<BookTranslationEstimate | null> | null = null;
 
   /**
    * Follow the module-level watch of this book's run while the panel is open.
@@ -232,6 +271,25 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
         return () => runs.get(rootBook)?.listeners.delete(vizListener);
       });
     });
+  };
+
+  /**
+   * Fetch the price once, then re-render so the note gains its cost clause.
+   * Fired from the OFFER state only — a running job has no price to show, and
+   * a finished one hides the section altogether.
+   */
+  const ensureEstimate = (): Promise<BookTranslationEstimate | null> => {
+    if (estimatePromise) return estimatePromise;
+    estimatePromise = fetchEstimate(rootBook).then((est) => {
+      if (est && !destroyed) {
+        costEstimate = est;
+        if (latest) apply(latest);
+      }
+
+      return est;
+    });
+
+    return estimatePromise;
   };
 
   function apply(status: BookTranslationStatus | null): void {
@@ -288,7 +346,10 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
     button!.textContent = guest
       ? `Log in to translate into ${language}`
       : failed ? `Try again: translate into ${language}` : `Translate into ${language}`;
-    const estimate = formatEstimate(status.estimated_cost);
+    // The section is already visible at this point; the price fills in when
+    // its own request lands, which re-enters here.
+    void ensureEstimate();
+    const estimate = formatEstimate(costEstimate?.estimated_cost ?? status.estimated_cost);
     const cost = estimate ? `Kimi K3, ${estimate}, charged for what's used.` : 'Kimi K3, charged for what\'s used.';
     const what = status.will_be_public
       ? `Makes a public ${language} translation anyone can read — you pay once, nobody pays again.`
@@ -317,7 +378,20 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
     }
 
     const language = latest.target_label ?? 'the other language';
-    const estimate = formatEstimate(latest.estimated_cost);
+    // A paid action is never confirmed without a quote: if the price hasn't
+    // landed yet, say so on the button and wait for it. If it never arrives
+    // the dialog still opens — it drops the cost clause (and the server
+    // reservation is what actually protects the balance).
+    if (!costEstimate) {
+      const label = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Checking cost…';
+      await ensureEstimate();
+      if (destroyed) return;
+      button.disabled = false;
+      button.textContent = label;
+    }
+    const estimate = formatEstimate(costEstimate?.estimated_cost ?? latest.estimated_cost);
     const { confirmDialog, alertDialog } = await import('../dialog/dialog');
     const ok = await confirmDialog({
       title: `Translate into ${language}?`,

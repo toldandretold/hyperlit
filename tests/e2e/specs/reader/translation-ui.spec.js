@@ -26,12 +26,15 @@ const READER_BOOK = process.env.E2E_READER_BOOK;
 
 const OFFER = {
   success: true, available: true, source_lang: 'en', target_lang: 'zh-Hans',
-  target_label: 'Chinese', characters: 1000, estimated_cost: 0.51,
+  target_label: 'Chinese', characters: null, estimated_cost: null,
   logged_in: true, will_be_public: true, running: false, progress: null, existing: null,
 };
 
+/** The price, on its own request — estimating reads the whole book. */
+const ESTIMATE = { success: true, target_lang: 'zh-Hans', characters: 1000, estimated_cost: 0.51 };
+
 const RUNNING = {
-  ...OFFER, estimated_cost: null, running: true,
+  ...OFFER, running: true,
   progress: {
     status: 'running', phase: 'text', percent: 0.42, error: null, stage: 'text',
     stages: {
@@ -81,6 +84,12 @@ const RAIL_AS_TRANSLATION = (current) => ({
  */
 async function mockTranslationApi(page, state) {
   const posts = [];
+  // The price is its own two-segment route, so it is NOT caught by the
+  // single-segment status pattern below — mock it first or it escapes to the
+  // real server.
+  await page.route(/\/api\/book-translation\/[^/?]+\/estimate(\?.*)?$/, async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(ESTIMATE) });
+  });
   // Status + start — but NOT /map (negative lookahead), which the overlay
   // fetches for the real TranslationMap stage descriptions.
   await page.route(/\/api\/book-translation\/(?!map($|\?))[^/?]+(\?.*)?$/, async (route) => {

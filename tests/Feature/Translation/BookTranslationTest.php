@@ -119,7 +119,7 @@ function actAsBookTranslationUser(\App\Models\User $user): void
     DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
 }
 
-it('offers a Chinese book for translation into English, with an estimate', function () {
+it('offers a Chinese book for translation into English', function () {
     $answers = BOOK_TRANSLATION_ANSWERS;
     fakeFireworksBook($answers);
     $user = $this->seedUser(['status' => 'premium']);
@@ -131,14 +131,98 @@ it('offers a Chinese book for translation into English, with an estimate', funct
         ->assertJsonPath('source_lang', 'zh-Hans')
         ->assertJsonPath('target_lang', 'en')
         ->assertJsonPath('target_label', 'English')
+        ->assertJsonPath('running', false)
+        ->assertJsonPath('existing', null)
+        // The PRICE is deliberately not here: estimating is the only step that
+        // reads the whole book, and the Translate section ships hidden until
+        // this response lands, so a long book cost the reader a visible pop-in
+        // on every panel open. It comes from /estimate instead.
+        ->assertJsonPath('characters', null)
+        ->assertJsonPath('estimated_cost', null);
+
+    Http::assertNothingSent();
+});
+
+it('prices the translation on its own endpoint', function () {
+    $user = $this->seedUser(['status' => 'premium']);
+    $book = ($this->seedChineseBook)($user->name);
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()
+        ->assertJsonPath('target_lang', 'en')
+        // Counted in Postgres now, and this is the parity check on that: it
+        // must still equal mb_strlen(strip_tags(...)) over the book, its
+        // footnote row and its footnote sub-book.
         ->assertJsonPath('characters', mb_strlen('第一章小六走进屋子1。他笑了。注释内容。注释内容。'))
         // Two requests (one chapter, one footnotes section) at $0.02 dominate a
         // book this short — the per-character part is a fraction of a cent.
-        ->assertJsonPath('estimated_cost', 0.04)
-        ->assertJsonPath('running', false)
-        ->assertJsonPath('existing', null);
+        ->assertJsonPath('estimated_cost', 0.04);
+});
 
-    Http::assertNothingSent();
+it('prices a book for a guest too, so the offer can be quoted before signing up', function () {
+    $owner = $this->seedUser();
+    $book = ($this->seedChineseBook)($owner->name, 'public');
+
+    $this->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()
+        ->assertJsonPath('characters', mb_strlen('第一章小六走进屋子1。他笑了。注释内容。注释内容。'));
+});
+
+it('does not price a book it cannot translate, or one it cannot see', function () {
+    $owner = $this->seedUser();
+    // No script-bearing text at all, so direction() declines: an unavailable
+    // book is answered, never counted.
+    $book = ($this->seedChineseBook)($owner->name, 'public');
+    DB::connection('pgsql_admin')->table('nodes')->where('book', $book)
+        ->update(['content' => '<p>12345 67890 — 1,234.56 (#7) 890%</p>']);
+
+    $this->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()
+        ->assertJsonPath('characters', null)
+        ->assertJsonPath('estimated_cost', null);
+
+    $this->getJson('/api/book-translation/bt_nosuchbook/estimate')->assertNotFound();
+});
+
+it('excludes reference-list nodes from the price but still counts their heading', function () {
+    $user = $this->seedUser(['status' => 'premium']);
+    $book = ($this->seedChineseBook)($user->name);
+    // A bibliography heading node AND a reference entry. run() never sends
+    // either to the model, so neither may be quoted for — but the heading
+    // still opens a section, which is what sectionCount counts.
+    $this->seedNode(['book' => $book, 'startLine' => 3, 'node_id' => "{$book}_n3", 'footnotes' => '[]',
+        'content' => '<h2 id="3" data-static-content="bibliography">参考文献</h2>']);
+    $this->seedNode(['book' => $book, 'startLine' => 4, 'node_id' => "{$book}_n4", 'footnotes' => '[]',
+        'content' => '<p id="4" data-static-content="bibliography">马克思。资本论。</p>']);
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()
+        ->assertJsonPath('characters', mb_strlen('第一章小六走进屋子1。他笑了。注释内容。注释内容。'))
+        // Two headings now (chapter + bibliography) plus the footnotes
+        // section = three requests at $0.02.
+        ->assertJsonPath('estimated_cost', 0.06);
+});
+
+it('re-quotes an edited book, and serves the same book from cache', function () {
+    $user = $this->seedUser(['status' => 'premium']);
+    $book = ($this->seedChineseBook)($user->name);
+    $db = DB::connection('pgsql_admin');
+    $base = mb_strlen('第一章小六走进屋子1。他笑了。注释内容。注释内容。');
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()->assertJsonPath('characters', $base);
+
+    // A content write without a timestamp bump is invisible to the cache key —
+    // which is the POINT: the key is library.timestamp, so a quote is only
+    // recomputed when the book's content version actually moves.
+    $db->table('nodes')->where('book', $book)->where('startLine', 1)
+        ->update(['content' => '<h2 id="1">第一章节节节</h2>']);
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()->assertJsonPath('characters', $base);
+
+    $db->table('library')->where('book', $book)->update(['timestamp' => now()->valueOf()]);
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()->assertJsonPath('characters', $base + 3);
 });
 
 it('tells a guest what the button would do, so it can say "log in to translate"', function () {

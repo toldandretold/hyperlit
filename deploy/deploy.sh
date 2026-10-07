@@ -172,13 +172,12 @@ changed_any '^(resources/|public/sw\.js|vite\.config\.js|package(-lock)?\.json|s
 changed_any '^database/migrations/'                                     && DO_MIGRATE=1
 changed_any '^deploy/supervisor/.*\.conf$'                              && DO_SUPERVISOR=1
 
-# A front-end change without a service-worker version bump = browsers keep the
-# old cached HTML/chunks (docs/deploy.md). Cheap to check, expensive to miss.
-if [ "${DO_BUILD}" = 1 ] && [ "${BEFORE}" != "${AFTER}" ]; then
-    if ! echo "${CHANGED}" | grep -q '^public/sw\.js$'; then
-        warn "front-end changed but public/sw.js CACHE_VERSION was not bumped this deploy (stale-cache risk — docs/deploy.md)"
-    fi
-fi
+# The service-worker cache version is no longer hand-bumped: the worker is
+# registered as `/sw.js?v=<build id>` (App\Support\BuildVersion = the mtime of
+# public/build/manifest.json), so a rebuild busts it on its own. This used to
+# warn when public/sw.js wasn't touched — it warned correctly for 41 straight
+# front-end commits and nobody acted on it, which is why it's a mechanism now
+# (docs/deploy.md). Step 11 verifies the id actually moved.
 
 [ "${SKIP_BUILD}"   = 1 ] && DO_BUILD=0
 [ "${SKIP_MIGRATE}" = 1 ] && DO_MIGRATE=0
@@ -331,8 +330,26 @@ else
 
     URL="${HYPERLIT_URL:-https://hyperlit.io}"
     if command -v curl >/dev/null 2>&1; then
-        CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "${URL}" || echo 000)"
+        HOME_HTML="$(curl -s --max-time 15 -w '\n%{http_code}' "${URL}" || echo 000)"
+        CODE="$(echo "${HOME_HTML}" | tail -n1)"
         if [ "${CODE}" = "200" ]; then ok "${URL} → 200"; else warn "${URL} → HTTP ${CODE}"; fi
+
+        # The service-worker cache buster must match the build we just published.
+        # A mismatch means the served HTML is NOT this build's (stale view cache,
+        # OPcache, a CDN-cached page, or the wrong docroot) — and then every
+        # client keeps its old SW caches, which is the "I deployed and users are
+        # still broken" failure. Worth 0ms: we already have the HTML.
+        SERVED_V="$(echo "${HOME_HTML}" | grep -oE '/sw\.js\?v=[A-Za-z0-9_.-]+' | head -n1 | sed 's/.*v=//')"
+        MANIFEST_MTIME="$(stat -c %Y public/build/manifest.json 2>/dev/null || stat -f %m public/build/manifest.json 2>/dev/null || echo '')"
+        EXPECT_V=""
+        [ -n "${MANIFEST_MTIME}" ] && EXPECT_V="b$(printf '%x' "${MANIFEST_MTIME}")"
+        if [ -z "${SERVED_V}" ]; then
+            warn "home page registers /sw.js with NO ?v= — the SW cache buster is not wired (docs/deploy.md)"
+        elif [ -n "${EXPECT_V}" ] && [ "${SERVED_V}" != "${EXPECT_V}" ]; then
+            warn "SW cache buster served as ${SERVED_V} but this build is ${EXPECT_V} — stale HTML is being served; clients keep their old caches"
+        else
+            ok "SW cache buster ${SERVED_V} matches this build"
+        fi
     fi
 fi
 
