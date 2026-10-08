@@ -336,14 +336,36 @@ return [
             'retry_backoff' => 5,           // seconds, doubling, after a request fails outright
             // In-app "Translate this book" estimate (BookTranslationService::estimate),
             // for the reservation and the confirm dialog only — the charge is the
-            // tokens actually used. cost ≈ chars × rate[target] + requests × per_request.
-            // zh→en calibrated on a real Kimi K3 run (4,702 chars of a Chinese novel,
-            // ~3 requests: $0.1255 charged, $0.13 estimated). en→zh is NOT yet
-            // calibrated: derived from tokens (English ~4 chars/token in; Chinese out
-            // with Kimi K3's reasoning) and rounded up. Recalibrate from real runs.
+            // tokens actually used. cost ≈ chars × rate[target] + requests × per_request[target].
+            //
+            // BOTH keys are per-TARGET, because the two directions are calibrated
+            // from different evidence and a shared per_request is what broke this:
+            //
+            // en (zh→en): per_million_chars 15.0 + per_request 0.02, from ONE real
+            //   Kimi K3 run (4,702 chars of a Chinese novel, ~3 requests: $0.1255
+            //   charged, $0.13 estimated). Still the only evidence for this
+            //   direction — there is no ledger row for it. Do not extrapolate it.
+            //
+            // zh-Hans (en→zh): recalibrated 2026-10-08 against the two real runs in
+            //   billing_ledger, both of which the previous numbers quoted ~3x over:
+            //     39,856 chars / 29 requests → quoted $0.9387, actual $0.2612 (3.6x)
+            //     29,520 chars / 22 requests → quoted $0.7057, actual $0.2654 (2.7x)
+            //   per_request 0.02 was the whole error: 29 × $0.02 = $0.58, more than
+            //   double what the entire run cost, and 62% of each quote. Realized
+            //   all-in rate is $6.55–$8.99 per million chars with NO per-request
+            //   term, so per_million_chars 9.0 already covers it and errs slightly
+            //   high, which is the direction we want. Now quotes $0.47 and $0.35
+            //   (1.8x / 1.3x) — still above actual, without the false
+            //   "Insufficient balance" a 3.6x hold causes.
+            //
+            // A chars+requests model does not actually describe the cost: fitting
+            // both runs yields a NEGATIVE per-char rate (the bigger book cost less),
+            // because the real driver is output + reasoning tokens. Don't fit it
+            // harder — recalibrate from billing_ledger.line_items, which now carries
+            // the per-run token counts (TranslateBookJob::charge).
             'estimate' => [
                 'per_million_chars' => ['en' => 15.0, 'zh-Hans' => 9.0], // keyed by TARGET
-                'per_request' => 0.02, // reasoning + resent prompt and context
+                'per_request' => ['en' => 0.02, 'zh-Hans' => 0.004],     // keyed by TARGET
             ],
         ],
     ],

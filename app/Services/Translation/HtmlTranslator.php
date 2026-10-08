@@ -72,6 +72,33 @@ final class HtmlTranslator
     private const KEPT_CLASSES = ['footnote-ref', 'open-icon', 'pageNumber', 'in-text-citation'];
 
     /**
+     * Marks a synthetic wrapper this class adds around a citation and the
+     * author name in front of it, so the pair travels as ONE <xN/>.
+     *
+     * The docblock above has always claimed citations are "kept verbatim so
+     * author names … are never translated", but the markup does not support
+     * it: the linker wraps only the YEAR —
+     *   (UN <a class="in-text-citation">1974a</a>, <a …>1974b</a>)
+     * — so the author sits outside the anchor as plain text and goes to the
+     * model as prose. Measured on a real en→zh run: 22 of 101 citations came
+     * back as 墨菲1984 / 普拉沙德2007 / 伯杰和韦伯2014, Chinese author with an
+     * intact Latin year. The bibliography is deliberately NOT translated, so
+     * each of those keys is orphaned — unmatchable by a reader, by citation
+     * resolution and by hypercites.
+     *
+     * Protection, not instruction: rebuild() already enforces that every
+     * placeholder comes back exactly once, so this is machine-checked. A
+     * prompt rule is what the model was already following 79 times out of 101.
+     *
+     * NEVER reaches stored content — unwrapProtectedCitations() removes it at
+     * the end of process(), which both entry points go through.
+     */
+    private const KEEP_ATTR = 'data-translate-keep';
+
+    /** How far back from an anchor an author name may possibly start. */
+    private const AUTHOR_RUN_MAX_CHARS = 60;
+
+    /**
      * A paragraph in one of these starts a new section (chapter). <title> is
      * one so it joins the front matter instead of being a section by itself —
      * otherwise --chapters=2 would buy a page title and a table of contents.
@@ -394,6 +421,10 @@ final class HtmlTranslator
                 $unfinished[$item['id']] = true;
             }
         }
+
+        // The synthetic citation wrappers must not outlive the translation:
+        // both entry points serialize this DOM straight into stored content.
+        $this->unwrapProtectedCitations($parsed['root']);
 
         return ['model' => $model, 'sections' => count($all), 'segments' => $segmentCount, 'pending' => $unfinished];
     }
@@ -724,6 +755,10 @@ final class HtmlTranslator
 
         preg_match('/^\s*(<!doctype[^>]*>)/i', $html, $doctype);
 
+        // Before anything reads the tree: bind each citation's author to its
+        // anchor so the pair is kept verbatim. Undone at the end of process().
+        $this->protectCitations($root);
+
         return ['dom' => $dom, 'root' => $root, 'document' => $document, 'doctype' => $doctype[1] ?? null];
     }
 
@@ -1024,8 +1059,118 @@ final class HtmlTranslator
             || preg_match('/\p{L}/u', $this->translatableText($el->childNodes)) !== 1;
     }
 
+    /**
+     * Wrap "author + citation anchor" pairs so the author rides the anchor's
+     * placeholder. Runs on every parse(), so every entry point gets it.
+     *
+     * Two shapes only, deliberately narrow — over-absorbing would leave
+     * untranslated English sitting in the middle of Chinese prose, which is
+     * worse than the bug:
+     *   parenthetical  "… the NIEO (UN 1974a)"        → absorbs "UN"
+     *   narrative      "… According to Prashad (2007)" → absorbs "Prashad"
+     * An anchor with no author in front of it (the second of "1974a, 1974b")
+     * is left alone: it is already kept verbatim on its own.
+     */
+    private function protectCitations(\DOMElement $root): void
+    {
+        $anchors = [];
+        foreach ($root->getElementsByTagName('a') as $anchor) {
+            if (self::hasClass($anchor, 'in-text-citation')) {
+                $anchors[] = $anchor;
+            }
+        }
+
+        foreach ($anchors as $anchor) {
+            $previous = $anchor->previousSibling;
+            $parent = $anchor->parentNode;
+            if (! $previous instanceof \DOMText || ! $parent instanceof \DOMNode) {
+                continue;
+            }
+            $start = $this->authorRunStart($previous->data);
+            if ($start === null) {
+                continue;
+            }
+
+            // Split by hand rather than DOMText::splitText, whose offset is
+            // bytes in PHP's libxml binding — a multibyte author would tear.
+            $author = mb_substr($previous->data, $start);
+            $previous->data = mb_substr($previous->data, 0, $start);
+
+            $span = $anchor->ownerDocument->createElement('span');
+            $span->setAttribute(self::KEEP_ATTR, '1');
+            $parent->insertBefore($span, $anchor);
+            $span->appendChild($anchor->ownerDocument->createTextNode($author));
+            $span->appendChild($anchor); // moves it out of the run and into the span
+        }
+    }
+
+    /**
+     * Remove the synthetic wrappers. MANDATORY: translate() and
+     * translateFragments() both serialize the same DOM this mutated, and
+     * rebuild() reinserts a CLONE of the wrapper — left in, it would be
+     * persisted into nodes.content by BookTranslationService::run().
+     */
+    private function unwrapProtectedCitations(\DOMElement $root): void
+    {
+        $spans = [];
+        foreach ($root->getElementsByTagName('span') as $span) {
+            if ($span->hasAttribute(self::KEEP_ATTR)) {
+                $spans[] = $span;
+            }
+        }
+        foreach ($spans as $span) {
+            while ($span->firstChild !== null) {
+                $span->parentNode?->insertBefore($span->firstChild, $span);
+            }
+            $span->parentNode?->removeChild($span);
+        }
+    }
+
+    /**
+     * Where the author name before a citation starts, as a CHARACTER offset
+     * into $text, or null when there is nothing worth absorbing.
+     */
+    private function authorRunStart(string $text): ?int
+    {
+        if (trim($text) === '' && $text !== '') {
+            return null; // just the space between two anchors
+        }
+        $length = mb_strlen($text);
+        $from = max(0, $length - self::AUTHOR_RUN_MAX_CHARS);
+        $tail = mb_substr($text, $from);
+
+        // A surname, optionally behind initials ("C.L.R. James", "W. Arthur Lewis").
+        $name = '(?:\p{Lu}\.\s*){0,4}\p{Lu}[\p{L}\x{2019}\'’\-]*';
+        // An institutional author runs to two words ("Havana Congress",
+        // "World Bank"); a personal one may be joined to a co-author.
+        $org = "(?:{$name})(?:\\s+\\p{Lu}[\\p{L}\\x{2019}'’\\-]*)?";
+        $joined = "(?:{$org})(?:\\s+(?:and|&)\\s+(?:{$name}))?(?:\\s+et\\s+al\\.?)?";
+
+        // Parenthetical: everything after the bracket, provided it is only
+        // author-ish tokens — "(UN 1974a)" absorbs UN, "(see also Smith" does not.
+        if (preg_match('/[(\[]\s*('.$joined.')\s*$/u', $tail, $m, PREG_OFFSET_CAPTURE) === 1) {
+            return $from + mb_strlen(substr($tail, 0, $m[1][1]));
+        }
+        // Narrative: the author opened the bracket the anchor sits inside —
+        // "According to Prashad (2007)". The bracket is absorbed with it, so
+        // the pair survives as "Prashad (2007)".
+        // "([" and "( [" both occur, hence the repeated bracket group.
+        if (preg_match('/(?<![\p{L}])('.$joined.')(?:\s*[(\[])+\s*$/u', $tail, $m, PREG_OFFSET_CAPTURE) === 1) {
+            return $from + mb_strlen(substr($tail, 0, $m[1][1]));
+        }
+        // Bare narrative: a name immediately before the anchor, no bracket.
+        if (preg_match('/(?<![\p{L}])('.$joined.')\s*$/u', $tail, $m, PREG_OFFSET_CAPTURE) === 1) {
+            return $from + mb_strlen(substr($tail, 0, $m[1][1]));
+        }
+
+        return null;
+    }
+
     private function isFurniture(\DOMElement $el): bool
     {
+        if ($el->hasAttribute(self::KEEP_ATTR)) {
+            return true;
+        }
         foreach (self::KEPT_CLASSES as $class) {
             if (self::hasClass($el, $class)) {
                 return true;

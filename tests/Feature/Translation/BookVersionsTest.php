@@ -87,6 +87,31 @@ it('hides someone else\'s private translation but shows the owner their own', fu
     expect($ownerList->pluck('book'))->toContain($copy);
 });
 
+/**
+ * A DELETED translation is gone for its OWNER too.
+ *
+ * RLS hides a deleted book from everyone except its creator, so the rail was
+ * correct for guests and strangers and wrong for the one person who threw the
+ * translation away — they kept seeing it listed, linking to a book with zero
+ * nodes. `has_nodes` is no defence: it stays TRUE on the tombstone, which is
+ * why a deleted copy excluded from the translation family simply reappeared
+ * as a "canonical version" of the same work. Both queries need the check.
+ */
+it('drops a deleted translation from the rail, for its owner as well', function () {
+    $owner = $this->seedUser();
+    $canonical = Str::uuid()->toString();
+    $original = ($this->seedVersionBook)(['creator' => $owner->name, 'canonical_source_id' => $canonical]);
+    $binned = ($this->seedVersionBook)([
+        'creator' => $owner->name, 'visibility' => 'deleted', 'canonical_source_id' => $canonical,
+        'translated_from' => $original, 'translation_target' => 'en',
+    ]);
+
+    $ownerList = collect($this->actingAs($owner)->getJson("/api/book-versions/{$original}")->json('versions'));
+
+    expect($ownerList->pluck('book'))->not->toContain($binned)
+        ->and($ownerList->pluck('book'))->toContain($original);
+});
+
 it('lists other visible versions of the same canonical work, outside the translation family', function () {
     $owner = $this->seedUser();
     $canonical = Str::uuid()->toString();

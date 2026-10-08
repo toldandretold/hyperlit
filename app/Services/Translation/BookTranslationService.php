@@ -168,8 +168,8 @@ final class BookTranslationService
             [self::BIBLIOGRAPHY_LIKE, $book]
         );
         $subs = $db->selectOne(
-            "SELECT {$billable} AS characters FROM nodes WHERE book LIKE ?",
-            [self::BIBLIOGRAPHY_LIKE, $this->likePrefix($book)]
+            "SELECT {$billable} AS characters FROM nodes WHERE book IN ({$this->footnoteSubBookSql()})",
+            [self::BIBLIOGRAPHY_LIKE, $book]
         );
 
         return $this->textMetricsMemo[$book] = [
@@ -213,8 +213,12 @@ final class BookTranslationService
         $version = DB::connection('pgsql_admin')->table('library')
             ->where('book', $book)->value('timestamp');
 
+        // v2: the key carries only the CONTENT version, so a rate change in
+        // services.translation.html.estimate does NOT invalidate it — bump this
+        // whenever those rates move, or every already-quoted book keeps serving
+        // the old number for the whole TTL.
         return Cache::remember(
-            "book-translation-estimate:v1:{$book}:{$target}:{$version}",
+            "book-translation-estimate:v2:{$book}:{$target}:{$version}",
             now()->addDay(),
             fn () => $this->computeEstimate($book, $target)
         );
@@ -226,13 +230,34 @@ final class BookTranslationService
         $characters = $this->characterCount($book);
         $config = config('services.translation.html.estimate');
         $perChar = (float) ($config['per_million_chars'][$target] ?? max($config['per_million_chars'])) / 1_000_000;
+        // Per-TARGET like the character rate, and with the same fallback shape:
+        // an unknown target quotes at the dearest rate rather than for free.
+        $perRequest = (float) ($config['per_request'][$target] ?? max($config['per_request']));
 
         $requests = $this->sectionCount($book) + intdiv($characters, max(1, (int) config('services.translation.html.batch_chars', 4000)));
 
         return [
             'characters' => $characters,
-            'cost' => round($characters * $perChar + $requests * (float) $config['per_request'], 4),
+            'cost' => round($characters * $perChar + $requests * $perRequest, 4),
         ];
+    }
+
+    /**
+     * The book's FOOTNOTE sub-books, and nothing else.
+     *
+     * A `book/%` prefix is not the question: a book accumulates a sub-book per
+     * HIGHLIGHT (`HL_*`), per AI-review verdict, and one for the whole AI
+     * Citation Review companion — plus nested and `visibility = 'deleted'`
+     * ones. Measured on book_1782863856780 (a journal article): 160 real nodes
+     * of 51,659 characters, against 2,284 sub-book nodes of 372,151 — 88% of
+     * the quote, and of the WORK, spent translating a reader's own highlights
+     * and a machine-written review of the citations. $6.17 for a $1.11
+     * article. The footnotes table is the registry of the only sub-books that
+     * are part of the text.
+     */
+    private function footnoteSubBookSql(): string
+    {
+        return 'SELECT sub_book_id FROM footnotes WHERE book = ? AND sub_book_id IS NOT NULL';
     }
 
     /** Sections the translator will make: one per h1–h3 heading node, plus one for the footnotes. */
@@ -258,6 +283,12 @@ final class BookTranslationService
         return PgLibrary::query()
             ->where('translated_from', $book)
             ->where('translation_target', $target)
+            // A DELETED copy must not block a new one. RLS hides it from
+            // everyone EXCEPT its creator, so without this the one person who
+            // threw a translation away is the one person who can never
+            // commission another: the section reads `existing` and hides
+            // itself, with no button and no explanation.
+            ->where('visibility', '!=', 'deleted')
             ->orderByRaw('(creator = ?) DESC, created_at DESC', [$user?->name ?? ''])
             ->first(['book', 'title', 'creator']);
     }
@@ -353,7 +384,12 @@ final class BookTranslationService
 
         $nodes = $db->table('nodes')->where('book', $book)->orderBy('startLine')->get();
         $footnotes = $db->table('footnotes')->where('book', $book)->get();
-        $subNodes = $db->table('nodes')->where('book', 'like', $this->likePrefix($book))
+        // FOOTNOTE sub-books only — never the reader's highlights or the AI
+        // review companion. Must stay in step with textMetrics(), or the
+        // quote and the work disagree. See footnoteSubBookSql().
+        $subNodes = $db->table('nodes')
+            ->whereIn('book', fn ($q) => $q->select('sub_book_id')->from('footnotes')
+                ->where('book', $book)->whereNotNull('sub_book_id'))
             ->orderBy('book')->orderBy('startLine')->get();
 
         $cache = $this->dir($book, $target, $user->id).'/cache.json';
@@ -721,8 +757,4 @@ final class BookTranslationService
         return storage_path("app/book-translations/{$safe}");
     }
 
-    private function likePrefix(string $book): string
-    {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $book).'/%';
-    }
 }

@@ -31,7 +31,7 @@ const OFFER = {
 };
 
 /** The price, on its own request — estimating reads the whole book. */
-const ESTIMATE = { success: true, target_lang: 'zh-Hans', characters: 1000, estimated_cost: 0.51 };
+const ESTIMATE = { success: true, target_lang: 'zh-Hans', characters: 1000, estimated_cost: 0.02 };
 
 const RUNNING = {
   ...OFFER, running: true,

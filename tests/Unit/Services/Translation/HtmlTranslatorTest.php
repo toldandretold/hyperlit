@@ -284,6 +284,90 @@ it('never pays to translate digits, punctuation or kept furniture', function () 
     Http::assertNothingSent();
 });
 
+/**
+ * The citation author rides its anchor's placeholder.
+ *
+ * The linker wraps only the YEAR, so the author sat outside the anchor as
+ * prose and the model translated it: a real en→zh run returned 22 of 101
+ * citations as 墨菲1984 / 普拉沙德2007, Chinese author with an intact Latin
+ * year, orphaned from a bibliography that is deliberately NOT translated.
+ */
+it('keeps the author with its citation, and leaves no wrapper behind', function () {
+    $sent = [];
+    Http::fake(['*/chat/completions' => function (Request $request) use (&$sent) {
+        $reply = [];
+        foreach (bookPayload($request) as $id => $text) {
+            $sent[] = $text;
+            $reply[$id] = str_replace('Driven by the NIEO', '受新国际经济秩序推动', $text);
+        }
+
+        return Http::response(['choices' => [['message' => ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT)]]],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5]]);
+    }]);
+
+    $anchor = '<a class="in-text-citation" href="#united1974a">1974a</a>';
+    $result = translateBook('<p>Driven by the NIEO (UN '.$anchor.').</p>', 'zh-Hans');
+
+    // The author never reaches the model — it is inside the placeholder.
+    expect($sent[0])->toContain('<x1/>')
+        ->and($sent[0])->not->toContain('UN');
+    // …and comes back exactly as it went in, with no synthetic wrapper left.
+    expect($result->html)->toContain('UN '.$anchor)
+        ->and($result->html)->not->toContain('data-translate-keep')
+        ->and($result->html)->not->toContain('<span');
+});
+
+it('absorbs a narrative author, and leaves an anchor that has none alone', function () {
+    $sent = [];
+    Http::fake(['*/chat/completions' => function (Request $request) use (&$sent) {
+        $reply = [];
+        foreach (bookPayload($request) as $id => $text) {
+            $sent[] = $text;
+            $reply[$id] = $text;
+        }
+
+        return Http::response(['choices' => [['message' => ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT)]]],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5]]);
+    }]);
+
+    $a = '<a class="in-text-citation" href="#p2007">2007</a>';
+    $b = '<a class="in-text-citation" href="#u1974b">1974b</a>';
+    // Narrative "Prashad (2007)", and a second anchor whose only neighbour is
+    // a comma — it carries no author and is already kept verbatim alone.
+    $result = translateBook('<p>According to Prashad ('.$a.') and UN ('.$b.', '.$b.').</p>', 'zh-Hans');
+
+    expect($sent[0])->not->toContain('Prashad')
+        ->and($sent[0])->not->toContain('UN');
+    expect($result->html)->toContain('Prashad ('.$a.')')
+        ->and($result->html)->not->toContain('data-translate-keep');
+});
+
+/**
+ * The failure mode that would be WORSE than the bug: absorbing real prose
+ * leaves untranslated English sitting inside the Chinese text.
+ */
+it('absorbs the author only — never the capitalised prose before it', function () {
+    $sent = [];
+    Http::fake(['*/chat/completions' => function (Request $request) use (&$sent) {
+        $reply = [];
+        foreach (bookPayload($request) as $id => $text) {
+            $sent[] = $text;
+            $reply[$id] = $text;
+        }
+
+        return Http::response(['choices' => [['message' => ['content' => json_encode($reply, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT)]]],
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5]]);
+    }]);
+
+    $anchor = '<a class="in-text-citation" href="#u1">1974a</a>';
+    translateBook('<p>The New International Economic Order (UN '.$anchor.') mattered.</p>', 'zh-Hans');
+
+    // Every word of the title is still translatable prose; only "UN" is kept.
+    expect($sent[0])->toContain('The New International Economic Order (')
+        ->and($sent[0])->toContain('mattered')
+        ->and($sent[0])->not->toContain('UN ');
+});
+
 it('counts sections and paragraphs without sending anything', function () {
     fakeBookTranslations([]);
 

@@ -195,9 +195,66 @@ class TranslateBookJob implements ShouldQueue
             $cost,
             'Book translation: '.$this->bookId.' → '.$this->target,
             'translation',
-            [],
-            ['book_id' => $this->bookId, 'target_lang' => $this->target, 'model' => self::MODEL],
+            $this->usageLineItems($usage),
+            [
+                'book_id' => $this->bookId,
+                'target_lang' => $this->target,
+                'model' => self::MODEL,
+                'requests' => (int) ($usage['total_requests'] ?? 0),
+                'failed_requests' => (int) ($usage['failed_requests'] ?? 0),
+            ],
         ));
+    }
+
+    /**
+     * The run's real token usage, recorded on the ledger row.
+     *
+     * It was being thrown away: `charge()` received the full usage stats and
+     * passed `[]`, so translation was the only paid feature whose
+     * `billing_ledger.line_items` was NULL. That is why the in-app estimate
+     * could sit at ~3x actual for months with nothing to calibrate against —
+     * `raw_cost` alone cannot tell you whether a quote missed on characters,
+     * on request count, or on output tokens. Every run is now a data point for
+     * services.translation.html.estimate.
+     *
+     * Same shape as CitationReviewCommand::billReview's LLM items, so
+     * ClaimsJoiner::billing()-style readers (which sum `meta.prompt_tokens`)
+     * work unchanged.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function usageLineItems(array $usage): array
+    {
+        $pricing = config('services.llm.pricing', []);
+        $items = [];
+
+        foreach ($usage['by_model'] ?? [] as $model => $tokens) {
+            $rate = $pricing[$model] ?? null;
+            if (! $rate || ! isset($rate['input'], $rate['output'])) {
+                continue; // costOf() already logs the missing-pricing case
+            }
+            $prompt = (int) ($tokens['prompt_tokens'] ?? 0);
+            $completion = (int) ($tokens['completion_tokens'] ?? 0);
+            $total = $prompt + $completion;
+            $cost = ($prompt / 1_000_000 * $rate['input']) + ($completion / 1_000_000 * $rate['output']);
+
+            $items[] = [
+                'label' => basename($model).' ('.number_format($total).' tokens)',
+                'category' => 'llm',
+                'quantity' => $total,
+                'unit' => 'tokens',
+                'unit_cost' => $total > 0 ? round($cost / $total, 8) : 0,
+                'amount' => round($cost, 4),
+                'meta' => [
+                    'model' => $model,
+                    'prompt_tokens' => $prompt,
+                    'completion_tokens' => $completion,
+                    'requests' => (int) ($tokens['requests'] ?? 0),
+                ],
+            ];
+        }
+
+        return $items;
     }
 
     private function releaseReservation(User $user): void

@@ -22,8 +22,9 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
+const { logError } = vi.hoisted(() => ({ logError: vi.fn() }));
 vi.mock('../../../resources/js/utilities/logger', () => ({
-  log: { error: vi.fn() },
+  log: { error: logError },
   verbose: { init: vi.fn() },
 }));
 vi.mock('../../../resources/js/utilities/auth/csrf', () => ({
@@ -66,10 +67,45 @@ const OFFER = {
   success: true, available: true, target_lang: 'en', target_label: 'English',
   characters: null, estimated_cost: null, running: false, progress: null, existing: null,
 };
-const ESTIMATE = { success: true, characters: 728697, estimated_cost: 8.74 };
+// 728,697 chars at the zh-Hans rate ($9/M + $0.004/request) — a coherent
+// figure, not the stale 8.74 from the old shared per_request.
+const ESTIMATE = { success: true, characters: 728697, estimated_cost: 6.57 };
 
+/**
+ * A reply DESCRIPTOR. `serve` turns each one into a fresh fake Response per
+ * request, because a body may only be read once and the repeating-reply cases
+ * below would otherwise re-read the same one.
+ */
 function reply(status, body) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return { status, body };
+}
+
+/**
+ * A fake Response whose body is SINGLE-USE, like a real one.
+ *
+ * The old fake was `{ ok, status, json }` with no `blob()`, which made it more
+ * permissive than the real thing in both directions: `drainResponse` threw on
+ * the missing method and silently swallowed it, and a second read of the body
+ * succeeded. That hid a total breakage — the production code wrapped its fetch
+ * in `drainResponse` (which CONSUMES the body) and then called `.json()`, so
+ * every status read died on "Body is disturbed or locked" and the Translate
+ * section could never appear. A mock looser than the API it stands in for
+ * cannot catch a misuse of that API.
+ */
+function materialise({ status, body }) {
+  let used = false;
+  const consume = () => {
+    if (used) throw new TypeError('Body is disturbed or locked');
+    used = true;
+  };
+
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => { consume(); return body; },
+    text: async () => { consume(); return JSON.stringify(body); },
+    blob: async () => { consume(); return JSON.stringify(body); },
+  };
 }
 
 let container;
@@ -87,11 +123,14 @@ let handle;
 function serve({ status, estimate = reply(200, ESTIMATE), post } = {}) {
   const statuses = Array.isArray(status) ? [...status] : [status];
   const posts = Array.isArray(post) ? [...post] : [post];
+  const next = (queue) => (queue.length > 1 ? queue.shift() : queue[0]);
   fetchMock.mockImplementation(async (url, init) => {
-    if (init?.method === 'POST') return posts.length > 1 ? posts.shift() : posts[0];
-    if (String(url).endsWith('/estimate')) return typeof estimate === 'function' ? estimate() : estimate;
+    if (init?.method === 'POST') return materialise(next(posts));
+    if (String(url).endsWith('/estimate')) {
+      return materialise(typeof estimate === 'function' ? await estimate() : estimate);
+    }
 
-    return statuses.length > 1 ? statuses.shift() : statuses[0];
+    return materialise(next(statuses));
   });
 }
 
@@ -120,6 +159,7 @@ beforeEach(() => {
     </div>`;
   document.body.appendChild(container);
   fetchMock = vi.fn();
+  logError.mockClear();
   vi.stubGlobal('fetch', fetchMock);
   loggedIn.value = true;
   dialogs.confirm = true;
@@ -154,7 +194,7 @@ describe('initBookTranslation', () => {
     expect(section().hidden).toBe(false);
     // A guest is quoted too: the price is public, and seeing it precedes
     // deciding to sign up for it.
-    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $8.74'));
+    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $6.57'));
 
     button().click();
     await vi.waitFor(() => expect(showLoginPromptMenu).toHaveBeenCalledWith(button(), 'Log in to translate this book into English'));
@@ -199,7 +239,7 @@ describe('initBookTranslation', () => {
     expect(statusCalls()[0][0]).toBe('/api/book-translation/book_1');
     expect(button().textContent).toBe('Translate into English');
     expect(button().disabled).toBe(false);
-    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $8.74'));
+    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $6.57'));
     // The price is asked for the ROOT book too, not the sub-book overlay's id.
     expect(estimateCalls()[0][0]).toBe('/api/book-translation/book_1/estimate');
   });
@@ -219,7 +259,7 @@ describe('initBookTranslation', () => {
     expect(note().textContent).not.toContain('$');
 
     releasePrice(reply(200, ESTIMATE));
-    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $8.74'));
+    await vi.waitFor(() => expect(note().textContent).toContain('Kimi K3, about $6.57'));
     // Still one price request — re-rendering must not re-ask.
     expect(estimateCalls()).toHaveLength(1);
   });
@@ -252,7 +292,42 @@ describe('initBookTranslation', () => {
 
     releasePrice(reply(200, ESTIMATE));
     await vi.waitFor(() => expect(dialogs.confirms).toEqual(['Translate into English?']));
-    expect(dialogs.messages[0]).toContain('It should cost about $8.74');
+    expect(dialogs.messages[0]).toContain('It should cost about $6.57');
+  });
+
+  it('says so when the status cannot be read, and retries once', async () => {
+    // The bug this closes: ANY non-2xx became `null`, apply(null) returned,
+    // and the section stayed hidden with an empty button — identical to
+    // "this book can't be translated", with nothing in the console. A
+    // rate-limited poll, a 5xx, a gateway timeout and a service worker
+    // intercepting the request all looked the same.
+    serve({ status: [reply(500, { message: 'boom' }), reply(200, OFFER)] });
+    vi.useFakeTimers();
+    handle = initBookTranslation(container, 'book_1');
+
+    await vi.waitFor(() => expect(logError).toHaveBeenCalledWith(
+      expect.stringContaining('HTTP 500'),
+      '/components/sourceContainer/bookTranslation',
+    ));
+    expect(section().hidden).toBe(true); // nothing to show yet
+
+    await vi.advanceTimersByTimeAsync(1500);
+    // The retry got through, so one blip doesn't cost the reader the feature.
+    expect(section().hidden).toBe(false);
+    expect(button().textContent).toBe('Translate into English');
+  });
+
+  it('stays quiet for a 404 — that is a real refusal, not a failure', async () => {
+    // RLS: the book isn't visible to this reader. Logging it would cry wolf
+    // on every private book a guest opens.
+    serve({ status: reply(404, { message: 'Book not found.' }) });
+    handle = initBookTranslation(container, 'book_1');
+
+    await vi.waitFor(() => expect(statusCalls()).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(section().hidden).toBe(true);
+    expect(logError).not.toHaveBeenCalled();
+    expect(statusCalls()).toHaveLength(1); // not retried
   });
 
   it('links to an existing translation instead of offering another', async () => {
@@ -348,7 +423,7 @@ describe('initBookTranslation', () => {
     await vi.waitFor(() => expect(button().textContent).toBe('Try again: translate into English'));
     expect(note().textContent).toContain('2 paragraph(s) could not be translated.');
     // A retry is still a paid action, so it is still quoted.
-    await vi.waitFor(() => expect(note().textContent).toContain('about $8.74'));
+    await vi.waitFor(() => expect(note().textContent).toContain('about $6.57'));
   });
 });
 

@@ -86,20 +86,53 @@ interface RunWatch {
 /** Runs being watched, by source book. */
 const runs = new Map<string, RunWatch>();
 
-async function fetchStatus(bookId: string): Promise<BookTranslationStatus | null> {
+const PATH = '/components/sourceContainer/bookTranslation';
+
+/**
+ * Read the status, and SAY SO when it can't be read.
+ *
+ * This used to swallow every failure: any non-2xx or thrown error became
+ * `null`, `apply(null)` returned on the spot, and the section stayed hidden
+ * with an empty button — byte-identical to the "this book cannot be
+ * translated" outcome. So a rate-limited poll (the route group is
+ * `throttle:120,1`), a 5xx, a gateway timeout or a service worker
+ * intercepting the request all presented as "no Translate section", with
+ * nothing in the console to tell them apart. A missing feature must never be
+ * the quiet default.
+ *
+ * A 404 is the one genuine refusal (RLS: the book isn't visible to this
+ * reader), so it stays quiet. Everything else is logged and retried once —
+ * a single blip shouldn't cost the reader the feature until they reload.
+ */
+async function fetchStatus(bookId: string, attempt = 0): Promise<BookTranslationStatus | null> {
   try {
-    // Drained: 401/404 are ROUTINE here, and an unread body holds the
-    // connection open so the page never reaches network-idle.
-    const resp = await drainResponse(await fetch(`/api/book-translation/${encodeURIComponent(bookId)}`, {
+    const resp = await fetch(`/api/book-translation/${encodeURIComponent(bookId)}`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
-    }));
-    if (!resp.ok) return null; // 401 logged out, 404 not visible — leave it hidden
+    });
+    // A body may be read ONCE. Parse it on the success path; drain it on every
+    // other path, where nobody wants it but an unread body still holds the
+    // connection open. Wrapping the fetch itself in drainResponse — which is
+    // for callers that want no body at all — consumes it before .json() can,
+    // and the whole section dies on "Body is disturbed or locked".
+    if (resp.ok) return (await resp.json()) as BookTranslationStatus;
+    await drainResponse(resp);
+    if (resp.status === 404) return null; // not visible to this reader
 
-    return (await resp.json()) as BookTranslationStatus;
-  } catch {
-    return null;
+    log.error(`translation status unreadable for ${bookId} (HTTP ${resp.status})`, PATH);
+
+    return attempt === 0 ? await retryStatus(bookId) : null;
+  } catch (e) {
+    log.error(`translation status request failed for ${bookId}`, PATH, e);
+
+    return attempt === 0 ? await retryStatus(bookId) : null;
   }
+}
+
+function retryStatus(bookId: string): Promise<BookTranslationStatus | null> {
+  return new Promise((resolve) => {
+    window.setTimeout(() => void fetchStatus(bookId, 1).then(resolve), 1500);
+  });
 }
 
 /**
@@ -114,14 +147,20 @@ async function fetchStatus(bookId: string): Promise<BookTranslationStatus | null
  */
 async function fetchEstimate(bookId: string): Promise<BookTranslationEstimate | null> {
   try {
-    const resp = await drainResponse(await fetch(`/api/book-translation/${encodeURIComponent(bookId)}/estimate`, {
+    const resp = await fetch(`/api/book-translation/${encodeURIComponent(bookId)}/estimate`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
-    }));
-    if (!resp.ok) return null;
+    });
+    if (resp.ok) return (await resp.json()) as BookTranslationEstimate;
+    await drainResponse(resp);
+    // Not retried: the price is optional (the note and the dialog both drop
+    // their cost clause), but it is still logged rather than vanishing.
+    log.error(`translation estimate unreadable for ${bookId} (HTTP ${resp.status})`, PATH);
 
-    return (await resp.json()) as BookTranslationEstimate;
-  } catch {
+    return null;
+  } catch (e) {
+    log.error(`translation estimate request failed for ${bookId}`, PATH, e);
+
     return null;
   }
 }
@@ -153,7 +192,7 @@ async function openBook(bookId: string): Promise<void> {
       hash: '',
     });
   } catch (e) {
-    log.error('opening the translation failed; loading it directly', '/components/sourceContainer/bookTranslation', e);
+    log.error('opening the translation failed; loading it directly', PATH, e);
     window.location.href = url.href;
   }
 }
@@ -435,7 +474,7 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
       apply({ ...latest, running: true, progress: { status: 'queued', phase: 'text', percent: 0, error: null } });
     } catch (e) {
       apply(latest);
-      log.error('book translation request failed', '/components/sourceContainer/bookTranslation', e);
+      log.error('book translation request failed', PATH, e);
     }
   };
 
@@ -444,7 +483,7 @@ export function initBookTranslation(container: HTMLElement, bookId: string): Boo
 
   // Guests too: they're offered "Log in to translate" (the status read is public).
   void fetchStatus(rootBook).then(apply);
-  verbose.init('book translation section armed', '/components/sourceContainer/bookTranslation');
+  verbose.init('book translation section armed', PATH);
 
   return {
     destroy(): void {

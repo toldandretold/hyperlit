@@ -50,8 +50,14 @@ class BookVersionsController extends Controller
         // The translation family, ONE hop of lineage: the root (the viewed
         // book, or its immediate source when the viewed book IS a
         // translation) plus every visible translation of that root.
+        // "Visible" cannot be left to RLS alone here: a DELETED book is still
+        // visible to its own creator, so the owner of a translation they threw
+        // away kept seeing it listed — a rail entry linking to a book with
+        // zero nodes. `has_nodes` is no defence either; it stays true on the
+        // tombstone. Only the visibility column records the deletion.
         $rootId = $current->translated_from ?: $current->book;
         $family = PgLibrary::where(fn ($q) => $q->where('book', $rootId)->orWhere('translated_from', $rootId))
+            ->where('visibility', '!=', 'deleted')
             ->orderBy('created_at')
             ->get();
         $root = $family->firstWhere('book', $rootId);
@@ -63,6 +69,11 @@ class BookVersionsController extends Controller
             $siblings = PgLibrary::where('canonical_source_id', $current->canonical_source_id)
                 ->whereNotIn('book', $family->pluck('book'))
                 ->where('has_nodes', true)
+                // has_nodes is NOT a deletion check — it stays true on a
+                // tombstone whose nodes are long gone, so a deleted book
+                // excluded from the family above simply reappeared here as a
+                // "canonical version" of the same work.
+                ->where('visibility', '!=', 'deleted')
                 ->orderByDesc('total_views')
                 ->limit(self::MAX_CANONICAL_SIBLINGS)
                 ->get();

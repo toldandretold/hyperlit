@@ -159,6 +159,67 @@ it('prices the translation on its own endpoint', function () {
         ->assertJsonPath('estimated_cost', 0.04);
 });
 
+/**
+ * Deleting a translation must give the button back.
+ *
+ * `existingCopy()` leaned entirely on RLS, which hides a deleted book from
+ * everyone EXCEPT its creator — so the one person who binned a translation was
+ * the one person who could never commission another. The section read
+ * `existing`, hid itself, and offered no button and no explanation.
+ */
+it('offers the translation again once an existing copy has been deleted', function () {
+    $user = $this->seedUser(['status' => 'premium']);
+    $book = ($this->seedChineseBook)($user->name);
+    $copy = 'bt_'.Str::lower(Str::random(10));
+    $this->seededBooks[] = $copy;
+    $this->seedLibrary([
+        'book' => $copy, 'title' => '长相思 (English)', 'creator' => $user->name,
+        'visibility' => 'deleted', 'translated_from' => $book, 'translation_target' => 'en',
+    ]);
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}")
+        ->assertOk()
+        ->assertJsonPath('available', true)
+        ->assertJsonPath('existing', null);
+
+    // And a LIVE copy still blocks a second one — the commons dedupe stands.
+    DB::connection('pgsql_admin')->table('library')->where('book', $copy)->update(['visibility' => 'private']);
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}")
+        ->assertOk()
+        ->assertJsonPath('existing.book', $copy);
+});
+
+it('prices the en→zh direction on its own recalibrated rate', function () {
+    // The two directions are calibrated from different evidence, so per_request
+    // is per-TARGET. A shared $0.02 is what quoted ~3x over on real en→zh runs
+    // (29 requests × $0.02 = $0.58, against $0.26 for the whole translation).
+    $user = $this->seedUser(['status' => 'premium']);
+    $english = 'bt_'.Str::lower(Str::random(10));
+    $this->seededBooks[] = $english;
+    $this->seedLibrary(['book' => $english, 'creator' => $user->name]);
+    $this->seedNode(['book' => $english, 'startLine' => 1, 'node_id' => "{$english}_n1", 'footnotes' => '[]',
+        'content' => '<h2 id="1">Accumulation</h2>']);
+    // Long enough that the request term actually shows — on a 25-character
+    // book every rate rounds to $0.00 and the test proves nothing.
+    $body = trim(str_repeat('Capital accumulates unevenly across the world market. ', 240));
+    $this->seedNode(['book' => $english, 'startLine' => 2, 'node_id' => "{$english}_n2", 'footnotes' => '[]',
+        'content' => '<p id="2">'.$body.'</p>']);
+
+    $chars = mb_strlen('Accumulation'.$body);
+    $requests = 1 + intdiv($chars, 4000); // one heading section, no footnotes
+    $expected = round($chars * 9.0 / 1_000_000 + $requests * 0.004, 2);
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$english}/estimate")
+        ->assertOk()
+        ->assertJsonPath('target_lang', 'zh-Hans')
+        ->assertJsonPath('characters', $chars)
+        ->assertJsonPath('estimated_cost', $expected);
+
+    // The point of the split: the old shared $0.02 would have quoted far more
+    // for the very same book.
+    expect(round($chars * 9.0 / 1_000_000 + $requests * 0.02, 2))->toBeGreaterThan($expected);
+});
+
 it('prices a book for a guest too, so the offer can be quoted before signing up', function () {
     $owner = $this->seedUser();
     $book = ($this->seedChineseBook)($owner->name, 'public');
@@ -182,6 +243,27 @@ it('does not price a book it cannot translate, or one it cannot see', function (
         ->assertJsonPath('estimated_cost', null);
 
     $this->getJson('/api/book-translation/bt_nosuchbook/estimate')->assertNotFound();
+});
+
+it('prices the BOOK and its footnotes — never highlights or the AI review', function () {
+    $user = $this->seedUser(['status' => 'premium']);
+    $book = ($this->seedChineseBook)($user->name);
+    $base = mb_strlen('第一章小六走进屋子1。他笑了。注释内容。注释内容。');
+
+    // What a real book accumulates underneath itself: a sub-book per HIGHLIGHT,
+    // one per AI-review verdict, and the whole AI Citation Review companion.
+    // Measured on the journal article book_1782863856780 — 160 real nodes
+    // (51,659 chars) against 2,284 sub-book nodes (372,151), which quoted
+    // $6.17 for a $1.11 article and would have TRANSLATED the lot.
+    foreach (["{$book}/AIreview", "{$book}/HL_123", "{$book}/2/HL_9/HL_8"] as $i => $sub) {
+        $this->seededBooks[] = $sub;
+        $this->seedNode(['book' => $sub, 'startLine' => 1, 'node_id' => "{$book}_x{$i}", 'footnotes' => '[]',
+            'content' => '<p>这是一段不应该被翻译也不应该被计价的文字内容。</p>']);
+    }
+
+    $this->actingAs($user)->getJson("/api/book-translation/{$book}/estimate")
+        ->assertOk()
+        ->assertJsonPath('characters', $base);
 });
 
 it('excludes reference-list nodes from the price but still counts their heading', function () {

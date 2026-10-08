@@ -51,10 +51,37 @@
         // dynamically imported module"). One-shot guard (60s) prevents loops
         // when the server itself is the problem.
         (function () {
+            // Dead-man's switch for the loading curtain. Every cap that lifts it
+            // (RevealGate's 4s hold cap, the Enactor's hide paths) lives in a
+            // MODULE — so the one failure where the curtain matters most, the
+            // module graph not loading at all, is the one failure none of them
+            // can answer: the opaque resume curtain stays up forever and the
+            // reader is a black screen reading "Restoring your reading
+            // position…". Seen 2026-10-08 after a deploy: a lazy import threw
+            // "Importing a module script failed" and the page never came back.
+            // This lives in the inline head script on purpose — it is the only
+            // code guaranteed to be running when the module graph is dead.
+            window.__hlReleaseCurtain = function (reason) {
+                try {
+                    var el = document.getElementById('initial-navigation-overlay');
+                    if (!el || el.style.display === 'none') return;
+                    delete el.dataset.hlHold;
+                    el.style.display = 'none';
+                    el.style.setProperty('pointer-events', 'none', 'important');
+                    console.error('[boot] released stuck loading curtain:', reason);
+                } catch (e) { /* nothing left to try */ }
+            };
             function healChunkError() {
                 try {
                     var last = Number(sessionStorage.getItem('hl_chunk_reload') || 0);
-                    if (Date.now() - last < 60000) return; // already tried — don't loop
+                    if (Date.now() - last < 60000) {
+                        // Already reloaded once this minute — reloading again
+                        // would loop. The app is wedged either way, so at least
+                        // uncover the page instead of holding a black curtain
+                        // over it with no way out but Clear Site Data.
+                        window.__hlReleaseCurtain('chunk load failed and the one-shot reload is spent');
+                        return;
+                    }
                     sessionStorage.setItem('hl_chunk_reload', String(Date.now()));
                 } catch (e) { /* storage unavailable — still better to reload once */ }
                 window.location.reload();
@@ -251,6 +278,29 @@
                     }
                 }
             } catch (e) { /* corrupt saved position — never block paint */ }
+
+            // Last resort, for a boot that fails with no error we recognise
+            // (a module that loads but throws, a hung await, an import the
+            // self-heal's regexes don't match). A curtain still up this long
+            // is not a slow load, it is a broken one: a healthy reader lifts
+            // it in under two seconds and RevealGate caps its hold at four.
+            // Revealing an unpositioned page costs the restore flash this
+            // curtain exists to prevent — worth it against a dead black
+            // screen, and only ever paid on a load that already failed.
+            // Guarded by the progress text we painted: the Enactor rewrites it
+            // as the load advances, so text that is still byte-identical 20s
+            // later is evidence that no module ever took ownership of this
+            // overlay. Without that check a legitimate SPA navigation happening
+            // to be in flight at the 20s mark would have its curtain torn down.
+            (function () {
+                var textEl = document.getElementById('page-load-progress-text');
+                var paintedText = textEl ? textEl.textContent : null;
+                setTimeout(function () {
+                    var now = document.getElementById('page-load-progress-text');
+                    if (now && now.textContent !== paintedText) return; // JS owns it
+                    window.__hlReleaseCurtain('still up 20s after first paint, untouched — boot never finished');
+                }, 20000);
+            })();
         } else {
             // Hide overlay for other page types
             overlay.style.display = 'none';
