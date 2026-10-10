@@ -138,6 +138,29 @@ function buildApiUrl(bookId: string, queryString: string) {
 }
 
 /**
+ * Is this id a deep-link target the server's chunk resolver can place?
+ *
+ * ONE definition, used by both branches below — they drifted as two inline copies and a
+ * target the server could have resolved was silently downgraded to `resume`.
+ *
+ * `ref_` is the citation-review report anchor (`<a id="ref_HL_…">`, written by
+ * CitationReview\Report\ClaimMarkdownFormatter) — a PLAIN CONTENT ANCHOR with no typed
+ * store behind it, so unlike `hypercite_`/`HL_`/`Fn` it resolves only via the server's
+ * step-6 content scan. Omitting it is why "See within full report" landed at the top of
+ * the report on a FIRST visit: the request went out as `resume=true`, the lowest chunk came
+ * back, and the client resolver then content-scanned an IndexedDB copy that was still empty.
+ * On a second visit it worked, because by then the background download had filled IDB —
+ * which is exactly what made this look intermittent.
+ */
+function isServerResolvableTarget(id: string): boolean {
+    return id.startsWith('hypercite_')
+        || id.startsWith('HL_')
+        || id.startsWith('Fn')
+        || id.includes('_Fn')
+        || id.startsWith('ref_');
+}
+
+/**
  * Determine query params from URL hash / OpenHyperlightID / OpenFootnoteID.
  */
 function buildInitialChunkParams() {
@@ -150,7 +173,7 @@ function buildInitialChunkParams() {
     if (spaTarget) {
         (window as any)._pendingChunkTarget = null; // Consume it
         (window as any)._pendingChunkFallbackTarget = null;
-        if (spaTarget.startsWith('hypercite_') || spaTarget.startsWith('HL_') || spaTarget.startsWith('Fn') || spaTarget.includes('_Fn')) {
+        if (isServerResolvableTarget(spaTarget)) {
             params.set('target', spaTarget);
             // Pin deep-link targets so the target-exempted record (server sends it
             // even if gated/'single') also survives the CLIENT gate at render.
@@ -172,7 +195,7 @@ function buildInitialChunkParams() {
     // Priority 1: URL hash target
     const hash = window.location.hash?.substring(1);
     if (hash) {
-        if (hash.startsWith('hypercite_') || hash.startsWith('HL_') || hash.startsWith('Fn') || hash.includes('_Fn')) {
+        if (isServerResolvableTarget(hash)) {
             params.set('target', hash);
             // Pin deep-link targets (see SPA branch above)
             if (hash.startsWith('hypercite_')) pinHypercite(hash);

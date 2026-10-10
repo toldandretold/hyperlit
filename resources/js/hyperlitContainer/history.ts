@@ -214,6 +214,23 @@ export async function restoreHyperlitContainerFromHistory(providedContainerState
   }
   console.log('📊 Restoring hyperlit container from history:', containerState);
 
+  // Book guard — the third copy of the check that restoreContainerStack and
+  // LinkNavigationHandler's fast path already make, and the one that was missing. A history
+  // entry's containerStack is stamped with the book it was built in (`containerStackBookId`);
+  // restoring it over a DIFFERENT rendered book opens a panel of book A's annotation on top of
+  // book B's text, where the matching mark does not exist — the "container open, nothing
+  // highlighted behind it" state seen on the /AIreview round trip. Compare only when both ids
+  // are known, so an unstamped legacy entry restores exactly as before.
+  const renderedBookId = document.querySelector('.main-content')?.id || null;
+  const stackBookId = (history.state as any)?.containerStackBookId || null;
+  if (renderedBookId && stackBookId && stackBookId !== renderedBookId) {
+    verbose.nav(
+      `restoreHyperlitContainerFromHistory refused: entry's container belongs to "${stackBookId}" but "${renderedBookId}" is rendered`,
+      'hyperlitContainer/history.ts'
+    );
+    return false;
+  }
+
   try {
     const result: any = await buildContentFromMetadata(containerState);
     if (!result) return false;

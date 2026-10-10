@@ -225,6 +225,37 @@ function isCitationRefTarget(id: string): boolean {
   return /^Ref\d/.test(id);
 }
 
+/**
+ * Is this annotation target NAMED by the address bar — i.e. did the user ask for it?
+ *
+ * The same leak the `Ref…` soft-target guard above describes is not confined to citation refs:
+ * an `HL_`/`hypercite_` id captured in book A gets replayed after a book change and arrives here
+ * against book B's lazyLoader. B has never heard of it, so it falls through to "no block found →
+ * load a fallback chunk → scroll to the top → toast". Measured on the AI-review round trip: the
+ * reader sat on the `/AIreview` report and got "Couldn't find 'HL_4002887421' — showing start of
+ * book", HL_4002887421 being a highlight in the PARENT book. The report has no such mark, so the
+ * screen showed an open container over text with nothing highlighted in it — and because none of
+ * that throws, the e2e phase covering this round trip passed through it for every loop.
+ *
+ * The discriminator is intent. A target the URL names is a deep link the user followed, and
+ * "couldn't find it, here's the start" is the right answer. A target the URL does NOT name is
+ * internal machinery replaying stale state — answering it by throwing away the reader's position
+ * and toasting is wrong twice over, and the correct response is to do nothing at all.
+ *
+ * Deliberately generous about what counts as "named": the hash can carry the id bare (`#HL_1`),
+ * prefixed (`#citation_Ref1`) or alongside a container-stack param, and sub-book paths carry it
+ * as a segment (`/book_x/Fn12`). Generosity errs toward today's behaviour — the quiet bail only
+ * fires when the id appears NOWHERE in the URL.
+ */
+function isTargetNamedByUrl(targetId: string): boolean {
+  try {
+    const { pathname, hash } = window.location;
+    return `${pathname}${hash}`.includes(targetId);
+  } catch {
+    return true; // can't tell → behave as before
+  }
+}
+
 export function navigateToInternalId(targetId: string, lazyLoader: any, showOverlay = true, scrollOffset: number | null = null, opts: { suppressContainerOpen?: boolean } = {}): Promise<any> {
   if (!lazyLoader) {
     console.error("Lazy loader instance not provided!");
@@ -479,6 +510,45 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     // If the resolver couldn't find the target and the book isn't fully loaded,
     // wait for the background download to complete and retry with the full dataset.
+    //
+    // `isFullyLoaded` is derived as `!chunkManifest` (lazyLoader/index.ts), and loadHyperText
+    // nulls the manifest on the local-cache path — so a book that is still DOWNLOADING reports
+    // itself fully loaded and this retry is skipped. The target then "can't be found", the reader
+    // is thrown to the top of the book and toasted, purely because the chunk holding it hadn't
+    // arrived yet. Caught by the suite-wide target-not-found gate as `Couldn't find '1500' —
+    // showing start of book` on a freshly created book, where 1500 was simply a node in a chunk
+    // still in flight. Ask the download itself (book-scoped — see the background-download review
+    // gate) rather than trusting the derived flag.
+    // A third way to be "not loaded yet" that neither flag reports: the navigation ran before the
+    // book's data arrived at all. The reader initialises with the server's instant-paint chunk, so
+    // `nodes` holds a single node, the manifest is null (→ isFullyLoaded true) and the background
+    // download has not STARTED (→ not in flight). The resolver then searches a one-node dataset,
+    // finds nothing, and answers a perfectly valid deep link with "showing start of book". Caught
+    // by the suite-wide gate on a back/forward to `/book_x#hypercite_…` whose target existed the
+    // whole time. Re-read the store once before believing a miss on a dataset this small.
+    if (!resolution.resolved && (lazyLoader.nodes?.length ?? 0) <= 1) {
+      const freshNodes = await getNodesFromIndexedDB(lazyLoader.bookId);
+      if (freshNodes && freshNodes.length > (lazyLoader.nodes?.length ?? 0)) {
+        lazyLoader.nodes = freshNodes;
+        (window as any).nodes = freshNodes;
+        resolution = await resolveTargetChunkId(lazyLoader.bookId, targetId, {
+          chunkManifest: lazyLoader.chunkManifest,
+          nodes: lazyLoader.nodes,
+        });
+        recordNavDecision({ phase: 'nav-resolve-cold', targetId, resolved: resolution.resolved, reason: resolution.reason, chunkId: resolution.chunkId });
+        verbose.nav(
+          `Cold-dataset retry for "${targetId}": resolved=${resolution.resolved}, chunk=${resolution.chunkId} (nodes ${freshNodes.length})`,
+          'scrolling/internalNav'
+        );
+      }
+    }
+
+    // NOTE: `isFullyLoaded` is derived as `!chunkManifest`, which loadHyperText nulls on the
+    // local-cache path — so a still-downloading book can report itself complete and skip this
+    // retry. Gating on `isBackgroundDownloadInProgress(bookId)` as well was tried and REVERTED:
+    // it makes navigation block on the whole background download far more often, and the grand
+    // tour's lap phases started timing out at 15s (a different phase each run). The cold-dataset
+    // retry above covers the case that motivated it at a fraction of the cost.
     if (!resolution.resolved && !lazyLoader.isFullyLoaded) {
       verbose.nav(`Target "${targetId}" not found in partial data — waiting for background download...`, 'scrolling/internalNav');
       if (progressIndicator) {
@@ -553,6 +623,41 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
 
     if (bailIfSuperseded('post-resolve')) return;
 
+    // A target that belongs to a DIFFERENT book, replayed here by internal machinery rather than
+    // followed by the user (see isTargetNamedByUrl). It has now survived the background-download
+    // retry AND fetch-on-demand, so it isn't this book's — and since the URL never named it,
+    // nobody is waiting to be shown it. Bail where the citation-ref guard bails: no fallback
+    // chunk, no scroll to the top, no toast. Taking the reader's position away over a target they
+    // never asked for is a worse answer than doing nothing.
+    //
+    // Applies to EVERY id shape, not just annotations. The suite-wide gate caught the numeric
+    // flavour immediately: a one-node book (startLine 100) freshly created by the user→reader
+    // cycle was told to navigate to line 1500 — a node from the previous book, still held in
+    // memory — and answered by toasting and jumping the reader to the top of a book they had
+    // just opened. Nothing in localStorage pointed there; it was purely a carried-over target.
+    //
+    // ONLY when the reader already has content on screen. The fallback below does double duty:
+    // it scrolls somewhere AND it loads a chunk, so bailing before it on a book with nothing
+    // rendered leaves a BLANK reader — which is how a first cut of this guard broke the grand
+    // tour's three-lap and forward-replay phases (the next step timed out waiting for a page
+    // that never finished painting). With content already up, the fallback is pure hijack and
+    // skipping it is the whole point.
+    const hasRenderedContent = !!lazyLoader.container?.querySelector?.('[data-chunk-id]');
+    if (!resolution.resolved && !isTargetNamedByUrl(targetId) && hasRenderedContent) {
+      verbose.nav(`Stale target "${targetId}" replayed onto book ${lazyLoader.bookId} (URL does not name it) — bailing quietly`, 'scrolling/internalNav');
+      hideNavigationLoading();
+      NavigationCompletionBarrier.completeProcess(NavigationProcess.SCROLL_COMPLETE, false);
+      lazyLoader.isNavigatingToInternalId = false;
+      lazyLoader.pendingNavigationTarget = null;
+      if (lazyLoader.unlockScroll) lazyLoader.unlockScroll();
+      if (lazyLoader._navigationResolve) {
+        lazyLoader._navigationResolve({ success: false, targetId, fallback: true, soft: true });
+        lazyLoader._navigationResolve = null;
+        lazyLoader._navigationReject = null;
+      }
+      return;
+    }
+
     // If the primary target couldn't be resolved, show fallback UI
     if (!resolution.resolved) {
       console.warn(
@@ -574,19 +679,26 @@ async function _navigateToInternalId(targetId: string, lazyLoader: any, progress
           lazyLoader._navigationResolve = null;
           lazyLoader._navigationReject = null;
         }
-        // Show contextual toast
-        import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
-          showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
-        });
+        // Show contextual toast — but only for a target the user actually asked for. An internal
+        // replay the URL never named (see isTargetNamedByUrl) still needs the chunk loaded above,
+        // yet telling the reader "couldn't find X" about an id they never typed is noise about
+        // our own plumbing.
+        if (isTargetNamedByUrl(targetId)) {
+          import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
+            showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
+          });
+        }
         return;
       }
 
       // Show contextual toast after scroll completes (deferred to avoid layout shift)
-      setTimeout(() => {
-        import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
-          showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
-        });
-      }, 500);
+      if (isTargetNamedByUrl(targetId)) {
+        setTimeout(() => {
+          import('../components/toast/toast').then(({ showTargetNotFoundToast }) => {
+            showTargetNotFoundToast({ target: targetId, fallbackUsed: resolution.fallbackUsed });
+          });
+        }, 500);
+      }
     }
 
     // Map resolved chunk_id to an index in lazyLoader.nodes

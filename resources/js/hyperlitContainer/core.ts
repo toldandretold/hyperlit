@@ -611,11 +611,22 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
           const newState = { ...currentState, hyperlitContainer: null };
 
           if (hasCascadeSegments || hasCsParam) {
-            // Strip cascade segments from path + remove ?cs param — but PRESERVE the hash.
-            // The hash (#hypercite_/#HL_/…) is the anchor of the element in the MAIN text; it must
-            // stay in this history entry so back/forward returns to it. replaceState rewrites the
-            // entry itself, so dropping the hash here permanently breaks "click hypercite → back →
-            // take me to the hypercite". We only clean the container-stack path + ?cs param.
+            // Strip cascade segments from path + remove ?cs param. The hash is PRESERVED for a
+            // ?cs-only cleanup (`/book_X?cs=1#hypercite_main` → `/book_X#hypercite_main`): there
+            // the anchor lives in the MAIN text and back/forward must return to it. But when
+            // CASCADE SEGMENTS are being stripped, an annotation-shaped hash belongs to the layer
+            // being stripped, not to the main text — every writer of a cascade URL scopes its hash
+            // to the deepest layer (handleSameBookNavigation pushes `/book_X/Fn…#hypercite_y`
+            // where y lives IN that footnote; openContainerChain's finalHash likewise). Keeping it
+            // manufactured `/book_X#hypercite_y` — parent path + sub-book-owned target, a URL that
+            // can never resolve: a later back/forward onto this entry looked y up keyed by the
+            // PARENT book (the row lives on the footnote sub-book), missed, and dumped the reader
+            // at the top with "Couldn't find 'hypercite_y' — showing start of book" (caught by the
+            // e2e target-not-found gate in nested-hypercite-chain). Non-annotation hashes keep
+            // today's behaviour. If a spec ever surfaces a cascade URL whose annotation hash IS
+            // parent-owned, the precise (async) alternative is an ownership check — keep the hash
+            // only when `getHyperciteFromIndexedDB(renderedBook, id)` hits — rather than reverting
+            // to unconditional preservation.
             const cleanParams = new URLSearchParams(currentUrl.search);
             cleanParams.delete('cs');
             const cleanSearch = cleanParams.toString() ? `?${cleanParams.toString()}` : '';
@@ -623,10 +634,12 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
             // cascade segments — NOT pathSegments[0], which drops the 2nd segment of a
             // two-segment sub-book (e.g. `book_X/AIreview`) and desyncs URL↔content.
             const renderedBook = document.querySelector('.main-content')?.id || bookSlug;
+            const annotationHash = /^#(hypercite_|HL_)/.test(currentUrl.hash);
+            const keptHash = (hasCascadeSegments && annotationHash) ? '' : currentUrl.hash;
             const cleanUrl = (hasCascadeSegments
               ? `/${renderedBook}${cleanSearch}`
-              : `${currentUrl.pathname}${cleanSearch}`) + currentUrl.hash;
-            verbose.nav(`Cleaning up URL (hash preserved): ${currentUrl.pathname + currentUrl.search} → ${cleanUrl}`, '/hyperlitContainer/core.ts');
+              : `${currentUrl.pathname}${cleanSearch}`) + keptHash;
+            verbose.nav(`Cleaning up URL (hash ${keptHash ? 'preserved' : 'dropped with its cascade'}): ${currentUrl.pathname + currentUrl.search + currentUrl.hash} → ${cleanUrl}`, '/hyperlitContainer/core.ts');
             history.replaceState(newState, '', cleanUrl);
           } else {
             // URL already clean — just clear the stale history state

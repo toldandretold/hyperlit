@@ -4,7 +4,7 @@
  * Provides visual feedback for hypercite navigation with highlighting and dimming effects.
  */
 
-import { showTargetNotFoundToast } from '../components/toast/toast';
+import { verbose } from '../utilities/logger';
 
 // Module-level timeout reference for managing highlight animations
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -97,10 +97,15 @@ export function highlightTargetHypercite(targetHyperciteId: string, delay = 300)
       });
       console.log(`✅ Added target highlighting to ${targetElements.length} segments for: ${targetHyperciteId}`);
     } else {
-      console.warn(`⚠️ Could not find target hypercite element: ${targetHyperciteId}`);
-      // Surface feedback instead of silently doing nothing — e.g. a cite whose stored range
-      // was corrupted to zero-width never renders, so navigation would otherwise just stall.
-      showTargetNotFoundToast({ target: targetHyperciteId });
+      // No toast from here — this is a DECORATIVE glow running on a 300ms-delayed callback, and
+      // "element not in the DOM right now" is not evidence navigation failed. Measured case: the
+      // AI-archivist answer's ↗ arrow — the glow's setTimeout fired mid-SPA-transition after the
+      // answer DOM was swapped out, and the reader saw "Citation not found" over a journey that
+      // landed exactly right (caught by the e2e target-not-found gate). The failure this toast
+      // was added for (a zero-width-corrupted cite that never renders) is already surfaced by
+      // internalNav's own fallback path, which toasts with full context when the NAVIGATION —
+      // the thing the user actually asked for — can't find its target.
+      verbose.nav(`Glow skipped — no rendered element for ${targetHyperciteId} (decorative only, no toast)`, 'hypercites/animations.ts');
     }
 
     // Dim all other hypercites (but not the target elements)

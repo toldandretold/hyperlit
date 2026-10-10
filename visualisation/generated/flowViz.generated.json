@@ -6,7 +6,7 @@
     "moduleCount": 416,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4069,
+    "edgeCount": 4070,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -35358,12 +35358,6 @@
       "rel": "write"
     },
     {
-      "id": "hypercites/animations:highlightTargetHypercite__call__components/toast/toast:showTargetNotFoundToast",
-      "source": "hypercites/animations:highlightTargetHypercite",
-      "target": "components/toast/toast:showTargetNotFoundToast",
-      "rel": "call"
-    },
-    {
       "id": "hypercites/animations:highlightTargetHypercite__call__hypercites/animations:restoreNormalHyperciteDisplay",
       "source": "hypercites/animations:highlightTargetHypercite",
       "target": "hypercites/animations:restoreNormalHyperciteDisplay",
@@ -36150,7 +36144,8 @@
       "id": "hyperlights/createHighlight:createHighlightHandler__call__hyperlights/utils:openHighlightById",
       "source": "hyperlights/createHighlight:createHighlightHandler",
       "target": "hyperlights/utils:openHighlightById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/createHighlight:createHighlightHandler__call__indexedDB/core/library:updateAnnotationsTimestamp",
@@ -36694,7 +36689,8 @@
       "id": "hyperlights/myHighlights/ghostLedger:renderGhostLedger__call__hyperlights/utils:openHighlightById",
       "source": "hyperlights/myHighlights/ghostLedger:renderGhostLedger",
       "target": "hyperlights/utils:openHighlightById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/myHighlights/ghostLedger:renderGhostLedger__call__indexedDB/core/connection:openDatabase",
@@ -36943,6 +36939,13 @@
       "source": "hyperlights/utils:openHighlightById",
       "target": "hyperlitContainer/containerActions:handleUnifiedContentClick",
       "rel": "call"
+    },
+    {
+      "id": "hyperlights/utils:openHighlightById__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/utils:openHighlightById",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlights/visibilityDefault:setDefaultHighlightVisibility__write__store:localStorage",
@@ -38202,7 +38205,8 @@
       "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlights/utils:openHighlightById",
       "source": "hyperlitContainer/highlightNav:navigateAndOpenHighlight",
       "target": "hyperlights/utils:openHighlightById",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "hyperlitContainer/highlightNav:navigateAndOpenHighlight__call__hyperlitContainer/stack:getCurrentContainer",
@@ -47581,6 +47585,12 @@
       "rel": "read"
     },
     {
+      "id": "store:hyperlights__read__hyperlights/utils:openHighlightById",
+      "source": "store:hyperlights",
+      "target": "hyperlights/utils:openHighlightById",
+      "rel": "read"
+    },
+    {
       "id": "store:hyperlights__read__hyperlitContainer/brainQuery:injectBrainInput",
       "source": "store:hyperlights",
       "target": "hyperlitContainer/brainQuery:injectBrainInput",
@@ -51457,11 +51467,6 @@
       "kind": "static"
     },
     {
-      "source": "hypercites/animations",
-      "target": "components/toast/toast",
-      "kind": "static"
-    },
-    {
       "source": "hypercites/copy",
       "target": "hypercites/database",
       "kind": "static"
@@ -51915,6 +51920,11 @@
       "source": "hyperlights/utils",
       "target": "hyperlitContainer/containerActions",
       "kind": "static"
+    },
+    {
+      "source": "hyperlights/utils",
+      "target": "indexedDB/core/connection",
+      "kind": "lazy"
     },
     {
       "source": "hyperlitContainer/brainQuery",
@@ -54777,6 +54787,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 302
+    "lazyCount": 303
   }
 }

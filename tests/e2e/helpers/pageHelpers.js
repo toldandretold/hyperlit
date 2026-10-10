@@ -106,6 +106,73 @@ export function assertHealthy(result) {
 }
 
 /**
+ * Every "Couldn't find 'X' — showing start of book" toast recorded so far, across navigations.
+ * Installed for ALL specs by the navigation fixture (helpers/targetNotFoundCapture.js), which
+ * also asserts this is empty at the end of each test.
+ */
+export async function getTargetNotFoundToasts(page) {
+  return page.evaluate(() => (
+    typeof window.__getTargetNotFoundToasts === 'function' ? window.__getTargetNotFoundToasts() : []
+  ));
+}
+
+/** Throw if any target-not-found toast has fired. Call mid-test to localise one to a step. */
+export async function assertNoTargetNotFoundToasts(page, label = '') {
+  const toasts = await getTargetNotFoundToasts(page);
+  if (toasts.length) {
+    throw new Error(
+      `${label ? label + ': ' : ''}navigation target(s) not found — the reader was dumped at the `
+      + `start of a book instead of the requested position:\n${JSON.stringify(toasts, null, 2)}`
+    );
+  }
+}
+
+/**
+ * Does the URL's hash name something that exists in the RENDERED book?
+ *
+ * The book SEGMENT of the URL matching the rendered book is not enough — the hash can still name
+ * another book's annotation (a parent's `#HL_…` stamped onto a sub-book's URL during a
+ * back/forward burst). That resolves to nothing: a container opens over text with no matching
+ * mark, and the next hash navigation toasts "showing start of book". Only annotation-shaped
+ * hashes are judged; `#ref_…`, heading anchors and the like are left alone because they have no
+ * ownership semantics.
+ */
+export async function getHashProvenance(page) {
+  return page.evaluate(() => {
+    const hash = location.hash.replace(/^#/, '').replace(/^citation_/, '');
+    const isAnnotationHash = /^(HL_|hypercite_)/.test(hash);
+    let resolves = true;
+    if (isAnnotationHash) {
+      let el = null;
+      try {
+        el = document.getElementById(hash)
+          || document.querySelector(`.main-content mark.${CSS.escape(hash)}`);
+      } catch { /* malformed id */ }
+      resolves = !!el;
+    }
+    return {
+      hash,
+      isAnnotationHash,
+      resolves,
+      href: location.href,
+      renderedBook: document.querySelector('.main-content')?.id || null,
+    };
+  });
+}
+
+/** Throw if the URL names an annotation that isn't in the rendered book. */
+export async function assertHashNamesRenderedBook(page, label = '') {
+  const p = await getHashProvenance(page);
+  if (p.isAnnotationHash && !p.resolves) {
+    throw new Error(
+      `${label ? label + ': ' : ''}URL hash names an annotation absent from the rendered book `
+      + `(url=${p.href} rendered=${p.renderedBook}) — a container would open over text with no `
+      + `matching mark`
+    );
+  }
+}
+
+/**
  * Get buttonRegistry status.
  */
 export async function getRegistryStatus(page) {

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { listenerMonitorScript } from '../helpers/listenerMonitor.js';
 import { restorationSpyScript } from '../helpers/restorationSpy.js';
 import { integrityCaptureScript } from '../helpers/integrityCapture.js';
+import { targetNotFoundCaptureScript } from '../helpers/targetNotFoundCapture.js';
 import {
   createNewBook,
   getStackDepth,
@@ -45,6 +46,10 @@ import {
   waitForHyperlightButtons,
   closeHyperlitContainer,
   pasteHyperciteContent,
+  getTargetNotFoundToasts,
+  assertNoTargetNotFoundToasts,
+  getHashProvenance,
+  assertHashNamesRenderedBook,
 } from '../helpers/pageHelpers.js';
 import { dropFileOnWindow } from '../helpers/dropFile.js';
 import { importMarkdownBook, generateLongMarkdown } from '../helpers/bookContent.js';
@@ -115,6 +120,7 @@ export const test = base.extend({
     await page.addInitScript(listenerMonitorScript);
     await page.addInitScript(restorationSpyScript);
     await page.addInitScript(integrityCaptureScript);
+    await page.addInitScript(targetNotFoundCaptureScript);
 
     // Pages-mode sweep: E2E_READING_MODE=paginated runs the whole suite with
     // the paginated reading preference set (npm run test:e2e:pages). The
@@ -188,6 +194,40 @@ export const test = base.extend({
 
     await use(page);
 
+    // GLOBAL GATE: no navigation may end with "Couldn't find 'X' — showing start of book".
+    //
+    // That toast means the app abandoned a requested position and dumped the reader at the top of
+    // a book — a real, user-visible failure that throws nothing, logs no console error, and leaves
+    // the URL, page structure and registry all valid. Every end-state assertion in this suite
+    // passes through it; the one that shipped was caught by a human watching an 18/18 green run
+    // (a parent book's `HL_…` replayed onto its `/AIreview` sub-book during a back/forward burst,
+    // opening a container over text with no such highlight). See helpers/targetNotFoundCapture.js.
+    //
+    // Only raised when the test otherwise PASSED — a test already failing has a more specific
+    // error, and replacing it with this one would hide the real cause.
+    //
+    // A spec that deliberately drives a missing target (a deleted hypercite, a stale deep link)
+    // opts out with `page.allowTargetNotFoundToasts = true`.
+    if (!page.allowTargetNotFoundToasts && !testInfo.errors.length) {
+      let toasts = [];
+      try {
+        toasts = await page.evaluate(() => (
+          typeof window.__getTargetNotFoundToasts === 'function'
+            ? window.__getTargetNotFoundToasts()
+            : []
+        ));
+      } catch { /* page already closed — nothing to report */ }
+      if (toasts.length) {
+        throw new Error(
+          'Navigation target(s) not found — the reader was dumped at the start of a book instead '
+          + 'of the requested position. Nothing threw, so this is the only signal:\n'
+          + JSON.stringify(toasts, null, 2)
+          + '\n(If this spec drives a missing target on purpose, set '
+          + 'page.allowTargetNotFoundToasts = true.)'
+        );
+      }
+    }
+
     // Write the per-test console-frequency report. Playwright clears
     // test-results/ at run start, so reports always reflect the last run.
     // Merge across tests with: node tests/e2e/scripts/merge-console-audit.mjs
@@ -247,6 +287,12 @@ export const test = base.extend({
       waitForHyperlightButtons,
       closeHyperlitContainer,
       pasteHyperciteContent,
+      // Navigation-honesty probes (the fixture asserts the toast one automatically at test end;
+      // these let a spec localise a failure to a specific step instead of the whole test)
+      getTargetNotFoundToasts,
+      assertNoTargetNotFoundToasts,
+      getHashProvenance,
+      assertHashNamesRenderedBook,
       // New: book + TOC + state snapshot + stress
       dropFileOnWindow,
       importMarkdownBook,

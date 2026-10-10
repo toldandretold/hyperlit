@@ -528,10 +528,11 @@ export class BookToBookTransition {
       if (!isMultiLevelCascade) {
         verbose.nav('BookToBookTransition: Target not resolved by backend', '/SPA/navigation/pathways/BookToBookTransition.ts');
 
-        // Show toast for the missing citation
-        import('../../../components/toast/toast').then(({ showTargetNotFoundToast }) => {
-          showTargetNotFoundToast();
-        });
+        const toastTargetNotFound = () => {
+          import('../../../components/toast/toast').then(({ showTargetNotFoundToast }) => {
+            showTargetNotFoundToast();
+          });
+        };
 
         // Do NOT strip the hash from the URL. `_targetResolved` is false even for a target that
         // simply isn't in the INITIAL chunk (a deep hypercite in a big book) — it can resolve once
@@ -540,15 +541,38 @@ export class BookToBookTransition {
 
         // If there's a parent hyperlight or footnote, navigate to that instead
         if (hyperlightId) {
+          toastTargetNotFound();
           await this.navigateToInternalId(hyperlightId, progress);
           return true;
         }
         if (footnoteId) {
+          toastTargetNotFound();
           await navigateToFootnoteTarget(footnoteId, null, currentLazyLoader);
           return true;
         }
 
-        // No parent hyperlight/footnote — full fallback
+        // No parent to fall back to — but "the backend didn't resolve it" is NOT "it doesn't
+        // exist". By the same reasoning as the comment above, the target may simply live in a
+        // chunk this fetch didn't carry, so give the CLIENT resolver its turn: it loads the
+        // containing chunk from IndexedDB and waits on the background download when the local
+        // copy is still partial. Giving up here instead is what dropped a reader at the top of
+        // the AI-review report rather than on the cited claim. internalNav owns the toast on its
+        // own failure path, so we must not pre-toast a navigation that is about to succeed.
+        const contentTarget = hash ? String(hash).replace(/^#/, '') : null;
+        if (contentTarget) {
+          const result = await this.navigateToInternalId(contentTarget, progress).catch(() => null);
+          if (result?.success) return true;
+          // It really wasn't there. internalNav has already toasted and scrolled to its own
+          // fallback, but one of its bail paths returns WITHOUT loading a chunk — don't leave
+          // the reader staring at an empty book.
+          if (!document.querySelector(`#${CSS.escape(bookId)} [data-chunk-id]`)) {
+            await this.ensureInitialContentLoaded(bookId);
+          }
+          return false;
+        }
+
+        // No target of any kind — full fallback
+        toastTargetNotFound();
         await this.ensureInitialContentLoaded(bookId);
         return false;
       }

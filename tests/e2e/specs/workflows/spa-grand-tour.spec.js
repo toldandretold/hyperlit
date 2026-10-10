@@ -57,15 +57,34 @@ function aireviewUrlBook(pathname) {
   return m ? m[1] : null;
 }
 async function aireviewReadState(page) {
-  return page.evaluate(() => ({
-    href: location.href,
-    pathname: location.pathname,
-    renderedBook: document.querySelector('.main-content')?.id || null,
-    containerOpen: !!document.querySelector('#hyperlit-container.open'),
-    stacked: document.querySelectorAll('.hyperlit-container-stacked').length,
-    refOverlayActive: !!document.querySelector('#ref-overlay.active'),
-  }));
+  return page.evaluate(() => {
+    const hash = location.hash.replace(/^#/, '').replace(/^citation_/, '');
+    // An annotation hash names an object that must live in the RENDERED book: either a mark in
+    // the text or an element carrying that id. A `#HL_…` from the parent sitting on the report's
+    // URL resolves to nothing, which is how the reader ends up with a container open over text
+    // that has no highlight in it (and, on the next hash nav, "showing start of book").
+    const isAnnotationHash = /^(HL_|hypercite_)/.test(hash);
+    let hashResolves = true;
+    if (isAnnotationHash) {
+      let el = null;
+      try {
+        el = document.getElementById(hash) || document.querySelector(`.main-content mark.${CSS.escape(hash)}`);
+      } catch { /* malformed id */ }
+      hashResolves = !!el;
+    }
+    return {
+      href: location.href,
+      pathname: location.pathname,
+      renderedBook: document.querySelector('.main-content')?.id || null,
+      containerOpen: !!document.querySelector('#hyperlit-container.open'),
+      stacked: document.querySelectorAll('.hyperlit-container-stacked').length,
+      refOverlayActive: !!document.querySelector('#ref-overlay.active'),
+      isAnnotationHash,
+      hashResolves,
+    };
+  });
 }
+
 /** Click a citation-review hyperlight so the container opens with a "See within full report"
  *  link; scrolls to load chunks until a real HL mark appears. Returns {href, hlId} or null. */
 async function openAireviewReportContainer(page) {
@@ -837,6 +856,14 @@ test.describe('AI-review report round-trip', () => {
       expect(aireviewUrlBook(st.pathname), `${label}: URL↔content desync (url=${st.href} rendered=${st.renderedBook})`).toBe(st.renderedBook);
       expect(st.stacked, `${label}: stacked containers flooded`).toBeLessThanOrEqual(1);
       expect(st.refOverlayActive && !st.containerOpen, `${label}: orphan #ref-overlay.active`).toBeFalsy();
+      // The URL's book segment matching the rendered book is NOT enough: the HASH can still name
+      // another book's annotation (a `#HL_…` from the parent stamped onto the report's URL during
+      // a back/forward burst). Nothing throws, the container opens, and the text behind it has no
+      // mark — so assert the hash names something that actually exists here.
+      expect(
+        st.isAnnotationHash && !st.hashResolves,
+        `${label}: URL hash names an annotation absent from the rendered book (url=${st.href} rendered=${st.renderedBook}) — container would open over text with no matching mark`,
+      ).toBeFalsy();
     };
 
     for (let loop = 1; loop <= 3; loop++) {
@@ -870,6 +897,33 @@ test.describe('AI-review report round-trip', () => {
       }
       expect(aireviewUrlBook(onReport.pathname), `L${loop}: should be on the /AIreview report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
       expect(onReport.renderedBook, `L${loop}: content should be the report`).toBe(`${AIREVIEW_BOOK}/AIreview`);
+
+      // Arriving at the right PAGE is not arriving at the right PLACE. The report is long and the
+      // cited claim sits deep inside it; the link carries `#ref_HL_…`, a plain content anchor with
+      // no typed store behind it (unlike hypercite_/HL_/Fn). A FIRST visit — IndexedDB for the
+      // sub-book still empty — used to fetch `resume=true`, get the lowest chunk, and drop the
+      // reader at the top of the report with the anchor not even in the DOM. Every assertion above
+      // passed through that: the URL was right, the report rendered, nothing threw. Assert the
+      // landing itself.
+      const anchorLanding = await page.evaluate(() => {
+        const id = location.hash.replace(/^#/, '');
+        const el = id ? document.getElementById(id) : null;
+        const r = el?.getBoundingClientRect();
+        return {
+          id,
+          present: !!el,
+          top: r ? Math.round(r.top) : null,
+          inViewport: r ? (r.top > -50 && r.top < window.innerHeight) : false,
+        };
+      });
+      expect(
+        anchorLanding.present,
+        `L${loop}: report anchor "${anchorLanding.id}" never rendered — landed at the TOP of the report instead of on the cited claim`,
+      ).toBe(true);
+      expect(
+        anchorLanding.inViewport,
+        `L${loop}: report anchor "${anchorLanding.id}" rendered but off-screen (top=${anchorLanding.top}) — the chunk loaded but the scroll didn't land`,
+      ).toBe(true);
 
       for (let s = 0; s < 4; s++) { await page.evaluate(() => window.scrollBy(0, window.innerHeight * 3)); await page.waitForTimeout(300); }
 
@@ -911,5 +965,10 @@ test.describe('AI-review report round-trip', () => {
     // `element.closest is not a function` crash was one). Console resource noise (the RUM
     // beacon, 404 image/asset loads in the report content) is not this test's concern.
     expect(page.pageErrors || [], `Uncaught page errors: ${JSON.stringify(page.pageErrors)}`).toEqual([]);
+
+    // Named here as well as in the fixture's global end-of-test gate: this phase is where the
+    // cross-book replay was found, so failing inside it points at the round trip rather than at
+    // "something, somewhere in this test".
+    await spa.assertNoTargetNotFoundToasts(page, 'AI-review round trip');
   });
 });
