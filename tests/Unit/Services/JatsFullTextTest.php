@@ -63,6 +63,57 @@ test('malformed XML degrades to empty, never throws', function () {
     expect($article['title'])->toBeNull();
 });
 
+// ext-link targets must come out ABSOLUTE or not at all: JATS carries bare
+// identifiers (DOI/PMID/PMCID, no scheme) in xlink:href, and a verbatim copy
+// mints a RELATIVE href that crawlers resolve against hyperlit.io — GSC
+// crawled /10.1371/journal.pone.0144717 as a real page (2026-10).
+test('ext-links never emit relative hrefs — identifiers absolutized, unknowns unlinked', function () {
+    $xml = <<<'XML'
+<article xmlns:xlink="http://www.w3.org/1999/xlink">
+  <front><article-title>t</article-title></front>
+  <body>
+    <p>doi <ext-link ext-link-type="doi" xlink:href="10.1371/journal.pone.0144717">plos</ext-link></p>
+    <p>abs <ext-link ext-link-type="uri" xlink:href="https://example.org/x">site</ext-link></p>
+    <p>pmid <ext-link ext-link-type="pmid" xlink:href="25448298">pubmed</ext-link></p>
+    <p>pmcid <ext-link ext-link-type="pmcid" xlink:href="PMC4702792">pmc</ext-link></p>
+    <p>bare <ext-link xlink:href="4702792">mystery</ext-link></p>
+    <p>www <ext-link ext-link-type="uri" xlink:href="www.example.org/y">w</ext-link></p>
+    <p>selfclosed<ext-link ext-link-type="google-scholar" xlink:href="title=Peer%20Review&amp;author=F%20Godlee"/>end</p>
+  </body>
+</article>
+XML;
+    $html = (new JatsFullText())->toArticle($xml)['html'];
+
+    expect($html)->toContain('<a href="https://doi.org/10.1371/journal.pone.0144717">plos</a>');
+    expect($html)->toContain('<a href="https://example.org/x">site</a>');
+    expect($html)->toContain('<a href="https://pubmed.ncbi.nlm.nih.gov/25448298/">pubmed</a>');
+    expect($html)->toContain('<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4702792/">pmc</a>');
+    // A bare number with no declared type is unresolvable → text survives, link doesn't.
+    expect($html)->toContain('bare mystery');
+    expect($html)->not->toContain('href="4702792"');
+    expect($html)->toContain('<a href="https://www.example.org/y">w</a>');
+    // Self-closed ext-links (PMC reference lists) emit nothing — no empty <a>.
+    expect($html)->toContain('<p>selfclosed'
+        . 'end</p>');
+    // The invariant itself: no relative href anywhere in the output.
+    expect(preg_match('#href="(?!https?://|\#)#', $html))->toBe(0);
+});
+
+test('absoluteExtLinkUrl classifies every identifier shape', function (string $raw, string $type, ?string $expected) {
+    expect(JatsFullText::absoluteExtLinkUrl($raw, $type))->toBe($expected);
+})->with([
+    'bare DOI'            => ['10.1371/journal.pbio.0020309', '', 'https://doi.org/10.1371/journal.pbio.0020309'],
+    'doi:-prefixed'       => ['doi:10.1234/abc', '', 'https://doi.org/10.1234/abc'],
+    'absolute http kept'  => ['http://example.org/a', '', 'http://example.org/a'],
+    'PMC prefix, no type' => ['PMC4702792', '', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4702792/'],
+    'digits + pmid type'  => ['25448298', 'pmid', 'https://pubmed.ncbi.nlm.nih.gov/25448298/'],
+    'digits + pmcid type' => ['4702792', 'pmcid', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4702792/'],
+    'bare digits no type' => ['25448298', '', null],
+    'www host'            => ['www.example.org', '', 'https://www.example.org'],
+    'relative junk'       => ['some/page.html', '', null],
+    'empty'               => ['', 'doi', null],
+]);
+
 // Richer fixture: a research article with <fn> footnotes + many spread-out
 // citations, so the footnote-extraction path is exercised with real data
 // (the editorial above has zero <fn>).

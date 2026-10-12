@@ -184,13 +184,81 @@ class JatsFullText
                 // (exact link, JATS declares the target). xref to a footnote →
                 // app-native footnote marker. Other xref types → plain anchor.
                 'xref'     => $this->jatsXref($child, $inner),
-                'ext-link' => '<a href="' . htmlspecialchars($child->getAttribute('xlink:href') ?: $child->getAttribute('href')) . '">' . $inner . '</a>',
+                'ext-link' => $this->jatsExtLink($child, $inner),
                 // Drop figures/tables/media wrappers' chrome but keep captions
                 'fig', 'table-wrap', 'graphic', 'media' => '',
                 default    => $inner, // unknown wrapper → pass children through
             };
         }
         return $out;
+    }
+
+    /**
+     * Render a JATS <ext-link> as an anchor ONLY when the target resolves to an
+     * absolute URL. JATS routinely carries bare identifiers in xlink:href —
+     * <ext-link ext-link-type="doi" xlink:href="10.1371/journal.pone.0144717">
+     * — and emitting that verbatim mints a RELATIVE href, which browsers (and
+     * Googlebot, via the prerendered <main>) resolve against hyperlit.io: GSC
+     * crawled /10.1371/journal.pone.0144717 as a real page (404, 2026-10).
+     * A target we can't make absolute keeps its text and loses the link — an
+     * unlinked citation beats a link to a page that doesn't exist.
+     */
+    private function jatsExtLink(\DOMElement $el, string $inner): string
+    {
+        // Self-closed ext-links (<ext-link xlink:href="..."/> — PMC reference
+        // lists are full of them) have nothing to link: an empty <a> is
+        // invisible dead weight, so emit nothing at all.
+        if (trim($inner) === '') {
+            return '';
+        }
+
+        $url = self::absoluteExtLinkUrl(
+            $el->getAttribute('xlink:href') ?: $el->getAttribute('href'),
+            strtolower($el->getAttribute('ext-link-type'))
+        );
+
+        return $url === null
+            ? $inner
+            : '<a href="' . htmlspecialchars($url) . '">' . $inner . '</a>';
+    }
+
+    /**
+     * Resolve a JATS ext-link target to an absolute URL, or null when it can't
+     * be. Public static so the content:fix-bare-ext-links sweep applies the
+     * same rules to already-stored HTML.
+     */
+    public static function absoluteExtLinkUrl(string $raw, string $type = ''): ?string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        if (preg_match('#^(?:https?|ftp)://#i', $raw)) {
+            return $raw;
+        }
+
+        // Bare DOI, optionally doi:-prefixed — PMC encodes DOIs schemeless.
+        $doi = preg_replace('#^doi:\s*#i', '', $raw);
+        if (preg_match('#^10\.\d{4,9}/\S+$#', $doi)) {
+            return 'https://doi.org/' . $doi;
+        }
+
+        if (preg_match('/^(?:PMC)?(\d{1,9})$/i', $raw, $m)) {
+            if (stripos($raw, 'PMC') === 0 || $type === 'pmcid') {
+                return 'https://pmc.ncbi.nlm.nih.gov/articles/PMC' . $m[1] . '/';
+            }
+            if ($type === 'pmid') {
+                return 'https://pubmed.ncbi.nlm.nih.gov/' . $m[1] . '/';
+            }
+            // A bare number with no declared type is unresolvable.
+            return null;
+        }
+
+        if (preg_match('#^www\.[^\s"]+$#i', $raw)) {
+            return 'https://' . $raw;
+        }
+
+        return null;
     }
 
     /**
