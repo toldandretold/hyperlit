@@ -5,8 +5,9 @@
  *
  * The contract under test: a creator sees ONLY their own books; responses are
  * AGGREGATES ONLY — no reader identity (user_name/anon_token) may ever appear
- * in a response body; the depth funnel's decile math holds on a seeded
- * fixture; and another creator's book 404s.
+ * in a response body; the depth funnel reports per CHUNK against the book's
+ * live chunk list (the decile version it replaced couldn't resolve anything
+ * for the typical 1–3-chunk article); and another creator's book 404s.
  *
  * All fixture rows go through pgsql_admin (committed) because the controller
  * reads through the admin connection; cleanupApiFixtures removes them.
@@ -49,6 +50,24 @@ function seedRead(string $book, array $chunks, ?int $totalChunks, string $day = 
     return $token;
 }
 
+/**
+ * Seed minimal nodes rows so the book has a LIVE chunk list — the funnel's
+ * x-axis is one bar per distinct `nodes.chunk_id`, not a telemetry-derived
+ * count. Fractional ids (chunk splits) are part of the contract.
+ */
+function seedNodes(string $book, array $chunkIds): void
+{
+    $admin = DB::connection('pgsql_admin');
+    foreach (array_values($chunkIds) as $i => $chunkId) {
+        $admin->table('nodes')->insert([
+            'book' => $book, 'startLine' => $i, 'chunk_id' => $chunkId,
+            'node_id' => $book . '_n' . $i, 'content' => '<p>line ' . $i . '</p>',
+            'plainText' => 'line ' . $i, 'type' => 'p', 'footnotes' => json_encode([]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+}
+
 test('guests get 401', function () {
     $this->getJson('/api/creator/stats')->assertStatus(401);
 });
@@ -75,25 +94,65 @@ test('a creator sees their own books with view counts — and nobody\'s identiti
         ->and($raw)->not->toContain('user_name');
 });
 
-test('the depth funnel reports, per decile, the share of views that reached it', function () {
+test('the depth funnel reports, per chunk, the share of views that visited it', function () {
     $creator = $this->loginUser();
     $book = $this->makeBook($creator, ['visibility' => 'public']);
 
-    // 10 chunks → chunk N is decile N. Reader A got halfway; reader B saw only the top.
-    seedRead($book, [0, 1, 2, 3, 4], 10);
-    seedRead($book, [0], 10);
+    // A 5-chunk book. Reader A got through chunk 3; reader B saw only the top.
+    // Under the old decile math a 5-chunk book could NEVER fill its last bars
+    // (chunk 4 of 5 bucketed to "80%"); per-chunk bars have no such blind spot.
+    seedNodes($book, [0, 1, 2, 3, 4]);
+    seedRead($book, [0, 1, 2], 5);
+    seedRead($book, [0], 5);
 
     $response = $this->getJson("/api/creator/stats/{$book}")->assertOk();
 
     expect($response->json('total_views'))->toBe(2)
-        ->and($response->json('total_chunks'))->toBe(10)
-        ->and((float) $response->json('max_chunk_reached'))->toBe(4.0);
+        ->and($response->json('total_chunks'))->toBe(5)
+        ->and((float) $response->json('max_chunk_reached'))->toBe(2.0);
 
     // toEqual (==): json_encode drops a float's zero fraction, so 100.0 arrives as int 100.
-    $pct = collect($response->json('deciles'))->pluck('pct', 'decile');
-    expect($pct[0])->toEqual(100)   // everyone saw the opening
-        ->and($pct[4])->toEqual(50) // half got to the 50% mark
-        ->and($pct[9])->toEqual(0); // nobody finished
+    $pct = collect($response->json('chunks'))->pluck('pct', 'chunk');
+    expect($pct)->toHaveCount(5)        // one bar per REAL chunk, not ten deciles
+        ->and($pct[1])->toEqual(100)    // everyone saw the opening chunk
+        ->and($pct[3])->toEqual(50)     // half got to chunk 3
+        ->and($pct[4])->toEqual(0)
+        ->and($pct[5])->toEqual(0);     // nobody finished
+});
+
+test('a single-chunk book reports exactly one chunk — no phantom depth', function () {
+    $creator = $this->loginUser();
+    $book = $this->makeBook($creator, ['visibility' => 'public']);
+
+    // The shape that made the decile funnel lie: a short article is ONE chunk,
+    // so "100% at the 10% mark, 0% beyond" was an artifact of the bucketing.
+    seedNodes($book, [0]);
+    seedRead($book, [0], 1);
+
+    $response = $this->getJson("/api/creator/stats/{$book}")->assertOk();
+
+    expect($response->json('total_chunks'))->toBe(1)
+        ->and($response->json('chunks'))->toHaveCount(1)
+        ->and($response->json('chunks.0.pct'))->toEqual(100);
+});
+
+test('fractional chunk ids get their own bar and stale viewed ids are dropped', function () {
+    $creator = $this->loginUser();
+    $book = $this->makeBook($creator, ['visibility' => 'public']);
+
+    // A split minted chunk 0.5; the axis is the LIVE ordered list (0, 0.5, 1).
+    // Chunk 7 was viewed before a reconvert re-chunked the book — it matches
+    // no live chunk and must vanish rather than land on the wrong bar.
+    seedNodes($book, [0, 0.5, 1]);
+    seedRead($book, [0.5, 7], 3);
+
+    $response = $this->getJson("/api/creator/stats/{$book}")->assertOk();
+
+    $pct = collect($response->json('chunks'))->pluck('pct', 'chunk');
+    expect($pct)->toHaveCount(3)
+        ->and($pct[1])->toEqual(0)
+        ->and($pct[2])->toEqual(100)  // the fractional chunk, second in order
+        ->and($pct[3])->toEqual(0);
 });
 
 test('another creator\'s book 404s from the detail endpoint', function () {

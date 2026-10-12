@@ -153,12 +153,20 @@ class CreatorStatsController extends Controller
     }
 
     /**
-     * Depth funnel for one owned book: per decile of the book's chunk range,
-     * the % of views (book_reads rows) that had at least one chunk from that
-     * decile on screen.
+     * Depth funnel for one owned book: per CHUNK (the book's real render unit,
+     * ~100 nodes), the % of views (book_reads rows) that had that chunk on
+     * screen. One bar = one actual chunk — the earlier decile version bucketed
+     * on floor(chunk_id / total * 10), which for the typical 1–3-chunk article
+     * could never light anything past the first bars and read as "nobody
+     * scrolls" when the book was simply too short for decile resolution.
+     *
+     * The x-axis is the LIVE ordered chunk list from `nodes` (fractional ids
+     * from chunk splits included); viewed ids that no longer exist (recorded
+     * before a reconvert re-chunked the book) are dropped rather than guessed
+     * onto the wrong bar.
      *
      * @return JsonResponse array{book: string, total_views: int, total_chunks: ?int,
-     *   max_chunk_reached: ?float, deciles: array<int, array{decile: int, pct: float}>}
+     *   max_chunk_reached: ?float, chunks: array<int, array{chunk: int, pct: float}>}
      */
     public function show(Request $request, string $book): JsonResponse
     {
@@ -186,36 +194,46 @@ class CreatorStatsController extends Controller
             );
             $views = (int) ($summary->views ?? 0);
 
-            // Latest-known chunk count; fall back to counting the live nodes so
-            // a brand-new book (no telemetry yet / old rows without a total)
-            // still gets a denominator.
-            $totalChunks = $summary->total_chunks !== null ? (int) $summary->total_chunks : null;
-            if (! $totalChunks) {
-                $nodeChunks = DB::connection('pgsql_admin')->selectOne(
-                    'SELECT COUNT(DISTINCT chunk_id) AS n FROM nodes WHERE book = ?',
+            // The bar axis: the book's real chunks, in reading order. Keyed by
+            // the id's float string form so a jsonb-roundtripped "2.5" and the
+            // numeric column value land on the same bucket.
+            $liveChunks = array_map(
+                fn ($r) => (float) $r->chunk_id,
+                DB::connection('pgsql_admin')->select(
+                    'SELECT DISTINCT chunk_id FROM nodes WHERE book = ? ORDER BY chunk_id',
                     [$book]
-                );
-                $totalChunks = (int) ($nodeChunks->n ?? 0) ?: null;
+                )
+            );
+            $totalChunks = count($liveChunks) ?: null;
+            if (! $totalChunks) {
+                // No live nodes (content cleared mid-reconvert): synthesize a
+                // 0..n-1 axis from the telemetry's own best-known count rather
+                // than showing nothing.
+                $fallback = (int) ($summary->total_chunks ?? 0);
+                if ($fallback > 0) {
+                    $liveChunks = array_map('floatval', range(0, $fallback - 1));
+                    $totalChunks = $fallback;
+                }
             }
 
-            $deciles = [];
+            $chunks = [];
             if ($views > 0 && $totalChunks) {
                 $rows = DB::connection('pgsql_admin')->select(<<<'SQL'
-                    SELECT LEAST(9, GREATEST(0, FLOOR((v.value::float / ?) * 10)))::int AS decile,
+                    SELECT v.value::float AS chunk,
                            COUNT(DISTINCT r.id) AS readers
                     FROM book_reads r
                     CROSS JOIN LATERAL jsonb_array_elements_text(r.chunks_viewed) AS v(value)
                     WHERE r.book = ?
                     GROUP BY 1
-                SQL, [$totalChunks, $book]);
-                $byDecile = [];
+                SQL, [$book]);
+                $readersByChunk = [];
                 foreach ($rows as $r) {
-                    $byDecile[(int) $r->decile] = (int) $r->readers;
+                    $readersByChunk[(string) (float) $r->chunk] = (int) $r->readers;
                 }
-                for ($d = 0; $d < 10; $d++) {
-                    $deciles[] = [
-                        'decile' => $d,
-                        'pct' => round((($byDecile[$d] ?? 0) / $views) * 100, 1),
+                foreach ($liveChunks as $i => $chunkId) {
+                    $chunks[] = [
+                        'chunk' => $i + 1, // 1-based ordinal for display
+                        'pct' => round((($readersByChunk[(string) $chunkId] ?? 0) / $views) * 100, 1),
                     ];
                 }
             }
@@ -225,7 +243,7 @@ class CreatorStatsController extends Controller
                 'total_views' => $views,
                 'total_chunks' => $totalChunks,
                 'max_chunk_reached' => $summary->max_chunk !== null ? (float) $summary->max_chunk : null,
-                'deciles' => $deciles,
+                'chunks' => $chunks,
             ]);
         } catch (\Exception $e) {
             Log::error('Creator stats detail failed', [

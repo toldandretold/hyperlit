@@ -8,13 +8,18 @@
  *
  * Unlike Money (server-rendered synthetic-book HTML), this fetches JSON from
  * /api/creator/stats and renders client-side: a book list with view/like
- * counts, expanding per book into a 10-bar depth chart ("% of views that
- * visited each tenth of the book") from /api/creator/stats/{book}.
+ * counts, expanding per book into a depth chart with ONE BAR PER CHUNK (the
+ * real render unit, ~100 nodes — the unit the telemetry actually records)
+ * from /api/creator/stats/{book}. Honest units on purpose: the earlier
+ * 10-decile version implied percentage resolution the data doesn't have, so a
+ * 1-chunk article rendered as "100% at the 10% mark, 0% beyond" — an artifact
+ * of the bucketing, not a fact about readers. A single-chunk book gets a
+ * sentence instead of a chart, because one bar at 100% carries no information.
  *
- * Deliberately "visited", not "reached": a decile is counted when the reader
+ * Deliberately "visited", not "reached": a chunk is counted when the reader
  * was actually on screen there, and hypertext is jumped into as often as it is
  * read through — someone landing on the last section via a hypercite visited
- * the 100% mark without ever getting there sequentially. The bars are not a
+ * the final chunk without ever getting there sequentially. The bars are not a
  * drop-off funnel and shouldn't be captioned as one.
  */
 
@@ -36,7 +41,7 @@ interface DepthFunnel {
     total_views: number;
     total_chunks: number | null;
     max_chunk_reached: number | null;
-    deciles: Array<{ decile: number; pct: number }>;
+    chunks: Array<{ chunk: number; pct: number }>;
 }
 
 let overlayEl: HTMLElement | null = null;
@@ -78,16 +83,31 @@ function bookRowHtml(b: CreatorBookStats): string {
 }
 
 function funnelHtml(f: DepthFunnel): string {
-    if (!f.total_views || !f.deciles.length) {
+    if (!f.total_views || !f.chunks.length) {
         return '<p class="stats-panel-empty">No reading-depth data yet.</p>';
     }
-    const bars = f.deciles.map(d => `
-        <div class="stats-funnel-col" title="${d.pct}% of views visited the ${(d.decile + 1) * 10}% mark">
-          <div class="stats-funnel-bar" style="height: ${Math.max(2, d.pct)}%"></div>
-          <span class="stats-funnel-label">${(d.decile + 1) * 10}</span>
-        </div>`).join('');
+    const n = f.chunks.length;
+    // One chunk = the whole book: every recorded view saw it by definition, so
+    // a lone 100% bar would be pure chartjunk — say so instead.
+    if (n === 1) {
+        return '<p class="stats-funnel-caption">This book fits in a single chunk (≈100 paragraphs), '
+            + 'so every view covers all of it — reading depth within a chunk isn\'t tracked.</p>';
+    }
+    // Label every bar while they fit; past that, anchor labels so the axis
+    // stays readable (first, last, and a regular stride between).
+    const labelStep = n <= 20 ? 1 : n <= 60 ? 5 : 10;
+    const bars = f.chunks.map(c => {
+        const labelled = c.chunk === 1 || c.chunk === n || c.chunk % labelStep === 0;
+        // The bar lives in its own track; the label strip below has a FIXED
+        // height, so a label can never eat into a bar's vertical space.
+        return `
+        <div class="stats-funnel-col" title="${c.pct}% of views visited chunk ${c.chunk} of ${n}">
+          <div class="stats-funnel-bartrack"><div class="stats-funnel-bar" style="height: ${Math.max(2, c.pct)}%"></div></div>
+          <span class="stats-funnel-label">${labelled ? c.chunk : ''}</span>
+        </div>`;
+    }).join('');
     return `
-      <p class="stats-funnel-caption">Which parts get read — % of views that visited each tenth of the book</p>
+      <p class="stats-funnel-caption">Which parts get read — % of views that visited each of the book's ${n} chunks (1 chunk ≈ 100 paragraphs)</p>
       <div class="stats-funnel">${bars}</div>`;
 }
 

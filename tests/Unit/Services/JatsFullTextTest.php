@@ -110,6 +110,7 @@ test('absoluteExtLinkUrl classifies every identifier shape', function (string $r
     'digits + pmcid type' => ['4702792', 'pmcid', 'https://pmc.ncbi.nlm.nih.gov/articles/PMC4702792/'],
     'bare digits no type' => ['25448298', '', null],
     'www host'            => ['www.example.org', '', 'https://www.example.org'],
+    'trailing %20 trimmed' => ['www.aboutcookies.org%20', '', 'https://www.aboutcookies.org'],
     'relative junk'       => ['some/page.html', '', null],
     'empty'               => ['', 'doi', null],
 ]);

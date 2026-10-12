@@ -190,8 +190,10 @@ trait InteractsWithApi
         }
         // Reading/like analytics rows for test books (book_reads is un-RLS'd;
         // book_likes rows a controller wrote via the default connection roll
-        // back, but rows tests seed via pgsql_admin commit).
-        foreach (['book_reads', 'book_likes'] as $table) {
+        // back, but rows tests seed via pgsql_admin commit). nodes rows are
+        // seeded by the stats funnel tests (the per-chunk axis is read from
+        // live nodes) and commit the same way.
+        foreach (['book_reads', 'book_likes', 'nodes'] as $table) {
             try {
                 $admin->table($table)->where('book', 'like', 'apitest\_%')->delete();
             } catch (\Throwable $e) {

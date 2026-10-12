@@ -229,7 +229,9 @@ class JatsFullText
      */
     public static function absoluteExtLinkUrl(string $raw, string $type = ''): ?string
     {
-        $raw = trim($raw);
+        // Trailing encoded whitespace rides along in scraped hrefs
+        // ("www.aboutcookies.org%20") and no identifier ends in a space.
+        $raw = preg_replace('/(?:%20|%C2%A0|\s)+$/i', '', trim($raw));
         if ($raw === '') {
             return null;
         }
