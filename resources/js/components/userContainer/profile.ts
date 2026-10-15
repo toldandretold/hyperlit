@@ -51,6 +51,19 @@ export function attachProfileButtonListeners(self: any) {
     // no JS hover handlers, same as the other rows.
   }
 
+  // Data sovereignty: the any-page data/privacy overlay (export, privacy
+  // policy, delete account, future data defaults). Same shape as Stats.
+  const dataSovereigntyBtn = self.container.querySelector('#dataSovereigntyBtn');
+  if (dataSovereigntyBtn) {
+    dataSovereigntyBtn.addEventListener('click', async (e: any) => {
+      e.preventDefault();
+      e.stopPropagation();
+      self.closeContainer?.();
+      const { openDataSovereigntyOverlay } = await import('../dataSovereignty/dataSovereigntyOverlay');
+      openDataSovereigntyOverlay();
+    });
+  }
+
   const passkeysBtn = self.container.querySelector('#passkeysBtn');
   if (passkeysBtn) {
     passkeysBtn.addEventListener('click', async (e: any) => {

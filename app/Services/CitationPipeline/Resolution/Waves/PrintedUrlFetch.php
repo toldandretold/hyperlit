@@ -2,6 +2,8 @@
 
 namespace App\Services\CitationPipeline\Resolution\Waves;
 
+use App\Services\CitationPipeline\Resolution\CitedUrl;
+use App\Services\CitationPipeline\Resolution\PerItemGate;
 use App\Services\CitationPipeline\Resolution\ResolutionContext;
 use App\Services\CitationPipeline\Resolution\ResolutionWave;
 use App\Services\WebContent\WebTextAcquirer;
@@ -34,8 +36,19 @@ use Illuminate\Support\Facades\Log;
  * Full web-source VERIFICATION (identity against the cited title, canonical eligibility) still
  * runs in the VACUUM stage via importWebSource — this wave resolves, it does not certify.
  */
-class PrintedUrlFetch implements ResolutionWave
+class PrintedUrlFetch implements ResolutionWave, PerItemGate
 {
+    private ?WebFetchService $webFetchForGate = null;
+
+    public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+    {
+        $this->webFetchForGate ??= app(WebFetchService::class);
+
+        return CitedUrl::printedUrl($item, $this->webFetchForGate) === null
+            ? 'The citation prints no web address to fetch.'
+            : null;
+    }
+
     public function id(): string
     {
         return 'printed_url_fetch';
@@ -56,7 +69,10 @@ class PrintedUrlFetch implements ResolutionWave
 
     public function dev(): string
     {
-        return 'extractUrl(content) else llmMetadata.url (protocol typos fixed); '
+        return 'CitedUrl::printed — multi-work aware: a ::subN item uses ONLY its own work\'s '
+            . 'llmMetadata.url (the footnote text cannot say which printed URL is whose), a '
+            . 'multi-work parent prefers its own work\'s url, a single-work entry keeps '
+            . 'extractUrl(content) else llmMetadata.url (protocol typos fixed); '
             . 'fetchAndValidateBatch through WebTextAcquirer\'s rung ladder. Success mints a stub '
             . '(createWebStubWithNodes, or createPdfSourceStub for pdf_staged) and resolves via '
             . 'resolveWithStub(web_fetch). Failure records grade/reason/status/channel into '
@@ -86,18 +102,12 @@ class PrintedUrlFetch implements ResolutionWave
         $urlItems = [];
         $llmUrlEntries = [];
         foreach ($ctx->pool as $refId => $item) {
-            $url = $webFetch->extractUrl($item['content']);
-
-            // Fallback: use LLM-extracted URL (with protocol typo fix)
-            if (!$url && !empty($item['llmMetadata']['url'])) {
-                $llmUrl = $item['llmMetadata']['url'];
-                $llmUrl = preg_replace('#^htts://#i', 'https://', $llmUrl);
-                $llmUrl = preg_replace('#^htp://#i', 'http://', $llmUrl);
-                $llmUrl = preg_replace('#^htps://#i', 'https://', $llmUrl);
-                if (preg_match('#^https?://#i', $llmUrl)) {
-                    $url = $llmUrl;
-                    $llmUrlEntries[$refId] = true;
-                }
+            // ONE derivation for the printed URL (multi-work aware — a sub must
+            // never fetch the footnote's FIRST url, which is another work's).
+            $printed = \App\Services\CitationPipeline\Resolution\CitedUrl::printed($item, $webFetch);
+            $url = $printed['url'] ?? null;
+            if ($url !== null && $printed['from'] === 'llm') {
+                $llmUrlEntries[$refId] = true;
             }
 
             if ($url) {

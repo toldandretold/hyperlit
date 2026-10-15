@@ -118,6 +118,10 @@ import {
   destroyStatsOverlay
 } from '../statsOverlay/statsOverlay';
 import {
+  initDataSovereigntyOverlay,
+  destroyDataSovereigntyOverlay
+} from '../dataSovereignty/dataSovereigntyOverlay';
+import {
   initNotificationsOverlay,
   destroyNotificationsOverlay
 } from '../notificationsOverlay/notificationsOverlay';
@@ -523,6 +527,18 @@ export function registerAllComponents() {
     name: 'statsOverlay',
     initFn: initStatsOverlay,
     destroyFn: destroyStatsOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Data sovereignty overlay (userButton flyout). Same lifecycle rationale as
+  // the Stats overlay above: built on demand, registered so SPA navigation
+  // destroys an open overlay cleanly.
+  buttonRegistry.register({
+    name: 'dataSovereigntyOverlay',
+    initFn: initDataSovereigntyOverlay,
+    destroyFn: destroyDataSovereigntyOverlay,
     pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false

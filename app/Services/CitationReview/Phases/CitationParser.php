@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Extracted verbatim from CitationReviewService::parseCitationNodes.
  */
-final class CitationParser
+class CitationParser
 {
     public function __construct(
         private FootnoteCitationMapper $footnoteMapper,

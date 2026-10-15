@@ -38,6 +38,19 @@ class StudyReportCommand extends Command
             return 1;
         }
 
+        // A patched run (citation:study:rerun) mixes two code revisions in one
+        // claims file — fine for the workbench iteration loop, never for a
+        // reported number.
+        foreach ($state['books'] as $slug => $bookState) {
+            $patch = $bookState['patch'] ?? null;
+            if ($patch !== null && ($runId === null || ($bookState['run_id'] ?? null) === $runId)) {
+                $this->warn(
+                    "{$slug} run {$bookState['run_id']} is a PATCHED run (base {$patch['base_run_id']}, "
+                    . "patched {$patch['reference_id']}) — numbers mix code revisions; not for reporting."
+                );
+            }
+        }
+
         // Per-book review substage timings from telemetry into the summary.
         $substages = [];
         foreach ($state['books'] as $slug => $bookState) {

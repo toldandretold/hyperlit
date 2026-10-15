@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 class CitationReviewCommand extends Command
 {
-    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)} {--pipeline-id= : Pipeline tracking ID for appendix diagnostics} {--user-id= : User ID for billing}';
+    protected $signature = 'citation:review {bookId : The book to review citations for} {--report-only : Regenerate report + highlights from latest JSON (skip LLM phases)} {--only= : Review a single referenceId (its ::subN works included); writes citation-review-partial_* and skips coverage/report/sub-book/email/highlights} {--pipeline-id= : Pipeline tracking ID for appendix diagnostics} {--user-id= : User ID for billing}';
     protected $description = 'Review in-text citations: extract truth claims, search source material, verify with LLM';
 
     public function handle(CitationReviewService $reviewService): int
@@ -193,7 +193,8 @@ class CitationReviewCommand extends Command
         // Reset LLM usage tracking before the review
         $reviewService->getLlm()->resetUsageStats();
 
-        $result = $reviewService->review($bookId, $onProgress);
+        $only = $this->option('only') ?: null;
+        $result = $reviewService->review($bookId, $onProgress, $only);
         $claims = $result['claims'];
         $stats = $result['stats'];
         $unmatched = $result['unmatched_citations'] ?? [];
@@ -205,6 +206,15 @@ class CitationReviewCommand extends Command
         }
 
         if (empty($claims)) {
+            if ($only !== null) {
+                // Only-mode writes NOTHING here on purpose: the study rerunner
+                // treats "no new partial file" as its abort signal (base run
+                // left untouched), and failPipelineRun's notifier would email
+                // user + maintainer for every empty single-citation iteration —
+                // the rerunner settles its own pipeline row instead.
+                $this->warn("No claims were extracted for {$only} — no partial file written.");
+                return 0;
+            }
             // Exit 0 on purpose: a non-zero exit makes the job retry, re-burning
             // the whole vacuum/OCR spend on a deterministic empty result. The
             // pipeline row is settled as failed instead (the job's 'completed'
@@ -291,6 +301,26 @@ class CitationReviewCommand extends Command
         // Save reports
         $timestamp = now()->format('Y-m-d_His');
 
+        if ($only !== null) {
+            // DISTINCT prefix, deliberately: StudyRunner::runBook and
+            // --report-only both glob citation-review_{bookId}_*.json for "the
+            // book's latest review", and a single-citation partial must never
+            // be mistaken for one. No coverage sidecar (whole-book denominator),
+            // no markdown report, no sub-book import (it would replace
+            // /{bookId}/AIreview with a one-claim report), no email. Billing
+            // still happens — the filtered calls are exactly what was spent.
+            $jsonFilename = "citation-review-partial_{$bookId}_{$timestamp}.json";
+            Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->newLine();
+            $this->info("Partial JSON ({$only}): " . storage_path("app/{$jsonFilename}"));
+
+            $billingUser = $this->resolveBillingUser($book);
+            if ($billingUser) {
+                $this->billReview($billingUser, $bookId, $book->title ?? $bookId, $stats);
+            }
+            return 0;
+        }
+
         $jsonFilename = "citation-review_{$bookId}_{$timestamp}.json";
         Storage::put($jsonFilename, json_encode($claims, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
@@ -328,19 +358,7 @@ class CitationReviewCommand extends Command
         $this->info("AI Review sub-book: {$subBookId}");
         $this->info("View at: " . config('app.url') . "/{$bookId}/AIreview");
 
-        // Bill the requesting user (passed from controller via --user-id) or the book creator.
-        // ADMIN reads: this command usually runs inside CitationPipelineJob on a queue
-        // worker, where the default connection has no RLS session vars — a default-conn
-        // User::find matches zero rows and billing silently never happens (the same
-        // silent-no-op class as ProcessDocumentImportJob's, fixed 2026-07).
-        $billingUser = null;
-        if ($this->option('user-id')) {
-            $billingUser = \App\Models\User::on('pgsql_admin')->find($this->option('user-id'));
-        }
-        // Fallback: book creator (manual artisan runs)
-        if (!$billingUser) {
-            $billingUser = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
-        }
+        $billingUser = $this->resolveBillingUser($book);
 
         if ($billingUser) {
             $this->billReview($billingUser, $bookId, $book->title ?? $bookId, $stats);
@@ -374,6 +392,26 @@ class CitationReviewCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Bill the requesting user (passed from controller via --user-id) or the book creator.
+     * ADMIN reads: this command usually runs inside CitationPipelineJob on a queue
+     * worker, where the default connection has no RLS session vars — a default-conn
+     * User::find matches zero rows and billing silently never happens (the same
+     * silent-no-op class as ProcessDocumentImportJob's, fixed 2026-07).
+     */
+    private function resolveBillingUser(object $book): ?\App\Models\User
+    {
+        $billingUser = null;
+        if ($this->option('user-id')) {
+            $billingUser = \App\Models\User::on('pgsql_admin')->find($this->option('user-id'));
+        }
+        // Fallback: book creator (manual artisan runs)
+        if (!$billingUser) {
+            $billingUser = \App\Models\User::on('pgsql_admin')->where('name', $book->creator)->first();
+        }
+        return $billingUser;
     }
 
     /**

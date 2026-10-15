@@ -55,16 +55,55 @@ final class LiveTraceJoiner
      */
     public function merge(array $claims, array $liveTraces): array
     {
+        $byRef = [];
+        foreach ($claims as $c) {
+            if (isset($c['referenceId'])) {
+                $byRef[$c['referenceId']] = $c;
+            }
+        }
+
         foreach ($claims as &$claim) {
             $refId = $claim['referenceId'] ?? null;
-            if ($refId === null || !isset($liveTraces[$refId])) {
+            if ($refId === null) {
                 continue;
             }
             if (!empty($claim['match_diagnostics']['trace'])) {
                 continue;
             }
+
+            $isSub = preg_match('/^(.+)::sub(\d+)$/', $refId, $m) === 1;
+            $lookupId = $isSub ? $m[1] : $refId;
+            $railKey = $isSub ? "sub{$m[2]}" : null;
+
+            // An Ibid/short form never runs the ladder itself — its LOGICAL
+            // resolution is the ANTECEDENT's journey, recorded on the
+            // antecedent's row. Follow short_form_of so the inherited path is
+            // SHOWN rather than summarised away (CitationPath prepends the
+            // "inherited antecedent" step so the provenance stays explicit).
+            if (($claim['match_method'] ?? null) === 'short_form_antecedent') {
+                $parentClaim = $isSub ? ($byRef[$m[1]] ?? null) : $claim;
+                $antecedent = $parentClaim['llm_metadata']['short_form_of'] ?? null;
+                if (is_string($antecedent) && $antecedent !== '') {
+                    $lookupId = $antecedent;
+                }
+            }
+
+            // A multi-work fan-out row ("{parent}::subN") is not a live row —
+            // its rail is recorded under the parent's (or the antecedent's)
+            // trace.subs. Without this the workbench showed every sub row as
+            // "path not recorded" while the parent carried the full journey.
+            if ($railKey === null) {
+                $trace = $liveTraces[$lookupId] ?? null;
+            } else {
+                $rail = $liveTraces[$lookupId]['subs'][$railKey] ?? null;
+                $trace = (is_array($rail) && $rail !== []) ? ['steps' => $rail, 'subs' => []] : null;
+            }
+            if ($trace === null) {
+                continue;
+            }
+
             $claim['match_diagnostics'] = (array) ($claim['match_diagnostics'] ?? []);
-            $claim['match_diagnostics']['trace'] = $liveTraces[$refId];
+            $claim['match_diagnostics']['trace'] = $trace;
         }
 
         return $claims;

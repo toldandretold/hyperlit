@@ -234,11 +234,17 @@ class BookDeletionService
                 Log::warning('BookDeletionService: shelf membership cleanup failed', ['book' => $bookId, 'error' => $e->getMessage()]);
             }
 
-            // Bump annotation timestamps for citing books (outside transaction)
+            // Bump annotation timestamps for citing books (outside transaction).
+            // On $db — the service's own connection — NOT the global DB facade:
+            // under tests the default connection sits inside RefreshDatabase's
+            // never-committed transaction, so a default-connection UPDATE of a
+            // library row here leaves it locked, and any later admin-connection
+            // write to the same row blocks forever (the documented
+            // cross-connection deadlock class).
             if (!empty($deadResult['citing_books'])) {
                 $now = round(microtime(true) * 1000);
                 foreach ($deadResult['citing_books'] as $bId) {
-                    DB::select('SELECT update_annotations_timestamp(?, ?)', [$bId, $now]);
+                    $db->select('SELECT update_annotations_timestamp(?, ?)', [$bId, $now]);
                 }
             }
 
@@ -386,7 +392,8 @@ class BookDeletionService
         if (!empty($booksToBump)) {
             $now = round(microtime(true) * 1000);
             foreach ($booksToBump as $bookId) {
-                DB::select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
+                // $db, not the DB facade — see the citing-books bump in deleteBook().
+                $db->select('SELECT update_annotations_timestamp(?, ?)', [$bookId, $now]);
             }
             Log::info('Delink: bumped annotations_updated_at', ['books' => $booksToBump]);
         }

@@ -96,6 +96,9 @@ const ICON_MONEY = profileIcon('<circle cx="12" cy="12" r="10"/><path d="M16 8h-
 const ICON_STATS = profileIcon('<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>');
 // Lucide "bell" — the Notifications row (any-page notifications overlay)
 const ICON_BELL = profileIcon('<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>');
+// Lucide "database" — the Data row (opens the Data sovereignty overlay:
+// export, privacy policy, delete account, future data defaults)
+const ICON_DATABASE = profileIcon('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>');
 
 export function getProfileHTML(emailVerified = true): string {
   const verifyBanner = emailVerified ? '' : `
@@ -132,6 +135,10 @@ export function getProfileHTML(emailVerified = true): string {
       <button id="passkeysBtn" class="menu-row-btn">
         ${ICON_KEY}
         Passkeys
+      </button>
+      <button id="dataSovereigntyBtn" class="menu-row-btn">
+        ${ICON_DATABASE}
+        Data
       </button>
       <button id="logout" class="menu-row-btn">
         ${ICON_LOGOUT}

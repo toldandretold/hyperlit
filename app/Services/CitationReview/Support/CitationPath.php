@@ -88,19 +88,40 @@ final class CitationPath
         $method = $claim['match_method'] ?? null;
 
         if ($method === 'short_form_antecedent') {
-            return self::single($stages, 'short_form', 'inherited_antecedent', recorded: true, subs: $subs);
+            $inherited = self::decorate($stages, [
+                'stage'   => 'short_form',
+                'outcome' => 'inherited_antecedent',
+            ], recorded: true);
+            // The Ibid's LOGICAL resolution is the antecedent's journey — when
+            // the joiner supplied it (LiveTraceJoiner follows short_form_of),
+            // show the whole inherited path under the inheritance step rather
+            // than summarising a real search away into one line.
+            if (is_array($trace) && !empty($trace['steps'])) {
+                $steps = array_merge(
+                    [$inherited],
+                    array_map(fn (array $s) => self::decorate($stages, $s, recorded: true), $trace['steps']),
+                );
+                return ['steps' => $steps, 'subs' => $subs, 'recorded' => true];
+            }
+            return ['steps' => [$inherited], 'subs' => $subs, 'recorded' => true];
         }
         if ($method === 'bibliography_pointer') {
             return self::single($stages, 'pointer', 'matched_own_bibliography', recorded: true, subs: $subs);
         }
 
+        // Legislation/case-law now RUNS the web lane, so a row with a trace shows
+        // that trace below like any other; the blanket-exclusion step is only
+        // synthesized for LEGACY rows scanned before the routing change (no trace
+        // to show — presenting them as "no wave matched" would narrate a search
+        // that deliberately never ran).
         $type = $claim['llm_metadata']['type'] ?? null;
-        if ($method === null && in_array($type, ['legislation', 'case-law'], true)) {
+        $hasTrace = is_array($trace) && !empty($trace['steps']);
+        if ($method === null && !$hasTrace && in_array($type, ['legislation', 'case-law'], true)) {
             return self::single($stages, 'legal_excluded', 'excluded_by_design', recorded: true, subs: $subs);
         }
 
         // ── The ladder: the trace when we have it ────────────────────────────
-        if (is_array($trace) && !empty($trace['steps'])) {
+        if ($hasTrace) {
             $steps = array_map(fn (array $s) => self::decorate($stages, $s, recorded: true), $trace['steps']);
 
             return ['steps' => $steps, 'subs' => $subs, 'recorded' => true];

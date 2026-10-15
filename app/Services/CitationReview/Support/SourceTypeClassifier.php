@@ -177,6 +177,97 @@ final class SourceTypeClassifier
         return false;
     }
 
+    /**
+     * Does this title READ as a legislative instrument? The extraction model
+     * types these inconsistently — deloitte's "Social Security Administration
+     * (Non-Compliance) Determination 2018 (No 1) (Cth)" came back as a 'report'
+     * with the agency parsed as an AUTHOR, so it ran the whole scholarly ladder
+     * for a statutory instrument that can never be indexed there.
+     *
+     * Deliberately conservative — ALL of: an instrument word immediately
+     * followed by a year; NO subtitle separator ("The Human Rights Act 1998
+     * (UK): A Commentary" is a BOOK about legislation and must keep its type);
+     * and the title must END at the instrument's own tail once trailing
+     * pinpoints (pt/div/s …) are stripped — a jurisdiction parenthetical, or
+     * an instrument-numbering parenthetical ("(No 1)") when the jurisdiction
+     * shows up in the raw citation text instead (the extraction routinely
+     * clips "(Cth)" off the title: deloitte c06 came back as "… Determination
+     * 2018 (No 1)"). A work ABOUT an instrument keeps going past that tail
+     * ("The Privacy Act 1988 (Cth) and Its Discontents") and is refused.
+     */
+    public static function looksLegislative(?string $title, ?string $context = null): bool
+    {
+        if ($title === null || trim($title) === '') {
+            return false;
+        }
+        if (preg_match('/[:]|\x{2014}|\x{2013}/u', $title)) {
+            return false; // a subtitle means a work ABOUT the instrument
+        }
+
+        $instrument = '/\b(Acts?|Regulations?|Rules?|Determination|Ordinance|Order|Code|'
+            . 'Declaration|Direction|Directive|Instrument|Bill|Amendment)\s+(No\.?\s*\d+\s+of\s+)?(19|20)\d{2}\b/u';
+        if (preg_match($instrument, $title) !== 1) {
+            return false;
+        }
+
+        // Strip trailing pinpoints ("pt 3 div 3AA", "s 42(1)", "sch 2 cl 4").
+        $stripped = (string) preg_replace(
+            '/(?:\s+(?:pt|div|sch|cl|reg|rr?|ss?)\s+[\dA-Za-z().,\x{2013}\s]*)+$/iu',
+            '',
+            trim($title),
+        );
+
+        $jurisdiction = '(Cth|NSW|Vic|Qld|WA|SA|Tas|ACT|NT|UK|NZ|Can|EU|US|Scot|Ir)';
+        if (preg_match('/\(' . $jurisdiction . '\)\s*[.;,]?\s*$/u', $stripped) === 1) {
+            return true;
+        }
+
+        // "(No 1)"-style tail: accept only when the jurisdiction is attested
+        // by the raw citation text the title was extracted from.
+        return preg_match('/\(No\.?\s*\d+\)\s*[.;,]?\s*$/u', $stripped) === 1
+            && $context !== null
+            && preg_match('/\(' . $jurisdiction . '\)/u', $context) === 1;
+    }
+
+    /**
+     * Post-extraction normalizer: coerce a work whose title reads as a
+     * legislative instrument to type 'legislation' (primary + every sub), and
+     * drop the invented author that usually comes with the mistyping (an
+     * instrument has no author; "Social Security Administration" as an author
+     * poisons every author-weighted search downstream). Idempotent; applied by
+     * the scan job wherever llm_metadata enters its map. $rawText is the
+     * citation as printed — jurisdiction evidence the extraction may have
+     * clipped off the title.
+     */
+    public static function coerceLegislativeTypes(?array $meta, ?string $rawText = null): ?array
+    {
+        if (!is_array($meta) || $meta === []) {
+            return $meta;
+        }
+
+        $coerce = function (array $work) use ($rawText): array {
+            $type = $work['type'] ?? null;
+            if (!in_array($type, ['legislation', 'case-law'], true)
+                && self::looksLegislative($work['title'] ?? null, $rawText)
+            ) {
+                $work['type'] = 'legislation';
+                $work['authors'] = null;
+            }
+            return $work;
+        };
+
+        $meta = $coerce($meta);
+        if (!empty($meta['sub_citations']) && is_array($meta['sub_citations'])) {
+            foreach ($meta['sub_citations'] as $i => $sub) {
+                if (is_array($sub)) {
+                    $meta['sub_citations'][$i] = $coerce($sub);
+                }
+            }
+        }
+
+        return $meta;
+    }
+
     public static function label(string $type): string
     {
         return match ($type) {

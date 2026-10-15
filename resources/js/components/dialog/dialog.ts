@@ -199,6 +199,16 @@ interface FormRadioOption {
   description?: string;
 }
 
+interface FormTextField {
+  /** Key in the result's `texts` map. */
+  key: string;
+  label: string;
+  type?: 'text' | 'password';
+  placeholder?: string;
+  autocomplete?: string;
+  hint?: string;
+}
+
 interface FormDialogOptions {
   title?: string;
   message?: string;
@@ -206,13 +216,17 @@ interface FormDialogOptions {
   radios?: { options: FormRadioOption[]; selected?: string };
   /** An optional numeric input; its raw string comes back as `number`. */
   numberField?: { label: string; prefix?: string; value?: string; placeholder?: string; hint?: string };
+  /** Optional text/password inputs; values come back keyed in `texts`. */
+  textFields?: FormTextField[];
   confirmLabel?: string;
   cancelLabel?: string;
+  danger?: boolean;
 }
 
 export interface FormDialogResult {
   radio: string | null;
   number: string;
+  texts: Record<string, string>;
 }
 
 /**
@@ -253,23 +267,40 @@ export function formDialog(opts: FormDialogOptions): Promise<FormDialogResult | 
         </div>
         ${nf.hint ? `<p style="margin: 6px 0 0; font-size: 11px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(nf.hint)}</p>` : ''}` : '';
 
+    const textFieldCss =
+      'width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; font-family: inherit; font-size: 13px; '
+      + 'background: rgba(255,255,255,0.04); color: var(--color-text, #CBCCCC); border: 1px solid var(--border-button, rgba(203,204,204,0.3));';
+    const textsHtml = (opts.textFields ?? []).map((tf) => `
+        <label for="fd-text-${escapeHtml(tf.key)}" style="display:block; margin: 12px 0 5px; font-size: 13px; color: var(--color-text, #CBCCCC);">${escapeHtml(tf.label)}</label>
+        <input type="${tf.type === 'password' ? 'password' : 'text'}" id="fd-text-${escapeHtml(tf.key)}" data-fd-text="${escapeHtml(tf.key)}"
+          placeholder="${escapeHtml(tf.placeholder ?? '')}" autocomplete="${escapeHtml(tf.autocomplete ?? 'off')}" style="${textFieldCss}">
+        ${tf.hint ? `<p style="margin: 6px 0 0; font-size: 11px; line-height: 1.45; color: var(--color-text-faint, #999);">${escapeHtml(tf.hint)}</p>` : ''}`).join('');
+
     overlay.innerHTML = `
       <div class="app-dialog-card" style="${CARD_CSS} max-width: 460px;">
         ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
         ${opts.message ? `<p style="${MSG_CSS}">${renderMessage(opts.message)}</p>` : ''}
         <div>${radiosHtml}</div>
         ${numberHtml}
+        ${textsHtml}
         <div style="${ROW_CSS} margin-top: 16px;">
           <button type="button" data-act="cancel" style="${CANCEL_CSS}">${escapeHtml(opts.cancelLabel ?? 'Cancel')}</button>
-          <button type="button" data-act="confirm" style="${confirmCss(false)}">${escapeHtml(opts.confirmLabel ?? 'Start')}</button>
+          <button type="button" data-act="confirm" style="${confirmCss(opts.danger ?? false)}">${escapeHtml(opts.confirmLabel ?? 'Start')}</button>
         </div>
       </div>`;
 
     let release: (() => void) | null = null;
-    const collect = (): FormDialogResult => ({
-      radio: (overlay.querySelector('input[name="fd-radio"]:checked') as HTMLInputElement | null)?.value ?? null,
-      number: (overlay.querySelector('#fd-number') as HTMLInputElement | null)?.value ?? '',
-    });
+    const collect = (): FormDialogResult => {
+      const texts: Record<string, string> = {};
+      overlay.querySelectorAll('[data-fd-text]').forEach((el) => {
+        texts[(el as HTMLInputElement).dataset.fdText as string] = (el as HTMLInputElement).value;
+      });
+      return {
+        radio: (overlay.querySelector('input[name="fd-radio"]:checked') as HTMLInputElement | null)?.value ?? null,
+        number: (overlay.querySelector('#fd-number') as HTMLInputElement | null)?.value ?? '',
+        texts,
+      };
+    };
     const done = (result: FormDialogResult | null) => {
       document.removeEventListener('keydown', onKey, true);
       release?.();

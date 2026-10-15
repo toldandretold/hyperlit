@@ -32,12 +32,28 @@ class UniqueUsername implements ValidationRule
             return; // `required`/`string` own this case
         }
 
+        $key = UsernameKey::for($value);
+
         $exists = DB::connection('pgsql_admin')->table('users')
-            ->whereRaw("lower(replace(name, ' ', '')) = ?", [UsernameKey::for($value)])
+            ->whereRaw("lower(replace(name, ' ', '')) = ?", [$key])
             ->exists();
 
         if ($exists) {
             $fail('This username is already taken. Usernames are not case-sensitive.');
+
+            return;
+        }
+
+        // A name retired by account deletion stays retired forever: the /u/
+        // canonicalization 301 is permanent, and content the deleted user left
+        // attributed/anonymized still carries bylines pointing at the old URL —
+        // a re-registered name would inherit both (impersonation).
+        $retired = DB::connection('pgsql_admin')->table('deleted_usernames')
+            ->where('name_key', $key)
+            ->exists();
+
+        if ($retired) {
+            $fail('This username is not available.');
         }
     }
 }

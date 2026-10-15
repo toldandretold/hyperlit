@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  * reported through a message-only $emit callback (the coordinator binds the
  * 'verify' phase key), keeping the $progress('verify') literal out of this file.
  */
-final class ClaimVerifier
+class ClaimVerifier
 {
     public function __construct(private LlmService $llm) {}
 

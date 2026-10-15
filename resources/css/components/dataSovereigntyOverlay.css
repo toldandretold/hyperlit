@@ -1,0 +1,170 @@
+/* ---------- Data sovereignty overlay (any-page data/privacy options) -----
+   Opened from the userButton flyout's "Data sovereignty" row
+   (components/dataSovereignty/dataSovereigntyOverlay.ts). Same shell recipe
+   as the Stats overlay (statsOverlay.css): fixed dimmed backdrop, centered
+   panel, header with a round close button, scrolling body. Imported by the
+   four page bundles alongside statsOverlay.css. */
+
+#data-sovereignty-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#data-sovereignty-overlay .datasov-panel {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background, #1a1a1a);
+  color: var(--color-text, #eee);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#data-sovereignty-overlay .datasov-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+#data-sovereignty-overlay .datasov-panel-title {
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+#data-sovereignty-overlay .datasov-panel-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#data-sovereignty-overlay .datasov-panel-close:hover {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+/* min-height: 0 is required, not decorative — see statsOverlay.css. */
+#data-sovereignty-overlay .datasov-panel-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+}
+
+#data-sovereignty-overlay .datasov-panel-intro {
+  margin: 2px 4px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-text, #eee);
+  opacity: 0.6;
+}
+
+#data-sovereignty-overlay .datasov-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 10px;
+  color: var(--color-text, #eee);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background-color 0.2s;
+}
+
+#data-sovereignty-overlay .datasov-row:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+#data-sovereignty-overlay .datasov-row-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+#data-sovereignty-overlay .datasov-row-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#data-sovereignty-overlay .datasov-row-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.65;
+}
+
+#data-sovereignty-overlay .datasov-row-danger {
+  color: var(--color-primary, #e05c5c);
+  border-color: rgba(224, 92, 92, 0.35);
+}
+
+#data-sovereignty-overlay .datasov-row-danger:hover {
+  background: rgba(224, 92, 92, 0.12);
+}
+
+#data-sovereignty-overlay .datasov-row-danger .datasov-row-desc {
+  color: var(--color-text, #eee);
+}
+
+/* Section labels inside the panel body. */
+#data-sovereignty-overlay .datasov-section-label {
+  margin: 14px 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  user-select: none;
+}
+
+/* Export rows reuse archivePanel/exportDownload.ts's state machine: it dims
+   the button with .is-busy and writes a % readout into .export-progress.
+   (The archive panel's own styles are scoped to #archive-container and only
+   ship on user/journal bundles — these are this overlay's equivalents.) */
+#data-sovereignty-overlay .datasov-row-icon {
+  position: relative;
+}
+
+#data-sovereignty-overlay .datasov-row.is-busy {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+#data-sovereignty-overlay .export-progress {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+#data-sovereignty-overlay .datasov-row.is-busy .export-progress {
+  display: block;
+}

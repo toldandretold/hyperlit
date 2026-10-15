@@ -215,6 +215,18 @@ body {
   border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
 }
 
+/* The selected claim stays listed even when the filters exclude it — the one
+   exception row is labelled and slightly dimmed so the list never reads as a
+   leaky filter. */
+.st-badge.st-outside {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.st-claim-outside {
+  opacity: 0.85;
+}
+
 .st-verdict-rejected,
 .st-verdict-unlikely {
   background: color-mix(in srgb, #d73a49 30%, transparent);
@@ -314,6 +326,27 @@ body {
   border-left: 3px solid color-mix(in srgb, currentColor 35%, transparent);
   background: color-mix(in srgb, currentColor 6%, transparent);
   font-size: 0.85rem;
+}
+
+/* The verdict an Ibid inherits from its antecedent: a clickable badge on the
+   "Refers to:" line, and a banner in the verdict form offering the one-click
+   inherit (source identity is the antecedent's; scope stays the reviewer's). */
+.st-badge.st-ante-verdict {
+  cursor: pointer;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.st-ante-banner {
+  margin-bottom: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-left: 3px solid color-mix(in srgb, #b48ead 70%, transparent);
+  background: color-mix(in srgb, #b48ead 8%, transparent);
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.st-ante-banner p {
+  margin: 0 0 0.35rem;
 }
 
 /* An assertion about the source that should stop the reviewer, not a hint. */

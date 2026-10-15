@@ -59,6 +59,17 @@ final class UsernameRules
                     $fail('This username is reserved and cannot be used.');
                 }
             },
+
+            // The account-deletion tombstone namespace. Deletion renames a
+            // users row to `deleted_{id}` (billing_ledger's FK forbids a hard
+            // delete), and `deleted_42` is otherwise a perfectly legal
+            // username — pre-squatting one would collide with a future
+            // tombstone rename. Key comparison so `Deleted_42` is caught too.
+            function ($attribute, $value, $fail) {
+                if (preg_match('/^deleted_\d/', UsernameKey::for((string) $value))) {
+                    $fail('This username is reserved and cannot be used.');
+                }
+            },
         ];
     }
 

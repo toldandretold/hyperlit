@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationPipeline\Resolution\Waves;
 
+use App\Services\CitationPipeline\Resolution\PerItemGate;
 use App\Services\CitationPipeline\Resolution\ResolutionContext;
 use App\Services\CitationPipeline\Resolution\ResolutionWave;
 
@@ -15,8 +16,17 @@ use App\Services\CitationPipeline\Resolution\ResolutionWave;
  *
  * Stamps `doi` on every pool item; the two DOI lookup waves read it from there.
  */
-class DoiFromText implements ResolutionWave
+class DoiFromText implements ResolutionWave, PerItemGate
 {
+    /**
+     * Evaluated AFTER run() stamped `doi`, so this is "we looked and the citation prints none"
+     * — rendered as a skip because 'routed' on a DOI-less citation reads as a found identifier.
+     */
+    public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+    {
+        return empty($item['doi']) ? 'The citation prints no DOI.' : null;
+    }
+
     public function id(): string
     {
         return 'doi_from_text';

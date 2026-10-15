@@ -39,17 +39,50 @@ test('a short form is a pre-routing journey, not a ladder failure', function () 
         ->and($path['steps'][0]['outcome'])->toBe('inherited_antecedent');
 });
 
-test('legislation is excluded, and only when nothing resolved it', function () {
+test('an Ibid with the antecedent journey joined shows the WHOLE inherited path', function () {
+    // "Inherited" is not the end of the story — the antecedent's search IS the
+    // Ibid's logical resolution, and hiding it summarised a real journey away
+    // into one line (deloitte c10). The inheritance step stays FIRST so the
+    // provenance is explicit.
+    $path = CitationPath::build([
+        'match_method' => 'short_form_antecedent',
+        'match_diagnostics' => ['trace' => ['steps' => [
+            ['stage' => 'openalex_title_search', 'outcome' => 'no_match'],
+            ['stage' => 'printed_url_fetch', 'outcome' => 'newly_resolved'],
+        ]]],
+    ]);
+
+    expect(array_column($path['steps'], 'stage'))
+        ->toBe(['short_form', 'openalex_title_search', 'printed_url_fetch'])
+        ->and($path['steps'][0]['outcome'])->toBe('inherited_antecedent')
+        ->and($path['steps'][2]['outcome'])->toBe('newly_resolved');
+});
+
+test('legislation synthesizes the exclusion ONLY for legacy traceless rows', function () {
+    // A row scanned before the web-lane routing change has no trace — presenting
+    // it as "no wave matched" would narrate a search that deliberately never ran.
     expect(CitationPath::build([
         'match_method' => null,
         'llm_metadata' => ['type' => 'legislation'],
     ])['steps'][0]['stage'])->toBe('legal_excluded')
-        // ...but a legislation row that DID resolve somehow shows its real method, not the exclusion.
+        // ...but a legislation row that DID resolve shows its real method, not the exclusion...
         ->and(CitationPath::build([
             'match_method' => 'library',
             'match_score'  => 0.9,
             'llm_metadata' => ['type' => 'legislation'],
         ])['steps'][0]['stage'])->toBe('local_library_title');
+
+    // ...and a legislation row that RAN the web lane shows its real trace — the
+    // synthesized exclusion must never mask what actually happened.
+    $traced = CitationPath::build([
+        'match_method' => null,
+        'llm_metadata' => ['type' => 'legislation'],
+        'match_diagnostics' => ['trace' => ['steps' => [
+            ['stage' => 'printed_url_fetch', 'outcome' => 'no_match'],
+            ['stage' => 'brave_search_fallback', 'outcome' => 'no_match'],
+        ]]],
+    ]);
+    expect(array_column($traced['steps'], 'stage'))->toBe(['printed_url_fetch', 'brave_search_fallback']);
 });
 
 test('a non-citation ends at classification', function () {

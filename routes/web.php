@@ -396,6 +396,60 @@ Route::get('/{book}/audio/{filename}', [\App\Http\Controllers\BookAudioControlle
 Route::get('/{book}/audiobook.m4b', [\App\Http\Controllers\BookAudioController::class, 'downloadAudiobook'])
     ->where(['book' => '[a-zA-Z0-9\-_]+']);
 
+// The original PDF a book was imported from (resources/markdown/{book}/original.pdf).
+// PDF only, deliberately: an original .epub/.docx would read as a confusing
+// duplicate of our epub/docx EXPORTS (those originals stay in the owner's
+// download-all zip). Anyone who can read the book may download it; the reader's
+// "PDF phile" button probes this route with HEAD (Laravel serves HEAD for GET
+// routes automatically), so 200/403/404 here is also the availability signal.
+Route::get('/{book}/original.pdf', function (Request $request, $book) {
+    $book = preg_replace('/[^a-zA-Z0-9_-]/', '', $book);
+
+    // SECURITY: gate on the library row read RLS-BLIND (pgsql_admin), the
+    // BookMediaController::canAccessLegacy pattern — NOT canAccessBookContent,
+    // whose "no visible row → allow" default would serve a private book's
+    // whole original PDF to any stranger once RLS hid the row from them.
+    $row = DB::connection('pgsql_admin')->table('library')->where('book', $book)
+        ->first(['visibility', 'creator', 'creator_token', 'title', 'author']);
+    if (! $row) {
+        abort(404, 'Book not found.'); // an orphaned markdown dir is not public
+    }
+    $user = $request->user();
+    $anon = \App\Support\AnonToken::fromRequest($request);
+    $allowed = $row->visibility === 'public'
+        || ($user && $row->creator && $row->creator === $user->name)
+        || ($anon && $row->creator_token && hash_equals((string) $row->creator_token, (string) $anon));
+    if (! $allowed) {
+        abort(403, 'Access denied.');
+    }
+
+    $filePath = resource_path("markdown/{$book}/original.pdf");
+
+    if (! file_exists($filePath)) {
+        abort(404, 'File not found.');
+    }
+
+    // "Author - Title.pdf", mirroring BookAudioController::audiobookFilename.
+    // response()->download() supplies its own ASCII fallback filename, so
+    // non-ASCII titles are safe in the Content-Disposition header.
+    $clean = fn (?string $s) => trim(preg_replace('/[<>:"\/\\\\|?*]+/', '', (string) $s) ?? '');
+    $title = $clean($row->title ?? '') ?: $book;
+    $author = $clean($row->author ?? $row->creator ?? '');
+    $filename = ($author !== '' ? "{$author} - {$title}" : $title).'.pdf';
+
+    $response = response()->download($filePath, $filename, [
+        'Content-Type' => 'application/pdf',
+    ]);
+    // Via Symfony's API, not a raw header: a raw Cache-Control string gets
+    // MERGED with the response's default `public` directive (the trap
+    // BookMediaController::applyCachePosture documents), and a private book's
+    // PDF must never read as publicly cacheable.
+    $response->setPrivate();
+    $response->headers->addCacheControlDirective('no-store');
+
+    return $response;
+})->where('book', '[a-zA-Z0-9\-_]+');
+
 // Archive export artifacts (the #archiveRef panel's markdown vault / SQLite
 // downloads). 'exports' is declared in config/reserved-routes.php. Audience
 // (public vs owner-with-private) is recomputed inside the controller from the

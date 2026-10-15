@@ -34,6 +34,25 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
+        // The no-JS /login twin of AuthController::login's deletion guard: an
+        // account mid-deletion ('deleting') still holds its real password until
+        // the job's tombstone phase scrambles it. Refusing here reads as plain
+        // bad credentials — deletion status is not a probe-able fact.
+        Fortify::authenticateUsing(function (Request $request) {
+            // On pgsql_admin: the default connection's RLS select policy hides
+            // every row from an unauthenticated session (which is exactly why
+            // auth.php swaps in the rls-eloquent provider for the normal path).
+            $user = \App\Models\User::on('pgsql_admin')
+                ->where('email', $request->input(Fortify::username()))->first();
+            if ($user
+                && \Illuminate\Support\Facades\Hash::check($request->password, $user->password)
+                && ! in_array($user->status, ['deleting', 'deleted'], true)) {
+                return $user;
+            }
+
+            return null;
+        });
+
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 

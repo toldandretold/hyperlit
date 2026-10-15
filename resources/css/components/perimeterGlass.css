@@ -171,6 +171,11 @@ body[data-page="journal"] #topRightContainer::after {
   height: 100%;
 }
 
+#download-original-pdf .download-icon {
+  width: 80%;
+  height: 100%;
+}
+
 /* The audiobook glyph is a STROKE icon (headphones + lines), unlike its filled
    siblings — the blanket `.download-icon path { fill: … !important }` above
    would render it as solid blobs, so it has to be undone here. */

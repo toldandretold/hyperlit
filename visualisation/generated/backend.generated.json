@@ -755,6 +755,7 @@
             "controller": "DbLibraryController",
             "method": "checkSlug",
             "tables": [
+                "deleted_usernames",
                 "library"
             ],
             "shape": [
@@ -793,6 +794,7 @@
             "controller": "DbLibraryController",
             "method": "getSlugInfo",
             "tables": [
+                "deleted_usernames",
                 "library"
             ],
             "shape": [
@@ -838,6 +840,7 @@
             "controller": "DbLibraryController",
             "method": "setSlug",
             "tables": [
+                "deleted_usernames",
                 "library"
             ],
             "shape": [
@@ -1211,6 +1214,11 @@
         },
         {
             "source": "controller:DbLibraryController@setSlug",
+            "target": "pg:deleted_usernames",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbLibraryController@setSlug",
             "target": "pg:library",
             "rel": "write"
         },
@@ -1342,6 +1350,16 @@
         {
             "source": "pg:canonical_source",
             "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:deleted_usernames",
+            "target": "controller:DbLibraryController@checkSlug",
+            "rel": "read"
+        },
+        {
+            "source": "pg:deleted_usernames",
+            "target": "controller:DbLibraryController@getSlugInfo",
             "rel": "read"
         },
         {

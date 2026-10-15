@@ -184,6 +184,141 @@ test('what a wave writes into waveResults rides the step as detail', function ()
         ->and($ctx->trace['c2'][0])->not->toHaveKey('detail');
 });
 
+function perItemGateWave(string $id, callable $run, callable $gate, bool $shouldRun = true, string $acceptGate = 'Some bar.'): ResolutionWave
+{
+    return new class($id, $run, $gate, $shouldRun, $acceptGate) implements ResolutionWave, \App\Services\CitationPipeline\Resolution\PerItemGate {
+        public function __construct(
+            private string $waveId,
+            private $runFn,
+            private $gateFn,
+            private bool $should,
+            private string $accept,
+        ) {
+        }
+
+        public function id(): string
+        {
+            return $this->waveId;
+        }
+
+        public function title(): string
+        {
+            return $this->waveId;
+        }
+
+        public function plain(): string
+        {
+            return 'plain';
+        }
+
+        public function dev(): string
+        {
+            return 'dev';
+        }
+
+        public function entryGate(): string
+        {
+            return 'An entry gate for ' . $this->waveId . '.';
+        }
+
+        public function acceptGate(): string
+        {
+            return $this->accept;
+        }
+
+        public function logMarker(): ?string
+        {
+            return null;
+        }
+
+        public function edges(): array
+        {
+            return [];
+        }
+
+        public function shouldRun(ResolutionContext $ctx): bool
+        {
+            return $this->should;
+        }
+
+        public function run(ResolutionContext $ctx): void
+        {
+            ($this->runFn)($ctx);
+        }
+
+        public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+        {
+            return ($this->gateFn)($refId, $item, $ctx);
+        }
+    };
+}
+
+test('an item a wave never qualified reads skipped-with-reason, not no_match', function () {
+    // deloitte c14 prints no DOI and still read "That DOI in the local library — no match":
+    // a verdict about a lookup that never had an identifier to look up.
+    $ctx = tracerCtx(['has_doi', 'no_doi']);
+    $ctx->pool['has_doi']['doi'] = '10.1/x';
+
+    (new WaveTracer($ctx))->runTraced(perItemGateWave(
+        'local_doi_lookup',
+        fn () => null,
+        fn (string $refId, array $item) => empty($item['doi']) ? 'The citation prints no DOI.' : null,
+    ));
+
+    expect($ctx->trace['no_doi'][0])->toBe([
+        'stage'   => 'local_doi_lookup',
+        'outcome' => 'skipped',
+        'reason'  => 'The citation prints no DOI.',
+    ])
+        ->and($ctx->trace['has_doi'][0])->toBe(['stage' => 'local_doi_lookup', 'outcome' => 'no_match']);
+});
+
+test('a per-item reason also beats routed on a routing wave', function () {
+    $ctx = tracerCtx(['no_doi']);
+
+    (new WaveTracer($ctx))->runTraced(perItemGateWave(
+        'doi_from_text',
+        fn () => null,
+        fn () => 'The citation prints no DOI.',
+        acceptGate: 'None — extraction only.',
+    ));
+
+    expect($ctx->trace['no_doi'][0]['outcome'])->toBe('skipped')
+        ->and($ctx->trace['no_doi'][0]['reason'])->toBe('The citation prints no DOI.');
+});
+
+test('a wave-level skip prefers the per-item reason over the batch entry gate', function () {
+    // "skipped: at least one citation prints a DOI the local library did not hold" on a
+    // citation that prints none is a fact about OTHER citations in the batch.
+    $ctx = tracerCtx(['no_doi', 'has_doi']);
+    $ctx->pool['has_doi']['doi'] = '10.1/x';
+
+    (new WaveTracer($ctx))->runTraced(perItemGateWave(
+        'openalex_doi_lookup',
+        fn () => null,
+        fn (string $refId, array $item) => empty($item['doi']) ? 'The citation prints no DOI.' : null,
+        shouldRun: false,
+    ));
+
+    expect($ctx->trace['no_doi'][0]['reason'])->toBe('The citation prints no DOI.')
+        ->and($ctx->trace['has_doi'][0]['reason'])->toBe('An entry gate for openalex_doi_lookup.');
+});
+
+test('the real DOI waves gate on the stamped doi, per item', function () {
+    $ctx = tracerCtx(['c1']);
+    $withDoi = ['referenceId' => 'c1', 'doi' => '10.1/x'];
+    $without = ['referenceId' => 'c1', 'doi' => null];
+
+    foreach ([
+        new \App\Services\CitationPipeline\Resolution\Waves\DoiFromText,
+        new \App\Services\CitationPipeline\Resolution\Waves\LocalDoiLookup,
+        new \App\Services\CitationPipeline\Resolution\Waves\OpenAlexDoiLookup,
+    ] as $wave) {
+        expect($wave->itemSkipReason('c1', $withDoi, $ctx))->toBeNull()
+            ->and($wave->itemSkipReason('c1', $without, $ctx))->toBeString();
+    }
+});
+
 test('every stage id a trace can carry is on the published map', function () {
     // The trace is persisted and rendered against ResolutionLadderMap's vocabulary; a wave id
     // absent from the map would render as an unexplained step in a reader's report.

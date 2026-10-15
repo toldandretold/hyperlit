@@ -227,3 +227,32 @@ test('a sub that resolved to the SAME book as the primary is not duplicated', fu
         mwCleanup($book, [$scikit, $ggplot]);
     }
 });
+
+test('an Ibid parent passes its inheritance onto fan-out rows — the sub path says "inherited", not "no match"', function () {
+    // deloitte c10: "Ibid." inherits a two-work footnote. The sub clone used to
+    // come out with match_method NULL, so the workbench synthesized "no match"
+    // for a work that was never independently searched BY DESIGN.
+    $meta = [
+        'fn10' => ['sub_source_refs' => ['fn10::sub1'], 'llm_metadata' => []],
+        'fn10::sub1' => ['title' => 'The IIA’s Three Lines Model', 'source_book_id' => 'web_stub_x'],
+    ];
+    $claims = [[
+        'referenceId' => 'fn10', 'node_id' => 'n1',
+        'truth_claim' => 'Three lines of defence.',
+        'match_method' => 'short_form_antecedent',
+        'source_book_id' => 'web_stub_other',
+        'llm_metadata' => [],
+    ]];
+
+    $out = app(TruthClaimExtractor::class)->expandMultiWorkClaims($claims, $meta);
+
+    expect($out)->toHaveCount(2)
+        ->and($out[1]['referenceId'])->toBe('fn10::sub1')
+        ->and($out[1]['match_method'])->toBe('short_form_antecedent');
+
+    // A NON-short-form parent must not leak its method onto the sub (the sub's
+    // own path comes from its trace rail, not the parent's match).
+    $claims[0]['match_method'] = 'web_fetch';
+    $out = app(TruthClaimExtractor::class)->expandMultiWorkClaims($claims, $meta);
+    expect($out[1]['match_method'] ?? null)->not->toBe('web_fetch');
+});

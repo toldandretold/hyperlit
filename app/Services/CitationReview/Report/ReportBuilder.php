@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Extracted verbatim from CitationReviewService::buildMarkdownReport.
  */
-final class ReportBuilder
+class ReportBuilder
 {
     public function __construct(
         private SourceUrlResolver $urls,

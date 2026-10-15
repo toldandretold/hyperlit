@@ -23,7 +23,7 @@ namespace App\Services\CitationReview\Support;
  * so a shortfall here is measured against what we ASKED for, not against a different definition
  * invented afterwards.
  */
-final class CitationCoverage
+class CitationCoverage
 {
     /**
      * @param  array  $citationNodes  from CitationParser::parseCitationNodes

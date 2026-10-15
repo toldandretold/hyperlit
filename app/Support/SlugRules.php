@@ -65,6 +65,18 @@ class SlugRules
             return 'This slug collides with an existing username';
         }
 
+        // A username retired by account deletion. The live-user probe above
+        // can't see it (the users row was renamed to its tombstone), but the
+        // old /u/ 301s are permanent and leftover bylines still point at the
+        // old URL — a slug squatting /{oldname} would inherit them exactly as
+        // a re-registered username would. Same key comparison as UniqueUsername.
+        $retired = DB::connection('pgsql_admin')->table('deleted_usernames')
+            ->where('name_key', UsernameKey::for($slug))
+            ->exists();
+        if ($retired) {
+            return 'This slug is reserved and cannot be used';
+        }
+
         // Collision checks run on pgsql_admin (RLS-bypassing), NOT the default
         // connection, because the slug namespace is GLOBAL: a PRIVATE book's
         // slug/id still owns /{slug} for everyone (BookSlugHelper::resolve is

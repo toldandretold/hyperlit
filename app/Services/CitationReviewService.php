@@ -91,8 +91,19 @@ class CitationReviewService
     /**
      * Run the full citation review pipeline for a book.
      * Returns enriched claims array.
+     *
+     * $onlyReferenceId restricts the review to ONE citation (plus its ::subN
+     * works): nodes not carrying it are dropped AFTER the whole-book parse
+     * (the parser accumulates preceding_context across all nodes in document
+     * order, and kept nodes stay intact — all markers and citationPositions
+     * present — so extraction grouping and scopeToOwnSegment behave exactly
+     * as in a full run), claims are filtered to it after extraction, coverage
+     * is skipped (its denominator is whole-book), and the highlight phase is
+     * skipped entirely — createVerificationHighlights opens with a whole-book
+     * deleteHighlightsByCreator('AIreview:') sweep that would destroy every
+     * other citation's highlights.
      */
-    public function review(string $bookId, ?callable $onProgress = null): array
+    public function review(string $bookId, ?callable $onProgress = null, ?string $onlyReferenceId = null): array
     {
         $progress = $onProgress ?? fn() => null;
 
@@ -100,6 +111,17 @@ class CitationReviewService
         $citationNodes = $this->citationParser->parseCitationNodes($bookId);
         $totalCitations = array_sum(array_map(fn($n) => count($n['reference_ids']), $citationNodes));
         $progress('parse', "Found " . count($citationNodes) . " nodes with citations ({$totalCitations} total citation occurrences)");
+
+        if ($onlyReferenceId !== null) {
+            $citationNodes = array_values(array_filter(
+                $citationNodes,
+                fn($n) => in_array($onlyReferenceId, $n['reference_ids'] ?? [], true),
+            ));
+            $progress('parse', count($citationNodes) . " node(s) carry {$onlyReferenceId} — review restricted to them");
+            if (empty($citationNodes)) {
+                return ['claims' => [], 'stats' => $this->partialStats($onlyReferenceId)];
+            }
+        }
 
         if (empty($citationNodes)) {
             return ['claims' => [], 'stats' => []];
@@ -119,9 +141,28 @@ class CitationReviewService
         );
         $progress('extract', "Extracted " . count($claims) . " truth claims from " . count($citationNodes) . " nodes");
 
+        if ($onlyReferenceId !== null) {
+            // The kept nodes were extracted WHOLE (every citation's markers in
+            // place), so drop the other citations' claims now — before the
+            // multi-work expansion, which keys off the parent refId and will
+            // then emit only the target's ::subN rows.
+            $claims = array_values(array_filter(
+                $claims,
+                fn($c) => ($c['referenceId'] ?? null) === $onlyReferenceId,
+            ));
+            $progress('extract', count($claims) . " claim(s) for {$onlyReferenceId} after filtering");
+            if (empty($claims)) {
+                return ['claims' => [], 'stats' => $this->partialStats($onlyReferenceId)];
+            }
+        }
+
         // Which citations the extraction did NOT account for. Computed here, while the parsed nodes
         // are still in hand, because a citation that produced no claim leaves no trace downstream.
-        $coverage = $this->citationCoverage->assess($citationNodes, $claims);
+        // Skipped in only-mode: the denominator is whole-book, so the shared node's OTHER
+        // citations would all read as "unmatched".
+        $coverage = $onlyReferenceId === null
+            ? $this->citationCoverage->assess($citationNodes, $claims)
+            : ['instances' => null, 'matched' => null, 'unmatched' => 0, 'unmatched_refs' => 0, 'rate' => null, 'details' => []];
         if ($coverage['unmatched'] > 0) {
             $progress('extract', sprintf(
                 'UNMATCHED: %d of %d citation instance(s) produced no truth claim (%d distinct source(s)) — these are NOT reviewed',
@@ -189,16 +230,21 @@ class CitationReviewService
         // Phase 5: Verify claims
         $this->claimVerifier->verifyClaims($claims, fn(string $msg) => $progress('verify', $msg));
 
-        // Phase 6: Create verification highlights
-        $highlightCount = $this->verificationHighlighter->createVerificationHighlights($claims, $bookId);
-        $progress('highlights', "Created {$highlightCount} verification highlights");
+        // Phase 6: Create verification highlights. NEVER in only-mode:
+        // createVerificationHighlights starts with a whole-book
+        // deleteHighlightsByCreator('AIreview:') sweep, which would wipe every
+        // other citation's highlights to recreate one.
+        if ($onlyReferenceId === null) {
+            $highlightCount = $this->verificationHighlighter->createVerificationHighlights($claims, $bookId);
+            $progress('highlights', "Created {$highlightCount} verification highlights");
 
-        // Mark the gaps in the text too. Must run AFTER the call above, whose
-        // deleteHighlightsByCreator('AIreview:') sweep would otherwise remove these.
-        $unmatchedHighlights = $this->verificationHighlighter
-            ->createUnmatchedCitationHighlights($coverage['details'], $bookId);
-        if ($unmatchedHighlights > 0) {
-            $progress('highlights', "Created {$unmatchedHighlights} unmatched-citation highlight(s)");
+            // Mark the gaps in the text too. Must run AFTER the call above, whose
+            // deleteHighlightsByCreator('AIreview:') sweep would otherwise remove these.
+            $unmatchedHighlights = $this->verificationHighlighter
+                ->createUnmatchedCitationHighlights($coverage['details'], $bookId);
+            if ($unmatchedHighlights > 0) {
+                $progress('highlights', "Created {$unmatchedHighlights} unmatched-citation highlight(s)");
+            }
         }
 
         // Footnote-only books have an EMPTY bibliography table — their citation
@@ -229,11 +275,32 @@ class CitationReviewService
             'citations_unmatched'  => $coverage['unmatched'],
             'coverage_rate'        => $coverage['rate'],
         ];
+        if ($onlyReferenceId !== null) {
+            $stats = array_merge($stats, $this->partialStats($onlyReferenceId));
+        }
 
         return [
             'claims' => $claims,
             'stats' => $stats,
             'unmatched_citations' => $coverage['details'],
+        ];
+    }
+
+    /**
+     * Stats markers for an only-mode (single-citation) review: downstream
+     * consumers must be able to tell this result describes ONE citation, not
+     * the book, and the coverage keys are null because their denominator is
+     * whole-book by definition.
+     */
+    private function partialStats(string $onlyReferenceId): array
+    {
+        return [
+            'partial'             => true,
+            'only_reference_id'   => $onlyReferenceId,
+            'citation_instances'  => null,
+            'citations_matched'   => null,
+            'citations_unmatched' => null,
+            'coverage_rate'       => null,
         ];
     }
 

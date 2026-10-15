@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Extracted verbatim from CitationReviewService::createVerificationHighlights.
  */
-final class VerificationHighlighter
+class VerificationHighlighter
 {
     /** Mirror of the client's GLOBAL_DEFAULT_FLAGS (components/utilities/gateFilter.ts). */
     private const GLOBAL_DEFAULT_FLAGS = [

@@ -55,7 +55,7 @@ function seedRead(string $book, array $chunks, ?int $totalChunks, string $day = 
  * x-axis is one bar per distinct `nodes.chunk_id`, not a telemetry-derived
  * count. Fractional ids (chunk splits) are part of the contract.
  */
-function seedNodes(string $book, array $chunkIds): void
+function csSeedNodes(string $book, array $chunkIds): void
 {
     $admin = DB::connection('pgsql_admin');
     foreach (array_values($chunkIds) as $i => $chunkId) {
@@ -101,7 +101,7 @@ test('the depth funnel reports, per chunk, the share of views that visited it', 
     // A 5-chunk book. Reader A got through chunk 3; reader B saw only the top.
     // Under the old decile math a 5-chunk book could NEVER fill its last bars
     // (chunk 4 of 5 bucketed to "80%"); per-chunk bars have no such blind spot.
-    seedNodes($book, [0, 1, 2, 3, 4]);
+    csSeedNodes($book, [0, 1, 2, 3, 4]);
     seedRead($book, [0, 1, 2], 5);
     seedRead($book, [0], 5);
 
@@ -126,7 +126,7 @@ test('a single-chunk book reports exactly one chunk — no phantom depth', funct
 
     // The shape that made the decile funnel lie: a short article is ONE chunk,
     // so "100% at the 10% mark, 0% beyond" was an artifact of the bucketing.
-    seedNodes($book, [0]);
+    csSeedNodes($book, [0]);
     seedRead($book, [0], 1);
 
     $response = $this->getJson("/api/creator/stats/{$book}")->assertOk();
@@ -143,7 +143,7 @@ test('fractional chunk ids get their own bar and stale viewed ids are dropped', 
     // A split minted chunk 0.5; the axis is the LIVE ordered list (0, 0.5, 1).
     // Chunk 7 was viewed before a reconvert re-chunked the book — it matches
     // no live chunk and must vanish rather than land on the wrong bar.
-    seedNodes($book, [0, 0.5, 1]);
+    csSeedNodes($book, [0, 0.5, 1]);
     seedRead($book, [0.5, 7], 3);
 
     $response = $this->getJson("/api/creator/stats/{$book}")->assertOk();

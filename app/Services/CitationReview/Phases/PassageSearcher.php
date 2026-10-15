@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Log;
  * here in the pooled between-pass round (see searchSourcePassages), larger
  * ones fall through silently.
  */
-final class PassageSearcher
+class PassageSearcher
 {
     /**
      * Below this cosine similarity a "best" semantic hit is noise, not

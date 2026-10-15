@@ -57,6 +57,15 @@ export interface Adjudication {
 /** Cap on quoted evidence — mirrors AdjudicationStore::EVIDENCE_MAX_CHARS. */
 export const EVIDENCE_MAX_CHARS = 1500;
 
+/** Per-book single-citation re-run status (the file StudyCitationRerunJob maintains). */
+export interface RerunStatus {
+  status: 'queued' | 'running' | 'completed' | 'failed' | null;
+  citation?: string;
+  run_id?: string;
+  reference_id?: string;
+  error?: string;
+}
+
 export interface ClaimSource {
   found: boolean;
   book_id: string | null;
@@ -350,6 +359,17 @@ export const api = {
     const data = (await res.json().catch(() => ({}))) as never;
     return { status: res.status, data };
   },
+
+  rerun: (corpus: string, slug: string, citation: string) =>
+    postJson<{ status?: string; error?: string }>(
+      `/api/maintainer/study/books/${encodeURIComponent(slug)}/rerun${corpusQs(corpus)}`,
+      { citation },
+    ),
+
+  rerunStatus: (corpus: string, slug: string) =>
+    getJson<RerunStatus>(
+      `/api/maintainer/study/books/${encodeURIComponent(slug)}/rerun-status${corpusQs(corpus)}`,
+    ),
 
   flagConversion: (corpus: string, slug: string, reason: string, key: string | null) =>
     postJson<{ ok?: boolean; flag_id?: number; updated?: boolean; error?: string }>(

@@ -187,6 +187,12 @@ class CreatorStatsController extends Controller
                 return response()->json(['error' => 'Not found'], 404);
             }
 
+            // RAW rows only, deliberately: telemetry:rollup de-identifies rows
+            // older than the retention window, so this funnel describes RECENT
+            // readers. Numerator (chunks_viewed lateral below) and this
+            // denominator shrink together, so the percentages stay honest —
+            // do NOT add rollup views to the denominator, that would dilute
+            // every bar toward zero.
             $summary = DB::connection('pgsql_admin')->selectOne(
                 'SELECT COUNT(*) AS views, MAX(total_chunks) AS total_chunks, MAX(max_chunk) AS max_chunk
                  FROM book_reads WHERE book = ?',

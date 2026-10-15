@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationPipeline\Resolution\Waves;
 
+use App\Services\CitationPipeline\Resolution\PerItemGate;
 use App\Services\CitationPipeline\Resolution\ResolutionContext;
 use App\Services\CitationPipeline\Resolution\ResolutionWave;
 use Illuminate\Support\Facades\Log;
@@ -22,8 +23,15 @@ use Illuminate\Support\Facades\Log;
  * `citation:ladder:golden --verify` says so against 132 real decisions before eleven more waves
  * are built on top of it.
  */
-class OpenAlexDoiLookup implements ResolutionWave
+class OpenAlexDoiLookup implements ResolutionWave, PerItemGate
 {
+    public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+    {
+        return empty($item['doi'])
+            ? 'The citation prints no DOI, so there was no identifier to look up.'
+            : null;
+    }
+
     public function id(): string
     {
         return 'openalex_doi_lookup';

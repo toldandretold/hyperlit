@@ -18,6 +18,16 @@ Schedule::job(\App\Jobs\UpdateHomepageJob::class)
 Schedule::command('cleanup:anonymous-sessions')
     ->daily();
 
+// De-identify old reading telemetry: fold identity-bearing book_reads /
+// page_views rows older than telemetry.raw_retention_days into the anonymous
+// daily rollup tables and delete them. This is the mechanism behind the
+// privacy page's retention promise — turning it off silently breaks a
+// published commitment, not just a cron.
+Schedule::command('telemetry:rollup --force')
+    ->dailyAt('03:50')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Sweep stale import-failure upload backups daily. (Rescued from the deleted
 // dead app/Console/Kernel.php — nothing ever bound that class in this Laravel
 // 11 skeleton, so this sweep silently never ran.)

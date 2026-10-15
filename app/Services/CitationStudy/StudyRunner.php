@@ -81,16 +81,8 @@ class StudyRunner
             }
             $say("run {$slug} ({$bookId})");
 
-            // A re-run (the warm-commons counterfactual) must not orphan the
-            // previous run's data — archive the old record into history so
-            // citation:study:report --run=<old> can still join it.
             $previous = $state['books'][$slug] ?? null;
-            $history = $previous['history'] ?? [];
-            if ($previous !== null && ($previous['run_id'] ?? null) !== $runId && ($previous['status'] ?? null) === 'completed') {
-                $archived = $previous;
-                unset($archived['history']);
-                $history[] = $archived;
-            }
+            $history = $this->archiveIntoHistory($previous, $runId);
 
             $record = [
                 'book_id' => $bookId,
@@ -238,6 +230,25 @@ class StudyRunner
         ];
     }
 
+    /**
+     * A re-run (the warm-commons counterfactual) must not orphan the previous
+     * run's data — archive the old record into history so
+     * citation:study:report --run=<old> can still join it. Shared with the
+     * single-citation rerunner so the two archiving paths cannot drift.
+     *
+     * @return array the history list the new record should carry
+     */
+    public function archiveIntoHistory(?array $previous, string $newRunId): array
+    {
+        $history = $previous['history'] ?? [];
+        if ($previous !== null && ($previous['run_id'] ?? null) !== $newRunId && ($previous['status'] ?? null) === 'completed') {
+            $archived = $previous;
+            unset($archived['history']);
+            $history[] = $archived;
+        }
+        return $history;
+    }
+
     /** @return string[] contamination flags (empty = clean) */
     public function contaminationAudit(string $claimsPath, array $groundTruth): array
     {
@@ -305,7 +316,7 @@ class StudyRunner
         }
     }
 
-    private function settlePipelineRow(?string $pipelineId, string $error): void
+    public function settlePipelineRow(?string $pipelineId, string $error): void
     {
         if (!$pipelineId) {
             return;
@@ -327,7 +338,7 @@ class StudyRunner
         return is_array($state) ? $state : ['corpus' => $manifest->corpus, 'books' => []];
     }
 
-    private function saveState(CorpusManifest $manifest, array $state): void
+    public function saveState(CorpusManifest $manifest, array $state): void
     {
         $path = $manifest->resultsDir() . '/state.json';
         @mkdir(dirname($path), 0775, true);

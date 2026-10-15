@@ -183,6 +183,16 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Account-deletion password gate. MUST be a named (route-scoped)
+        // bucket: inline `throttle:5,1` shares its key with every other
+        // inline-throttled route for the same user, so ordinary sync/telemetry
+        // traffic filled it and the user's FIRST deletion POST 429'd (caught
+        // by the account-deletion e2e). 5/min still blunts password guessing.
+        \Illuminate\Support\Facades\RateLimiter::for('account-deletion', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)
+                ->by('account-deletion|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

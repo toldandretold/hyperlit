@@ -1055,3 +1055,62 @@ test('the evidence endpoint is admin-only', function () {
         'evidence' => 'a quote',
     ])->assertStatus(403);
 });
+
+// ── Single-citation re-run (the workbench button) ──
+
+test('rerun queues the job, writes the status file, and 409s while one is in flight', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    \Illuminate\Support\Facades\Queue::fake();
+
+    $res = $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', [
+        'citation' => 'c01',
+    ]);
+    $res->assertStatus(202);
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\StudyCitationRerunJob::class, function ($job) {
+        return $job->corpus === 'contest' && $job->slug === 'fixture' && $job->citation === 'c01';
+    });
+
+    // The status file the UI polls is seeded immediately (queued), before any worker runs.
+    $this->getJson('/api/maintainer/study/books/fixture/rerun-status?corpus=contest')
+        ->assertOk()->assertJson(['status' => 'queued', 'citation' => 'c01']);
+
+    // A second press while queued/running attaches rather than double-bills.
+    $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', ['citation' => 'c01'])
+        ->assertStatus(409)->assertJson(['error' => 'rerun_in_progress']);
+
+    // A settled status frees the button again.
+    \App\Jobs\StudyCitationRerunJob::writeStatus(
+        \App\Services\CitationStudy\CorpusManifest::load('contest'),
+        'fixture',
+        ['status' => 'failed', 'citation' => 'c01', 'error' => 'boom'],
+    );
+    $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', ['citation' => 'c01'])
+        ->assertStatus(202);
+});
+
+test('rerun endpoints are admin-gated and validate the citation key', function () {
+    sconCorpus();
+
+    $this->loginUser(); // authenticated, not admin
+    $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', ['citation' => 'c01'])
+        ->assertStatus(403);
+    $this->getJson('/api/maintainer/study/books/fixture/rerun-status?corpus=contest')
+        ->assertStatus(403);
+
+    $this->loginUser(['is_admin' => true]);
+    \Illuminate\Support\Facades\Queue::fake();
+    // Shell-metacharacter junk is refused by validation, never reaching the job.
+    $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', ['citation' => 'c01; rm -rf'])
+        ->assertStatus(422);
+    // A multi-work row key passes (the rerunner strips ::subN itself).
+    $this->postJson('/api/maintainer/study/books/fixture/rerun?corpus=contest', ['citation' => 'ref:ref_abc::sub1'])
+        ->assertStatus(202);
+    // Unknown book 404s before anything is written.
+    $this->postJson('/api/maintainer/study/books/nope/rerun?corpus=contest', ['citation' => 'c01'])
+        ->assertStatus(404);
+    // No status yet → explicit null, not a 404 (the UI polls this unconditionally).
+    \Illuminate\Support\Facades\File::delete(base_path(SCON_ROOT . '/results/contest/rerun/nope.json'));
+    $this->getJson('/api/maintainer/study/books/unrun/rerun-status?corpus=contest')
+        ->assertOk()->assertJson(['status' => null]);
+});

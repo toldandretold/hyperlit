@@ -30,6 +30,17 @@ class AuthController extends Controller
             ]);
         }
 
+        // An account mid-deletion ('deleting') still holds its real password
+        // until the job's tombstone phase scrambles it — close that window.
+        // Same generic message as a bad password: "this account is being
+        // deleted" is information a stranger probing emails shouldn't get.
+        if (in_array(Auth::user()->status, ['deleting', 'deleted'], true)) {
+            Auth::guard('web')->logout();
+            throw ValidationException::withMessages([
+                'email' => ['The provided credentials are incorrect.'],
+            ]);
+        }
+
         // Check for anonymous content to transfer
         $anonymousContent = $this->checkAnonymousContent($request);
 

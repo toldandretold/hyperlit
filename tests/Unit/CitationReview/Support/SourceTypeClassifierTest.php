@@ -173,3 +173,72 @@ test('notFoundExplanation: multi-work entry assesses each work and 🚩s the jou
     expect($text)->toContain('🚩');
     expect($text)->toContain('fabricated');
 });
+
+test('looksLegislative: instrument names yes, works ABOUT instruments no', function () {
+    // The c06 shape: agency parsed as author, typed 'report' by the extraction.
+    expect(SourceTypeClassifier::looksLegislative(
+        'Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth)'
+    ))->toBeTrue();
+    // Act with a trailing pinpoint — ends at the jurisdiction once stripped.
+    expect(SourceTypeClassifier::looksLegislative(
+        'Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA'
+    ))->toBeTrue();
+    // A BOOK about legislation: subtitle separator refuses.
+    expect(SourceTypeClassifier::looksLegislative(
+        'The Human Rights Act 1998 (UK): A Commentary'
+    ))->toBeFalse();
+    // A work about an act that keeps going past the jurisdiction refuses.
+    expect(SourceTypeClassifier::looksLegislative(
+        'The Privacy Act 1988 (Cth) and Its Discontents'
+    ))->toBeFalse();
+    // No instrument word + year: the Social Security Guide stays a website.
+    expect(SourceTypeClassifier::looksLegislative(
+        'Social Security Guide (Version 1.329, 12 May 2025)'
+    ))->toBeFalse();
+    expect(SourceTypeClassifier::looksLegislative(null))->toBeFalse();
+
+    // The extraction routinely CLIPS "(Cth)" off the title (the live c06 shape):
+    // a "(No 1)" tail is accepted only when the raw citation attests the jurisdiction.
+    $clipped = 'Social Security Administration (Non-Compliance) Determination 2018 (No 1)';
+    $raw = 'See as examples, Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth); …';
+    expect(SourceTypeClassifier::looksLegislative($clipped, $raw))->toBeTrue();
+    expect(SourceTypeClassifier::looksLegislative($clipped))->toBeFalse();
+    expect(SourceTypeClassifier::looksLegislative($clipped, 'no jurisdiction anywhere'))->toBeFalse();
+});
+
+test('coerceLegislativeTypes uses the raw citation for jurisdiction the extraction clipped', function () {
+    $out = SourceTypeClassifier::coerceLegislativeTypes(
+        [
+            'type' => 'report',
+            'title' => 'Social Security Administration (Non-Compliance) Determination 2018 (No 1)',
+            'authors' => ['Social Security Administration'],
+        ],
+        'See as examples, Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth); Department of Social Services (Cth), Social Security Guide',
+    );
+    expect($out['type'])->toBe('legislation')->and($out['authors'])->toBeNull();
+});
+
+test('coerceLegislativeTypes repairs primary AND subs, drops the invented author, and is idempotent', function () {
+    $meta = [
+        'type' => 'report',
+        'title' => 'Social Security Administration (Non-Compliance) Determination 2018 (No 1) (Cth)',
+        'authors' => ['Social Security Administration'],
+        'sub_citations' => [
+            ['type' => 'website', 'title' => 'Social Security Guide (Version 1.329, 12 May 2025)', 'authors' => ['Department of Social Services (Cth)']],
+            ['type' => 'report', 'title' => 'Social Security (Administration) Act 1999 (Cth) pt 3 div 3AA'],
+        ],
+    ];
+
+    $out = SourceTypeClassifier::coerceLegislativeTypes($meta);
+
+    expect($out['type'])->toBe('legislation')
+        ->and($out['authors'])->toBeNull()
+        // The Guide is NOT an instrument — untouched, author kept.
+        ->and($out['sub_citations'][0]['type'])->toBe('website')
+        ->and($out['sub_citations'][0]['authors'])->toBe(['Department of Social Services (Cth)'])
+        ->and($out['sub_citations'][1]['type'])->toBe('legislation');
+
+    // Idempotent, and an already-correct legislation row is untouched.
+    expect(SourceTypeClassifier::coerceLegislativeTypes($out))->toBe($out);
+    expect(SourceTypeClassifier::coerceLegislativeTypes(null))->toBeNull();
+});

@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Log;
  * reported through a message-only $emit callback (the coordinator binds the
  * 'extract' phase key), keeping the $progress('extract') literal out of this file.
  */
-final class TruthClaimExtractor
+class TruthClaimExtractor
 {
     public function __construct(
         private LlmService $llm,
@@ -545,7 +545,7 @@ final class TruthClaimExtractor
                 if (!empty($meta['source_book_id']) && $meta['source_book_id'] === $claim['source_book_id']) {
                     continue;
                 }
-                $out[] = [
+                $row = [
                     'referenceId'          => $subRef,
                     'cited_work_position'  => $i + 2,
                     'cited_work_total'     => $total,
@@ -553,6 +553,15 @@ final class TruthClaimExtractor
                     // expanded rows so the same sentence is not stacked with N highlights.
                     'expanded_work'        => true,
                 ] + $this->metaFields($meta) + $claim;
+                // An "Ibid." inherits the WHOLE footnote from its antecedent, every
+                // work of it — so the sub rows carry the inheritance too, and the
+                // path renderer tells the true story ("inherited antecedent")
+                // instead of a synthesized "no match" for a work that was never
+                // independently searched by design.
+                if (($claim['match_method'] ?? null) === 'short_form_antecedent') {
+                    $row['match_method'] = 'short_form_antecedent';
+                }
+                $out[] = $row;
             }
         }
 

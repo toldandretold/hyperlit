@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationPipeline\Resolution\Waves;
 
+use App\Services\CitationPipeline\Resolution\PerItemGate;
 use App\Services\CitationPipeline\Resolution\ResolutionContext;
 use App\Services\CitationPipeline\Resolution\ResolutionWave;
 
@@ -20,8 +21,19 @@ use App\Services\CitationPipeline\Resolution\ResolutionWave;
  * resolveWithNormalised with `allowUrlDeferral: false` — the one flag stopping it from parking
  * itself again forever.
  */
-class UrlFirstFallback implements ResolutionWave
+class UrlFirstFallback implements ResolutionWave, PerItemGate
 {
+    public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+    {
+        if (isset($ctx->host->urlDeferredLibraryMatches()[$refId])
+            || isset($ctx->host->urlDeferredMatches()[$refId])
+        ) {
+            return null;
+        }
+
+        return 'No earlier match was parked for this citation.';
+    }
+
     public function id(): string
     {
         return 'url_first_fallback';

@@ -10,6 +10,7 @@ import { ContainerManager } from "../utilities/containerManager";
 import { book } from "../../app";
 import { buildSourceHtml } from "./buildSourceHtml";
 import { initAudiobookDownload } from "./audiobookDownload";
+import { initOriginalPdfDownload } from "./originalPdfDownload";
 import { initBookTranslation } from "./bookTranslation";
 import { initBookVersions } from "./bookVersions";
 import { closeTranslationVizOverlay } from "./translationViz";
@@ -46,6 +47,7 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.button = document.getElementById(buttonId);
     this.isInEditMode = false; // Track if we're currently in edit mode
     this.audiobookDownload = null; // set by attachInternalListeners
+    this.originalPdfDownload = null; // likewise
     this.bookTranslation = null; // likewise
     this.bookVersions = null; // likewise
   }
@@ -104,6 +106,10 @@ export class SourceContainerManager extends (ContainerManager as any) {
     // tear the previous one down or its poll timer outlives its button.
     this.audiobookDownload?.destroy();
     this.audiobookDownload = initAudiobookDownload(this.container, book);
+    // The original-PDF button reveals itself after one HEAD probe; same
+    // handle lifecycle so a probe can't un-hide a torn-down panel's button.
+    this.originalPdfDownload?.destroy();
+    this.originalPdfDownload = initOriginalPdfDownload(this.container, book);
     // Same lifecycle for the Translate section (it polls a running job).
     this.bookTranslation?.destroy();
     this.bookTranslation = initBookTranslation(this.container, book);
@@ -337,6 +343,8 @@ export class SourceContainerManager extends (ContainerManager as any) {
     this.stopHarvestPolling();
     this.audiobookDownload?.destroy(); // its poll timer must not outlive the panel
     this.audiobookDownload = null;
+    this.originalPdfDownload?.destroy();
+    this.originalPdfDownload = null;
     this.bookTranslation?.destroy();
     this.bookTranslation = null;
     this.bookVersions?.destroy();

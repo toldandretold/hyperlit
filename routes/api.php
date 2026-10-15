@@ -65,8 +65,8 @@ Route::post('/stripe/webhook', [StripeController::class, 'handleWebhook']);
 // strict anti-brute-force limit, and PHPUnit (APP_ENV=testing) still exercises the
 // real numbers in tests/Feature/Security/RateLimitingTest.php.
 $isLocal = app()->environment('local');
-$loginThrottle = $isLocal ? 'throttle:1000,1' : 'throttle:20,1';
-$registerThrottle = $isLocal ? 'throttle:1000,1' : 'throttle:10,1';
+$loginThrottle = $isLocal ? 'throttle:1000,1,login' : 'throttle:20,1,login';
+$registerThrottle = $isLocal ? 'throttle:1000,1,register' : 'throttle:10,1,register';
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware($loginThrottle) // 20/min in prod; relaxed in local for the e2e suite
@@ -95,11 +95,19 @@ Route::get('/canonical/{id}/best-version', [App\Http\Controllers\CanonicalSource
 
 // OpenAlex: save a work as a library stub — no auth required (anonymous users can cite too)
 Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibrary'])
-    ->middleware('throttle:10,1');
+    ->middleware('throttle:10,1,save-to-library');
 
 // OpenAlex citation lookup — requires authentication
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
+
+    // Account deletion (Data sovereignty menu). Throttled hard — destroy is a
+    // password oracle — via the NAMED account-deletion limiter: an inline
+    // throttle shares its bucket with other inline-throttled routes for the
+    // same user, and ordinary SPA traffic 429'd the first real attempt.
+    Route::get('/user/account-deletion/preview', [\App\Http\Controllers\AccountDeletionController::class, 'preview']);
+    Route::post('/user/account-deletion', [\App\Http\Controllers\AccountDeletionController::class, 'destroy'])
+        ->middleware('throttle:account-deletion');
 
     // Billing
     Route::get('/billing/account-panel', [BillingController::class, 'accountPanel']);
@@ -253,7 +261,7 @@ Route::prefix('archive-export')->middleware('throttle:60,1')
         // cache makes re-presses free, but the build is real CPU — throttle
         // harder than the reads.
         Route::post('/{scopeType}/{scopeId}/build', [\App\Http\Controllers\ArchiveExportController::class, 'build'])
-            ->middleware('throttle:10,1');
+            ->middleware('throttle:10,1,archive-export-build');
     });
 
 // Book audio reads — no auth (RLS decides what's visible), throttled
@@ -288,15 +296,15 @@ Route::post('/book-audio/{book}/audiobook', [\App\Http\Controllers\BookAudioCont
 
 // Password reset routes (throttled to prevent abuse)
 Route::post('/password/forgot', [AuthController::class, 'forgotPassword'])
-    ->middleware('throttle:5,1');
+    ->middleware('throttle:5,1,password-forgot');
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])
-    ->middleware('throttle:5,1');
+    ->middleware('throttle:5,1,password-reset');
 
 // Email verification routes
 Route::post('/email/resend', [AuthController::class, 'resendVerificationEmail'])
-    ->middleware(['auth:sanctum', 'throttle:5,1']);
+    ->middleware(['auth:sanctum', 'throttle:5,1,email-resend']);
 Route::post('/email/change', [AuthController::class, 'changeEmail'])
-    ->middleware(['auth:sanctum', 'throttle:5,1']);
+    ->middleware(['auth:sanctum', 'throttle:5,1,email-change']);
 
 Route::post('/auth/associate-content', [AuthController::class, 'associateContent'])->middleware('auth:sanctum');
 
@@ -345,7 +353,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/integrity/paste-glitch', [IntegrityReportController::class, 'pasteGlitchReport'])
         ->middleware('throttle:120,1');
     Route::post('/integrity/conversion-feedback', [IntegrityReportController::class, 'conversionFeedback'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,conversion-feedback');
     // Auto-fired by the frontend when an import fails — a machine diagnostic, not a
     // user spamming a form. A tight 10/min meant a burst of failures (or a user
     // retrying) got 429'd ("Throttled — try again in a minute") on top of the failure
@@ -353,7 +361,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/integrity/import-failure', [IntegrityReportController::class, 'importFailureReport'])
         ->middleware('throttle:60,1');
     Route::post('/integrity/claim-premium', [IntegrityReportController::class, 'claimPremium'])
-        ->middleware(['auth:sanctum', 'throttle:5,1']);
+        ->middleware(['auth:sanctum', 'throttle:5,1,claim-premium']);
 
     /* ----------------  Unified Sync Endpoint  ---------------- */
     Route::post(
@@ -465,11 +473,11 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::get('/source-harvest/running/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'running']);
     Route::get('/source-harvest/latest/{book}', [\App\Http\Controllers\SourceHarvestController::class, 'latest']);
     Route::post('/source-harvest/{harvestId}/notify', [\App\Http\Controllers\SourceHarvestController::class, 'notify'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,harvest-notify');
     Route::post('/source-harvest/{harvestId}/cancel', [\App\Http\Controllers\SourceHarvestController::class, 'cancel'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,harvest-cancel');
     Route::post('/source-harvest/{harvestId}/finish', [\App\Http\Controllers\SourceHarvestController::class, 'finish'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,harvest-finish');
 
     Route::post(
         '/db/library/update-timestamp',
@@ -624,11 +632,11 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
 // Conversion test routes (admin-only)
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/conversion-tests/run', [\App\Http\Controllers\ConversionTestController::class, 'runTests'])
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:5,1,conversion-tests-run');
     Route::post('/conversion-tests/add-fixture', [\App\Http\Controllers\ConversionTestController::class, 'addFixture'])
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:5,1,conversion-tests-add');
     Route::post('/conversion-tests/upload-fixture', [\App\Http\Controllers\ConversionTestController::class, 'uploadFixture'])
-        ->middleware('throttle:5,1');
+        ->middleware('throttle:5,1,conversion-tests-upload');
 
     // Maintainer triage APIs, one group per page (/maintainer/conversion,
     // /maintainer/jobs). Same shape as the web routes so the two namespaces
@@ -647,10 +655,10 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('book', '[A-Za-z0-9_-]+');
     Route::get('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
         ->where('book', '[A-Za-z0-9_-]+')
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,maintainer-export');
     Route::post('/maintainer/conversion/golden/{book}', [\App\Http\Controllers\MaintainerController::class, 'approveGolden'])
         ->where('book', '[A-Za-z0-9_-]+')
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,maintainer-golden');
 
     // Job-failure triage: failures grouped by what actually broke, queue
     // depth, and the per-group actions (retry / forget / case bundle).
@@ -662,7 +670,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('key', '[a-f0-9]{12}');
     Route::get('/maintainer/jobs/{key}/export', [\App\Http\Controllers\Maintainer\JobsController::class, 'export'])
         ->where('key', '[a-f0-9]{12}')
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,maintainer-jobs-export');
 
     // Site-wide reading analytics (/maintainer/stats): corpus totals, the
     // daily series, and the most-read books. Aggregates only.
@@ -693,7 +701,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->middleware('throttle:6,1');
     // The whole snapshot as a JSON file, for analysis off the box.
     Route::get('/maintainer/storage/export', [\App\Http\Controllers\Maintainer\StorageController::class, 'export'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,maintainer-storage-export');
 
     // Journal import console. `journals` is the picker (registry + per-journal article counts);
     // `articles` is one journal's works with every imported LANE nested under each — the
@@ -786,6 +794,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/study/node-search/{slug}', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'nodeSearch'])
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::post('/maintainer/study/books/{slug}/flag-conversion', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'flagConversion'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    // "Re-run this citation": queues citation:study:rerun's engine for one gt_id/refId;
+    // the status endpoint is what the workbench polls until the patched run lands.
+    Route::post('/maintainer/study/books/{slug}/rerun', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'rerun'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    Route::get('/maintainer/study/books/{slug}/rerun-status', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'rerunStatus'])
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::get('/maintainer/study/check-link', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'checkLink'])
         ->middleware('throttle:30,1');

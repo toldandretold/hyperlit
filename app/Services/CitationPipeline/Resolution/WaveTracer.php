@@ -34,15 +34,19 @@ class WaveTracer
     {
         $ctx = $this->ctx;
 
+        $perItem = $wave instanceof PerItemGate ? $wave : null;
+
         if (!$wave->shouldRun($ctx)) {
             // A wave-level skip still gets a step per pooled citation: "Brave was never asked
             // because no API key is configured" is a fact about the review the reader is owed,
-            // and it is precisely the kind that used to be invisible.
-            foreach (array_keys($ctx->pool) as $refId) {
+            // and it is precisely the kind that used to be invisible. A per-item reason beats
+            // the batch entry gate — "at least one citation prints a DOI…" on a citation that
+            // prints none is a fact about OTHER citations in the batch.
+            foreach ($ctx->pool as $refId => $item) {
                 $ctx->trace[$refId][] = [
                     'stage'   => $wave->id(),
                     'outcome' => 'skipped',
-                    'reason'  => $wave->entryGate(),
+                    'reason'  => $perItem?->itemSkipReason($refId, $item, $ctx) ?? $wave->entryGate(),
                 ];
             }
 
@@ -82,7 +86,16 @@ class WaveTracer
                 // and removeRelatedPoolEntries retired the whole family.
                 $step['outcome'] = 'retired_with_relative';
             } else {
-                $step['outcome'] = $routesOnly ? 'routed' : 'no_match';
+                // Still in the pool. If the wave says this ITEM never qualified (no printed
+                // DOI/URL, no parked match), the honest step is a skip with that reason —
+                // "routed" or "no_match" would claim the wave did something with it.
+                $itemReason = $perItem?->itemSkipReason($refId, $ctx->pool[$refId], $ctx);
+                if ($itemReason !== null) {
+                    $step['outcome'] = 'skipped';
+                    $step['reason'] = $itemReason;
+                } else {
+                    $step['outcome'] = $routesOnly ? 'routed' : 'no_match';
+                }
             }
 
             $detail = $this->waveResultsDelta($waveResultsBefore[$refId] ?? [], $ctx->waveResults[$refId] ?? []);

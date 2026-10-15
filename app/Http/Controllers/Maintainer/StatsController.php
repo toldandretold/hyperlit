@@ -31,11 +31,22 @@ class StatsController extends Controller
     /** GET /api/maintainer/stats/summary — corpus totals. */
     public function summary()
     {
+        // All-time views/books span raw rows + the de-identified rollups
+        // (telemetry:rollup). `readers` is DELIBERATELY recent-window only:
+        // rollups carry no identity, so an all-time distinct-reader count is
+        // unknowable by design — that un-knowability is the privacy feature,
+        // not a reporting gap. The 30-day window reads raw only (retention
+        // floor guarantees raw covers it).
         $reads = DB::connection('pgsql_admin')->selectOne(<<<'SQL'
-            SELECT COUNT(*) AS views,
+            SELECT (SELECT COUNT(*) FROM book_reads)
+                 + (SELECT COALESCE(SUM(views), 0) FROM book_read_rollups) AS views,
                    COUNT(*) FILTER (WHERE read_date >= CURRENT_DATE - 29) AS views_30d,
                    COUNT(DISTINCT COALESCE(user_name, anon_token)) AS readers,
-                   COUNT(DISTINCT book) AS books_read
+                   (SELECT COUNT(DISTINCT book) FROM (
+                        SELECT book FROM book_reads
+                        UNION
+                        SELECT book FROM book_read_rollups
+                    ) b) AS books_read
             FROM book_reads
         SQL);
         $likes = DB::connection('pgsql_admin')->selectOne(
@@ -47,7 +58,8 @@ class StatsController extends Controller
         // can sit next to each other without the tiles lying by a factor of
         // however many times someone refreshed.
         $home = DB::connection('pgsql_admin')->selectOne(<<<'SQL'
-            SELECT COUNT(*) AS views,
+            SELECT (SELECT COUNT(*) FROM page_views WHERE page = 'home')
+                 + (SELECT COALESCE(SUM(views), 0) FROM page_view_rollups WHERE page = 'home') AS views,
                    COUNT(*) FILTER (WHERE view_date >= CURRENT_DATE - 29) AS views_30d
             FROM page_views
             WHERE page = 'home'
@@ -68,12 +80,21 @@ class StatsController extends Controller
     /** GET /api/maintainer/stats/daily — views + likes per day, last 90 days. */
     public function daily()
     {
+        // Raw UNION rollups: the chart window (90d) and the raw-retention
+        // window are the same order of magnitude, so chart days near the
+        // boundary may already be de-identified — summing both sides keeps
+        // the chart exact whatever telemetry.raw_retention_days is set to.
         $views = DB::connection('pgsql_admin')->select(<<<'SQL'
-            SELECT read_date::text AS day, COUNT(*) AS n
-            FROM book_reads
-            WHERE read_date >= CURRENT_DATE - 89
-            GROUP BY read_date
-            ORDER BY read_date
+            SELECT day::text AS day, SUM(n) AS n FROM (
+                SELECT read_date AS day, COUNT(*) AS n
+                FROM book_reads
+                WHERE read_date >= CURRENT_DATE - 89
+                GROUP BY read_date
+                UNION ALL
+                SELECT read_date AS day, views AS n
+                FROM book_read_rollups
+                WHERE read_date >= CURRENT_DATE - 89
+            ) u GROUP BY day ORDER BY day
         SQL);
         $likes = DB::connection('pgsql_admin')->select(<<<'SQL'
             SELECT created_at::date::text AS day, COUNT(*) AS n
@@ -84,11 +105,16 @@ class StatsController extends Controller
         SQL);
 
         $home = DB::connection('pgsql_admin')->select(<<<'SQL'
-            SELECT view_date::text AS day, COUNT(*) AS n
-            FROM page_views
-            WHERE page = 'home' AND view_date >= CURRENT_DATE - 89
-            GROUP BY view_date
-            ORDER BY view_date
+            SELECT day::text AS day, SUM(n) AS n FROM (
+                SELECT view_date AS day, COUNT(*) AS n
+                FROM page_views
+                WHERE page = 'home' AND view_date >= CURRENT_DATE - 89
+                GROUP BY view_date
+                UNION ALL
+                SELECT view_date AS day, views AS n
+                FROM page_view_rollups
+                WHERE page = 'home' AND view_date >= CURRENT_DATE - 89
+            ) u GROUP BY day ORDER BY day
         SQL);
 
         return response()->json([
@@ -103,21 +129,38 @@ class StatsController extends Controller
     {
         // avg_depth: mean of each view's (max_chunk / total_chunks), only over
         // rows that know their denominator — a rough "how far did readers get".
+        // All-time views = raw + rollups; views_30d and avg_depth come from
+        // the RAW (identity-bearing, recent) rows only — depth detail is
+        // deliberately not preserved past the retention window.
         $rows = DB::connection('pgsql_admin')->select(<<<'SQL'
-            SELECT r.book,
+            SELECT u.book,
                    l.title,
                    l.creator,
-                   COUNT(*) AS views,
-                   COUNT(*) FILTER (WHERE r.read_date >= CURRENT_DATE - 29) AS views_30d,
+                   SUM(u.views) AS views,
+                   SUM(u.views_30d) AS views_30d,
                    COALESCE(l.total_likes, 0) AS likes,
-                   ROUND((AVG(r.max_chunk / NULLIF(r.total_chunks, 0)) FILTER (
-                       WHERE r.max_chunk IS NOT NULL AND r.total_chunks IS NOT NULL
-                   ) * 100)::numeric, 1) AS avg_depth_pct
-            FROM book_reads r
-            LEFT JOIN library l ON l.book = r.book
-            WHERE r.book <> 'stats'
-            GROUP BY r.book, l.title, l.creator, l.total_likes
-            ORDER BY views DESC, r.book ASC
+                   ROUND((SUM(u.depth_sum) / NULLIF(SUM(u.depth_n), 0) * 100)::numeric, 1) AS avg_depth_pct
+            FROM (
+                SELECT r.book,
+                       COUNT(*) AS views,
+                       COUNT(*) FILTER (WHERE r.read_date >= CURRENT_DATE - 29) AS views_30d,
+                       SUM(r.max_chunk::float / NULLIF(r.total_chunks, 0)) FILTER (
+                           WHERE r.max_chunk IS NOT NULL AND r.total_chunks IS NOT NULL
+                       ) AS depth_sum,
+                       COUNT(*) FILTER (
+                           WHERE r.max_chunk IS NOT NULL AND r.total_chunks IS NOT NULL
+                       ) AS depth_n
+                FROM book_reads r
+                GROUP BY r.book
+                UNION ALL
+                SELECT book, SUM(views), 0, NULL, 0
+                FROM book_read_rollups
+                GROUP BY book
+            ) u
+            LEFT JOIN library l ON l.book = u.book
+            WHERE u.book <> 'stats'
+            GROUP BY u.book, l.title, l.creator, l.total_likes
+            ORDER BY views DESC, u.book ASC
             LIMIT 50
         SQL);
 

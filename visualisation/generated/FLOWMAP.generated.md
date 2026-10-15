@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1983 functions in 416 modules · 10 object stores · 10 PG tables · 4070 edges
+**MarkdownDB** schema v28 · 1985 functions in 418 modules · 10 object stores · 10 PG tables · 4078 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -448,6 +448,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
 | `licenseInfoFor` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `initOriginalPdfDownload` | `components/sourceContainer/originalPdfDownload` | — | — | read/write | — |
 | `initReaderActions` | `components/sourceContainer/readerActions` | — | — | read/write | — |
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
@@ -517,6 +518,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearAllCachedData` | `components/userContainer/cache` | `localStorage` `sessionStorage` | `localStorage` `sessionStorage` | — | — |
 | `clearAndRefreshDatabase` | `components/userContainer/cache` | — | — | — | — |
 | `clearBrowserCache` | `components/userContainer/cache` | — | — | — | — |
+| `startDeleteAccountFlow` | `components/userContainer/deleteAccount` | — | — | — | — |
 | `handleChangeEmail` | `components/userContainer/email` | — | — | read/write | — |
 | `handleResendVerification` | `components/userContainer/email` | — | — | read/write | — |
 | `showChangeEmailForm` | `components/userContainer/email` | — | — | read/write | — |

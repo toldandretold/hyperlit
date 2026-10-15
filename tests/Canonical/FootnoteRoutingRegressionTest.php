@@ -13,7 +13,9 @@
  * Baselines (legal-pointer-style = book_1781243002465, EU copyright article):
  *   142 extracted footnotes → 126 citations
  *   93 pointers → 89 linked to the bibliography (4 ambiguous/absent: honest)
- *   16 legislation + 4 case-law (counted, excluded from external resolution)
+ *   16 legislation + 4 case-law (counted; since the web-lane routing change they
+ *   STAY in resolution with isAcademic=false — scholarly waves skip them, the
+ *   printed-URL and Brave waves may run)
  *   2 short-form antecedent links
  */
 
@@ -106,10 +108,6 @@ function frrRunMatchers(string $book, array $citationIds): array
     $bp->setAccessible(true);
     $bp->invokeArgs($job, [frrDb(), &$needs]);
 
-    $ex = $rc->getMethod('excludeLegalFromResolution');
-    $ex->setAccessible(true);
-    $ex->invokeArgs($job, [frrDb(), &$needs]);
-
     return $needs;
 }
 
@@ -163,18 +161,22 @@ test('legal-pointer-style corpus: classification + routing baselines hold', func
         $capturedShortFormLinks = count(array_filter($fx['footnotes'], fn($f) => !empty($f['meta']['short_form_of'])));
         expect($capturedShortFormLinks)->toBe(2);
 
-        // Nothing reference-style may remain in external resolution:
-        // pointers/legal/short-form resolving alone is the mis-match path.
+        // Routing after the web-lane change: legislation/case-law REMAIN in
+        // resolution (they ride the web waves with isAcademic=false — the
+        // scholarly waves skip them by type), while pointers and short-forms
+        // still never resolve alone (that is the mis-match path).
         $metaById = [];
         foreach ($fx['footnotes'] as $f) {
             $metaById[$f['footnoteId']] = $f['meta']['type'] ?? null;
         }
+        $remainingLegal = 0;
         foreach ($needs as $entry) {
             $type = $metaById[$entry->referenceId] ?? null;
-            expect(in_array($type, ['legislation', 'case-law'], true))->toBeFalse(
-                "legal citation {$entry->referenceId} must not reach external resolution"
-            );
+            if (in_array($type, ['legislation', 'case-law'], true)) {
+                $remainingLegal++;
+            }
         }
+        expect($remainingLegal)->toBe(16 + 4);
     } finally {
         frrCleanup($book);
     }

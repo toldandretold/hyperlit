@@ -404,6 +404,53 @@ class StudyConsoleController extends Controller
      * Upserts the one open (book, 'study_workbench') flag — repeat flags from
      * more claims bump report_count and append their keys.
      */
+    /**
+     * POST /api/maintainer/study/books/{slug}/rerun — the workbench's
+     * "re-run this citation" button. Queues StudyCitationRerunJob (a
+     * single-citation pipeline still takes minutes and bills, so it must not
+     * run on the request thread) and seeds the status file the UI polls via
+     * rerunStatus(). The rerunner's own guards (frozen corpus, no base run,
+     * reimport drift) surface as a `failed` status with their message.
+     */
+    public function rerun(Request $request, string $slug)
+    {
+        $data = $request->validate([
+            'citation' => ['required', 'string', 'max:200', 'regex:/^[A-Za-z0-9_\-\/:.]+$/'],
+        ]);
+        $manifest = $this->manifest($request);
+        try {
+            $manifest->book($slug);
+        } catch (RuntimeException) {
+            return response()->json(['error' => 'unknown_book'], 404);
+        }
+
+        $current = \App\Jobs\StudyCitationRerunJob::readStatus($manifest, $slug);
+        if (in_array($current['status'] ?? null, ['queued', 'running'], true)) {
+            return response()->json([
+                'error' => 'rerun_in_progress',
+                'status' => $current,
+            ], 409);
+        }
+
+        \App\Jobs\StudyCitationRerunJob::writeStatus($manifest, $slug, [
+            'status' => 'queued',
+            'citation' => $data['citation'],
+            'queued_at' => now()->toIso8601String(),
+        ]);
+        \App\Jobs\StudyCitationRerunJob::dispatch($manifest->corpus, $slug, $data['citation']);
+
+        return response()->json(['status' => 'queued'], 202);
+    }
+
+    /** GET /api/maintainer/study/books/{slug}/rerun-status */
+    public function rerunStatus(Request $request, string $slug)
+    {
+        $manifest = $this->manifest($request);
+        return response()->json(
+            \App\Jobs\StudyCitationRerunJob::readStatus($manifest, $slug) ?? ['status' => null],
+        );
+    }
+
     public function flagConversion(Request $request, string $slug)
     {
         $data = $request->validate([

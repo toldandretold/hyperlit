@@ -17,6 +17,7 @@ class CitationPipelineCommand extends Command
                             {--resume : Resume from the last completed step (skip already-finished steps)}
                             {--pipeline-id= : Pipeline tracking ID (updates citation_pipelines table with step progress)}
                             {--user-id= : User ID for billing}
+                            {--only= : Restrict the whole pipeline to one referenceId/footnoteId (single-ref scan, its source only in vacuum/OCR, single-citation review writing citation-review-partial_*)}
                             {--refetch-walled : Re-attempt web sources whose verification already failed (default: leave them alone for services.source_fetch.web_verify_retry_hours)}';
 
     protected $description = 'Run the full citation pipeline: bibliography scan → content scan → vacuum → OCR → review';
@@ -24,6 +25,7 @@ class CitationPipelineCommand extends Command
     public function handle(): int
     {
         $bookId = $this->argument('bookId');
+        $only = $this->option('only') ?: null;
         $db = DB::connection('pgsql_admin');
 
         // Console command instances persist inside long-running queue workers
@@ -81,7 +83,9 @@ class CitationPipelineCommand extends Command
         } else {
             $this->updatePipelineStep('bibliography', 'Scanning bibliography entries');
             $this->info('Step 1/4: Scanning bibliography + footnotes...');
-            $bibArgs = ['target' => $bookId];
+            // Single-ref mode rides the scan command's existing bookId:refId
+            // target form, which resets and re-extracts just that row.
+            $bibArgs = ['target' => $only ? "{$bookId}:{$only}" : $bookId];
             if ($this->option('force')) {
                 $bibArgs['--force'] = true;
             }
@@ -162,6 +166,7 @@ class CitationPipelineCommand extends Command
                 $sources = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
                     ->where('b.book', $bookId)
+                    ->when($only, fn ($q) => $q->where('b.referenceId', $only))
                     ->where('l.has_nodes', false)
                     ->where(function ($q) {
                         $q->where(function ($q2) {
@@ -182,6 +187,7 @@ class CitationPipelineCommand extends Command
                     $sources = $db->table('footnotes as f')
                         ->join('library as l', 'l.book', '=', 'f.foundation_source')
                         ->where('f.book', $bookId)
+                        ->when($only, fn ($q) => $q->where('f.footnoteId', $only))
                         ->where('f.is_citation', true)
                         ->where('l.has_nodes', false)
                         ->where(function ($q) {
@@ -255,6 +261,7 @@ class CitationPipelineCommand extends Command
                 $webSources = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
                     ->where('b.book', $bookId)
+                    ->when($only, fn ($q) => $q->where('b.referenceId', $only))
                     ->where('l.type', 'web_source')
                     ->whereNull('l.conversion_method')
                     ->whereNotNull('l.url')->where('l.url', '!=', '')
@@ -276,6 +283,7 @@ class CitationPipelineCommand extends Command
                 $skippedWalled = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
                     ->where('b.book', $bookId)->where('l.type', 'web_source')
+                    ->when($only, fn ($q) => $q->where('b.referenceId', $only))
                     ->whereNull('l.conversion_method')->whereNotNull('l.pdf_url_status')
                     ->whereNotIn('l.pdf_url_status', ['downloaded', 'imported'])
                     ->where('l.updated_at', '>', now()->subHours(max(1, $retryHours)))
@@ -338,6 +346,7 @@ class CitationPipelineCommand extends Command
                 $downloaded = $db->table('bibliography as b')
                     ->join('library as l', 'l.book', '=', 'b.foundation_source')
                     ->where('b.book', $bookId)
+                    ->when($only, fn ($q) => $q->where('b.referenceId', $only))
                     ->where('l.has_nodes', false)
                     ->where('l.pdf_url_status', 'downloaded')
                     ->select(['l.book', 'l.title'])
@@ -349,12 +358,50 @@ class CitationPipelineCommand extends Command
                     $downloaded = $db->table('footnotes as f')
                         ->join('library as l', 'l.book', '=', 'f.foundation_source')
                         ->where('f.book', $bookId)
+                        ->when($only, fn ($q) => $q->where('f.footnoteId', $only))
                         ->where('f.is_citation', true)
                         ->where('l.has_nodes', false)
                         ->where('l.pdf_url_status', 'downloaded')
                         ->select(['l.book', 'l.title'])
                         ->distinct()
                         ->get();
+                }
+
+                // SUB-CITATION stubs: a multi-work footnote's 2nd+ work resolves into
+                // llm_metadata.sub_citations[i].resolution.book, which the
+                // foundation_source joins above can never see — that is how the IIA
+                // Three Lines PDF sat 'downloaded' with no nodes while the review
+                // judged the citation from its title alone (deloitte c09/c10).
+                $subBooks = [];
+                foreach (['footnotes' => 'footnoteId', 'bibliography' => 'referenceId'] as $table => $idColumn) {
+                    $rows = $db->table($table)
+                        ->where('book', $bookId)
+                        ->whereNotNull('llm_metadata')
+                        ->when($only, fn ($q) => $q->where($idColumn, $only))
+                        ->get(['llm_metadata']);
+                    foreach ($rows as $row) {
+                        $meta = json_decode((string) $row->llm_metadata, true);
+                        foreach ($meta['sub_citations'] ?? [] as $sub) {
+                            $stub = $sub['resolution']['book'] ?? null;
+                            if (is_string($stub) && $stub !== '') {
+                                $subBooks[$stub] = true;
+                            }
+                        }
+                    }
+                }
+                if ($subBooks !== []) {
+                    $already = $downloaded->pluck('book')->flip();
+                    $subDownloaded = $db->table('library')
+                        ->whereIn('book', array_keys($subBooks))
+                        ->where('has_nodes', false)
+                        ->where('pdf_url_status', 'downloaded')
+                        ->select(['book', 'title'])
+                        ->get();
+                    foreach ($subDownloaded as $row) {
+                        if (!isset($already[$row->book])) {
+                            $downloaded->push($row);
+                        }
+                    }
                 }
 
                 if ($downloaded->isEmpty()) {
@@ -451,6 +498,9 @@ class CitationPipelineCommand extends Command
             $this->updatePipelineStep('review', 'Reviewing citations with LLM');
             $this->info('Step 4/4: Reviewing citations...');
             $reviewArgs = ['bookId' => $bookId];
+            if ($only) {
+                $reviewArgs['--only'] = $only;
+            }
             if ($this->option('pipeline-id')) {
                 $reviewArgs['--pipeline-id'] = $this->option('pipeline-id');
             }

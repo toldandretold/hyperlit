@@ -58,9 +58,10 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
 
     /**
      * Citation types that REFER rather than fully cite — each has dedicated
-     * routing instead of the external resolution waves: short-form/ibid →
-     * antecedent matcher; pointer → bibliography matcher; legislation/case-law
-     * → counted but never externally resolved (no scholarly-database identity).
+     * routing: short-form/ibid → antecedent matcher; pointer → bibliography
+     * matcher; legislation/case-law → the web lane only (no scholarly-database
+     * identity, so isAcademic=false skips every title wave; the printed-URL
+     * and Brave waves can still find the instrument itself).
      */
     private const REFERENCE_STYLE_TYPES = ['short-form', 'ibid', 'pointer', 'legislation', 'case-law'];
 
@@ -212,7 +213,7 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                         $cached = json_decode($cached, true);
                     }
                     if (!empty($cached) && $this->cachedMetadataUsable($cached)) {
-                        $llmMetadataMap[$entry->referenceId] = $cached;
+                        $llmMetadataMap[$entry->referenceId] = SourceTypeClassifier::coerceLegislativeTypes($cached, $entry->content ?? null);
                     } else {
                         $toExtract[$entry->referenceId] = $entry->content ?? '';
                     }
@@ -241,14 +242,20 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                                 if (count($citationArray) > 1) {
                                     $primary['sub_citations'] = array_slice($citationArray, 1);
                                 }
-                                $llmMetadataMap[$refId] = $primary;
+                                // Deterministic type repair: an instrument-shaped title the
+                                // model typed 'report' (with the agency invented as an
+                                // author) would otherwise run the scholarly ladder.
+                                $llmMetadataMap[$refId] = SourceTypeClassifier::coerceLegislativeTypes($primary, $toExtract[$refId] ?? null);
                             } else {
                                 $llmMetadataMap[$refId] = null;
                             }
                         }
                     } else {
-                        // Bibliography path: unchanged
+                        // Bibliography path: unchanged (bar the same legislative type repair)
                         $extracted = $llm->extractCitationMetadataBatch($toExtract);
+                        foreach ($extracted as $refId => $meta) {
+                            $extracted[$refId] = SourceTypeClassifier::coerceLegislativeTypes($meta, $toExtract[$refId] ?? null);
+                        }
                         $llmMetadataMap = array_merge($llmMetadataMap, $extracted);
                     }
 
@@ -298,9 +305,9 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                         // Reference-style types are citations too, each with its own routing:
                         //   short-form/ibid → antecedent matcher (earlier footnote in this document)
                         //   pointer         → bibliography matcher (surname+year → the book's own bibliography)
-                        //   legislation/case-law → counted as citations; NEVER resolved externally
-                        //                          (an instrument string like "Art. 5(3)(a) ISD" is not
-                        //                          an OpenAlex query — mis-match risk)
+                        //   legislation/case-law → web lane only (isAcademic=false skips every
+                        //                          scholarly wave; printed URL + Brave can find
+                        //                          an instrument on legislation.gov.au/AustLII)
                         $isCitation = in_array($meta['type'] ?? null, self::CITABLE_TYPES, true)
                             || in_array($meta['type'] ?? null, self::REFERENCE_STYLE_TYPES, true);
                         if (!$isCitation && !empty($meta['sub_citations'])) {
@@ -341,10 +348,20 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                     // Resolving a title-less author-date externally would mis-match.
                     $this->matchBibliographyPointers($db, $needsResolution);
 
-                    // Legislation / case-law citations are COUNTED (claims anchor on
-                    // their markers) but never sent to the external waves — an
-                    // instrument string is not a scholarly-database query.
-                    $legalCount = $this->excludeLegalFromResolution($db, $needsResolution);
+                    // Legislation / case-law citations stay in the pool but ride the
+                    // WEB lane only: they are not in ACADEMIC_TYPES, so isAcademic is
+                    // false and every scholarly title wave skips them — exactly how
+                    // 'website'/'news-article' already route. The printed-URL fetch and
+                    // the host-gated Brave wave CAN find an instrument (legislation.gov.au,
+                    // AustLII), and a fetched Act is real evidence for the verifier.
+                    // The old blanket exclusion predates isAcademic gating and the
+                    // Brave host-agreement/relevance screens it was guarding against.
+                    $legalCount = 0;
+                    foreach ($llmMetadataMap as $meta) {
+                        if (in_array($meta['type'] ?? null, ['legislation', 'case-law'], true)) {
+                            $legalCount++;
+                        }
+                    }
 
                     // Document-level footnote-style profile: the per-footnote type
                     // distribution tells us HOW this text cites (author-date
@@ -799,9 +816,8 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
     public function deferLibraryMatchForPrintedUrl(string $refId, array $item, array $localMatch): bool
     {
-        $printedUrl = app(WebFetchService::class)->extractUrl($item['content'] ?? '')
-            ?: ($item['llmMetadata']['url'] ?? null);
-        if (!$printedUrl || !preg_match('#^https?://#i', (string) $printedUrl)) {
+        $printedUrl = \App\Services\CitationPipeline\Resolution\CitedUrl::printedUrl($item);
+        if (!$printedUrl) {
             return false;
         }
         // NB these are `library.completeness` values, NOT WebTextAcquirer grades — different
@@ -886,8 +902,7 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
             // match and let Wave 6 fetch the URL — content beats a content-free stub, and a URL
             // hosting a DIFFERENT work is a finding in its own right.
             if ($allowUrlDeferral) {
-                $printedUrl = app(WebFetchService::class)->extractUrl($poolItem['content'] ?? '')
-                    ?: ($poolItem['llmMetadata']['url'] ?? null);
+                $printedUrl = \App\Services\CitationPipeline\Resolution\CitedUrl::printedUrl($poolItem);
                 if ($printedUrl) {
                     $this->urlDeferredMatches[$refId] ??= [
                         'normalised' => $normalised, 'matchMethod' => $matchMethod,
@@ -1351,37 +1366,6 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     }
 
     /**
-     * Remove legislation / case-law citations from external resolution. They
-     * COUNT as citations (claims anchor on their markers, the report lists
-     * them) but an instrument string ("Art. 5(3)(a) ISD") or a case number is
-     * not a scholarly-database query — sending it to the waves is mis-match
-     * risk for zero gain. Returns how many were excluded.
-     */
-    private function excludeLegalFromResolution($db, array &$needsResolution): int
-    {
-        if ($this->sourceTable !== 'footnotes' || empty($needsResolution)) {
-            return 0;
-        }
-        $legalIds = [];
-        foreach ($db->table('footnotes')->where('book', $this->bookId)
-            ->whereNotNull('llm_metadata')->get(['footnoteId', 'llm_metadata']) as $r) {
-            $meta = json_decode($r->llm_metadata, true);
-            if (in_array($meta['type'] ?? null, ['legislation', 'case-law'], true)) {
-                $legalIds[$r->footnoteId] = true;
-            }
-        }
-        if (!$legalIds) {
-            return 0;
-        }
-        $before = count($needsResolution);
-        $needsResolution = array_values(array_filter(
-            $needsResolution,
-            fn($e) => !isset($legalIds[$e->referenceId ?? null]),
-        ));
-        return $before - count($needsResolution);
-    }
-
-    /**
      * After the resolution waves: each short-form footnote inherits its
      * antecedent's resolution + canonical link, so six "Hart, Justice"
      * footnotes share ONE resolved source instead of resolving (wrongly) alone.
@@ -1610,6 +1594,7 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
             }
             $primary = $works[0];
             $primary['sub_citations'] = array_slice($works, 1);
+            $primary = SourceTypeClassifier::coerceLegislativeTypes($primary, $suspects[$refId] ?? null);
             $llmMetadataMap[$refId] = $primary;
             $this->recoveredRefIds[$refId] = true;
             $this->updateSourceEntry($db, $refId, [
@@ -2074,7 +2059,6 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     public function removeRelatedPoolEntries(array &$pool, string $resolvedRefId, mixed $db, ?string $stubBookId = null): void
     {
         $parentRefId = $pool[$resolvedRefId]['parentRefId'] ?? null;
-        $baseRefId = $parentRefId ?? $resolvedRefId;
 
         // Record the sub-citation's own outcome for the parent's llm_metadata
         if ($parentRefId) {
@@ -2101,37 +2085,32 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
             }
         }
 
-        // Remove the resolved entry itself
-        unset($pool[$resolvedRefId]);
-
-        // A SUB resolving retires only ITSELF. It used to evict the parent and every sibling
-        // too, which is how a claim about one work came to be verified against another: in
-        // underwood-2016-pdf, "Pedregosa et al., Scikit-learn…; Images are produced using Hadley
-        // Wickham, ggplot2…" had its ggplot2 sub resolve first, so the PRIMARY (scikit-learn) was
-        // struck from the pool before any wave searched for it — leaving the footnote with
-        // source_id NULL, foundation_source pointing at ggplot2, and a confident `tier:
-        // canonical` verdict on a logistic-regression claim reasoned from a graphics book.
-        // 8 of phase2's 11 wrong-source verdicts are this shape.
+        // ANY entry resolving retires only ITSELF — both directions of family
+        // eviction have now caused the same wrong-verdict shape:
         //
-        // The foundation_source written above stays a FALLBACK, and becomes one for free: if the
-        // parent resolves later its own wave writes both source_id and foundation_source over
-        // the top, and if it never resolves the sibling's book is still better than nothing.
-        if ($parentRefId !== null) {
-            return;
-        }
-
-        // The PARENT resolved: retire it and its subs together. (The subs' own outcomes are
-        // already recorded in llm_metadata.sub_citations[i].resolution, and the report says
-        // plainly which cited works were not independently verified.)
-        $keysToRemove = [];
-        foreach ($pool as $key => $item) {
-            if (($item['parentRefId'] ?? null) === $baseRefId || $key === $baseRefId) {
-                $keysToRemove[] = $key;
-            }
-        }
-        foreach ($keysToRemove as $key) {
-            unset($pool[$key]);
-        }
+        // A SUB used to evict the parent and every sibling, which is how a claim
+        // about one work came to be verified against another: in underwood-2016-pdf,
+        // "Pedregosa et al., Scikit-learn…; Images are produced using Hadley
+        // Wickham, ggplot2…" had its ggplot2 sub resolve first, so the PRIMARY
+        // (scikit-learn) was struck from the pool before any wave searched for it —
+        // leaving the footnote with source_id NULL, foundation_source pointing at
+        // ggplot2, and a confident `tier: canonical` verdict on a
+        // logistic-regression claim reasoned from a graphics book. 8 of phase2's
+        // 11 wrong-source verdicts were this shape.
+        //
+        // A PARENT then still evicted its subs, which is the mirror image: deloitte
+        // c09's work 1 (finance.gov.au toolkit) resolved at printed_url_fetch and
+        // work 2 (the IIA Three Lines PDF) was retired IN THE SAME WAVE — its own
+        // printed URL, a live HTTP 200, never fetched, and the review verdicted
+        // "source not found" on a work we never looked for. Each work keeps riding
+        // until it resolves or exhausts the waves; its outcome lands in
+        // llm_metadata.sub_citations[i].resolution either way.
+        //
+        // The foundation_source written above stays a FALLBACK, and becomes one for
+        // free: if the parent resolves later its own wave writes both source_id and
+        // foundation_source over the top, and if it never resolves the sibling's
+        // book is still better than nothing.
+        unset($pool[$resolvedRefId]);
     }
 
     /**

@@ -70,8 +70,7 @@ class BraveSearchFallback implements ResolutionWave
                 continue;
             }
             $stubAuthor = !empty($item['llmMetadata']['authors']) ? implode('; ', $item['llmMetadata']['authors']) : null;
-            $citedUrl = app(WebFetchService::class)->extractUrl((string) ($item['content'] ?? ''))
-                ?: ($item['llmMetadata']['url'] ?? null);
+            $citedUrl = \App\Services\CitationPipeline\Resolution\CitedUrl::printedUrl($item);
             $braveQueries[$refId] = [
                 'title'     => $item['searchedTitle'],
                 'author'    => $stubAuthor,

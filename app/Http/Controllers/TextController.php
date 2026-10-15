@@ -97,6 +97,25 @@ class TextController extends Controller
             return redirect('/' . $slug . $suffix . ($qs ? "?{$qs}" : ''), 301);
         }
 
+        // A DELETED book is a known fact, not an unknown id: its soft-deleted
+        // library row survives precisely so this URL can answer honestly (and
+        // keep its slug reserved against squatting — see account deletion).
+        // 410 Gone: crawlers deindex promptly, humans with old links get the
+        // truth instead of a byte-identical empty shell. Checked BEFORE the
+        // file-source fallbacks on purpose — a deleted book with leftover
+        // resources/markdown files must not resurrect from disk. Admin read:
+        // "was this deleted" is viewer-independent (same reasoning as the
+        // fullTextPath check below), and the RLS-subject connection cannot see
+        // a non-public row at all. Unknown books still fall through to the
+        // 200 noindex shell — the local-first create flow depends on that.
+        if ($username === null) {
+            $isDeleted = DB::connection('pgsql_admin')->table('library')
+                ->where('book', $book)->where('visibility', 'deleted')->exists();
+            if ($isDeleted) {
+                return response()->view('book-deleted', ['noindex' => true], 410);
+            }
+        }
+
         // Check all possible data sources
         $bookExistsInDB = DB::table('nodes')->where('book', $book)->exists();
         $markdownPath = resource_path("markdown/{$book}/main-text.md");

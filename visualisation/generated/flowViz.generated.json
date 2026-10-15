@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1983,
-    "moduleCount": 416,
+    "fnCount": 1985,
+    "moduleCount": 418,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4070,
+    "edgeCount": 4078,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3742,6 +3742,14 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "label": "initOriginalPdfDownload",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/originalPdfDownload",
+      "leaf": false
+    },
+    {
       "id": "components/sourceContainer/readerActions:initReaderActions",
       "label": "initReaderActions",
       "kind": "fn",
@@ -4292,6 +4300,14 @@
       "stage": "components",
       "module": "components/userContainer/cache",
       "leaf": true
+    },
+    {
+      "id": "components/userContainer/deleteAccount:startDeleteAccountFlow",
+      "label": "startDeleteAccountFlow",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/userContainer/deleteAccount",
+      "leaf": false
     },
     {
       "id": "components/userContainer/email:handleChangeEmail",
@@ -6287,6 +6303,7 @@
       "method": "checkSlug",
       "group": "content",
       "tables": [
+        "deleted_usernames",
         "library"
       ],
       "shape": [
@@ -6321,6 +6338,7 @@
       "method": "getSlugInfo",
       "group": "content",
       "tables": [
+        "deleted_usernames",
         "library"
       ],
       "shape": [
@@ -6369,6 +6387,7 @@
       "method": "setSlug",
       "group": "content",
       "tables": [
+        "deleted_usernames",
         "library"
       ],
       "shape": [
@@ -14759,6 +14778,11 @@
       ]
     },
     {
+      "id": "pg:deleted_usernames",
+      "label": "deleted_usernames",
+      "kind": "table"
+    },
+    {
       "id": "pg:footnotes",
       "label": "footnotes",
       "kind": "table",
@@ -19007,6 +19031,15 @@
       ]
     },
     {
+      "id": "components/sourceContainer/originalPdfDownload",
+      "label": "components/sourceContainer/originalPdfDownload",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload"
+      ]
+    },
+    {
       "id": "components/sourceContainer/readerActions",
       "label": "components/sourceContainer/readerActions",
       "stage": "components",
@@ -19193,6 +19226,15 @@
         "components/userContainer/cache:clearAllCachedData",
         "components/userContainer/cache:clearAndRefreshDatabase",
         "components/userContainer/cache:clearBrowserCache"
+      ]
+    },
+    {
+      "id": "components/userContainer/deleteAccount",
+      "label": "components/userContainer/deleteAccount",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/userContainer/deleteAccount:startDeleteAccountFlow"
       ]
     },
     {
@@ -26915,6 +26957,12 @@
       "dataPath": true
     },
     {
+      "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
+      "target": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners__call__components/sourceContainer/readerActions:initReaderActions",
       "source": "components/sourceContainer/index:SourceContainerManager.attachInternalListeners",
       "target": "components/sourceContainer/readerActions:initReaderActions",
@@ -27270,6 +27318,18 @@
       "source": "components/sourceContainer/index:SourceContainerManager.validateUrl",
       "target": "components/sourceContainer/editForm:validateUrl",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload__call__components/sourceContainer/helpers:isSyntheticBook",
+      "source": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "target": "components/sourceContainer/helpers:isSyntheticBook",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload__domwrite__dom",
+      "source": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/readerActions:initReaderActions__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
@@ -27856,6 +27916,13 @@
       "id": "components/userContainer/cache:clearAndRefreshDatabase__call__indexedDB/utilities/cleanup:clearDatabase",
       "source": "components/userContainer/cache:clearAndRefreshDatabase",
       "target": "indexedDB/utilities/cleanup:clearDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userContainer/deleteAccount:startDeleteAccountFlow__call__components/userContainer/cache:clearAllCachedData",
+      "source": "components/userContainer/deleteAccount:startDeleteAccountFlow",
+      "target": "components/userContainer/cache:clearAllCachedData",
       "rel": "call",
       "dataPath": true
     },
@@ -28886,6 +28953,12 @@
       "id": "controller:DbLibraryController@setEncryption__push__pg:nodes_history",
       "source": "controller:DbLibraryController@setEncryption",
       "target": "pg:nodes_history",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbLibraryController@setSlug__push__pg:deleted_usernames",
+      "source": "controller:DbLibraryController@setSlug",
+      "target": "pg:deleted_usernames",
       "rel": "push"
     },
     {
@@ -30894,6 +30967,12 @@
       "id": "dom__domread__components/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
+      "source": "dom",
+      "target": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
       "rel": "domread"
     },
     {
@@ -44276,6 +44355,18 @@
       "rel": "pull"
     },
     {
+      "id": "pg:deleted_usernames__pull__controller:DbLibraryController@checkSlug",
+      "source": "pg:deleted_usernames",
+      "target": "controller:DbLibraryController@checkSlug",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:deleted_usernames__pull__controller:DbLibraryController@getSlugInfo",
+      "source": "pg:deleted_usernames",
+      "target": "controller:DbLibraryController@getSlugInfo",
+      "rel": "pull"
+    },
+    {
       "id": "pg:footnotes__pull__controller:DatabaseToIndexedDBController@getBookData",
       "source": "pg:footnotes",
       "target": "controller:DatabaseToIndexedDBController@getBookData",
@@ -50273,6 +50364,11 @@
     },
     {
       "source": "components/sourceContainer/index",
+      "target": "components/sourceContainer/originalPdfDownload",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/index",
       "target": "components/sourceContainer/readerActions",
       "kind": "static"
     },
@@ -50294,6 +50390,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/originalPdfDownload",
+      "target": "components/sourceContainer/helpers",
       "kind": "static"
     },
     {
@@ -50434,6 +50535,11 @@
     {
       "source": "components/userContainer/cache",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/userContainer/deleteAccount",
+      "target": "components/userContainer/cache",
       "kind": "static"
     },
     {

@@ -253,3 +253,30 @@ test('fetchEntries targets a single FOOTNOTE by referenceId on a footnote-only b
         smrCleanup($book);
     }
 });
+
+test('a resolving PARENT retires only itself — its subs keep riding the waves', function () {
+    // The mirror of the scikit-learn bug: deloitte c09's work 1 resolved at
+    // printed_url_fetch and work 2 (its OWN live printed URL never fetched) was
+    // evicted in the same wave, verdicting "source not found" on a work we
+    // never looked for. Family eviction is gone in BOTH directions.
+    $book = 'smr_' . Str::random(8);
+    smrSeed($book, [['id' => 'fn1', 'content' => SMR_UNSPLIT_CONTENT,
+        'meta' => ['type' => 'website', 'title' => 'Risk Management Toolkit']]]);
+
+    try {
+        $job = new CitationScanBibliographyJob('scan_smr7', $book);
+        $ref = new ReflectionClass($job);
+        $ref->getProperty('sourceTable')->setValue($job, 'footnotes');
+
+        $pool = [
+            'fn1' => ['referenceId' => 'fn1'],
+            'fn1::sub1' => ['referenceId' => 'fn1::sub1', 'parentRefId' => 'fn1'],
+            'fn2' => ['referenceId' => 'fn2'],
+        ];
+        $ref->getMethod('removeRelatedPoolEntries')->invokeArgs($job, [&$pool, 'fn1', smrDb(), 'stub_book_x']);
+
+        expect(array_keys($pool))->toBe(['fn1::sub1', 'fn2']);
+    } finally {
+        smrCleanup($book);
+    }
+});

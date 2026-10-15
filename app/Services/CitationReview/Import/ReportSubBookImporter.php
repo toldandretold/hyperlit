@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Log;
  *
  * Extracted verbatim from CitationReviewService::importReportAsSubBook.
  */
-final class ReportSubBookImporter
+class ReportSubBookImporter
 {
     public function __construct(
         private MarkdownProcessor $markdownProcessor,

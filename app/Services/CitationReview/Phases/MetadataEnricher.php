@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Extracted verbatim from CitationReviewService::enrichCitationMetadata.
  */
-final class MetadataEnricher
+class MetadataEnricher
 {
     public function __construct(private BestVersionService $bestVersions) {}
 

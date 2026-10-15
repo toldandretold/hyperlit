@@ -2,6 +2,7 @@
 
 namespace App\Services\CitationPipeline\Resolution\Waves;
 
+use App\Services\CitationPipeline\Resolution\PerItemGate;
 use App\Services\CitationPipeline\Resolution\ResolutionContext;
 use App\Services\CitationPipeline\Resolution\ResolutionWave;
 use App\Services\CitationReview\Support\SourceWorkMismatch;
@@ -24,8 +25,15 @@ use Illuminate\Support\Facades\Log;
  *   instead of resolving silently through it. Measured: peer-review-2027-pdf resolves
  *   "Scientists split on ethics of AI use" to a different Nature article this way.
  */
-class LocalDoiLookup implements ResolutionWave
+class LocalDoiLookup implements ResolutionWave, PerItemGate
 {
+    public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
+    {
+        return empty($item['doi'])
+            ? 'The citation prints no DOI, so there was no identifier to look up.'
+            : null;
+    }
+
     public function id(): string
     {
         return 'local_doi_lookup';

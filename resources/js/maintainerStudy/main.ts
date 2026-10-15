@@ -143,10 +143,13 @@ const SUPPORTED_SCOPES: Array<{ value: string; text: string; desc: string }> = [
 ];
 
 /** A workbench URL that SURVIVES a refresh — the corpus must ride in the query string. */
-function studyUrl(slug: string | null, corpus?: string): string {
+function studyUrl(slug: string | null, corpus?: string, citationKey?: string | null): string {
   const c = corpus ?? state.corpus;
   const base = slug ? `/maintainer/study/${encodeURIComponent(slug)}` : '/maintainer/study';
-  return `${base}?corpus=${encodeURIComponent(c)}`;
+  // The selected citation rides the URL so a refresh (or a post-rerun reload)
+  // lands back on the claim being reviewed instead of the empty list.
+  const citation = citationKey ? `&citation=${encodeURIComponent(citationKey)}` : '';
+  return `${base}?corpus=${encodeURIComponent(c)}${citation}`;
 }
 
 interface State {
@@ -250,15 +253,22 @@ function bookRow(book: BookSummary): HTMLElement {
 
 // ---------------------------------------------------------------- claims list
 
+function matchesFilters(c: ClaimRow): boolean {
+  if (state.filterFlagged && !FLAGGED.has(c.verdict)) return false;
+  if (state.filterUnadjudicated && c.adjudication) return false;
+  if (state.filterNeedsEvidence && evidenceState(c) !== 'owed') return false;
+  return true;
+}
+
 function visibleClaims(): ClaimRow[] {
   const payload = state.payload;
   if (!payload) return [];
-  return payload.claims.filter((c) => {
-    if (state.filterFlagged && !FLAGGED.has(c.verdict)) return false;
-    if (state.filterUnadjudicated && c.adjudication) return false;
-    if (state.filterNeedsEvidence && evidenceState(c) !== 'owed') return false;
-    return true;
-  });
+  // The SELECTED claim is always listed, filters or no: re-running/adjudicating
+  // the claim under review routinely changes it to a state the active filters
+  // exclude ("flagged only" + a verdict that just improved to likely), and
+  // having the thing being worked on vanish mid-review was worse than one
+  // exception row. It drops out naturally when another claim is selected.
+  return payload.claims.filter((c) => matchesFilters(c) || c.key === state.selectedKey);
 }
 
 async function loadBook(): Promise<void> {
@@ -283,7 +293,9 @@ async function loadBook(): Promise<void> {
     list.replaceChildren(
       el('p', 'st-empty', `Not run yet (status: ${state.payload.run_status}). Run citation:study:run first.`),
     );
+    return;
   }
+  restoreSelectionFromUrl();
 }
 
 function renderList(): void {
@@ -334,21 +346,93 @@ function claimRow(claim: ClaimRow): HTMLElement {
   if (claim.adjudication) head.append(el('span', 'st-badge st-done', '✓ ' + claim.adjudication.label));
   const evidenceBadge = evidenceStateBadge(claim);
   if (evidenceBadge) head.append(evidenceBadge);
+  // The one row shown DESPITE the filters (the claim under review) says so,
+  // so the list never looks like the filter leaked.
+  if (claim.key === state.selectedKey && !matchesFilters(claim)) {
+    row.classList.add('st-claim-outside');
+    head.append(el('span', 'st-badge st-outside', 'outside filter'));
+  }
   row.append(head, el('span', 'st-claim-text', (claim.truth_claim ?? '').slice(0, 140)));
 
-  row.addEventListener('click', () => {
-    state.selectedKey = claim.key;
-    renderList();
-    renderDetail(claim);
-    // The pane follows the selection: Hyperlit lands on this claim's node, Source swaps to THIS
-    // claim's extracted text (falling back when it resolved none). Tabs refresh either way —
-    // whether Source is reachable is a fact about the claim you just picked.
-    refreshPaneTabs();
-    renderExtractionFlag(claim);
-    if (paneView === 'source') setPaneView('source');
-    else if (paneView === 'hyperlit') jumpToClaimInHyperlit(claim);
-  });
+  row.addEventListener('click', () => selectClaim(claim));
   return row;
+}
+
+function selectClaim(claim: ClaimRow, updateUrl = true): void {
+  state.selectedKey = claim.key;
+  if (updateUrl) {
+    history.replaceState(null, '', studyUrl(state.slug, undefined, claim.key));
+  }
+  renderList();
+  renderDetail(claim);
+  // The pane follows the selection: Hyperlit lands on this claim's node, Source swaps to THIS
+  // claim's extracted text (falling back when it resolved none). Tabs refresh either way —
+  // whether Source is reachable is a fact about the claim you just picked.
+  refreshPaneTabs();
+  renderExtractionFlag(claim);
+  if (paneView === 'source') setPaneView('source');
+  else if (paneView === 'hyperlit') jumpToClaimInHyperlit(claim);
+}
+
+/**
+ * Re-seat the selection the URL names (refresh, or a loadBook() after a
+ * citation re-run). The operator's filters are left alone — the selected
+ * claim is always listed as an exception row (see visibleClaims).
+ */
+function restoreSelectionFromUrl(): void {
+  const key = new URLSearchParams(window.location.search).get('citation');
+  if (!key || !state.payload) return;
+  const claim = state.payload.claims.find((c) => c.key === key);
+  if (!claim) return;
+
+  // No filter-clearing needed: the selected claim is always listed (see
+  // visibleClaims), so the restore shows it as the one exception row while
+  // the operator's filters stay exactly as saved.
+  selectClaim(claim, false);
+  document.querySelector('.st-claim-active')?.scrollIntoView({ block: 'center' });
+}
+
+/**
+ * The adjudication an Ibid/short form INHERITS: an Ibid cites the same WORK as its
+ * antecedent, so a source-level verdict recorded there (fabricated reference,
+ * unverifiable, or simply "the work exists") settles this row's source identity —
+ * only claim applicability is fresh judging. Follows llm_metadata.short_form_of
+ * through the loaded payload (a ::subN row reads it off its parent claim, same as
+ * LiveTraceJoiner), chaining through un-adjudicated short forms (an Ibid of an
+ * Ibid) with a cycle guard. Returns the nearest adjudicated antecedent claim row.
+ */
+function antecedentAdjudication(claim: ClaimRow): { ante: ClaimRow; adj: Adjudication } | null {
+  const claims = state.payload?.claims ?? [];
+  const shortFormOf = (c: ClaimRow): string | null => {
+    const own = c.llm_metadata?.short_form_of;
+    if (typeof own === 'string' && own) return own;
+    const parentRef = c.referenceId?.includes('::') ? c.referenceId.split('::')[0] : null;
+    const parentVal = parentRef
+      ? claims.find((p) => p.referenceId === parentRef)?.llm_metadata?.short_form_of
+      : null;
+    return typeof parentVal === 'string' && parentVal ? parentVal : null;
+  };
+
+  const subSuffix = claim.referenceId?.includes('::') ? `::${claim.referenceId.split('::')[1]}` : '';
+  const visited = new Set<string>();
+  let ref = shortFormOf(claim);
+  while (ref && !visited.has(ref)) {
+    visited.add(ref);
+    // Prefer the antecedent's matching sub row (same work position), then any row of it.
+    const candidates = [
+      ...claims.filter((c) => c.referenceId === ref + subSuffix),
+      ...(subSuffix ? claims.filter((c) => c.referenceId === ref) : []),
+    ];
+    const adjudicated = candidates
+      .filter((c) => c.adjudication)
+      .sort((a, b) =>
+        (b.adjudication?.adjudicated_at ?? '').localeCompare(a.adjudication?.adjudicated_at ?? ''));
+    const best = adjudicated[0];
+    if (best?.adjudication) return { ante: best, adj: best.adjudication };
+    const first = candidates[0];
+    ref = first ? shortFormOf(first) : null;
+  }
+  return null;
 }
 
 /**
@@ -462,7 +546,19 @@ function renderDetail(claim: ClaimRow): void {
   // with the inheritance visible nowhere except the hostname under Check link, which reads
   // as the resolver having done nothing. Say which work it is, above the verdict on it.
   if (claim.short_form_of) {
-    srcSec.append(el('p', 'st-shortform', claim.short_form_of));
+    const sf = el('p', 'st-shortform', claim.short_form_of);
+    srcSec.append(sf);
+    // The antecedent's verdict IS this row's source-identity verdict — an Ibid cites
+    // the same work. Show it where the inheritance is declared, one click to the row.
+    const inh = antecedentAdjudication(claim);
+    if (inh) {
+      const labelText = LABELS.find((l) => l.value === inh.adj.label)?.text ?? inh.adj.label;
+      const b = el('button', 'st-badge st-ante-verdict', `antecedent verdict: ${labelText} ↗`);
+      b.type = 'button';
+      b.title = 'The source this Ibid inherits was already adjudicated — click to jump to that claim.';
+      b.addEventListener('click', () => selectClaim(inh.ante));
+      sf.append(' ', b);
+    }
   }
   if (claim.source.found) {
     const bits = [
@@ -592,6 +688,11 @@ function renderDetail(claim: ClaimRow): void {
   // "ran and found nothing" vs "never reached" vs "skipped because no API key", each step
   // linking to the wave's own source file.
   frag.insertBefore(pathSection(claim), sourceSlot);
+
+  // Re-run just this citation (extraction → ladder → review) after a pipeline
+  // fix — patches the fresh rows into a sub-versioned run ({base}.N) without
+  // re-billing the whole book.
+  frag.insertBefore(rerunSection(claim), sourceSlot);
 
   // Conversion check — was it OUR OCR?
   const convSec = el('section', 'st-section');
@@ -1012,6 +1113,79 @@ function quickSaveButton(
  * conversion-caused defects (OCR-garbled footnotes, phantom year-range
  * citation links) that deserve a reconvert-queue item, not just a note.
  */
+/**
+ * "Re-run this citation": POSTs the rerun endpoint (which queues
+ * StudyCitationRerunJob), then polls the per-book status file until the
+ * patched run lands and reloads the payload — the card then shows the fresh
+ * extraction/ladder/verdict. A 409 means a re-run is already draining for
+ * this book; attach to it by polling instead of failing.
+ */
+function rerunSection(claim: ClaimRow): HTMLElement {
+  const sec = el('section', 'st-section');
+  const wrap = el('div', 'st-flagconv');
+  const btn = el('button', 'st-undo', 'Re-run this citation');
+  btn.type = 'button';
+  const note = el('p', 'st-muted');
+
+  const poll = async (): Promise<void> => {
+    const corpus = state.corpus;
+    const slug = state.slug;
+    if (!slug) return;
+    for (let i = 0; i < 360; i++) {
+      await new Promise((r) => setTimeout(r, 5000));
+      if (state.corpus !== corpus || state.slug !== slug) return; // navigated away
+      let status;
+      try {
+        status = await api.rerunStatus(corpus, slug);
+      } catch {
+        continue; // transient — keep polling
+      }
+      if (status.status === 'completed') {
+        note.textContent = `✓ Patched run ${status.run_id ?? ''} — reloading…`;
+        await loadBook();
+        return;
+      }
+      if (status.status === 'failed') {
+        btn.disabled = false;
+        note.textContent = `Re-run failed: ${status.error ?? 'unknown error'}`;
+        return;
+      }
+      note.textContent = `Re-running (${status.status ?? 'waiting'})… the queue worker must be running.`;
+    }
+    btn.disabled = false;
+    note.textContent = 'Re-run still not finished after 30 min — check the queue worker and state.json.';
+  };
+
+  btn.addEventListener('click', async () => {
+    if (!state.slug) return;
+    const ok = await confirmDialog({
+      title: 'Re-run this citation',
+      message:
+        `Re-extract, re-resolve and re-review ${claim.key} and patch it into a new sub-versioned run?\n\n`
+        + 'Bills this citation’s LLM/fetch spend only. Refused if the corpus is frozen or the book '
+        + 'was re-imported since the base run (then re-run the whole book instead).',
+      confirmLabel: 'Re-run it',
+    });
+    if (!ok) return;
+    btn.disabled = true;
+    note.textContent = 'Queueing…';
+    const { status, data } = await api.rerun(state.corpus, state.slug, claim.key);
+    if (status === 202 || status === 409) {
+      note.textContent = status === 409
+        ? 'A re-run is already in progress for this book — attaching to it…'
+        : 'Queued — waiting for the worker…';
+      void poll();
+      return;
+    }
+    btn.disabled = false;
+    note.textContent = data.error ?? `Re-run request failed (${status})`;
+  });
+
+  wrap.append(btn);
+  sec.append(wrap, note);
+  return sec;
+}
+
 function flagConversionButton(claim: ClaimRow): HTMLElement {
   const wrap = el('div', 'st-flagconv');
   const btn = el('button', 'st-undo', 'Flag conversion issue');
@@ -1375,6 +1549,48 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
 
   const evidence = evidenceFields(null);
 
+  // An Ibid cites the same WORK as its antecedent, so a verdict already saved there
+  // settles this row's source identity — only claim applicability is fresh judging.
+  // Source-level labels (fabricated, unverifiable) inherit on one click; work-exists
+  // labels pre-tick the checkbox. Nothing saves until the operator hits Save verdict.
+  let anteBanner: HTMLElement | null = null;
+  const inherited = claim.short_form_of ? antecedentAdjudication(claim) : null;
+  if (inherited) {
+    const { ante, adj } = inherited;
+    const labelText = LABELS.find((l) => l.value === adj.label)?.text ?? adj.label;
+    const anteId = ante.gt?.gt_id ?? ante.referenceId ?? 'antecedent';
+    anteBanner = el('div', 'st-ante-banner');
+    anteBanner.append(el('p', undefined,
+      `This Ibid's source was already adjudicated on its antecedent (${anteId}): ${labelText}.`));
+
+    if (adj.label === 'fabricated_reference' || adj.label === 'unverifiable') {
+      const btn = el('button', 'st-choice st-ante-inherit', `inherit “${labelText}” — judge scope only`);
+      btn.type = 'button';
+      btn.title = 'Pre-selects the antecedent’s label and cause — the Ibid cites the same (non-)work. '
+        + 'Scope, note and evidence stay yours; nothing saves until you click Save verdict.';
+      btn.addEventListener('click', () => {
+        const li = LABELS.findIndex((l) => l.value === adj.label);
+        labelButtons[li]?.click();
+        if (adj.cause && chosenCause !== adj.cause) {
+          const cb = causeButtons[CAUSES.findIndex((c) => c.value === adj.cause)];
+          if (cb) {
+            cb.hidden = false;
+            cb.click();
+          }
+        }
+        if (!note.value.trim()) {
+          note.value = `source identity inherited from antecedent ${anteId} (Ibid)`;
+        }
+      });
+      anteBanner.append(btn);
+    } else if (['verified_intact', 'claim_distortion', 'source_swap'].includes(adj.label)) {
+      refExists.checked = true;
+      anteBanner.append(el('p', 'st-muted',
+        'The work’s existence is settled by that verdict — “work exists” is pre-ticked; '
+        + 'judge only what THIS claim is supported by.'));
+    }
+  }
+
   const saveBtn = el('button', 'st-save', 'Save verdict') as HTMLButtonElement;
   saveBtn.type = 'button';
   saveBtn.disabled = true;
@@ -1407,6 +1623,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     form.replaceChildren(el('h3', undefined, 'Your verdict'), currentAdjudication(claim, data.adjudication));
   });
 
+  if (anteBanner) form.append(anteBanner);
   form.append(
     el('p', 'st-axis-label', 'Label — is the CITATION good? (becomes ground truth on Apply):'),
     labelRow,
@@ -1910,17 +2127,61 @@ function prefillPdfSearch(claim: ClaimRow): void {
 
 // -------------------------------------------------------------------- wiring
 
+// The filter trio survives a refresh: resetting to "flagged only" on every
+// reload made the operator re-set their view each time. Saved only on a USER
+// click — restoreSelectionFromUrl() may clear filters to reveal the restored
+// claim, and that view necessity must not clobber the saved preference.
+const FILTERS_STORAGE_KEY = 'studyWorkbenchFilters';
+
+interface SavedFilters {
+  flagged?: boolean;
+  unadjudicated?: boolean;
+  needsEvidence?: boolean;
+}
+
+function saveFilters(): void {
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({
+      flagged: state.filterFlagged,
+      unadjudicated: state.filterUnadjudicated,
+      needsEvidence: state.filterNeedsEvidence,
+    }));
+  } catch {
+    // private mode / quota — the session still works, just without persistence
+  }
+}
+
+function loadSavedFilters(): void {
+  let saved: SavedFilters | null = null;
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    saved = raw ? (JSON.parse(raw) as SavedFilters) : null;
+  } catch {
+    return;
+  }
+  if (!saved) return;
+  state.filterFlagged = !!saved.flagged;
+  state.filterUnadjudicated = !!saved.unadjudicated;
+  state.filterNeedsEvidence = !!saved.needsEvidence;
+  byId<HTMLInputElement>('st-filter-flagged').checked = state.filterFlagged;
+  byId<HTMLInputElement>('st-filter-unadjudicated').checked = state.filterUnadjudicated;
+  byId<HTMLInputElement>('st-filter-needs-evidence').checked = state.filterNeedsEvidence;
+}
+
 function wireFilters(): void {
   byId<HTMLInputElement>('st-filter-flagged').addEventListener('change', (e) => {
     state.filterFlagged = (e.target as HTMLInputElement).checked;
+    saveFilters();
     renderList();
   });
   byId<HTMLInputElement>('st-filter-unadjudicated').addEventListener('change', (e) => {
     state.filterUnadjudicated = (e.target as HTMLInputElement).checked;
+    saveFilters();
     renderList();
   });
   byId<HTMLInputElement>('st-filter-needs-evidence').addEventListener('change', (e) => {
     state.filterNeedsEvidence = (e.target as HTMLInputElement).checked;
+    saveFilters();
     renderList();
   });
   const helpToggle = byId<HTMLButtonElement>('st-help-toggle');
@@ -1932,5 +2193,6 @@ function wireFilters(): void {
 }
 
 wireFilters();
+loadSavedFilters();
 void loadBooks();
 if (state.slug) void loadBook();

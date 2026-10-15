@@ -250,10 +250,13 @@ describe('profile menu row', () => {
     const btn = document.getElementById('notificationsBtn');
     expect(btn).not.toBeNull();
     btn.click();
-    await flush();
-    await flush(); // dynamic import + open
+    // The click handler dynamic-imports the overlay module; a fixed number of
+    // microtask flushes is NOT enough under suite load (the import resolves on
+    // the module loader's schedule, not the microtask queue) — poll instead.
+    await vi.waitFor(() => {
+      expect(document.getElementById('notifications-overlay')).not.toBeNull();
+    });
 
     expect(self.closeContainer).toHaveBeenCalled();
-    expect(document.getElementById('notifications-overlay')).not.toBeNull();
   });
 });

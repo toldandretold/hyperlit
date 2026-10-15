@@ -31,6 +31,12 @@ class ReadStatsCounter
 
         // IS DISTINCT FROM guard: skip no-change rows (same rationale as
         // ConnectionCountQuery — don't churn dead tuples).
+        //
+        // All-time views = RAW rows + the de-identified rollups that
+        // telemetry:rollup folded old raw rows into (each rollup row is a
+        // pre-summed day, already deduped at write time). Counting raw alone
+        // would make every book's total SHRINK as the sweep de-identifies —
+        // the number must not change when the identity linkage ages out.
         DB::connection('pgsql_admin')->update(<<<SQL
             UPDATE library l
             SET total_views = t.n
@@ -38,7 +44,11 @@ class ReadStatsCounter
                 SELECT l2.book, COALESCE(c.n, 0)::int AS n
                 FROM library l2
                 LEFT JOIN (
-                    SELECT book, COUNT(*) AS n FROM book_reads GROUP BY book
+                    SELECT book, SUM(n) AS n FROM (
+                        SELECT book, COUNT(*) AS n FROM book_reads GROUP BY book
+                        UNION ALL
+                        SELECT book, SUM(views) AS n FROM book_read_rollups GROUP BY book
+                    ) u GROUP BY book
                 ) c ON c.book = l2.book
                 WHERE l2.book IN ({$placeholders})
             ) t
