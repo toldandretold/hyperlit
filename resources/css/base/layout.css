@@ -192,7 +192,13 @@ pre {
   word-wrap: break-word;
 }
 code {
-  word-break: break-all;
+  /* NOT break-all: that treats every character as a break point, so a short
+     chip like `/privacy` got split mid-word at the line edge even when the
+     whole chip fit on the next line. `anywhere` only breaks inside a token
+     when that token alone is wider than the line (long URLs on mobile —
+     the case break-all was for), and prefers word boundaries otherwise. */
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ================================================== */
