@@ -46,7 +46,12 @@ async function openLoginForm(page) {
       await page.click('#userButton');
     }
     try {
-      await expect(page.locator('input[type="email"]').first()).toBeVisible({ timeout: 2500 });
+      // IN-VIEWPORT on the form's BOTTOM control, not merely visible: during
+      // the panel's open/close slide the inputs are "visible" while the panel
+      // is offscreen, and an unlucky Escape-retry boundary once accepted a
+      // CLOSING panel — every later click then found its target outside the
+      // viewport for the rest of the test (full-suite flake, 2026-10-16).
+      await expect(page.locator('#showRegister')).toBeInViewport({ timeout: 2500 });
     } catch (e) {
       await page.keyboard.press('Escape'); // see openProfileMenu
       throw e;
@@ -66,7 +71,8 @@ async function openProfileMenu(page) {
       await page.click('#userButton');
     }
     try {
-      await expect(page.locator('#dataSovereigntyBtn')).toBeVisible({ timeout: 2500 });
+      // In-viewport, not merely visible — see openLoginForm's comment.
+      await expect(page.locator('#dataSovereigntyBtn')).toBeInViewport({ timeout: 2500 });
     } catch (e) {
       // Open but empty/wrong state (clicked before auth state resolved) —
       // close so the next iteration re-clicks into a settled container.
@@ -82,6 +88,7 @@ async function registerUser(page, name) {
   await page.waitForLoadState('domcontentloaded');
   await openLoginForm(page);
   await page.click('#showRegister');
+  await expect(page.locator('#registerName')).toBeInViewport({ timeout: 5000 });
   await page.fill('#registerName', name);
   await page.fill('#registerEmail', `${name}@test.local`);
   await page.fill('#registerPassword', PASSWORD);
