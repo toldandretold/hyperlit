@@ -99,6 +99,16 @@ code {
     font-size: var(--font-size-code);
 }
 
+/* Inline code INSIDE a link: the chip background above is the same accent
+   the link text is painted with (.external-link below), so <a><code> rendered
+   as an unreadable solid block — accent-on-accent. Linked code keeps the mono
+   font but drops the chip; color/underline come from the anchor. */
+.main-content a code,
+[contenteditable] a code {
+    background-color: transparent;
+    padding: 0;
+}
+
     /* Base styles for code blocks */
 pre code {
     display: block;
