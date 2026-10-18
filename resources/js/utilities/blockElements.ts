@@ -20,6 +20,13 @@ export const BLOCK_ELEMENT_SELECTOR = Array.from(BLOCK_ELEMENT_TAGS)
   .map((t: any) => t.toLowerCase())
   .join(', ');
 
+// A <p> or <h1>–<h6> may only hold phrasing content: a block child survives in
+// the live DOM (moves never re-parse) but collapses to an EMPTY node on its
+// next parse — reload, DOMPurify, the integrity read-back (the invalid-nesting
+// data-loss class; reports book_1788217034868, terms 2026-10-16). `li` is
+// included: not in the block set but just as illegal outside a list.
+export const PHRASING_ILLEGAL_CHILD_SELECTOR = `${BLOCK_ELEMENT_SELECTOR}, li`;
+
 // ---------------------------------------------------------------------------
 // 2. STRUCTURAL_BLOCK_TAGS — wider set for parsing / layout classification
 //    Includes everything in BLOCK_ELEMENT_TAGS plus structural wrappers

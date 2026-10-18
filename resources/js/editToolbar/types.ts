@@ -21,9 +21,13 @@ export type SaveToIndexedDBCallback = (
 /** Delete a node from IndexedDB by its positional id (used when list→block merges drop extras). */
 export type DeleteFromIndexedDBCallback = (id: LineId) => void | Promise<void>;
 
+/** A concrete heading tag — the list-item converter needs the LEVEL, not the
+ *  word "heading" (passing the word minted a <pre> for years). */
+export type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+
 /** Convert a single list item to a block (heading/blockquote/code) during list→block formatting.
  *  Return value is ignored by callers (fire-and-await), hence the loose result type. */
 export type ConvertListItemToBlockCallback = (
   listItem: HTMLElement,
-  blockType: 'heading' | 'blockquote' | 'code',
+  blockType: HeadingTag | 'blockquote' | 'code',
 ) => void | Promise<unknown>;

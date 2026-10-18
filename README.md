@@ -68,11 +68,13 @@ The solution is to combine the open access movement with free and open source so
 
 **read an academic journal within hyperlit.io** by copy and pasting it. Most major journals will have their footnotes and citations rendered dynamically by default. Even if this is not an open access text, you can still read and cite it yourself legally (just don't publish it). If it **is** open access, publish it so others can read along with you, and compare notes!
 
-## License 
+## License & ownership
 
-This is copyleft [free software](LICENSE.md).
+This is copyleft [free software](LICENSE.md), licensed under the GNU AGPL-3.0.
 
-Users have full sovereignty of their data. 
+Hyperlit is © 2024–2026 [Lib Zen Pty Ltd](https://hyperlit.io), which holds the copyright and stewards the project; the "Hyperlit" name and logo are trademarks of Lib Zen Pty Ltd and are not covered by the software license. The logo and artwork were created by Simon from [the io design company](https://studio-io.com). The AGPL grants everyone the freedom to use, study, modify and redistribute the code — ownership is what makes that grant possible, not a limit on it.
+
+Users have full sovereignty of their data. See the [privacy policy](https://hyperlit.io/privacy) — every claim in it links to the code that implements it.
 
 By default, published work comes with a copyleft inspired license that aims to protect text from being used to train non-free LLMs. See: [default license](https://hyperlit.io/license2025content). Ironically, the LLM slave that wrote this license tells me that it is unlikely to be legally binding.
 
@@ -116,8 +118,8 @@ Each sits behind a swappable interface — none is required to run hyperlit, and
 
 - Inference — [Fireworks AI](https://fireworks.ai) (gpt-oss-120b, DeepSeek), or any OpenAI-compatible endpoint, or local [Ollama](https://ollama.com).
 - OCR — [Mistral](https://mistral.ai), or Apple Vision on macOS hosts.
-- Text to speech — [DeepIm) serving open-weight[Kokoro-82M](https://hugg82M).
-- Web search — [Brave Search/api/).
+- Text to speech — [DeepInfra](https://deepinfra.com) serving open-weight [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
+- Web search — [Brave Search](https://brave.com/search/api/).
 - Payments — [Stripe](https://stripe.com).
 
 ## Getting Started **locally**

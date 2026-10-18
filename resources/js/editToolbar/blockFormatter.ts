@@ -32,6 +32,7 @@ import type {
   SaveToIndexedDBCallback,
   DeleteFromIndexedDBCallback,
   ConvertListItemToBlockCallback,
+  HeadingTag,
 } from "./types";
 import type { SelectionManager } from "./selectionManager";
 import type { ButtonStateManager } from "./buttonStateManager";
@@ -148,8 +149,12 @@ export class BlockFormatter {
           }
           return;
         } else if (this.convertListItemToBlockCallback) {
-          // Heading: delegate to list converter (splits list — each item becomes heading)
-          await this.convertListItemToBlockCallback(listItem as HTMLElement, type);
+          // Heading: delegate to list converter (splits the list around the
+          // item, which becomes the requested heading; a nested list is
+          // hoisted out after it). Pass the concrete LEVEL — passing the word
+          // "heading" made the converter fall through to its <pre> arm.
+          const level = /^h[1-6]$/.test(headingLevel) ? (headingLevel as HeadingTag) : 'h2';
+          await this.convertListItemToBlockCallback(listItem as HTMLElement, level);
           this.buttonStateManager.updateButtonStates();
           return;
         }

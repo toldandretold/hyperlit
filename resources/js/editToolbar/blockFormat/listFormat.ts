@@ -18,6 +18,7 @@ import {
   batchUpdateIndexedDBRecords,
 } from "../../indexedDB/index";
 import { asLineId } from "../../utilities/idHelpers";
+import { PHRASING_ILLEGAL_CHILD_SELECTOR } from "../../utilities/blockElements";
 import type { BlockCommandContext } from "./types";
 
 export async function handleListFormat(self: BlockCommandContext, listType: 'ul' | 'ol', parentElement: Element, isTextSelected = false) {
@@ -448,7 +449,13 @@ export async function handleRemoveList(self: BlockCommandContext, parentElement:
 
     for (let i = 0; i < listItems.length; i++) {
       const li = listItems[i]!;
-      const p = document.createElement("p");
+      // An <li> can legally hold a nested list; a <p> cannot \u2014 `<p><ol>\u2026</ol></p>`
+      // survives in the live DOM but collapses to an EMPTY node on its next parse,
+      // and ids minted inside it restart at 1 (terms, 2026-10-16). Unwrap such
+      // items into a <div> instead \u2014 same recovery as _contentPreservingUnwrap.
+      const p = document.createElement(
+        li.querySelector(PHRASING_ILLEGAL_CHILD_SELECTOR) ? "div" : "p"
+      );
       p.innerHTML = li.innerHTML || "\u00A0";
 
       if (i === 0) {
@@ -494,8 +501,11 @@ export async function handleRemoveList(self: BlockCommandContext, parentElement:
           const items = Array.from(el.querySelectorAll(":scope > li"));
           const ps = [];
           for (let i = 0; i < items.length; i++) {
-            const newP = document.createElement("p");
-            newP.innerHTML = (items[i] as any).innerHTML || "\u00A0";
+            // Same div-when-illegal rule as the live unwrap above.
+            const newP = document.createElement(
+              (items[i] as Element).querySelector(PHRASING_ILLEGAL_CHILD_SELECTOR) ? "div" : "p"
+            );
+            newP.innerHTML = (items[i] as HTMLElement).innerHTML || "\u00A0";
             if (i === 0) {
               newP.id = el.id;
               if (el.hasAttribute("data-node-id")) newP.setAttribute("data-node-id", el.getAttribute("data-node-id")!);

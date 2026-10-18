@@ -18,7 +18,30 @@ import {
   batchUpdateIndexedDBRecords,
 } from "../../indexedDB/index";
 import { asLineId } from "../../utilities/idHelpers";
+import { hasIllegalBlockChildren, hoistIllegalBlockChildren } from "./blockChildHoist";
 import type { BlockCommandContext } from "./types";
+
+/**
+ * A heading/paragraph conversion copies the source's innerHTML, so a source
+ * holding a nested list would yield `<h3>Warning<ol>…</ol></h3>` — illegal
+ * nesting that collapses on the next parse and corrupts id minting inside it
+ * (terms, 2026-10-16). After the converted element is seated in the DOM, move
+ * any block children out as following siblings with bounded ids and persist
+ * them. Returns the hoisted elements.
+ */
+async function hoistAndPersistBlockChildren(
+  self: BlockCommandContext,
+  el: HTMLElement,
+): Promise<HTMLElement[]> {
+  if (!hasIllegalBlockChildren(el)) return [];
+  const hoisted = hoistIllegalBlockChildren(el, self.currentBookId);
+  if (self.saveToIndexedDBCallback) {
+    for (const h of hoisted) {
+      await self.saveToIndexedDBCallback(asLineId(h.id), h.outerHTML);
+    }
+  }
+  return hoisted;
+}
 
 export async function handleHeadingFormat(self: BlockCommandContext, isTextSelected: boolean, parentElement: Element, headingLevel: string) {
     let modifiedElementId = null;
@@ -102,6 +125,14 @@ export async function handleHeadingFormat(self: BlockCommandContext, isTextSelec
             );
           }
           block.parentNode!.replaceChild(newBlockElement, block);
+
+          // Block children copied along with innerHTML (a nested list) may not
+          // stay inside a <p>/<h*> — hoist them out and persist with the batch.
+          if (hasIllegalBlockChildren(newBlockElement)) {
+            for (const h of hoistIllegalBlockChildren(newBlockElement as HTMLElement, self.currentBookId)) {
+              recordsToUpdate.push({ id: asLineId(h.id), html: h.outerHTML });
+            }
+          }
 
           modifiedElementsForSelection.push({
             id: newBlockElement.id,
@@ -188,7 +219,8 @@ export async function handleHeadingFormat(self: BlockCommandContext, isTextSelec
       }
 
       headingElement.parentNode!.replaceChild(newEl, headingElement);
-      setCursorAtTextOffset(newEl, currentOffset);
+      await hoistAndPersistBlockChildren(self, newEl);
+      setCursorAtTextOffset(newEl, Math.min(currentOffset, (newEl.textContent || "").length));
       modifiedElementId = newEl.id;
       newElement = newEl;
 
@@ -294,7 +326,8 @@ export async function handleHeadingFormat(self: BlockCommandContext, isTextSelec
         }
 
         blockParent.parentNode!.replaceChild(newEl, blockParent);
-        setCursorAtTextOffset(newEl, currentOffset);
+        await hoistAndPersistBlockChildren(self, newEl);
+        setCursorAtTextOffset(newEl, Math.min(currentOffset, (newEl.textContent || "").length));
         modifiedElementId = newEl.id;
         newElement = newEl;
       }
@@ -378,6 +411,9 @@ export async function unwrapSelectedTextFromHeading(self: BlockCommandContext) {
       console.error("unwrapSelectedTextFromHeading: DOM replacement failed.", domError);
       return null;
     }
+
+    // A corrupt heading can carry block children — they may not land in the <p>.
+    await hoistAndPersistBlockChildren(self, pElement);
 
     if (self.selectionManager.currentSelection) {
       const newRange = document.createRange();

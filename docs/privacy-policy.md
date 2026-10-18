@@ -119,8 +119,13 @@ Anonymous-session rows: 30 days after last use. Account deletion (profile menu �
 
 > verified: `app/Services/UserAccountDeletionService.php` (phase-by-phase disposition); endpoint `app/Http/Controllers/AccountDeletionController.php` + login guard `AuthController::login` / `FortifyServiceProvider`; 410 tombstone `TextController::show` + `resources/views/book-deleted.blade.php`; locked by `tests/Feature/Account/UserAccountDeletionServiceTest.php`, `AccountDeletionEndpointTest.php`, `tests/Feature/Auth/DeletedUsernameNotRegistrableTest.php`, `tests/Feature/Routing/DeletedBookTombstoneTest.php`, and the client flow by `tests/javascript/components/deleteAccountFlow.test.js`.
 
+## Ownership (declared 2026-10-17)
+
+Copyright holder: **Lib Zen Pty Ltd** (© 2024–2026), stated in `LICENSE.md` (header block), `README.md` §License & ownership, `composer.json`/`package.json` SPDX fields (`AGPL-3.0-only` — composer previously mislabelled MIT, fixed 2026-10-17), and the public privacy/terms pages. The Hyperlit name and logo are claimed as trademarks of Lib Zen Pty Ltd. Open sub-questions for the lawyer pass: (1) founder-to-company IP assignment (Sam built it with company money but may lack a formal employment contract — a one-page assignment ends the question); (2) logo artwork copyright may sit with the commissioned designer absent assignment (Sam is asking him; a repo credit is the friendly resolution); (3) confirm governing-law state in the ToS (drafted as NSW — verify against the company's registration).
+
 ## Open items before public assertions change
 
 - Prod mail vendor: check droplet `.env`.
 - Nginx/host log retention: host-level, not in repo.
-- Lawyer review of the public page (AU Privacy Act / GDPR / COPPA posture) before DPG submission.
+- ABN: fill into the privacy + terms pages.
+- Lawyer review of the public pages (AU Privacy Act / GDPR / COPPA posture, ToS, ownership sub-questions above) before DPG submission.

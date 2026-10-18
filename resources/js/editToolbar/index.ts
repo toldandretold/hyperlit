@@ -223,7 +223,7 @@ class EditToolbar {
       buttonStateManager: this.buttonStateManager,
       saveToIndexedDBCallback: (id: LineId, html: string) => this.saveToIndexedDB(id, html),
       deleteFromIndexedDBCallback: (id: LineId) => this.deleteFromIndexedDB(id),
-      convertListItemToBlockCallback: (listItem: HTMLElement, type: 'heading' | 'blockquote' | 'code') => this.convertListItemToBlock(listItem, type),
+      convertListItemToBlockCallback: (listItem: HTMLElement, type: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'blockquote' | 'code') => this.convertListItemToBlock(listItem, type),
       undoManager: this.undoManager,
     });
 

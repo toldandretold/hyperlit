@@ -65,6 +65,6 @@ From your profile menu (Data → Delete account). You choose what happens to wor
 
 ## Jurisdiction and contact
 
-Hyperlit is operated from Australia and handles personal information in accordance with the Australian Privacy Principles. If you are in the EU/EEA, the practices above are how we meet GDPR obligations of access, portability, and erasure. Questions or requests: [GitHub issues](https://github.com/toldandretold/hyperlit/issues) or [sam@hyperlit.io](mailto:sam@hyperlit.io).
+Hyperlit is operated by Lib Zen Pty Ltd (ABN 18670306895), an Australian company, and handles personal information in accordance with the Australian Privacy Principles. If you are in the EU/EEA, the practices above are how we meet GDPR obligations of access, portability, and erasure. The [terms of service](https://hyperlit.io/terms) cover the rest of the relationship. Questions or requests: [GitHub issues](https://github.com/toldandretold/hyperlit/issues) or [sam@hyperlit.io](mailto:sam@hyperlit.io).
 
 This policy describes the code as deployed, which is why each claim above links to the code that implements it — you are invited to check our work rather than take our word. The full source lives at [github.com/toldandretold/hyperlit](https://github.com/toldandretold/hyperlit), and the engineering version of this policy — every claim annotated with exact file-and-line citations — is in the repo at [docs/privacy-policy.md](https://github.com/toldandretold/hyperlit/blob/main/docs/privacy-policy.md).

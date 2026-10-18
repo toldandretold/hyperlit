@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1985 functions in 418 modules · 10 object stores · 10 PG tables · 4078 edges
+**MarkdownDB** schema v28 · 1987 functions in 419 modules · 10 object stores · 10 PG tables · 4087 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -795,6 +795,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SupTagHandler.startListening` | `divEditor/supTagHandler/index` | — | — | — | — |
 | `SupTagHandler.stopListening` | `divEditor/supTagHandler/index` | — | — | — | — |
 | `createVideoDeleteHandler` | `divEditor/videoDeleteHandler` | — | — | read/write | — |
+| `hasIllegalBlockChildren` | `editToolbar/blockFormat/blockChildHoist` | — | — | read | — |
+| `hoistIllegalBlockChildren` | `editToolbar/blockFormat/blockChildHoist` | — | — | read/write | — |
 | `_contentPreservingUnwrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_contentPreservingWrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_mergeBlocksIntoBlockquote` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |

@@ -17,7 +17,11 @@ import {
   asLineId,
   type BookId,
 } from "../utilities/idHelpers";
-import type { SaveToIndexedDBCallback } from "./types";
+import {
+  hasIllegalBlockChildren,
+  hoistIllegalBlockChildren,
+} from "./blockFormat/blockChildHoist";
+import type { SaveToIndexedDBCallback, HeadingTag } from "./types";
 
 /**
  * ListConverter class
@@ -33,12 +37,13 @@ export class ListConverter {
   }
 
   /**
-   * Convert a list item to a block element (blockquote or code)
-   * @param {HTMLElement} listItem - The list item to convert
-   * @param {string} blockType - "blockquote" or "code"
-   * @returns {HTMLElement|null} The new block element or null
+   * Convert a list item to a block element (heading, blockquote or code),
+   * splitting the list around it.
+   * @param listItem - The list item to convert
+   * @param blockType - "h1"–"h6", "blockquote" or "code"
+   * @returns The new block element or null
    */
-  async convertListItemToBlock(listItem: any, blockType: any) {
+  async convertListItemToBlock(listItem: HTMLElement, blockType: HeadingTag | 'blockquote' | 'code') {
     const immediateParentList = listItem.parentElement;
 
     if (
@@ -49,7 +54,7 @@ export class ListConverter {
       return null;
     }
 
-    let listWithId = immediateParentList;
+    let listWithId: HTMLElement | null = immediateParentList;
     while (listWithId && listWithId !== document.body) {
       if (
         (listWithId.tagName === "UL" || listWithId.tagName === "OL") &&
@@ -67,15 +72,23 @@ export class ListConverter {
 
     console.log(`Converting list item from list with ID: ${listWithId.id}`);
 
-    const newBlock =
-      blockType === "blockquote"
-        ? document.createElement("blockquote")
-        : document.createElement("pre");
+    const isHeading = /^h[1-6]$/.test(blockType);
+    const newBlock = document.createElement(
+      isHeading ? blockType : blockType === "blockquote" ? "blockquote" : "pre"
+    );
 
-    if (blockType === "code") {
+    if (isHeading) {
+      // MOVE the li's live children (preserves hypercite/highlight listeners).
+      // A nested list rides along for now — it is hoisted back out as a
+      // sibling after the split seats the heading in the DOM (see below);
+      // leaving it inside the heading is the invalid-nesting data-loss class.
+      while (listItem.firstChild) {
+        newBlock.appendChild(listItem.firstChild);
+      }
+    } else if (blockType === "code") {
       const codeElement = document.createElement("code");
       newBlock.appendChild(codeElement);
-      codeElement.textContent = listItem.textContent.trim();
+      codeElement.textContent = (listItem.textContent || "").trim();
     } else {
       let content = listItem.innerHTML.trim();
       if (content && !content.endsWith("<br>")) {
@@ -99,6 +112,20 @@ export class ListConverter {
       newBlock,
       listWithId
     );
+
+    // The heading is seated in the DOM now — hoist any nested list that rode
+    // along out as a FOLLOWING SIBLING (it lands between the heading and the
+    // items-after list, ids bounded by both). A heading left holding only a
+    // nested list would otherwise end up empty — give it a <br>.
+    if (isHeading && hasIllegalBlockChildren(newBlock)) {
+      const hoisted = hoistIllegalBlockChildren(newBlock, this.currentBookId);
+      if (!newBlock.hasChildNodes()) newBlock.innerHTML = "<br>";
+      if (this.saveToIndexedDBCallback) {
+        for (const h of hoisted) {
+          await this.saveToIndexedDBCallback(asLineId(h.id), h.outerHTML);
+        }
+      }
+    }
 
     // Save the new block to IndexedDB
     if (this.saveToIndexedDBCallback) {

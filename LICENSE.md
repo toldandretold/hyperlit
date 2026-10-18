@@ -1,3 +1,15 @@
+Hyperlit — an open-source docuverse for open-access research.
+
+Copyright (C) 2024-2026 Lib Zen Pty Ltd
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. The full license text follows. The "Hyperlit" name and logo are
+trademarks of Lib Zen Pty Ltd and are not covered by this license.
+
+---
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 

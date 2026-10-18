@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1985,
-    "moduleCount": 418,
+    "fnCount": 1987,
+    "moduleCount": 419,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4078,
+    "edgeCount": 4087,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -7624,6 +7624,22 @@
       "id": "dom",
       "label": "reader.blade.php",
       "kind": "dom"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "label": "hasIllegalBlockChildren",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockChildHoist",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "label": "hoistIllegalBlockChildren",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockChildHoist",
+      "leaf": false
     },
     {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
@@ -19890,6 +19906,16 @@
       ]
     },
     {
+      "id": "editToolbar/blockFormat/blockChildHoist",
+      "label": "editToolbar/blockFormat/blockChildHoist",
+      "stage": "editToolbar",
+      "band": "capture",
+      "fnIds": [
+        "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+        "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren"
+      ]
+    },
+    {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat",
       "label": "editToolbar/blockFormat/blockquoteCodeFormat",
       "stage": "editToolbar",
@@ -31780,6 +31806,18 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
       "source": "dom",
       "target": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
@@ -34366,6 +34404,12 @@
       "rel": "domread"
     },
     {
+      "id": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap__domwrite__dom",
       "source": "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
       "target": "dom",
@@ -34451,6 +34495,18 @@
       "rel": "call"
     },
     {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
+      "target": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "rel": "call"
+    },
+    {
       "id": "editToolbar/blockFormat/headingFormat:handleHeadingFormat__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
       "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
       "target": "editToolbar/toolbarDOMUtils:findClosestBlockParent",
@@ -34498,6 +34554,18 @@
       "source": "editToolbar/blockFormat/headingFormat:handleHeadingFormat",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading__call__editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "source": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "target": "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading__call__editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "source": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading",
+      "target": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "rel": "call"
     },
     {
       "id": "editToolbar/blockFormat/headingFormat:unwrapSelectedTextFromHeading__domwrite__dom",
@@ -34977,6 +35045,18 @@
       "source": "editToolbar/listConverter:ListConverter.cleanupAfterSplit",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock__call__editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "source": "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+      "target": "editToolbar/blockFormat/blockChildHoist:hasIllegalBlockChildren",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock__call__editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "source": "editToolbar/listConverter:ListConverter.convertListItemToBlock",
+      "target": "editToolbar/blockFormat/blockChildHoist:hoistIllegalBlockChildren",
+      "rel": "call"
     },
     {
       "id": "editToolbar/listConverter:ListConverter.convertListItemToBlock__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
@@ -51314,6 +51394,11 @@
     },
     {
       "source": "editToolbar/blockFormat/headingFormat",
+      "target": "editToolbar/blockFormat/blockChildHoist",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/blockFormat/headingFormat",
       "target": "editToolbar/toolbarDOMUtils",
       "kind": "static"
     },
@@ -51490,6 +51575,11 @@
     {
       "source": "editToolbar/linkMode",
       "target": "editToolbar/undoManager",
+      "kind": "static"
+    },
+    {
+      "source": "editToolbar/listConverter",
+      "target": "editToolbar/blockFormat/blockChildHoist",
       "kind": "static"
     },
     {

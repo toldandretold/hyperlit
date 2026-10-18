@@ -179,6 +179,7 @@ var BLOCK_ELEMENT_TAGS = /* @__PURE__ */ new Set([
   "FIGURE"
 ]);
 var BLOCK_ELEMENT_SELECTOR = Array.from(BLOCK_ELEMENT_TAGS).map((t) => t.toLowerCase()).join(", ");
+var PHRASING_ILLEGAL_CHILD_SELECTOR = `${BLOCK_ELEMENT_SELECTOR}, li`;
 var STRUCTURAL_BLOCK_TAGS = /* @__PURE__ */ new Set([
   ...BLOCK_ELEMENT_TAGS,
   "LI",
