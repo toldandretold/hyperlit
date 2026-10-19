@@ -17,8 +17,10 @@ class QueueBookEmbeddings implements ShouldQueue
     public int $tries = 2;
     public int $backoff = 60;
 
+    // Public so tests can assert which book a faked dispatch targeted
+    // (DeleteUserAccountJob precedent).
     public function __construct(
-        private string $bookId,
+        public string $bookId,
     ) {}
 
     public function handle(): void
@@ -35,7 +37,11 @@ class QueueBookEmbeddings implements ShouldQueue
             ->where('book', $this->bookId)
             ->first();
 
-        if (!\App\Services\EmbeddingEligibility::bookEligible($library, $this->bookId)) {
+        if (!\App\Services\EmbeddingEligibility::bookEligible(
+            $library,
+            $this->bookId,
+            \App\Services\EmbeddingEligibility::ownerEmbedsPrivate($library->creator ?? null),
+        )) {
             return;
         }
 

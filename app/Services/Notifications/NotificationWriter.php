@@ -31,6 +31,34 @@ class NotificationWriter
     public const TYPE_HYPERLIGHT = 'hyperlight';
     public const TYPE_HYPERCITE_PAIRED = 'hypercite_paired';
     public const TYPE_LIKE = 'like';
+    public const TYPE_TERMS_PUBLISHED = 'terms_published';
+
+    /**
+     * The terms-of-service announcement (terms:announce) — the one SYSTEM
+     * notification: actor 'Hyperlit' ('hyperlit' is in reserved-usernames, so
+     * the label is unspoofable), book 'terms' (the /terms policy book, which
+     * is also where present()'s link arm points), and subject_id = the TERMS
+     * VERSION — which rides the dedupe unique index, so re-running the
+     * announce command can never double-notify anyone for one version, while
+     * a NEW version notifies again (exactly the promised material-change
+     * behaviour). $contextLabel is an argument, not a constant, so a future
+     * change-notice can read "an update to its Terms of Service" without
+     * touching this writer.
+     */
+    public static function termsPublished(string $recipient, string $version, string $contextLabel, ?string $snippet = null): void
+    {
+        self::deferred(function () use ($recipient, $version, $contextLabel, $snippet) {
+            self::insert(
+                recipient: $recipient,
+                actor: 'Hyperlit',
+                type: self::TYPE_TERMS_PUBLISHED,
+                book: 'terms',
+                subjectId: $version,
+                citingRef: null,
+                data: ['context_label' => $contextLabel, 'root_title' => null, 'snippet' => $snippet],
+            );
+        });
+    }
 
     /**
      * A new hyperlight was saved on $book (which may be a sub-book id).

@@ -21,8 +21,15 @@ namespace App\Services;
  *     books, harvest yield reports) — real plainText, but list UI, not
  *     content anyone should retrieve,
  *   - missing its library row entirely (orphan nodes).
- * Private books ARE eligible by policy: unreachable by any query today, but
- * kept embedded for the planned private-library search.
+ * Private books are eligible BY THE OWNER'S CHOICE: embedding means sending
+ * the node text to the external embedding API, so the Data panel's
+ * "Semantic search for private books" toggle (users.preferences
+ * embed_private_books, default ON) governs every NON-PUBLIC book the user
+ * owns. Public books are always embedded — their vectors power everyone's
+ * search of published work. Because this predicate is the ONE definition,
+ * turning the toggle off makes embeddings:reconcile scrub the existing
+ * vectors on its nightly pass, and turning it back on re-embeds them — the
+ * preference converges, in both directions, through the same machinery.
  *
  * Node-level: plainText must have >= MIN_PLAINTEXT_CHARS trimmed chars, and
  * the node must not be REFERENCE MATTER — a bibliography entry or footnote
@@ -84,7 +91,17 @@ class EmbeddingEligibility
             . " AND COALESCE({$l}.type, '') NOT IN ({$types})"
             . " AND NOT COALESCE({$l}.encrypted, false)"
             . " AND COALESCE({$l}.visibility, '') != 'deleted'"
-            . " AND COALESCE({$l}.raw_json->>'type', '') NOT IN ({$raw}))";
+            . " AND COALESCE({$l}.raw_json->>'type', '') NOT IN ({$raw})"
+            // Owner opt-out for NON-PUBLIC books (the Data panel toggle).
+            // Correlated subquery against users — every consumer of this SQL
+            // runs on pgsql_admin (RLS would blind a default-connection read
+            // of other users' rows, returning NULL → COALESCE true → wrongly
+            // eligible). Missing user, NULL preferences, or absent key all
+            // coalesce to TRUE: embedding stays the default, and anonymous
+            // books (no users row to hold a preference) keep the status quo.
+            . " AND (COALESCE({$l}.visibility, '') = 'public'"
+            . "      OR COALESCE((SELECT (u.preferences->>'embed_private_books')::boolean"
+            . "                   FROM users u WHERE u.name = {$l}.creator), true)))";
     }
 
     /**
@@ -174,11 +191,40 @@ class EmbeddingEligibility
     }
 
     /**
+     * The owner's private-book embedding preference (the Data panel toggle),
+     * read on pgsql_admin — the default connection's users RLS policy hides
+     * every row but your own, which would silently read as "allowed".
+     * Missing user / NULL preferences / absent key = TRUE (the default).
+     */
+    public static function ownerEmbedsPrivate(?string $creator): bool
+    {
+        if ($creator === null || $creator === '') {
+            return true; // anonymous books have no users row to hold a preference
+        }
+
+        $prefs = \Illuminate\Support\Facades\DB::connection('pgsql_admin')
+            ->table('users')->where('name', $creator)->value('preferences');
+        if ($prefs === null) {
+            return true;
+        }
+        $decoded = is_string($prefs) ? json_decode($prefs, true) : (array) $prefs;
+
+        return ($decoded['embed_private_books'] ?? true) !== false;
+    }
+
+    /**
      * PHP-side twin of bookSql() for paths that already hold the library row
      * (the per-node job). $library is a stdClass row from the library table
      * (or null when the book has no row).
+     *
+     * $ownerEmbedsPrivate mirrors bookSql's owner-opt-out clause: pass
+     * ownerEmbedsPrivate($library->creator) when deciding whether to EMBED.
+     * Callers asking the weaker question "could this book ever carry
+     * embeddings" (SearchService's semantic fallback messaging,
+     * PassageSearcher) may omit it — for an opted-out book the vectors are
+     * simply absent, which those paths already handle.
      */
-    public static function bookEligible(?object $library, string $bookId): bool
+    public static function bookEligible(?object $library, string $bookId, ?bool $ownerEmbedsPrivate = null): bool
     {
         if (!$library) {
             return false;
@@ -201,6 +247,9 @@ class EmbeddingEligibility
             $rawType = is_array($decoded) ? (string) ($decoded['type'] ?? '') : '';
         }
         if (in_array($rawType, self::SYNTHETIC_RAW_TYPES, true)) {
+            return false;
+        }
+        if (($library->visibility ?? '') !== 'public' && $ownerEmbedsPrivate === false) {
             return false;
         }
 

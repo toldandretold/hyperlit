@@ -436,6 +436,57 @@ function antecedentAdjudication(claim: ClaimRow): { ante: ClaimRow; adj: Adjudic
 }
 
 /**
+ * The extracted work's identity key, for grouping citations of the SAME work across
+ * independent footnotes. Normalised by stripping everything non-alphanumeric, which
+ * deliberately collapses OCR spacing damage — deloitte c23 prints "Administrative
+ * Ju stice" where the antecedent of c21/c22 prints "Justice", and they are one work.
+ * Short titles need a year to vouch (two "Centrelink"s alone are not identity).
+ */
+function workIdentity(c: ClaimRow): { title: string; year: string | null } | null {
+  const title = c.llm_metadata?.title;
+  if (typeof title !== 'string' || !title) return null;
+  const norm = title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!norm) return null;
+  const year = c.llm_metadata?.year != null ? String(c.llm_metadata.year) : null;
+  return { title: norm, year };
+}
+
+/** Same work? Titles must agree exactly (normalised); a year present on BOTH sides must
+ *  agree; a short title (<12 chars) is only identity when a shared year vouches for it. */
+function sameWork(a: { title: string; year: string | null }, b: { title: string; year: string | null }): boolean {
+  if (a.title !== b.title) return false;
+  if (a.year && b.year) return a.year === b.year;
+  return a.title.length >= 12;
+}
+
+/**
+ * A verdict this claim's SOURCE inherits from elsewhere in the book: via the Ibid
+ * chain (antecedentAdjudication), or — failing that — from any adjudicated claim
+ * citing the SAME WORK in full (same normalised title+year). A work-level verdict
+ * ("that work does not exist") is true for every citation of the work however it is
+ * cited; claim applicability never inherits and stays the reviewer's own judgement.
+ */
+function inheritedSourceVerdict(
+  claim: ClaimRow,
+): { ante: ClaimRow; adj: Adjudication; via: 'antecedent' | 'same work' } | null {
+  const viaChain = antecedentAdjudication(claim);
+  if (viaChain) return { ...viaChain, via: 'antecedent' };
+
+  const mine = workIdentity(claim);
+  if (!mine) return null;
+  const twins = (state.payload?.claims ?? [])
+    .filter((c) => {
+      if (c.key === claim.key || !c.adjudication) return false;
+      const theirs = workIdentity(c);
+      return theirs !== null && sameWork(mine, theirs);
+    })
+    .sort((a, b) =>
+      (b.adjudication?.adjudicated_at ?? '').localeCompare(a.adjudication?.adjudicated_at ?? ''));
+  const best = twins[0];
+  return best?.adjudication ? { ante: best, adj: best.adjudication, via: 'same work' } : null;
+}
+
+/**
  * Whether this claim's verdict is BACKED by a quotation. Three states, and the
  * ABSENT one is the point:
  *  - `quoted` — the adjudication carries evidence, or an applied one left it in
@@ -546,18 +597,24 @@ function renderDetail(claim: ClaimRow): void {
   // with the inheritance visible nowhere except the hostname under Check link, which reads
   // as the resolver having done nothing. Say which work it is, above the verdict on it.
   if (claim.short_form_of) {
-    const sf = el('p', 'st-shortform', claim.short_form_of);
-    srcSec.append(sf);
-    // The antecedent's verdict IS this row's source-identity verdict — an Ibid cites
-    // the same work. Show it where the inheritance is declared, one click to the row.
-    const inh = antecedentAdjudication(claim);
-    if (inh) {
+    srcSec.append(el('p', 'st-shortform', claim.short_form_of));
+  }
+  // A verdict this source inherits from elsewhere in the book: the Ibid antecedent, or
+  // another full citation of the SAME work (normalised title+year, so OCR spacing damage
+  // like "Ju stice" still groups). Shown wherever the source is judged, one click to the row.
+  {
+    const inh = inheritedSourceVerdict(claim);
+    if (inh && !claim.adjudication) {
       const labelText = LABELS.find((l) => l.value === inh.adj.label)?.text ?? inh.adj.label;
-      const b = el('button', 'st-badge st-ante-verdict', `antecedent verdict: ${labelText} ↗`);
+      const b = el('button', 'st-badge st-ante-verdict', `${inh.via} verdict: ${labelText} ↗`);
       b.type = 'button';
-      b.title = 'The source this Ibid inherits was already adjudicated — click to jump to that claim.';
+      b.title = inh.via === 'antecedent'
+        ? 'The source this Ibid inherits was already adjudicated — click to jump to that claim.'
+        : 'Another citation of this same work was already adjudicated — click to jump to that claim.';
       b.addEventListener('click', () => selectClaim(inh.ante));
-      sf.append(' ', b);
+      const wrap = el('p');
+      wrap.append(b);
+      srcSec.append(wrap);
     }
   }
   if (claim.source.found) {
@@ -1554,19 +1611,21 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
   // Source-level labels (fabricated, unverifiable) inherit on one click; work-exists
   // labels pre-tick the checkbox. Nothing saves until the operator hits Save verdict.
   let anteBanner: HTMLElement | null = null;
-  const inherited = claim.short_form_of ? antecedentAdjudication(claim) : null;
+  const inherited = inheritedSourceVerdict(claim);
   if (inherited) {
-    const { ante, adj } = inherited;
+    const { ante, adj, via } = inherited;
     const labelText = LABELS.find((l) => l.value === adj.label)?.text ?? adj.label;
     const anteId = ante.gt?.gt_id ?? ante.referenceId ?? 'antecedent';
     anteBanner = el('div', 'st-ante-banner');
     anteBanner.append(el('p', undefined,
-      `This Ibid's source was already adjudicated on its antecedent (${anteId}): ${labelText}.`));
+      via === 'antecedent'
+        ? `This Ibid's source was already adjudicated on its antecedent (${anteId}): ${labelText}.`
+        : `Another citation of this same work was already adjudicated (${anteId}): ${labelText}.`));
 
     if (adj.label === 'fabricated_reference' || adj.label === 'unverifiable') {
       const btn = el('button', 'st-choice st-ante-inherit', `inherit “${labelText}” — judge scope only`);
       btn.type = 'button';
-      btn.title = 'Pre-selects the antecedent’s label and cause — the Ibid cites the same (non-)work. '
+      btn.title = 'Pre-selects that verdict’s label and cause — this citation names the same (non-)work. '
         + 'Scope, note and evidence stay yours; nothing saves until you click Save verdict.';
       btn.addEventListener('click', () => {
         const li = LABELS.findIndex((l) => l.value === adj.label);
@@ -1579,7 +1638,9 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
           }
         }
         if (!note.value.trim()) {
-          note.value = `source identity inherited from antecedent ${anteId} (Ibid)`;
+          note.value = via === 'antecedent'
+            ? `source identity inherited from antecedent ${anteId} (Ibid)`
+            : `source identity inherited from ${anteId} (same work, cited independently)`;
         }
       });
       anteBanner.append(btn);

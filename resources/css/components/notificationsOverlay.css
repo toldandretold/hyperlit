@@ -242,3 +242,15 @@
 @media (prefers-reduced-motion: reduce) {
   .notif-dot { transition: none; }
 }
+
+/* The terms-notice row is a DIV, not one big anchor (its sentence links to
+   two destinations inline) — no pointer on the row, links carry their own. */
+#notifications-overlay div.notif-row {
+  cursor: default;
+}
+
+#notifications-overlay .notif-row-text a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

@@ -139,6 +139,34 @@ describe('notifications overlay', () => {
     expect(citeRow.querySelector('.notif-verb-cite')?.textContent).toBe('cited');
   });
 
+  it('renders the terms notice as a DIV with inline Terms + Privacy links, not one big anchor', async () => {
+    stubFetch({
+      items: [{
+        ...ITEM,
+        id: 20,
+        type: 'terms_published',
+        actor_label: 'Hyperlit',
+        verb: 'published',
+        context_label: 'its Terms of Service and Privacy Policy',
+        snippet: 'Effective 17 November 2026.',
+        link: '/terms',
+        read_at: new Date().toISOString(),
+      }],
+      unread: 0,
+      total: 1,
+    });
+    await openNotificationsOverlay();
+    const row = document.querySelector('.notif-row-terms_published');
+
+    // Nested <a> is invalid HTML — the row itself must NOT be an anchor…
+    expect(row.tagName).toBe('DIV');
+    expect(row.getAttribute('href')).toBeNull();
+    // …while each named document links inline to its own page.
+    expect(row.querySelector('a[href="/terms"]')?.textContent).toBe('Terms of Service');
+    expect(row.querySelector('a[href="/privacy"]')?.textContent).toBe('Privacy Policy');
+    expect(row.textContent).toContain('Hyperlit');
+  });
+
   it('closes on the close button and releases the focus trap', async () => {
     stubFetch();
     await openNotificationsOverlay();

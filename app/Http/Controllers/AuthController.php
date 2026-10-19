@@ -105,6 +105,10 @@ class AuthController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'user_token' => $userToken,
+                // The register form shows "you agree to the Terms and Privacy
+                // Policy" beside the submit button — this is the record of it.
+                'terms_accepted_at' => now(),
+                'terms_version' => config('terms.version'),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

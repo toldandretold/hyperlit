@@ -26,6 +26,17 @@ vi.mock('../../../resources/js/utilities/auth/index', async (importOriginal) => 
 vi.mock('../../../resources/js/components/archivePanel/exportDownload', () => ({
   initExportDownload: vi.fn(() => ({ destroy: vi.fn() })),
 }));
+vi.mock('../../../resources/js/utilities/preferences', async (importOriginal) => {
+  const real = await importOriginal();
+  return { ...real, savePreference: vi.fn() };
+});
+const userButtonMocks = vi.hoisted(() => ({
+  showUserProfile: vi.fn(),
+  closeContainer: vi.fn(),
+}));
+vi.mock('../../../resources/js/components/userButton/userButton', () => ({
+  initializeUserContainer: vi.fn(() => userButtonMocks),
+}));
 
 import { getProfileHTML } from '../../../resources/js/components/userContainer/forms';
 import { attachProfileButtonListeners } from '../../../resources/js/components/userContainer/profile';
@@ -33,9 +44,11 @@ import {
   openDataSovereigntyOverlay,
   closeDataSovereigntyOverlay,
   initDataSovereigntyOverlay,
+  openDataSovereigntyGuided,
 } from '../../../resources/js/components/dataSovereignty/dataSovereigntyOverlay';
 import { startDeleteAccountFlow } from '../../../resources/js/components/userContainer/deleteAccount';
 import { initExportDownload } from '../../../resources/js/components/archivePanel/exportDownload';
+import { savePreference } from '../../../resources/js/utilities/preferences';
 
 describe('Data sovereignty menu row', () => {
   beforeEach(() => {
@@ -94,7 +107,7 @@ describe('Data sovereignty overlay', () => {
     openDataSovereigntyOverlay(); // second call must not duplicate
 
     expect(document.querySelectorAll('#data-sovereignty-overlay').length).toBe(1);
-    for (const id of ['datasov-export-md', 'datasov-export-sqlite', 'datasovPrivacyBtn', 'datasovDeleteBtn']) {
+    for (const id of ['datasov-export-md', 'datasov-export-sqlite', 'datasovPrivacyBtn', 'datasovTermsBtn', 'datasovDeleteBtn']) {
       expect(document.getElementById(id), `#${id} missing`).toBeTruthy();
     }
     expect(document.querySelector('.datasov-panel-close')).toBeTruthy();
@@ -108,6 +121,55 @@ describe('Data sovereignty overlay', () => {
     expect(initExportDownload).toHaveBeenCalledWith(
       expect.anything(), 'datasov-export-sqlite', { scopeType: 'user', scopeId: 'Test User' }, 'sqlite',
     );
+  });
+
+  it('the embeddings toggle reflects __userPreferences and saves on change', () => {
+    // Default (absent key) = ON.
+    delete window.__userPreferences;
+    openDataSovereigntyOverlay();
+    expect(document.getElementById('datasov-embed-toggle').checked).toBe(true);
+    closeDataSovereigntyOverlay();
+
+    // Stored opt-out = OFF; flipping it saves through the ONE pref writer.
+    window.__userPreferences = { embed_private_books: false };
+    openDataSovereigntyOverlay();
+    const toggle = document.getElementById('datasov-embed-toggle');
+    expect(toggle.checked).toBe(false);
+
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(savePreference).toHaveBeenCalledWith('embed_private_books', true);
+    expect(window.__userPreferences.embed_private_books).toBe(true);
+    delete window.__userPreferences;
+  });
+
+  it('guided open walks the real path: profile first, then the Data row', async () => {
+    vi.useFakeTimers();
+    // A live profile menu whose Data row is wired the normal way.
+    document.body.innerHTML = `<div id="host">${getProfileHTML(true)}</div>`;
+    attachProfileButtonListeners({
+      container: document.getElementById('host'),
+      handleLogout: vi.fn(),
+      handleMyBooksClick: vi.fn(),
+      closeContainer: vi.fn(),
+    });
+
+    await openDataSovereigntyGuided();
+    expect(userButtonMocks.showUserProfile).toHaveBeenCalled();
+    expect(document.getElementById('data-sovereignty-overlay')).toBeNull(); // not yet — the beat matters
+
+    // Beat 1: the Data row LIGHTS UP (the visible "…then press Data" step)
+    // before anything is pressed.
+    await vi.advanceTimersByTimeAsync(700);
+    const row = document.getElementById('dataSovereigntyBtn');
+    expect(row.classList.contains('logo-nav-active')).toBe(true);
+    expect(document.getElementById('data-sovereignty-overlay')).toBeNull();
+
+    // Beat 2: the press fires and the row's own (lazy-import) handler opens the overlay.
+    await vi.advanceTimersByTimeAsync(500);
+    await vi.runOnlyPendingTimersAsync();
+    vi.useRealTimers();
+    await vi.waitFor(() => expect(document.getElementById('data-sovereignty-overlay')).not.toBeNull());
   });
 
   it('closing the overlay destroys the export poll handles', () => {
@@ -136,6 +198,13 @@ describe('Data sovereignty overlay', () => {
 
     openDataSovereigntyOverlay();
     initDataSovereigntyOverlay(); // SPA re-entry must never inherit an open overlay
+    expect(document.getElementById('data-sovereignty-overlay')).toBeNull();
+  });
+
+  it('terms row navigates to /terms (the terms book)', () => {
+    openDataSovereigntyOverlay();
+    document.getElementById('datasovTermsBtn').click();
+    expect(window.location.href).toBe('/terms');
     expect(document.getElementById('data-sovereignty-overlay')).toBeNull();
   });
 

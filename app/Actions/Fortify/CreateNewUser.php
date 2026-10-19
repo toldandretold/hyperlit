@@ -54,6 +54,9 @@ class CreateNewUser implements CreatesNewUsers
             'email' => $input['email'],
             'password' => Hash::make($input['password']),
             'user_token' => Str::uuid()->toString(),
+            // Mirrors AuthController::register — the two paths must not diverge.
+            'terms_accepted_at' => now(),
+            'terms_version' => config('terms.version'),
             'created_at' => now(),
             'updated_at' => now(),
         ]);

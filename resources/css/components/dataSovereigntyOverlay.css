@@ -168,3 +168,19 @@
 #data-sovereignty-overlay .datasov-row.is-busy .export-progress {
   display: block;
 }
+
+/* Settings toggle row: a LABEL (click anywhere flips the checkbox), checkbox
+   pinned right, same row chrome as the buttons. */
+#data-sovereignty-overlay label.datasov-row {
+  cursor: pointer;
+}
+
+#data-sovereignty-overlay .datasov-toggle input[type="checkbox"] {
+  flex-shrink: 0;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 10px;
+  accent-color: var(--hyperlit-aqua, #4EACAE);
+  cursor: pointer;
+}

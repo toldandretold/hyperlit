@@ -97,6 +97,16 @@ export interface SearchBoxConfig {
     };
     /** AI Archivist wiring — submit-driven, no search endpoint involved */
     archivist?: { onSubmit: (query: string, contextId: string, sub: SearchSubScope | null) => void };
+    /**
+     * A NON-blocking disclosure for semantic mode: when it returns a notice,
+     * one line renders above the semantic results (and the empty state) with
+     * an action button. The user page uses it for "your private books aren't
+     * included — embeddings are off", linking the Data-settings walkthrough.
+     * Semantic search itself is never blocked: partial coverage is disclosed,
+     * not refused. Re-evaluated on every render, so flipping the preference
+     * updates the next search without a reload.
+     */
+    semanticNotice?: () => { text: string; actionLabel: string; onAction: () => void } | null;
     /** source tag for logger lines */
     logSource: string;
 }
@@ -240,6 +250,26 @@ export function createSearchBox(config: SearchBoxConfig) {
 
     function handleSemanticToggleChange(event: Event) {
         changeMode((event.target as HTMLInputElement).checked ? 'semantic' : 'library');
+    }
+
+    /** The semanticNotice line (empty string when none applies). */
+    function semanticNoticeHtml(mode: SearchMode): string {
+        if (mode !== 'semantic' || !config.semanticNotice) return '';
+        const notice = config.semanticNotice();
+        if (!notice) return '';
+        return `<div class="search-semantic-notice">${escapeHtml(notice.text)} `
+            + `<button type="button" class="search-semantic-notice-action">${escapeHtml(notice.actionLabel)}</button></div>`;
+    }
+
+    /** Wire the notice's action button after an innerHTML render. */
+    function bindSemanticNoticeAction(): void {
+        const btn = resultsContainer?.querySelector('.search-semantic-notice-action');
+        if (!btn || !config.semanticNotice) return;
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            config.semanticNotice?.()?.onAction();
+        });
     }
 
     /** Brain button: toggle between archivist mode and the previous mode. */
@@ -487,9 +517,10 @@ export function createSearchBox(config: SearchBoxConfig) {
 
         html += '</ul>';
 
-        resultsContainer.innerHTML = html;
+        resultsContainer.innerHTML = semanticNoticeHtml(mode) + html;
         resultsContainer.classList.remove('hidden');
         resultsContainer.classList.add('visible');
+        bindSemanticNoticeAction();
 
         // Clicking a match stashes the query + startLine so the reader opens
         // highlighted at the match (sessionStorage-driven, not URL-driven).
@@ -525,9 +556,11 @@ export function createSearchBox(config: SearchBoxConfig) {
         const message = searchMode === 'semantic'
             ? 'No sufficiently similar passages found'
             : config.noResultsMessage(searchMode, readSubScope());
-        resultsContainer.innerHTML = `<div class="search-no-results">${escapeHtml(message)}</div>`;
+        resultsContainer.innerHTML = semanticNoticeHtml(searchMode)
+            + `<div class="search-no-results">${escapeHtml(message)}</div>`;
         resultsContainer.classList.remove('hidden');
         resultsContainer.classList.add('visible');
+        bindSemanticNoticeAction();
     }
 
     function showError(message: string) {

@@ -1,6 +1,8 @@
 # Terms of Service
 
-Effective 17 October 2026
+Effective 17 November 2026
+
+This date MUST match `config('terms.php')`'s version — registration stamps it and `terms:announce` announces it. (Strip this line along with the source note below before publishing.)
 
 SOURCE for the public terms page, published as a Hyperlit book at `/terms` (same pattern as `/privacy` — a book via the catch-all, no route, no reservation). Strip this paragraph before publishing. Drafted plain-language on purpose; have a lawyer review before relying on it in a dispute.
 
@@ -14,7 +16,7 @@ You're responsible for what happens under your account and for keeping your pass
 
 ## Your content, your rights — and what you grant us
 
-What you write stays yours. By storing content on Hyperlit you grant Lib Zen Pty Ltd only the license needed to operate the service: to store it, back it up, sync it to your devices, and — if and only if you publish it — serve it to readers under the content license you chose. We claim no other rights in your work, and we don't use your content to train AI models.
+What you write stays yours. By storing content on Hyperlit you grant Lib Zen Pty Ltd only the license needed to operate the service: to store it, back it up, sync it to your devices, index it for search (for private books this is configurable — see the [privacy policy](https://hyperlit.io/privacy)), and — if and only if you publish it — serve it to readers under the content license you chose. We claim no other rights in your work, and we don't use your content to train AI models.
 
 **Only publish what you have the right to publish.** Your own work, open-access or openly-licensed material, public-domain texts, or material you have permission for. Importing and privately reading or annotating a text you lawfully have access to is your business; *publishing* is where copyright matters. If you publish someone else's work without the right to, that's on you, and we will take it down when notified.
 
@@ -26,7 +28,7 @@ No illegal content under Australian law or the law that applies to you. No haras
 
 ## Paid features
 
-Some features (OCR import, AI review, audiobooks and similar) cost credits, billed at the rates shown before you confirm. Charges apply only when the work succeeds. Payments run through Stripe; the billing ledger in your account is the record, and you can export it. Credits are not a deposit account — top up what you intend to use.
+Some features (OCR import, AI review, audiobooks and similar) cost credits, billed at the rates shown before you confirm. Payments run through Stripe; the billing ledger in your account is the record, and you can export it. Credits are prepaid service fees, not a deposit account: they can't be withdrawn as cash and unused credits are not refunded, so top up what you intend to use. You're charged only when the work succeeds — a failed job costs nothing — and credits don't expire. Nothing in this section limits your rights under the Australian Consumer Law, including any remedy for a service not provided with due care and skill.
 
 ## Encrypted books are your responsibility
 
@@ -46,4 +48,8 @@ The service is provided **as is**, without warranty of any kind, to the maximum 
 
 ## Changes and contact
 
-We may update these terms; material changes will be visible on this page with a new effective date, and continued use after a change is acceptance. Questions: [sam@hyperlit.io](mailto:sam@hyperlit.io). Governing law: New South Wales, Australia.
+We may update these terms and the privacy policy. For material changes we give at least 30 days' notice — by email to your registered address and an in-app notification — before the new terms take effect, and the new effective date appears at the top of this page. Changes are never retrospective: what you did before an effective date is governed by the terms in force at the time.
+
+If you don't agree with a change, you can export everything and delete your account before it takes effect (profile menu → Data). Every version of these terms is public in the [project's git history](https://github.com/toldandretold/hyperlit/commits/main/docs/terms-page.md), so you can see exactly what changed and when. Continued use after the effective date is acceptance.
+
+Questions: [sam@hyperlit.io](mailto:sam@hyperlit.io). Governing law: South Australia, Australia.

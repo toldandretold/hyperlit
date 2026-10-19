@@ -99,3 +99,28 @@ test('the feed pages at 50 with a stable total', function () {
     $second = $this->getJson('/api/notifications?offset=50');
     expect(count($second->json('items')))->toBe(5);
 });
+
+test('a terms_published item presents as Hyperlit publishing, linking to /terms', function () {
+    $me = $this->loginUser();
+    // Same shape terms:announce writes: actor is the reserved 'Hyperlit'
+    // name, book 'terms', subject_id = the terms VERSION (the dedupe key).
+    $id = seedNotification($me->name, [
+        'type' => 'terms_published',
+        'actor' => 'Hyperlit',
+        'book' => 'terms',
+        'root_book' => 'terms',
+        'subject_id' => '2026-11-17',
+        'data' => json_encode(['context_label' => 'its Terms of Service and Privacy Policy', 'snippet' => 'Effective 17 November 2026 — tap to read.']),
+    ]);
+
+    $item = collect($this->getJson('/api/notifications')->assertStatus(200)->json('items'))
+        ->firstWhere('type', 'terms_published');
+
+    expect($item)->not->toBeNull();
+    expect($item['actor_label'])->toBe('Hyperlit');
+    expect($item['verb'])->toBe('published');
+    expect($item['link'])->toBe('/terms'); // never '/terms#2026-11-17' — subject_id is a version, not an anchor
+    expect($item['context_label'])->toBe('its Terms of Service and Privacy Policy');
+
+    DB::connection('pgsql_admin')->table('notifications')->where('id', $id)->delete();
+});

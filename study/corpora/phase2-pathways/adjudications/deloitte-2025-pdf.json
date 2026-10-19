@@ -238,6 +238,57 @@
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-15T01:43:12+00:00",
             "evidenced_by": "encryptER"
+        },
+        "deloitte-2025-pdf/c21": {
+            "gt_id": "deloitte-2025-pdf/c21",
+            "referenceId": "seq1_Fn1791856531483_000l",
+            "run_id": "20261013_015614_4e763b91.13",
+            "label": "fabricated_reference",
+            "cause": null,
+            "supported_scope": null,
+            "note": "source identity inherited from antecedent deloitte-2025-pdf/c131 (Ibid)",
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": null,
+            "evidence_locator": null,
+            "adjudicated_at": "2026-10-18T23:07:12+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": null,
+            "evidenced_by": null
+        },
+        "deloitte-2025-pdf/c22": {
+            "gt_id": "deloitte-2025-pdf/c22",
+            "referenceId": "seq1_Fn1791856531483_000m",
+            "run_id": "20261013_015614_4e763b91.13",
+            "label": "fabricated_reference",
+            "cause": null,
+            "supported_scope": null,
+            "note": "source identity inherited from antecedent deloitte-2025-pdf/c131 (Ibid)",
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": null,
+            "evidence_locator": null,
+            "adjudicated_at": "2026-10-18T23:47:47+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": null,
+            "evidenced_by": null
+        },
+        "deloitte-2025-pdf/c23": {
+            "gt_id": "deloitte-2025-pdf/c23",
+            "referenceId": "seq1_Fn1791856531483_000n",
+            "run_id": "20261013_015614_4e763b91.14",
+            "label": "fabricated_reference",
+            "cause": null,
+            "supported_scope": null,
+            "note": "source identity inherited from deloitte-2025-pdf/c22 (same work, cited independently)",
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": null,
+            "evidence_locator": null,
+            "adjudicated_at": "2026-10-18T23:58:36+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": null,
+            "evidenced_by": null
         }
     }
 }

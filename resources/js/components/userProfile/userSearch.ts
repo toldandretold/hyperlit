@@ -24,6 +24,7 @@
  */
 
 import { createSearchBox, type SearchSubScope } from '../../search/searchBox';
+import { getCurrentUserInfo } from '../../utilities/auth/index';
 
 /**
  * The open shelf tab, if any. Covers BOTH tab flavours: the owner's dynamic
@@ -134,8 +135,38 @@ const userSearchBox = createSearchBox({
         return `/api/public/library/${encodeURIComponent(username)}/search?q=${encodeURIComponent(query)}${modeParam}${shelfParam}`;
     },
     context: { datasetKey: 'username', missingPlaceholder: 'No library yet' },
+    // On YOUR OWN page with private-book embeddings turned off (the Data
+    // panel toggle), semantic results silently cover only your PUBLIC books.
+    // Semantic search stays fully usable — public books are indexed
+    // regardless — but partial coverage is DISCLOSED above the results, with
+    // the guided path to re-enable (nav → Account → Data). Other people's
+    // pages never show it: their public books are indexed no matter what.
+    // Re-evaluated per render, so flipping the preference updates the next
+    // search without a reload.
+    semanticNotice: () => {
+        if (!viewingOwnPageWithEmbedsOff()) return null;
+        return {
+            text: 'Your private books aren’t included — semantic indexing is off for them.',
+            actionLabel: 'Enable in Data settings',
+            onAction: () => {
+                void import('../dataSovereignty/dataSovereigntyOverlay')
+                    .then((m) => m.openDataSovereigntyGuided());
+            },
+        };
+    },
     logSource: '/components/userProfile/userSearch.ts',
 });
+
+/** Is the logged-in viewer the owner of this user page, with embeddings off? */
+function viewingOwnPageWithEmbedsOff(): boolean {
+    if (((window as any).__userPreferences?.embed_private_books) !== false) return false;
+    const pageUser = document.getElementById('user-search-container')?.dataset.username ?? '';
+    const me = getCurrentUserInfo()?.name ?? '';
+    if (!pageUser || !me) return false;
+    const key = (s: string) => s.replace(/ /g, '').toLowerCase();
+
+    return key(pageUser) === key(String(me));
+}
 
 export function initializeUserSearch(): void {
     userSearchBox.init();

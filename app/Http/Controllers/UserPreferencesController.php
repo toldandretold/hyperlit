@@ -11,6 +11,7 @@ class UserPreferencesController extends Controller
 {
     private const ALLOWED_KEYS = [
         'theme', 'vibe_css', 'full_width', 'gate_filter',
+        'embed_private_books',                           // Data panel: semantic search for private books (default true)
         'reading_mode',                                  // legacy (pre device-scoping)
         'text_size', 'content_width',                    // legacy
         'text_size_mobile', 'text_size_desktop',

@@ -80,7 +80,11 @@ class GenerateNodeEmbedding implements ShouldQueue
             ->where('book', $node->book)
             ->first();
 
-        if (!\App\Services\EmbeddingEligibility::bookEligible($library, $node->book)) {
+        if (!\App\Services\EmbeddingEligibility::bookEligible(
+            $library,
+            $node->book,
+            \App\Services\EmbeddingEligibility::ownerEmbedsPrivate($library->creator ?? null),
+        )) {
             return;
         }
 

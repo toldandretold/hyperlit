@@ -89,6 +89,27 @@ function verbHtml(n: NotificationItem): string {
 }
 
 function rowHtml(n: NotificationItem): string {
+    // System terms notice: the sentence names TWO destinations, and nested
+    // <a> is invalid HTML — so this one type renders as a DIV with the words
+    // "Terms of Service" / "Privacy Policy" linked inline. Linkified AFTER
+    // escaping, by replacing the known literals inside the server's
+    // context_label, so a future change-notice label ("an update to its
+    // Terms of Service") linkifies too. The only client-known links in this
+    // panel; every engagement row stays fully server-driven.
+    if (n.type === 'terms_published') {
+        const label = esc(n.context_label)
+            .replace('Terms of Service', '<a href="/terms">Terms of Service</a>')
+            .replace('Privacy Policy', '<a href="/privacy">Privacy Policy</a>');
+        return `
+      <div class="notif-row notif-row-terms_published${n.read_at ? '' : ' notif-unread'}">
+        <span class="notif-row-main">
+          <span class="notif-row-text"><strong>${esc(n.actor_label)}</strong> ${verbHtml(n)} ${label}</span>
+          ${n.snippet ? `<span class="notif-row-snippet">&ldquo;${esc(n.snippet)}&rdquo;</span>` : ''}
+        </span>
+        <span class="notif-row-time">${esc(timeAgo(n.created_at))}</span>
+      </div>`;
+    }
+
     // The whole row is a real ANCHOR: "go to the highlight/citation/book" is a
     // plain navigation the SPA link handler owns (no preventDefault branch).
     const heart = n.type === 'like' ? LIKE_HEART : '';

@@ -86,6 +86,8 @@ class NotificationController extends Controller
             'hyperlight' => 'highlighted',
             'hypercite_paired' => 'cited',
             'like' => 'liked',
+            // "Hyperlit published its Terms of Service…" (terms:announce)
+            'terms_published' => 'published',
             default => 'engaged with',
         };
 
@@ -93,6 +95,8 @@ class NotificationController extends Controller
             // citing_ref is already "/{citingBook}#{anchorId}" — link to THEIR citation
             'hypercite_paired' => $n->citing_ref ?: '/' . $n->root_book,
             'hyperlight' => '/' . $n->book . ($n->subject_id ? '#' . $n->subject_id : ''),
+            // subject_id holds the terms VERSION here, never an anchor.
+            'terms_published' => '/terms',
             default => '/' . $n->book,
         };
 

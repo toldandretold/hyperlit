@@ -60,6 +60,15 @@ export function getRegisterFormHTML(): string {
                  style="width: 100%; padding: 8px; border-radius: 4px; border: none; background: var(--container-solid-bg); color: var(--color-text); box-sizing: border-box;">
           <div id="registerPasswordError" style="font-size: 11px; color: var(--color-primary); margin-top: 4px; display: none;"></div>
         </div>
+        ${/* Sign-in-wrap: what makes the terms_accepted_at stamp (both server
+             register paths) mean something. Plain links — they match nothing
+             in the container's delegation map so they navigate normally, and
+             target=_blank keeps the half-filled form alive. */''}
+        <div style="font-size: 11px; color: var(--color-text); opacity: 0.6; margin-bottom: 10px; line-height: 1.4;">
+          By creating an account you agree to the
+          <a href="/terms" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">Terms of Service</a> and
+          <a href="/privacy" target="_blank" rel="noopener" style="color: inherit; text-decoration: underline;">Privacy Policy</a>.
+        </div>
         <button type="submit" id="registerSubmit"
                 style="width: 100%; padding: 10px; background: var(--color-accent); color: var(--color-background); border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
           Register
