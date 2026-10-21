@@ -25,6 +25,12 @@ import {
 
 const FLAGGED = new Set(['rejected', 'unlikely', 'source_not_found', 'insufficient']);
 
+/** Evidence = what the REVIEWER read that settles THEIR verdict — "from the source" is only
+ *  the common case; a fabricated-reference verdict quotes counter-evidence instead (the form
+ *  swaps this wording per label, see applyLabelCopy in adjudicationForm). */
+const EVIDENCE_PLACEHOLDER_DEFAULT =
+  'Quotes from the source that back this verdict — one per paragraph. Select text in the pane and press "use selection", or paste.';
+
 // Axis 1 — your verdict on the CITATION ITSELF. Applied, it becomes the
 // entry's label in ground_truth.json: the baseline the AI is scored against.
 const LABELS: Array<{ value: string; text: string; desc: string }> = [
@@ -499,11 +505,40 @@ function inheritedSourceVerdict(
  * same question asked twice — a row that shows the amber badge and then hides
  * from the filter meant to collect it would be worse than neither.
  */
-function evidenceState(claim: ClaimRow): 'quoted' | 'owed' | null {
+function evidenceState(claim: ClaimRow): 'quoted' | 'inherited' | 'owed' | null {
   const adj = claim.adjudication;
   if (adj?.evidence || claim.gt?.evidence) return 'quoted';
-  if (adj && labelExpectsEvidence(adj.label)) return 'owed';
+  if (adj && labelExpectsEvidence(adj.label)) {
+    return inheritedEvidence(claim) ? 'inherited' : 'owed';
+  }
   return null;
+}
+
+/**
+ * The evidence an inherited verdict RESOLVES to. A fabrication proof is about the
+ * WORK, so the quotes recorded on the antecedent's verdict hold for every citation
+ * of that work — an Ibid labelled fabricated one hop from its proof is EVIDENCED,
+ * not an assertion, and the system can derive that itself (it already knows the
+ * inheritance). Derived at read time so nothing has to be re-saved or copied:
+ * requires the claim's own verdict to lack quotes, the labels to AGREE (a different
+ * label is a different judgement — its proof does not transfer), and the antecedent
+ * (via the Ibid chain or same-work identity) to carry evidence.
+ */
+function inheritedEvidence(
+  claim: ClaimRow,
+): { ante: ClaimRow; anteId: string; quote: string; locator: string | null } | null {
+  const adj = claim.adjudication;
+  if (!adj || adj.evidence || claim.gt?.evidence) return null;
+  const inh = inheritedSourceVerdict(claim);
+  if (!inh || inh.adj.label !== adj.label) return null;
+  const quote = inh.adj.evidence ?? inh.ante.gt?.evidence ?? null;
+  if (!quote) return null;
+  return {
+    ante: inh.ante,
+    anteId: inh.ante.gt?.gt_id ?? inh.ante.referenceId ?? 'antecedent',
+    quote,
+    locator: inh.adj.evidence_locator ?? inh.ante.gt?.evidence_locator ?? null,
+  };
 }
 
 /** The evidence state as a list badge — the detail pane's evidence block, hoisted. */
@@ -512,6 +547,11 @@ function evidenceStateBadge(claim: ClaimRow): HTMLElement | null {
   if (st === 'quoted') {
     const badge = el('span', 'st-badge st-evidenced', '❝ evidenced');
     if (!claim.adjudication?.evidence) badge.title = 'Evidence already applied into ground truth';
+    return badge;
+  }
+  if (st === 'inherited') {
+    const badge = el('span', 'st-badge st-evidenced', '❝ evidenced (inherited)');
+    badge.title = 'The proof lives on the antecedent’s verdict — same work, same evidence.';
     return badge;
   }
   if (st === 'owed') {
@@ -1349,8 +1389,7 @@ function evidenceFields(existing: Adjudication | null): {
   const textarea = el('textarea', 'st-note st-evidence') as HTMLTextAreaElement;
   textarea.rows = 6;
   textarea.maxLength = EVIDENCE_MAX_CHARS;
-  textarea.placeholder =
-    'Quotes from the source that back this verdict — one per paragraph. Select text in the pane and press "use selection", or paste.';
+  textarea.placeholder = EVIDENCE_PLACEHOLDER_DEFAULT;
   textarea.value = existing?.evidence ?? '';
   // The id is how the prefill buttons find whichever copy of this is on screen
   // (the first-verdict form and the saved-verdict editor are never both open).
@@ -1531,6 +1570,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
       causeRow.classList.remove('st-disabled');
       scopeRow.classList.remove('st-disabled');
       saveBtn.disabled = false;
+      applyLabelCopy(l.value);
     });
     return b;
   });
@@ -1597,8 +1637,28 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
 
   const foundUrl = el('input', 'st-note st-found-url') as HTMLInputElement;
   foundUrl.type = 'url';
-  foundUrl.placeholder =
+  const URL_PLACEHOLDER_DEFAULT =
     'URL where YOU found the source (optional) — each one becomes a resolver test case';
+  foundUrl.placeholder = URL_PLACEHOLDER_DEFAULT;
+
+  /**
+   * The form's wording assumes a REAL source, which reads wrong the moment the verdict is
+   * "fabricated reference" — there is no source, so the URL and quotes are COUNTER-EVIDENCE:
+   * the TOC/index/other review the operator checked, backing their claim ABOUT the source.
+   * The stored fields already mean exactly that (evidence = what the REVIEWER read; found_url
+   * rides next to the label in dataset.csv, and only resolver_gap rows feed resolver test
+   * cases) — this just makes the form say so, per selected label.
+   */
+  const applyLabelCopy = (label: string): void => {
+    const noSource = label === 'fabricated_reference';
+    foundUrl.placeholder = noSource
+      ? 'URL of what YOU checked (optional) — the TOC / index / review showing the work does not exist, NOT the cited work'
+      : URL_PLACEHOLDER_DEFAULT;
+    evidence.textarea.placeholder = noSource
+      ? 'Quotes from what YOU read that settles this — counter-evidence (journal TOC, index, '
+        + 'another review documenting the fabrication), since there is no source to quote.'
+      : EVIDENCE_PLACEHOLDER_DEFAULT;
+  };
 
   const note = el('textarea', 'st-note') as HTMLTextAreaElement;
   note.placeholder = 'Optional note — your reasoning; saved with the verdict, lands in dataset.csv';
@@ -1625,8 +1685,9 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     if (adj.label === 'fabricated_reference' || adj.label === 'unverifiable') {
       const btn = el('button', 'st-choice st-ante-inherit', `inherit “${labelText}” — judge scope only`);
       btn.type = 'button';
-      btn.title = 'Pre-selects that verdict’s label and cause — this citation names the same (non-)work. '
-        + 'Scope, note and evidence stay yours; nothing saves until you click Save verdict.';
+      btn.title = 'Pre-selects that verdict’s label and cause. The antecedent’s evidence counts for '
+        + 'this row automatically — a fabrication verdict is about the WORK, so its proof holds for '
+        + 'every citation of it. Scope and note stay yours; nothing saves until you click Save verdict.';
       btn.addEventListener('click', () => {
         const li = LABELS.findIndex((l) => l.value === adj.label);
         labelButtons[li]?.click();
@@ -1642,6 +1703,10 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
             ? `source identity inherited from antecedent ${anteId} (Ibid)`
             : `source identity inherited from ${anteId} (same work, cited independently)`;
         }
+        // Evidence is NOT copied here: the saved verdict RESOLVES to the antecedent's
+        // quotes at read time (inheritedEvidence) and the apply step writes them into
+        // ground truth with provenance — the proof lives once, on the verdict that
+        // established it, and this row still counts as evidenced for the research.
       });
       anteBanner.append(btn);
     } else if (['verified_intact', 'claim_distortion', 'source_swap'].includes(adj.label)) {
@@ -1754,6 +1819,7 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
 function evidenceBlock(claim: ClaimRow, adj: Adjudication, host: HTMLElement): HTMLElement {
   const block = el('div', 'st-evidence-block');
 
+  const inherited = adj.evidence ? null : inheritedEvidence(claim);
   if (adj.evidence) {
     // pre-wrap in CSS, so paragraphs survive without innerHTML (house rule).
     block.append(el('blockquote', 'st-evidence-quote', adj.evidence));
@@ -1761,6 +1827,19 @@ function evidenceBlock(claim: ClaimRow, adj: Adjudication, host: HTMLElement): H
       .filter(Boolean)
       .join(' · ');
     if (meta) block.append(el('p', 'st-muted', meta));
+  } else if (inherited) {
+    // The verdict inherits its source from an adjudicated antecedent, so it inherits the
+    // PROOF too — same work, same evidence. Shown resolved (not copied) so the quote
+    // lives once, on the verdict that established it.
+    block.append(el('blockquote', 'st-evidence-quote', inherited.quote));
+    const meta = el('p', 'st-muted');
+    meta.append(inherited.locator ? `${inherited.locator} · ` : '');
+    const jump = el('button', 'st-badge st-ante-verdict', `inherited from ${inherited.anteId} ↗`);
+    jump.type = 'button';
+    jump.title = 'The verdict this evidence was recorded on — click to jump to it.';
+    jump.addEventListener('click', () => selectClaim(inherited.ante));
+    meta.append(jump);
+    block.append(meta);
   } else if (labelExpectsEvidence(adj.label)) {
     // Only nag where a quotation is actually possible: the non-scored labels
     // are exempt precisely because there is nothing to quote.

@@ -189,7 +189,11 @@ class AdjudicationStore
             'note' => $note !== null && $note !== '' ? $note : null,
             // Where the HUMAN found the source (a resolver_gap adjudication
             // with a found_url is a ready-made resolver test case: "a human
-            // found it here — why didn't we?").
+            // found it here — why didn't we?"). The meaning FOLLOWS THE LABEL:
+            // on a fabricated_reference row there is no source, so this URL is
+            // COUNTER-EVIDENCE (the TOC/index/review the human checked) and
+            // must never be read as "where the cited work lives" — only
+            // resolver_gap-shaped rows qualify as resolver test cases.
             'found_url' => $foundUrl !== null && $foundUrl !== '' ? $foundUrl : null,
             // Verification is TWO-LEVEL and a paywall splits them: the WORK's
             // existence (title/author/outlet match — visible behind most
@@ -373,9 +377,21 @@ class AdjudicationStore
             // judgement should carry its evidence in the same file rather than
             // only in the adjudications the reader would have to be told about.
             // Written only when present, so machine-labelled entries stay clean.
+            // An INHERITED verdict (the workbench's Ibid/same-work inherit, whose
+            // note names its antecedent) resolves to the antecedent's quotes —
+            // a fabrication proof is about the WORK, so it holds for every
+            // citation of it, and the ground-truth entry records the provenance.
+            $source = $record;
+            if (trim((string) ($record['evidence'] ?? '')) === '') {
+                $donor = $this->resolveInheritedEvidence($record, $data['adjudications']);
+                if ($donor !== null) {
+                    $source = $donor['record'];
+                    $groundTruth['entries'][$i]['evidence_inherited_from'] = $donor['from'];
+                }
+            }
             foreach (['evidence', 'evidence_locator', 'evidenced_by', 'evidenced_at'] as $field) {
-                if (($record[$field] ?? null) !== null && $record[$field] !== '') {
-                    $groundTruth['entries'][$i][$field] = $record[$field];
+                if (($source[$field] ?? null) !== null && $source[$field] !== '') {
+                    $groundTruth['entries'][$i][$field] = $source[$field];
                 }
             }
             $applied++;
@@ -385,6 +401,43 @@ class AdjudicationStore
             $manifest->saveGroundTruth($book, $groundTruth);
         }
         return ['applied' => $applied, 'skipped' => $skipped, 'stale_mislinks' => $staleMislinks];
+    }
+
+    /**
+     * The adjudication an inherited verdict's evidence RESOLVES to, or null.
+     *
+     * The workbench's inherit button writes a machine-shaped note naming the
+     * antecedent ("source identity inherited from antecedent {id} (Ibid)" /
+     * "… from {id} (same work, cited independently)"); {id} is the antecedent
+     * claim's gt_id when it was bound, else its referenceId. The donor must
+     * carry the SAME label (a different label is a different judgement — its
+     * proof does not transfer) and non-empty evidence. Resolution happens at
+     * APPLY time, not save time, so evidence added to the antecedent in a later
+     * sitting still reaches every verdict that inherits from it.
+     *
+     * @param array<string, array<string, mixed>> $adjudications
+     * @return array{record: array<string, mixed>, from: string}|null
+     */
+    public function resolveInheritedEvidence(array $record, array $adjudications): ?array
+    {
+        if (!preg_match('/source identity inherited from (?:antecedent )?(\S+)/',
+            (string) ($record['note'] ?? ''), $m)) {
+            return null;
+        }
+        $anteId = $m[1];
+        foreach ($adjudications as $donor) {
+            if (($donor['gt_id'] ?? null) !== $anteId && ($donor['referenceId'] ?? null) !== $anteId) {
+                continue;
+            }
+            if (($donor['label'] ?? null) !== ($record['label'] ?? null)) {
+                continue;
+            }
+            if (trim((string) ($donor['evidence'] ?? '')) === '') {
+                continue;
+            }
+            return ['record' => $donor, 'from' => $anteId];
+        }
+        return null;
     }
 
     private function save(CorpusManifest $manifest, array $book, array $data): void

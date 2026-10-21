@@ -115,6 +115,68 @@ def test_page_local_footer_number_colliding_with_linked_ref_rescues_under_fresh_
 
 
 # ---------------------------------------------------------------------------
+# deloitte c132 — TWO NUMBER SPACES. A renumbered (page_bottom) doc's markdown
+# markers drift away from the printed numbers at every lost marker, and the
+# footer candidates carry PRINTED numbers. The attach-under-the-ref's-own-number
+# branch glued printed note 30 (Wilcock) onto markdown [^30] (printed 31,
+# Carney) — a confidently wrong definition no count can see. Candidates must be
+# translated through the page's own local→global map; untranslatable ones may
+# seam-insert under a fresh number but never attach to a same-numbered ref.
+# ---------------------------------------------------------------------------
+
+# A renumbered doc: printed 29 was lost, so markdown [^29] = printed 30 (def
+# present, OCR-damaged) and markdown [^30] = printed 31 (ref live, def LOST).
+DRIFTED = ('Embed proactive system features for engagement.[^29] Define and enforce core '
+           'architectural principles for integrity.[^30]\n\n'
+           '[^29]: Scarlett Wilcock, Policing Welfare Fraud: The Government of Welfare '
+           'Fraud and Non -Compliance (Rou tledge, 2024) 85-89.')
+DRIFT_MAPS = {33: {30: 29}, 34: {31: 30}}
+
+
+def test_renumbered_doc_footer_def_translates_through_the_page_map(monkeypatch):
+    # Page 34's footer holds printed note 31 (Carney) — the page map says printed 31 IS
+    # markdown [^30], whose def was lost: attach it there, not under a literal [^31].
+    _with_stub(monkeypatch, {33: 'features for engagement.30 Define', 34: 'integrity.31 More'})
+    resp = {'pages': [
+        {'index': 33, 'footer': '30 Scarlett Wilcock, Policing Welfare Fraud: The Government '
+                                'of Welfare Fraud and Non-Compliance (Routledge, 2024) 85-89.'},
+        {'index': 34, 'footer': '31 Terry Carney, Automating Compliance and Administrative '
+                                'Justice in Australia (2024) 31(1) JSSL 32.'},
+    ]}
+    out, n = A._rescue_refless_footer_footnotes(DRIFTED, resp, '/fake.pdf',
+                                                page_local_to_global=DRIFT_MAPS)
+    assert '[^30]: Terry Carney, Automating Compliance' in out
+    # Printed 30 translates to markdown 29, whose (damaged) def is the SAME note — skipped,
+    # and above all the Wilcock text must never land under [^30].
+    assert 'Policing Welfare Fraud' not in out.split('[^30]:')[1]
+    assert out.count('Policing Welfare Fraud') == 1
+
+
+def test_renumbered_doc_untranslatable_candidate_never_attaches_to_a_same_numbered_ref(monkeypatch):
+    # The candidate's page built no map (its markers were all lost) — the printed number
+    # cannot name a markdown number, so [^30] must stay defless rather than inherit the
+    # wrong printed note. No seam witness here either, so nothing is inserted.
+    _with_stub(monkeypatch, {33: 'nothing matching any seam at all'})
+    resp = {'pages': [{'index': 33, 'footer': '30 Scarlett Wilcock, Policing Welfare Fraud: '
+                                              'The Government of Welfare Fraud (2024) 85-89.'}]}
+    out, n = A._rescue_refless_footer_footnotes(DRIFTED, resp, '/fake.pdf',
+                                                page_local_to_global=DRIFT_MAPS)
+    assert n == 0
+    assert 'Policing Welfare Fraud: The Government of Welfare Fraud (2024)' not in out
+
+
+def test_doc_without_renumbering_keeps_attaching_by_printed_number(monkeypatch):
+    # Empty maps = the doc never renumbered (the 5c548774 class): printed numbers ARE
+    # markdown numbers and the attach branch behaves exactly as before.
+    _with_stub(monkeypatch, {1: PYPDF_TEXT})
+    refless = BODY.replace('were reviewed.', 'were reviewed[^1].')
+    resp = {'pages': [{'index': 1, 'footer': '1 ' + FOOTER_DEF}]}
+    out, n = A._rescue_refless_footer_footnotes(refless, resp, '/fake.pdf',
+                                                page_local_to_global={})
+    assert n == 1 and '[^1]: As examined in section 2: Abbink et al.' in out
+
+
+# ---------------------------------------------------------------------------
 # 7fa30289 — Mistral dropped 8 of 9 superscript markers. The seams the old shape
 # list could not see, plus the page-bottom RUN that licenses recovery when no
 # surviving marker is left to set a ceiling.

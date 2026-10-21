@@ -48,6 +48,9 @@ class StudyAdjudicationsCommand extends Command
                 $byCause[$cause] = ($byCause[$cause] ?? 0) + 1;
                 if (in_array($record['label'], $scored, true)
                     && trim((string) ($record['evidence'] ?? '')) === ''
+                    // An inherited verdict resolves to its antecedent's quotes —
+                    // evidenced by provenance, not an assertion (same rule apply uses).
+                    && $store->resolveInheritedEvidence($record, $data['adjudications']) === null
                 ) {
                     $unevidenced[] = $key;
                 }

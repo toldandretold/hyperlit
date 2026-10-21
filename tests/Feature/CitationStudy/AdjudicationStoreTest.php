@@ -340,3 +340,56 @@ test('human evidence SURVIVES a ground-truth regeneration', function () {
     expect($after['fixture/c01']['evidence'])->toBe('"quoted by a human"')
         ->and($after['fixture/c01']['evidence_locator'])->toBe('p. 7');
 });
+
+test('apply resolves an inherited verdict to its antecedent\'s evidence, with provenance', function () {
+    // deloitte c29: an Ibid labelled fabricated via the workbench's inherit button carries
+    // no quotes of its own — its note names the antecedent, and a fabrication proof is
+    // about the WORK, so the antecedent's evidence holds for every citation of it. The
+    // ground-truth entry must come out EVIDENCED, naming where the proof lives.
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $store->put($manifest, $book, 'fixture/c01', 'fabricated_reference', 'correct_flag',
+        'checked JSSL 31(1) contents — no such article', 'ref_abc', 'run1', 'sam',
+        evidence: 'JSSL vol 31 issue 1 table of contents, pp 1–214: no Carney article appears.',
+        evidenceLocator: 'JSSL 31(1) TOC');
+    $store->put($manifest, $book, 'fixture/c02', 'fabricated_reference', 'correct_flag',
+        'source identity inherited from antecedent fixture/c01 (Ibid)', 'ref_def', 'run1', 'sam');
+
+    $store->applyToGroundTruth($manifest, $book);
+    $byId = collect($manifest->loadGroundTruth($book)['entries'])->keyBy('gt_id');
+
+    expect($byId['fixture/c02']['evidence'])->toBe(
+        'JSSL vol 31 issue 1 table of contents, pp 1–214: no Carney article appears.')
+        ->and($byId['fixture/c02']['evidence_inherited_from'])->toBe('fixture/c01')
+        ->and($byId['fixture/c02']['evidence_locator'])->toBe('JSSL 31(1) TOC')
+        ->and($byId['fixture/c01'])->not->toHaveKey('evidence_inherited_from');
+});
+
+test('inherited evidence does NOT transfer across a different label, and resolves by referenceId', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    // Donor adjudicated under a DIFFERENT label: its proof is a different judgement.
+    $store->put($manifest, $book, 'fixture/c01', 'claim_distortion', null,
+        null, 'ref_abc', 'run1', 'sam', evidence: 'The source says the opposite on p 12.');
+    $store->put($manifest, $book, 'fixture/c02', 'fabricated_reference', null,
+        'source identity inherited from antecedent fixture/c01 (Ibid)', 'ref_def', 'run1', 'sam');
+    $store->applyToGroundTruth($manifest, $book);
+    $byId = collect($manifest->loadGroundTruth($book)['entries'])->keyBy('gt_id');
+    expect($byId['fixture/c02'])->not->toHaveKey('evidence')
+        ->and($byId['fixture/c02'])->not->toHaveKey('evidence_inherited_from');
+
+    // An antecedent whose gt was unbound at adjudication time is named by its
+    // referenceId in the note (deloitte c29's actual shape) — resolution must
+    // find it by referenceId too.
+    $data = $store->load($manifest, $book);
+    $record = ['label' => 'claim_distortion',
+               'note' => 'source identity inherited from antecedent ref_abc (Ibid)'];
+    $donor = $store->resolveInheritedEvidence($record, $data['adjudications']);
+    expect($donor)->not->toBeNull()
+        ->and($donor['from'])->toBe('ref_abc')
+        ->and($donor['record']['evidence'])->toBe('The source says the opposite on p 12.');
+});

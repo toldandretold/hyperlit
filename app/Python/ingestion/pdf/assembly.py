@@ -835,7 +835,8 @@ def _marker_seam_witnesses(ptext, num):
 _FOOTER_RESCUE_DEF_RE = re.compile(r'(?m)^\s*(\d{1,2})[.)]?[ \t]+(?=[A-Z(‘“"\'])')
 
 
-def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
+def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
+                                     page_local_to_global=None):
     """A footnote whose in-text marker Mistral dropped ENTIRELY and whose definition landed in
     the page FOOTER (5c548774: printed "…interventions were reviewed¹." OCR'd with no marker at
     all — zero refs, so classification fell to 'none' and no recovery path ever ran, while the
@@ -845,8 +846,21 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
     (after it) — insert the marker at the seam (which must match EXACTLY ONCE in the whole
     document; ambiguity skips) and fold the def in. The marker gets a FRESH number when the
     printed one is already taken (this doc's author affiliations occupy [^1..14] — reusing the
-    printed 1 would wrong-link to an affiliation). Returns (combined, rescued_count)."""
+    printed 1 would wrong-link to an affiliation). Returns (combined, rescued_count).
+
+    TWO NUMBER SPACES, and conflating them is the trap (deloitte c132): a footer/text-layer
+    candidate carries the PRINTED number, but a renumbered doc's markdown markers live in the
+    GLOBAL space, and the two drift apart at every lost marker (deloitte lost printed 29, so
+    markdown [^30] sits where print has 31). The "ref exists but no def — this candidate IS the
+    missing definition" branch then attached printed note 30 (Wilcock) to markdown [^30]
+    (printed 31, Carney) — a confidently wrong definition, invisible to every count. When
+    `page_local_to_global` (the renumbering's own per-page printed→global maps) is provided and
+    non-empty, a printed-space candidate is TRANSLATED through its page's map before any
+    markdown-side decision; an untranslatable candidate may still be rescued by seam insertion
+    under a FRESH number (positionally witnessed), but never attached to a same-numbered ref."""
     # Candidate set 1 — FOOTER defs (def stranded in the footer field, no def in combined).
+    # Candidates are (page_idx, num, def_text, printed_space): sets 1 and 3 carry the PRINTED
+    # number (footer text / text layer), set 2's numbers are already markdown-space.
     candidates = []
     for page in response_dict.get('pages', []):
         footer = (page.get('footer') or '').strip()
@@ -857,7 +871,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
             end = starts[k + 1].start() if k + 1 < len(starts) else len(footer)
             text = re.sub(r'\s+', ' ', footer[m.end():end]).strip()
             if len(text) >= 20:
-                candidates.append((page.get('index'), int(m.group(1)), text))
+                candidates.append((page.get('index'), int(m.group(1)), text, True))
     # Candidate set 2 — ORPHANED defs already IN combined (c2d6bdb1: the Notes-section defs
     # converted fine, only the in-text superscripts were dropped). def_text None = marker-only
     # rescue, and the marker MUST keep the def's own number to link to it.
@@ -887,7 +901,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
             homes = [idx for idx, nt in page_norm.items() if head in nt]
             if len(homes) == 1:
                 home = homes[0]
-        candidates.append((home, num, None))
+        candidates.append((home, num, None, False))   # def parsed FROM combined: markdown space
 
     # Candidate set 3 — DOUBLE LOSS (cece961b): Mistral dropped the markers AND the page-bottom
     # defs wholesale, but the TEXT LAYER holds both. Defs render as a digit ALONE on its line
@@ -916,7 +930,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
             if _norm_head(text) and _norm_head(text) in re.sub(r'[^a-z0-9]+', ' ',
                                                                combined.lower()):
                 continue                       # body continuation, not a lost def
-            candidates.append((page_idx, int(lm.group(1)), text))
+            candidates.append((page_idx, int(lm.group(1)), text, True))
 
     if not candidates:
         return combined, 0
@@ -931,29 +945,41 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
     body_end = refs_m.start() if refs_m else len(combined)
 
     next_free = max(used, default=0) + 1
+    # A doc that was RENUMBERED (page_bottom: printed local numbers → global sequential) has
+    # two live number spaces; printed-space candidates must be translated through their page's
+    # own map before any markdown-side decision. A doc with no maps never renumbered, so the
+    # printed number IS the markdown number (the 5c548774 class) and behaviour is unchanged.
+    renumbered = any((page_local_to_global or {}).values())
     rescued_defs = []
     rescued = 0
-    for page_idx, num, def_text in candidates:
+    for page_idx, num, def_text, printed_space in candidates:
+        if printed_space and renumbered:
+            # None = this page built no map, or the printed number's marker was lost on it —
+            # the candidate cannot name a markdown number, so it may never attach to one.
+            md_num = ((page_local_to_global or {}).get(page_idx) or {}).get(num)
+        else:
+            md_num = num
         # A number that already has an IN-TEXT ref is linked material — EXCEPT a FOOTER def
         # under a page-LOCAL number that collides with a DIFFERENT globally-linked note
         # (699314f1: footer "2 Briefing note documents…" vs the linked [^2] "What
         # administration constituted…"). A distinct-text footer def proceeds and takes a
         # fresh number; everything else with a live ref is skipped.
-        if any(mm.start() > 0 and combined[mm.start() - 1] != '\n'
-               for mm in re.finditer(rf'\[\^{num}\](?!:)', combined)):
+        if md_num is not None and any(
+                mm.start() > 0 and combined[mm.start() - 1] != '\n'
+                for mm in re.finditer(rf'\[\^{md_num}\](?!:)', combined)):
             if def_text is None:
                 continue                # orphan-def marker hunt: this number is linked
-            existing = re.search(rf'(?m)^\[\^{num}\]:\s*(.+)$', combined)
+            existing = re.search(rf'(?m)^\[\^{md_num}\]:\s*(.+)$', combined)
             def _head(t):
                 return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:30]
             if not existing:
                 # ref exists but NO def anywhere — this candidate IS the missing definition
                 # (the classic pypdf missing-def recovery, via the split-line shape): attach
                 # it under the ref's own number, no marker insertion needed.
-                if num not in {int(n) for r in rescued_defs
-                               for n in re.findall(r'\[\^(\d+)\]', r)}:
-                    rescued_defs.append(f'[^{num}]: {def_text}')
-                    used.add(num)
+                if md_num not in {int(n) for r in rescued_defs
+                                  for n in re.findall(r'\[\^(\d+)\]', r)}:
+                    rescued_defs.append(f'[^{md_num}]: {def_text}')
+                    used.add(md_num)
                     rescued += 1
                 continue
             if _head(existing.group(1)) == _head(def_text):
@@ -1012,9 +1038,11 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path):
         if placed is None:
             continue
         if def_text is None:
-            target = num                # marker-only: must link to the EXISTING def
+            target = md_num             # marker-only: must link to the EXISTING def
         else:
-            target = num if num not in used else next_free
+            # An untranslatable printed number in a renumbered doc never reuses its digit —
+            # the markdown number it collides with belongs to a DIFFERENT printed note.
+            target = md_num if (md_num is not None and md_num not in used) else next_free
             if target == next_free:
                 next_free += 1
         used.add(target)
@@ -2851,7 +2879,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # marker witnessed in the PDF text layer) ---
     if pdf_path:
         combined, _n_footer_rescued = _rescue_refless_footer_footnotes(
-            combined, response_dict, pdf_path)
+            combined, response_dict, pdf_path,
+            page_local_to_global=ctx.page_local_to_global)
 
     # --- Demote author-line markers whose defs the OCR never captured ---
     # a280cf5b: "Roger Few[^1], Daniel Morchain[^2], … and Ramkumar Bendapudi[^5]" with the
