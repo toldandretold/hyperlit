@@ -109,6 +109,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/account-deletion', [\App\Http\Controllers\AccountDeletionController::class, 'destroy'])
         ->middleware('throttle:account-deletion');
 
+    // Personal access tokens (MCP / external AI clients). Mint/revoke are
+    // additionally session-only inside the controller — a PAT can never mint
+    // PATs. NAMED limiter (see the rate-limiters review gate).
+    Route::middleware('throttle:api-tokens')->group(function () {
+        Route::get('/user/api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'index']);
+        Route::post('/user/api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'store']);
+        Route::delete('/user/api-tokens/{tokenId}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])
+            ->whereNumber('tokenId');
+    });
+
     // Billing
     Route::get('/billing/account-panel', [BillingController::class, 'accountPanel']);
     Route::get('/billing/balance', [BillingController::class, 'balance']);

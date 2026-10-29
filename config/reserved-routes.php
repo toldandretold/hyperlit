@@ -61,6 +61,7 @@ return [
     'based',     // standalone sub-book view
     'dev',       // developer tools (/dev/conversion-tests)
     'maintainer', // operator triage (/maintainer/conversion, /maintainer/jobs)
+    'mcp',       // Model Context Protocol endpoint for external AI clients (routes/ai.php)
     'j',         // journal pages (/j/{slug} — planned; slugs already minted in journal_sources)
     'a',         // archive pages (/a/{slug} — archive_sources registry over public shelves)
     'exports',   // archive-export artifact downloads (/exports/{scopeType}/{scopeId}/{kind})

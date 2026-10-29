@@ -122,6 +122,10 @@ import {
   destroyDataSovereigntyOverlay
 } from '../dataSovereignty/dataSovereigntyOverlay';
 import {
+  initApiTokensOverlay,
+  destroyApiTokensOverlay
+} from '../apiTokens/apiTokensOverlay';
+import {
   initNotificationsOverlay,
   destroyNotificationsOverlay
 } from '../notificationsOverlay/notificationsOverlay';
@@ -539,6 +543,18 @@ export function registerAllComponents() {
     name: 'dataSovereigntyOverlay',
     initFn: initDataSovereigntyOverlay,
     destroyFn: destroyDataSovereigntyOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // API tokens / AI access overlay (userButton flyout). Same lifecycle
+  // rationale: built on demand, registered so SPA navigation destroys an
+  // open overlay cleanly.
+  buttonRegistry.register({
+    name: 'apiTokensOverlay',
+    initFn: initApiTokensOverlay,
+    destroyFn: destroyApiTokensOverlay,
     pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false

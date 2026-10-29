@@ -177,7 +177,7 @@
   align-items: center;
   gap: 8px 16px;
   padding: 10px 40px 6px;
-  max-width: var(--content-width, 40ch);
+  max-width: var(--content-width, 38ch);
   margin: 0 auto;
   box-sizing: border-box;
 }

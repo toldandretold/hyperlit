@@ -1,0 +1,234 @@
+/* ---------- API tokens overlay (AI access / MCP tokens) ------------------
+   Opened from the userButton flyout's "AI access" row
+   (components/apiTokens/apiTokensOverlay.ts). Same shell recipe as the Data
+   sovereignty overlay (dataSovereigntyOverlay.css): fixed dimmed backdrop,
+   centered panel, header with a round close button, scrolling body. Imported
+   by the four page bundles alongside dataSovereigntyOverlay.css. */
+
+#api-tokens-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#api-tokens-overlay .apitokens-panel {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(84vh, 700px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-background, #1a1a1a);
+  color: var(--color-text, #eee);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+#api-tokens-overlay .apitokens-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+}
+
+#api-tokens-overlay .apitokens-panel-title {
+  font-weight: 600;
+  font-size: 1.05em;
+}
+
+#api-tokens-overlay .apitokens-panel-close {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#api-tokens-overlay .apitokens-panel-close:hover {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+#api-tokens-overlay .apitokens-panel-body {
+  padding: 10px 18px 18px;
+  overflow-y: auto;
+}
+
+#api-tokens-overlay .apitokens-intro {
+  font-size: 0.85em;
+  opacity: 0.85;
+  line-height: 1.45;
+  margin: 8px 0 4px;
+}
+
+#api-tokens-overlay .apitokens-intro code {
+  font-size: 0.95em;
+  background: rgba(128, 128, 128, 0.18);
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+#api-tokens-overlay .apitokens-section-label {
+  margin: 16px 0 6px;
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+
+#api-tokens-overlay .apitokens-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#api-tokens-overlay .apitokens-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+#api-tokens-overlay .apitokens-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+#api-tokens-overlay .apitokens-row-title {
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+#api-tokens-overlay .apitokens-row-desc {
+  font-size: 0.78em;
+  opacity: 0.7;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+#api-tokens-overlay .apitokens-chip {
+  background: rgba(78, 172, 174, 0.2);
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: 0.95em;
+}
+
+#api-tokens-overlay .apitokens-empty {
+  padding: 8px 0;
+  font-size: 0.85em;
+  opacity: 0.6;
+}
+
+#api-tokens-overlay .apitokens-revoke {
+  border: 1px solid rgba(220, 90, 90, 0.5);
+  color: rgb(224, 112, 112);
+  background: transparent;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 0.8em;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+#api-tokens-overlay .apitokens-revoke:hover {
+  background: rgba(220, 90, 90, 0.12);
+}
+
+#api-tokens-overlay .apitokens-name {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  background: rgba(128, 128, 128, 0.08);
+  color: inherit;
+  font: inherit;
+  font-size: 0.9em;
+}
+
+#api-tokens-overlay .apitokens-ability-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+#api-tokens-overlay .apitokens-ability-row input {
+  margin-top: 3px;
+}
+
+#api-tokens-overlay .apitokens-create {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #4eacae;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+#api-tokens-overlay .apitokens-create:hover {
+  filter: brightness(1.08);
+}
+
+#api-tokens-overlay .apitokens-status {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  font-size: 0.8em;
+  opacity: 0.8;
+}
+
+#api-tokens-overlay .apitokens-reveal {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(78, 172, 174, 0.5);
+  background: rgba(78, 172, 174, 0.08);
+}
+
+#api-tokens-overlay .apitokens-reveal-note {
+  margin: 0 0 8px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+#api-tokens-overlay .apitokens-reveal-code {
+  display: block;
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+  user-select: all;
+  margin-bottom: 8px;
+}
+
+#api-tokens-overlay .apitokens-copy {
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 0.8em;
+  cursor: pointer;
+}

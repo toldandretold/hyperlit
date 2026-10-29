@@ -1,0 +1,41 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [],
+      "i": 2,
+      "references": [
+        "ostrom1990",
+        "hardin1968",
+        "benkler2006"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 3,
+      "references": [
+        "ostrom1990"
+      ],
+      "type": "p"
+    }
+  ],
+  "node_count": 12,
+  "text_hashes": [
+    "2bc61316e4",
+    "afc6d3aa2e",
+    "fe6d5328f4",
+    "d1c070ff20",
+    "5d20d0fee3",
+    "30a014f978",
+    "b4f551f00f",
+    "4c9be365b5",
+    "3d4faf6f58",
+    "6a8cf9b4f7",
+    "3e7f664e3d",
+    "0be9e98905"
+  ],
+  "type_histogram": {
+    "h1": 1,
+    "p": 11
+  }
+}

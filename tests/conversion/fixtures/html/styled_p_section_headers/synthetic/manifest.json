@@ -1,0 +1,25 @@
+{
+    "name": "synthetic",
+    "description": "Journal HTML whose section headers are STYLED PARAGRAPHS (<p><strong>References</strong></p>) rather than real <h*> headings — the First Monday / OJS pattern. The reference-section detector must recognise the bold-paragraph header; the <h*>-only scan finds nothing and the reverse-scan fallback is blocked by the trailing 'About the authors' bio + copyright footer. Author-date citations must then link to the extracted bibliography.",
+    "book_id": "html_styled_p_section_headers",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "no_footnotes",
+    "pipeline": "html",
+    "expected": {
+        "references_count": 3,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "no_footnotes",
+        "citation_style": "author-year-bracket",
+        "citation_links": [
+            {
+                "node_contains": "Regimes vary",
+                "anchors": [
+                    ["1990", "ostrom1990"],
+                    ["1968", "hardin1968"],
+                    ["2006", "benkler2006"]
+                ]
+            }
+        ]
+    }
+}

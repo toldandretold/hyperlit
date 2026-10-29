@@ -58,7 +58,7 @@
   --font-family-base: 'InterVariable', 'Inter', arial, sans-serif;
   --font-family-mono: "Courier New", Courier, monospace;
 
-  --font-size-base: 28px;        /* Base font size for desktop */
+  --font-size-base: 22px;        /* Base font size for desktop */
   --font-size-mobile: 18px;      /* Base font size for mobile */
 
   /* Heading sizes (relative to base) */

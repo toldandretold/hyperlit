@@ -176,16 +176,18 @@
     <script>window.__userPreferences = @json($userPreferences);</script>
     @endif
     <script>
-        // Prevent white flash by setting background color before CSS loads
+        // Prevent white flash by setting background color before CSS loads.
+        // Sepia is the first-landing default (kept in sync with themeSwitcher.ts);
+        // dark/vibe fall back to the dark background.
         (function() {
             var theme = localStorage.getItem('hyperlit_theme_preference');
-            var colors = { light: '#F4ECD8', sepia: '#E8D7B8' };
-            document.documentElement.style.backgroundColor = colors[theme] || '#221F20';
+            var colors = { light: '#F4ECD8', sepia: '#E8D7B8', dark: '#221F20', vibe: '#221F20' };
+            document.documentElement.style.backgroundColor = colors[theme] || colors.sepia;
         })();
     </script>
     <script>
         // Apply the user's text-size preference synchronously, BEFORE first paint.
-        // Otherwise the page renders at the CSS default (--font-size-base: 28px) and
+        // Otherwise the page renders at the CSS default (--font-size-base: 22px) and
         // only shrinks to the user's size once settingsContainer.applyTextAdjustments()
         // runs post-render — the visible "text sinks smaller" reflow on refresh.
         // An inline style on <html> outranks the stylesheet's :root default, so this
@@ -209,6 +211,21 @@
 
 {{-- THIS IS THE FIX. THIS ONE LINE. --}}
 <body data-page="{{ $pageType ?? 'unknown' }}" data-book="{{ $book ?? '' }}">
+
+    <script>
+        // Stamp the theme class before first paint so the default (sepia) and any
+        // saved theme apply from the first frame — with no class, the :root
+        // variables are the DARK palette and a sepia/light user (or a first-time
+        // visitor) got a dark flash until themeSwitcher.initializeTheme() ran.
+        // Client-side on purpose: the SPA swap never executes inline scripts and
+        // preserves the client-applied theme-* class (pageStylesheets.test.js).
+        (function() {
+            var t = null;
+            try { t = localStorage.getItem('hyperlit_theme_preference'); } catch (e) {}
+            if (['dark', 'light', 'sepia', 'vibe'].indexOf(t) === -1) t = 'sepia';
+            document.body.classList.add('theme-' + t);
+        })();
+    </script>
 
     {{-- Skip link (WCAG 2.4.1): first focusable on every page; visually hidden
          until keyboard focus. Each page template provides the #main-start anchor. --}}

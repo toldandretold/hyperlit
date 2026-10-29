@@ -160,6 +160,55 @@ def _find_reference_paragraphs(soup):
                 next_sibling = next_sibling.find_next_sibling()
             # Don't break — continue scanning for more reference sections (multi-chapter books)
 
+    # STYLED-<p> HEADER pass: journals and OJS platforms (First Monday is the
+    # canonical case) render section headers as a BOLD PARAGRAPH —
+    # `<p><strong>References</strong></p>` — not an <h*>. The heading scan above
+    # never sees those, and the reverse scan below is defeated by the trailing
+    # "About the authors" bio + copyright block that such pages close with, so a
+    # fully-present reference list extracts as ZERO (the structural_coverage
+    # audit flags exactly this: "N reference-shaped paragraphs but only 0
+    # extracted — styled-<p> header?"). Recognise a <p> whose WHOLE text is a
+    # reference-header word and collect the reference-like <p>s that follow.
+    if not reference_p_tags:
+        for p in all_paragraphs:
+            ptext = p.get_text(" ", strip=True)
+            # A header is short and is EXACTLY a reference-list word (the key is
+            # an exact match, so body prose mentioning "references" never fires);
+            # a <p> that is itself an entry ("References, J. 1990…") is excluded.
+            if not ptext or len(ptext) > 40:
+                continue
+            if reference_header_key(ptext) not in REFERENCE_HEADERS:
+                continue
+            if is_likely_reference(p):
+                continue
+            print(f"  \U0001F4D6 Found references heading in a styled paragraph: '{ptext}'")
+            collected = []
+            misses = 0
+            for sib in p.find_all_next('p'):
+                if _in_footnote_container(sib):
+                    continue
+                sibtext = sib.get_text(" ", strip=True)
+                if not sibtext:
+                    continue  # &nbsp;/blank spacer paragraph
+                # A following short header-word paragraph (another styled header,
+                # or the "About the authors"/"Acknowledgements" block) ends the run.
+                if len(sibtext) <= 40 and reference_header_key(sibtext) in REFERENCE_HEADERS:
+                    break
+                if is_likely_reference(sib):
+                    collected.append(sib)
+                    text_preview = sibtext[:80]
+                    _vprint(f"  ✓ Detected reference (styled-<p> header): {text_preview}...")
+                    misses = 0
+                else:
+                    # Two non-reference paragraphs in a row end the section —
+                    # the bio/footer that follows a journal's reference list.
+                    misses += 1
+                    if misses >= 2:
+                        break
+            if collected:
+                reference_p_tags.extend(collected)
+                break
+
     # FALLBACK: If no heading found, use reverse paragraph scan
     if not reference_p_tags:
         used_reverse_scan = True

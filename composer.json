@@ -2,7 +2,10 @@
     "name": "laravel/laravel",
     "type": "project",
     "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "keywords": [
+        "laravel",
+        "framework"
+    ],
     "license": "AGPL-3.0-only",
     "require": {
         "php": "^8.2",
@@ -12,6 +15,7 @@
         "ezyang/htmlpurifier": "^4.19",
         "laravel/fortify": "^1.26",
         "laravel/framework": "^11.9",
+        "laravel/mcp": "^0.4.1",
         "laravel/reverb": "@beta",
         "laravel/sanctum": "^4.1",
         "laravel/tinker": "^2.9",
@@ -37,7 +41,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/Support/compat/jsonschema-contract.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

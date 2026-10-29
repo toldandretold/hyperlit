@@ -155,14 +155,14 @@ class CharDataRecalculator
         return $changed;
     }
 
-    /** The client-coordinate plain text of stored node HTML. */
+    /**
+     * The client-coordinate plain text of stored node HTML. The definition
+     * lives in AnnotationAnchorService so the MCP quote locator and this
+     * re-anchoring pass can never disagree on what "plain text" means.
+     */
     private static function plainOf(?string $content): string
     {
-        if ($content === null) {
-            return '';
-        }
-
-        return html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return AnnotationAnchorService::plainOf($content);
     }
 
     /** Whitespace-collapsed comparison form (incl. non-breaking spaces). */

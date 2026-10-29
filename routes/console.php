@@ -18,6 +18,12 @@ Schedule::job(\App\Jobs\UpdateHomepageJob::class)
 Schedule::command('cleanup:anonymous-sessions')
     ->daily();
 
+// Delete expired personal access tokens (MCP / external AI clients) a day
+// after expiry — Sanctum refuses them at auth time regardless; this is row
+// hygiene so the settings list doesn't accrete dead tokens.
+Schedule::command('sanctum:prune-expired --hours=24')
+    ->daily();
+
 // De-identify old reading telemetry: fold identity-bearing book_reads /
 // page_views rows older than telemetry.raw_retention_days into the anonymous
 // daily rollup tables and delete them. This is the mechanism behind the

@@ -25,6 +25,16 @@ class SetDatabaseSessionContext
     public function handle(Request $request, Closure $next): Response
     {
         $user = Auth::user();
+
+        // Bearer-token requests (MCP / API tokens) carry no session, so the
+        // default web guard resolves nobody — the sanctum guard is the one
+        // that can authenticate the token. Without this fallback the RLS
+        // context is set to empty strings and the token's own data is
+        // invisible even though auth:sanctum later accepts the request.
+        if (! $user && $request->bearerToken()) {
+            $user = Auth::guard('sanctum')->user();
+        }
+
         // Tolerant read: encrypted (stateful hosts) OR raw (non-stateful hosts,
         // e.g. LAN-IP phone dev) — see App\Support\AnonToken.
         $anonymousToken = \App\Support\AnonToken::fromRequest($request);

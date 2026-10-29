@@ -16,14 +16,14 @@ import { captureScrollAnchor, restoreScrollAnchor } from '../../utilities/scroll
 import { savePreference, clearPreference } from '../../utilities/preferences';
 
 const STORAGE_KEYS = { TEXT_SIZE: 'hyperlit_text_size', CONTENT_WIDTH: 'hyperlit_content_width', FULL_WIDTH: 'hyperlit_full_width' };
-// Text size steps in px between MIN..MAX; default flips 28→18 below FONT_MOBILE_BP
+// Text size steps in px between MIN..MAX; default flips 22→17 below FONT_MOBILE_BP
 // (kept in sync with variables.css + app.css @500).
-const TEXT = { MIN: 14, MAX: 48, STEP: 2, DEFAULT: 28, DEFAULT_MOBILE: 18 };
+const TEXT = { MIN: 14, MAX: 48, STEP: 2, DEFAULT: 22, DEFAULT_MOBILE: 17 };
 // Column width steps in ch between MIN..MAX (wide viewports only). The effective
 // max is additionally clamped to what fits the viewport (see effectiveMaxWidth).
-const WIDTH = { MIN: 25, MAX: 80, STEP: 5, DEFAULT: 40 };
+const WIDTH = { MIN: 25, MAX: 80, STEP: 5, DEFAULT: 38 };
 // Two distinct breakpoints (kept in sync with the CSS):
-//  - FONT_MOBILE_BP: below this the text-size default flips 28→18px (variables.css + app.css @500).
+//  - FONT_MOBILE_BP: below this the text-size default flips 22→17px (variables.css + app.css @500).
 //  - WIDTH_HIDE_BP: at/below this --content-width is forced to 100% by the
 //    stylesheet (variables.css @400) and a saved ch-width must NOT be applied;
 //    the width steppers become the two-state margins toggle instead.
