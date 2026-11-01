@@ -129,6 +129,56 @@ describe('detectHyperciteCitation', () => {
     const root = mount('<a href="http://localhost/book_77/2">x</a>');
     expect(detectHyperciteCitation(root.querySelector('a'))).toBeNull();
   });
+
+  // ---- grouped citations (one ↗ carrying a data-cite-group payload) ----
+
+  const GROUP = JSON.stringify([
+    { t: '/book_a#hypercite_aaa', s: 'Source A', q: 'first quote' },
+    { t: '/book_b/Fn123_x#hypercite_bbb', s: 'Source B', q: 'second quote' },
+  ]);
+
+  it('expands a data-cite-group anchor into one descriptor with N members', () => {
+    const root = mount(`<a href="http://localhost/book_a#hypercite_aaa" data-cite-group='${GROUP}'>↗</a>`);
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    expect(data.type).toBe('hypercite-citation');
+    expect(data.members).toHaveLength(2);
+    expect(data.members[0]).toMatchObject({
+      targetBook: 'book_a',
+      targetHyperciteId: 'hypercite_aaa',
+      quote: 'first quote',
+      sourceLabel: 'Source A',
+    });
+    expect(data.members[1]).toMatchObject({
+      targetBook: 'book_b',
+      targetSubBook: 'book_b/Fn123_x',
+      targetHyperciteId: 'hypercite_bbb',
+      isFootnoteURL: true,
+      quote: 'second quote',
+    });
+    // top-level fields stay member[0]'s (data-content-id / history metadata)
+    expect(data.targetBook).toBe('book_a');
+    expect(data.targetHyperciteId).toBe('hypercite_aaa');
+  });
+
+  it('falls back to a plain single descriptor on a junk data-cite-group payload', () => {
+    const root = mount(`<a href="http://localhost/book_a#hypercite_aaa" data-cite-group='not-json'>↗</a>`);
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    expect(data.targetHyperciteId).toBe('hypercite_aaa');
+    expect(data.members).toBeUndefined();
+  });
+
+  it('skips group members whose target is not a hypercite href', () => {
+    const payload = JSON.stringify([
+      { t: '/book_a#hypercite_aaa', s: 'A', q: 'q1' },
+      { t: 'https://evil.example/x', s: 'B', q: 'q2' },
+      { t: '/book_c#not_a_hypercite', s: 'C', q: 'q3' },
+    ]);
+    const root = mount(`<a href="http://localhost/book_a#hypercite_aaa" data-cite-group='${payload}'>↗</a>`);
+    const data = detectHyperciteCitation(root.querySelector('a'));
+    // one valid member → no group, plain single descriptor
+    expect(data.members).toBeUndefined();
+    expect(data.targetHyperciteId).toBe('hypercite_aaa');
+  });
 });
 
 describe('detectHighlights', () => {

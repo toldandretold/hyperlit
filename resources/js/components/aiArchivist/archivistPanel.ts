@@ -34,7 +34,7 @@ import { confirmDialog, alertDialog } from '../dialog/dialog';
 import { log, verbose } from '../../utilities/logger';
 import { createStepManager, brainLoaderSvg, type StepManager } from './stepManager';
 import { executeInferenceTicket, readSseStream } from './sseClient';
-import { initCiteGroupPopover, destroyCiteGroupPopover } from './citeGroupPopover';
+import { initCiteGroupRouter, destroyCiteGroupRouter } from './citeGroupRouter';
 import { drainResponse } from '../../utilities/drainResponse';
 
 const BRAIN_BUTTON_ID = 'archivist-brain-button';
@@ -78,7 +78,7 @@ let suppressDismissal = false;
  */
 export function initAiArchivist(): void {
     void applyGuestState();
-    initCiteGroupPopover();
+    initCiteGroupRouter();
     armClearOnCloseListener();
     armModeChangeListener();
     restoreStoredAnswer();
@@ -97,7 +97,7 @@ export function destroyAiArchivist(): void {
         modeChangeHandler = null;
     }
     void teardownAnnotationStack();
-    destroyCiteGroupPopover();
+    destroyCiteGroupRouter();
 }
 
 /**

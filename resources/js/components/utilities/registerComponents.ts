@@ -126,9 +126,9 @@ import {
   destroyApiTokensOverlay
 } from '../apiTokens/apiTokensOverlay';
 import {
-  initCiteGroupPopover,
-  destroyCiteGroupPopover
-} from '../aiArchivist/citeGroupPopover';
+  initCiteGroupRouter,
+  destroyCiteGroupRouter
+} from '../aiArchivist/citeGroupRouter';
 import {
   initNotificationsOverlay,
   destroyNotificationsOverlay
@@ -564,15 +564,16 @@ export function registerAllComponents() {
     required: false
   });
 
-  // Multi-source citation chooser (a[data-cite-group] ↗ arrows). Historically
+  // Multi-source citation router (a[data-cite-group] ↗ arrows) — opens the
+  // hyperlit container with one Reference section per cited passage. Historically
   // only the AI-archivist panel initialised it, but cite_passage (MCP) now
   // merges stacked citations into group arrows inside ORDINARY book nodes, so
-  // the chooser must be alive wherever book content renders. Create-once
+  // the router must be alive wherever book content renders. Create-once
   // document delegate — cheap to register broadly.
   buttonRegistry.register({
-    name: 'citeGroupPopover',
-    initFn: initCiteGroupPopover,
-    destroyFn: destroyCiteGroupPopover,
+    name: 'citeGroupRouter',
+    initFn: initCiteGroupRouter,
+    destroyFn: destroyCiteGroupRouter,
     pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false

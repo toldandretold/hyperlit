@@ -202,6 +202,42 @@ describe('displayCitations (characterization)', () => {
     expect(html).toContain('Cited text deleted');
   });
 
+  // ---- grouped hypercite-citations (one ↗ carrying N members) ----
+
+  it('a members array renders one stacked section per member, one "References" heading, with quotes', async () => {
+    await seedStore('library', [
+      { book: 'book_a', visibility: 'public', bibtex: 'BIB_A' },
+      { book: 'book_b', visibility: 'public', bibtex: 'BIB_B' },
+    ]);
+    const html = await buildHyperciteCitationContent({
+      targetBook: 'book_a', targetHyperciteId: 'hypercite_aaa', targetUrl: '/book_a#hypercite_aaa',
+      members: [
+        { targetBook: 'book_a', targetHyperciteId: 'hypercite_aaa', targetUrl: '/book_a#hypercite_aaa', quote: 'first quoted passage' },
+        { targetBook: 'book_b', targetHyperciteId: 'hypercite_bbb', targetUrl: '/book_b#hypercite_bbb', quote: 'second quoted passage' },
+      ],
+    });
+    const dom = parse(html);
+    const sections = dom.querySelectorAll('.hypercite-citation-section');
+    expect(sections).toHaveLength(2);
+    expect(sections[0].getAttribute('data-content-id')).toBe('hypercite_aaa');
+    expect(sections[1].getAttribute('data-content-id')).toBe('hypercite_bbb');
+    expect(dom.querySelectorAll('h3')).toHaveLength(1);
+    expect(dom.querySelector('h3').textContent).toBe('References');
+    expect(html).toContain('CITE(BIB_A)');
+    expect(html).toContain('CITE(BIB_B)');
+    expect(html).toContain('first quoted passage');
+    expect(html).toContain('second quoted passage');
+    expect(dom.querySelectorAll('.see-in-source-btn')).toHaveLength(2);
+  });
+
+  it('a single contentType (no members) keeps the original one-section "Reference" shape', async () => {
+    await seedStore('library', [{ book: 'targetbook', visibility: 'public', bibtex: 'BIB' }]);
+    const html = await buildHyperciteCitationContent({ targetBook: 'targetbook', targetHyperciteId: 'hypercite_1', targetUrl: '/targetbook#hypercite_1' });
+    const dom = parse(html);
+    expect(dom.querySelectorAll('.hypercite-citation-section')).toHaveLength(1);
+    expect(dom.querySelector('h3').textContent).toBe('Reference');
+  });
+
   // ---- resolveButtonStatus (post-open, hypercite-citation) ----
 
   it('resolveButtonStatus: has access → enables; no access → denied text', async () => {
@@ -228,5 +264,30 @@ describe('displayCitations (characterization)', () => {
     btn = container.querySelector('.see-in-source-btn');
     expect(btn.getAttribute('data-access')).toBe('denied');
     expect(btn.textContent).toContain('source text private');
+  });
+
+  it('resolveButtonStatus: a grouped citation with TWO pending buttons resolves both', async () => {
+    canUserEditBook.mockImplementation(async (bookId) => bookId === 'book_a');
+    document.body.innerHTML = `
+      <div id="hyperlit-container" class="open">
+        <div class="hypercite-citation-section" data-content-id="hypercite_aaa">
+          <a class="see-in-source-btn" data-private="true" data-book-id="book_a" data-needs-access-check="true"
+             style="opacity: 0.5; pointer-events: none;">See in source text<span class="btn-spinner"></span></a>
+        </div>
+        <div class="hypercite-citation-section" data-content-id="hypercite_bbb">
+          <a class="see-in-source-btn" data-private="true" data-book-id="book_b" data-needs-access-check="true"
+             style="opacity: 0.5; pointer-events: none;">See in source text<span class="btn-spinner"></span></a>
+        </div>
+      </div>`;
+    const container = document.getElementById('hyperlit-container');
+
+    await resolveButtonStatus({ targetBook: 'book_a', targetHyperciteId: 'hypercite_aaa' }, null, container);
+
+    const btns = container.querySelectorAll('.see-in-source-btn');
+    expect(btns[0].hasAttribute('data-needs-access-check')).toBe(false);
+    expect(btns[0].getAttribute('data-access')).toBeNull(); // enabled
+    expect(btns[1].hasAttribute('data-needs-access-check')).toBe(false);
+    expect(btns[1].getAttribute('data-access')).toBe('denied');
+    expect(container.querySelectorAll('.btn-spinner')).toHaveLength(0);
   });
 });

@@ -5,6 +5,7 @@
  */
 
 import { openDatabase } from '../indexedDB/index';
+import { log } from '../utilities/logger';
 
 /**
  * Detect all content types present on an element
@@ -308,59 +309,91 @@ function extractBookAndStructure(url: URL): { targetBook: string; targetSubBook:
 }
 
 /**
+ * Build one hypercite-citation target descriptor from a target URL string.
+ * Returns null when the URL doesn't point at a hypercite.
+ */
+function buildHyperciteTarget(targetUrl: string): any | null {
+  let url: URL;
+  try {
+    url = new URL(targetUrl, window.location.origin);
+  } catch {
+    return null;
+  }
+  const hash = url.hash;
+  if (!hash || !hash.startsWith('#hypercite_')) return null;
+
+  const { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
+  return {
+    targetBook,
+    targetSubBook,
+    targetHyperciteId: hash.substring(1),
+    targetUrl,
+    isHyperlightURL,
+    isFootnoteURL,
+    hlDepth
+  };
+}
+
+/**
+ * Parse a grouped-citation anchor's `data-cite-group` payload ([{t, s, q}, …],
+ * minted by AiBrainController::processCitationsInResponse and the MCP
+ * cite_passage tool) into target descriptors. Returns [] when absent/junk.
+ */
+function parseCiteGroupMembers(anchor: any): any[] {
+  const raw = anchor.getAttribute?.('data-cite-group');
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((m: any) => !!m && typeof m.t === 'string' && m.t.startsWith('/'))
+      .map((m: any) => {
+        const target = buildHyperciteTarget(m.t);
+        if (!target) return null;
+        return { ...target, quote: m.q || '', sourceLabel: m.s || '' };
+      })
+      .filter(Boolean);
+  } catch (e) {
+    log.warn('detectHyperciteCitation: unparseable data-cite-group payload', 'hyperlitContainer/detection.ts', e);
+    return [];
+  }
+}
+
+/**
  * Detect hypercite citation links (links pointing TO hypercites in other documents)
+ * A `data-cite-group` anchor (one ↗ citing several passages) yields ONE descriptor
+ * carrying `members: [...]` — the builder renders one section per member, the
+ * top-level fields stay member[0]'s for data-content-id / history metadata.
  * @param {HTMLElement} element - The element to check
  * @returns {Object|null} Hypercite citation data or null
  */
 export function detectHyperciteCitation(element: any): any | null {
-  // Check if element is an <a> tag with href containing #hypercite_
+  // The clicked <a> itself, or the enclosing hypercite citation link
+  let anchor: any = null;
   if (element.tagName === 'A' && element.href) {
-    const url = new URL(element.href, window.location.origin);
-    const hash = url.hash;
+    anchor = element;
+  } else {
+    anchor = element.closest('a[href*="#hypercite_"]');
+  }
+  if (!anchor || !anchor.href) return null;
 
-    if (hash && hash.startsWith('#hypercite_')) {
-      const hyperciteId = hash.substring(1); // Remove #
-      const { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
+  const primary = buildHyperciteTarget(anchor.href);
+  if (!primary) return null;
 
-      return {
-        type: 'hypercite-citation',
-        element: element,
-        targetBook,
-        targetSubBook,
-        targetHyperciteId: hyperciteId,
-        targetUrl: element.href,
-        isHyperlightURL,
-        isFootnoteURL,
-        hlDepth
-      };
-    }
+  const descriptor: any = {
+    type: 'hypercite-citation',
+    element: anchor,
+    ...primary,
+    targetUrl: anchor.href
+  };
+
+  // Grouped citation: expand every member; member[0] is the anchor's own href target.
+  const members = parseCiteGroupMembers(anchor);
+  if (members.length > 1) {
+    descriptor.members = members;
   }
 
-  // Also check if we're inside a hypercite citation link
-  const parentLink = element.closest('a[href*="#hypercite_"]');
-  if (parentLink) {
-    const url = new URL(parentLink.href, window.location.origin);
-    const hash = url.hash;
-
-    if (hash && hash.startsWith('#hypercite_')) {
-      const hyperciteId = hash.substring(1);
-      const { targetBook, targetSubBook, isHyperlightURL, isFootnoteURL, hlDepth } = extractBookAndStructure(url);
-
-      return {
-        type: 'hypercite-citation',
-        element: parentLink,
-        targetBook,
-        targetSubBook,
-        targetHyperciteId: hyperciteId,
-        targetUrl: parentLink.href,
-        isHyperlightURL,
-        isFootnoteURL,
-        hlDepth
-      };
-    }
-  }
-
-  return null;
+  return descriptor;
 }
 
 /**

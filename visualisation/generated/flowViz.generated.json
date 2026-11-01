@@ -6,7 +6,7 @@
     "moduleCount": 419,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4087,
+    "edgeCount": 4088,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -37436,6 +37436,12 @@
       "target": "indexedDB/hypercites/read:getHyperciteFromIndexedDB",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation:buildHyperciteCitationContent__write__store:library",

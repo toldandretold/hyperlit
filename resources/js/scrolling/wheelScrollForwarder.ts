@@ -43,7 +43,7 @@ const CONTENT_SEL =
 // via overflow-y:auto), the shelf-preview overlay (appended to document.body), the
 // money overlay (any-page account panel, scrolls its .money-panel-body), the shelf
 // picker menu (body-mounted, capped + scrolling since a long shelf list ran off the
-// bottom), the integrity report modal, the AI-archivist cite-group popover, the import
+// bottom), the integrity report modal, the import
 // queue panel and the vibe gallery (its .vibe-gallery-content scrolls inside the
 // settings panel). Without these the capture-phase handler steals the wheel from the
 // panel and scrolls the page behind it. ⚠️ ANY new self-scrolling thing outside the
@@ -51,7 +51,7 @@ const CONTENT_SEL =
 // a `closest()` match on an ancestor is enough, so listing the outer overlay covers an
 // inner scroller. See CLAUDE.md §"Overlay surfaces" check 5.
 const SCROLLABLE_OVERLAY_SEL =
-  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #archive-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #stats-overlay, #data-sovereignty-overlay, #api-tokens-overlay, #notifications-overlay, #user-page-edit-panel, #shelf-picker-dropdown, .library-filter-dropdown, .integrity-overlay, .cite-group-popover, .import-queue-panel, .vibe-gallery, .add-to-shelf-menu, #figure-viewer-overlay';
+  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #archive-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #stats-overlay, #data-sovereignty-overlay, #api-tokens-overlay, #notifications-overlay, #user-page-edit-panel, #shelf-picker-dropdown, .library-filter-dropdown, .integrity-overlay, .import-queue-panel, .vibe-gallery, .add-to-shelf-menu, #figure-viewer-overlay';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

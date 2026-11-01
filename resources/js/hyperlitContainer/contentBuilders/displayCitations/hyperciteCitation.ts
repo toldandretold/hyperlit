@@ -46,13 +46,38 @@ async function findSurvivingAncestor(bookId: any) {
 }
 
 /**
- * Build hypercite citation content section (for links pointing TO hypercites).
+ * Build hypercite citation content (for links pointing TO hypercites).
+ * A grouped ↗ anchor (data-cite-group) arrives as ONE contentType carrying
+ * `members: [...]` — each member gets its own stacked section, mirroring the
+ * range-citation shape in plainCitation.ts.
  * @param contentType - The hypercite citation content type object
  * @param db - Reused database connection
  * @returns HTML string for hypercite citation content
  */
 export async function buildHyperciteCitationContent(contentType: any, db: any = null) {
+  const targets = Array.isArray(contentType.members) && contentType.members.length > 1
+    ? contentType.members
+    : [contentType];
+
+  let sections = '';
+  for (const [i, target] of targets.entries()) {
+    // One heading for the whole popup: "References" for a group, "Reference" alone.
+    const heading = i === 0 ? (targets.length > 1 ? 'References' : 'Reference') : null;
+    sections += await buildOneHyperciteCitationSection(target, db, heading);
+  }
+  return sections;
+}
+
+/**
+ * Build one hypercite citation section.
+ * @param target - One citation target ({targetBook, targetSubBook, targetHyperciteId,
+ *                 targetUrl, isFootnoteURL, isHyperlightURL, hlDepth, quote?})
+ * @param db - Reused database connection
+ * @param heading - Section heading text, or null for follow-on group sections
+ */
+async function buildOneHyperciteCitationSection(target: any, db: any = null, heading: string | null = 'Reference') {
   try {
+    const contentType = target;
     const { targetBook, targetHyperciteId, targetUrl } = contentType;
     // The record is keyed by the SUB-BOOK it lives in (`foundation/Fn…` for a
     // footnote); `targetBook` is only the foundation, which is right for the
@@ -221,9 +246,16 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
       deadNavLink = `<div data-needs-ancestor-check="true" data-hypercite-book="${hyperciteBook}" style="margin-top: 0.5em;"></div>`;
     }
 
+    // Grouped citations carry the cited passage's quote — render it so the
+    // sections are distinguishable (it's the information the old popover showed).
+    const quoteHtml = contentType.quote
+      ? `<blockquote class="cited-passage-quote">&ldquo;${escapeHtml(contentType.quote)}&rdquo;</blockquote>`
+      : '';
+
     return `
       <div class="hypercite-citation-section" data-content-id="${targetHyperciteId}">
-        <h3>Reference</h3>
+        ${heading ? `<h3>${heading}</h3>` : ''}
+        ${quoteHtml}
         <div class="citation-text">
           ${statusIcon}${locationLabel ? `<span class="location-label">${locationLabel}</span><blockquote>${formattedCitation}</blockquote>` : formattedCitation}
         </div>
@@ -242,11 +274,17 @@ export async function buildHyperciteCitationContent(contentType: any, db: any = 
     console.error('Error building hypercite citation content:', error);
     return `
       <div class="hypercite-citation-section">
-        <h3>Reference</h3>
+        ${heading ? `<h3>${heading}</h3>` : ''}
         <div class="error">Error loading citation</div>
         <hr style="margin: 2em 0; opacity: 0.5;">
       </div>`;
   }
+}
+
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 /**
@@ -270,10 +308,12 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
   // The two post-open checks are INDEPENDENT — a failure in one must not strand the
   // other, and neither may leave the button stuck in the muted+spinner state.
 
-  // Handle access check for private books (8s timeout + tap-to-retry on failure)
-  try {
-    const accessCheckBtn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
-    if (accessCheckBtn) {
+  // Handle access checks for private books (8s timeout + tap-to-retry on failure).
+  // A grouped citation renders N sections, so there can be N pending buttons —
+  // each resolves independently; a failure in one must not strand the others.
+  const accessCheckBtns = Array.from(root.querySelectorAll('.see-in-source-btn[data-needs-access-check="true"]'));
+  for (const accessCheckBtn of accessCheckBtns as any[]) {
+    try {
       const { canUserEditBook }: any = await import('../../../utilities/auth/index');
       const bookId = accessCheckBtn.getAttribute('data-book-id');
       const hasAccess: any = await Promise.race([
@@ -303,13 +343,11 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
           }
         });
       }
-    }
-  } catch (accessError) {
-    // Timeout / network failure: swap the spinner for an explicit one-shot retry state
-    // instead of leaving the button muted+spinning forever.
-    verbose.content('Access check failed — showing retry state', 'hyperlitContainer/hyperciteCitation', accessError);
-    const btn = root.querySelector('.see-in-source-btn[data-needs-access-check="true"]');
-    if (btn) {
+    } catch (accessError) {
+      // Timeout / network failure: swap the spinner for an explicit one-shot retry state
+      // instead of leaving the button muted+spinning forever.
+      verbose.content('Access check failed — showing retry state', 'hyperlitContainer/hyperciteCitation', accessError);
+      const btn = accessCheckBtn;
       btn.querySelector('.btn-spinner')?.remove();
       btn.setAttribute('data-access', 'error');
       btn.style.pointerEvents = '';
@@ -329,10 +367,10 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
     }
   }
 
-  // Handle ancestor check for dead books (graceful degradation: banner stays, link is a bonus)
-  try {
-    const ancestorCheckEl = root.querySelector('[data-needs-ancestor-check="true"]');
-    if (ancestorCheckEl) {
+  // Handle ancestor checks for dead books (graceful degradation: banner stays, link is a bonus)
+  const ancestorCheckEls = Array.from(root.querySelectorAll('[data-needs-ancestor-check="true"]'));
+  for (const ancestorCheckEl of ancestorCheckEls as any[]) {
+    try {
       const hyperciteBook = ancestorCheckEl.getAttribute('data-hypercite-book');
       if (hyperciteBook) {
         const ancestor: any = await findSurvivingAncestor(hyperciteBook);
@@ -342,9 +380,9 @@ export async function resolveButtonStatus(contentType: any, db: any, container: 
         }
       }
       ancestorCheckEl.removeAttribute('data-needs-ancestor-check');
+    } catch (ancestorError) {
+      verbose.content('Ancestor check failed — leaving dead banner without link', 'hyperlitContainer/hyperciteCitation', ancestorError);
+      ancestorCheckEl.removeAttribute('data-needs-ancestor-check');
     }
-  } catch (ancestorError) {
-    verbose.content('Ancestor check failed — leaving dead banner without link', 'hyperlitContainer/hyperciteCitation', ancestorError);
-    root.querySelector('[data-needs-ancestor-check="true"]')?.removeAttribute('data-needs-ancestor-check');
   }
 }
