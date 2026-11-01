@@ -29,6 +29,26 @@ use InvalidArgumentException;
 class UrlGuard
 {
     /**
+     * Test-only hostname resolver override (hostname → IP, or the hostname
+     * unchanged to signal "did not resolve", mirroring gethostbyname()'s
+     * contract). The real lookup makes every test that touches a fetch path
+     * depend on LIVE DNS even when the HTTP layer is faked — under full-suite
+     * load macOS resolution intermittently fails for public hosts, and 27
+     * tests failed as "unreachable"/skipped while passing standalone
+     * (2026-11-01). tests/Pest.php installs a deterministic resolver for the
+     * Feature/Canonical suites; production never sets this.
+     *
+     * @var (callable(string): string)|null
+     */
+    private static $resolveHostUsing = null;
+
+    /** @param (callable(string): string)|null $resolver null restores the real DNS lookup. */
+    public static function resolveHostUsing(?callable $resolver): void
+    {
+        self::$resolveHostUsing = $resolver;
+    }
+
+    /**
      * Is this URL safe for the server to fetch?
      *
      * Returns true if: scheme is http/https AND the resolved IP is public.
@@ -59,7 +79,9 @@ class UrlGuard
 
         // Resolve the hostname. gethostbyname() returns the IP on success,
         // or the unmodified hostname on failure.
-        $resolved = gethostbyname($host);
+        $resolved = self::$resolveHostUsing !== null
+            ? (string) (self::$resolveHostUsing)($host)
+            : gethostbyname($host);
         if ($resolved === $host) {
             // Resolution failed — the hostname is not an IP and DNS didn't
             // resolve it. Block the fetch (can't verify it's safe).

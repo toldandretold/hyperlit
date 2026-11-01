@@ -98,8 +98,14 @@ class ClientTicketTransport implements InferenceTransport
         $existing = $query->first();
         if ($existing) {
             // A previously expired ticket for the same prompt: re-arm it so the
-            // client can answer on this (resumed) run.
-            if ($existing->status === 'expired') {
+            // client can answer on this (resumed) run. A pending/claimed ticket
+            // whose expires_at already passed is the same situation — nothing
+            // sweeps lapsed tickets to 'expired', and poll() would throw on it
+            // immediately, wedging every resume.
+            $lapsed = in_array($existing->status, ['pending', 'claimed'], true)
+                && $existing->expires_at !== null
+                && now()->greaterThan($existing->expires_at);
+            if ($existing->status === 'expired' || $lapsed) {
                 $existing->update([
                     'status' => 'pending',
                     'error' => null,

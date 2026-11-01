@@ -17,14 +17,14 @@ class SearchTextTool extends HyperlitTool
 
     protected string $name = 'search_text';
 
-    protected string $description = 'Search INSIDE book text. mode=fulltext is keyword/phrase search across all visible books; mode=semantic is meaning-based search across all visible books; pass `book` to restrict a semantic search to one book. Results carry book + node references usable with read_book.';
+    protected string $description = 'Search INSIDE book text — the research entry point, and how the AI Archivist finds sources. Default mode=semantic: meaning-based retrieval across all visible books (describe the TOPIC, not keywords). mode=fulltext is for exact words/phrases (e.g. locating a verbatim quote). Pass `book` to restrict a semantic search to one book. Results carry book + node references usable with read_book.';
 
     public function schema(JsonSchema $schema): array
     {
         return [
-            'query' => $schema->string()->min(3)->required()->description('Search terms (min 3 chars).'),
-            'mode' => $schema->string()->enum(['fulltext', 'semantic'])
-                ->description('fulltext = exact/stemmed keywords; semantic = by meaning. Default: fulltext.'),
+            'query' => $schema->string()->min(3)->required()->description('Search terms. Semantic mode: phrase the topic/claim you want passages about.'),
+            'mode' => $schema->string()->enum(['semantic', 'fulltext'])
+                ->description('semantic = by meaning (DEFAULT — the archivist retrieval move); fulltext = exact/stemmed keywords, for verbatim phrases.'),
             'book' => $schema->string()->description('Optional book id/slug to scope a SEMANTIC search to one book.'),
             'limit' => $schema->integer()->description('Max results (default 20).'),
         ];
@@ -38,7 +38,10 @@ class SearchTextTool extends HyperlitTool
 
         $request->validate(['query' => 'required|string|min:3']);
 
-        $mode = $request->get('mode', 'fulltext');
+        // Semantic by DEFAULT: this tool is the research entry point, and the
+        // archivist's defining move is meaning-based retrieval — an agent left
+        // on a keyword default reaches for the wrong search every time.
+        $mode = $request->get('mode', 'semantic');
         $book = trim((string) $request->get('book', ''));
         $input = [
             'q' => $request->get('query'),

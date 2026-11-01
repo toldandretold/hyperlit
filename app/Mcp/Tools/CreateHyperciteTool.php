@@ -21,7 +21,7 @@ class CreateHyperciteTool extends HyperlitTool
 
     protected string $name = 'create_hypercite';
 
-    protected string $description = 'A hypercite is a TWO-WAY citation link (underlined source passage <-> arrow marker in the citing book). This tool creates ONLY the SOURCE-side citable anchor on a passage and returns its deep link + the ready-to-paste citation payload (arrow HTML). Completing the two-way link means pasting that into your own book, which needs book editing (not available here). Quote the passage VERBATIM from read_book plain output.';
+    protected string $description = 'A hypercite is a TWO-WAY citation link (underlined source passage <-> arrow marker in the citing book). This tool creates ONLY the SOURCE-side citable anchor on a passage and returns its deep link + the ready-to-paste citation payload (arrow HTML) for a human to paste in the web editor. To complete the two-way link yourself into a book you own, use cite_passage instead (write ability) — it does both sides in one call. Quote the passage VERBATIM from read_book plain output.';
 
     public function schema(JsonSchema $schema): array
     {
@@ -102,7 +102,12 @@ class CreateHyperciteTool extends HyperlitTool
             'hypercite_id' => $hyperciteId,
             'hypercited_text' => $anchor['highlightedText'],
             'url' => $url,
-            'citation_html' => '\''.e($anchor['highlightedText']).'\'<a href="'.$url.'" class="open-icon">↗</a>',
+            // Mirrors the web copy handler's clipboard payload byte for byte
+            // (hypercites/copy.ts): the id attribute is what annotationPaste's
+            // matcher keys on, and the U+2060 word joiner is what the minter's
+            // unmint regex strips — omitting either breaks a consumer.
+            'citation_html' => '\''.e($anchor['highlightedText']).'\''."\u{2060}".'<a href="'.$url.'" id="'.$hyperciteId.'" class="open-icon">↗</a>',
+            'next' => 'To complete the two-way link into a book you own, call cite_passage with source_hypercite_id='.$hyperciteId.' (needs the write ability).',
         ]);
     }
 }

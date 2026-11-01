@@ -62,9 +62,8 @@ class InternalCall
 
         try {
             $controllerInstance = app($controller);
-            $response = $prependRequest
-                ? $controllerInstance->{$method}($request, ...$routeArgs)
-                : $controllerInstance->{$method}(...$routeArgs);
+            $args = static::assembleArgs($controllerInstance, $method, $request, $routeArgs, $prependRequest);
+            $response = $controllerInstance->{$method}(...$args);
         } finally {
             if ($original !== null) {
                 app()->instance('request', $original);
@@ -72,6 +71,52 @@ class InternalCall
         }
 
         return static::decode($response);
+    }
+
+    /**
+     * Build the positional argument list for a controller method, placing the
+     * crafted Request wherever its signature expects it (first, last, or not at
+     * all) and filling the remaining positional params from $routeArgs IN ORDER.
+     * Controllers vary: handle(Request), importProgress(string $bookId),
+     * complete(string $id, Request $request), getBookDataBatch(Request, string
+     * $bookId) — reflection gets them all right, so callers don't have to track
+     * the ordering. $prependRequest is honoured only as a fallback when
+     * reflection can't see a Request-typed parameter.
+     *
+     * @param  array<int, mixed>  $routeArgs
+     * @return array<int, mixed>
+     */
+    private static function assembleArgs(object $controller, string $method, Request $request, array $routeArgs, bool $prependRequest): array
+    {
+        try {
+            $params = (new \ReflectionMethod($controller, $method))->getParameters();
+        } catch (\ReflectionException) {
+            return $prependRequest ? [$request, ...$routeArgs] : $routeArgs;
+        }
+
+        // Reflection is AUTHORITATIVE: place the Request only where a
+        // Request-typed parameter actually is, and fill the rest from
+        // routeArgs IN ORDER. A method with no Request param (importProgress,
+        // pipelineRunning, resumePipeline) gets NONE — never a stringified
+        // Request in its id slot. ($prependRequest is honoured only in the
+        // ReflectionException catch above, where we can't inspect the method.)
+        $args = [];
+        $queue = $routeArgs;
+        foreach ($params as $param) {
+            $type = $param->getType();
+            $typeName = $type instanceof \ReflectionNamedType ? $type->getName() : null;
+            $isRequest = $typeName !== null && is_a($typeName, Request::class, true);
+
+            if ($isRequest) {
+                $args[] = $request;
+            } elseif ($queue !== []) {
+                $args[] = array_shift($queue);
+            } else {
+                break; // remaining params are optional / have defaults
+            }
+        }
+
+        return $args;
     }
 
     /**

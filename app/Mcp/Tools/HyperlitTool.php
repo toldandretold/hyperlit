@@ -25,6 +25,19 @@ abstract class HyperlitTool extends Tool
     protected string $ability = 'read';
 
     /**
+     * Data tools exist only for authenticated callers. A GUEST (no bearer
+     * token — McpOptionalAuth lets those through) sees none of them in
+     * tools/list, and laravel/mcp filters tools/call through the same
+     * registration check, so a guest calling one gets a clean JSON-RPC
+     * "tool not found". The guest surface is GetConnectedTool, which
+     * extends the vendor Tool directly for exactly this reason.
+     */
+    public function shouldRegister(\Illuminate\Http\Request $request): bool
+    {
+        return $request->user('sanctum') !== null;
+    }
+
+    /**
      * Keep tool results safely inside client-side caps (~25K tokens in
      * Claude Code). Prose at ~4 chars/token → ~80K chars with headroom.
      */
@@ -39,14 +52,18 @@ abstract class HyperlitTool extends Tool
         $user = $request->user();
 
         if (! $user instanceof User) {
-            return Response::error('Unauthenticated.');
+            return Response::error(
+                'Unauthenticated. Call get_connected for the steps to mint a '.
+                'personal access token, then send it as "Authorization: Bearer <token>".'
+            );
         }
 
         $token = $user->currentAccessToken();
         if ($token instanceof PersonalAccessToken && ! $token->can($this->ability)) {
             return Response::error(
                 "This token lacks the '{$this->ability}' ability. ".
-                'The user can mint a token with it under Account → AI access.'
+                'The user can mint a token with it via the user button → '
+                .'Data sovereignty → MCP for AI access → Connect an AI.'
             );
         }
 
@@ -103,6 +120,22 @@ abstract class HyperlitTool extends Tool
             ->sortBy(fn ($n) => (float) ($n['startLine'] ?? 0))
             ->values()
             ->all();
+    }
+
+    /**
+     * The most recent citation-review pipeline row for a book, ANY status
+     * (pending/running/paused/failed/completed), via the BYPASSRLS admin
+     * connection — same source CitationScannerController reads. Null if none.
+     * `pipelineRunning` only exposes ACTIVE pipelines, so the review tools use
+     * this to also see a paused/failed one (resumable state).
+     */
+    protected function latestPipeline(string $bookId): ?object
+    {
+        return \Illuminate\Support\Facades\DB::connection('pgsql_admin')
+            ->table('citation_pipelines')
+            ->where('book', $bookId)
+            ->orderByDesc('created_at')
+            ->first();
     }
 
     /**

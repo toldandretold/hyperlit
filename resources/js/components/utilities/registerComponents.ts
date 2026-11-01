@@ -126,6 +126,10 @@ import {
   destroyApiTokensOverlay
 } from '../apiTokens/apiTokensOverlay';
 import {
+  initCiteGroupPopover,
+  destroyCiteGroupPopover
+} from '../aiArchivist/citeGroupPopover';
+import {
   initNotificationsOverlay,
   destroyNotificationsOverlay
 } from '../notificationsOverlay/notificationsOverlay';
@@ -555,6 +559,20 @@ export function registerAllComponents() {
     name: 'apiTokensOverlay',
     initFn: initApiTokensOverlay,
     destroyFn: destroyApiTokensOverlay,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
+  // Multi-source citation chooser (a[data-cite-group] ↗ arrows). Historically
+  // only the AI-archivist panel initialised it, but cite_passage (MCP) now
+  // merges stacked citations into group arrows inside ORDINARY book nodes, so
+  // the chooser must be alive wherever book content renders. Create-once
+  // document delegate — cheap to register broadly.
+  buttonRegistry.register({
+    name: 'citeGroupPopover',
+    initFn: initCiteGroupPopover,
+    destroyFn: destroyCiteGroupPopover,
     pages: ['home', 'user', 'reader', 'journal'],
     dependencies: [],
     required: false

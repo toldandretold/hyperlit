@@ -69,9 +69,11 @@ test('a page with no article body is metadata_only, not a silent null', function
 test('the batch returns one entry per input key, always', function () {
     // The old signature omitted keys whose chunk threw, so a caller could not
     // distinguish "not attempted" from "attempted and failed".
-    // Real, resolvable host: UrlGuard::isSafeFetchUrl does a live
-    // gethostbyname(), so an invented *.test hostname is refused as unsafe
-    // before Http::fake is ever consulted. Distinguish the cases by PATH.
+    // Public-looking host: UrlGuard::isSafeFetchUrl resolves hostnames (a
+    // deterministic fake resolver in tests/Pest.php — live DNS before that,
+    // which made the whole file flaky under full-suite load), and an invented
+    // *.test hostname is refused as unsafe before Http::fake is ever
+    // consulted. Distinguish the cases by PATH.
     Http::fake([
         'example.com/good*' => Http::response(articlePage(), 200, ['Content-Type' => 'text/html']),
         'example.com/gone*' => Http::response('', 404),

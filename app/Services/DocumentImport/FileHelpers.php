@@ -73,9 +73,11 @@ class FileHelpers
     }
 
     /**
-     * Ensure content has both id and data-node-id attributes
+     * Ensure content has both id and data-node-id attributes.
+     * $startLine is the node's positional id — decimal-capable (e.g. "100.5"
+     * after mid-document inserts), so a string is accepted as-is.
      */
-    public function ensureNodeIdInContent(string $content, int $startLine, string $nodeId): string
+    public function ensureNodeIdInContent(string $content, int|string $startLine, string $nodeId): string
     {
         if (empty($content)) {
             return $content;

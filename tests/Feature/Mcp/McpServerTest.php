@@ -9,10 +9,13 @@ use Illuminate\Support\Str;
  * through the REAL middleware stack — which is the point. laravel/mcp's own
  * test harness ($server->actingAs()->tool()) skips HTTP middleware entirely,
  * and the thing most worth pinning here is that the /mcp route's middleware
- * order (auth:sanctum BEFORE SetDatabaseSessionContext) gives every tool the
- * token user's RLS context. Same harness traps as ApiTokenManagementTest:
- * bearer tokens are minted via createToken() (never actingAs), and tests
- * sending two identities forgetGuards() between requests.
+ * order (McpOptionalAuth BEFORE SetDatabaseSessionContext) gives every tool
+ * the token user's RLS context. Auth is OPTIONAL by design: a token-less
+ * request is a GUEST who sees only get_connected (onboarding); an INVALID
+ * token still 401s, with a how-to-connect body. Same harness traps as
+ * ApiTokenManagementTest: bearer tokens are minted via createToken() (never
+ * actingAs), and tests sending two identities forgetGuards() between
+ * requests.
  */
 
 function mcpToken(User $user, array $abilities = [TokenAbilities::READ]): string
@@ -78,9 +81,120 @@ function seedReadableBook($test, User $owner, string $visibility = 'private'): s
     return $book;
 }
 
-test('the endpoint requires authentication', function () {
-    $this->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])
-        ->assertStatus(401);
+function mcpGuestCall($test, string $method, array $params = [])
+{
+    app('auth')->forgetGuards();
+
+    return $test->postJson('/mcp', [
+        'jsonrpc' => '2.0',
+        'id' => 1,
+        'method' => $method,
+        'params' => $params,
+    ], [
+        'Accept' => 'application/json, text/event-stream',
+    ]);
+}
+
+test('a token-less GUEST completes the handshake and gets guest instructions', function () {
+    $response = mcpGuestCall($this, 'initialize', [
+        'protocolVersion' => '2025-06-18',
+        'capabilities' => [],
+        'clientInfo' => ['name' => 'pest', 'version' => '1.0'],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('result.serverInfo.name'))->toBe('Hyperlit');
+    // Guest instructions point at onboarding, not the data-tool manual.
+    expect($response->json('result.instructions'))->toContain('get_connected');
+    expect($response->json('result.instructions'))->not->toContain('HYPERLIGHT');
+});
+
+test('a GUEST sees exactly one tool: get_connected', function () {
+    $response = mcpGuestCall($this, 'tools/list');
+
+    $names = collect($response->json('result.tools'))->pluck('name');
+    expect($names->all())->toBe(['get_connected']);
+});
+
+test('a GUEST calling a hidden data tool gets a clean tool-not-found, not a crash', function () {
+    $response = mcpGuestCall($this, 'tools/call', [
+        'name' => 'list_books',
+        'arguments' => [],
+    ]);
+
+    $response->assertOk();
+    expect($response->json('error.code'))->toBe(-32602);
+    expect((string) $response->json('error.message'))->toContain('not found');
+});
+
+test('get_connected walks a GUEST through minting a token', function () {
+    $response = mcpGuestCall($this, 'tools/call', [
+        'name' => 'get_connected',
+        'arguments' => [],
+    ]);
+
+    $text = mcpToolText($response);
+    expect($text)->toContain('GUEST')
+        ->toContain('Data sovereignty')
+        ->toContain('Authorization: Bearer');
+});
+
+test('an INVALID bearer token is 401 with a how-to-connect body, never a silent guest', function () {
+    $response = $this->postJson('/mcp', [
+        'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list',
+    ], [
+        'Authorization' => 'Bearer not-a-real-token',
+        'Accept' => 'application/json, text/event-stream',
+    ]);
+
+    $response->assertStatus(401);
+    expect((string) $response->json('message'))->toContain('invalid');
+    expect($response->json('hint'))->not->toBeNull();
+    expect($response->json('guest_mode'))->not->toBeNull();
+    // laravel/mcp's AddWwwAuthenticateHeader decorates any 401 on this route.
+    expect((string) $response->headers->get('WWW-Authenticate'))->toContain('realm="mcp"');
+});
+
+test('an EXPIRED token is 401, not a guest', function () {
+    $user = $this->seedUser();
+    $token = $user->createToken('expired', [TokenAbilities::READ], now()->subDay())->plainTextToken;
+
+    mcpCall($this, $token, 'tools/list')->assertStatus(401);
+});
+
+test('a token with the report ability sees report_bug; one without does not', function () {
+    $user = $this->seedUser();
+
+    $with = mcpToken($user, [TokenAbilities::READ, TokenAbilities::REPORT]);
+    $names = collect(mcpCall($this, $with, 'tools/list')->json('result.tools'))->pluck('name');
+    expect($names)->toContain('report_bug')->toContain('get_connected');
+
+    $without = mcpToken($user, [TokenAbilities::READ]);
+    $names = collect(mcpCall($this, $without, 'tools/list')->json('result.tools'))->pluck('name');
+    expect($names)->not->toContain('report_bug');
+});
+
+test('the DEFAULT tools/list holds the ENTIRE registry on one page', function () {
+    // The vendor default (15) split the registry mid-list, and real clients
+    // do not reliably follow nextCursor: OpenCode's agent saw only the first
+    // 15 tools, concluded import_document "isn't available", and rewrote an
+    // EXISTING book to get itself a container. A truncated tool surface is an
+    // agent improvising around a hole — one page must hold everything, so
+    // this counts the registry by reflection and fails the moment the tool
+    // count outgrows the page size.
+    $user = $this->seedUser();
+    $token = mcpToken($user, TokenAbilities::all());
+
+    $response = mcpCall($this, $token, 'tools/list');
+
+    $registry = (new ReflectionClass(\App\Mcp\Servers\HyperlitServer::class))
+        ->getProperty('tools')->getDefaultValue();
+
+    $names = collect($response->json('result.tools'))->pluck('name');
+    expect($names)->toHaveCount(count($registry));
+    // The first casualties of the old page split, pinned by name.
+    expect($names)->toContain('import_document')->toContain('export_markdown');
+    expect($response->json('result.nextCursor'))->toBeNull();
 });
 
 test('initialize identifies the Hyperlit server', function () {
@@ -105,6 +219,14 @@ test('tools/list exposes the v1 read toolset', function () {
     $names = collect($response->json('result.tools'))->pluck('name');
     expect($names)->toContain('list_books', 'search_library', 'search_text',
         'get_book', 'read_book', 'list_annotations', 'list_shelves');
+    // The write toolset (write ability): node edits + two-way hypercites.
+    expect($names)->toContain('update_node', 'append_nodes', 'cite_passage');
+
+    // search_text is the research entry point and must ADVERTISE semantic as
+    // its default — a keyword default steers every agent away from the
+    // archivist's retrieval move (that regression shipped once).
+    $searchText = collect($response->json('result.tools'))->firstWhere('name', 'search_text');
+    expect($searchText['description'] ?? '')->toContain('Default mode=semantic');
 
     $readBook = collect($response->json('result.tools'))->firstWhere('name', 'read_book');
     expect($readBook['annotations']['readOnlyHint'] ?? null)->toBeTrue();

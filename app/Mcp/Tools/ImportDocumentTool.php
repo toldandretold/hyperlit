@@ -82,6 +82,18 @@ class ImportDocumentTool extends HyperlitTool
             if (strlen($content) > self::MAX_DECODED_BYTES) {
                 return Response::error('content exceeds the 10MB limit — split it or use the web uploader.');
             }
+            // Dead-arrow guard: the import pipeline preserves hypercite anchor
+            // HTML but wires NOTHING — no citedIN, no notification, no
+            // connection edge — so an embedded ↗ renders as a link whose source
+            // book never learns it is cited. Refuse rather than mint dead
+            // arrows; the two-way wiring is cite_passage's job, after import.
+            if (preg_match('/#hypercite_|class="open-icon"|<u[^>]+id="hypercite_/i', $content)) {
+                return Response::error(
+                    'content contains hypercite markup (↗ anchors / #hypercite_ links), which the import pipeline '
+                    .'cannot wire up — it would produce dead one-way arrows. Import the text WITHOUT citation markup, '
+                    .'then add each citation with cite_passage (it completes the two-way link).'
+                );
+            }
             return $this->importFile($request, 'pasted.'.$format, $format, $content);
         }
 
@@ -214,7 +226,7 @@ class ImportDocumentTool extends HyperlitTool
             }
             $spendToken = $user->currentAccessToken();
             if ($spendToken instanceof \Laravel\Sanctum\PersonalAccessToken && ! $spendToken->can(TokenAbilities::SPEND)) {
-                return Response::error("Confirming a paid PDF import needs the 'spend' ability — the user can mint a token with it under Account → AI access.");
+                return Response::error("Confirming a paid PDF import needs the 'spend' ability — the user can mint a token with it via the user button → Data sovereignty → MCP for AI access → Connect an AI.");
             }
 
             $upload = $this->tempUpload($stash['filename'], base64_decode($stash['bytes']));

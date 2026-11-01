@@ -27,7 +27,11 @@ const ABILITIES: Array<{ key: string; label: string; desc: string; default: bool
     { key: 'read', label: 'Read', desc: 'Library, search, book content, annotations, exports.', default: true },
     { key: 'annotate', label: 'Annotate', desc: 'Create highlights, hypercites and shelf changes.', default: true },
     { key: 'import', label: 'Import', desc: 'Import documents and URLs into your library.', default: false },
+    { key: 'write', label: 'Write books', desc: 'Edit and extend books you own, and complete two-way hypercites into them.', default: false },
     { key: 'spend', label: 'Spend credits', desc: 'Allow paid actions (e.g. PDF OCR) to charge your balance.', default: false },
+    // Consent gate, not a capability: without it the report_bug tool is not
+    // even registered for the token's MCP session.
+    { key: 'report', label: 'Report bugs', desc: 'Let the assistant file a bug report with the Hyperlit maintainer when a tool malfunctions. Reports include your username, the token name, and what the assistant says went wrong.', default: true },
 ];
 
 let overlayEl: HTMLElement | null = null;

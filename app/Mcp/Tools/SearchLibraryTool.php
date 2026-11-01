@@ -17,7 +17,7 @@ class SearchLibraryTool extends HyperlitTool
 
     protected string $name = 'search_library';
 
-    protected string $description = 'Search Hyperlit\'s library by bibliographic metadata (title, author, year, journal). Returns matching books with their ids. Visibility follows the user: public books plus their own.';
+    protected string $description = 'Search Hyperlit\'s library by bibliographic METADATA ONLY (title, author, year, journal) — use it to find a specific work you can name. To find CONTENT about a topic (the research/archivist move), use search_text instead (semantic by default). Returns matching books with their ids. Visibility follows the user: public books plus their own.';
 
     public function schema(JsonSchema $schema): array
     {
