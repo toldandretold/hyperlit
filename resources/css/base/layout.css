@@ -54,7 +54,7 @@ body[data-page="timemachine"] #app-container {
 .reader-content-wrapper {
   margin: 0 auto;
   width: 100%;
-  max-width: var(--content-width, 40ch);
+  max-width: var(--content-width, 38ch);
   flex: 1; /* Take up remaining space */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -237,7 +237,7 @@ body[data-page="journal"] .fixed-header {
   z-index: 10;
 
   width: 100%;
-  max-width: var(--content-width, 40ch); /* Matches the content column width */
+  max-width: var(--content-width, 38ch); /* Matches the content column width */
   box-sizing: border-box;
 
   background-color: var(--color-background); /* Makes it a solid, opaque block */
@@ -253,7 +253,7 @@ body[data-page="user"] .fixed-header {
   z-index: 10;
 
   width: 100%;
-  max-width: var(--content-width, 40ch); /* Matches the content column width */
+  max-width: var(--content-width, 38ch); /* Matches the content column width */
   box-sizing: border-box;
 
   background-color: var(--color-background); /* Makes it a solid, opaque block */
@@ -278,7 +278,7 @@ body[data-page="user"] .user-content-wrapper {
 body[data-page="home"] .main-content,
 body[data-page="journal"] .main-content,
 body[data-page="user"] .main-content {
-  max-width: var(--content-width, 40ch);
+  max-width: var(--content-width, 38ch);
   margin: 0 auto;
   padding: 0 40px 50px 40px; /* Match reader page horizontal padding for consistent perimeter spacing */
 }

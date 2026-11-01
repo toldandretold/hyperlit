@@ -4,7 +4,7 @@
  *
  * The only scrollable element on these pages is the content wrapper
  * (`.home-content-wrapper` / `.user-content-wrapper` / `.reader-content-wrapper`), which on
- * desktop is a narrow centered column (`max-width: var(--content-width, 40ch); margin: 0 auto`).
+ * desktop is a narrow centered column (`max-width: var(--content-width, 38ch); margin: 0 auto`).
  * Two regions therefore have no scroll target under the pointer:
  *   1. The `position:fixed` `.fixed-header` (its containing block is the viewport, so a wheel
  *      over it targets the root scroller — `html`/`body`, which are `overflow:hidden`). It must
@@ -51,7 +51,7 @@ const CONTENT_SEL =
 // a `closest()` match on an ancestor is enough, so listing the outer overlay covers an
 // inner scroller. See CLAUDE.md §"Overlay surfaces" check 5.
 const SCROLLABLE_OVERLAY_SEL =
-  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #archive-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #stats-overlay, #data-sovereignty-overlay, #notifications-overlay, #user-page-edit-panel, #shelf-picker-dropdown, .library-filter-dropdown, .integrity-overlay, .cite-group-popover, .import-queue-panel, .vibe-gallery, .add-to-shelf-menu, #figure-viewer-overlay';
+  '.search-results, #newbook-container, #toc-container, #user-container, #openbook-container, #source-container, #archive-container, #citation-toolbar-results, .shelf-preview-overlay, #money-overlay, #stats-overlay, #data-sovereignty-overlay, #api-tokens-overlay, #notifications-overlay, #user-page-edit-panel, #shelf-picker-dropdown, .library-filter-dropdown, .integrity-overlay, .cite-group-popover, .import-queue-panel, .vibe-gallery, .add-to-shelf-menu, #figure-viewer-overlay';
 
 export function initWheelScrollForwarder(): void {
   if (wheelHandler) return; // document-delegated singleton — create once

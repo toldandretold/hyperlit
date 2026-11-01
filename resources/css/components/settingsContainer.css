@@ -39,7 +39,7 @@ body.hyperlit-container-open .reader-content-wrapper {
    stack (wrap) exactly as .main-content narrows (see var(--content-width)). */
 .settings-inner {
   width: 100%;
-  max-width: var(--content-width, 40ch);
+  max-width: var(--content-width, 38ch);
   display: flex;
   flex-direction: column;
   gap: 0.6em;

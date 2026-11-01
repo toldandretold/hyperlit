@@ -51,6 +51,37 @@ uses()->beforeEach(function () {
     foreach (['bibliography', 'footnotes', 'canonical_source', 'hypercites'] as $table) {
         \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table($table)->delete();
     }
+
+    /*
+     * Same shape again, third surface: LIVE DNS. UrlGuard::isSafeFetchUrl (the SSRF gate on
+     * every fetch path) resolves hostnames via gethostbyname() even when the HTTP layer is
+     * Http::fake()d — so every web-content / image-harvest / PDF-source test depended on the
+     * machine's resolver. Under full-suite load macOS DNS intermittently failed for PUBLIC
+     * hosts (example.org, silverchair-cdn.com — see "refused by UrlGuard" in laravel.log,
+     * 2026-11-01) and 27 tests failed as `unreachable`/skipped while passing standalone.
+     * Deterministic resolver: names that can never be public stay UNRESOLVED (returning the
+     * input is gethostbyname()'s failure contract, so UrlGuard blocks them — keeping
+     * SsrfPenetrationTest honest); everything else resolves to a fixed public IP. IP literals
+     * never reach the resolver (UrlGuard checks them directly), so private-IP fixtures still
+     * exercise the real range checks.
+     */
+    \App\Services\Security\UrlGuard::resolveHostUsing(function (string $host): string {
+        foreach (['localhost', '.localhost', '.internal', '.local', '.test'] as $never) {
+            if ($host === $never || str_ends_with($host, $never)) {
+                return $host;
+            }
+        }
+
+        // Only a dotted, letter-bearing DNS name "resolves" — a bracketed
+        // IPv6 literal ([::1]), a decimal IP, or a bare label returns
+        // unchanged, exactly what gethostbyname() does on a dev box, so the
+        // SSRF suite's blocked verdicts stay honest.
+        if (! preg_match('/^(?=.*[a-z])[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i', $host)) {
+            return $host;
+        }
+
+        return '93.184.216.34';
+    });
 })->in('Feature', 'Canonical');
 
 // Canonical version-control suite (tests/Canonical): same Laravel TestCase
@@ -65,7 +96,7 @@ uses(InteractsWithApi::class)->in('Feature/Api');
 // Security/Auth suites seed users (and some pre-seed owned content) directly; under RLS
 // a bare User::factory()->create() is rejected (see SeedsRlsFixtures). Bind the admin-
 // seeding helpers + auto-clean the admin-committed rows after each test.
-uses(SeedsRlsFixtures::class)->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference', 'Feature/Billing', 'Feature/Translation', 'Feature/Console', 'Feature/CitationMetadata', 'Feature/Account');
+uses(SeedsRlsFixtures::class)->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference', 'Feature/Billing', 'Feature/Translation', 'Feature/Console', 'Feature/CitationMetadata', 'Feature/Account', 'Feature/Mcp');
 afterEach(function () {
     if (method_exists($this, 'cleanupRlsFixtures')) {
         $this->cleanupRlsFixtures();

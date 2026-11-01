@@ -282,10 +282,19 @@ final class AppendixBuilder
         }
 
         // --- Models ---
-        $metadataModel = basename(config('services.llm.model', 'unknown'));
-        $extractionModel = basename(config('services.llm.extraction_model', 'unknown'));
-        $verificationModel = basename(config('services.llm.verification_model', 'unknown'));
-        $provider = parse_url(config('services.llm.base_url', ''), PHP_URL_HOST) ?: 'unknown';
+        // A BYO (client-inference) run routes EVERY LLM call through inference
+        // tickets to the requester's own model (CitationPipelineJob installs
+        // the transport for the whole run), so naming the configured server
+        // models here would credit models that never saw a prompt. OCR is the
+        // exception — sources are OCR'd with our key regardless of mode.
+        $byoRun = ($pipeline->inference_mode ?? null) === 'client';
+        $byoLabel = "the requesting reader's own model (bring-your-own-model)";
+        $metadataModel = $byoRun ? $byoLabel : basename(config('services.llm.model', 'unknown'));
+        $extractionModel = $byoRun ? $byoLabel : basename(config('services.llm.extraction_model', 'unknown'));
+        $verificationModel = $byoRun ? $byoLabel : basename(config('services.llm.verification_model', 'unknown'));
+        $provider = $byoRun
+            ? "the requesting reader's own provider"
+            : (parse_url(config('services.llm.base_url', ''), PHP_URL_HOST) ?: 'unknown');
 
         $md .= "## Models\n\n";
         $md .= "| Role | Model |\n|------|-------|\n";

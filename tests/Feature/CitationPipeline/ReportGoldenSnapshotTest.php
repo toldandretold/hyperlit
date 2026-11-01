@@ -239,3 +239,37 @@ test('report markdown is byte-identical to snapshot — passed stats (full pipel
         assertMatchesGoldenSnapshot('report_passed_stats', $md);
     });
 });
+
+test('a BYO (client-inference) run is attributed to the reader\'s own model, never the configured server models', function () {
+    $book = 'goldensnapshotbook';
+    withGoldenReport($book, function (CitationReviewService $svc, string $book) {
+        // Seed a client-mode pipeline row — the SAME source of truth
+        // CitationPipelineJob trusts — and point stats at it the way the
+        // pipeline-driven command invocation does (--pipeline-id).
+        $admin = DB::connection('pgsql_admin');
+        $pipelineId = (string) \Illuminate\Support\Str::uuid();
+        $admin->table('citation_pipelines')->insert([
+            'id' => $pipelineId, 'book' => $book, 'status' => 'completed',
+            'inference_mode' => 'client',
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        try {
+            $md = $svc->buildMarkdownReport(goldenClaimsFixture($book), $book, 'The Reviewed Work', [
+                'pipeline_id' => $pipelineId,
+            ]);
+            expect($md)->toContain("the requesting reader's own AI model");
+            expect($md)->not->toContain('extract-model');
+            expect($md)->not->toContain('verify-model');
+
+            // A SERVER pipeline keeps the configured-model attribution.
+            $admin->table('citation_pipelines')->where('id', $pipelineId)->update(['inference_mode' => 'server']);
+            $mdServer = $svc->buildMarkdownReport(goldenClaimsFixture($book), $book, 'The Reviewed Work', [
+                'pipeline_id' => $pipelineId,
+            ]);
+            expect($mdServer)->toContain('extracted by [extract-model] and verified by [verify-model]');
+        } finally {
+            $admin->table('citation_pipelines')->where('id', $pipelineId)->delete();
+        }
+    });
+});

@@ -11,8 +11,8 @@
 <body>
     <script>
         (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
+            var t = 'sepia';
+            try { t = localStorage.getItem('hyperlit_theme_preference') || 'sepia'; } catch (e) {}
             if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
             document.body.classList.add('theme-' + t);
         })();

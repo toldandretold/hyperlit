@@ -80,7 +80,7 @@ body[data-page="user"] #app-container.lava-lamp-background .fixed-header {
      overhang each side tucks them ~14px inside the card — and since that JS
      re-measures on width-setting changes, card and buttons stay in sync at
      any viewport width. Viewport cap: on narrow screens --content-width
-     resolves to 40ch/100% (wider than the viewport) and the sum would
+     resolves to 38ch/100% (wider than the viewport) and the sum would
      full-bleed, so the card keeps at least --hero-edge-min per side. */
   /* Published as a variable, not just consumed as `width`, because the lockup
      needs to size its title AGAINST THE CARD (journalHome.css / userPageHero.css
@@ -88,7 +88,7 @@ body[data-page="user"] #app-container.lava-lamp-background .fixed-header {
      width has one definition. */
   --card-w: calc(
     min(92vw, 480px) * (1 - var(--p)) +
-    min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px) * var(--p)
+    min(100vw - 2 * var(--hero-edge-min), var(--content-width, 38ch) + 148px) * var(--p)
   );
   width: var(--card-w);
   max-width: none;
@@ -489,7 +489,7 @@ body[data-page="user"] #app-container.lava-lamp-background.content-active .fixed
   width: 100%;
   /* same +148px overhang as the scroll-docked pose: wraps the JS-positioned
      corner buttons (60px outside the column) with ~14px to spare */
-  max-width: min(100vw - 2 * var(--hero-edge-min), var(--content-width, 40ch) + 148px);
+  max-width: min(100vw - 2 * var(--hero-edge-min), var(--content-width, 38ch) + 148px);
   padding: 20px 20px 10px 20px;
   gap: 0.5em;
   /* EXPERIMENT (2026-09-08): keep the card's glass tint + shadow in feed

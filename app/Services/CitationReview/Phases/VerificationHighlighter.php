@@ -37,10 +37,7 @@ class VerificationHighlighter
         // Cleanup previous AI review highlights
         $this->highlights->deleteHighlightsByCreator($bookId, 'AIreview:');
 
-        // Derive model name from config
-        $rawModel = config('services.llm.verification_model') ?: config('services.llm.model', 'unknown');
-        $modelName = basename($rawModel);
-        $creator = "AIreview:{$modelName}";
+        $creator = $this->reviewCreator($bookId);
 
         $count = 0;
 
@@ -310,8 +307,7 @@ class VerificationHighlighter
             return 0;
         }
 
-        $rawModel = config('services.llm.verification_model') ?: config('services.llm.model', 'unknown');
-        $creator = 'AIreview:' . basename($rawModel);
+        $creator = $this->reviewCreator($bookId);
 
         // One query for every reference named, rather than per highlight.
         $refIds = array_values(array_unique(array_column($unmatched, 'referenceId')));
@@ -469,5 +465,29 @@ class VerificationHighlighter
             'hideAnonymous'    => (bool) ($flags['hideAnonymous'] ?? false),
             'hideNoAnnotation' => (bool) ($flags['hideNoAnnotation'] ?? false),
         ];
+    }
+
+    /**
+     * Creator string stamped on every review highlight. Consumers match only
+     * the 'AIreview:' prefix (gates, sweeps, sub-book detection) — the suffix
+     * is a display label, and it must be HONEST: a BYO (client-inference) run
+     * answered every verification prompt on the reader's own model, so naming
+     * the configured server model would credit a model that never saw a
+     * prompt. Highlights are created by the run itself (or a report rebuild of
+     * it), so the book's latest pipeline row is that run's row.
+     */
+    private function reviewCreator(string $bookId): string
+    {
+        $mode = DB::connection('pgsql_admin')->table('citation_pipelines')
+            ->where('book', $bookId)
+            ->orderByDesc('created_at')
+            ->value('inference_mode');
+        if ($mode === 'client') {
+            return 'AIreview:reader-byo-model';
+        }
+
+        $rawModel = config('services.llm.verification_model') ?: config('services.llm.model', 'unknown');
+
+        return 'AIreview:' . basename($rawModel);
     }
 }

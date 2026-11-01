@@ -614,14 +614,14 @@ scrollCaretIntoView(element: any) {
     // longer rises". resetInlineStyles removes this on keyboard close.
     visibleToolbar.style.setProperty("bottom", "auto", "important");
 
-    // Desktop (≥769px): Center toolbar to match 40ch content width
+    // Desktop (≥769px): Center toolbar to match the content column width
     // Mobile (≤768px): Full-width toolbar
     const isDesktop = window.innerWidth >= 769;
     if (isDesktop) {
       visibleToolbar.style.setProperty("left", "50%", "important");
       visibleToolbar.style.setProperty("right", "auto", "important");
       visibleToolbar.style.setProperty("transform", "translateX(-50%)", "important");
-      visibleToolbar.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '40ch', "important");
+      visibleToolbar.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '38ch', "important");
     } else {
       visibleToolbar.style.setProperty("left", "0", "important");
       visibleToolbar.style.setProperty("right", "0", "important");
@@ -735,7 +735,7 @@ scrollCaretIntoView(element: any) {
         citationResults.style.setProperty("left", "50%", "important");
         citationResults.style.setProperty("right", "auto", "important");
         citationResults.style.setProperty("transform", "translateX(-50%)", "important");
-        citationResults.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '40ch', "important");
+        citationResults.style.setProperty("width", getComputedStyle(document.documentElement).getPropertyValue('--content-width').trim() || '38ch', "important");
       } else {
         citationResults.style.setProperty("left", "0", "important");
         citationResults.style.setProperty("right", "0", "important");

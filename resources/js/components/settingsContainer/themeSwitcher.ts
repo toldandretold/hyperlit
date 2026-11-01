@@ -13,8 +13,9 @@ const THEMES = {
   VIBE: 'vibe'
 };
 
-// Single source of truth for current theme
-let currentTheme = THEMES.DARK;
+// Single source of truth for current theme (sepia is the first-landing default;
+// kept in sync with the pre-paint stamp in layout.blade.php + the standalone views)
+let currentTheme = THEMES.SEPIA;
 
 /**
  * Get the current active theme
@@ -83,8 +84,8 @@ export function initializeTheme() {
       import('./vibeCSS/index').then(m => m.applyVibeCSS());
     }
   } else {
-    currentTheme = THEMES.DARK;
-    applyThemeClass(THEMES.DARK);
+    currentTheme = THEMES.SEPIA;
+    applyThemeClass(THEMES.SEPIA);
   }
 
   return currentTheme;

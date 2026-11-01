@@ -143,6 +143,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // RLS-aware token model: stock Sanctum resolves a bearer token's user
+        // through the RLS-bound users table before app.current_user is set,
+        // which 401s every token. See HyperlitPersonalAccessToken.
+        \Laravel\Sanctum\Sanctum::usePersonalAccessTokenModel(
+            \App\Models\HyperlitPersonalAccessToken::class
+        );
+
         // SEO hardening: absolute URLs (canonical, og:url, the cached sitemap) must
         // always be built on the canonical host, never the request host — one crawl
         // of www.hyperlit.io/sitemap.xml would otherwise poison the 1h sitemap cache
@@ -191,6 +198,23 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\RateLimiter::for('account-deletion', function ($request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)
                 ->by('account-deletion|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // API-token management (list/mint/revoke). Named for the same
+        // shared-bucket reason as account-deletion; 10/min is plenty for a
+        // settings panel and blunts token-mint spam.
+        \Illuminate\Support\Facades\RateLimiter::for('api-tokens', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+                ->by('api-tokens|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // The MCP endpoint (/mcp, Streamable HTTP). An agent doing bulk work
+        // (highlight sweeps, paginated reads) must not contend with the
+        // user's own browser tab in the shared inline bucket — own bucket,
+        // same ceiling as the SPA's sync lane.
+        \Illuminate\Support\Facades\RateLimiter::for('mcp', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('mcp|'.($request->user()?->id ?: $request->ip()));
         });
 
         // Register authorization policies

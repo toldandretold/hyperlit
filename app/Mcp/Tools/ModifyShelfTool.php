@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Mcp\Tools;
+
+use App\Http\Controllers\ShelfController;
+use App\Mcp\Support\InternalCall;
+use App\Mcp\TokenAbilities;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+
+class ModifyShelfTool extends HyperlitTool
+{
+    protected string $ability = TokenAbilities::ANNOTATE;
+
+    protected string $name = 'modify_shelf';
+
+    protected string $description = 'Create, rename or delete one of the user\'s shelves, or add/remove a book. Actions: create (name required), rename (shelf_id + name), delete (shelf_id), add_book / remove_book (shelf_id + book). Shelf ids come from list_shelves.';
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'action' => $schema->string()->enum(['create', 'rename', 'delete', 'add_book', 'remove_book'])
+                ->required()->description('What to do.'),
+            'shelf_id' => $schema->string()->description('Target shelf uuid (all actions except create).'),
+            'name' => $schema->string()->description('Shelf name (create / rename).'),
+            'book' => $schema->string()->description('Book id or slug (add_book / remove_book).'),
+            'visibility' => $schema->string()->enum(['private', 'public'])->description('create only. Default private.'),
+        ];
+    }
+
+    public function handle(Request $request): Response
+    {
+        if ($denied = $this->denyUnlessAble($request)) {
+            return $denied;
+        }
+
+        $request->validate([
+            'action' => 'required|in:create,rename,delete,add_book,remove_book',
+            'shelf_id' => 'required_unless:action,create|uuid',
+            'name' => 'required_if:action,create,rename|string|max:255',
+            'book' => 'required_if:action,add_book,remove_book|string',
+            'visibility' => 'nullable|in:private,public',
+        ]);
+
+        $user = $this->user($request);
+        $action = (string) $request->get('action');
+        $shelfId = (string) $request->get('shelf_id', '');
+
+        $book = null;
+        if (in_array($action, ['add_book', 'remove_book'], true)) {
+            [$book, $refusal] = $this->resolveBook((string) $request->get('book'));
+            if ($refusal) {
+                return $refusal;
+            }
+        }
+
+        $result = match ($action) {
+            'create' => InternalCall::call(ShelfController::class, 'store', [
+                'name' => $request->get('name'),
+                'visibility' => $request->get('visibility', 'private'),
+            ], $user),
+            'rename' => InternalCall::call(ShelfController::class, 'update', [
+                'name' => $request->get('name'),
+            ], $user, [$shelfId]),
+            'delete' => InternalCall::call(ShelfController::class, 'destroy', [], $user, [$shelfId]),
+            'add_book' => InternalCall::call(ShelfController::class, 'addItem', [
+                'book' => $book,
+            ], $user, [$shelfId]),
+            'remove_book' => InternalCall::call(ShelfController::class, 'removeItem', [], $user, [$shelfId, $book]),
+        };
+
+        if ($error = $this->errorFrom($result, "{$action} on the shelf")) {
+            return $error;
+        }
+        $json = is_array($result['json']) ? $result['json'] : [];
+        if (($json['error'] ?? null) || ($json['success'] ?? true) === false) {
+            return Response::error($json['error'] ?? $json['message'] ?? "Could not {$action}.");
+        }
+
+        return Response::json(array_merge(['action' => $action, 'done' => true],
+            $action === 'create' ? ['shelf' => $json['shelf'] ?? $json] : []));
+    }
+}

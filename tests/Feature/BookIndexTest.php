@@ -38,6 +38,18 @@ function seedIndexBook(array $attrs = []): string
     return $book;
 }
 
+beforeEach(function () {
+    // The walk below visits EVERY public listed book in the shared test
+    // database, and other suites' pgsql_admin fixtures leak (their afterEach
+    // cleanups are best-effort) — measured 2,651 accumulated public rows
+    // (2026-11-01), which is past the 50-page runaway guard, so the crawl
+    // failed on volume that has nothing to do with /books. Clear the public
+    // index before each case: file-scoped, so no other file's in-flight
+    // fixtures can be interleaved, and every later file reseeds its own.
+    DB::connection('pgsql_admin')->table('library')
+        ->where('visibility', 'public')->where('listed', true)->delete();
+});
+
 afterEach(function () {
     // These INSERTs commit outside RefreshDatabase — clean up by hand or they
     // accumulate across runs (see CLAUDE.md on pgsql_admin fixtures).

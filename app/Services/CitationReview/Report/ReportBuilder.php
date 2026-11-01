@@ -159,9 +159,22 @@ class ReportBuilder
         $md .= '<tr><td>Confirmed</td><td>' . count($confirmed) . "</td></tr>\n";
         $md .= "</tbody></table>\n\n";
 
-        $extractionModel = basename(config('services.llm.extraction_model'));
-        $verificationModel = basename(config('services.llm.verification_model'));
-        $md .= "> Truth claims are extracted by [{$extractionModel}] and verified by [{$verificationModel}]. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
+        // A BYO (client-inference) run answered every analysis prompt on the
+        // REQUESTER'S own model via inference tickets — naming the configured
+        // server models here would credit models that never saw a prompt. The
+        // mode comes from the pipeline row (the same source CitationPipelineJob
+        // trusts), never the live transport, because reports are also rebuilt
+        // long after the run (--report-only), when no transport exists.
+        $byoRun = isset($stats['pipeline_id']) && $db->table('citation_pipelines')
+            ->where('id', $stats['pipeline_id'])
+            ->value('inference_mode') === 'client';
+        if ($byoRun) {
+            $md .= "> Truth claims were extracted and verified by the requesting reader's own AI model (a bring-your-own-model review): Hyperlit supplied the prompts and source evidence, but ran no analysis model of its own. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
+        } else {
+            $extractionModel = basename(config('services.llm.extraction_model'));
+            $verificationModel = basename(config('services.llm.verification_model'));
+            $md .= "> Truth claims are extracted by [{$extractionModel}] and verified by [{$verificationModel}]. This is designed to help triage manual citation review by humans. It is not a replacement for biological peer review.\n\n";
+        }
 
         // The method figure sits AFTER the results, deliberately — a reader comes for the
         // verdicts first, the methodology second. The verdict fan on the figure reuses the

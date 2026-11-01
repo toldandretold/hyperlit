@@ -45,6 +45,9 @@ const ICON_DB = ICON('<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 
 const ICON_SHIELD = ICON('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1 1 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>');
 const ICON_FILE_TEXT = ICON('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>');
 const ICON_TRASH = ICON('<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>');
+// Lucide "bot" — the AI access row (opens the API tokens overlay: mint/revoke
+// the MCP tokens that let an external AI client act on this account)
+const ICON_BOT = ICON('<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>');
 
 function rowHtml(id: string, icon: string, title: string, desc: string, opts: { danger?: boolean; progress?: boolean } = {}): string {
     return `
@@ -93,6 +96,16 @@ function onOverlayClick(e: Event): void {
         return;
     }
 
+    if (target.closest('#datasovAiAccessBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeDataSovereigntyOverlay();
+        // Lazy: keeps the API-token UI out of the eager bundle.
+        void import('../apiTokens/apiTokensOverlay').then(({ openApiTokensOverlay }) =>
+            openApiTokensOverlay());
+        return;
+    }
+
     if (target.closest('#datasovDeleteBtn')) {
         e.preventDefault();
         e.stopPropagation();
@@ -135,6 +148,15 @@ export function openDataSovereigntyOverlay(): void {
             '.sqlite — texts, annotations and vector embeddings for offline work.', { progress: true })}`
         : '';
 
+    // AI access (MCP) — a logged-in-only power feature, deliberately tucked
+    // in here rather than a top-level menu row so it doesn't alarm new readers.
+    const aiAccessSection = name
+        ? `
+          <p class="datasov-section-label">MCP for AI access</p>
+          ${rowHtml('datasovAiAccessBtn', ICON_BOT, 'Connect an AI',
+            'Let your preferred AI assistant read and annotate your library on your behalf. Create and revoke access tokens.')}`
+        : '';
+
     const overlay = document.createElement('div');
     overlay.id = 'data-sovereignty-overlay';
     overlay.innerHTML = `
@@ -148,6 +170,7 @@ export function openDataSovereigntyOverlay(): void {
         <div class="datasov-panel-body">
           ${settingsSection}
           ${exportSection}
+          ${aiAccessSection}
           <p class="datasov-section-label">Your rights</p>
           ${rowHtml('datasovPrivacyBtn', ICON_SHIELD, 'Privacy policy',
         'What we collect, what never leaves your device, and exactly when content reaches a third party.')}

@@ -215,7 +215,7 @@ blockquote {
   }
 
    body {
-    font-size: var(--font-size-base); /* defaults to --font-size-mobile (18px) via variables.css; slider overrides via inline --font-size-base on <html> */
+    font-size: var(--font-size-base); /* defaults to --font-size-mobile (17px) via variables.css; slider overrides via inline --font-size-base on <html> */
     overflow-x: hidden; /* Prevent horizontal scroll */
   }
   
