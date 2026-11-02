@@ -8,10 +8,21 @@
     display: block;
     overflow-x: auto;
     max-width: 100%;
-    white-space: nowrap;
+    font-size: 0.85em;
     background-color: transparent;
     border: none;
     box-shadow: none;
+}
+
+/* Cells soft-wrap at word boundaries. break-word (NOT anywhere) on purpose:
+   it never shrinks a column below its longest word, so columns keep a sane
+   minimum width instead of squishing to slivers — when those minimums still
+   exceed the reading column, the table's overflow-x: auto scrolls instead. */
+.main-content table th,
+.main-content table td {
+    white-space: normal;
+    overflow-wrap: break-word;
+    padding: 0.45em 0.6em;
 }
 
 
