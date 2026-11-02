@@ -79,6 +79,38 @@ describe('syncOnUnload via pagehide (characterization)', () => {
     expect(sendBeacon).toHaveBeenCalledTimes(2);
   });
 
+  it('carries the CSRF token in the BODY of every beacon payload', async () => {
+    // sendBeacon cannot set headers, and the api middleware group runs Sanctum's
+    // stateful CSRF check on every same-origin browser POST — so the token must
+    // ride in the JSON body (VerifyCsrfToken reads input('_token')). Without it
+    // every beacon 419s while sendBeacon still returns true, the queue is
+    // cleared, and the edits silently never reach the server (2026-11-02: a
+    // typed book whose only server copy was its initial h1, found via a
+    // dangling reading-position bookmark in the e2e suite).
+    __resetUnloadOnceGuardForTests();
+    const meta = document.createElement('meta');
+    meta.name = 'csrf-token';
+    meta.content = 'tok-plain-session';
+    document.head.appendChild(meta);
+    try {
+      setupUnloadSync();
+      queueForSync('nodes', 100, 'update', { book: 'bookA', startLine: 100, content: '<p>a</p>' }, null);
+      queueForSync('nodes', 100, 'update', { book: 'bookB', startLine: 100, content: '<p>b</p>' }, null);
+
+      window.dispatchEvent(new Event('pagehide'));
+
+      const payloads = await Promise.all(
+        sendBeacon.mock.calls.map(async ([, blob]) => JSON.parse(await blob.text())),
+      );
+      expect(payloads.length).toBe(2);
+      for (const payload of payloads) {
+        expect(payload._token).toBe('tok-plain-session');
+      }
+    } finally {
+      meta.remove();
+    }
+  });
+
   it('stamps a ledgered sync_token on library-bearing beacons only', async () => {
     // A beacon never sees its response, so the base can't advance from it. When it
     // carries a library record (the only thing that moves the server's staleness

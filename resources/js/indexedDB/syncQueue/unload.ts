@@ -37,6 +37,13 @@ export function __resetUnloadOnceGuardForTests(): void {
 
 interface BeaconPayload {
   book: BookId;
+  /** CSRF token, carried IN THE BODY: sendBeacon cannot set headers, and the api
+   *  middleware group runs Sanctum's stateful CSRF check on every same-origin
+   *  browser POST — without this every beacon 419s silently (sendBeacon still
+   *  returns true, so the queue was cleared and the data never reached the
+   *  server; found via a dangling reading-position bookmark in e2e, 2026-11-02).
+   *  VerifyCsrfToken::getTokenFromRequest reads `_token` from the JSON body. */
+  _token?: string;
   /** Optimistic-concurrency base (the server version this client last knew). */
   base_timestamp?: number;
   /** Ledgered write id (see sentSyncTokens) so a later 409 against this
@@ -86,6 +93,9 @@ function syncOnUnload(): string | undefined {
   }
 
   const syncUrl = "/api/db/sync/beacon";
+  // The layout's meta tag carries the PLAIN session token (the X-XSRF-TOKEN
+  // header path needs the encrypted cookie, which a beacon cannot send).
+  const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null)?.content;
   let allSuccess = true;
   // Keys actually included in a successfully queued beacon — only these are
   // cleared from pendingSyncs (skipped encrypted items stay queued).
@@ -96,6 +106,7 @@ function syncOnUnload(): string | undefined {
     const bookKeys: string[] = [];
     const payload: BeaconPayload = {
       book: bookId,
+      _token: csrfToken,
       updates: {
         nodes: [],
         hypercites: [],
