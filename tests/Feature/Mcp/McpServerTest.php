@@ -10,8 +10,10 @@ use Illuminate\Support\Str;
  * test harness ($server->actingAs()->tool()) skips HTTP middleware entirely,
  * and the thing most worth pinning here is that the /mcp route's middleware
  * order (McpOptionalAuth BEFORE SetDatabaseSessionContext) gives every tool
- * the token user's RLS context. Auth is OPTIONAL by design: a token-less
- * request is a GUEST who sees only get_connected (onboarding); an INVALID
+ * the token user's RLS context. A token-less request 401s (that 401 carries
+ * the OAuth discovery header — it is what makes claude.ai/mobile connectors
+ * show a login); a GUEST connects via POST /mcp?guest=1 and sees only
+ * get_connected (onboarding); an INVALID
  * token still 401s, with a how-to-connect body. Same harness traps as
  * ApiTokenManagementTest: bearer tokens are minted via createToken() (never
  * actingAs), and tests sending two identities forgetGuards() between
@@ -85,7 +87,9 @@ function mcpGuestCall($test, string $method, array $params = [])
 {
     app('auth')->forgetGuards();
 
-    return $test->postJson('/mcp', [
+    // Guest mode is opt-in via ?guest=1 — a BARE token-less POST 401s so
+    // OAuth-capable clients discover the login flow (see McpOptionalAuth).
+    return $test->postJson('/mcp?guest=1', [
         'jsonrpc' => '2.0',
         'id' => 1,
         'method' => $method,
@@ -94,6 +98,43 @@ function mcpGuestCall($test, string $method, array $params = [])
         'Accept' => 'application/json, text/event-stream',
     ]);
 }
+
+test('a token-less request WITHOUT ?guest=1 is 401 with OAuth discovery', function () {
+    app('auth')->forgetGuards();
+
+    $response = $this->postJson('/mcp', [
+        'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list',
+    ], [
+        'Accept' => 'application/json, text/event-stream',
+    ]);
+
+    $response->assertStatus(401);
+    // Claude's client only starts OAuth off a 401 whose WWW-Authenticate
+    // names the protected-resource metadata; the vendor middleware emits it
+    // because routes/oauth.php registers mcp.oauth.protected-resource.
+    $header = (string) $response->headers->get('WWW-Authenticate');
+    expect($header)->toContain('realm="mcp"')
+        ->toContain('resource_metadata=')
+        ->toContain('/.well-known/oauth-protected-resource/mcp');
+    // Agents that wanted the old silent guest handshake are told where it went.
+    expect((string) $response->json('guest_mode'))->toContain('guest=1');
+    expect($response->json('oauth'))->not->toBeNull();
+});
+
+test('an invalid-token 401 also carries OAuth discovery (the silent-refresh path)', function () {
+    $response = $this->postJson('/mcp', [
+        'jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list',
+    ], [
+        'Authorization' => 'Bearer not-a-real-token',
+        'Accept' => 'application/json, text/event-stream',
+    ]);
+
+    $response->assertStatus(401);
+    // An EXPIRED OAuth-minted PAT lands here; resource_metadata on this 401
+    // is what lets Claude refresh without bothering the user.
+    expect((string) $response->headers->get('WWW-Authenticate'))
+        ->toContain('resource_metadata=');
+});
 
 test('a token-less GUEST completes the handshake and gets guest instructions', function () {
     $response = mcpGuestCall($this, 'initialize', [
@@ -211,8 +252,8 @@ test('initialize identifies the Hyperlit server', function () {
     expect($response->json('result.instructions'))->toContain('HYPERLIGHT');
 });
 
-test('tools/list exposes the v1 read toolset', function () {
-    $token = mcpToken($this->seedUser());
+test('tools/list exposes the full toolset to an all-abilities token', function () {
+    $token = mcpToken($this->seedUser(), TokenAbilities::all());
 
     $response = mcpCall($this, $token, 'tools/list');
 
@@ -222,14 +263,50 @@ test('tools/list exposes the v1 read toolset', function () {
     // The write toolset (write ability): node edits + two-way hypercites.
     expect($names)->toContain('update_node', 'append_nodes', 'cite_passage');
 
-    // search_text is the research entry point and must ADVERTISE semantic as
-    // its default — a keyword default steers every agent away from the
-    // archivist's retrieval move (that regression shipped once).
-    $searchText = collect($response->json('result.tools'))->firstWhere('name', 'search_text');
-    expect($searchText['description'] ?? '')->toContain('Default mode=semantic');
+    // semantic search is the archivist's retrieval move and must be VISIBLE
+    // as its own tool in a bare listing — it shipped once as an invisible
+    // mode of search_text and every agent reached for keyword search instead.
+    expect($names)->toContain('semantic_search');
+
+    // The v2 surface: audio, lifecycle, social reads, translation, billing.
+    expect($names)->toContain('create_audiobook', 'get_audiobook_status', 'cancel_audiobook',
+        'package_audiobook', 'get_credit_balance', 'translate_passage');
+    expect($names)->toContain('set_book_visibility', 'set_book_slug', 'delete_book',
+        'get_book_stats', 'like_book');
+    expect($names)->toContain('list_notifications', 'mark_notifications_read',
+        'get_reading_position', 'set_reading_position', 'get_citation_graph', 'list_feed');
 
     $readBook = collect($response->json('result.tools'))->firstWhere('name', 'read_book');
     expect($readBook['annotations']['readOnlyHint'] ?? null)->toBeTrue();
+});
+
+test('the tool list is ABILITY-SIZED: a token only sees tools it can call', function () {
+    // The visible list IS the capability map — an agent must never plan
+    // around a tool its token would refuse, and the minting checkboxes are
+    // how the user sizes the agent's surface. denyUnlessAble remains the
+    // call-time backstop; this pins the listing side.
+    $user = $this->seedUser();
+
+    $readOnly = collect(mcpCall($this, mcpToken($user, [TokenAbilities::READ]), 'tools/list')
+        ->json('result.tools'))->pluck('name');
+    expect($readOnly)->toContain('semantic_search', 'read_book', 'get_credit_balance', 'get_connected');
+    expect($readOnly)->not->toContain('create_highlight');   // annotate
+    expect($readOnly)->not->toContain('import_document');    // import
+    expect($readOnly)->not->toContain('cite_passage');       // write
+    expect($readOnly)->not->toContain('create_audiobook');   // spend
+    expect($readOnly)->not->toContain('report_bug');         // report
+
+    $annotate = collect(mcpCall($this, mcpToken($user, [TokenAbilities::READ, TokenAbilities::ANNOTATE]), 'tools/list')
+        ->json('result.tools'))->pluck('name');
+    expect($annotate)->toContain('create_highlight', 'like_book', 'modify_shelf');
+    expect($annotate)->not->toContain('cite_passage')->not->toContain('create_audiobook');
+
+    // Hidden ⇒ also uncallable at the protocol layer: a clean tool-not-found,
+    // not an ability refusal (the registry filter runs before dispatch).
+    $blocked = mcpCall($this, mcpToken($user, [TokenAbilities::READ]), 'tools/call', [
+        'name' => 'create_audiobook', 'arguments' => ['book' => 'book_x'],
+    ]);
+    expect($blocked->json('error.code'))->toBe(-32602);
 });
 
 test('list_books returns the token user\'s own books', function () {
@@ -285,7 +362,7 @@ test('another user\'s token cannot read a private book', function () {
     expect(mcpToolText($response))->not->toContain('Romantic theory');
 });
 
-test('a token without the read ability is refused with a named ability', function () {
+test('a token without the read ability cannot reach read tools (hidden, so tool-not-found)', function () {
     $user = $this->seedUser();
     seedReadableBook($this, $user);
     $token = mcpToken($user, [TokenAbilities::ANNOTATE]);
@@ -295,8 +372,9 @@ test('a token without the read ability is refused with a named ability', functio
         'arguments' => [],
     ]);
 
-    expect($response->json('result.isError'))->toBeTrue();
-    expect(mcpToolText($response))->toContain("'read' ability");
+    // Ability-sized listing: the registry filter runs before dispatch, so a
+    // missing ability reads as tool-not-found, never a half-visible refusal.
+    expect($response->json('error.code'))->toBe(-32602);
 });
 
 test('an encrypted book is refused for content, allowed for metadata', function () {

@@ -62,6 +62,8 @@ return [
     'dev',       // developer tools (/dev/conversion-tests)
     'maintainer', // operator triage (/maintainer/conversion, /maintainer/jobs)
     'mcp',       // Model Context Protocol endpoint for external AI clients (routes/ai.php)
+    'oauth',     // OAuth endpoints for MCP connectors (routes/oauth.php — register/token/authorize)
+    '.well-known', // RFC 9728/8414 OAuth discovery metadata (routes/oauth.php)
     'j',         // journal pages (/j/{slug} — planned; slugs already minted in journal_sources)
     'a',         // archive pages (/a/{slug} — archive_sources registry over public shelves)
     'exports',   // archive-export artifact downloads (/exports/{scopeType}/{scopeId}/{kind})

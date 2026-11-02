@@ -8,12 +8,14 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Optional Sanctum auth for the MCP endpoint (/mcp) — three outcomes:
+ * Optional Sanctum auth for the MCP endpoint (/mcp) — four outcomes:
  *
  * - VALID bearer token  → authenticate and continue. We MUST call
  *   Auth::shouldUse('sanctum'): tool code resolves $request->user() via the
  *   DEFAULT guard (laravel/mcp Request::user()), which auth:sanctum used to
  *   repoint on success. Omitting it silently breaks every tool's user().
+ *   OAuth-issued access tokens ARE Sanctum PATs (routes/oauth.php), so they
+ *   take this exact branch — nothing OAuth-specific lives here.
  * - INVALID / expired / revoked bearer → rich 401 returned DIRECTLY from
  *   here, never via AuthenticationException. Throwing would hand the body to
  *   bootstrap/app.php's generic envelope ("Unauthenticated.", no guidance)
@@ -21,7 +23,18 @@ use Symfony\Component\HttpFoundation\Response;
  *   POST-only login route. The connecting agent reads this body to learn how
  *   to get the user a token. A bad token must never silently become a guest:
  *   the agent would see the guest tool surface and conclude the token works.
- * - NO Authorization header at all → pass through unauthenticated ("guest").
+ * - NO bearer, NO ?guest=1 → 401. This is what makes OAuth connectors work:
+ *   Claude's client (claude.ai, mobile, Claude Code) starts its OAuth flow
+ *   ONLY when a token-less request 401s — the vendor AddWwwAuthenticateHeader
+ *   decorates every 401 from this route with `resource_metadata="…"` pointing
+ *   at /.well-known/oauth-protected-resource (the route NAME
+ *   mcp.oauth.protected-resource is the switch), and that header on a 401 is
+ *   the one signal Claude acts on. A 200 guest handshake here would read as
+ *   "connected, unauthenticated" and the user would never see a login. The
+ *   same mechanism closes the refresh loop: an EXPIRED OAuth PAT lands in the
+ *   invalid-bearer 401 above, which now also carries resource_metadata, and
+ *   Claude silently refreshes.
+ * - NO bearer, WITH ?guest=1 → pass through unauthenticated ("guest").
  *   SetDatabaseSessionContext then sets empty RLS vars (public reads only),
  *   and HyperlitTool::shouldRegister() hides every data tool, leaving just
  *   the get_connected onboarding tool.
@@ -31,9 +44,7 @@ use Symfony\Component\HttpFoundation\Response;
  * McpOptionalAuth → throttle:mcp → SetDatabaseSessionContext. Auth first
  * keeps the 'mcp' limiter keyed per-user for token callers (guests share the
  * IP bucket), and the RLS context middleware must always see the resolved
- * user. OAuth later: when Mcp::oauthRoutes() + Passport land, this 401 keeps
- * working — laravel/mcp's AddWwwAuthenticateHeader decorates any 401 response
- * and auto-switches to the OAuth resource_metadata discovery form.
+ * user.
  */
 class McpOptionalAuth
 {
@@ -56,9 +67,28 @@ class McpOptionalAuth
                     .' — log in, open the user button, choose "Data sovereignty", then '
                     .'"MCP for AI access" → "Connect an AI". Send it as the header '
                     .'"Authorization: Bearer <token>".',
-                'guest_mode' => 'Retry without any Authorization header to connect as a '
-                    .'guest and get a get_connected onboarding tool that walks the user '
-                    .'through setup.',
+                'oauth' => 'Clients with OAuth support can instead re-authorize via the '
+                    .'discovery metadata in this response\'s WWW-Authenticate header.',
+                'guest_mode' => 'Retry as POST /mcp?guest=1 (no Authorization header) to '
+                    .'connect as a guest and get a get_connected onboarding tool that '
+                    .'walks the user through setup.',
+            ], 401);
+        }
+
+        if (! $request->boolean('guest')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication required.',
+                'error_type' => 'AuthenticationException',
+                'oauth' => 'OAuth-capable clients (claude.ai, Claude mobile, Claude Code) '
+                    .'authorize automatically via the discovery metadata in this '
+                    .'response\'s WWW-Authenticate header.',
+                'hint' => 'Or send a personal access token as "Authorization: Bearer '
+                    .'<token>" — the user can mint one at '.rtrim(config('app.url'), '/')
+                    .' via the user button → "Data sovereignty" → "MCP for AI access".',
+                'guest_mode' => 'Or retry as POST /mcp?guest=1 to connect as a guest and '
+                    .'get a get_connected onboarding tool that walks the user through '
+                    .'setup.',
             ], 401);
         }
 

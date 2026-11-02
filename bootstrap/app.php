@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             Route::middleware('web')
                 ->group(base_path('routes/auth.php'));
+
+            // OAuth for MCP connectors. The file declares its own groups —
+            // most of its routes are deliberately GROUPLESS (stateless, no
+            // CSRF/session), see the docblock in routes/oauth.php.
+            require base_path('routes/oauth.php');
         },
     )
     ->withMiddleware(function (Middleware $middleware) {

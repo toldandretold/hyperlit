@@ -31,10 +31,25 @@ abstract class HyperlitTool extends Tool
      * registration check, so a guest calling one gets a clean JSON-RPC
      * "tool not found". The guest surface is GetConnectedTool, which
      * extends the vendor Tool directly for exactly this reason.
+     *
+     * ABILITY-SIZED LISTING: a personal access token also only SEES the tools
+     * its abilities allow — a read-only token gets ~25 tools, not 47 refusing
+     * ones. The visible list is the capability map, so an agent never plans
+     * around a tool it cannot call, and the token-minting checkboxes become
+     * the user's way of sizing the agent's tool surface. A session caller
+     * (TransientToken) sees everything; denyUnlessAble stays as the
+     * defense-in-depth call-time gate.
      */
     public function shouldRegister(\Illuminate\Http\Request $request): bool
     {
-        return $request->user('sanctum') !== null;
+        $user = $request->user('sanctum');
+        if ($user === null) {
+            return false;
+        }
+
+        $token = $user->currentAccessToken();
+
+        return ! $token instanceof PersonalAccessToken || $token->can($this->ability);
     }
 
     /**

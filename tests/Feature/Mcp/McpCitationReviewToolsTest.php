@@ -92,8 +92,8 @@ test('run_citation_review requires the spend ability', function () {
     $token = crToken($user, [TokenAbilities::READ, TokenAbilities::IMPORT]);
 
     $response = crCall($this, $token, 'run_citation_review', ['book' => $book]);
-    expect($response->json('result.isError'))->toBeTrue();
-    expect((string) $response->json('result.content.0.text'))->toContain("'spend' ability");
+    // Ability-sized listing: hidden from the token, so tool-not-found.
+    expect($response->json('error.code'))->toBe(-32602);
     Queue::assertNothingPushed();
 });
 

@@ -160,7 +160,7 @@ test('update_node refuses a book the user does not own', function () {
     expect($row->content)->not->toContain('hijack');
 });
 
-test('a token without the write ability is refused by name', function () {
+test('write tools are hidden from a token without the write ability', function () {
     $user = $this->seedUser();
     $book = wtSeedBook($this, $user);
 
@@ -169,8 +169,8 @@ test('a token without the write ability is refused by name', function () {
         'cite_passage' => ['citing_book' => $book, 'citing_node_id' => 'x', 'source_book' => $book, 'quote' => 'ledger'],
     ] as $tool => $args) {
         $response = wtCall($this, wtToken($user, [TokenAbilities::READ, TokenAbilities::ANNOTATE]), $tool, $args);
-        expect($response->json('result.isError'))->toBeTrue();
-        expect(wtText($response))->toContain("'write' ability");
+        // Ability-sized listing: hidden ⇒ tool-not-found at the protocol layer.
+        expect($response->json('error.code'))->toBe(-32602);
     }
 });
 

@@ -114,6 +114,6 @@ test('bibliographic tools require the read ability', function () {
     $token = $user->createToken('empty', ['annotate'], now()->addYear())->plainTextToken;
 
     $response = bibCall($this, $token, 'search_sources', ['query' => 'x']);
-    expect($response->json('result.isError'))->toBeTrue();
-    expect((string) $response->json('result.content.0.text'))->toContain("'read' ability");
+    // Ability-sized listing: hidden from the token, so tool-not-found.
+    expect($response->json('error.code'))->toBe(-32602);
 });

@@ -45,6 +45,16 @@ class GetConnectedTool extends Tool
         $walkthrough = <<<MARKDOWN
             ## Connecting an AI client to Hyperlit
 
+            ### Easiest: OAuth (claude.ai, Claude mobile, Claude Desktop, Claude Code)
+
+            Add {$origin}/mcp as a custom connector / MCP server with NO auth
+            header. The client discovers Hyperlit's OAuth flow automatically and
+            walks the user through login + consent in the browser; the resulting
+            access token is managed (and revocable) in the web app under
+            "Data sovereignty" → "MCP for AI access", like any other token.
+
+            ### Manual: mint a personal access token
+
             Minting a token happens in the web app — relay these steps to the user:
 
             1. Go to {$origin} and log in (or register — it's free).
@@ -80,9 +90,10 @@ class GetConnectedTool extends Tool
                   }
                 }
 
-            Note: claude.ai's web custom connectors only support OAuth, which
-            Hyperlit does not offer yet — use a client that can send a custom
-            header (Claude Code, Claude Desktop, the API, most MCP libraries).
+            Note: a token-less request to {$origin}/mcp gets a 401 (that is
+            what triggers OAuth-capable clients to show the login). A client
+            that wants the anonymous guest surface instead connects to
+            {$origin}/mcp?guest=1.
             MARKDOWN;
 
         if (! $user instanceof User) {

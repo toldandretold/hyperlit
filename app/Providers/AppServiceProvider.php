@@ -217,6 +217,31 @@ class AppServiceProvider extends ServiceProvider
                 ->by('mcp|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // OAuth endpoints for MCP connectors (routes/oauth.php). Four named
+        // buckets per the named-limiter gate. authorize is the only one with
+        // a session, so it keys user-else-IP; the stateless three key by IP.
+        // NOTE oauth-token is per-IP and Anthropic's egress IPs are SHARED
+        // across many claude.ai users — 60/min is ample at current scale, but
+        // if prod logs show legitimate refresh traffic 429ing, raise it here
+        // (keying by client_id instead is NOT an option: it's client-supplied,
+        // i.e. attacker-chosen).
+        \Illuminate\Support\Facades\RateLimiter::for('oauth-authorize', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(30)
+                ->by('oauth-authorize|'.($request->user()?->id ?: $request->ip()));
+        });
+        \Illuminate\Support\Facades\RateLimiter::for('oauth-token', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by('oauth-token|'.$request->ip());
+        });
+        \Illuminate\Support\Facades\RateLimiter::for('oauth-register', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+                ->by('oauth-register|'.$request->ip());
+        });
+        \Illuminate\Support\Facades\RateLimiter::for('oauth-metadata', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('oauth-metadata|'.$request->ip());
+        });
+
         // Register authorization policies
         Gate::policy(PgLibrary::class, LibraryPolicy::class);
         Gate::policy(PgHyperlight::class, HyperlightPolicy::class);

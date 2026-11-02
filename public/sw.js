@@ -59,7 +59,22 @@ async function validateCachedHtml(html) {
   return true;
 }
 
-// Install event - precache core assets
+// Install event - precache core assets.
+// Deliberately NO self.skipWaiting(): this worker installs promptly but then
+// WAITS, and only activates once the old worker's last client is gone.
+// skipWaiting() + clients.claim() swapped the active worker underneath live
+// tabs on every deploy, and Safari answers that mid-session swap by failing
+// EVERY load from the controlled tab with "TypeError: Load failed" — api
+// fetches the SW never intercepts, module imports, even the new sw.js script
+// itself — until the tab's reload budget was spent (prod wedge 2026-11-02;
+// the 2026-07-23 incident logged the same as "Service Worker context closed").
+// Instant takeover buys nothing any more: its original reason (a stale
+// CacheFirst worker serving mutated /media/ bytes) died when /media/ +
+// /audio/ were excluded from the SW entirely; old hashed chunks are retained
+// on disk for old tabs; and HTML is NetworkFirst, so fresh HTML arrives
+// regardless of which worker serves it. The old worker lingering just means
+// the hyperlit-* cache sweep below runs at the NEXT cold start instead of
+// mid-session — a delay, not a gap.
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing Service Worker');
   event.waitUntil(
@@ -68,7 +83,6 @@ self.addEventListener('install', (event) => {
         console.log('[SW] Precaching core assets');
         return cache.addAll(PRECACHE_ASSETS);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -97,7 +111,10 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim())
+    })
+    // NO self.clients.claim() — see the install comment. By the time this
+    // activate runs (old worker's last client gone), the pages that load next
+    // are controlled by this worker through the normal navigation path.
   );
 });
 

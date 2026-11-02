@@ -150,6 +150,10 @@ export default defineConfig({
                 'resources/css/pages/docuverse.css',
                 'resources/js/docuverse3d/main.ts',
 
+                // OAuth consent page (standalone, non-SPA — /oauth/authorize;
+                // just the lava-lamp background behind the consent card)
+                'resources/js/pages/oauthAuthorize.ts',
+
                 // Maintainer triage page (standalone, non-SPA, admin-only — /maintainer/conversion)
                 'resources/css/pages/maintainer.css',
                 'resources/js/maintainer/main.ts',

@@ -44,6 +44,22 @@ describe('service worker cache version is derived, not hand-maintained', () => {
     expect(sw).toMatch(/name !== STATIC_CACHE && name !== DYNAMIC_CACHE/);
   });
 
+  it('never swaps the worker under live tabs — no install skipWaiting, no clients.claim', () => {
+    // skipWaiting()+claim() yanked the active worker out from under live tabs
+    // on every deploy; Safari answers that mid-session swap by failing EVERY
+    // load from the controlled tab with "TypeError: Load failed" (prod wedge
+    // 2026-11-02; "Service Worker context closed" in the 2026-07-23 incident).
+    // The new worker must install and then WAIT. The message-handler
+    // skipWaiting (an explicit, page-initiated escape hatch) is allowed.
+    const code = sw.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/clients\.claim\s*\(/);
+    const installBlock = code.slice(
+      code.indexOf("addEventListener('install'"),
+      code.indexOf("addEventListener('activate'")
+    );
+    expect(installBlock).not.toMatch(/skipWaiting\s*\(/);
+  });
+
   it('the layout registers the worker WITH the build id, at scope /', () => {
     const register = layout.match(/navigator\.serviceWorker\.register\([^\n]*/)?.[0] ?? '';
     expect(register).toContain('/sw.js?v=');

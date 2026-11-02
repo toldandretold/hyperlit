@@ -9,9 +9,12 @@ use Laravel\Mcp\Server;
  * through typed tools. Served over Streamable HTTP at /mcp (routes/ai.php),
  * authenticated by a Sanctum personal access token whose ABILITIES
  * (read / annotate / import / write / spend / report — App\Mcp\TokenAbilities)
- * gate each tool. Auth is OPTIONAL at the HTTP layer (McpOptionalAuth): a
- * token-less GUEST completes the handshake but sees only get_connected,
- * the onboarding walkthrough — see docs/mcp.md.
+ * gate each tool. Tokens arrive two ways: pasted by the user, or minted by
+ * the OAuth flow (routes/oauth.php — claude.ai / Claude mobile / Claude Code
+ * add the URL as a connector and log in; the resulting access token is the
+ * same kind of PAT). Token-less requests 401 so OAuth clients discover the
+ * login (McpOptionalAuth); a GUEST can still connect via POST /mcp?guest=1
+ * and sees only get_connected, the onboarding walkthrough — see docs/mcp.md.
  *
  * Scope: the core research loop (search, read, highlight/annotate, hypercite,
  * import, export, shelves) PLUS book writing on owned books (update_node /
@@ -40,9 +43,10 @@ class HyperlitServer extends Server
     public int $defaultPaginationLength = 50;
 
     /**
-     * Shown to a token-less (GUEST) connection: McpOptionalAuth lets those
-     * through so a connecting agent can learn how to get its user a token
-     * instead of hitting a dead 401. boot() picks the variant per request.
+     * Shown to a GUEST connection (POST /mcp?guest=1, no Authorization
+     * header): McpOptionalAuth lets those through so a connecting agent can
+     * learn how to get its user connected instead of hitting a dead 401.
+     * boot() picks the variant per request.
      */
     private const GUEST_INSTRUCTIONS = <<<'MARKDOWN'
         Hyperlit is a social reading/annotation platform — an open docuverse of
@@ -50,13 +54,19 @@ class HyperlitServer extends Server
 
         You are connected as a GUEST: no Authorization header was sent, so no
         data tools are available. To act on a user's account (read their
-        library, annotate, import, write), the user must mint a personal
-        access token in the Hyperlit web app and your client must send it as
-        the header "Authorization: Bearer <token>".
+        library, annotate, import, write) there are two paths:
+
+        1. OAuth (preferred when the client supports it — claude.ai, Claude
+           mobile, Claude Code): add this server's base /mcp URL as a
+           connector WITHOUT the guest query param; the 401 carries OAuth
+           discovery metadata and the client walks the user through Hyperlit
+           login + consent itself.
+        2. A personal access token minted in the Hyperlit web app, sent as
+           the header "Authorization: Bearer <token>".
 
         Call the get_connected tool for the exact steps and client
-        configuration, and relay them to the user — minting a token requires
-        a human in the browser.
+        configuration, and relay them to the user — both paths need a human
+        in the browser.
         MARKDOWN;
 
     private const AUTHED_INSTRUCTIONS = <<<'MARKDOWN'
@@ -81,13 +91,14 @@ class HyperlitServer extends Server
           tools accept either.
 
         Working effectively:
-        - FINDING SOURCES: `search_text` is the research entry point and is
-          SEMANTIC by default — describe the topic or claim you want passages
-          about ("the political economy of land enclosure"), not keywords; it is
-          the same meaning-based retrieval the AI Archivist runs on. Use
-          mode=fulltext only to locate an exact phrase, and `search_library`
-          only when you can NAME the work (it matches bibliographic metadata,
-          never content).
+        - FINDING SOURCES: `semantic_search` is the research entry point — the
+          same meaning-based retrieval the AI Archivist runs on. Describe the
+          topic or claim you want passages about ("the political economy of
+          land enclosure"), not keywords; pass `book` to search within one
+          book. `search_text` is for EXACT words/phrases (locating a verbatim
+          quote; optional shelf scoping); `search_library` only when you can
+          NAME the work (bibliographic metadata, never content); `list_feed`
+          for discovery (newest / most connected / most annotated books).
         - To read a book: `get_book` first (metadata + table of contents), then
           `read_book` with pagination — books can be thousands of nodes, never try
           to pull one in a single call.
@@ -134,8 +145,8 @@ class HyperlitServer extends Server
           writing; if import_document is not in your tool list, your client
           truncated it (ask for tools again or tell the user) — the tool
           exists, and the fallback is to STOP, not to rewrite a book. The AGENT-NATIVE ARCHIVIST recipe — research a question and
-          publish an answer whose sentences cite their sources: search_text
-          (semantic — the retrieval the web archivist runs) → read_book the hits
+          publish an answer whose sentences cite their sources: semantic_search
+          (the retrieval the web archivist runs) → read_book the hits
           in context → import_document the
           answer as PLAIN prose (no citation markup — the importer refuses
           hypercite HTML because it cannot wire it) → cite_passage once per
@@ -152,6 +163,18 @@ class HyperlitServer extends Server
           the source; arrow-only (default) is for citing after your own prose.
           The cited books' owners are notified and connection counts update,
           exactly as if the user had pasted the citation in the editor.
+        - PAID TOOLS bill the user's credits: create_audiobook (TTS narration),
+          import_document's PDF confirm (OCR), run_citation_review's infra leg,
+          and sometimes translate_passage. Check get_credit_balance FIRST and
+          tell the user the quoted price before confirming anything. Audiobooks:
+          create_audiobook (estimate → confirm) → poll get_audiobook_status →
+          package_audiobook for the chaptered .m4b download.
+        - BOOK LIFECYCLE (owned books): set_book_visibility (publishing can be
+          refused by the publish gate — report the reason), set_book_slug,
+          get_book_stats (reading analytics), and delete_book (PERMANENT —
+          requires confirm + the exact title typed back; only on explicit user
+          request). like_book likes/unlikes; the Likes shelf is managed ONLY
+          through it, never via modify_shelf.
         - End-to-end-encrypted books cannot be read or written by the server (or
           by you) — tools refuse them with a clear message.
         - Something broken? If a tool itself malfunctions (crash, wrong result,
@@ -186,21 +209,36 @@ class HyperlitServer extends Server
      * @var array<int, class-string>
      */
     protected array $tools = [
+        // Discovery & reading
         \App\Mcp\Tools\ListBooksTool::class,
-        \App\Mcp\Tools\SearchLibraryTool::class,
+        \App\Mcp\Tools\SemanticSearchTool::class,
         \App\Mcp\Tools\SearchTextTool::class,
+        \App\Mcp\Tools\SearchLibraryTool::class,
+        \App\Mcp\Tools\ListFeedTool::class,
         \App\Mcp\Tools\GetBookTool::class,
         \App\Mcp\Tools\ReadBookTool::class,
+        \App\Mcp\Tools\GetCitationGraphTool::class,
         \App\Mcp\Tools\ListAnnotationsTool::class,
         \App\Mcp\Tools\ListShelvesTool::class,
+        // Annotation & social
         \App\Mcp\Tools\CreateHighlightTool::class,
         \App\Mcp\Tools\UpdateHighlightTool::class,
         \App\Mcp\Tools\DeleteHighlightTool::class,
         \App\Mcp\Tools\CreateHyperciteTool::class,
+        \App\Mcp\Tools\LikeBookTool::class,
+        \App\Mcp\Tools\ListNotificationsTool::class,
+        \App\Mcp\Tools\MarkNotificationsReadTool::class,
+        \App\Mcp\Tools\GetReadingPositionTool::class,
+        \App\Mcp\Tools\SetReadingPositionTool::class,
+        // Writing (write ability)
         \App\Mcp\Tools\CitePassageTool::class,
         \App\Mcp\Tools\UpdateNodeTool::class,
         \App\Mcp\Tools\AppendNodesTool::class,
+        \App\Mcp\Tools\SetBookVisibilityTool::class,
+        \App\Mcp\Tools\SetBookSlugTool::class,
+        \App\Mcp\Tools\DeleteBookTool::class,
         \App\Mcp\Tools\ModifyShelfTool::class,
+        // Import & metadata
         \App\Mcp\Tools\ImportDocumentTool::class,
         \App\Mcp\Tools\ReconvertBookTool::class,
         \App\Mcp\Tools\ImportStatusTool::class,
@@ -213,6 +251,14 @@ class HyperlitServer extends Server
         \App\Mcp\Tools\ClaimReviewWorkTool::class,
         \App\Mcp\Tools\SubmitReviewVerdictTool::class,
         \App\Mcp\Tools\ExportMarkdownTool::class,
+        // Audio, translation, billing
+        \App\Mcp\Tools\CreateAudiobookTool::class,
+        \App\Mcp\Tools\GetAudiobookStatusTool::class,
+        \App\Mcp\Tools\CancelAudiobookTool::class,
+        \App\Mcp\Tools\PackageAudiobookTool::class,
+        \App\Mcp\Tools\TranslatePassageTool::class,
+        \App\Mcp\Tools\GetCreditBalanceTool::class,
+        \App\Mcp\Tools\GetBookStatsTool::class,
         // Registered for EVERYONE including guests (extends the vendor Tool,
         // not HyperlitTool) — the onboarding surface. Keep it last-ish so the
         // data tools lead the authed listing.

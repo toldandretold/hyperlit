@@ -37,22 +37,9 @@ class ReportBugTool extends HyperlitTool
     /** Reports allowed per user per hour — an agent loop must not spam the maintainer. */
     private const MAX_PER_HOUR = 5;
 
-    /**
-     * On top of the authed-only base gate: a personal access token must carry
-     * the 'report' consent ability for this tool to exist at all. A session /
-     * TransientToken caller (no PAT) passes, mirroring denyUnlessAble.
-     */
-    public function shouldRegister(\Illuminate\Http\Request $request): bool
-    {
-        $user = $request->user('sanctum');
-        if ($user === null) {
-            return false;
-        }
-
-        $token = $user->currentAccessToken();
-
-        return ! $token instanceof PersonalAccessToken || $token->can($this->ability);
-    }
+    // Visibility: the 'report' consent ability gates registration via the
+    // HyperlitTool base shouldRegister — no override needed since the base
+    // generalized to ability-sized listings.
 
     public function schema(JsonSchema $schema): array
     {

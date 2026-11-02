@@ -281,8 +281,9 @@ test('a read-only token cannot use the write tools', function () {
     $response = annotCall($this, $readOnly, 'create_highlight', [
         'book' => $book, 'quote' => 'precede barter',
     ]);
-    expect($response->json('result.isError'))->toBeTrue();
-    expect(annotText($response))->toContain("'annotate' ability");
+    // Ability-sized listing: the tool isn't even registered for this token,
+    // so the protocol answers tool-not-found rather than an ability refusal.
+    expect($response->json('error.code'))->toBe(-32602);
     expect(readAs($user, fn () => PgHyperlight::where('book', $book)->exists()))->toBeFalse();
 });
 

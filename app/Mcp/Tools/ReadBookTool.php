@@ -28,6 +28,8 @@ class ReadBookTool extends HyperlitTool
                 ->description('Soft cap on returned text (default 25000, max 60000).'),
             'format' => $schema->string()->enum(['plain', 'html'])
                 ->description('plain (default) = entity-decoded text, the coordinate space highlights anchor to; html = stored node HTML.'),
+            'include_footnotes' => $schema->boolean()
+                ->description('true = also return the definitions of footnotes referenced by the returned nodes (a footnotes map keyed by footnote id).'),
         ];
     }
 
@@ -69,20 +71,44 @@ class ReadBookTool extends HyperlitTool
                 $nextAfterLine = $out[count($out) - 1]['startLine'];
                 break;
             }
-            $out[] = [
+            $row = [
                 'node_id' => $node['node_id'] ?? null,
                 'startLine' => $node['startLine'],
                 'text' => $text,
             ];
+            $fns = $node['footnotes'] ?? [];
+            if (is_string($fns)) {
+                $fns = json_decode($fns, true) ?: [];
+            }
+            if ($fns !== []) {
+                $row['footnote_ids'] = array_values($fns);
+            }
+            $out[] = $row;
             $chars += mb_strlen($text);
         }
 
-        return Response::json([
+        $response = [
             'book' => $bookId,
             'nodes' => $out,
             'total_nodes_in_book' => $nodes->count(),
             // null = you have reached the end of the book.
             'next_after_line' => $nextAfterLine,
-        ]);
+        ];
+
+        // Footnote definitions for the RETURNED nodes only (default/RLS
+        // connection — same visibility as the book itself).
+        if ($request->boolean('include_footnotes')) {
+            $ids = array_values(array_unique(array_merge(
+                ...array_map(fn ($r) => $r['footnote_ids'] ?? [], $out) ?: [[]]
+            )));
+            $response['footnotes'] = $ids === [] ? [] : \Illuminate\Support\Facades\DB::table('footnotes')
+                ->where('book', $bookId)
+                ->whereIn('footnoteId', $ids)
+                ->pluck('content', 'footnoteId')
+                ->map(fn ($c) => AnnotationAnchorService::plainOf($c))
+                ->all();
+        }
+
+        return Response::json($response);
     }
 }

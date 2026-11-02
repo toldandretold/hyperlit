@@ -49,6 +49,14 @@ async function flush() {
     await new Promise((r) => setTimeout(r, 0));
 }
 
+async function flushUntilRouted() {
+    // The router awaits a dynamic import before calling the handler; under a
+    // loaded suite that import can take more than one macrotask, so a single
+    // setTimeout(0) flush loses the race (flaked in the full run 2026-11-02).
+    // Positive assertions wait for the call; negatives keep the single tick.
+    await vi.waitFor(() => expect(handleUnifiedContentClick).toHaveBeenCalled());
+}
+
 beforeEach(async () => {
     // Prime the (mocked) module cache: the router's dynamic import otherwise
     // resolves inside happy-dom's event-callback realm, where vite's module
@@ -69,7 +77,7 @@ describe('cite group router', () => {
         const e = click(groupAnchor());
 
         expect(e.defaultPrevented).toBe(true);
-        await flush();
+        await flushUntilRouted();
         expect(handleUnifiedContentClick).toHaveBeenCalledTimes(1);
         expect(handleUnifiedContentClick).toHaveBeenCalledWith(groupAnchor());
     });
@@ -80,7 +88,7 @@ describe('cite group router', () => {
         const e = click(groupAnchor().querySelector('.inner'));
 
         expect(e.defaultPrevented).toBe(true);
-        await flush();
+        await flushUntilRouted();
         expect(handleUnifiedContentClick).toHaveBeenCalledWith(groupAnchor());
     });
 

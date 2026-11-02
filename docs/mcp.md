@@ -1,6 +1,6 @@
 # MCP: connecting an AI client to Hyperlit
 
-Hyperlit exposes a Model Context Protocol server over Streamable HTTP at `https://hyperlit.io/mcp` (`routes/ai.php`, server class `App\Mcp\Servers\HyperlitServer`). An external AI client (Claude Code, Claude Desktop, any MCP library) authenticates with a Sanctum personal access token sent as `Authorization: Bearer <token>` and then acts AS that user — everything it creates is attributed to them and fenced by the same RLS context as their own browser.
+Hyperlit exposes a Model Context Protocol server over Streamable HTTP at `https://hyperlit.io/mcp` (`routes/ai.php`, server class `App\Mcp\Servers\HyperlitServer`). An external AI client connects one of two ways — via **OAuth** (claude.ai, the Claude mobile app, Claude Desktop, Claude Code: add the URL as a custom connector and log in when prompted) or with a hand-minted Sanctum personal access token sent as `Authorization: Bearer <token>` — and then acts AS that user: everything it creates is attributed to them and fenced by the same RLS context as their own browser. Both paths end in the SAME credential: the OAuth token endpoint mints an ordinary PAT, so abilities, RLS, revocation, and the token UI are identical regardless of how the client connected.
 
 ## Minting a token
 
@@ -19,7 +19,9 @@ The checkbox list at mint time maps 1:1 to `App\Mcp\TokenAbilities`, and each to
 
 ## Client configuration
 
-Claude Code:
+claude.ai / Claude mobile / Claude Desktop (OAuth — no token needed): Settings → Connectors → Add custom connector → paste `https://hyperlit.io/mcp`. The app opens Hyperlit's login + consent page; the user picks the abilities to grant (same checkboxes as the mint overlay) and approves. Claude Code also works token-less: `claude mcp add --transport http hyperlit https://hyperlit.io/mcp` and it will run the OAuth flow on first use.
+
+Or with a hand-minted token — Claude Code:
 
 ```
 claude mcp add --transport http hyperlit https://hyperlit.io/mcp \
@@ -40,7 +42,6 @@ Generic MCP JSON config:
 }
 ```
 
-claude.ai's web custom connectors support only OAuth (no custom-header field), which Hyperlit does not offer yet — see "OAuth later" below.
 
 ## One page holds the whole toolset
 
@@ -50,20 +51,36 @@ claude.ai's web custom connectors support only OAuth (no custom-header field), w
 
 The ↗ belongs to the exact claim it supports — the tool description instructs agents to set `after_text` ending at that clause, one arrow per claim, never piled at paragraph end (the web archivist enforces the same doctrine in `AiBrainController`). Mechanically backed two ways. First, NEVER two arrows in a row: a bare-arrow insert whose splice point touches an existing `open-icon` anchor is MERGED into it as ONE grouped arrow carrying a `data-cite-group` payload (the web pipeline's exact shape — `{t, s, q}` per member), the existing anchor id becomes the group id, and the new source row's `citedIN` points at it; `citeGroupPopover` is now registered for all reader surfaces so the chooser works inside ordinary books, not just archivist answers. An `insert_quote` citation never merges — the quoted text separates the arrows. Second, lost updates are impossible: the library content clock is captured AT the node read and passed to unified-sync as `base_timestamp`, so a concurrent write between read and transaction gets the honest 409 — and `cite_passage` then re-reads, re-splices (folding into the other write's arrow if they now touch) and retries, up to three times. Before this, parallel `cite_passage` calls on one node each read-spliced-wrote and the last writer won: three arrows vanished while every call reported success (OpenCode, 2026-11-01). `update_node` passes the read-time clock too but deliberately does NOT auto-retry — its content was authored against the stale read, so the agent must re-read and decide.
 
-## Guest mode: the endpoint teaches you how to connect
+## Guest mode: opt-in via `?guest=1`, because token-less must 401 for OAuth
 
-An agent probing `/mcp` with NO Authorization header is not refused: it completes the MCP handshake as a GUEST, gets guest-flavoured server instructions, and sees exactly one tool — `get_connected` (`App\Mcp\Tools\GetConnectedTool`), whose output is the full onboarding walkthrough to relay to the user (the mint path above, what each ability means, the client config snippets). Guests have NO data access: every data tool hides itself via `HyperlitTool::shouldRegister()` (which also fences `tools/call` — a guest calling one gets JSON-RPC "tool not found"), and the RLS context is empty (public reads only), though no registered guest tool touches data at all.
+A BARE token-less POST to `/mcp` is a 401. That is deliberate and load-bearing: Claude's client starts its OAuth flow ONLY off a 401 whose `WWW-Authenticate` header names the protected-resource metadata — a 200 guest handshake reads as "connected, no login needed" and the user would never see a login. The 401 body (returned directly by `App\Http\Middleware\McpOptionalAuth`) explains all three ways in: `oauth` (let the client autodiscover), `hint` (mint a PAT in the web app), and `guest_mode` (retry as `POST /mcp?guest=1`).
 
-An INVALID, expired, or revoked bearer token is a different case and still 401s — silently downgrading a bad token to guest would make the agent conclude the token works. The 401 body (returned directly by `App\Http\Middleware\McpOptionalAuth`) carries `hint` (where the user mints a fresh token) and `guest_mode` (retry header-less for the onboarding tool), alongside the usual envelope keys.
+With `?guest=1`, the old guest behaviour is intact: the agent completes the MCP handshake as a GUEST, gets guest-flavoured server instructions, and sees exactly one tool — `get_connected` (`App\Mcp\Tools\GetConnectedTool`), whose output is the full onboarding walkthrough to relay to the user (OAuth path first, the mint path, what each ability means, the client config snippets). Guests have NO data access: every data tool hides itself via `HyperlitTool::shouldRegister()` (which also fences `tools/call` — a guest calling one gets JSON-RPC "tool not found"), and the RLS context is empty (public reads only), though no registered guest tool touches data at all.
+
+An INVALID, expired, or revoked bearer token is a different case and still 401s — silently downgrading a bad token to guest would make the agent conclude the token works. That 401 now also carries the OAuth discovery header, which is the silent-refresh path: an expired OAuth-minted PAT 401s, Claude reads `resource_metadata`, and refreshes without bothering the user.
 
 ## Middleware order (load-bearing)
 
 `routes/ai.php` declares `[McpOptionalAuth, throttle:mcp, SetDatabaseSessionContext]`, and the declared order IS the execution order (only throttle sits in Laravel's `$middlewarePriority`, and a single listed entry is never moved). Auth resolution first keeps the named `mcp` limiter keyed per-user for token callers (guests share the IP bucket — anonymous probes are rate-limited, which bare `auth:sanctum` never achieved since it 401'd before the limiter ran), and the RLS context middleware must always see the resolved user. `McpOptionalAuth` MUST call `Auth::shouldUse('sanctum')` on success — tool code resolves `$request->user()` via the default guard, and omitting it silently breaks every tool.
 
-## OAuth later
+## OAuth: a thin OAuth 2.1 layer whose access tokens are PATs
 
-laravel/mcp ships `Mcp::oauthRoutes()` (`.well-known/oauth-protected-resource`, `.well-known/oauth-authorization-server`, RFC 7591 dynamic client registration) but it hard-requires Laravel Passport, which is not installed. When that lands: install Passport, call `Mcp::oauthRoutes()`, publish and brand the consent view (`mcp-views` tag), tighten `config('mcp.redirect_domains')`, and map `TokenAbilities` onto scopes. Nothing here blocks it — the vendor `AddWwwAuthenticateHeader` decorates any 401 and auto-switches from `error="invalid_token"` to the OAuth `resource_metadata` discovery form the moment the oauth routes exist, and the rich-401 body from `McpOptionalAuth` keeps working alongside it.
+`routes/oauth.php` (required from `bootstrap/app.php`) implements the whole flow hand-rolled over Sanctum — deliberately NOT Laravel Passport and NOT the vendor `Mcp::oauthRoutes()` (which hard-requires Passport): no new dependency, no second auth guard, and the RLS-adapted token machinery (`HyperlitPersonalAccessToken`, `SetDatabaseSessionContext`'s sanctum fallback, `TokenAbilities` gating) is reused byte-identical because the token endpoint just mints a PAT.
+
+The endpoints:
+
+- `GET /.well-known/oauth-protected-resource[/{path}]` — RFC 9728 metadata (`MetadataController`). Its route NAME `mcp.oauth.protected-resource` is load-bearing: the vendor `AddWwwAuthenticateHeader` on `/mcp` checks for that name and decorates every 401 with `resource_metadata="…"`, which is the one signal Claude acts on.
+- `GET /.well-known/oauth-authorization-server[/{path}]` — RFC 8414 metadata. Must keep advertising `code_challenge_methods_supported: ["S256"]` and `token_endpoint_auth_methods_supported: ["none"]` — Claude refuses to proceed without either.
+- `POST /oauth/register` — RFC 7591 dynamic client registration, STATELESS: the `client_id` is an encrypted blob of `{client_name, redirect_uris}` (`App\Services\Oauth\ClientRegistry`), so there is no clients table and nothing for registration spam to grow. Redirect-URI policy: any https, plus http on loopback with any port (Claude Code binds an ephemeral port). An `APP_KEY` rotation invalidates client_ids; clients transparently re-register.
+- `GET /oauth/authorize` + `POST /oauth/authorize/decision` — the login + consent page (`AuthorizationController`, `resources/views/oauth/authorize.blade.php`), the ONLY server-rendered auth UI besides reset-password. In the `web` group (session + CSRF). The validation ladder refuses on OUR page until both `client_id` and `redirect_uri` validate (open-redirect guard), then errors travel back the OAuth way. The consent form submits via fetch + JS navigation on purpose: CSP `form-action 'self'` blocks a plain form POST whose response 302s to claude.ai.
+- `POST /oauth/token` — `authorization_code` (PKCE S256 verified, redirect_uri re-bound, single-use codes in the database cache via `AuthCodeStore`) and `refresh_token` grants (`TokenController`). Lifetimes: code 5 min; access token (the PAT, named "{Client} (OAuth)") 7 days; refresh token 60 days rotated on every use; family cap 365 days from consent, matching the mint overlay's max.
+
+Scopes ARE `TokenAbilities` names (plus `offline_access` for refresh), and the consent checkboxes mirror the mint overlay's defaults — granted scopes become the PAT's abilities verbatim (`App\Services\Oauth\OauthScopes`). Refresh rotation stores only sha256 hashes in `oauth_refresh_tokens` (not RLS-restricted, same rationale as `personal_access_tokens`; pruned daily via `model:prune`); each rotation deletes the superseded PAT, and presenting a rotated refresh token again — or one whose PAT the user deleted in the UI — revokes the whole family, so a stolen or revoked connector cannot refresh itself back to life. Because the access token is a PAT, the "a PAT can never mint PATs" invariant covers OAuth tokens automatically, and revocation is just deleting the token under "MCP for AI access".
+
+The stateless routes (metadata, register, token) are registered GROUPLESS — no session, no cookies, and crucially no CSRF, so nothing was added to the exemption list — with wildcard no-credentials CORS (`OauthCors`) and named limiters (`oauth-metadata` / `oauth-register` / `oauth-token` / `oauth-authorize`). Deployment note: Claude fetches the metadata with a 10-second timeout — a Cloudflare WAF challenge on `/.well-known/*` or `/oauth/*` kills the flow, so those paths may need a WAF skip rule.
+
+Manual verification ladder: (1) `npx @modelcontextprotocol/inspector` against `https://hyperlit.test/mcp` exercises the complete DCR → PKCE → consent → token → refresh dance in a browser; (2) pre-deploy real-client test: `cloudflared tunnel` to the .test site, add the tunnel URL as a custom connector on claude.ai; (3) production: add `https://hyperlit.io/mcp` at claude.ai → Settings → Connectors (and on the phone app).
 
 ## Tests
 
-`tests/Feature/Mcp/McpServerTest.php` pins the guest surface, the rich 401, and the authed flow end to end through the real middleware stack; `tests/Feature/Mcp/McpReportBugTest.php` pins the consent gating, rate limit, and mail for `report_bug`. Run with `php artisan test --filter=Mcp` (PHP suite, not `npm test`).
+`tests/Feature/Mcp/McpServerTest.php` pins the guest surface (`?guest=1`), the rich 401 with OAuth discovery, and the authed flow end to end through the real middleware stack; `tests/Feature/Mcp/McpReportBugTest.php` pins the consent gating, rate limit, and mail for `report_bug`. `tests/Feature/Oauth/` pins the OAuth layer: metadata shape (`OauthMetadataTest`), DCR + redirect-URI policy (`OauthRegistrationTest`), the authorize ladder + consent (`OauthAuthorizeTest`), the full dance through to a working `/mcp` token with RLS isolation and the PAT invariants (`OauthTokenExchangeTest`), and rotation/reuse/revocation/expiry (`OauthRefreshTest`). Run with `php artisan test --filter=Mcp` / `--filter=Oauth` (PHP suite, not `npm test`).

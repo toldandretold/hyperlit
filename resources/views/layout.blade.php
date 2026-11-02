@@ -44,13 +44,24 @@
     <script>
         // Deploy self-heal: when a lazy chunk fails to load (a deploy replaced
         // the hashed /build/assets between this page's HTML and the moment a
-        // dynamic import fired), reload ONCE to pick up the new HTML + assets
-        // instead of wedging the app. vite:preloadError covers vite's preload
-        // helper; unhandledrejection catches bare import() failures (Safari:
-        // "Importing a module script failed", Chrome: "Failed to fetch
-        // dynamically imported module"). One-shot guard (60s) prevents loops
-        // when the server itself is the problem.
+        // dynamic import fired, a SW swap blipped, the network dropped), reload
+        // to pick up fresh HTML + assets instead of wedging the app.
+        // vite:preloadError covers vite's preload helper; unhandledrejection
+        // catches bare import() failures (Safari: "Importing a module script
+        // failed", Chrome: "Failed to fetch dynamically imported module").
+        //
+        // Reloads are SPACED (60s) and BUDGETED (4 per episode), but a spent
+        // window is never a permanent give-up: the original one-shot guard
+        // stopped forever after a single failed reload, which turned a
+        // ~30-second transient (Safari failing every load in a tab across a
+        // service-worker swap, prod 2026-11-02) into a tab that stayed dead
+        // until a human reloaded it. Now a too-soon failure uncovers the page
+        // and RE-ARMS: retry when the spacing window reopens or connectivity
+        // returns. A boot that stays healthy for 45s closes the episode and
+        // refunds the budget.
         (function () {
+            var SPACING_MS = 60000;  // min gap between reload attempts
+            var MAX_RELOADS = 4;     // attempts per failure episode
             // Dead-man's switch for the loading curtain. Every cap that lifts it
             // (RevealGate's 4s hold cap, the Enactor's hide paths) lives in a
             // MODULE — so the one failure where the curtain matters most, the
@@ -71,21 +82,71 @@
                     console.error('[boot] released stuck loading curtain:', reason);
                 } catch (e) { /* nothing left to try */ }
             };
-            function healChunkError() {
+            var retryArmed = false;
+            var healFired = false;
+            function readNum(key) {
+                try { return Number(sessionStorage.getItem(key) || 0); } catch (e) { return 0; }
+            }
+            function attemptReload() {
                 try {
-                    var last = Number(sessionStorage.getItem('hl_chunk_reload') || 0);
-                    if (Date.now() - last < 60000) {
-                        // Already reloaded once this minute — reloading again
-                        // would loop. The app is wedged either way, so at least
-                        // uncover the page instead of holding a black curtain
-                        // over it with no way out but Clear Site Data.
-                        window.__hlReleaseCurtain('chunk load failed and the one-shot reload is spent');
-                        return;
-                    }
                     sessionStorage.setItem('hl_chunk_reload', String(Date.now()));
-                } catch (e) { /* storage unavailable — still better to reload once */ }
+                    sessionStorage.setItem('hl_chunk_reload_n', String(readNum('hl_chunk_reload_n') + 1));
+                } catch (e) { /* storage unavailable — still better to reload */ }
                 window.location.reload();
             }
+            function scheduleRetry(delayMs) {
+                if (retryArmed) return;
+                retryArmed = true;
+                var fired = false;
+                var fire = function () {
+                    if (fired) return;
+                    fired = true;
+                    retryArmed = false;
+                    healChunkError();
+                };
+                setTimeout(fire, Math.max(1000, delayMs));
+                // Coming back online is the strongest "worth retrying NOW"
+                // signal — don't make a reconnected tab sit out the timer.
+                window.addEventListener('online', fire, { once: true });
+            }
+            function healChunkError() {
+                healFired = true;
+                if (readNum('hl_chunk_reload_n') >= MAX_RELOADS) {
+                    // Every reload in the budget came back broken — this is
+                    // not transient (the server itself is serving a broken
+                    // build). Stop burning reloads; at least uncover the page
+                    // instead of holding a black curtain over it.
+                    window.__hlReleaseCurtain('chunk load failed and all ' + MAX_RELOADS + ' reload attempts are spent');
+                    return;
+                }
+                if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                    // Offline: a reload now is a guaranteed failure that would
+                    // waste budget. Uncover the page and retry on reconnect.
+                    window.__hlReleaseCurtain('chunk load failed while offline — retrying on reconnect');
+                    scheduleRetry(SPACING_MS);
+                    return;
+                }
+                var sinceLast = Date.now() - readNum('hl_chunk_reload');
+                if (sinceLast < SPACING_MS) {
+                    // Reloaded moments ago and it failed again. Uncover the
+                    // page now, but RE-ARM rather than give up — the next
+                    // attempt fires when the spacing window reopens.
+                    window.__hlReleaseCurtain('chunk load failed right after a reload — retrying when the 60s window reopens');
+                    scheduleRetry(SPACING_MS - sinceLast + 2000);
+                    return;
+                }
+                attemptReload();
+            }
+            // A boot that stays healthy closes the episode: clear the spacing
+            // + budget counters so a chunk failure next week gets its full
+            // reload budget instead of inheriting this one's spent attempts.
+            setTimeout(function () {
+                if (healFired) return;
+                try {
+                    sessionStorage.removeItem('hl_chunk_reload');
+                    sessionStorage.removeItem('hl_chunk_reload_n');
+                } catch (e) { /* nothing to clear */ }
+            }, 45000);
             // NEVER preventDefault() on vite:preloadError: vite's preload
             // helper treats a cancelled event as "error handled" and lets the
             // failed import RESOLVE AS UNDEFINED — downstream code then dies on
@@ -375,9 +436,14 @@
             window.addEventListener('load', () => {
                 // updateViaCache:'none' → sw.js itself always bypasses the HTTP
                 // cache, and the explicit update() forces the version check every
-                // load — so a new SW (skipWaiting+claim) takes over immediately
-                // instead of a stale one lingering. A stale CacheFirst SW serving
-                // mutated /media/ bytes broke the E2EE image passes + render.
+                // load — so a new build's worker INSTALLS promptly. It then WAITS
+                // (sw.js deliberately has no skipWaiting/claim) and takes over
+                // only after the old worker's last tab is gone: swapping workers
+                // under a live tab made Safari fail every load in that tab with
+                // "TypeError: Load failed" (prod 2026-11-02). An old worker
+                // lingering for the session is harmless now — /media/ + /audio/
+                // are excluded from the SW, old hashed chunks stay on disk, and
+                // HTML is NetworkFirst.
                 // The `?v=` is the CACHE BUSTER, and it is derived from the
                 // published build (App\Support\BuildVersion = the manifest's
                 // mtime) rather than hand-bumped in sw.js — a constant someone
@@ -397,7 +463,12 @@
                         // properties of undefined".
                         if (!registration) return;
                         console.log('[SW] Registered with scope:', registration.scope);
-                        registration.update();
+                        // update() re-fetches sw.js and REJECTS when that fetch
+                        // fails (offline, a mid-deploy blip) — unhandled, that
+                        // surfaced as a top-level "Unhandled Promise Rejection:
+                        // Script …/sw.js load failed". The next page load
+                        // retries it anyway; swallow it.
+                        registration.update().catch(() => {});
                     })
                     .catch((error) => {
                         console.error('[SW] Registration failed:', error);

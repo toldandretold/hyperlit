@@ -75,10 +75,11 @@ test('every connected/lit sort arm delegates to ConnectionCountQuery', function 
         }
     }
 
-    // The four known feeds. A new entry here is fine — it just has to delegate.
+    // The known feeds. A new entry here is fine — it just has to delegate.
     expect(array_keys($sites))->toBe([
         'app/Http/Controllers/ShelfController.php',
         'app/Http/Controllers/UserHomeServerController.php',
+        'app/Mcp/Tools/ListFeedTool.php',
     ]);
 
     $undelegated = [];

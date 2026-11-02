@@ -43,6 +43,10 @@ function fireChunkError() {
 
 describe('a failed boot cannot leave the curtain up', () => {
   beforeEach(() => {
+    // Spies on window.location.reload persist (and accumulate calls) across
+    // tests in this file otherwise — spyOn on an already-spied method returns
+    // the SAME mock with its history intact.
+    vi.restoreAllMocks();
     sessionStorage.clear();
     delete window.__hlReleaseCurtain;
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -66,6 +70,40 @@ describe('a failed boot cannot leave the curtain up', () => {
 
     expect(overlay.style.display).toBe('none');
     expect(overlay.dataset.hlHold).toBeUndefined();
+  });
+
+  it('re-arms after a too-soon failure and reloads when the window reopens', () => {
+    // The give-up is never permanent: a failure inside the 60s spacing window
+    // uncovers the page AND schedules a retry. The original one-shot version
+    // quit forever here, which turned a ~30s transient (Safari failing every
+    // load across a SW swap, prod 2026-11-02) into a dead tab.
+    vi.useFakeTimers();
+    try {
+      mountCurtain();
+      sessionStorage.setItem('hl_chunk_reload', String(Date.now()));
+      const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+
+      new Function(healScript)();
+      fireChunkError();
+      expect(reload).not.toHaveBeenCalled(); // too soon — released, not reloaded
+
+      vi.advanceTimersByTime(70000); // spacing window reopens → retry fires
+      expect(reload).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('stops retrying once the reload budget is spent — no infinite loop', () => {
+    mountCurtain();
+    sessionStorage.setItem('hl_chunk_reload_n', '4');
+    const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+
+    new Function(healScript)();
+    fireChunkError();
+
+    expect(reload).not.toHaveBeenCalled();
+    expect(document.getElementById('initial-navigation-overlay').style.display).toBe('none');
   });
 
   it('leaves a healthy curtain alone — release is for failures only', () => {

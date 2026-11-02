@@ -7,20 +7,29 @@ use Laravel\Mcp\Facades\Mcp;
 | MCP (Model Context Protocol) servers
 |--------------------------------------------------------------------------
 |
-| The Streamable-HTTP endpoint external AI clients connect to with a
-| personal access token (minted via the user button → "Data sovereignty"
-| → "MCP for AI access" → "Connect an AI"):
+| The Streamable-HTTP endpoint external AI clients connect to. Two ways in:
+|
+|   OAuth (claude.ai, Claude mobile, Claude Code — just add the URL as a
+|   custom connector): a token-less request 401s, the vendor
+|   AddWwwAuthenticateHeader points at the OAuth discovery metadata
+|   (routes/oauth.php), and the client runs login+consent itself. The
+|   access token it ends up holding is an ORDINARY Sanctum PAT.
+|
+|   Pasted personal access token (any client; minted via the user button →
+|   "Data sovereignty" → "MCP for AI access" → "Connect an AI"):
 |
 |   claude mcp add --transport http hyperlit https://hyperlit.io/mcp \
 |     --header "Authorization: Bearer <token>"
 |
-| Auth is OPTIONAL at the HTTP layer: McpOptionalAuth authenticates a valid
-| bearer token (and repoints the default guard — load-bearing for every
-| tool's $request->user()), 401s an invalid one with a rich how-to-connect
-| body, and lets token-less requests through as GUESTS. A guest completes
-| the MCP handshake but sees only the get_connected onboarding tool —
-| HyperlitTool::shouldRegister() hides the data toolset, and the empty RLS
-| context (SetDatabaseSessionContext with no user) allows public reads only.
+| McpOptionalAuth authenticates a valid bearer token (and repoints the
+| default guard — load-bearing for every tool's $request->user()), and 401s
+| everything else with a rich how-to-connect body — token-less 401s are
+| REQUIRED for OAuth discovery (Claude only acts on WWW-Authenticate on a
+| 401; a 200 guest handshake would read as "connected, no login needed").
+| GUESTS still exist behind POST /mcp?guest=1: the handshake succeeds but
+| only the get_connected onboarding tool shows — HyperlitTool::
+| shouldRegister() hides the data toolset, and the empty RLS context
+| (SetDatabaseSessionContext with no user) allows public reads only.
 |
 | Middleware ORDER is load-bearing and the declared order IS the execution
 | order (only throttle:mcp sits in $middlewarePriority, and a single listed

@@ -24,6 +24,12 @@ Schedule::command('cleanup:anonymous-sessions')
 Schedule::command('sanctum:prune-expired --hours=24')
     ->daily();
 
+// Sweep dead OAuth refresh tokens (expired / rotated / revoked, 7-day
+// tombstone window — see OauthRefreshToken::prunable). The matching access
+// tokens are PATs and ride sanctum:prune-expired above.
+Schedule::command('model:prune', ['--model' => [\App\Models\OauthRefreshToken::class]])
+    ->daily();
+
 // De-identify old reading telemetry: fold identity-bearing book_reads /
 // page_views rows older than telemetry.raw_retention_days into the anonymous
 // daily rollup tables and delete them. This is the mechanism behind the

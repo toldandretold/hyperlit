@@ -10,7 +10,10 @@
 @endsection
 
 @section('content')
-<div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box;">
+{{-- font-family here because app.css doesn't import base/layout.css (the
+     body font rule) — standalone pages otherwise render in the browser's
+     default serif. Same fix as oauth/authorize.blade.php. --}}
+<div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; font-family: var(--font-family-base, 'InterVariable', 'Inter', Arial, sans-serif);">
   <div style="width: 100%; max-width: 360px; background: var(--container-solid-bg, #1a1a1a); border-radius: 12px; padding: 30px; box-shadow: 0 0 20px rgba(0,0,0,0.3);">
     <h2 id="reset-heading" style="color: var(--color-secondary); margin: 0 0 8px;">Reset Password</h2>
     <p id="reset-subtitle" style="font-size: 13px; color: var(--color-text); opacity: 0.7; margin: 0 0 24px;">Enter a new password for your account.</p>

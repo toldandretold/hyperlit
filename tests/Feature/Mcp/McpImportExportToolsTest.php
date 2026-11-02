@@ -101,8 +101,8 @@ test('a token without the import ability cannot import', function () {
         'title' => 'x', 'filename' => 'n.md', 'file_base64' => base64_encode('# x'),
     ]);
 
-    expect($response->json('result.isError'))->toBeTrue();
-    expect((string) $response->json('result.content.0.text'))->toContain("'import' ability");
+    // Ability-sized listing: hidden from the token, so tool-not-found.
+    expect($response->json('error.code'))->toBe(-32602);
     Queue::assertNothingPushed();
 });
 
