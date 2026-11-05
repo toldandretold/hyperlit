@@ -4,6 +4,7 @@ namespace App\Services\SourceImport\Content;
 
 use App\Services\Security\UrlGuard;
 use App\Services\SourceImport\Identifier\ArxivId;
+use App\Services\SourceImport\Identifier\GutenbergId;
 use App\Services\SourceImport\Identifier\Identifier;
 use App\Services\SourceImport\Metadata\SourceMetadata;
 use Illuminate\Support\Facades\File;
@@ -27,7 +28,9 @@ class PlaywrightPdfFetcher implements ContentFetcher
     public function supports(Identifier $id, SourceMetadata $metadata): bool
     {
         // arXiv is handled by Ar5ivFetcher more efficiently (HTML, no browser).
-        return ! ($id instanceof ArxivId);
+        // Gutenberg is EPUB-only (GutenbergEpubFetcher) — there is no PDF to
+        // hunt for, so a 75s browser fallback would just mask the real failure.
+        return ! ($id instanceof ArxivId) && ! ($id instanceof GutenbergId);
     }
 
     public function fetch(Identifier $id, SourceMetadata $metadata, string $destDir): FetchResult

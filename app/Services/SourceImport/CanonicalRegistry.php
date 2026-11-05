@@ -6,6 +6,7 @@ use App\Models\CanonicalSource;
 use App\Models\PgLibrary;
 use App\Services\SourceImport\Identifier\ArxivId;
 use App\Services\SourceImport\Identifier\Doi;
+use App\Services\SourceImport\Identifier\GutenbergId;
 use App\Services\SourceImport\Identifier\Identifier;
 
 /**
@@ -54,6 +55,17 @@ class CanonicalRegistry
         if ($canonical = $this->findByIdentifier($id)) {
             return $canonical->versions()
                 ->where('has_nodes', true)
+                ->orderBy('timestamp', 'desc')
+                ->get()
+                ->all();
+        }
+
+        // Gutenberg works have no DOI, so dedup keys on the canonical ebooks URL
+        // that commit stores in library.url.
+        if ($id instanceof GutenbergId) {
+            return PgLibrary::query()
+                ->where('has_nodes', true)
+                ->where('url', $id->url())
                 ->orderBy('timestamp', 'desc')
                 ->get()
                 ->all();

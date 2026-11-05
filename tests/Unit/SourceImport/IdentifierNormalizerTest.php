@@ -2,6 +2,7 @@
 
 use App\Services\SourceImport\Identifier\ArxivId;
 use App\Services\SourceImport\Identifier\Doi;
+use App\Services\SourceImport\Identifier\GutenbergId;
 use App\Services\SourceImport\Identifier\IdentifierNormalizer;
 
 beforeEach(function () {
@@ -101,6 +102,52 @@ test('trims trailing sentence punctuation from DOI', function () {
 test('DOI renders canonical URL', function () {
     $id = new Doi('10.1109/WI-IAT.2015.90');
     expect($id->url())->toBe('https://doi.org/10.1109/WI-IAT.2015.90');
+});
+
+// ─── Project Gutenberg ────────────────────────────────────────────────
+
+test('parses gutenberg ebooks URL', function () {
+    $id = $this->normaliser->parse('https://www.gutenberg.org/ebooks/79922');
+    expect($id)->toBeInstanceOf(GutenbergId::class);
+    expect($id->value())->toBe('79922');
+});
+
+test('parses gutenberg ebooks URL without www', function () {
+    $id = $this->normaliser->parse('https://gutenberg.org/ebooks/1342');
+    expect($id)->toBeInstanceOf(GutenbergId::class);
+    expect($id->value())->toBe('1342');
+});
+
+test('parses gutenberg download URL with format suffix', function () {
+    $id = $this->normaliser->parse('https://www.gutenberg.org/ebooks/79922.epub3.images');
+    expect($id)->toBeInstanceOf(GutenbergId::class);
+    expect($id->value())->toBe('79922');
+});
+
+test('parses gutenberg cache file URL', function () {
+    $id = $this->normaliser->parse('https://www.gutenberg.org/cache/epub/79922/pg79922-images-3.epub');
+    expect($id)->toBeInstanceOf(GutenbergId::class);
+    expect($id->value())->toBe('79922');
+});
+
+test('parses gutenberg files URL', function () {
+    $id = $this->normaliser->parse('https://www.gutenberg.org/files/79922/79922-0.txt');
+    expect($id)->toBeInstanceOf(GutenbergId::class);
+    expect($id->value())->toBe('79922');
+});
+
+test('gutenberg ID renders canonical URL', function () {
+    $id = new GutenbergId('79922');
+    expect($id->url())->toBe('https://www.gutenberg.org/ebooks/79922');
+});
+
+test('non-book gutenberg URL is not recognised', function () {
+    expect($this->normaliser->parse('https://www.gutenberg.org/policy/license.html'))->toBeNull();
+});
+
+test('bare number is not a gutenberg ID', function () {
+    // Without the gutenberg.org host a number is ambiguous — stays unrecognised.
+    expect($this->normaliser->parse('79922'))->toBeNull();
 });
 
 // ─── Negative cases ───────────────────────────────────────────────────

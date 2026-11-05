@@ -17,9 +17,11 @@ use App\Services\DocumentImport\Processors\ZipProcessor;
 use App\Services\DocumentImport\Processors\DocxProcessor;
 use App\Services\SourceImport\ImportOrchestrator;
 use App\Services\SourceImport\Content\Ar5ivFetcher;
+use App\Services\SourceImport\Content\GutenbergEpubFetcher;
 use App\Services\SourceImport\Content\OpenAccessPdfFetcher;
 use App\Services\SourceImport\Content\PlaywrightPdfFetcher;
 use App\Services\SourceImport\Metadata\ArxivMetadataResolver;
+use App\Services\SourceImport\Metadata\GutenbergMetadataResolver;
 use App\Services\SourceImport\Metadata\OpenAlexMetadataResolver;
 use App\Models\PgLibrary;
 use App\Models\PgHyperlight;
@@ -116,6 +118,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->tag([
             OpenAlexMetadataResolver::class,
             ArxivMetadataResolver::class,
+            GutenbergMetadataResolver::class,
         ], 'source-import.resolvers');
 
         // Order matters: orchestrator iterates and falls through on failure.
@@ -123,6 +126,7 @@ class AppServiceProvider extends ServiceProvider
         // headless-browser fallback that can handle Cloudflare / JS-gated sites.
         $this->app->tag([
             Ar5ivFetcher::class,
+            GutenbergEpubFetcher::class,
             OpenAccessPdfFetcher::class,
             PlaywrightPdfFetcher::class,
         ], 'source-import.fetchers');

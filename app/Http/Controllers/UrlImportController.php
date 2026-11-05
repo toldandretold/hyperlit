@@ -187,7 +187,11 @@ class UrlImportController extends Controller
         // render a live progress card during the sync fetch. Fetchers (and the
         // Node script inside PlaywrightPdfFetcher) overwrite this with finer
         // stages as they go.
-        $this->writeProgress($path, 'fetching_pdf', 'Fetching PDF…', 8, 'processing');
+        if ($result->identifier->kind() === 'gutenberg') {
+            $this->writeProgress($path, 'fetching_epub', 'Downloading EPUB…', 8, 'processing');
+        } else {
+            $this->writeProgress($path, 'fetching_pdf', 'Fetching PDF…', 8, 'processing');
+        }
 
         $fetch = $this->orchestrator->fetchContent($result->identifier, $result->metadata, $path);
         if (!$fetch->ok) {
@@ -267,8 +271,12 @@ class UrlImportController extends Controller
         // inspect step, so this is essentially free (no extra API call).
         // The result: subsequent imports of the same arXiv URL/DOI hit a canonical
         // row on the very first lookup, no waiting for the async matcher to run.
+        // Only when the work carries an identifier the upsert can dedupe on —
+        // without one (e.g. Gutenberg) every import would mint a fresh canonical.
         try {
-            $this->matcher->linkFromNormalisedWork($createdRecord, $result->metadata->data);
+            if ($result->metadata->doi() || $result->metadata->openalexId()) {
+                $this->matcher->linkFromNormalisedWork($createdRecord, $result->metadata->data);
+            }
         } catch (\Throwable $e) {
             Log::warning('Canonical link from URL import failed (continuing)', [
                 'book'  => $bookId,

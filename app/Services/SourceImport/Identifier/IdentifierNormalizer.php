@@ -7,10 +7,12 @@ namespace App\Services\SourceImport\Identifier;
  *
  * Accepts: arXiv URLs (arxiv.org/abs, arxiv.org/pdf, ar5iv variants), bare arXiv IDs
  * (new-style "2302.08927", old-style "cs/0301001"), DOI URLs (doi.org/..., dx.doi.org/...),
- * and bare DOIs ("doi:10.xxxx/..." or "10.xxxx/...").
+ * bare DOIs ("doi:10.xxxx/..." or "10.xxxx/..."), and Project Gutenberg book URLs
+ * (gutenberg.org/ebooks/<id>, plus /cache/epub/<id>/ and /files/<id>/ file links).
  *
  * Pure parsing — no I/O. arXiv is checked before DOI because arXiv DOIs would also match
- * the DOI regex and arXiv has a more specific shape.
+ * the DOI regex and arXiv has a more specific shape. Gutenberg requires its host, so it
+ * can't collide with either.
  */
 class IdentifierNormalizer
 {
@@ -25,7 +27,27 @@ class IdentifierNormalizer
             return $arxiv;
         }
 
+        if ($gutenberg = $this->tryGutenberg($trimmed)) {
+            return $gutenberg;
+        }
+
         return $this->tryDoi($trimmed);
+    }
+
+    private function tryGutenberg(string $input): ?GutenbergId
+    {
+        // Canonical book page (optionally with a format suffix the download
+        // links carry, e.g. /ebooks/79922.epub3.images, or a query string).
+        if (preg_match('#(?:www\.)?gutenberg\.org/ebooks/(\d+)#i', $input, $m)) {
+            return new GutenbergId($m[1]);
+        }
+
+        // Direct file links: /cache/epub/<id>/pg<id>.epub, /files/<id>/<id>-0.txt
+        if (preg_match('#(?:www\.)?gutenberg\.org/(?:cache/epub|files)/(\d+)/#i', $input, $m)) {
+            return new GutenbergId($m[1]);
+        }
+
+        return null;
     }
 
     private function tryArxiv(string $input): ?ArxivId

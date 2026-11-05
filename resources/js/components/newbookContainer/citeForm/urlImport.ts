@@ -271,6 +271,7 @@ export function setupUrlImport() {
 const STAGE_LABELS: any = {
   fetching_metadata: 'Looking up source',
   fetching_pdf: 'Fetching PDF',
+  fetching_epub: 'Downloading EPUB',
   fetching_pdf_browser: 'Opening browser',
   fetching_pdf_navigating: 'Navigating to publisher',
   fetching_pdf_locating: 'Locating PDF',
@@ -345,7 +346,7 @@ function suggestBookId(metadata: any) {
 
 function humanError(code: any) {
   switch (code) {
-    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL or DOI.";
+    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL, DOI, or Project Gutenberg link.";
     case 'metadata_unavailable': return "Couldn't find metadata for this work.";
     case 'metadata_unavailable_but_canonical_exists': return 'This source exists in the library, but external metadata could not be refreshed.';
     case 'closed_access_requires_upload': return 'This work is not open access. Switch to "Import a file" to upload the PDF.';
