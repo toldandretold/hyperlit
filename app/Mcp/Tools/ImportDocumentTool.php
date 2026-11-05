@@ -18,7 +18,10 @@ use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
  * Import a document into the user's library. Two inputs:
  *  - file_base64 + filename: a base64-encoded document (md/docx/epub/html/
  *    txt/rtf/odt or an image), capped ~10MB for MCP-arg practicality.
- *  - url: a web page / open-access record, resolved server-side.
+ *  - url: a web page / open-access record, resolved server-side. arXiv URLs,
+ *    DOIs and Project Gutenberg book URLs ride dedicated identifier pathways
+ *    (ar5iv HTML / OA PDF / Gutenberg EPUB) and are reliable; anything else
+ *    falls back to the headless-browser PDF hunt, which is best-effort.
  *
  * PDFs are the only paid path (OCR), so they take an estimate → confirm flow:
  * call once to get the price + a confirm_token, call again WITH the token (and
@@ -37,7 +40,7 @@ class ImportDocumentTool extends HyperlitTool
 
     protected string $name = 'import_document';
 
-    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a `url` (least reliable — the URL fetcher is weak; prefer content/file). Returns a book id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
+    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a `url`. URL imports are RELIABLE for recognised identifiers — arXiv links, DOIs, and Project Gutenberg book URLs (gutenberg.org/ebooks/<id>, imported as the EPUB) — and best-effort for anything else (the generic web fetcher is weak; prefer content/file there). Returns a book id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
 
     public function schema(JsonSchema $schema): array
     {
@@ -49,7 +52,7 @@ class ImportDocumentTool extends HyperlitTool
             'format' => $schema->string()->enum(['markdown', 'html'])->description('How to interpret `content`. Default markdown.'),
             'file_base64' => $schema->string()->description('Base64-encoded file bytes (for binary formats: docx/epub/pdf/odt/rtf). Provide with filename.'),
             'filename' => $schema->string()->description('Original filename incl. extension (drives the parser), for file_base64.'),
-            'url' => $schema->string()->description('A web/article/open-access URL. LAST RESORT — the fetcher is unreliable; prefer content or file_base64.'),
+            'url' => $schema->string()->description('A work URL or identifier. RELIABLE for arXiv URLs, DOIs, and Project Gutenberg book URLs (gutenberg.org/ebooks/<id> — imports the EPUB); metadata and slug are derived server-side. For any OTHER web page the fetcher is unreliable — prefer content or file_base64.'),
             'confirm_token' => $schema->string()->description('For PDFs only: the token returned by the first (estimate) call, to confirm the charge.'),
             'force' => $schema->boolean()->description('Skip the "already in Hyperlit?" duplicate check and import anyway. Default false.'),
         ];
