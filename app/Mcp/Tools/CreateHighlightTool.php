@@ -20,7 +20,7 @@ class CreateHighlightTool extends HyperlitTool
 
     protected string $name = 'create_highlight';
 
-    protected string $description = 'Highlight a passage in a book (a "hyperlight"), optionally with an annotation note. Pass the passage as a VERBATIM quote from read_book\'s plain output — the server anchors it by character offsets. If the quote appears more than once you get the match contexts back; retry with `occurrence`.';
+    protected string $description = 'Highlight a passage in a book (a "hyperlight"), optionally with an annotation note. Pass the passage as a VERBATIM quote from read_book\'s plain output — the server anchors it by character offsets. If the quote appears more than once you get the match contexts back; retry with `occurrence`. Pass `suggested_replacement` to also propose an EDIT to the passage: the highlight becomes a pending suggestion the book owner can Accept (swapping the passage for your text), Decline, or Like — the book itself is never changed until they accept.';
 
     public function schema(JsonSchema $schema): array
     {
@@ -33,7 +33,9 @@ class CreateHighlightTool extends HyperlitTool
             'occurrence' => $schema->integer()
                 ->description('1-based: which occurrence to highlight when the quote appears multiple times.'),
             'visibility' => $schema->string()->enum(['public', 'private'])
-                ->description('Annotation visibility. private = only the user sees it. Default: public on the user\'s OWN books, private on books they do not own (so highlighting a public book stays personal and does not appear for other readers).'),
+                ->description('Annotation visibility. private = only the user sees it. Default: public on the user\'s OWN books, private on books they do not own (so highlighting a public book stays personal and does not appear for other readers). A PRIVATE suggestion is invisible to the book owner — use public when proposing an edit on someone else\'s book.'),
+            'suggested_replacement' => $schema->string()
+                ->description('Optional: propose this text as a REPLACEMENT for the quoted passage (a suggested edit the book owner reviews). The quote must sit within ONE paragraph. Works on the user\'s own books too — there the user reviews/accepts it themselves (e.g. agent drafts, human approves).'),
         ];
     }
 
@@ -48,6 +50,7 @@ class CreateHighlightTool extends HyperlitTool
             'quote' => 'required|string|min:3',
             'occurrence' => 'nullable|integer|min:1',
             'visibility' => 'nullable|in:public,private',
+            'suggested_replacement' => 'nullable|string|max:20000',
         ]);
 
         [$bookId, $refusal] = $this->resolveBook((string) $request->get('book'));
@@ -76,6 +79,21 @@ class CreateHighlightTool extends HyperlitTool
             return Response::error($e->getMessage());
         }
 
+        // Suggested-edit pre-flight — BEFORE anything is created, so a refusal
+        // leaves no half-made highlight behind.
+        $replacement = $request->get('suggested_replacement');
+        $replacement = is_string($replacement) && trim($replacement) !== '' ? $replacement : null;
+        if ($replacement !== null) {
+            if (count($anchor['node_ids']) !== 1) {
+                return Response::error(
+                    'The quote spans '.count($anchor['node_ids']).' paragraphs — suggested edits anchor to ONE paragraph. Quote a passage within a single paragraph (or make one suggestion per paragraph).'
+                );
+            }
+            if ($replacement === $anchor['highlightedText']) {
+                return Response::error('The suggested replacement is identical to the quoted passage — nothing to suggest.');
+            }
+        }
+
         $hyperlightId = 'HL_'.now()->getTimestampMs();
         $record = [
             'book' => $bookId,
@@ -99,11 +117,34 @@ class CreateHighlightTool extends HyperlitTool
             return Response::error($result['json']['message'] ?? 'The highlight was not saved.');
         }
 
-        return Response::json([
+        // Attach the suggestion in a SECOND upsert: the sync-path guard
+        // deliberately discards suggested_text on a brand-new row (a
+        // suggestion only exists on an existing highlight), so create first,
+        // then update. The guard derives status=pending server-side.
+        $suggestionStatus = null;
+        if ($replacement !== null) {
+            $suggested = InternalCall::call(
+                DbHyperlightController::class, 'upsert', ['data' => [array_merge($record, [
+                    'suggested_text' => [
+                        $anchor['node_ids'][0] => [
+                            'before' => $anchor['highlightedText'],
+                            'after' => $replacement,
+                        ],
+                    ],
+                ])]], $user
+            );
+            if ($error = $this->errorFrom($suggested, 'attach the suggested edit')) {
+                return $error;
+            }
+            $suggestionStatus = 'pending';
+        }
+
+        return Response::json(array_filter([
             'hyperlight_id' => $hyperlightId,
             'highlighted_text' => $anchor['highlightedText'],
+            'suggestion_status' => $suggestionStatus,
             'url' => rtrim(config('app.url'), '/').'/'.$bookId.'#'.$hyperlightId,
-        ]);
+        ]));
     }
 
     /**

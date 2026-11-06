@@ -39,7 +39,8 @@ export const FIELD_SPECS: Record<string, FieldSpec> = {
   },
   hyperlights: {
     strings: ['annotation', 'highlightedText', 'highlightedHTML'],
-    json: ['charData', 'preview_nodes', 'raw_json'],
+    // suggested_text carries per-node {before, after} passage pairs — content.
+    json: ['charData', 'preview_nodes', 'raw_json', 'suggested_text'],
   },
   hypercites: {
     strings: ['hypercitedText', 'hypercitedHTML'],

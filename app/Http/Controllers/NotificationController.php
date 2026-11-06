@@ -84,6 +84,7 @@ class NotificationController extends Controller
 
         $verb = match ($n->type) {
             'hyperlight' => 'highlighted',
+            'suggested_edit' => 'suggested an edit to',
             'hypercite_paired' => 'cited',
             'like' => 'liked',
             // "Hyperlit published its Terms of Service…" (terms:announce)
@@ -94,7 +95,7 @@ class NotificationController extends Controller
         $link = match ($n->type) {
             // citing_ref is already "/{citingBook}#{anchorId}" — link to THEIR citation
             'hypercite_paired' => $n->citing_ref ?: '/' . $n->root_book,
-            'hyperlight' => '/' . $n->book . ($n->subject_id ? '#' . $n->subject_id : ''),
+            'hyperlight', 'suggested_edit' => '/' . $n->book . ($n->subject_id ? '#' . $n->subject_id : ''),
             // subject_id holds the terms VERSION here, never an anchor.
             'terms_published' => '/terms',
             default => '/' . $n->book,

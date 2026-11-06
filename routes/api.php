@@ -639,6 +639,15 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post('/scrape/novel/chapter', [ScrapeController::class, 'novelChapter']);
 });
 
+// Suggested-edit verdict (accept/reject/like) — book-owner only. OUTSIDE the
+// author group on purpose: its bare group throttle would be a NEW unprefixed
+// inline throttle on this route (CLAUDE.md rate-limiter gate) — a scoped
+// three-arg bucket instead.
+Route::post(
+    '/db/hyperlights/suggestion/resolve',
+    [\App\Http\Controllers\DbHyperlightController::class, 'resolveSuggestion']
+)->middleware(['author', 'throttle:60,1,suggestion-resolve']);
+
 // Conversion test routes (admin-only)
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/conversion-tests/run', [\App\Http\Controllers\ConversionTestController::class, 'runTests'])

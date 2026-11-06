@@ -1,0 +1,220 @@
+/* Suggested edits on hyperlights (hyperlitContainer/suggestedEditControl.ts):
+   the ✎ offer button, the per-node suggestion editor, the before/after diff,
+   the owner's Accept/Like/Decline row, and the resolved-status badge. All of
+   it renders INSIDE blockquote.highlight-text. */
+
+/* ── ✎ offer button (inline, at the end of the quote) ───────────────── */
+.suggest-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 6px;
+  padding: 2px;
+  vertical-align: text-bottom;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.suggest-edit-btn:hover,
+.suggest-edit-btn:focus-visible {
+  opacity: 1;
+  background: rgba(127, 127, 127, 0.15);
+}
+.suggest-edit-btn svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+/* ── shared chip/label ──────────────────────────────────────────────── */
+.suggestion-chip {
+  display: inline-block;
+  margin-bottom: 6px;
+  margin-right: 6px;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  font-size: 0.72em;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: rgba(46, 164, 79, 0.16);
+  color: #2ea44f;
+}
+
+/* ── before/after diff ──────────────────────────────────────────────── */
+blockquote.highlight-text.suggestion-diff {
+  font-style: normal;
+}
+.suggestion-segment-diff {
+  margin: 4px 0;
+  line-height: 1.5;
+}
+.suggestion-segment-diff + .suggestion-segment-diff {
+  border-top: 1px dashed rgba(127, 127, 127, 0.35);
+  padding-top: 6px;
+}
+ins.se-add {
+  background: rgba(46, 164, 79, 0.22);
+  border-radius: 3px;
+  text-decoration: none;
+  padding: 0 1px;
+}
+del.se-del {
+  background: rgba(220, 38, 38, 0.14);
+  border-radius: 3px;
+  color: inherit;
+  opacity: 0.75;
+  padding: 0 1px;
+}
+
+/* ── editor (full-container editing mode) ───────────────────────────── */
+/* While an editor is open, the HOST container carries .suggestion-editing-mode:
+   textareas run full width and tall, Save/Cancel live in a bar pinned to the
+   container's bottom edge, and the normal edit button / nav arrows get out of
+   the way (the bar occupies their corner). */
+.suggestion-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+blockquote.highlight-text.suggestion-editing {
+  width: 100%;
+  box-sizing: border-box;
+  margin-left: 0;
+  margin-right: 0;
+}
+textarea.suggestion-segment {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-style: normal;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 8em;
+}
+/* The common case — ONE paragraph being edited — gets most of the container. */
+.suggestion-editor > textarea.suggestion-segment:only-child {
+  min-height: min(55vh, 30em);
+}
+/* Keep the tail of a tall textarea reachable above the pinned bar. */
+.suggestion-editing-mode .scroller {
+  padding-bottom: 72px;
+}
+.suggestion-editing-mode .hyperlit-edit-btn,
+.suggestion-editing-mode .hyperlit-nav-arrows {
+  display: none;
+}
+
+/* Save/Cancel — pinned to the container's bottom edge. */
+.suggestion-editor-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40; /* above the masks (10) and the edit button's corner */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--container-glass-bg) 70%, transparent 100%);
+  border-radius: 0 0 1em 1em;
+}
+.suggestion-editor-bar .suggestion-action {
+  background: var(--container-solid-bg, transparent);
+  font-size: 0.95em;
+  padding: 6px 18px;
+}
+.suggestion-segment-locked {
+  padding: 6px 8px;
+  border: 1px dashed rgba(127, 127, 127, 0.35);
+  border-radius: 6px;
+  opacity: 0.65;
+}
+.suggestion-locked-reason {
+  display: block;
+  font-size: 0.78em;
+  margin-top: 2px;
+}
+
+/* ── action rows (owner verdicts, suggester re-edit/withdraw, editor) ── */
+.suggestion-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.suggestion-action {
+  padding: 3px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 9999px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85em;
+  font-style: normal;
+  cursor: pointer;
+}
+.suggestion-action:hover,
+.suggestion-action:focus-visible {
+  background: rgba(127, 127, 127, 0.15);
+}
+.suggestion-accept,
+.suggestion-save {
+  border-color: #2ea44f;
+  color: #2ea44f;
+}
+.suggestion-accept:hover,
+.suggestion-accept:focus-visible,
+.suggestion-save:hover,
+.suggestion-save:focus-visible {
+  background: rgba(46, 164, 79, 0.16);
+}
+.suggestion-reject {
+  border-color: var(--color-danger, #dc2626);
+  color: var(--color-danger, #dc2626);
+}
+.suggestion-reject:hover,
+.suggestion-reject:focus-visible {
+  background: rgba(220, 38, 38, 0.12);
+}
+blockquote.highlight-text[data-busy="true"] .suggestion-action {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ── resolved badge (header above the still-visible diff) ────────────── */
+.suggestion-badge {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75em;
+  font-style: normal;
+  user-select: none;
+}
+/* A resolved suggestion keeps its diff, but with the chrome of an OUTCOME, not
+   a live proposal: slightly dim so it reads as a record rather than a prompt. */
+blockquote.highlight-text.suggestion-diff[class*="suggestion-resolved-"] .suggestion-segment-diff {
+  opacity: 0.85;
+}
+.suggestion-badge-accepted {
+  background: rgba(46, 164, 79, 0.16);
+  color: #2ea44f;
+}
+.suggestion-badge-rejected {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--color-danger, #dc2626);
+}
+.suggestion-badge-liked {
+  background: rgba(127, 127, 127, 0.18);
+}

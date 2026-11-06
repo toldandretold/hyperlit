@@ -85,6 +85,7 @@ function verbHtml(n: NotificationItem): string {
     const verb = esc(n.verb);
     if (n.type === 'hyperlight') return `<mark class="notif-verb-highlight">${verb}</mark>`;
     if (n.type === 'hypercite_paired') return `<span class="notif-verb-cite">${verb}</span>`;
+    if (n.type === 'suggested_edit') return `<span class="notif-verb-suggest">${verb}</span>`;
     return verb;
 }
 

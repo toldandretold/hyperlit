@@ -321,3 +321,122 @@ test('modify_shelf drives the full shelf lifecycle', function () {
 
 
 
+
+/* ─── suggested edits ─────────────────────────────────────────────── */
+
+test('create_highlight with suggested_replacement stores the {before, after} pair as pending', function () {
+    $user = $this->seedUser();
+    $book = seedAnnotBook($this, $user);
+
+    $response = annotCall($this, annotToken($user), 'create_highlight', [
+        'book' => $book,
+        'quote' => 'Money & credit precede barter',
+        'suggested_replacement' => 'Credit and money precede barter',
+        'visibility' => 'public',
+    ]);
+
+    expect($response->json('result.isError'))->not->toBeTrue();
+    expect(annotJson($response)['suggestion_status'])->toBe('pending');
+
+    $row = readHl($user, $book, annotJson($response)['hyperlight_id']);
+    expect($row->suggestion_status)->toBe('pending');
+    expect($row->suggested_text[$book.'_1_aaa'])->toEqualCanonicalizing([
+        'before' => 'Money & credit precede barter',
+        'after' => 'Credit and money precede barter',
+    ]);
+});
+
+test('a multi-paragraph quote refuses suggested_replacement BEFORE creating anything', function () {
+    $user = $this->seedUser();
+    $book = seedAnnotBook($this, $user);
+
+    $response = annotCall($this, annotToken($user), 'create_highlight', [
+        'book' => $book,
+        'quote' => 'precede barter in the record. Debt comes first',
+        'suggested_replacement' => 'something else',
+    ]);
+
+    expect($response->json('result.isError'))->toBeTrue();
+    expect(annotText($response))->toContain('ONE paragraph');
+    // Pre-flight: no half-made highlight left behind.
+    $count = readAs($user, fn () => PgHyperlight::where('book', $book)->count());
+    expect($count)->toBe(0);
+});
+
+test('a replacement identical to the quote is refused as nothing-to-suggest', function () {
+    $user = $this->seedUser();
+    $book = seedAnnotBook($this, $user);
+
+    $response = annotCall($this, annotToken($user), 'create_highlight', [
+        'book' => $book,
+        'quote' => 'Money & credit precede barter',
+        'suggested_replacement' => 'Money & credit precede barter',
+    ]);
+
+    expect($response->json('result.isError'))->toBeTrue();
+    expect(annotText($response))->toContain('identical');
+});
+
+test('update_highlight can add, revise (keeping the before snapshot), and withdraw a suggestion', function () {
+    $user = $this->seedUser();
+    $book = seedAnnotBook($this, $user);
+    $token = annotToken($user);
+
+    $create = annotCall($this, $token, 'create_highlight', ['book' => $book, 'quote' => 'precede barter']);
+    $id = annotJson($create)['hyperlight_id'];
+
+    // Add.
+    $add = annotCall($this, $token, 'update_highlight', [
+        'book' => $book, 'hyperlight_id' => $id, 'suggested_replacement' => 'come before barter',
+    ]);
+    expect($add->json('result.isError'))->not->toBeTrue();
+    expect(annotJson($add)['suggestion_status'])->toBe('pending');
+    $row = readHl($user, $book, $id);
+    expect($row->suggested_text[$book.'_1_aaa'])->toEqualCanonicalizing(['before' => 'precede barter', 'after' => 'come before barter']);
+
+    // An annotation-only update leaves the pending suggestion untouched
+    // (the merge base deliberately omits the keys).
+    annotCall($this, $token, 'update_highlight', [
+        'book' => $book, 'hyperlight_id' => $id, 'annotation' => 'just a note',
+    ]);
+    $row = readHl($user, $book, $id);
+    expect($row->suggestion_status)->toBe('pending');
+
+    // Revise — the ORIGINAL before snapshot is preserved.
+    annotCall($this, $token, 'update_highlight', [
+        'book' => $book, 'hyperlight_id' => $id, 'suggested_replacement' => 'arrive before barter',
+    ]);
+    $row = readHl($user, $book, $id);
+    expect($row->suggested_text[$book.'_1_aaa'])->toEqualCanonicalizing(['before' => 'precede barter', 'after' => 'arrive before barter']);
+
+    // Withdraw.
+    $withdraw = annotCall($this, $token, 'update_highlight', [
+        'book' => $book, 'hyperlight_id' => $id, 'withdraw_suggestion' => true,
+    ]);
+    expect($withdraw->json('result.isError'))->not->toBeTrue();
+    $row = readHl($user, $book, $id);
+    expect($row->suggested_text)->toBeNull();
+    expect($row->suggestion_status)->toBeNull();
+});
+
+test('a resolved suggestion is immutable through update_highlight', function () {
+    $user = $this->seedUser();
+    $book = seedAnnotBook($this, $user);
+    $token = annotToken($user);
+
+    $create = annotCall($this, $token, 'create_highlight', [
+        'book' => $book, 'quote' => 'precede barter', 'suggested_replacement' => 'come before barter',
+    ]);
+    $id = annotJson($create)['hyperlight_id'];
+
+    // Resolve it (owner == suggester here — the self-suggestion shape).
+    readAs($user, fn () => DB::table('hyperlights')
+        ->where('book', $book)->where('hyperlight_id', $id)
+        ->update(['suggestion_status' => 'accepted']));
+
+    $revise = annotCall($this, $token, 'update_highlight', [
+        'book' => $book, 'hyperlight_id' => $id, 'suggested_replacement' => 'another idea',
+    ]);
+    expect($revise->json('result.isError'))->toBeTrue();
+    expect(annotText($revise))->toContain('accepted');
+});

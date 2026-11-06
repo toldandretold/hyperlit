@@ -199,9 +199,24 @@ export interface HyperlightRecord extends AnnotationRecordBase {
    *  server ONLY at hyperlight-row creation; post-create the sole writer is the
    *  /db/sub-books/visibility endpoint (hyperlitContainer/hyperlightVisibilityControl.ts). */
   sub_book_visibility?: 'public' | 'private';
+  /** Suggested edit: per-node replacement pairs keyed by data-node-id (charData's keys).
+   *  `before` snapshots the span at suggestion time (highlightedText is live-maintained,
+   *  so without it the original is lost on the next book edit); `after` is the proposal. */
+  suggested_text?: Record<string, SuggestedEditPair> | null;
+  /** Lifecycle: derived server-side (pending on propose, null on withdraw); the resolved
+   *  states are written only by the book-owner /db/hyperlights/suggestion/resolve endpoint. */
+  suggestion_status?: SuggestionStatus | null;
   /** @deprecated Denormalized JSON copy — phase-out (no new readers). */
   raw_json?: unknown;
 }
+
+/** One node's suggested replacement on a hyperlight (see HyperlightRecord.suggested_text). */
+export interface SuggestedEditPair {
+  before: string;
+  after: string;
+}
+
+export type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'liked';
 
 /**
  * A row in the `hypercites` store. Key: [book, hyperciteId]. The normalized source of truth for a

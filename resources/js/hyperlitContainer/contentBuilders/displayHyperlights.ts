@@ -7,6 +7,7 @@ import { openDatabase } from '../../indexedDB/index';
 import { getAuthContextSync, getAuthContext } from "../../utilities/auth/index";
 import { buildSubBookId } from '../../utilities/subBookIdHelper';
 import { buildHyperlightVisibilityControlHtml } from '../hyperlightVisibilityControl';
+import { buildHighlightTextBlockHtml } from '../suggestedEditControl';
 import DOMPurify from 'dompurify';
 
 /**
@@ -135,8 +136,6 @@ export async function buildHighlightContent(contentType: any, newHighlightIds: a
         rawMeta = typeof h.raw_json === 'string' ? JSON.parse(h.raw_json) : (h.raw_json || {});
       } catch {}
       const isBrainQuery = rawMeta.brain_query === true;
-      const rawTruncatedText = h.highlightedText.length > 140 ? h.highlightedText.substring(0, 140) + '...' : h.highlightedText;
-      const truncatedText = DOMPurify.sanitize(rawTruncatedText, { ALLOWED_TAGS: [] });
 
       html += `  <div class="author" id="author-${h.hyperlight_id}">
 `;
@@ -198,15 +197,15 @@ export async function buildHighlightContent(contentType: any, newHighlightIds: a
 `;
 
       if (!isBrainQuery) {
-        const blockquoteEditable = isEditable;
-        const blockquoteCanEdit = hasPermission;
-        html += `  <blockquote class="highlight-text" contenteditable="${blockquoteEditable}" data-user-can-edit="${blockquoteCanEdit}" `;
-        html += `data-highlight-id="${h.hyperlight_id}" data-content-id="${h.hyperlight_id}">
-`;
-        html += `    "${truncatedText}"
-`;
-        html += `  </blockquote>
-`;
+        // All suggestion states (plain + ✎ offer, pending diff + actions,
+        // resolved badge) render through one builder — suggestedEditControl
+        // repaints the same blockquote after save/withdraw/resolve.
+        html += buildHighlightTextBlockHtml(h, {
+          isUserHighlight: !!isUserHighlight,
+          canEditBook: !!bookPermissions.get(h.book),
+          contentEditable: isEditable,
+          canEdit: hasPermission,
+        });
       }
 
       // Add annotation target container for highlights that have annotations

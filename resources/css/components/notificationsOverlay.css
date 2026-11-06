@@ -118,6 +118,15 @@
   padding: 0 2px;
 }
 
+/* Suggested edit: the verb wears the suggestion green (suggestedEdit.css
+   .se-add / .suggestion-chip). */
+#notifications-overlay .notif-verb-suggest {
+  background-color: rgba(46, 164, 79, 0.22);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
 /* Hypercite: the verb is underlined in the couple/poly rainbow gradient
    (base/hypercites.css u.couple/u.poly). */
 #notifications-overlay .notif-verb-cite {

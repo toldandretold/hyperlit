@@ -180,6 +180,11 @@ import {
 } from '../../hyperlitContainer/hyperlightVisibilityControl';
 
 import {
+  initSuggestedEdit,
+  destroySuggestedEdit
+} from '../../hyperlitContainer/suggestedEditControl';
+
+import {
   initContainerDragger,
   destroyContainerDragger
 } from '../containerDragger/containerDragger';
@@ -437,6 +442,19 @@ export function registerAllComponents() {
     name: 'hyperlightVisibility',
     initFn: initHyperlightVisibility,
     destroyFn: destroyHyperlightVisibility,
+    pages: ['reader', 'home', 'user', 'journal'], // the hyperlit container can open anywhere
+    dependencies: [],
+    required: false
+  });
+
+  // Suggested edits on hyperlights: the ✎ button, per-node suggestion editor,
+  // before/after diff, and the book owner's Accept/Like/Decline row — all inside
+  // the highlight's blockquote. Document-delegated singleton, inert unless a
+  // suggestion element is clicked (hyperlightVisibility pattern).
+  buttonRegistry.register({
+    name: 'suggestedEdit',
+    initFn: initSuggestedEdit,
+    destroyFn: destroySuggestedEdit,
     pages: ['reader', 'home', 'user', 'journal'], // the hyperlit container can open anywhere
     dependencies: [],
     required: false

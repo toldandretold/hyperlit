@@ -326,7 +326,7 @@ class DbHyperlightController extends Controller
                     \App\Services\E2ee\EncryptedBookGuard::rejectPlaintextWrites(
                         $guardItem['book'] ?? '',
                         [$guardItem],
-                        ['annotation', 'highlightedText', 'highlightedHTML'],
+                        ['annotation', 'highlightedText', 'highlightedHTML', 'suggested_text'],
                     );
                 }
 
@@ -429,6 +429,36 @@ class DbHyperlightController extends Controller
                     // underscore-prefixed IDB convention; the column has no underscore.
                     if (array_key_exists('_ghost_anchor_node', $item) || array_key_exists('ghost_anchor_node', $item)) {
                         $values['ghost_anchor_node'] = $item['_ghost_anchor_node'] ?? $item['ghost_anchor_node'] ?? null;
+                    }
+                    // Suggested edits: only written when the payload CARRIES a key
+                    // (an older client's record must not wipe a pending suggestion),
+                    // and only through the guard — a resolved status is immutable
+                    // from the sync path, and a client can never claim
+                    // accepted/rejected/liked (resolveSuggestion is their sole writer).
+                    if (array_key_exists('suggested_text', $item) || array_key_exists('suggestion_status', $item)) {
+                        [$values['suggested_text'], $values['suggestion_status']] =
+                            $this->guardedSuggestionValues($existingRecord, $item);
+
+                        // Notify the book owner when a suggestion FIRST appears
+                        // (empty → non-empty) on an existing highlight. Same
+                        // privacy stance as hyperlightCreated: private highlight
+                        // activity is the reader's alone.
+                        if ($existingRecord
+                            && empty($existingRecord->suggested_text)
+                            && !empty($values['suggested_text'])
+                            && $bookId && !empty($item['hyperlight_id'])) {
+                            $subBookId = SubBookIdHelper::build($bookId, $item['hyperlight_id']);
+                            $subVisibility = PgLibrary::where('book', $subBookId)->value('visibility') ?? 'public';
+                            $suggestedMap = $values['suggested_text'];
+                            $firstPair = isset($suggestedMap['__hlenc__']) ? null : (reset($suggestedMap) ?: null);
+                            NotificationWriter::suggestedEdit(
+                                $user?->name,
+                                $bookId,
+                                $item['hyperlight_id'],
+                                is_array($firstPair) ? ($firstPair['after'] ?? null) : null,
+                                $subVisibility === 'private' ? 'private' : 'public'
+                            );
+                        }
                     }
 
                     PgHyperlight::updateOrCreate(
@@ -774,6 +804,8 @@ class DbHyperlightController extends Controller
             'is_user_highlight' => $isUserHighlight,
             'creator' => $hyperlight->creator,
             'sub_book_visibility' => $subBookVisibility,
+            'suggested_text' => $hyperlight->suggested_text,
+            'suggestion_status' => $hyperlight->suggestion_status,
         ]]);
     }
 
@@ -878,6 +910,158 @@ class DbHyperlightController extends Controller
                 'message' => 'Failed to hide highlights',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Guarded (suggested_text, suggestion_status) for upsert — the SYNC path's
+     * only legal transitions are creator-side: propose (→ pending) and withdraw
+     * (→ null/null). Resolution states are written exclusively by
+     * resolveSuggestion(), and once resolved the pair is immutable from sync
+     * (the accept flow's own re-measure echo must not clobber it).
+     *
+     * @return array{0: ?array, 1: ?string}
+     */
+    private function guardedSuggestionValues(?PgHyperlight $existingRecord, array $item): array
+    {
+        $existingText = $existingRecord?->suggested_text;
+        $existingStatus = $existingRecord?->suggestion_status;
+
+        if (in_array($existingStatus, ['accepted', 'rejected', 'liked'], true)) {
+            return [$existingText, $existingStatus];
+        }
+
+        // A suggestion only makes sense on an existing highlight; on the
+        // creator's OWN book an edit is just an edit.
+        if (!$existingRecord) {
+            return [null, null];
+        }
+
+        $incoming = $item['suggested_text'] ?? null;
+        if (!is_array($incoming) || $incoming === []) {
+            return [null, null]; // withdrawal (or junk shape)
+        }
+
+        // E2EE books send the whole map as one {__hlenc__} envelope — pass
+        // through untouched (EncryptedBookGuard has already verified it).
+        if (isset($incoming['__hlenc__'])) {
+            return [$incoming, 'pending'];
+        }
+
+        $clean = [];
+        foreach ($incoming as $nodeId => $pair) {
+            if (!is_string($nodeId) || $nodeId === '' || !is_array($pair)) {
+                continue;
+            }
+            $before = $pair['before'] ?? null;
+            $after = $pair['after'] ?? null;
+            if (!is_string($before) || !is_string($after)) {
+                continue;
+            }
+            $clean[$nodeId] = [
+                'before' => mb_substr((string) NodeHtmlSanitizer::clean($before), 0, 20000),
+                'after' => mb_substr((string) NodeHtmlSanitizer::clean($after), 0, 20000),
+            ];
+        }
+
+        return $clean === [] ? [null, null] : [$clean, 'pending'];
+    }
+
+    /**
+     * Resolve a pending suggested edit — accept / reject / like. SECURITY:
+     * book-owner only (NOT the suggestion's creator), same gate as hide().
+     * The actual node splice happens client-side on the owner's machine via
+     * the normal edit path BEFORE this is called; this endpoint records the
+     * verdict. suggested_text is retained (the before/after stays renderable).
+     *
+     * Like hide(), the owner is not the hyperlight row's creator and the
+     * hyperlights UPDATE RLS policy is creator-only, so the write goes through
+     * the admin connection after the ownership check.
+     */
+    public function resolveSuggestion(Request $request)
+    {
+        // 'pending' as a TARGET is the REVERT transition: an accepted edit is
+        // spliced back out client-side and the suggestion returns to pending
+        // (the owner gets the full decision space back).
+        $validator = Validator::make($request->all(), [
+            'book' => 'required|string',
+            'hyperlight_id' => ['required', 'string', 'regex:/^HL_[A-Za-z0-9]+$/'],
+            'resolution' => 'required|in:accepted,rejected,liked,pending',
+        ]);
+        if ($validator->fails()) {
+            return ApiResponse::validationError($validator->errors());
+        }
+
+        try {
+            $bookId = $request->input('book');
+            $hyperlightId = $request->input('hyperlight_id');
+            $resolution = $request->input('resolution');
+
+            $user = Auth::user();
+            $anonymousToken = $user ? null : $request->cookie('anon_token');
+
+            $library = PgLibrary::where('book', $bookId)->first();
+            $isBookOwner = $library && (
+                ($user && $library->creator === $user->name) ||
+                (!$user && $anonymousToken && $library->creator_token === $anonymousToken)
+            );
+            if (!$isBookOwner) {
+                return response()->json(['error' => 'Access denied.'], 403);
+            }
+
+            // Admin read: the pending row may be creator-private under the
+            // SELECT policy, but the owner was already verified above and a
+            // private suggestion never notifies, so this is moderation of
+            // their own book's public surface.
+            $row = DB::connection('pgsql_admin')->table('hyperlights')
+                ->where('book', $bookId)
+                ->where('hyperlight_id', $hyperlightId)
+                ->first(['suggestion_status']);
+
+            if (!$row) {
+                return response()->json(['error' => 'Hyperlight not found.'], 404);
+            }
+            // Legal transitions:
+            //   pending  → accepted/rejected/liked   (resolve)
+            //   accepted → pending                    (revert: body spliced back client-side)
+            //   rejected → pending / liked → pending  (reconsider: body never changed, status flip)
+            // A resolved→pending move is the client's REOPEN; only accepted
+            // requires a client splice, which the client owns. Anything else is
+            // an explicit 422 so a double-resolve or stale client can't silently
+            // flip a verdict.
+            $legal = $resolution === 'pending'
+                ? in_array($row->suggestion_status, ['accepted', 'rejected', 'liked'], true)
+                : $row->suggestion_status === 'pending';
+            if (!$legal) {
+                return ApiResponse::error(
+                    $resolution === 'pending'
+                        ? 'Only a resolved suggestion can be reopened'
+                        : 'Suggestion is not pending',
+                    422
+                );
+            }
+
+            DB::connection('pgsql_admin')->table('hyperlights')
+                ->where('book', $bookId)
+                ->where('hyperlight_id', $hyperlightId)
+                ->update(['suggestion_status' => $resolution, 'updated_at' => now()]);
+
+            // Readers re-pull annotations on next open.
+            $this->updateAnnotationsTimestamp([$bookId]);
+
+            Log::info('Suggested edit resolved', [
+                'book' => $bookId,
+                'hyperlight_id' => $hyperlightId,
+                'resolution' => $resolution,
+            ]);
+
+            return ApiResponse::ok(['resolution' => $resolution], 'Suggestion resolved');
+        } catch (\Exception $e) {
+            Log::error('DbHyperlightController::resolveSuggestion - Exception', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::error('Failed to resolve suggestion', 500);
         }
     }
 

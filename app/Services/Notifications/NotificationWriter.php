@@ -32,6 +32,7 @@ class NotificationWriter
     public const TYPE_HYPERCITE_PAIRED = 'hypercite_paired';
     public const TYPE_LIKE = 'like';
     public const TYPE_TERMS_PUBLISHED = 'terms_published';
+    public const TYPE_SUGGESTED_EDIT = 'suggested_edit';
 
     /**
      * The terms-of-service announcement (terms:announce) — the one SYSTEM
@@ -83,6 +84,46 @@ class NotificationWriter
                 citingRef: null,
                 snippet: $snippet,
             );
+        });
+    }
+
+    /**
+     * A highlight on $book gained a SUGGESTED EDIT (suggested_text transitioned
+     * empty → non-empty in upsert). Separate type from hyperlightCreated so the
+     * dedupe index — which includes `type` — still notifies for a suggestion
+     * added to an already-notified highlight. A re-edited suggestion on the
+     * same highlight dedupes silently (v1). Same privacy stance as
+     * hyperlightCreated: a private highlight's activity is the reader's alone.
+     *
+     * The suggestion SUBSUMES the plain-highlight notification for the same
+     * highlight: whether the highlight was made moments ago (MCP one-shot:
+     * create fires `hyperlight`, then the suggestion fires here) or an hour
+     * earlier, the owner should see ONE line ("suggested an edit"), not two.
+     * So the earlier `hyperlight` row for this exact (recipient, book,
+     * subject_id) is retracted — the same retraction shape as citingBookHidden.
+     */
+    public static function suggestedEdit(?string $actor, string $book, string $hyperlightId, ?string $snippet = null, string $visibility = 'public'): void
+    {
+        if ($visibility !== 'public') {
+            return;
+        }
+        self::deferred(function () use ($actor, $book, $hyperlightId, $snippet) {
+            $recipient = self::writeForBookOwner(
+                type: self::TYPE_SUGGESTED_EDIT,
+                actor: $actor,
+                book: $book,
+                subjectId: $hyperlightId,
+                citingRef: null,
+                snippet: $snippet,
+            );
+            if ($recipient !== null) {
+                DB::connection('pgsql_admin')->table('notifications')
+                    ->where('recipient', $recipient)
+                    ->where('type', self::TYPE_HYPERLIGHT)
+                    ->where('book', $book)
+                    ->where('subject_id', $hyperlightId)
+                    ->delete();
+            }
         });
     }
 

@@ -10,7 +10,7 @@
  * Source of truth for the envelopes: DatabaseToIndexedDBController::getBookData
  * (the `/api/database-to-indexeddb/books/{id}/data` + `/annotations` responses).
  */
-import type { BookId, GateDefaults, RelationshipStatus, CharRange } from '../types';
+import type { BookId, GateDefaults, RelationshipStatus, CharRange, SuggestedEditPair, SuggestionStatus } from '../types';
 
 /** A JSON column that arrives either stringified (raw endpoints) or decoded. */
 type JsonColumn<T> = string | T | null;
@@ -58,6 +58,9 @@ export interface ServerHyperlightRow {
    *  with 'private' are by construction the caller's own — foreign private ones are
    *  dropped server-side (getHyperlights private-sub-book pass). */
   sub_book_visibility?: 'public' | 'private';
+  /** Suggested edit: per-node {before, after} map (null when none / withdrawn). */
+  suggested_text?: Record<string, SuggestedEditPair> | null;
+  suggestion_status?: SuggestionStatus | null;
   /** @deprecated Denormalized copy slated for removal — do not add new readers. */
   raw_json?: JsonColumn<object>;
 }

@@ -198,3 +198,22 @@ it('refuses server-side metadata extraction for an encrypted book (403)', functi
         'text' => "Ways of Seeing\n\nby John Berger",
     ])->assertStatus(403);
 });
+
+it('rejects a plaintext suggested_text write to an encrypted book, accepts the envelope', function () {
+    $user = $this->seedUser();
+    $this->actingAs($user);
+    $this->seedLibrary(encryptedBookAttrs($user, 'e2ee_sugg'));
+
+    // Plaintext per-node {before, after} map → 422 (suggested_text is a
+    // content-bearing field in FIELD_SPECS and the upsert guard list).
+    $this->postJson('/api/db/hyperlights/upsert', ['data' => [[
+        'book' => 'e2ee_sugg', 'hyperlight_id' => 'HL_e2ee1', 'node_id' => ['n1'], 'charData' => new stdClass(),
+        'suggested_text' => ['n1' => ['before' => 'plain before', 'after' => 'plain after']],
+    ]]])->assertStatus(422);
+
+    // The {__hlenc__} envelope shape passes the guard.
+    $this->postJson('/api/db/hyperlights/upsert', ['data' => [[
+        'book' => 'e2ee_sugg', 'hyperlight_id' => 'HL_e2ee1', 'node_id' => ['n1'], 'charData' => new stdClass(),
+        'suggested_text' => ['__hlenc__' => 'hlenc.v1.aBcD-_12.Y3Q-_9aZ'],
+    ]]])->assertStatus(200);
+});

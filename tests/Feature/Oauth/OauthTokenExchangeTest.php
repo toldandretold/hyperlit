@@ -126,7 +126,7 @@ test('an OAuth token lives inside the user\'s RLS fence', function () {
     expect((string) ($read->json('result.content.0.text') ?? ''))->not->toContain('Sealed prose');
 });
 
-test('granted scopes become PAT abilities — an unselected ability is denied by name', function () {
+test('granted scopes become PAT abilities — an unselected ability\'s tools are invisible', function () {
     $user = $this->seedUser();
     $verifier = tokenExchangeVerifier();
     // Consent grants annotate only — no read.
@@ -136,9 +136,26 @@ test('granted scopes become PAT abilities — an unselected ability is denied by
         'redirect_uri' => 'https://claude.ai/api/mcp/auth_callback', 'code_verifier' => $verifier,
     ], ['Accept' => 'application/json'])->json('access_token');
 
+    // Ability-sized listing (HyperlitTool::shouldRegister): a PAT only SEES
+    // the tools its abilities allow, and laravel/mcp filters tools/call
+    // through the same registration check — so calling an unselected
+    // ability's tool is a clean JSON-RPC "not found", not a named refusal
+    // (denyUnlessAble remains the call-time gate for session callers).
     $response = tokenExchangeMcp($this, $token, 'list_books');
-    expect($response->json('result.isError'))->toBeTrue();
-    expect((string) $response->json('result.content.0.text'))->toContain("'read' ability");
+    expect((string) $response->json('error.message'))->toContain('not found');
+
+    // The listing itself is the capability map: annotate tools present,
+    // read tools absent.
+    app('auth')->forgetGuards();
+    $list = $this->postJson('/mcp', [
+        'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/list', 'params' => [],
+    ], [
+        'Authorization' => 'Bearer '.$token,
+        'Accept' => 'application/json, text/event-stream',
+    ]);
+    $names = collect($list->json('result.tools'))->pluck('name');
+    expect($names)->toContain('create_highlight');
+    expect($names)->not->toContain('list_books');
 });
 
 test('a wrong code_verifier is invalid_grant — and the code died with the attempt', function () {

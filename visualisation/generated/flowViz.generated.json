@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 1987,
-    "moduleCount": 419,
+    "fnCount": 2001,
+    "moduleCount": 422,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4088,
+    "edgeCount": 4167,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5598,6 +5598,8 @@
         "raw_json",
         "startLine",
         "sub_book_visibility",
+        "suggested_text",
+        "suggestion_status",
         "time_since"
       ]
     },
@@ -5866,6 +5868,8 @@
         "raw_json",
         "startLine",
         "sub_book_visibility",
+        "suggested_text",
+        "suggestion_status",
         "time_since"
       ]
     },
@@ -6196,6 +6200,8 @@
         "raw_json",
         "startLine",
         "sub_book_visibility",
+        "suggested_text",
+        "suggestion_status",
         "time_since"
       ]
     },
@@ -6216,6 +6222,24 @@
         "has_anon_token",
         "hyperlight_id",
         "user"
+      ]
+    },
+    {
+      "id": "controller:DbHyperlightController@resolveSuggestion",
+      "label": "resolveSuggestion",
+      "kind": "controller",
+      "dir": "push",
+      "cls": "DbHyperlightController",
+      "method": "resolveSuggestion",
+      "group": "content",
+      "tables": [
+        "hyperlights",
+        "library"
+      ],
+      "shape": [
+        "book",
+        "hyperlight_id",
+        "resolution"
       ]
     },
     {
@@ -10124,6 +10148,101 @@
       "leaf": false
     },
     {
+      "id": "hyperlights/suggestedEdit:getHighlightRecord",
+      "label": "getHighlightRecord",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": false,
+      "types": [
+        "HyperlightRecord"
+      ]
+    },
+    {
+      "id": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "label": "getSuggestionSegments",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": true,
+      "types": [
+        "HyperlightRecord",
+        "NodeRecord"
+      ]
+    },
+    {
+      "id": "hyperlights/suggestedEdit:reopenSuggestion",
+      "label": "reopenSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:resolveSuggestion",
+      "label": "resolveSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion",
+      "label": "saveSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEdit:sliceNodeCleanText",
+      "label": "sliceNodeCleanText",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "label": "withdrawSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEdit",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "label": "acceptSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEditAccept",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "label": "revertSuggestion",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEditAccept",
+      "leaf": false
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:shiftRangeForSplice",
+      "label": "shiftRangeForSplice",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEditAccept",
+      "leaf": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "label": "spliceCleanTextRange",
+      "kind": "fn",
+      "stage": "hyperlights",
+      "module": "hyperlights/suggestedEditAccept",
+      "leaf": false
+    },
+    {
       "id": "hyperlights/translateSelection:closeTranslation",
       "label": "closeTranslation",
       "kind": "fn",
@@ -11272,6 +11391,33 @@
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/subBookLoader",
       "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
+      "label": "buildHighlightTextBlockHtml",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/suggestedEditControl",
+      "leaf": true,
+      "types": [
+        "HyperlightRecord"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:destroySuggestedEdit",
+      "label": "destroySuggestedEdit",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/suggestedEditControl",
+      "leaf": false
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "label": "initSuggestedEdit",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/suggestedEditControl",
+      "leaf": false
     },
     {
       "id": "hyperlitContainer/utilities/activeContext:clearActiveBook",
@@ -20621,6 +20767,33 @@
       ]
     },
     {
+      "id": "hyperlights/suggestedEdit",
+      "label": "hyperlights/suggestedEdit",
+      "stage": "hyperlights",
+      "band": "sync",
+      "fnIds": [
+        "hyperlights/suggestedEdit:getHighlightRecord",
+        "hyperlights/suggestedEdit:getSuggestionSegments",
+        "hyperlights/suggestedEdit:reopenSuggestion",
+        "hyperlights/suggestedEdit:resolveSuggestion",
+        "hyperlights/suggestedEdit:saveSuggestion",
+        "hyperlights/suggestedEdit:sliceNodeCleanText",
+        "hyperlights/suggestedEdit:withdrawSuggestion"
+      ]
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept",
+      "label": "hyperlights/suggestedEditAccept",
+      "stage": "hyperlights",
+      "band": "capture",
+      "fnIds": [
+        "hyperlights/suggestedEditAccept:acceptSuggestion",
+        "hyperlights/suggestedEditAccept:revertSuggestion",
+        "hyperlights/suggestedEditAccept:shiftRangeForSplice",
+        "hyperlights/suggestedEditAccept:spliceCleanTextRange"
+      ]
+    },
+    {
       "id": "hyperlights/translateSelection",
       "label": "hyperlights/translateSelection",
       "stage": "hyperlights",
@@ -21041,6 +21214,17 @@
         "hyperlitContainer/subBookLoader:resetSubBookState",
         "hyperlitContainer/subBookLoader:restoreSubBookState",
         "hyperlitContainer/subBookLoader:saveSubBookState"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl",
+      "label": "hyperlitContainer/suggestedEditControl",
+      "stage": "hyperlitContainer",
+      "band": "capture",
+      "fnIds": [
+        "hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
+        "hyperlitContainer/suggestedEditControl:destroySuggestedEdit",
+        "hyperlitContainer/suggestedEditControl:initSuggestedEdit"
       ]
     },
     {
@@ -28940,6 +29124,18 @@
       "rel": "push"
     },
     {
+      "id": "controller:DbHyperlightController@resolveSuggestion__push__pg:hyperlights",
+      "source": "controller:DbHyperlightController@resolveSuggestion",
+      "target": "pg:hyperlights",
+      "rel": "push"
+    },
+    {
+      "id": "controller:DbHyperlightController@resolveSuggestion__push__pg:library",
+      "source": "controller:DbHyperlightController@resolveSuggestion",
+      "target": "pg:library",
+      "rel": "push"
+    },
+    {
       "id": "controller:DbHyperlightController@upsert__push__pg:hyperlights",
       "source": "controller:DbHyperlightController@upsert",
       "target": "pg:hyperlights",
@@ -32580,6 +32776,30 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "dom",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlights/suggestedEditAccept:acceptSuggestion",
+      "source": "dom",
+      "target": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlights/suggestedEditAccept:revertSuggestion",
+      "source": "dom",
+      "target": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "source": "dom",
+      "target": "hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlights/translateSelection:readableText",
       "source": "dom",
       "target": "hyperlights/translateSelection:readableText",
@@ -32937,6 +33157,18 @@
       "id": "dom__domread__hyperlitContainer/subBookLoader:loadSubBook",
       "source": "dom",
       "target": "hyperlitContainer/subBookLoader:loadSubBook",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/suggestedEditControl:destroySuggestedEdit",
+      "source": "dom",
+      "target": "hyperlitContainer/suggestedEditControl:destroySuggestedEdit",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "source": "dom",
+      "target": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
       "rel": "domread"
     },
     {
@@ -37021,6 +37253,348 @@
       "rel": "call"
     },
     {
+      "id": "hyperlights/suggestedEdit:getHighlightRecord__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEdit:getHighlightRecord",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:getSuggestionSegments__call__hyperlights/suggestedEdit:sliceNodeCleanText",
+      "source": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "target": "hyperlights/suggestedEdit:sliceNodeCleanText",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:getSuggestionSegments__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:reopenSuggestion__call__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "hyperlights/suggestedEdit:reopenSuggestion",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:resolveSuggestion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEdit:resolveSuggestion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:resolveSuggestion__write__store:hyperlights",
+      "source": "hyperlights/suggestedEdit:resolveSuggestion",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__call__hyperlights/suggestedEdit:getHighlightRecord",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "hyperlights/suggestedEdit:getHighlightRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__call__hyperlights/suggestedEdit:getSuggestionSegments",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:saveSuggestion__write__store:hyperlights",
+      "source": "hyperlights/suggestedEdit:saveSuggestion",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:sliceNodeCleanText__domwrite__dom",
+      "source": "hyperlights/suggestedEdit:sliceNodeCleanText",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:withdrawSuggestion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEdit:withdrawSuggestion__call__indexedDB/core/library:updateAnnotationsTimestamp",
+      "source": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "target": "indexedDB/core/library:updateAnnotationsTimestamp",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:withdrawSuggestion__call__indexedDB/syncQueue/queue:queueForSync",
+      "source": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "target": "indexedDB/syncQueue/queue:queueForSync",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEdit:withdrawSuggestion__write__store:hyperlights",
+      "source": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/deletion:unwrapElement",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/deletion:unwrapElement",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/deletion:unwrapMark",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/deletion:unwrapMark",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/listeners:attachMarkListeners",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEdit:getHighlightRecord",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEdit:getHighlightRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEdit:getSuggestionSegments",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEdit:sliceNodeCleanText",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEdit:sliceNodeCleanText",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEditAccept:shiftRangeForSplice",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEditAccept:shiftRangeForSplice",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__indexedDB/types:asChunkId",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__lazyLoader/chunkRender:applyHighlights",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "lazyLoader/chunkRender:applyHighlights",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__call__lazyLoader/chunkRender:applyHypercites",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "lazyLoader/chunkRender:applyHypercites",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__domwrite__dom",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:acceptSuggestion__write__store:hyperlights",
+      "source": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hypercites/listeners:attachUnderlineClickListeners",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hypercites/listeners:attachUnderlineClickListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/deletion:unwrapElement",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/deletion:unwrapElement",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/deletion:unwrapMark",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/deletion:unwrapMark",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/listeners:attachMarkListeners",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/listeners:attachMarkListeners",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEdit:getHighlightRecord",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEdit:getHighlightRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEdit:getSuggestionSegments",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEdit:sliceNodeCleanText",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEdit:sliceNodeCleanText",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEditAccept:shiftRangeForSplice",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEditAccept:shiftRangeForSplice",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "hyperlights/suggestedEditAccept:spliceCleanTextRange",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__indexedDB/core/connection:openDatabase",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "indexedDB/hydration/rebuild:getNodesByDataNodeIDs",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "indexedDB/nodes/batch:batchUpdateIndexedDBRecords",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__indexedDB/types:asChunkId",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "indexedDB/types:asChunkId",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__lazyLoader/chunkRender:applyHighlights",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "lazyLoader/chunkRender:applyHighlights",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__call__lazyLoader/chunkRender:applyHypercites",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "lazyLoader/chunkRender:applyHypercites",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__domwrite__dom",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlights/suggestedEditAccept:revertSuggestion__write__store:hyperlights",
+      "source": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "target": "store:hyperlights",
+      "rel": "write"
+    },
+    {
       "id": "hyperlights/translateSelection:closeTranslation__domwrite__dom",
       "source": "hyperlights/translateSelection:closeTranslation",
       "target": "dom",
@@ -37663,6 +38237,12 @@
       "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent__call__hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
       "source": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent",
       "target": "hyperlitContainer/hyperlightVisibilityControl:buildHyperlightVisibilityControlHtml",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent__call__hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
+      "source": "hyperlitContainer/contentBuilders/displayHyperlights:buildHighlightContent",
+      "target": "hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
       "rel": "call"
     },
     {
@@ -39499,6 +40079,80 @@
     {
       "id": "hyperlitContainer/subBookLoader:loadSubBook__domwrite__dom",
       "source": "hyperlitContainer/subBookLoader:loadSubBook",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:destroySuggestedEdit__domwrite__dom",
+      "source": "hyperlitContainer/suggestedEditControl:destroySuggestedEdit",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:getHighlightRecord",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:getHighlightRecord",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:getSuggestionSegments",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:getSuggestionSegments",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:reopenSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:reopenSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:saveSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:saveSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEdit:withdrawSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEditAccept:acceptSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlights/suggestedEditAccept:revertSuggestion",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__call__hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
+      "target": "hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/suggestedEditControl:initSuggestedEdit__domwrite__dom",
+      "source": "hyperlitContainer/suggestedEditControl:initSuggestedEdit",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -47762,6 +48416,42 @@
       "rel": "read"
     },
     {
+      "id": "store:hyperlights__read__hyperlights/suggestedEdit:getHighlightRecord",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEdit:getHighlightRecord",
+      "rel": "read"
+    },
+    {
+      "id": "store:hyperlights__read__hyperlights/suggestedEdit:resolveSuggestion",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEdit:resolveSuggestion",
+      "rel": "read"
+    },
+    {
+      "id": "store:hyperlights__read__hyperlights/suggestedEdit:saveSuggestion",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEdit:saveSuggestion",
+      "rel": "read"
+    },
+    {
+      "id": "store:hyperlights__read__hyperlights/suggestedEdit:withdrawSuggestion",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEdit:withdrawSuggestion",
+      "rel": "read"
+    },
+    {
+      "id": "store:hyperlights__read__hyperlights/suggestedEditAccept:acceptSuggestion",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEditAccept:acceptSuggestion",
+      "rel": "read"
+    },
+    {
+      "id": "store:hyperlights__read__hyperlights/suggestedEditAccept:revertSuggestion",
+      "source": "store:hyperlights",
+      "target": "hyperlights/suggestedEditAccept:revertSuggestion",
+      "rel": "read"
+    },
+    {
       "id": "store:hyperlights__read__hyperlights/utils:openHighlightById",
       "source": "store:hyperlights",
       "target": "hyperlights/utils:openHighlightById",
@@ -50945,6 +51635,11 @@
     },
     {
       "source": "components/utilities/registerComponents",
+      "target": "hyperlitContainer/suggestedEditControl",
+      "kind": "static"
+    },
+    {
+      "source": "components/utilities/registerComponents",
       "target": "scrolling/pageViewTelemetry",
       "kind": "static"
     },
@@ -52119,6 +52814,51 @@
       "kind": "static"
     },
     {
+      "source": "hyperlights/suggestedEdit",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEdit",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "hyperlights/deletion",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "hyperlights/listeners",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "hyperlights/suggestedEdit",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "indexedDB/hydration/rebuild",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "indexedDB/types",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/suggestedEditAccept",
+      "target": "lazyLoader/index",
+      "kind": "lazy"
+    },
+    {
       "source": "hyperlights/utils",
       "target": "hyperlitContainer/containerActions",
       "kind": "static"
@@ -52351,6 +53091,11 @@
     {
       "source": "hyperlitContainer/contentBuilders/displayHyperlights",
       "target": "hyperlitContainer/hyperlightVisibilityControl",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/contentBuilders/displayHyperlights",
+      "target": "hyperlitContainer/suggestedEditControl",
       "kind": "static"
     },
     {
@@ -52977,6 +53722,16 @@
       "source": "hyperlitContainer/subBookLoader",
       "target": "indexedDB/hydration/rebuild",
       "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/suggestedEditControl",
+      "target": "hyperlights/suggestedEdit",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/suggestedEditControl",
+      "target": "hyperlights/suggestedEditAccept",
+      "kind": "static"
     },
     {
       "source": "indexedDB/bibliography/index",
@@ -54989,6 +55744,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 303
+    "lazyCount": 305
   }
 }

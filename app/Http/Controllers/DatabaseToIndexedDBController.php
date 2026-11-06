@@ -630,7 +630,10 @@ class DatabaseToIndexedDBController extends Controller
                         $sub->whereNotNull('preview_nodes')
                             ->whereRaw("jsonb_typeof(preview_nodes) = 'array'")
                             ->whereRaw("EXISTS (SELECT 1 FROM jsonb_array_elements(preview_nodes) AS elem WHERE regexp_replace(elem->>'content', '<[^>]*>', '', 'g') ~ '\\S')");
-                    });
+                    // A suggested edit is substantive content — without this, a
+                    // bare highlight carrying only a suggestion is gate-hidden
+                    // from the very book owner it addresses.
+                    })->orWhereNotNull('suggested_text');
                 });
                 if ($user) $q->orWhere('creator', $user->name);
                 if ($anonToken) $q->orWhere('creator_token', $anonToken);
@@ -822,6 +825,11 @@ class DatabaseToIndexedDBController extends Controller
                     'sub_book_visibility' => array_key_exists($effectiveSubBookId($hyperlight), $privateSubBookInfo)
                         ? 'private'
                         : 'public',
+                    // Suggested edit: per-node {before, after} map + lifecycle status.
+                    'suggested_text' => $hyperlight->suggested_text
+                        ? json_decode($hyperlight->suggested_text, true)
+                        : null,
+                    'suggestion_status' => $hyperlight->suggestion_status ?? null,
                 ];
             })
             ->toArray();

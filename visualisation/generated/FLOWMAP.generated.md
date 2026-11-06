@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 1987 functions in 419 modules · 10 object stores · 10 PG tables · 4088 edges
+**MarkdownDB** schema v28 · 2001 functions in 422 modules · 10 object stores · 10 PG tables · 4167 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1102,6 +1102,17 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `cleanupHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
 | `handleSelection` | `hyperlights/selectionToolbar` | — | — | read/write | — |
 | `initializeHighlightingControls` | `hyperlights/selectionToolbar` | — | — | read | — |
+| `acceptSuggestion` | `hyperlights/suggestedEditAccept` | `hyperlights` | `hyperlights` | read/write | — |
+| `revertSuggestion` | `hyperlights/suggestedEditAccept` | `hyperlights` | `hyperlights` | read/write | — |
+| `shiftRangeForSplice` | `hyperlights/suggestedEditAccept` | — | — | — | — |
+| `spliceCleanTextRange` | `hyperlights/suggestedEditAccept` | — | — | read | — |
+| `getHighlightRecord` | `hyperlights/suggestedEdit` | `hyperlights` | — | — | — |
+| `getSuggestionSegments` | `hyperlights/suggestedEdit` | — | — | — | — |
+| `reopenSuggestion` | `hyperlights/suggestedEdit` | — | — | — | — |
+| `resolveSuggestion` | `hyperlights/suggestedEdit` | `hyperlights` | `hyperlights` | read | — |
+| `saveSuggestion` | `hyperlights/suggestedEdit` | `hyperlights` | `hyperlights` | — | — |
+| `sliceNodeCleanText` | `hyperlights/suggestedEdit` | — | — | write | — |
+| `withdrawSuggestion` | `hyperlights/suggestedEdit` | `hyperlights` | `hyperlights` | — | — |
 | `closeTranslation` | `hyperlights/translateSelection` | — | — | write | — |
 | `defaultTarget` | `hyperlights/translateSelection` | `localStorage` | — | — | — |
 | `formatCost` | `hyperlights/translateSelection` | — | — | — | — |
@@ -1245,6 +1256,9 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `restoreSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `saveSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `buildHighlightTextBlockHtml` | `hyperlitContainer/suggestedEditControl` | — | — | — | — |
+| `destroySuggestedEdit` | `hyperlitContainer/suggestedEditControl` | — | — | read/write | — |
+| `initSuggestedEdit` | `hyperlitContainer/suggestedEditControl` | — | — | read/write | — |
 | `clearActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
 | `getActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
 | `setActiveBook` | `hyperlitContainer/utilities/activeContext` | — | — | — | — |
@@ -2000,7 +2014,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 303
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 305
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2160,6 +2174,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlights/deletion` → `hyperlights/myHighlights/ghostLedger`
 - `hyperlights/deletion` → `lazyLoader/index`
 - `hyperlights/myHighlights/ghostLedger` → `hyperlights/utils`
+- `hyperlights/suggestedEditAccept` → `lazyLoader/index`
 - `hyperlights/utils` → `indexedDB/core/connection`
 - `hyperlitContainer/brainQuery` → `components/userButton/userButton`
 - `hyperlitContainer/brainQuery` → `editToolbar/index`

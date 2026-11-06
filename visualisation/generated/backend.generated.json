@@ -63,6 +63,8 @@
                 "raw_json",
                 "startLine",
                 "sub_book_visibility",
+                "suggested_text",
+                "suggestion_status",
                 "time_since"
             ],
             "endpoints": [
@@ -309,6 +311,8 @@
                 "raw_json",
                 "startLine",
                 "sub_book_visibility",
+                "suggested_text",
+                "suggestion_status",
                 "time_since"
             ],
             "endpoints": [
@@ -640,6 +644,8 @@
                 "raw_json",
                 "startLine",
                 "sub_book_visibility",
+                "suggested_text",
+                "suggestion_status",
                 "time_since"
             ],
             "endpoints": [
@@ -665,6 +671,26 @@
             ],
             "endpoints": [
                 "/api/db/hyperlights/hide"
+            ]
+        },
+        {
+            "id": "controller:DbHyperlightController@resolveSuggestion",
+            "label": "DbHyperlightController@resolveSuggestion",
+            "kind": "controller",
+            "dir": "push",
+            "controller": "DbHyperlightController",
+            "method": "resolveSuggestion",
+            "tables": [
+                "hyperlights",
+                "library"
+            ],
+            "shape": [
+                "book",
+                "hyperlight_id",
+                "resolution"
+            ],
+            "endpoints": [
+                "/api/db/hyperlights/suggestion/resolve"
             ]
         },
         {
@@ -1178,6 +1204,16 @@
             "rel": "write"
         },
         {
+            "source": "controller:DbHyperlightController@resolveSuggestion",
+            "target": "pg:hyperlights",
+            "rel": "write"
+        },
+        {
+            "source": "controller:DbHyperlightController@resolveSuggestion",
+            "target": "pg:library",
+            "rel": "write"
+        },
+        {
             "source": "controller:DbHyperlightController@upsert",
             "target": "pg:hyperlights",
             "rel": "write"
@@ -1605,6 +1641,7 @@
         "/api/db/hyperlights/delete": "controller:DbHyperlightController@delete",
         "/api/db/hyperlights/find/{}/{}": "controller:DbHyperlightController@find",
         "/api/db/hyperlights/hide": "controller:DbHyperlightController@hide",
+        "/api/db/hyperlights/suggestion/resolve": "controller:DbHyperlightController@resolveSuggestion",
         "/api/db/hyperlights/upsert": "controller:DbHyperlightController@upsert",
         "/api/db/library/bulk-create": "controller:DbLibraryController@bulkCreate",
         "/api/db/library/set-slug": "controller:DbLibraryController@setSlug",

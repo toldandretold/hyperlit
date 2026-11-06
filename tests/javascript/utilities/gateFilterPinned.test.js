@@ -312,3 +312,25 @@ describe('appendGateParam', () => {
     expect(gf.appendGateParam('/api/x')).toBe('/api/x');
   });
 });
+
+describe('hideNoAnnotation vs suggested edits (hyperlights)', () => {
+  const hl = (over = {}) => ({
+    hyperlight_id: 'HL_gate1', creator: 'someone', is_user_highlight: false,
+    annotation: '', preview_nodes: null, ...over,
+  });
+
+  it('the default gate drops a bare foreign highlight but KEEPS one carrying a suggestion', async () => {
+    const gf = await freshGateFilter();
+    // No stored setting → default mode → hyperlight hideNoAnnotation: true.
+    expect(gf.applyGateFilter([hl()], 'hyperlight')).toHaveLength(0);
+    expect(gf.applyGateFilter([hl({
+      suggested_text: { n1: { before: 'old words', after: 'new words' } },
+      suggestion_status: 'pending',
+    })], 'hyperlight')).toHaveLength(1);
+  });
+
+  it('an empty suggestion map does not count as content', async () => {
+    const gf = await freshGateFilter();
+    expect(gf.applyGateFilter([hl({ suggested_text: {} })], 'hyperlight')).toHaveLength(0);
+  });
+});

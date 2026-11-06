@@ -377,9 +377,15 @@ export function applyGateFilter(items: any, type: any) {
     if (flags) {
       if (flags.hideAI && isAiCreator(item.creator)) return false;
       if (flags.hideAnonymous && !item.creator) return false;
-      // Empty-annotation check is hyperlight-only (hypercites have no annotation)
+      // Empty-annotation check is hyperlight-only (hypercites have no annotation).
+      // A suggested edit is substantive content too (mirrors the server filter in
+      // DatabaseToIndexedDBController::applyGateFilters) — without this, a bare
+      // highlight carrying only a suggestion renders no mark for the book owner
+      // and its notification deep-link lands on nothing.
       if (flags.hideNoAnnotation && type === 'hyperlight') {
-        const hasContent = (item.annotation && item.annotation !== '') || hasPreviewContent(item.preview_nodes);
+        const hasContent = (item.annotation && item.annotation !== '')
+          || hasPreviewContent(item.preview_nodes)
+          || (item.suggested_text && Object.keys(item.suggested_text).length > 0);
         if (!hasContent) return false;
       }
     }
