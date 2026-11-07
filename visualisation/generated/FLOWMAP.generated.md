@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2001 functions in 422 modules · 10 object stores · 10 PG tables · 4167 edges
+**MarkdownDB** schema v28 · 2003 functions in 423 modules · 10 object stores · 10 PG tables · 4173 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1361,6 +1361,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | — | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `purgeStaleBookFromIndexedDB` | `indexedDB/serverSync/clear` | `historyLog` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
+| `reconcileServerNodeCount` | `indexedDB/serverSync/countReconcile` | `historyLog` `nodes` | — | — | — |
+| `scheduleServerCountReconcile` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | `historyLog` | — | — | — |
 | `loadBibliographyToIndexedDB` | `indexedDB/serverSync/loaders` | — | `bibliography` | — | — |
 | `loadFootnotesToIndexedDB` | `indexedDB/serverSync/loaders` | — | `footnotes` | — | — |
@@ -2014,7 +2016,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 305
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 310
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2247,6 +2249,10 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/nodes/absenceReconciler` → `indexedDB/hypercites/index`
 - `indexedDB/nodes/absenceReconciler` → `indexedDB/hypercites/read`
 - `indexedDB/nodes/batch` → `footnotes/FootnoteNumberingService`
+- `indexedDB/serverSync/countReconcile` → `indexedDB/core/connection`
+- `indexedDB/serverSync/countReconcile` → `indexedDB/syncQueue/master`
+- `indexedDB/serverSync/countReconcile` → `indexedDB/syncQueue/queue`
+- `indexedDB/serverSync/countReconcile` → `pageLoad/backgroundDownload`
 - `indexedDB/serverSync/flush` → `divEditor/index`
 - `indexedDB/serverSync/flush` → `footnotes/footnoteAnnotations`
 - `indexedDB/serverSync/flush` → `indexedDB/core/connection`
@@ -2258,6 +2264,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `indexedDB/serverSync/pull` → `components/utilities/gateFilter`
 - `indexedDB/serverSync/pull` → `pageLoad/accessGuards`
 - `indexedDB/syncQueue/master` → `indexedDB/hydration/rebuild`
+- `indexedDB/syncQueue/master` → `indexedDB/serverSync/countReconcile`
 - `lazyLoader/chunkFetcher` → `indexedDB/hydration/rebuild`
 - `lazyLoader/chunkRender` → `lazyLoader/encryptedImages`
 - `lazyLoader/footnoteSelfHeal` → `indexedDB/nodes/batch`

@@ -718,6 +718,17 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
       }
     }
 
+    // Layer-3 end-state check: a 200 is the client's ONLY proof the server took the
+    // write, and a 200 that silently dropped rows is invisible (prod 2026-11-01).
+    // Node-bearing responses carry the book's post-write count — hand it to the
+    // reconciler, which compares against local IDB once the pipeline is quiet.
+    const serverNodeCount = (syncResult as { server_node_count?: unknown }).server_node_count;
+    if (typeof serverNodeCount === 'number') {
+      import('../serverSync/countReconcile')
+        .then(({ scheduleServerCountReconcile }) => scheduleServerCountReconcile(bookId, serverNodeCount))
+        .catch(() => { /* watchdog unavailable — the sync itself succeeded */ });
+    }
+
     if (glowCloudGreen) glowCloudGreen(); // Glow cloud green on successful server sync
   } catch (error) {
     // 409 STALE_DATA is terminal, NOT a retryable failure: the server is newer, so

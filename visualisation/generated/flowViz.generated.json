@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2001,
-    "moduleCount": 422,
+    "fnCount": 2003,
+    "moduleCount": 423,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4167,
+    "edgeCount": 4173,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -12385,6 +12385,22 @@
       ]
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "label": "reconcileServerNodeCount",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": false
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+      "label": "scheduleServerCountReconcile",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "label": "flushAllPendingEdits",
       "kind": "fn",
@@ -21575,6 +21591,16 @@
         "indexedDB/serverSync/clear:clearBookDataFromIndexedDB",
         "indexedDB/serverSync/clear:purgeStaleBookFromIndexedDB",
         "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes"
+      ]
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile",
+      "label": "indexedDB/serverSync/countReconcile",
+      "stage": "serverSync",
+      "band": "store",
+      "fnIds": [
+        "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+        "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile"
       ]
     },
     {
@@ -41494,6 +41520,32 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount__call__indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "source": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "target": "indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount__call__pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "source": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "target": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile__call__indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "source": "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+      "target": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__components/cloudRef/editIndicator:glowCloudSyncSuccess",
       "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "target": "components/cloudRef/editIndicator:glowCloudSyncSuccess",
@@ -48272,6 +48324,12 @@
       "rel": "read"
     },
     {
+      "id": "store:historyLog__read__indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "source": "store:historyLog",
+      "target": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "rel": "read"
+    },
+    {
       "id": "store:historyLog__read__indexedDB/serverSync/flush:flushAllPendingEdits",
       "source": "store:historyLog",
       "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
@@ -49097,6 +49155,12 @@
       "id": "store:nodes__read__indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
       "source": "store:nodes",
       "target": "indexedDB/serverSync/clear:updateEmbeddedAnnotationsInNodes",
+      "rel": "read"
+    },
+    {
+      "id": "store:nodes__read__indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "source": "store:nodes",
+      "target": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
       "rel": "read"
     },
     {
@@ -54134,6 +54198,26 @@
       "kind": "static"
     },
     {
+      "source": "indexedDB/serverSync/countReconcile",
+      "target": "indexedDB/core/connection",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/countReconcile",
+      "target": "indexedDB/syncQueue/master",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/countReconcile",
+      "target": "indexedDB/syncQueue/queue",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/serverSync/countReconcile",
+      "target": "pageLoad/backgroundDownload",
+      "kind": "lazy"
+    },
+    {
       "source": "indexedDB/serverSync/flush",
       "target": "divEditor/index",
       "kind": "lazy"
@@ -54276,6 +54360,11 @@
     {
       "source": "indexedDB/syncQueue/master",
       "target": "indexedDB/hydration/rebuild",
+      "kind": "lazy"
+    },
+    {
+      "source": "indexedDB/syncQueue/master",
+      "target": "indexedDB/serverSync/countReconcile",
       "kind": "lazy"
     },
     {
@@ -55744,6 +55833,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 305
+    "lazyCount": 310
   }
 }

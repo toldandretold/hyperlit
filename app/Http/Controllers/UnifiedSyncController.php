@@ -370,11 +370,24 @@ class UnifiedSyncController extends Controller
             // edit would compare against a now-outdated base and spuriously 409.
             $serverTimestamp = PgLibrary::where('book', $bookId)->value('timestamp');
 
+            // End-state reconciliation seam (layer 3): the client's only proof the server
+            // holds what it holds is this envelope — a 200 that silently dropped rows is
+            // invisible (prod 2026-11-01: positional deletes ate 41 just-pasted nodes
+            // behind `success: true`). Echo the post-write node count for the book so the
+            // client can compare it against its local IDB count once its queue drains.
+            // Only when this sync touched nodes — library-only/annotation syncs say
+            // nothing about node state, and the count query isn't free.
+            $serverNodeCount = null;
+            if (! empty($data['nodes'])) {
+                $serverNodeCount = \App\Models\PgNode::where('book', $bookId)->count();
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'All data synced successfully',
                 'results' => $result,
                 'server_timestamp' => $serverTimestamp !== null ? (int) $serverTimestamp : null,
+                'server_node_count' => $serverNodeCount,
             ]);
 
         } catch (\Exception $e) {

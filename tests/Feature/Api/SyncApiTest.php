@@ -183,6 +183,165 @@ test('POST /api/db/nodes/upsert preserves a NON-empty client plainText (crafted 
     expect($node->plainText)->toBe('Author, Title (2020) — the crafted citation text');
 });
 
+/* ─── layer-3 reconciliation: post-write node count in the envelope ── */
+
+test('unified-sync: a node-bearing sync returns server_node_count; a library-only sync returns null', function () {
+    // The client's only proof the server took a write is this envelope — a 200 that
+    // silently dropped rows is invisible (prod 2026-11-01). Node-bearing responses
+    // carry the book's post-write count so serverSync/countReconcile can compare it
+    // against local IDB once the queue drains.
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    $mk = fn (int $line) => [
+        'book' => $book, 'startLine' => $line, 'chunk_id' => 0, 'node_id' => $book.'_'.$line.'_n',
+        'content' => '<p id="'.$line.'">n'.$line.'</p>',
+        'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+    ];
+
+    $this->postJson('/api/db/unified-sync', ['book' => $book, 'nodes' => [$mk(100), $mk(200)]])
+        ->assertStatus(200)
+        ->assertJsonPath('server_node_count', 2);
+
+    // One more node → count advances with the write it describes.
+    $this->postJson('/api/db/unified-sync', ['book' => $book, 'nodes' => [$mk(300)]])
+        ->assertStatus(200)
+        ->assertJsonPath('server_node_count', 3);
+
+    // Library-only syncs say nothing about node state — null, not a count.
+    $this->postJson('/api/db/unified-sync', [
+        'book' => $book, 'library' => ['book' => $book, 'title' => 'T'],
+    ])
+        ->assertStatus(200)
+        ->assertJsonPath('server_node_count', null);
+});
+
+/* ─── node deletes are by identity, not by address ────────────────── */
+//
+// A startLine is a positional slot a later write can re-occupy: the paste path's
+// nuclear upsert replaces a whole book, minting NEW node_ids at the startLines the
+// old nodes held, and a trailing editor sync batch still carrying deletions of the
+// OLD nodes then arrives referencing those startLines. Deleting by startLine alone
+// killed 23 of 29 just-pasted /terms nodes on prod (2026-11-01) while every client
+// batch reported `synced`. batchDelete must honour the node_id each delete item
+// carries: wrong identity → no-op (logged), matching or NULL-stored identity → delete.
+
+test('unified-sync: a stale positional delete (old node_id) does NOT delete the new node at that startLine', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $newId = $book.'_200_new';
+
+    // The nuclear paste left a NEW node at startLine 300.
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book' => $book, 'startLine' => 300, 'chunk_id' => 0, 'node_id' => $newId,
+            'content' => '<p data-node-id="'.$newId.'">freshly pasted paragraph</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    // The trailing editor batch deletes the OLD node that used to live at 300.
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            '_action' => 'delete',
+            'book' => $book, 'startLine' => 300, 'chunk_id' => 0,
+            'node_id' => $book.'_100_old', // the node the client actually means — long gone
+            'content' => '', 'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    expect(\Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('node_id', $newId)->exists())->toBeTrue();
+});
+
+test('unified-sync: a delete whose node_id matches the stored row deletes it', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nodeId = $book.'_300_live';
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book' => $book, 'startLine' => 300, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '<p data-node-id="'.$nodeId.'">to be deleted</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200);
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            '_action' => 'delete',
+            'book' => $book, 'startLine' => 300, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '', 'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    expect(\Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('startLine', 300)->exists())->toBeFalse();
+});
+
+test('unified-sync: a delete WITHOUT node_id falls back to startLine (legacy clients)', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+    $nodeId = $book.'_400_x';
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book' => $book, 'startLine' => 400, 'chunk_id' => 0, 'node_id' => $nodeId,
+            'content' => '<p data-node-id="'.$nodeId.'">legacy-deletable</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200);
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            '_action' => 'delete',
+            'book' => $book, 'startLine' => 400, 'chunk_id' => 0,
+            'content' => '', 'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    expect(\Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('startLine', 400)->exists())->toBeFalse();
+});
+
+test('unified-sync: a delete with node_id removes a pre-node_id row (stored node_id NULL)', function () {
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    // Seed a legacy row: no node_id in the payload → stored node_id is NULL.
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book' => $book, 'startLine' => 500, 'chunk_id' => 0,
+            'content' => '<p id="500">ancient row</p>',
+            'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200);
+
+    expect(\Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('startLine', 500)->whereNull('node_id')->exists())->toBeTrue();
+
+    // A modern client deleting it sends ITS idea of the id; NULL-stored rows must
+    // still match, or legacy books could never delete nodes again.
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            '_action' => 'delete',
+            'book' => $book, 'startLine' => 500, 'chunk_id' => 0, 'node_id' => $book.'_500_zz',
+            'content' => '', 'hyperlights' => [], 'hypercites' => [], 'footnotes' => [],
+        ]],
+    ])->assertStatus(200)->assertJson(['success' => true]);
+
+    expect(\Illuminate\Support\Facades\DB::table('nodes')
+        ->where('book', $book)->where('startLine', 500)->exists())->toBeFalse();
+});
+
 /* ─── optimistic-concurrency (base_timestamp) stale guard ─────────── */
 
 test('POST /api/db/unified-sync 409s when base_timestamp is older than the server version', function () {

@@ -1047,7 +1047,21 @@ class DbNodeController extends Controller
     }
 
     /**
-     * Batch delete nodes by startLine - single query instead of N queries
+     * Batch delete nodes — by IDENTITY (node_id), not by address (startLine).
+     *
+     * A startLine is a positional slot that a LATER write can legitimately re-occupy:
+     * the paste path's nuclear upsert replaces a whole book, minting new node_ids at
+     * the same startLines the old nodes held. A trailing editor sync batch still
+     * carrying deletions of the OLD nodes (select-all-delete before the paste) then
+     * arrives referencing those startLines — and a positional delete kills the fresh
+     * nodes that now live there (prod 2026-11-01: /terms lost 23 of 29 just-pasted
+     * nodes, /privacy 18 of 36, while every client batch reported `synced`).
+     *
+     * So: when a delete item carries node_id, the row at that startLine is deleted
+     * only if it IS that node (or the stored node_id is NULL — pre-node_id legacy
+     * rows). A stale positional delete thus no-ops instead of deleting whoever lives
+     * at that address now; the skip is logged as DELETE_SKIPPED_IDENTITY_MISMATCH.
+     * Items without node_id keep the pure-startLine behaviour (old clients).
      */
     private function batchDelete(string $bookId, array $items): int
     {
@@ -1055,25 +1069,69 @@ class DbNodeController extends Controller
             return 0;
         }
 
-        $startLines = array_column($items, 'startLine');
+        $withId = [];
+        $lineOnly = [];
+        foreach ($items as $item) {
+            if (! empty($item['node_id'])) {
+                $withId[] = $item;
+            } else {
+                $lineOnly[] = $item;
+            }
+        }
+
+        $predicate = function ($q) use ($withId, $lineOnly) {
+            foreach ($withId as $it) {
+                $q->orWhere(function ($qq) use ($it) {
+                    $qq->where('startLine', $it['startLine'])
+                        ->where(function ($id) use ($it) {
+                            $id->where('node_id', $it['node_id'])->orWhereNull('node_id');
+                        });
+                });
+            }
+            if (! empty($lineOnly)) {
+                $q->orWhereIn('startLine', array_column($lineOnly, 'startLine'));
+            }
+        };
 
         // SYNC AUDIT: Log what we're about to delete BEFORE deleting
         $victims = \DB::table('nodes')
             ->where('book', $bookId)
-            ->whereIn('startLine', $startLines)
+            ->where($predicate)
             ->select('startLine', 'node_id', \DB::raw('LEFT(content, 80) as content_preview'))
             ->get();
 
+        // Rows at a requested startLine that SURVIVE because they are a different
+        // node — each one is a stale positional delete this guard just defused.
+        $requestedStartLines = array_column($items, 'startLine');
+        $deletedKeys = $victims->map(fn ($v) => $v->startLine.'|'.$v->node_id)->flip();
+        $skipped = \DB::table('nodes')
+            ->where('book', $bookId)
+            ->whereIn('startLine', $requestedStartLines)
+            ->select('startLine', 'node_id')
+            ->get()
+            ->filter(fn ($r) => ! isset($deletedKeys[$r->startLine.'|'.$r->node_id]))
+            ->values();
+
         Log::channel('sync_audit')->info('DELETE_NODES', [
             'book' => $bookId,
-            'requested_startLines' => $startLines,
+            'requested_startLines' => $requestedStartLines,
             'found_count' => $victims->count(),
             'victims' => $victims->toArray(),
         ]);
+        if ($skipped->isNotEmpty()) {
+            Log::channel('sync_audit')->warning('DELETE_SKIPPED_IDENTITY_MISMATCH', [
+                'book' => $bookId,
+                'skipped' => $skipped->toArray(),
+                'requested' => array_map(fn ($it) => [
+                    'startLine' => $it['startLine'] ?? null,
+                    'node_id' => $it['node_id'] ?? null,
+                ], $items),
+            ]);
+        }
 
         $deleted = \DB::table('nodes')
             ->where('book', $bookId)
-            ->whereIn('startLine', $startLines)
+            ->where($predicate)
             ->delete();
 
         // Re-anchor ghosts whose ghost_anchor_node was among the deleted nodes
@@ -1254,7 +1312,16 @@ class DbNodeController extends Controller
     }
 
     /**
-     * Upsert records using startLine as the conflict target (fallback for records without node_id)
+     * Upsert records WITHOUT node_id, keyed by startLine — a LEGACY-ONLY fallback.
+     *
+     * Nothing modern sends an id-less node (every editor/paste node mints a
+     * data-node-id); this path serves re-syncs of pre-node_id rows (~69 old books,
+     * ~5.4k rows as of 2026-11). It cannot use `ON CONFLICT (book, "startLine")`:
+     * that unique constraint is DEFERRABLE (bulk reorders need commit-time checking),
+     * and Postgres refuses deferrable constraints as ON CONFLICT arbiters — the old
+     * single-statement version threw SQLSTATE 55000 and 500'd the WHOLE sync batch
+     * whenever an id-less item appeared. Plain update-then-insert instead; traffic is
+     * near-zero (one prod hit in 7 months), so per-row statements are fine.
      */
     private function batchUpsertByStartLine(string $bookId, array $items): int
     {
@@ -1263,51 +1330,55 @@ class DbNodeController extends Controller
         }
 
         $now = now()->format('Y-m-d H:i:s');
-        $values = [];
-        $bindings = [];
+        $count = 0;
 
         foreach ($items as $item) {
+            $startLine = $item['startLine'] ?? null;
+            if ($startLine === null) {
+                continue; // no identity AND no address — nothing to key on
+            }
+
             $content = NodeHtmlSanitizer::clean($item['content'] ?? null);
-            $values[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-            $bindings[] = $bookId;
-            $bindings[] = $item['node_id'] ?? null;
-            $bindings[] = $item['startLine'] ?? null;
-            $bindings[] = $item['chunk_id'] ?? 0;
-            $bindings[] = $content;
-            $bindings[] = json_encode($item['footnotes'] ?? []);
+            $footnotes = json_encode($item['footnotes'] ?? []);
             // Client never sends plainText — derive it from content (mirrors upsert()),
             // else re-syncs through this path would null it and starve embeddings.
             // (E2EE: NULL for encrypted books — see EncryptedBookGuard.)
-            $bindings[] = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
-            $bindings[] = $item['type'] ?? null;
-            $bindings[] = $now;
-            $bindings[] = $now;
+            $plainText = EncryptedBookGuard::plainTextFor($bookId, $content, $item['plainText'] ?? null);
+            $type = $item['type'] ?? null;
+
+            // All SET expressions see the OLD row, so the embedding CASE compares
+            // against pre-update content: content changed => the existing vector
+            // describes the OLD text — NULL it so QueueBookEmbeddings re-embeds.
+            $updated = \DB::update('
+                UPDATE nodes SET
+                    chunk_id = ?,
+                    content = ?,
+                    footnotes = ?,
+                    "plainText" = ?,
+                    type = ?,
+                    updated_at = ?,
+                    embedding = CASE WHEN content IS DISTINCT FROM ? THEN NULL ELSE embedding END
+                WHERE book = ? AND "startLine" = ?
+            ', [
+                $item['chunk_id'] ?? 0, $content, $footnotes, $plainText, $type, $now,
+                $content, $bookId, $startLine,
+            ]);
+
+            if ($updated === 0) {
+                \DB::insert('
+                    INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ', [
+                    $bookId, null, $startLine, $item['chunk_id'] ?? 0,
+                    $content, $footnotes, $plainText, $type, $now, $now,
+                ]);
+            }
+
+            $count++;
         }
 
-        $sql = '
-            INSERT INTO nodes (book, node_id, "startLine", chunk_id, content, footnotes, "plainText", type, created_at, updated_at)
-            VALUES '.implode(', ', $values).'
-            ON CONFLICT (book, "startLine")
-            DO UPDATE SET
-                node_id = COALESCE(EXCLUDED.node_id, nodes.node_id),
-                chunk_id = EXCLUDED.chunk_id,
-                content = EXCLUDED.content,
-                footnotes = EXCLUDED.footnotes,
-                "plainText" = EXCLUDED."plainText",
-                type = EXCLUDED.type,
-                updated_at = EXCLUDED.updated_at,
-                -- content changed => the existing vector describes the OLD text.
-                -- NULL it so the QueueBookEmbeddings dispatch on this request
-                -- re-embeds (it only fills NULLs — without this, edited nodes
-                -- kept their pre-edit vectors forever).
-                embedding = CASE WHEN nodes.content IS DISTINCT FROM EXCLUDED.content
-                                 THEN NULL ELSE nodes.embedding END
-        ';
+        Log::debug('Batch upserted '.$count.' nodes by startLine (legacy id-less path)', ['book' => $bookId]);
 
-        \DB::statement($sql, $bindings);
-
-        Log::debug('Batch upserted '.count($items).' nodes by startLine', ['book' => $bookId]);
-
-        return count($items);
+        return $count;
     }
 }

@@ -317,6 +317,39 @@ export async function reportCitationMismatch(
   await _sendReport(payload);
 }
 
+/**
+ * The server's post-write node count disagrees with local IDB after the sync
+ * pipeline went quiet (serverSync/countReconcile) — i.e. the server ACKed
+ * writes it did not fully persist, or holds rows this client lost. The local
+ * copy is intact, so NO modal: this is a flare for the maintainer (the prod
+ * 2026-11-01 positional-delete incident ran three weeks behind `success: true`
+ * responses precisely because nothing compared end states). Counts ride in
+ * `comment` because the endpoint only persists its whitelisted fields.
+ */
+export async function reportServerCountMismatch(
+  { bookId, localCount, serverCount }: { bookId: string; localCount: number; serverCount: number }
+): Promise<void> {
+  const payload = {
+    bookId,
+    trigger: 'server-node-count-mismatch',
+    comment: (
+      `Post-drain node-count divergence: IndexedDB has ${localCount} nodes, the server reports `
+      + `${serverCount}. Every sync batch was ACKed, so one side silently diverged — compare `
+      + `sync_audit.log (DELETE_NODES / SYNC_SUSPICIOUS / DELETE_SKIPPED_IDENTITY_MISMATCH) `
+      + `against the client historyLog for this book.`
+    ).slice(0, 2000),
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
+    recentLogs: getRecentLogs(),
+    context: {
+      sessionAgeSec: Math.round((Date.now() - _sessionStartTs) / 1000),
+      idbBroken: isIDBBroken(),
+    },
+  };
+  await _sendReport(payload);
+}
+
 // ================================================================
 // RETRY QUEUE — guarantees no report is silently dropped
 // ================================================================

@@ -1111,7 +1111,8 @@
             "method": "sync",
             "tables": [
                 "bibliography",
-                "library"
+                "library",
+                "nodes"
             ],
             "shape": [
                 "node_id",
@@ -1336,6 +1337,11 @@
         {
             "source": "controller:UnifiedSyncController@sync",
             "target": "pg:library",
+            "rel": "write"
+        },
+        {
+            "source": "controller:UnifiedSyncController@sync",
+            "target": "pg:nodes",
             "rel": "write"
         },
         {

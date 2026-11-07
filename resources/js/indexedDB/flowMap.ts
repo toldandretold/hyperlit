@@ -123,6 +123,7 @@ export const FLOW_STAGES: FlowStage[] = [
       { path: 'serverSync/clear', plain: 'Clear a book (or just its annotations) from the stores; rebuild the annotations embedded inside node records.' },
       { path: 'serverSync/push', plain: 'Push IndexedDB state up to the server after new-book creation (library first, then nodes/annotations/footnotes); has the missing-chunk-0 abort guard.' },
       { path: 'serverSync/flush', plain: 'Drain the whole edit pipeline (footnote debounces → input debounce → SaveQueue → masterSync) before a destructive clear+redownload.' },
+      { path: 'serverSync/countReconcile', plain: 'Layer-3 watchdog: once the sync pipeline is quiet, compare the server\'s post-write node count (unified-sync response) against the local IDB count — a mismatch means the server ACKed writes it did not persist; log + integrity report.' },
       { path: 'serverSync/index', plain: 'Barrel re-exporting the public server-sync surface.' },
       { path: 'serverSync/types', plain: 'The Postgres↔IndexedDB seam, characterized: server row shapes the loaders receive, the pull response envelopes, and the pull/push result types.' },
     ],
