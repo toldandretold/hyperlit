@@ -31,56 +31,66 @@ const APP_ROOT = resolve(import.meta.dirname, '../../../..');
 const PASSWORD = 'password-e2e-1';
 
 /**
- * Open the user container until the login form shows. Clicks ONLY while the
- * container is closed — a blind retry-click can land mid-open-animation and
- * TOGGLE it shut again, oscillating forever.
+ * Where #user-container is in its lifecycle, read from the INLINE styles its
+ * manager writes (userContainer/index.ts), not from computed ones. Computed
+ * opacity and offsetWidth stay non-zero for the whole close transition (it
+ * fades opacity AND shrinks width/height), so the old `opacity !== '0' &&
+ * offsetWidth > 0` probe read a CLOSING panel as open: the helper declined to
+ * re-click, and a partly-visible control passed `toBeInViewport()` (default
+ * ratio > 0) on its way off screen. Every later click then found its target
+ * "outside of the viewport" until the test timed out. The inline writes flip
+ * at the START of each transition, so they name the intent:
+ *   open → openContainer set opacity '1' (in its rAF) and a real width
+ *   closing → closeContainer set opacity '0' + width '0', `.hidden` not yet added
+ *   closed → `.hidden` (or never opened)
+ * A panel caught between openContainer's sync writes and its rAF reads as
+ * 'opening' and is waited out like 'closing': clicking then would toggle it.
  */
-async function openLoginForm(page) {
+const userPanelState = (page) => page.evaluate(() => {
+  const c = document.getElementById('user-container');
+  if (!c || c.classList.contains('hidden') || c.style.visibility === 'hidden') return 'closed';
+  if (c.style.width === '0' || c.style.width === '0px') return 'closing';
+  if (c.style.opacity === '1') return 'open';
+  return 'opening';
+});
+
+/**
+ * Open the user container until `bottomControl` is fully on screen. Clicks ONLY
+ * while the container is settled-closed: a click during either transition
+ * TOGGLES it (or is dropped by the isAnimating guard), which is how the old
+ * blind retry oscillated.
+ */
+async function openUserPanel(page, bottomControl) {
   await page.waitForSelector('#userButton', { timeout: 15000 });
   await expect(async () => {
-    const opened = await page.evaluate(() => {
-      const c = document.getElementById('user-container');
-      return !!c && window.getComputedStyle(c).opacity !== '0' && c.offsetWidth > 0;
-    });
-    if (!opened) {
+    const state = await userPanelState(page);
+    if (state === 'closing' || state === 'opening') {
+      throw new Error(`user panel is ${state}; waiting for it to settle`);
+    }
+    if (state === 'closed') {
       await page.click('#userButton');
     }
     try {
-      // IN-VIEWPORT on the form's BOTTOM control, not merely visible: during
-      // the panel's open/close slide the inputs are "visible" while the panel
-      // is offscreen, and an unlucky Escape-retry boundary once accepted a
-      // CLOSING panel — every later click then found its target outside the
-      // viewport for the rest of the test (full-suite flake, 2026-10-16).
-      await expect(page.locator('#showRegister')).toBeInViewport({ timeout: 2500 });
+      // ratio 1: the WHOLE control, so a panel sliding away can't pass. Also
+      // check the state again afterwards: a close that started during the
+      // wait must not be accepted.
+      await expect(page.locator(bottomControl)).toBeInViewport({ ratio: 1, timeout: 2500 });
+      expect(await userPanelState(page)).toBe('open');
     } catch (e) {
-      await page.keyboard.press('Escape'); // see openProfileMenu
+      // Open but empty/wrong state (clicked before auth state resolved): close
+      // so a later iteration re-clicks into a settled container. Only close an
+      // OPEN panel; Escape on a closing one does nothing useful.
+      if (await userPanelState(page) === 'open') await page.keyboard.press('Escape');
       throw e;
     }
   }).toPass({ timeout: 30000 });
 }
 
-/** Open the logged-in profile menu until the Data row shows (same no-toggle discipline). */
-async function openProfileMenu(page) {
-  await page.waitForSelector('#userButton', { timeout: 15000 });
-  await expect(async () => {
-    const opened = await page.evaluate(() => {
-      const c = document.getElementById('user-container');
-      return !!c && window.getComputedStyle(c).opacity !== '0' && c.offsetWidth > 0;
-    });
-    if (!opened) {
-      await page.click('#userButton');
-    }
-    try {
-      // In-viewport, not merely visible — see openLoginForm's comment.
-      await expect(page.locator('#dataSovereigntyBtn')).toBeInViewport({ timeout: 2500 });
-    } catch (e) {
-      // Open but empty/wrong state (clicked before auth state resolved) —
-      // close so the next iteration re-clicks into a settled container.
-      await page.keyboard.press('Escape');
-      throw e;
-    }
-  }).toPass({ timeout: 30000 });
-}
+/** Open the user container until the login form shows. */
+const openLoginForm = (page) => openUserPanel(page, '#showRegister');
+
+/** Open the logged-in profile menu until the Data row shows. */
+const openProfileMenu = (page) => openUserPanel(page, '#dataSovereigntyBtn');
 
 /** Register a brand-new user through the real signup form (fresh, logged-out context). */
 async function registerUser(page, name) {

@@ -321,8 +321,23 @@ export class ContainerManager {
     
     // Preserve current open state by checking DOM classes
     const wasOpen = this.container.classList.contains('open');
-    
-    // Reset all inline styles that might interfere with proper opening
+
+    if (wasOpen) {
+      // An OPEN panel's inline styles ARE its open state: openContainer wrote
+      // its anchored top/left, its final width/height and opacity 1 there. A
+      // rebind of the same live element (home hydration rebinds the user
+      // container twice AFTER the Account button is already usable) used to
+      // wipe them while keeping `.open`. The panel kept its blur backdrop
+      // and focus trap but dropped into normal flow below the fold, so the
+      // user saw a blurred page with no panel (e2e account-deletion signup,
+      // 2026-11-07). Leave the geometry alone and only re-assert the state.
+      this.container.classList.remove('hidden');
+      this.container.classList.add('open');
+      this.isOpen = true;
+      return;
+    }
+
+    // Closed: reset all inline styles that might interfere with proper opening
     this.container.style.display = '';
     this.container.style.opacity = '';
     this.container.style.width = '';
@@ -332,18 +347,10 @@ export class ContainerManager {
     this.container.style.transform = '';
     this.container.style.top = '';
     this.container.style.left = '';
-    
-    if (wasOpen) {
-      // Container was open - preserve open state
-      this.container.classList.remove('hidden');
-      this.container.classList.add('open');
-      this.isOpen = true;
-    } else {
-      // Container was closed - ensure closed state
-      this.container.classList.add('hidden');
-      this.container.classList.remove('open');
-      this.isOpen = false;
-    }
+
+    this.container.classList.add('hidden');
+    this.container.classList.remove('open');
+    this.isOpen = false;
   }
 
   // =================================================================

@@ -86,6 +86,14 @@ export async function authorAudioBook(page, spa, { paragraphs = 6, title = 'Audi
  * The old spec's shared 'stub.mp3' makes per-node failure injection and per-node
  * assertions impossible.
  *
+ * The STATUS endpoint is routed too, and must agree with the manifest. The
+ * Listen press asks `/status` whether narration is complete
+ * (offerContinueOrUpdate) and, if the real server counts more nodes than have
+ * audio, raises a blocking "Continue audiobook?" dialog that playback waits
+ * behind. Left unmocked, whether that dialog appears depends on whether the
+ * freshly authored book's nodes have reached Postgres yet: a race. A reload
+ * flushes them, so the reload-persistence spec hung behind the dialog.
+ *
  * Returns the node ids in playback order, index-aligned with nX.mp3.
  */
 export async function routeAudioManifest(page) {
@@ -106,6 +114,22 @@ export async function routeAudioManifest(page) {
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({ voice: null, nodes }),
+  }));
+
+  await page.route('**/api/book-audio/*/status', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      has_audio: order.length > 0,
+      voice: null,
+      total_nodes: order.length,
+      audio_nodes: order.length,
+      stale_nodes: 0,
+      missing_chars: 0,
+      stale_chars: 0,
+      estimated_cost_user: 0,
+      generating: false,
+    }),
   }));
 
   return order;
@@ -180,6 +204,7 @@ export async function routeAudioFiles(page, { failures = {} } = {}) {
 export async function unrouteAudio(page) {
   await page.unroute(AUDIO_FILE_RE).catch(() => {});
   await page.unroute('**/api/book-audio/*/manifest').catch(() => {});
+  await page.unroute('**/api/book-audio/*/status').catch(() => {});
 }
 
 /** The settings-menu Listen button is off-viewport — click it programmatically. */
