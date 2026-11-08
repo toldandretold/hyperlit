@@ -6,7 +6,6 @@
     "citation_style": "numbered-bracket",
     "footnote_strategy": "stem_bibliography",
     "pipeline": "full",
-    "stage_pdf": true,
     "expected": {
         "references_count": 54,
         "citations_linked": 57,

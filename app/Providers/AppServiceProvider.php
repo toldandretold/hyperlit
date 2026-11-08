@@ -219,6 +219,15 @@ class AppServiceProvider extends ServiceProvider
                 ->by('unified-sync|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // New-book create handshake (POST /api/db/library/bulk-create) — ONE call per book
+        // created, and the only thing that puts a new book's library row on the server. In the
+        // shared throttle:120,1 bucket it 429'd whenever the same user's page reads had filled
+        // the counter (nested-authoring-stress e2e beside licenses.spec, 2026-11-09).
+        \Illuminate\Support\Facades\RateLimiter::for('book-create', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by('book-create|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // Library-card saves (POST /api/db/library/upsert) — the source panel's edit form and
         // the bulk library sync. Same ceiling as before, but its OWN bucket.
         \Illuminate\Support\Facades\RateLimiter::for('library-upsert', function ($request) {

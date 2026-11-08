@@ -24,7 +24,7 @@ import { generateSyncToken, recordSentSyncToken, hasSentSyncToken } from './sent
 import { advanceBaseTimestamp, raiseLocalLibraryTimestamp } from '../core/library';
 import { log } from '../../utilities/logger';
 import { whenNewBookEstablished } from '../../utilities/newBookEstablished';
-import { isPendingNewBook } from '../../utilities/pendingNewBook';
+import { isPendingNewBook, clearPendingNewBook } from '../../utilities/pendingNewBook';
 import { asBookId } from '../types';
 // E2EE seam (docs/e2ee.md): registry is a zero-import leaf (cheap sync check);
 // the transform module is dynamic-imported only when a book is actually encrypted.
@@ -678,6 +678,14 @@ async function syncItemsForBook(bookId: BookId, bookItems: Map<string, SyncQueue
 
     const syncResult = await executeSyncPayload(syncPayload);
     _serverErrorStreak.delete(bookId); // success → reset the 5xx streak for this book
+
+    // The server had to create this book's library row from our payload — its create
+    // handshake (library/bulk-create) never landed and this sync is where it settled.
+    // Retire the pending-new-book marker exactly as a successful handshake would, or the
+    // book keeps skipping the stale check for the rest of the tab's life.
+    if ((syncResult as { library_created?: unknown })?.library_created === true) {
+      clearPendingNewBook(bookId);
+    }
 
     // Advance the optimistic-concurrency base to the server's authoritative post-write
     // version, so the NEXT edit compares against the new baseline (and consecutive edits

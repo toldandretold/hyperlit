@@ -96,6 +96,66 @@ test('POST /api/db/unified-sync does not register a sub-book under a foreign boo
     expect($admin->table('nodes')->where('book', $subBook)->count())->toBe(0);
 });
 
+test('POST /api/db/unified-sync creates a TOP-LEVEL library row whose create handshake never landed', function () {
+    // A new book is created optimistically client-side and announced by ONE
+    // POST to /db/library/bulk-create. When that failed (a 429 from the shared
+    // throttle bucket, nested-authoring-stress e2e 2026-11-09) the client
+    // re-queued the row + nodes through unified-sync — which could not create a
+    // top-level row (SubBookRegistrar only registers sub-books, the library arm
+    // firstOrFail()s), so every later save 500'd "Book not found".
+    $user = $this->loginUser();
+    $book = 'apitest_'.\Illuminate\Support\Str::random(12);
+    $nodeId = $book.'_111_aaaa';
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'  => $book,
+        'nodes' => [[
+            'book'      => $book,
+            'startLine' => 100,
+            'chunk_id'  => 0,
+            'node_id'   => $nodeId,
+            'content'   => '<h1 id="100" data-node-id="'.$nodeId.'">Untitled</h1>',
+        ]],
+        // A pending new book's sync carries the record WITHOUT a timestamp.
+        'library' => ['book' => $book, 'title' => 'Untitled', 'visibility' => 'private'],
+    ])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'library_created' => true]);
+
+    // Default connection: the request's writes sit inside RefreshDatabase's open
+    // transaction, invisible to pgsql_admin until commit.
+    $lib = \Illuminate\Support\Facades\DB::table('library')->where('book', $book)->first();
+    expect($lib)->not->toBeNull();
+    expect($lib->creator)->toBe($user->name);   // server-determined, not from the payload
+    expect((int) $lib->timestamp)->toBeGreaterThan(0);
+    expect(\Illuminate\Support\Facades\DB::table('nodes')->where('book', $book)->count())->toBe(1);
+
+    // Once the row exists the self-heal is inert.
+    $this->postJson('/api/db/unified-sync', [
+        'book'    => $book,
+        'library' => ['book' => $book, 'title' => 'Renamed'],
+    ])
+        ->assertStatus(200)
+        ->assertJson(['success' => true, 'library_created' => false]);
+});
+
+test('POST /api/db/unified-sync never claims an EXISTING top-level book it cannot see', function () {
+    // Someone else's private book is invisible under RLS — the existence probe
+    // must not read that as "missing" and mint a row over it.
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'private']);
+    $this->loginUser();
+
+    $this->postJson('/api/db/unified-sync', [
+        'book'    => $book,
+        'library' => ['book' => $book, 'title' => 'mine now'],
+    ])->assertJsonMissing(['library_created' => true]);
+
+    $lib = \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('library')->where('book', $book)->first();
+    expect($lib->creator)->toBe($owner->name);
+    expect($lib->title)->not->toBe('mine now');
+});
+
 test('POST /api/db/unified-sync derives plainText from content on the bulk path (embedding source)', function () {
     // The client never sends plainText (not in the PublicNode wire shape). unified-sync
     // routes nodes through bulkTargetedUpsert, which must derive plainText = strip_tags(content)

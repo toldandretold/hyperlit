@@ -179,9 +179,11 @@ export async function fireAndForgetSync(
       console.error(`[Background Sync] Failed for book: ${bookId}`, err);
       // Hand the book to the ordinary sync queue so the debounced masterSync retries
       // it (and historyLog + retryFailedBatches back that up). The server self-heals a
-      // missing library row on the unified-sync path — UnifiedSyncController calls
-      // SubBookRegistrar::ensureLibraryRecords before upserting nodes — so a failed
-      // bulk-create is recoverable through the same machinery as every other failure.
+      // missing library row on the unified-sync path — a top-level book's row is created
+      // from the queued library record (UnifiedSyncController::ensureTopLevelLibraryRow,
+      // which answers `library_created` so masterSync retires the pending marker), and
+      // sub-books via SubBookRegistrar::ensureLibraryRecords — so a failed bulk-create is
+      // recoverable through the same machinery as every other failure.
       queueNewBookForRetry(bookId, payload, err);
       reject(err); // The caller (trackNewBookEstablishment) turns this into a result.
     }

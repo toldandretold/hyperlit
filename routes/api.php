@@ -448,10 +448,12 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [DbHyperciteController::class, 'bulkCreate']
     );
 
+    // Own NAMED bucket (rate-limiters review gate): the new-book create handshake. A 429 here
+    // left the book with no library row on the server, and every later save 500'd.
     Route::post(
         '/db/library/bulk-create',
         [DbLibraryController::class, 'bulkCreate']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:book-create');
 
     /* ----------------  Upsert / targeted / delete  ---------------- */
     Route::post(

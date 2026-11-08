@@ -41,7 +41,6 @@ return [
     'throttle:120,1 POST /api/db/hyperlights/delete',
     'throttle:120,1 POST /api/db/hyperlights/hide',
     'throttle:120,1 POST /api/db/hyperlights/upsert',
-    'throttle:120,1 POST /api/db/library/bulk-create',
     'throttle:120,1 POST /api/db/library/set-slug',
     'throttle:120,1 POST /api/db/library/update-timestamp',
     'throttle:120,1 POST /api/db/library/{book}/encryption',

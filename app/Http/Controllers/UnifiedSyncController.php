@@ -133,7 +133,8 @@ class UnifiedSyncController extends Controller
             }
 
             // Wrap everything in a transaction for atomicity
-            $result = DB::transaction(function () use ($request, $data, $bookId, $syncToken) {
+            $libraryCreated = false;
+            $result = DB::transaction(function () use ($request, $data, $bookId, $syncToken, &$libraryCreated) {
                 $results = [
                     'nodes' => null,
                     'hypercites' => null,
@@ -145,6 +146,17 @@ class UnifiedSyncController extends Controller
                     'bibliographyDeletions' => null,
                     'library' => null,
                 ];
+
+                // 0. Self-heal a TOP-LEVEL book whose create handshake never landed.
+                // A new book is created optimistically client-side and announced by ONE
+                // POST to /db/library/bulk-create; when that fails (a 429, a dropped
+                // connection) the client re-queues the library row + nodes through this
+                // endpoint (createNewBook.queueNewBookForRetry). But nothing here could
+                // CREATE the row: ensureLibraryRecords below only registers sub-books, and
+                // the library arm is an upsert that firstOrFail()s — so every later save
+                // 500'd "Book not found" forever and the editor raised the server-trouble
+                // modal (nested-authoring-stress e2e, 2026-11-09).
+                $libraryCreated = $this->ensureTopLevelLibraryRow($request, $bookId, $data['library'] ?? null);
 
                 // 1. Sync node chunks (if present)
                 if (! empty($data['nodes'])) {
@@ -388,6 +400,9 @@ class UnifiedSyncController extends Controller
                 'results' => $result,
                 'server_timestamp' => $serverTimestamp !== null ? (int) $serverTimestamp : null,
                 'server_node_count' => $serverNodeCount,
+                // True when step 0 had to create the book's library row — the client's
+                // create handshake never landed, and this is the moment it settled.
+                'library_created' => $libraryCreated,
             ]);
 
         } catch (\Exception $e) {
@@ -464,5 +479,56 @@ class UnifiedSyncController extends Controller
         }
 
         return ['success' => true];
+    }
+
+    /**
+     * Create the library row for a top-level book that the server has never heard of,
+     * from the library record riding this sync. Returns true when a row was created.
+     *
+     * Only fires when the row is TRULY absent — probed on pgsql_admin, because under RLS
+     * someone else's private book is invisible and would read as "missing". A deleted
+     * book keeps its row (visibility marks the deletion), so this can never resurrect
+     * one. Creation goes through DbLibraryController::bulkCreate — the same path the
+     * handshake would have taken — so the creator is server-determined and the
+     * reserved-id, publish-gate and E2EE checks all still apply.
+     */
+    private function ensureTopLevelLibraryRow(Request $request, string $bookId, ?array $library): bool
+    {
+        if (empty($library) || str_contains($bookId, '/')) {
+            return false;
+        }
+        if (($library['book'] ?? $bookId) !== $bookId) {
+            return false;
+        }
+        // Own/visible rows on the request's connection first (also sees a row written
+        // earlier in this same transaction), then the RLS-blind probe for rows we can't see.
+        if (PgLibrary::where('book', $bookId)->exists()
+            || DB::connection('pgsql_admin')->table('library')->where('book', $bookId)->exists()) {
+            return false;
+        }
+
+        // A pending new book's sync strips `timestamp` (master.ts skips the stale check
+        // for it); stamp now so the row is born with a real content clock.
+        $library['book'] = $bookId;
+        $library['timestamp'] = $library['timestamp'] ?? (int) round(microtime(true) * 1000);
+
+        $createRequest = new Request(['book' => $bookId, 'data' => $library]);
+        $createRequest->setUserResolver(fn () => $request->user());
+        foreach ($request->cookies as $key => $value) {
+            $createRequest->cookies->set($key, $value);
+        }
+
+        $response = (new DbLibraryController)->bulkCreate($createRequest);
+        $body = json_decode($response->getContent(), true);
+        if (! ($body['success'] ?? false)) {
+            throw new \Exception('Library create failed: '.($body['message'] ?? 'Unknown error'));
+        }
+
+        Log::warning('UNIFIED_SYNC_CREATED_LIBRARY_ROW', [
+            'book' => $bookId,
+            'reason' => 'create handshake never landed; created from the sync payload',
+        ]);
+
+        return true;
     }
 }
