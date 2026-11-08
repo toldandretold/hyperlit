@@ -355,3 +355,41 @@ test('a book with no external identifiers omits sameAs entirely', function () {
 
     expect(jsonLdBlocks($this, "/{$book}")[0])->not->toHaveKey('sameAs');
 });
+
+// ── Licence in the machine-read channels (LicenseLink) ─────────────────────────
+// The licence used to exist only in the JS source panel, which renders nothing until opened:
+// crawlers, Scholar and no-JS readers saw no licence for works we claim are attributed to theirs.
+
+test('a book page declares its licence: rel=license, JSON-LD license and DC.rights', function () {
+    $book = seedSdBook(['license' => 'CC-BY-NC-ND-4.0']);
+    $html = $this->get("/{$book}")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('<link rel="license" href="https://creativecommons.org/licenses/by-nc-nd/4.0/">');
+    expect($html)->toContain('<meta name="DC.rights" content="CC BY-NC-ND 4.0">');
+    $work = collect(jsonLdBlocks($this, "/{$book}"))->firstWhere('@type', 'Book');
+    expect($work['license'] ?? null)->toBe('https://creativecommons.org/licenses/by-nc-nd/4.0/');
+});
+
+test('an unknown licence code is declared as unknown with no link, never as the site default', function () {
+    $book = seedSdBook(['license' => 'MIT-ish']);
+    $html = $this->get("/{$book}")->assertStatus(200)->getContent();
+
+    expect($html)->toContain('<meta name="DC.rights" content="Licence unknown">');
+    expect($html)->not->toContain('rel="license"');
+});
+
+test('a custom licence BOOK is linked, and pinned to the time machine once it has changed', function () {
+    $terms = seedSdBook(['title' => 'SD Commons Licence', 'timestamp' => 2_000_000_000_000]);
+    $pin = 1_900_000_000_000;
+    $work = seedSdBook(['license' => 'custom', 'license_book' => $terms, 'license_book_at' => $pin]);
+
+    $html = $this->get("/{$work}")->assertStatus(200)->getContent();
+    $at = rawurlencode(\App\Services\Licensing\LicenseLink::isoFromMs($pin));
+    expect($html)->toContain('<link rel="license" href="'.url("/{$terms}/timemachine").'?at='.$at.'">');
+    expect($html)->toContain('<meta name="DC.rights" content="SD Commons Licence">');
+
+    // Re-applied after the edit → the live licence book.
+    DB::connection('pgsql_admin')->table('library')->where('book', $work)->update(['license_book_at' => 2_100_000_000_000]);
+    $html = $this->get("/{$work}")->assertStatus(200)->getContent();
+    expect($html)->toContain('<link rel="license" href="'.url("/{$terms}").'">');
+});

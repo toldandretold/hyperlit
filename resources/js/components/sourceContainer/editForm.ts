@@ -12,6 +12,8 @@ import { book } from '../../app';
 import { canUserEditBook } from '../../utilities/auth/index';
 import { getRecord } from './helpers';
 import { buildSourceHtml } from './buildSourceHtml';
+import { log } from '../../utilities/logger';
+import { collectLicenseFields, populateLicenseFields, wireLicenseFields } from './licensePicker';
 
 export async function handleEditClick(self: any) {
   console.log("Edit button clicked");
@@ -83,9 +85,6 @@ export function populateEditForm(self: any, record: any) {
   const yearField = self.container.querySelector("#edit-year");
   const urlField = self.container.querySelector("#edit-url");
   const bibtexField = self.container.querySelector("#edit-bibtex");
-  const licenseField = self.container.querySelector("#edit-license");
-  const customLicenseField = self.container.querySelector("#edit-custom-license-text");
-
   const volumeField = self.container.querySelector("#edit-volume");
   const issueField2 = self.container.querySelector("#edit-issue");
   const booktitleField = self.container.querySelector("#edit-booktitle");
@@ -112,15 +111,8 @@ export function populateEditForm(self: any, record: any) {
   if (chapterField) chapterField.value = record.chapter || "";
   if (editorField) editorField.value = record.editor || "";
 
-  // License fields
-  if (licenseField) {
-    licenseField.value = record.license || '';
-    // Show custom license textarea if license is custom
-    if (record.license === 'custom' && customLicenseField) {
-      customLicenseField.style.display = 'block';
-      customLicenseField.value = record.custom_license_text || '';
-    }
-  }
+  // Licence section (grouped vocabulary + custom licence books)
+  populateLicenseFields(self.container, record);
 
   // Set the correct radio button for type
   const typeRadios = self.container.querySelectorAll('input[name="type"]');
@@ -346,19 +338,7 @@ export function setupEditFormListeners(self: any, record: any) {
 
   const bibtexField = self.container.querySelector("#edit-bibtex");
   const urlField = self.container.querySelector("#edit-url");
-  const licenseField = self.container.querySelector("#edit-license");
-  const customLicenseField = self.container.querySelector("#edit-custom-license-text");
-
-  // License dropdown listener to show/hide custom license textarea
-  if (licenseField && customLicenseField) {
-    licenseField.addEventListener('change', (e: any) => {
-      if (e.target.value === 'custom') {
-        customLicenseField.style.display = 'block';
-      } else {
-        customLicenseField.style.display = 'none';
-      }
-    });
-  }
+  wireLicenseFields(self.container, record);
 
   // Type change listeners for radio buttons
   typeRadios.forEach((radio: any) => {
@@ -661,6 +641,12 @@ export async function syncLibraryRecordToBackend(self: any, libraryRecord: Libra
   // false-409. Shared with the AI-review path; the unified node sync does its own advance.
   await advanceBaseTimestamp(libraryRecord.book, result?.library?.timestamp ?? libraryRecord.timestamp);
 
+  // The server decides the licence columns (it ignores a blank code, validates the licence
+  // book and stamps license_book_at) — adopt its verdict locally so the reader shows it.
+  if (result?.library) {
+    await adoptServerLicense(libraryRecord.book, result.library);
+  }
+
   return result;
 }
 
@@ -680,14 +666,18 @@ export function collectFormData(self: any) {
   }
 
 
-  // Collect all fields including BibTeX and license
-  const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note", "volume", "issue", "booktitle", "chapter", "editor", "license", "custom_license_text"];
+  // Collect all fields including BibTeX
+  const allFields = ["title", "author", "year", "url", "bibtex", "journal", "pages", "publisher", "school", "note", "volume", "issue", "booktitle", "chapter", "editor"];
   allFields.forEach(fieldName => {
-    const field = self.container.querySelector(`#edit-${fieldName.replace('_', '-')}`);
+    const field = self.container.querySelector(`#edit-${fieldName.replaceAll('_', '-')}`);
     if (field) {
       data[fieldName] = field.value || '';
     }
   });
+
+  // Licence fields have their own collector: it must not send license_book before the list
+  // has loaded, nor the inner controls' raw values.
+  Object.assign(data, collectLicenseFields(self.container));
 
   return data;
 }
@@ -700,4 +690,31 @@ export async function refreshCitationDisplay(self: any) {
 
   // Re-attach all internal listeners (download, edit, privacy toggle)
   self.attachInternalListeners();
+}
+
+const SERVER_LICENSE_FIELDS = ['license', 'custom_license_text', 'license_url', 'license_book', 'license_book_at'] as const;
+
+async function adoptServerLicense(bookId: string, serverLibrary: Record<string, unknown>) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction('library', 'readwrite');
+    const store = tx.objectStore('library');
+    const current = await new Promise<LibraryRecord | undefined>((resolve, reject) => {
+      const req = store.get(bookId);
+      req.onsuccess = () => resolve(req.result as LibraryRecord | undefined);
+      req.onerror = () => reject(req.error);
+    });
+    if (!current) return;
+    const next: Record<string, unknown> = { ...current };
+    let changed = false;
+    for (const f of SERVER_LICENSE_FIELDS) {
+      if (f in serverLibrary && next[f] !== serverLibrary[f]) {
+        next[f] = serverLibrary[f];
+        changed = true;
+      }
+    }
+    if (changed) store.put(next);
+  } catch (e) {
+    log.error('could not adopt server licence fields', '/components/sourceContainer/editForm', e);
+  }
 }

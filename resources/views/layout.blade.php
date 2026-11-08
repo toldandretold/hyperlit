@@ -202,6 +202,11 @@
     <meta name="keywords" content="{{ $keywords }}">
     @endif
 
+    {{-- The work's licence (TextController via LicenseLink) --}}
+    @if(!empty($licenseUrl))
+    <link rel="license" href="{{ $licenseUrl }}">
+    @endif
+
     {{-- Google Scholar citation meta tags --}}
     @if(!empty($citationMeta))
     @foreach($citationMeta as $name => $value)

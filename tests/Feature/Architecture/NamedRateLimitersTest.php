@@ -30,8 +30,12 @@ function unprefixedInlineThrottles(): array
 {
     $found = [];
     foreach (Route::getRoutes() as $route) {
+        // gatherMiddleware() includes group middleware a route opted OUT of via
+        // ->withoutMiddleware('throttle:120,1') (the router only subtracts it at dispatch),
+        // so subtract it here or a route moved to a named limiter still reads as debt.
+        $excluded = $route->excludedMiddleware();
         foreach ($route->gatherMiddleware() as $m) {
-            if (is_string($m) && preg_match('/^throttle:\d+,\d+$/', $m)) {
+            if (is_string($m) && ! in_array($m, $excluded, true) && preg_match('/^throttle:\d+,\d+$/', $m)) {
                 $found[] = $m.' '.implode('|', $route->methods()).' /'.$route->uri();
             }
         }

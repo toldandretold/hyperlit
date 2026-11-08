@@ -1206,6 +1206,16 @@ class DatabaseToIndexedDBController extends Controller
             'listed' => $library->listed ?? true,
             'license' => $library->license ?? null,
             'custom_license_text' => $library->custom_license_text ?? null,
+            // Where the licence LINKS (an upstream terms page, or the owner's licence book pinned to
+            // the moment it was applied). Stored values only — the licence book's title / last
+            // change are looked up at render time (GET /api/license-books/{book}/info) so this
+            // cached record never goes stale when the licence book is edited.
+            'license_url' => $library->license_url ?? null,
+            'license_book' => $library->license_book ?? null,
+            'license_book_at' => isset($library->license_book_at) ? (int) $library->license_book_at : null,
+            // The work's licence as upstream stated it (harvested/imported works) — shown so a
+            // reader can see the evidence behind the label.
+            'work_license' => $library->work_license ?? null,
             // Content completeness of THIS version (verified_full / partial /
             // unverified) — drives the source-panel "partial copy" badge and is
             // read by citation review so a chapter/teaser isn't treated as the

@@ -1,0 +1,420 @@
+{
+    "total_refs": 49,
+    "total_defs": 54,
+    "gaps": [
+        {
+            "missing": 6,
+            "after_ref": 5,
+            "before_ref": 10,
+            "section": 1,
+            "after_ref_context": "Embracing this disembodiment hypothesis, early internet researchers largely heralded online spaces—especially MUDs and M",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.1. Utopic Arguments",
+            "before_ref_context": "Carta for the Knowledge Age 10. Here, the committee delineates the decentralizing and libertarian effects of electronic",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "2.1. Utopic Arguments"
+        },
+        {
+            "missing": 7,
+            "after_ref": 5,
+            "before_ref": 10,
+            "section": 1,
+            "after_ref_context": "Embracing this disembodiment hypothesis, early internet researchers largely heralded online spaces—especially MUDs and M",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.1. Utopic Arguments",
+            "before_ref_context": "Carta for the Knowledge Age 10. Here, the committee delineates the decentralizing and libertarian effects of electronic",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "2.1. Utopic Arguments"
+        },
+        {
+            "missing": 8,
+            "after_ref": 5,
+            "before_ref": 10,
+            "section": 1,
+            "after_ref_context": "Embracing this disembodiment hypothesis, early internet researchers largely heralded online spaces—especially MUDs and M",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.1. Utopic Arguments",
+            "before_ref_context": "Carta for the Knowledge Age 10. Here, the committee delineates the decentralizing and libertarian effects of electronic",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "2.1. Utopic Arguments"
+        },
+        {
+            "missing": 9,
+            "after_ref": 5,
+            "before_ref": 10,
+            "section": 1,
+            "after_ref_context": "Embracing this disembodiment hypothesis, early internet researchers largely heralded online spaces—especially MUDs and M",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.1. Utopic Arguments",
+            "before_ref_context": "Carta for the Knowledge Age 10. Here, the committee delineates the decentralizing and libertarian effects of electronic",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "2.1. Utopic Arguments"
+        },
+        {
+            "missing": 32,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 4,
+            "after_ref_context": "This emphasis on morality, coupled with the indeterminable potentialities of technological objects, is the key to diagno",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.3. Ambivalent Accounts",
+            "before_ref_context": "To begin with a familiar sample certainly affects the depth, type, and interpretation of information that I receive, as",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 33,
+            "after_ref": 31,
+            "before_ref": 34,
+            "section": 4,
+            "after_ref_context": "This emphasis on morality, coupled with the indeterminable potentialities of technological objects, is the key to diagno",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "2.3. Ambivalent Accounts",
+            "before_ref_context": "To begin with a familiar sample certainly affects the depth, type, and interpretation of information that I receive, as",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 36,
+            "after_ref": 35,
+            "before_ref": 39,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 37,
+            "after_ref": 35,
+            "before_ref": 39,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 38,
+            "after_ref": 35,
+            "before_ref": 39,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 40,
+            "after_ref": 39,
+            "before_ref": 43,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "For the purpose of anonymity, all participants are referred to by pseudonyms and I reveal no individual identifying info",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 41,
+            "after_ref": 39,
+            "before_ref": 43,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "For the purpose of anonymity, all participants are referred to by pseudonyms and I reveal no individual identifying info",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 42,
+            "after_ref": 39,
+            "before_ref": 43,
+            "section": 4,
+            "after_ref_context": "Despite the limitations, this sampling technique has both practical and theoretical benefits. At the practical level of",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "3. Methods",
+            "before_ref_context": "For the purpose of anonymity, all participants are referred to by pseudonyms and I reveal no individual identifying info",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "3. Methods"
+        },
+        {
+            "missing": 32,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 33,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 36,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 37,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 38,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 40,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 41,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 42,
+            "after_ref": 14,
+            "before_ref": 50,
+            "section": 5,
+            "after_ref_context": "On the one hand, utopic hopefuls promote social media’s potential to enhance interpersonal relationships by allowing peo",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.2. Interpersonal Relationships",
+            "before_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 32,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 33,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 36,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 37,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 38,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 40,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 41,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        },
+        {
+            "missing": 42,
+            "after_ref": 11,
+            "before_ref": 51,
+            "section": 6,
+            "after_ref_context": "As long as they have been writing about “The Internet,” social scientists have discussed and debated its potential as a",
+            "after_ref_section_id": "1",
+            "after_ref_heading": "4.3. Political Participation",
+            "before_ref_context": "Some argue that internet technologies offer a platform for grass roots movements, cultural sharing, and the presence of",
+            "before_ref_section_id": "1",
+            "before_ref_heading": "4.3. Political Participation"
+        }
+    ],
+    "duplicates": [],
+    "unmatched_refs": [],
+    "unmatched_defs": [
+        {
+            "footnote_id": "seq1_Fn1794168454000_0006",
+            "number": "6",
+            "section": "1",
+            "definition_preview": "Bruckman, A.S. Gender Swapping on the Internet; The Internet Society: Reston, VA, USA, 1993."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0007",
+            "number": "7",
+            "section": "1",
+            "definition_preview": "Dickel, M.H. Bent gender: Virtual disruptions of gender and sexual identity. <em>Electron. J. Commun.</em> <strong>1995</strong>, <em>5</em>, 95–117."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0008",
+            "number": "8",
+            "section": "1",
+            "definition_preview": "Poster, M. The Second Media Age; Polity Press: Cambridge, UK, 1995."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0009",
+            "number": "9",
+            "section": "1",
+            "definition_preview": "Pearce, C. Communities of Play: Emergent Cultures in Multiplayer Games and Virtual Worlds; MIT Press: Cambridge MA, USA, 2009."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_000w",
+            "number": "32",
+            "section": "1",
+            "definition_preview": "Swidler, A. Culture in action: Symbols and strategies. Am. Sociol. Rev. 1986, 51, 273-286."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_000x",
+            "number": "33",
+            "section": "1",
+            "definition_preview": "Swidler, A. Talk of Love: How Culture Matters; Chicago University Press: Chicago, IL, USA, 2001."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0010",
+            "number": "36",
+            "section": "1",
+            "definition_preview": "Boyd, D.; Ellison, N.B. Social network sites: Definition, history, and scholarship. J. Comput.-Mediat. Commun. 2007, 13, 210-210."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0011",
+            "number": "37",
+            "section": "1",
+            "definition_preview": "Ellison, N.B.; Steinfeld, C.; Lampe, C. Connection strategies: Social capital implications of facebook-enabled communication practices. New Media Soc. 2011, 13, 873-892."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0012",
+            "number": "38",
+            "section": "1",
+            "definition_preview": "Kujath, C.L. Facebook and myspace: Complement or substitute for face-to-face interaction? Cyberpsychol. Behav. Soc. Netw. 2011, 14, 75-78."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0014",
+            "number": "40",
+            "section": "1",
+            "definition_preview": "Davis, J.L. Architecture of the personal interactive homepage: Constructing the self through myspace. New Media Soci. 2010, 12, 1103-1119."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0015",
+            "number": "41",
+            "section": "1",
+            "definition_preview": "Davis, J.L. Accomplishing authenticity in a labor-exposing space. Comput. Human Behav. 2012, 28, 1966-1973."
+        },
+        {
+            "footnote_id": "seq1_Fn1794168454000_0016",
+            "number": "42",
+            "section": "1",
+            "definition_preview": "Gatson, S.N.; Zweerink, A. Ethnography online: \"Natives\" practising and inscribing community. Qual. Res. 2004, 4, 179-179."
+        }
+    ],
+    "font_encoding_warnings": [],
+    "segment_boundaries": []
+}

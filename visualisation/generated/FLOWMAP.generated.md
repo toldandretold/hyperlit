@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2003 functions in 423 modules · 10 object stores · 10 PG tables · 4173 edges
+**MarkdownDB** schema v28 · 2015 functions in 424 modules · 10 object stores · 10 PG tables · 4199 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -382,7 +382,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `setupEditFormListeners` | `components/sourceContainer/editForm` | — | — | read | — |
 | `showEditForm` | `components/sourceContainer/editForm` | — | — | read/write | — |
 | `showOptionalFieldsForType` | `components/sourceContainer/editForm` | — | — | read | — |
-| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | — | — | read | — |
+| `syncLibraryRecordToBackend` | `components/sourceContainer/editForm` | `library` | `library` | read | — |
 | `validateUrl` | `components/sourceContainer/editForm` | — | — | — | — |
 | `formatRelativeTime` | `components/sourceContainer/helpers` | — | — | — | — |
 | `getBookDownloadName` | `components/sourceContainer/helpers` | — | — | — | — |
@@ -447,7 +447,17 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `SourceContainerManager.syncLibraryRecordToBackend` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.syncPipelineHighlights` | `components/sourceContainer/index` | — | — | — | — |
 | `SourceContainerManager.validateUrl` | `components/sourceContainer/index` | — | — | — | — |
+| `canonicalLicenseCode` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `fetchLicenseBookInfo` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `isoFromMs` | `components/sourceContainer/licenseInfo` | — | — | — | — |
 | `licenseInfoFor` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `licenseLineHtml` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `licenseLinkFor` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `licensePickerGroups` | `components/sourceContainer/licenseInfo` | — | — | — | — |
+| `collectLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read | — |
+| `licenseFieldsHtml` | `components/sourceContainer/licensePicker` | — | — | — | — |
+| `populateLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read/write | — |
+| `wireLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read/write | — |
 | `initOriginalPdfDownload` | `components/sourceContainer/originalPdfDownload` | — | — | read/write | — |
 | `initReaderActions` | `components/sourceContainer/readerActions` | — | — | read/write | — |
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
@@ -1361,6 +1371,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `clearBookDataFromIndexedDB` | `indexedDB/serverSync/clear` | — | `footnotes` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `purgeStaleBookFromIndexedDB` | `indexedDB/serverSync/clear` | `historyLog` | `bibliography` `footnotes` `historyLog` `hypercites` `hyperlights` `library` `nodes` | — | — |
 | `updateEmbeddedAnnotationsInNodes` | `indexedDB/serverSync/clear` | `nodes` | `nodes` | — | — |
+| `beginFullBookReplace` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
+| `endFullBookReplace` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `reconcileServerNodeCount` | `indexedDB/serverSync/countReconcile` | `historyLog` `nodes` | — | — | — |
 | `scheduleServerCountReconcile` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | `historyLog` | — | — | — |
@@ -2016,7 +2028,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 310
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 312
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2295,9 +2307,11 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `pageLoad/progress` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/hyperciteHandler` → `indexedDB/hydration/rebuild`
 - `paste/handlers/largePasteHandler` → `components/tocContainer/index`
+- `paste/handlers/largePasteHandler` → `indexedDB/serverSync/countReconcile`
 - `paste/handlers/largePasteHandler` → `pageLoad/backgroundDownload`
 - `paste/handlers/novelVacuumHandler` → `SPA/navigation/ProgressOverlayConductor`
 - `paste/handlers/novelVacuumHandler` → `indexedDB/index`
+- `paste/handlers/novelVacuumHandler` → `indexedDB/serverSync/countReconcile`
 - `paste/index` → `divEditor/index`
 - `paste/index` → `footnotes/FootnoteNumberingService`
 - `paste/index` → `indexedDB/bibliography/index`

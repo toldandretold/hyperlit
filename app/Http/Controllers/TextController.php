@@ -745,6 +745,8 @@ class TextController extends Controller
                 'booktitle', 'school', 'type', 'cited_by_count', 'slug',
                 // openalex_id: for the JSON-LD sameAs (see externalIdentityUrls)
                 'openalex_id',
+                // Licence: rel=license / JSON-LD license / DC.rights (LicenseLink)
+                'license', 'custom_license_text', 'license_url', 'license_book', 'license_book_at',
             ])
             ->where('book', $bookId)
             ->first();
@@ -832,6 +834,15 @@ class TextController extends Controller
             }
         }
         if ($library->booktitle) $citationMeta['citation_inbook_title'] = $library->booktitle;
+
+        // Licence, in the channels machines read. Before this the licence existed ONLY in the
+        // JS source panel, which renders nothing until opened — crawlers, Scholar and no-JS
+        // readers saw no licence at all, for works we claim are attributed to their licences.
+        $licenseLink = \App\Services\Licensing\LicenseLink::for($library);
+        $citationMeta['DC.rights'] = $licenseLink['label'];
+        if ($licenseLink['url']) {
+            $seo['licenseUrl'] = $licenseLink['url'];
+        }
         $seo['citationMeta'] = $citationMeta;
 
         // Keywords from metadata
@@ -899,6 +910,9 @@ class TextController extends Controller
             $jsonLd['sameAs'] = $sameAs;
         }
 
+        if ($licenseLink['url']) {
+            $jsonLd['license'] = $licenseLink['url'];
+        }
         $seo['jsonLd'] = $jsonLd;
 
         // <html lang>. The layout hardcoded "en" while library.language held the

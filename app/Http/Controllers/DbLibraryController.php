@@ -20,6 +20,7 @@ use App\Services\BookDeletionService;
 use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Security\NodeHtmlSanitizer;
 use App\Services\ShelfCacheInvalidator;
+use App\Support\Licenses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -305,8 +306,7 @@ class DbLibraryController extends Controller
                         'booktitle' => $data['booktitle'] ?? $libraryRecord->booktitle,
                         'chapter' => $data['chapter'] ?? $libraryRecord->chapter,
                         'editor' => $data['editor'] ?? $libraryRecord->editor,
-                        'license' => $data['license'] ?? $libraryRecord->license,
-                        'custom_license_text' => $data['custom_license_text'] ?? $libraryRecord->custom_license_text,
+                        ...$this->resolveLicenseUpdate($data, $libraryRecord, $currentUserInfo),
                         'visibility' => $visibility,
                         'listed' => $data['listed'] ?? $libraryRecord->listed,
                         'annotations_updated_at' => max($data['annotations_updated_at'] ?? 0, $libraryRecord->annotations_updated_at ?? 0),
@@ -327,6 +327,7 @@ class DbLibraryController extends Controller
                             'title', 'author', 'type', 'bibtex', 'url', 'year', 'journal',
                             'pages', 'publisher', 'school', 'note', 'volume', 'issue',
                             'booktitle', 'chapter', 'editor', 'license', 'custom_license_text',
+                            'license_url', 'license_book', 'license_book_at',
                             'visibility', 'listed', 'gate_defaults',
                         ] as $f) {
                             $updateData[$f] = $libraryRecord->$f;
@@ -588,8 +589,7 @@ class DbLibraryController extends Controller
                         'visibility' => $item['visibility'] ?? 'private', // Default to private
                         // Symmetric with upsert: honour these if the client sends them at create time
                         // (e.g. an import with a known license / gate defaults), else fall back to DB defaults.
-                        'license' => $item['license'] ?? 'CC-BY-SA-4.0-NO-AI',
-                        'custom_license_text' => $item['custom_license_text'] ?? null,
+                        ...$this->licenseForCreate($item),
                         'annotations_updated_at' => $item['annotations_updated_at'] ?? 0,
                         'gate_defaults' => array_key_exists('gate_defaults', $item) ? $item['gate_defaults'] : null,
                         'recent' => $item['recent'] ?? null,
@@ -1064,6 +1064,123 @@ class DbLibraryController extends Controller
                 'message' => 'Validation check failed',
             ], 500);
         }
+    }
+
+    /**
+     * Licence columns for an owner's upsert. The rules exist because the old
+     * `$data['license'] ?? $stored` stored whatever arrived — and the source-container form
+     * sends `license: ''` whenever the stored code is not one of its options (every harvested
+     * CC BY-NC-ND / Publisher-Open work), so editing a TITLE replaced a work's real licence
+     * with '' and readers saw the site default.
+     *
+     *  - license: a vocabulary code (any casing) is taken; blank is IGNORED (keep stored); any
+     *    other non-blank string becomes `custom` carrying that string as its text.
+     *  - license_book (custom licence = a book): must be the SAME owner's, public and not
+     *    encrypted — readers have to be able to open it. Invalid → keep stored.
+     *  - license_book_at is SERVER-owned: stamped when the licence book changes or the owner
+     *    asks to re-apply (`license_book_reapply`), never taken from the client. It pins the
+     *    terms this work was published under (see TextController / the time machine).
+     *  - Leaving `custom` clears the custom-only columns.
+     *
+     * @return array{license: string, custom_license_text: ?string, license_url: ?string, license_book: ?string, license_book_at: ?int}
+     */
+    private function resolveLicenseUpdate(array $data, PgLibrary $stored, array $creatorInfo): array
+    {
+        $license = $stored->license;
+        $customText = array_key_exists('custom_license_text', $data) ? $data['custom_license_text'] : $stored->custom_license_text;
+
+        $raw = isset($data['license']) ? trim((string) $data['license']) : '';
+        if ($raw !== '') {
+            $canon = Licenses::canonicalCode($raw);
+            if ($canon !== null) {
+                $license = $canon;
+            } else {
+                $license = Licenses::CUSTOM;
+                $customText = $customText ?: mb_substr($raw, 0, 500);
+            }
+        }
+
+        if ($license !== Licenses::CUSTOM) {
+            return [
+                'license' => $license,
+                'custom_license_text' => null,
+                'license_url' => $license === $stored->license ? $stored->license_url : null,
+                'license_book' => null,
+                'license_book_at' => null,
+            ];
+        }
+
+        $licenseUrl = $stored->license_url;
+        if (array_key_exists('license_url', $data)) {
+            $u = trim((string) $data['license_url']);
+            $licenseUrl = ($u === '') ? null : (preg_match('#^https?://\S+$#i', $u) ? mb_substr($u, 0, 1000) : $stored->license_url);
+        }
+
+        $licenseBook = $stored->license_book;
+        $licenseBookAt = $stored->license_book_at;
+        if (array_key_exists('license_book', $data)) {
+            $requested = trim((string) $data['license_book']);
+            if ($requested === '') {
+                $licenseBook = null;
+                $licenseBookAt = null;
+            } elseif ($requested !== $stored->license_book) {
+                if ($this->isUsableLicenseBook($requested, $creatorInfo)) {
+                    $licenseBook = $requested;
+                    $licenseBookAt = (int) round(microtime(true) * 1000);
+                } else {
+                    Log::warning('Refused license_book: not the owner\'s public, unencrypted book', [
+                        'book' => $stored->book,
+                        'license_book' => $requested,
+                    ]);
+                }
+            }
+        }
+        if ($licenseBook && ! empty($data['license_book_reapply'])) {
+            $licenseBookAt = (int) round(microtime(true) * 1000);
+        }
+
+        return [
+            'license' => Licenses::CUSTOM,
+            'custom_license_text' => $customText,
+            'license_url' => $licenseUrl,
+            'license_book' => $licenseBook,
+            'license_book_at' => $licenseBookAt,
+        ];
+    }
+
+    /** A licence book must be the same owner's, public, and plaintext. */
+    private function isUsableLicenseBook(string $bookId, array $creatorInfo): bool
+    {
+        $row = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $bookId)
+            ->first(['creator', 'creator_token', 'visibility', 'encrypted']);
+        if (! $row || $row->visibility !== 'public' || $row->encrypted) {
+            return false;
+        }
+
+        return ($row->creator && $row->creator === ($creatorInfo['creator'] ?? null))
+            || ($row->creator_token && (string) $row->creator_token === (string) ($creatorInfo['creator_token'] ?? ''));
+    }
+
+    /**
+     * Licence columns at create time: a vocabulary code, or an unknown non-blank string kept
+     * honestly as `custom` text (never silently relabelled), else the user-work default.
+     *
+     * @return array{license: string, custom_license_text: ?string}
+     */
+    private function licenseForCreate(array $item): array
+    {
+        $raw = isset($item['license']) ? trim((string) $item['license']) : '';
+        $text = $item['custom_license_text'] ?? null;
+        if ($raw === '') {
+            return ['license' => Licenses::DEFAULT_USER, 'custom_license_text' => $text];
+        }
+        $canon = Licenses::canonicalCode($raw);
+        if ($canon !== null) {
+            return ['license' => $canon, 'custom_license_text' => $canon === Licenses::CUSTOM ? $text : null];
+        }
+
+        return ['license' => Licenses::CUSTOM, 'custom_license_text' => $text ?: mb_substr($raw, 0, 500)];
     }
 
     /**

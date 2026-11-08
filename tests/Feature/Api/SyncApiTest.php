@@ -216,6 +216,24 @@ test('unified-sync: a node-bearing sync returns server_node_count; a library-onl
         ->assertJsonPath('server_node_count', null);
 });
 
+test('nodes/upsert (the paste full-book replace) returns server_node_count', function () {
+    // The nuclear path bypasses unified-sync, so it must carry the count itself —
+    // without it the client watchdog compared the pasted IDB against the PRE-paste
+    // count from the preceding select-all-delete sync and flared "local 36, server 1"
+    // while Postgres held all 36 (prod 2026-11-07, /privacy).
+    $user = $this->loginUser();
+    $book = $this->makeBook($user, ['via' => 'app']);
+
+    $mk = fn (int $line) => [
+        'book' => $book, 'startLine' => $line, 'chunk_id' => 0, 'node_id' => $book.'_'.$line.'_u',
+        'content' => '<p id="'.$line.'">n'.$line.'</p>',
+    ];
+
+    $this->postJson('/api/db/nodes/upsert', ['book' => $book, 'data' => [$mk(100), $mk(200), $mk(300)]])
+        ->assertStatus(200)
+        ->assertJsonPath('server_node_count', 3);
+});
+
 /* ─── node deletes are by identity, not by address ────────────────── */
 //
 // A startLine is a positional slot a later write can re-occupy: the paste path's

@@ -345,6 +345,12 @@ export interface LibraryRecord {
   wrapped_dek?: string | null;
   license?: string | null;
   custom_license_text?: string | null;
+  /** custom licence: upstream terms page, or the owner's licence BOOK pinned at license_book_at (ms, server-owned). */
+  license_url?: string | null;
+  license_book?: string | null;
+  license_book_at?: number | null;
+  /** The work's licence as upstream stated it (harvested/imported works). Read-only. */
+  work_license?: string | null;
   /** Content completeness of this version: 'verified_full' | 'partial' | 'unverified' | null. */
   completeness?: string | null;
   completeness_reason?: string | null;

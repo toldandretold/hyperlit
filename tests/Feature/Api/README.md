@@ -173,7 +173,7 @@ Async = the queued job an endpoint dispatches (concurrency-sensitive).
 | POST | /api/nodes/{book}/{nodeId}/restore | NodeHistoryController@restoreNodeVersion | 🟡 | NodeHistoryApiTest (auth) |
 | POST | /api/books/{book}/restore | NodeHistoryController@restoreBookToTimestamp | 🟡 | NodeHistoryApiTest (auth/400) |
 | GET | /api/books/{book}/snapshots | NodeHistoryController@getSnapshots | ✅ | NodeHistoryApiTest (public, 403) |
-| GET | /api/books/{book}/timemachine-data | NodeHistoryController@getTimeMachineData | 🟡 | NodeHistoryApiTest (auth/400) |
+| GET | /api/books/{book}/timemachine-data | NodeHistoryController@getTimeMachineData | 🟡 | NodeHistoryApiTest (public for public books, 403 private/unknown, 400) |
 
 ### I. Shelves, vibes, prefs, billing, integrity, misc
 | M | URI | Controller@method | Status | Covered by |

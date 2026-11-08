@@ -1,0 +1,19 @@
+{
+    "name": "jenny2012social",
+    "description": "pulled prod case: jenny2012social ('Social Media and Experiential Ambivalence', MDPI Future Internet 2012, 16pp). Numbered-bracket [N] citations to a 54-entry References list — wackSTEM, NOT endnotes. Was misclassified document_endnotes (54 fake footnotes, 12 orphans) because a short paper's re-citations never put one number on 3+ pages; the back-citation signal ([14], [22,23] re-cited after [49]; [11] among [50]–[53]) now stands in for page spread. Also locks the mixed comma+range group [9,40–42], which no stem-citation pattern used to match.",
+    "license": "is_oa=true oa_status=gold work_license=cc-by — license cc-by -> committable",
+    "book_id": "jenny2012social",
+    "citation_style": "numbered-bracket",
+    "footnote_strategy": "stem_bibliography",
+    "pipeline": "full",
+    "stage_pdf": true,
+    "expected": {
+        "references_count": 54,
+        "citations_linked": 57,
+        "citations_total": 57,
+        "footnotes_count": 0,
+        "audit_gaps": 0,
+        "footnote_strategy": "stem_bibliography",
+        "citation_style": "numbered-bracket"
+    }
+}

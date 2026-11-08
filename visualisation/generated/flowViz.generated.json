@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2003,
-    "moduleCount": 423,
+    "fnCount": 2015,
+    "moduleCount": 424,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4173,
+    "edgeCount": 4199,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3734,12 +3734,92 @@
       "leaf": true
     },
     {
+      "id": "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "label": "canonicalLicenseCode",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:fetchLicenseBookInfo",
+      "label": "fetchLicenseBookInfo",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:isoFromMs",
+      "label": "isoFromMs",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
       "id": "components/sourceContainer/licenseInfo:licenseInfoFor",
       "label": "licenseInfoFor",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/licenseInfo",
       "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseLineHtml",
+      "label": "licenseLineHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseLinkFor",
+      "label": "licenseLinkFor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licensePickerGroups",
+      "label": "licensePickerGroups",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licenseInfo",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:collectLicenseFields",
+      "label": "collectLicenseFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licensePicker",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:licenseFieldsHtml",
+      "label": "licenseFieldsHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licensePicker",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:populateLicenseFields",
+      "label": "populateLicenseFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licensePicker",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:wireLicenseFields",
+      "label": "wireLicenseFields",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/licensePicker",
+      "leaf": false
     },
     {
       "id": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
@@ -5736,6 +5816,9 @@
         "issue",
         "journal",
         "license",
+        "license_book",
+        "license_book_at",
+        "license_url",
         "listed",
         "note",
         "oa_url",
@@ -5751,6 +5834,7 @@
         "url",
         "visibility",
         "volume",
+        "work_license",
         "wrapped_dek",
         "year"
       ]
@@ -5984,6 +6068,9 @@
         "issue",
         "journal",
         "license",
+        "license_book",
+        "license_book_at",
+        "license_url",
         "listed",
         "note",
         "oa_url",
@@ -5999,6 +6086,7 @@
         "url",
         "visibility",
         "volume",
+        "work_license",
         "wrapped_dek",
         "year"
       ]
@@ -6291,7 +6379,6 @@
         "created_at",
         "creator",
         "creator_token",
-        "custom_license_text",
         "editor",
         "encrypted",
         "fileName",
@@ -6299,7 +6386,6 @@
         "gate_defaults",
         "issue",
         "journal",
-        "license",
         "note",
         "pages",
         "publisher",
@@ -6493,12 +6579,10 @@
         "bibtex",
         "booktitle",
         "chapter",
-        "custom_license_text",
         "editor",
         "gate_defaults",
         "issue",
         "journal",
-        "license",
         "listed",
         "note",
         "pages",
@@ -12383,6 +12467,22 @@
         "ServerHyperciteRow",
         "ServerHyperlightRow"
       ]
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:beginFullBookReplace",
+      "label": "beginFullBookReplace",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": true
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:endFullBookReplace",
+      "label": "endFullBookReplace",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": true
     },
     {
       "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
@@ -19205,7 +19305,25 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
-        "components/sourceContainer/licenseInfo:licenseInfoFor"
+        "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+        "components/sourceContainer/licenseInfo:fetchLicenseBookInfo",
+        "components/sourceContainer/licenseInfo:isoFromMs",
+        "components/sourceContainer/licenseInfo:licenseInfoFor",
+        "components/sourceContainer/licenseInfo:licenseLineHtml",
+        "components/sourceContainer/licenseInfo:licenseLinkFor",
+        "components/sourceContainer/licenseInfo:licensePickerGroups"
+      ]
+    },
+    {
+      "id": "components/sourceContainer/licensePicker",
+      "label": "components/sourceContainer/licensePicker",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/licensePicker:collectLicenseFields",
+        "components/sourceContainer/licensePicker:licenseFieldsHtml",
+        "components/sourceContainer/licensePicker:populateLicenseFields",
+        "components/sourceContainer/licensePicker:wireLicenseFields"
       ]
     },
     {
@@ -21599,6 +21717,8 @@
       "stage": "serverSync",
       "band": "store",
       "fnIds": [
+        "indexedDB/serverSync/countReconcile:beginFullBookReplace",
+        "indexedDB/serverSync/countReconcile:endFullBookReplace",
         "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
         "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile"
       ]
@@ -26537,9 +26657,28 @@
       "rel": "call"
     },
     {
-      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licenseInfo:licenseInfoFor",
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licenseInfo:fetchLicenseBookInfo",
       "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
-      "target": "components/sourceContainer/licenseInfo:licenseInfoFor",
+      "target": "components/sourceContainer/licenseInfo:fetchLicenseBookInfo",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licenseInfo:licenseLineHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/licenseInfo:licenseLineHtml",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licenseInfo:licenseLinkFor",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/licenseInfo:licenseLinkFor",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/buildSourceHtml:buildSourceHtml__call__components/sourceContainer/licensePicker:licenseFieldsHtml",
+      "source": "components/sourceContainer/buildSourceHtml:buildSourceHtml",
+      "target": "components/sourceContainer/licensePicker:licenseFieldsHtml",
       "rel": "call"
     },
     {
@@ -27004,6 +27143,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/editForm:collectFormData__call__components/sourceContainer/licensePicker:collectLicenseFields",
+      "source": "components/sourceContainer/editForm:collectFormData",
+      "target": "components/sourceContainer/licensePicker:collectLicenseFields",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/editForm:handleFormSubmit__call__indexedDB/core/connection:openDatabase",
       "source": "components/sourceContainer/editForm:handleFormSubmit",
       "target": "indexedDB/core/connection:openDatabase",
@@ -27033,6 +27178,12 @@
       "source": "components/sourceContainer/editForm:hideEditForm",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/editForm:populateEditForm__call__components/sourceContainer/licensePicker:populateLicenseFields",
+      "source": "components/sourceContainer/editForm:populateEditForm",
+      "target": "components/sourceContainer/licensePicker:populateLicenseFields",
+      "rel": "call"
     },
     {
       "id": "components/sourceContainer/editForm:refreshCitationDisplay__call__components/sourceContainer/buildSourceHtml:buildSourceHtml",
@@ -27073,6 +27224,12 @@
       "rel": "write"
     },
     {
+      "id": "components/sourceContainer/editForm:setupEditFormListeners__call__components/sourceContainer/licensePicker:wireLicenseFields",
+      "source": "components/sourceContainer/editForm:setupEditFormListeners",
+      "target": "components/sourceContainer/licensePicker:wireLicenseFields",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/editForm:showEditForm__call__components/sourceContainer/helpers:getRecord",
       "source": "components/sourceContainer/editForm:showEditForm",
       "target": "components/sourceContainer/helpers:getRecord",
@@ -27092,6 +27249,13 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/connection:openDatabase",
+      "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__call__indexedDB/core/library:advanceBaseTimestamp",
       "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
       "target": "indexedDB/core/library:advanceBaseTimestamp",
@@ -27103,6 +27267,12 @@
       "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
       "target": "indexedDB/core/library:cleanLibraryItemForStorage",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/editForm:syncLibraryRecordToBackend__write__store:library",
+      "source": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "target": "store:library",
+      "rel": "write"
     },
     {
       "id": "components/sourceContainer/helpers:getBookDownloadName__call__components/sourceContainer/helpers:getRecord",
@@ -27554,6 +27724,60 @@
       "source": "components/sourceContainer/index:SourceContainerManager.validateUrl",
       "target": "components/sourceContainer/editForm:validateUrl",
       "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseInfoFor__call__components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "source": "components/sourceContainer/licenseInfo:licenseInfoFor",
+      "target": "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseLinkFor__call__components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "source": "components/sourceContainer/licenseInfo:licenseLinkFor",
+      "target": "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseLinkFor__call__components/sourceContainer/licenseInfo:isoFromMs",
+      "source": "components/sourceContainer/licenseInfo:licenseLinkFor",
+      "target": "components/sourceContainer/licenseInfo:isoFromMs",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licenseLinkFor__call__components/sourceContainer/licenseInfo:licenseInfoFor",
+      "source": "components/sourceContainer/licenseInfo:licenseLinkFor",
+      "target": "components/sourceContainer/licenseInfo:licenseInfoFor",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licenseInfo:licensePickerGroups__call__components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "source": "components/sourceContainer/licenseInfo:licensePickerGroups",
+      "target": "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:licenseFieldsHtml__call__components/sourceContainer/licenseInfo:licensePickerGroups",
+      "source": "components/sourceContainer/licensePicker:licenseFieldsHtml",
+      "target": "components/sourceContainer/licenseInfo:licensePickerGroups",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:populateLicenseFields__call__components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "source": "components/sourceContainer/licensePicker:populateLicenseFields",
+      "target": "components/sourceContainer/licenseInfo:canonicalLicenseCode",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:populateLicenseFields__domwrite__dom",
+      "source": "components/sourceContainer/licensePicker:populateLicenseFields",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/licensePicker:wireLicenseFields__domwrite__dom",
+      "source": "components/sourceContainer/licensePicker:wireLicenseFields",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload__call__components/sourceContainer/helpers:isSyntheticBook",
@@ -31215,6 +31439,24 @@
       "id": "dom__domread__components/sourceContainer/index:SourceContainerManager.constructor",
       "source": "dom",
       "target": "components/sourceContainer/index:SourceContainerManager.constructor",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/licensePicker:collectLicenseFields",
+      "source": "dom",
+      "target": "components/sourceContainer/licensePicker:collectLicenseFields",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/licensePicker:populateLicenseFields",
+      "source": "dom",
+      "target": "components/sourceContainer/licensePicker:populateLicenseFields",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/licensePicker:wireLicenseFields",
+      "source": "dom",
+      "target": "components/sourceContainer/licensePicker:wireLicenseFields",
       "rel": "domread"
     },
     {
@@ -41520,6 +41762,13 @@
       "rel": "write"
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:endFullBookReplace__call__indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+      "source": "indexedDB/serverSync/countReconcile:endFullBookReplace",
+      "target": "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount__call__indexedDB/core/connection:openDatabase",
       "source": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
       "target": "indexedDB/core/connection:openDatabase",
@@ -44555,6 +44804,19 @@
       "dataPath": true
     },
     {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/serverSync/countReconcile:beginFullBookReplace",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "indexedDB/serverSync/countReconcile:beginFullBookReplace",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/serverSync/countReconcile:endFullBookReplace",
+      "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
+      "target": "indexedDB/serverSync/countReconcile:endFullBookReplace",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "paste/handlers/largePasteHandler:undoLastLargePaste__call__indexedDB/types:parseChunkId",
       "source": "paste/handlers/largePasteHandler:undoLastLargePaste",
       "target": "indexedDB/types:parseChunkId",
@@ -44607,6 +44869,19 @@
       "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/nodes/read:getNodesFromIndexedDB",
       "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
       "target": "indexedDB/nodes/read:getNodesFromIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/serverSync/countReconcile:beginFullBookReplace",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "indexedDB/serverSync/countReconcile:beginFullBookReplace",
+      "rel": "call"
+    },
+    {
+      "id": "paste/handlers/novelVacuumHandler:handleNovelVacuum__call__indexedDB/serverSync/countReconcile:endFullBookReplace",
+      "source": "paste/handlers/novelVacuumHandler:handleNovelVacuum",
+      "target": "indexedDB/serverSync/countReconcile:endFullBookReplace",
       "rel": "call",
       "dataPath": true
     },
@@ -48594,6 +48869,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "source": "store:library",
+      "target": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__components/tocContainer/hyperlightsTab:buildDisplayEntries",
       "source": "store:library",
       "target": "components/tocContainer/hyperlightsTab:buildDisplayEntries",
@@ -50989,6 +51270,11 @@
     },
     {
       "source": "components/sourceContainer/buildSourceHtml",
+      "target": "components/sourceContainer/licensePicker",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/buildSourceHtml",
       "target": "components/sourceContainer/researchWorkflows",
       "kind": "static"
     },
@@ -51085,6 +51371,11 @@
     {
       "source": "components/sourceContainer/editForm",
       "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/editForm",
+      "target": "components/sourceContainer/licensePicker",
       "kind": "static"
     },
     {
@@ -51230,6 +51521,11 @@
     {
       "source": "components/sourceContainer/index",
       "target": "components/utilities/containerManager",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/licensePicker",
+      "target": "components/sourceContainer/licenseInfo",
       "kind": "static"
     },
     {
@@ -55294,6 +55590,11 @@
     },
     {
       "source": "paste/handlers/largePasteHandler",
+      "target": "indexedDB/serverSync/countReconcile",
+      "kind": "lazy"
+    },
+    {
+      "source": "paste/handlers/largePasteHandler",
       "target": "pageLoad/backgroundDownload",
       "kind": "lazy"
     },
@@ -55333,6 +55634,11 @@
       "kind": "lazy"
     },
     {
+      "source": "paste/handlers/novelVacuumHandler",
+      "target": "indexedDB/serverSync/countReconcile",
+      "kind": "lazy"
+    },
+    {
       "source": "paste/handlers/smallPasteHandler",
       "target": "divEditor/index",
       "kind": "static"
@@ -55360,6 +55666,11 @@
     {
       "source": "paste/index",
       "target": "hyperlitContainer/utilities/activeContext",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "indexedDB/serverSync/countReconcile",
       "kind": "static"
     },
     {
@@ -55833,6 +56144,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 310
+    "lazyCount": 312
   }
 }

@@ -75,7 +75,14 @@ class WackStemClassifier(PdfClassifier):
         # it noisy (79c3d8e4: 2 resets over 7 ref-pages = 0.29, over the gate, though 2 descents
         # is just a re-citation pair). A small ABSOLUTE reset count excuses the ratio the same
         # way density does; chapter-restart books reset once per chapter and clear 2 quickly.
-        return (sig['ref_number_max_page_spread'] >= 3
+        # Recurrence comes in two shapes: one number on 3+ pages (a long paper), or a scattered
+        # minority of numbers re-cited after the sequence moved on (a short one — see
+        # back_citation_count in classify_footnotes). Either is a citation re-used, which a
+        # footnote never is.
+        recurs = (sig['ref_number_max_page_spread'] >= 3
+                  or (sig.get('back_citation_count', 0) >= 3
+                      and sig.get('back_citation_ratio', 1.0) <= 0.3))
+        return (recurs
                 and sig['co_location_ratio'] < 0.2
                 and sig['notes_page_count'] == 0
                 and (sig['reset_count'] <= 3 or dense)
@@ -97,8 +104,11 @@ class WackStemClassifier(PdfClassifier):
         # Name the guard(s) that ACTUALLY failed — the old message always recited spread +
         # co-location, so a reset-guard rejection read as self-contradictory in assessment.json.
         fails = []
-        if sig['ref_number_max_page_spread'] < 3:
-            fails.append(f"ref page-spread {sig['ref_number_max_page_spread']} (need >=3)")
+        if sig['ref_number_max_page_spread'] < 3 and not (
+                sig.get('back_citation_count', 0) >= 3 and sig.get('back_citation_ratio', 1.0) <= 0.3):
+            fails.append(f"ref page-spread {sig['ref_number_max_page_spread']} (need >=3) and "
+                         f"{sig.get('back_citation_count', 0)} back-citation(s) "
+                         f"(need >=3 at ratio <=0.3)")
         if sig['co_location_ratio'] >= 0.2:
             fails.append(f"co-location {sig['co_location_ratio']:.2f} (need <0.2)")
         if sig['notes_page_count'] > 0:
@@ -446,6 +456,41 @@ def classify_footnotes(response_dict):
         group_hits / (group_hits + single_hits) if (group_hits + single_hits) else 0.0
     )
 
+    # Back-citation signature: a number cited AGAIN on a later page after the numbering has
+    # already moved past it, while the sequence then RESUMES above its old high-water mark
+    # (jenny2012social: [14] and [22,23] on p9 after [49]; [11] among [50]–[53]; the [9] in
+    # "[9,40–42]"). A footnote/endnote is called exactly once, so a scattered handful of these is
+    # the numbered-bibliography tell on a SHORT paper whose re-citations never reach the 3-page
+    # spread a long one shows. Bracket groups/ranges are expanded here (collect_page_refs_and_defs
+    # sees singles only) — "[22,23]" re-cited is the same evidence as "[22] [23]". The "resumes"
+    # condition and the minority ratio keep chapter-endnote RESTARTS out: a restart re-uses a
+    # contiguous run of low numbers (most of the next chapter) and need not climb past the old max.
+    cited_by_page = []
+    for i, p in enumerate(pages):
+        nums = set(page_data[i]["refs"])
+        for g in re.finditer(r'(?<![\d.\]!])\[(\d{1,3}(?:\s*(?:,|--|[–-])\s*\d{1,3})+)\](?!\()',
+                             p.get("markdown", "")):
+            for part in re.split(r'\s*,\s*', g.group(1)):
+                rng = re.split(r'\s*(?:--|[–-])\s*', part)
+                if len(rng) == 2 and rng[0].isdigit() and rng[1].isdigit():
+                    a, b = int(rng[0]), int(rng[1])
+                    if a < b and b - a <= 20:
+                        nums.update(range(a, b + 1))
+                elif part.strip().isdigit():
+                    nums.add(int(part.strip()))
+        cited_by_page.append(nums)
+    later_max = [0] * (len(cited_by_page) + 1)
+    for i in range(len(cited_by_page) - 1, -1, -1):
+        later_max[i] = max(later_max[i + 1], max(cited_by_page[i], default=0))
+    seen_nums, running_max, back_cited = set(), 0, set()
+    for i, nums in enumerate(cited_by_page):
+        if nums and later_max[i] > running_max:
+            back_cited |= {n for n in nums if n in seen_nums and n < running_max}
+        seen_nums |= nums
+        running_max = max(running_max, max(nums, default=0))
+    back_citation_count = len(back_cited)
+    back_citation_ratio = back_citation_count / len(seen_nums) if seen_nums else 0.0
+
     signals = {
         "total_pages": total_pages,
         "pages_with_refs": pages_with_refs,
@@ -464,6 +509,8 @@ def classify_footnotes(response_dict):
         "numbers_on_multiple_pages": numbers_on_multiple_pages,
         "max_ref_number": max_ref_number,
         "citation_group_ratio": round(citation_group_ratio, 4),
+        "back_citation_count": back_citation_count,
+        "back_citation_ratio": round(back_citation_ratio, 4),
     }
 
     # --- Step 3+4: Classification + confidence via the PDF_CLASSIFIERS registry ---
@@ -485,6 +532,8 @@ def classify_footnotes(response_dict):
         "trailing_page_number_consistency": trailing_page_number_consistency,
         "citation_group_ratio": citation_group_ratio,
         "trailing_def_page_ratio": trailing_def_page_ratio,
+        "back_citation_count": back_citation_count,
+        "back_citation_ratio": back_citation_ratio,
     }
     chosen_classifier = _UNKNOWN_CLASSIFIER
     for _clf in PDF_CLASSIFIERS:

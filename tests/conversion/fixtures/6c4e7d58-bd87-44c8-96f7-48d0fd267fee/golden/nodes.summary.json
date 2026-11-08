@@ -45,73 +45,21 @@
     },
     {
       "footnotes": [],
-      "i": 14,
-      "references": [
-        "adger2013",
-        "controversy2009",
-        "mehta2019"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 15,
-      "references": [
-        "ja2011",
-        "barros2012",
-        "ag2016",
-        "rl2010",
-        "srivastava2020"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 16,
-      "references": [
-        "change2016",
-        "barros2012",
-        "uncertainty1992",
-        "mehta1999",
-        "jg2008",
-        "refinement2001"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 17,
-      "references": [
-        "damodaran2020",
-        "rc2003",
-        "communities2016",
-        "leach2010",
-        "westley2011",
-        "ii2012"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 20,
-      "references": [
-        "societal2014",
-        "ii2012",
-        "adaptation2014",
-        "transformation2011",
-        "ii2012",
-        "planet2009",
-        "pelling2014"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
       "i": 21,
       "references": [
-        "transformation2011",
-        "pelling2014",
-        "scoones2015"
+        "stemref_1",
+        "stemref_2"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 23,
+      "references": [
+        "stemref_4",
+        "stemref_5",
+        "stemref_6",
+        "stemref_7"
       ],
       "type": "p"
     },
@@ -119,7 +67,12 @@
       "footnotes": [],
       "i": 24,
       "references": [
-        "godfreywood2016"
+        "stemref_9",
+        "stemref_5",
+        "stemref_10",
+        "stemref_11",
+        "stemref_12",
+        "stemref_13"
       ],
       "type": "p"
     },
@@ -127,20 +80,11 @@
       "footnotes": [],
       "i": 26,
       "references": [
-        "anthropocene2015"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 28,
-      "references": [
-        "organizations1977",
-        "myeonggu2002",
-        "praxis1979",
-        "reexamined1992",
-        "sen1993",
-        "freedom2001"
+        "stemref_15",
+        "stemref_16",
+        "stemref_19",
+        "stemref_20",
+        "stemref_21"
       ],
       "type": "p"
     },
@@ -148,28 +92,23 @@
       "footnotes": [],
       "i": 29,
       "references": [
-        "praxis1979",
-        "giddens1989",
-        "turner1986"
+        "stemref_22",
+        "stemref_21",
+        "stemref_23",
+        "stemref_24",
+        "stemref_21",
+        "stemref_25",
+        "stemref_26"
       ],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 31,
+      "i": 30,
       "references": [
-        "brown2011",
-        "obrien2013",
-        "bj2014"
-      ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 32,
-      "references": [
-        "obrien2013",
-        "obrien2013"
+        "stemref_24",
+        "stemref_26",
+        "stemref_29"
       ],
       "type": "p"
     },
@@ -177,23 +116,59 @@
       "footnotes": [],
       "i": 34,
       "references": [
-        "mehta2019"
+        "stemref_32",
+        "stemref_33"
       ],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 35,
+      "i": 36,
       "references": [
-        "damodaran2020"
+        "stemref_34"
       ],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 37,
+      "i": 38,
       "references": [
-        "anthropocene2015"
+        "stemref_35",
+        "stemref_36",
+        "stemref_42",
+        "stemref_43",
+        "stemref_44",
+        "stemref_45"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 39,
+      "references": [
+        "stemref_42",
+        "stemref_46",
+        "stemref_47",
+        "stemref_48"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 41,
+      "references": [
+        "stemref_49",
+        "stemref_50",
+        "stemref_51"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 42,
+      "references": [
+        "stemref_50",
+        "stemref_50"
       ],
       "type": "p"
     },
@@ -201,34 +176,65 @@
       "footnotes": [],
       "i": 44,
       "references": [
-        "societal2014"
+        "stemref_3"
       ],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 45,
+      "i": 46,
       "references": [
-        "adaptation2014"
+        "stemref_14"
       ],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 47,
+      "i": 49,
       "references": [
-        "atwood2020"
+        "stemref_34"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 56,
+      "references": [
+        "stemref_22"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 58,
+      "references": [
+        "stemref_23"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 61,
+      "references": [
+        "stemref_53"
       ],
       "type": "p"
     }
   ],
-  "node_count": 114,
+  "node_count": 121,
   "text_hashes": [
     "776e3d91eb",
     "8bd4a4c990",
     "d7bc2cc09a",
     "a56bcebfb2",
     "4ca7b9663a",
+    "ec0c3b7663",
+    "0f5cd8eb94",
+    "cd1f27349a",
+    "a13b3f54d0",
+    "468717735e",
+    "569e306a01",
+    "98464b81a7",
     "b83d5c9791",
     "aa4c0c5ec7",
     "30e914dabc",
@@ -237,28 +243,33 @@
     "5dd4d7176e",
     "86d02573aa",
     "2473e96bc6",
-    "2c32c54103",
+    "cdbe3102fc",
+    "271c21dd8a",
     "e0ca49bd84",
-    "636dd03374",
-    "c9c9e34c81",
+    "426d94e91b",
+    "9e3954fabc",
+    "993b22f259",
     "d32547479c",
     "0858981c2e",
-    "cc822200d2",
+    "659726e155",
     "ffce4d0f98",
-    "c09072de86",
+    "cf61798f8c",
+    "e0acba374a",
     "72eaa1d884",
     "5a3aef786e",
     "1fb2f64c96",
     "ccdfa86803",
     "04e9e740ac",
-    "fd887afe80",
+    "49fc62823a",
     "1634a61fb3",
     "d6096d5c5c",
     "4046ea058f",
     "e4ef1daeb0",
     "3f4a1bb3fb",
-    "a73216db39",
-    "477ef4e186",
+    "a7c22be1b3",
+    "c215eba7d0",
+    "27a47c9636",
+    "ca12146b6c",
     "2a62a6383e",
     "e7c08e769f",
     "62b5360ae5",
@@ -267,9 +278,11 @@
     "88c7b757b3",
     "ff98ea4182",
     "2dbe353aca",
-    "e748779710",
+    "03b7720736",
+    "7c8ee253f8",
     "a1dd05eae7",
-    "854c0b3d57",
+    "03e9a9b1af",
+    "7b1f50143d",
     "6021bfde09",
     "6ff171c667",
     "40da238eff",
@@ -289,7 +302,7 @@
     "2746ef5e1a",
     "f9f23e0e06",
     "f8bb3a578a",
-    "e82df6670b",
+    "97b6c5aac5",
     "1fb0494d28",
     "bd0a5c2a58",
     "a5620583a4",
@@ -318,7 +331,7 @@
     "4f8b08e7a9",
     "361c6040c5",
     "0a3124c81a",
-    "32d09eaee4",
+    "11b0729929",
     "4812ec35de",
     "f7ed31a32f",
     "e1d2f9d938",
@@ -330,19 +343,12 @@
     "372f3f5c95",
     "a6d5a17a84",
     "da7d08e2c1",
-    "09fb8dadc2",
-    "ec0c3b7663",
-    "189a78c4ae",
-    "cd1f27349a",
-    "a13b3f54d0",
-    "468717735e",
-    "569e306a01",
-    "98464b81a7"
+    "09fb8dadc2"
   ],
   "type_histogram": {
     "a": 2,
     "h1": 3,
     "h2": 9,
-    "p": 100
+    "p": 107
   }
 }

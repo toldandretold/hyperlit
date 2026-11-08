@@ -129,7 +129,13 @@ class WorkNormaliser
             'oa_status'      => $work['open_access']['oa_status'] ?? null,
             'oa_url'         => $sanitiseUrl($work['open_access']['oa_url'] ?? null),
             'pdf_url'        => $sanitiseUrl($pdfUrl),
-            'work_license'   => $work['primary_location']['license'] ?? null,
+            // The work's licence: primary location first (the publisher's copy), then the best
+            // OA location, then any OA location that states one. primary_location.license is
+            // often NULL when the open copy lives in a repository — which left harvested works
+            // with no licence evidence at all.
+            'work_license'   => $work['primary_location']['license']
+                ?? $work['best_oa_location']['license']
+                ?? (array_values(array_filter(array_column($oaLocations, 'license')))[0] ?? null),
             'cited_by_count' => $work['cited_by_count'] ?? null,
             'language'       => $work['language'] ?? null,
             'type'           => $work['type'] ?? null,

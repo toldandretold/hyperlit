@@ -1756,10 +1756,40 @@ def wrap_stem_citations(text):
         # Single cite
         return f'<a class="wackSTEMcite">[{inner.strip()}]</a>'
 
-    # Range citations [N-M] / [N–M] first (before single/comma pattern consumes them)
-    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3})([-–])(\d{1,3})\]', replace_range_cite, text, flags=re.MULTILINE)
+    def replace_mixed_cite(m):
+        # A comma group with a range INSIDE it — "[9,40–42]" (jenny2012social). Neither pattern
+        # below matches it, so it shipped as plain text and refs 9 and 40–42 lost their link. Each
+        # member becomes its own anchor, a range member carrying data-refs like a bare range.
+        parts = re.split(r'(\s*,\s*)', m.group(1))
+        out = []
+        for part in parts:
+            if re.fullmatch(r'\s*,\s*', part):
+                out.append(part)
+                continue
+            rng = re.fullmatch(r'(\d{1,3})(--|[-–])(\d{1,3})', part)
+            if rng:
+                a, b = int(rng.group(1)), int(rng.group(3))
+                if a >= b or b > 500:
+                    return m.group(0)
+                refs = ','.join(f'stemref_{i}' for i in range(a, b + 1))
+                out.append(f'<a class="wackSTEMcite" data-refs="{refs}">[{a}{rng.group(2)}{b}]</a>')
+            elif part.isdigit() and int(part) <= 500:
+                out.append(f'<a class="wackSTEMcite">[{part}]</a>')
+            else:
+                return m.group(0)
+        return ''.join(out)
+
+    # Mixed groups first — a group holding at least one comma AND at least one range.
+    text = re.sub(r'(?<!^)(?<=.)\[((?=[^\]]*,)(?=[^\]]*\d(?:--|[-–])\d)\d{1,3}(?:(?:--|[-–])\d{1,3})?(?:\s*,\s*\d{1,3}(?:(?:--|[-–])\d{1,3})?)+)\]',
+                  replace_mixed_cite, text, flags=re.MULTILINE)
+    # Range citations [N-M] / [N–M] first (before single/comma pattern consumes them). "--" too:
+    # OCR renders a typeset en-dash as a double hyphen ("[43--45]", 6c4e7d58), which used to ship
+    # as plain text.
+    # (?<!…">) skips a bracket the mixed pass already wrapped (its anchor's opening tag ends in
+    # `wackSTEMcite">` or, for a range member, `stemref_N">`).
+    text = re.sub(r'(?<!^)(?<=.)(?<!wackSTEMcite">)(?<!\d">)\[(\d{1,3})(--|[-–])(\d{1,3})\]', replace_range_cite, text, flags=re.MULTILINE)
     # Match [N] or [N, N, ...] NOT at start of line
-    text = re.sub(r'(?<!^)(?<=.)\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\]', replace_cite, text, flags=re.MULTILINE)
+    text = re.sub(r'(?<!^)(?<=.)(?<!wackSTEMcite">)(?<!\d">)\[(\d{1,3}(?:\s*,\s*\d{1,3})*)\]', replace_cite, text, flags=re.MULTILINE)
     return text
 
 

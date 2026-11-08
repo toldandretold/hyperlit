@@ -3,6 +3,7 @@
 namespace App\Services\CanonicalVersions;
 
 use App\Models\CanonicalSource;
+use App\Services\Licensing\WorkLicenseResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -60,6 +61,10 @@ class SystemVersionMinter
                 ? 'https://doi.org/' . $canonical->doi
                 : ($canonical->oa_url ?: null),
             'work_license'           => $canonical->work_license,
+            // The work's REAL licence, not the column default (CC-BY-SA-4.0-NO-AI is Hyperlit's
+            // licence for a user's own writing). AutoVersionCreator refines it with the licence of
+            // the copy it downloads; the journal HTML lane and ar5iv never pass through there.
+            ...WorkLicenseResolver::forCanonical($canonical),
             'cited_by_count'         => $canonical->cited_by_count,
             // Biblio identity for publication-order sorting on journal pages
             // (year → volume → issue).

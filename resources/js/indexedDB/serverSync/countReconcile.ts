@@ -25,6 +25,14 @@
  * Any gate failing just skips — the NEXT sync reschedules with a fresher count, so
  * a busy session converges to a checked one. Latest-wins per book: a newer schedule
  * replaces a pending one, so the comparison always uses the newest server count.
+ *
+ * Full-book replaces (the paste/undo/vacuum `POST /api/db/nodes/upsert` — the
+ * NUCLEAR path, which bypasses unified-sync) are bracketed by
+ * `beginFullBookReplace` / `endFullBookReplace`. Without that, a count scheduled
+ * by the select-all-delete sync just BEFORE a paste fired 2s later against the
+ * pasted IDB and reported "local 36, server 1" while Postgres already held all 36
+ * (prod 2026-11-07, /privacy). Begin cancels the stale timer and holds the gate
+ * shut; end reschedules with the replace's own post-write count.
  */
 
 import type { BookId } from '../types';
@@ -36,6 +44,34 @@ const REPORT_COOLDOWN_MS = 5 * 60_000;
 
 const _timers = new Map<BookId, ReturnType<typeof setTimeout>>();
 const _lastReportTs = new Map<BookId, number>();
+/** Full-book replaces in flight per book (a counter: replaces can overlap). */
+const _replacesInFlight = new Map<BookId, number>();
+
+/**
+ * Call immediately BEFORE a full-book replace POST. Any pending reconcile for the
+ * book is about to compare against a count the replace will invalidate, so drop it,
+ * and keep the quiet gate shut until `endFullBookReplace`.
+ */
+export function beginFullBookReplace(bookId: BookId): void {
+  const existing = _timers.get(bookId);
+  if (existing) {
+    clearTimeout(existing);
+    _timers.delete(bookId);
+  }
+  _replacesInFlight.set(bookId, (_replacesInFlight.get(bookId) ?? 0) + 1);
+}
+
+/**
+ * Call when the replace settles (success OR failure — always, from a `finally`).
+ * Pass the response's `server_node_count` when there is one; a failed replace
+ * passes nothing and the next sync's count takes over.
+ */
+export function endFullBookReplace(bookId: BookId, serverCount?: unknown): void {
+  const remaining = (_replacesInFlight.get(bookId) ?? 1) - 1;
+  if (remaining > 0) _replacesInFlight.set(bookId, remaining);
+  else _replacesInFlight.delete(bookId);
+  if (typeof serverCount === 'number') scheduleServerCountReconcile(bookId, serverCount);
+}
 
 export interface ReconcileOutcome {
   /** False when a quiet-gate failed and no comparison was made. */
@@ -109,6 +145,8 @@ export async function reconcileServerNodeCount(
 
 /** Null when quiet; otherwise the first failing gate's name. */
 async function quietGateFailure(bookId: BookId): Promise<string | null> {
+  if (_replacesInFlight.get(bookId)) return 'full-book replace in flight';
+
   const { pendingSyncs } = await import('../syncQueue/queue');
   for (const item of pendingSyncs.values()) {
     const itemBook = (item.data as { book?: string } | undefined)?.book

@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Helpers\BookSlugHelper;
 use App\Http\Controllers\DatabaseToIndexedDBController;
 use App\Mcp\Support\InternalCall;
+use App\Services\Licensing\LicenseLink;
 use App\Mcp\TokenAbilities;
 use App\Services\E2ee\EncryptedBookGuard;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -57,6 +58,18 @@ class GetBookTool extends HyperlitTool
             'visibility', 'creator', 'timestamp',
         ])->all();
         $meta['encrypted'] = $encrypted;
+        // The licence, resolved the way readers see it (code, label, link; a custom licence
+        // that is a book links to it, pinned to the terms the work was published under), plus
+        // the raw upstream statement for harvested/imported works.
+        $link = LicenseLink::for((object) $library);
+        $meta['license'] = [
+            'code' => $link['code'],
+            'label' => $link['label'],
+            'url' => $link['url'],
+            'license_book' => $link['license_book'],
+            'pinned_to_earlier_terms' => $link['pinned_terms'],
+            'as_stated_upstream' => $library['work_license'] ?? null,
+        ];
 
         if ($encrypted) {
             return Response::json([

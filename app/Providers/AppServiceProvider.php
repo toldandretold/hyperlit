@@ -212,6 +212,44 @@ class AppServiceProvider extends ServiceProvider
                 ->by('api-tokens|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // The editor's unified sync (POST /api/db/unified-sync) — its own bucket so page reads
+        // can never starve a save.
+        \Illuminate\Support\Facades\RateLimiter::for('unified-sync', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('unified-sync|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Library-card saves (POST /api/db/library/upsert) — the source panel's edit form and
+        // the bulk library sync. Same ceiling as before, but its OWN bucket.
+        \Illuminate\Support\Facades\RateLimiter::for('library-upsert', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('library-upsert|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Custom-licence book READS (picker list, usage count) — fired on every edit-form open.
+        \Illuminate\Support\Facades\RateLimiter::for('license-books-read', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('license-books-read|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Custom-licence book WRITES (mint / re-apply) — a settings-panel rate.
+        \Illuminate\Support\Facades\RateLimiter::for('license-books', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(30)
+                ->by('license-books|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Public time-machine reads (/api/books/{book}/timemachine-data).
+        \Illuminate\Support\Facades\RateLimiter::for('timemachine-read', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by('timemachine-read|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Public licence-book lookup from the reader's source panel.
+        \Illuminate\Support\Facades\RateLimiter::for('license-book-info', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('license-book-info|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // The MCP endpoint (/mcp, Streamable HTTP). An agent doing bulk work
         // (highlight sweeps, paginated reads) must not contend with the
         // user's own browser tab in the shared inline bucket — own bucket,

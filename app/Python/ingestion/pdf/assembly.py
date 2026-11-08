@@ -1172,6 +1172,17 @@ class WackStemAssembler(FootnoteAssembler):
              'backend STEM pass then converts into links.')
 
     def post_combine(self, ctx, combined):
+        # Author-affiliation markers in LaTeX form ("Shilpi Srivastava $^{1}$" over an Addresses
+        # block of "$^{1}$ The Institute of…" lines — 6c4e7d58) are FOOTNOTES in a bracket-citation
+        # paper too. The default assembler expands them; this one never did, so the brace rewrite
+        # below turned each into "$[^1]$", the surviving "$…$" pairs then rendered as LaTeX that
+        # swallowed the author names between them, and every address but the first vanished. Run
+        # the same def-gated expansion first (a comma group with no matching def — a Vancouver
+        # "$^{1,2,4}$" citation — is left alone, exactly as on the default path), then the
+        # "[^N] Text" → "[^N]: Text" def fix and the affiliation-block resolver it relies on.
+        combined = expand_latex_superscripts(combined)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = _resolve_affiliation_block(combined)
         # A mixed-style paper cites BOTH ways — brackets ("[18,19]") and superscripts
         # ("piracy⁷", "2011.¹¹,¹²"). Normalise the superscript runs to bracket form first,
         # or only the bracket half links (42be715c: 12 of 26 markers linked).
@@ -1179,8 +1190,9 @@ class WackStemAssembler(FootnoteAssembler):
         # A naked-brace superscript ("en masse^{2}." — 79c3d8e4) is a real FOOTNOTE marker, not
         # a citation: MDPI papers carry BOTH universes (superscript notes + bracket citations).
         # Convert to [^N] so the footnote system owns it — wrap_stem_citations targets [N], so
-        # the caret form can never be mistaken for a citation.
-        combined = re.sub(r'\^\{(\d{1,3})\}', r'[^\1]', combined)
+        # the caret form can never be mistaken for a citation. Never inside "$^{…}$" math: that
+        # leaves a "$[^N]$" whose dollars pair up across the line as LaTeX.
+        combined = re.sub(r'(?<!\$)\^\{(\d{1,3})\}', r'[^\1]', combined)
         # Its definition lives in the NOTES block hiding in the numbered-entry stream (the
         # "Notes" heading is dropped by OCR). A numbered line whose number matches an in-text
         # [^N] marker becomes that footnote's definition when it sits in a detected notes run
@@ -1189,7 +1201,10 @@ class WackStemAssembler(FootnoteAssembler):
         # alone is not enough here: OCR ALSO dropped refs 1-4, so notes (1,2) + refs (5..34)
         # read as one ascending run with no restart. fn_refs only ever contains brace-derived
         # markers (citations are [N] bracket form), so bibliography numbers stay untouched.
-        fn_refs = {m.group(1) for m in re.finditer(r'(?<!\n)\[\^(\d+)\]', combined)}
+        # A marker whose [^N]: definition already exists (an affiliation def expanded above) is
+        # settled — never go hunting for it among the numbered BIBLIOGRAPHY lines.
+        has_def = set(re.findall(r'(?m)^\[\^(\d+)\]:', combined))
+        fn_refs = {m.group(1) for m in re.finditer(r'(?<!\n)\[\^(\d+)\]', combined)} - has_def
         if fn_refs:
             lines = combined.split('\n')
             notes_lines = stem_notes_block_lines(lines)

@@ -67,6 +67,26 @@ test('set_book_metadata writes the citation fields (owner only)', function () {
     expect($row->url)->toBe('https://doi.org/10.5210/fm.v29i4.13637');
 });
 
+test('set_book_metadata bumps library.timestamp so cached clients refresh', function () {
+    // library.timestamp is the freshness signal clients compare against their
+    // IndexedDB copy. An MCP metadata write that leaves it alone lands in Postgres
+    // but every browser that has the book cached keeps the old card (prod
+    // 2026-11-07: /terms retitled via MCP, only a private window saw it).
+    $owner = $this->seedUser();
+    $book = mrSeedBook($this, $owner);
+    $token = mrToken($owner, [TokenAbilities::IMPORT]);
+
+    DB::statement("select set_config('app.current_user', ?, false)", [$owner->name]);
+    $before = (int) DB::table('library')->where('book', $book)->value('timestamp');
+
+    $response = mrCall($this, $token, 'set_book_metadata', ['book' => $book, 'title' => 'Terms of Service']);
+    expect($response->json('result.isError'))->not->toBeTrue();
+
+    DB::statement("select set_config('app.current_user', ?, false)", [$owner->name]);
+    $after = (int) DB::table('library')->where('book', $book)->value('timestamp');
+    expect($after)->toBeGreaterThan($before);
+});
+
 test('set_book_metadata refuses a non-owner', function () {
     $owner = $this->seedUser();
     $book = mrSeedBook($this, $owner);

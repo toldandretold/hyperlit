@@ -61,18 +61,34 @@ test('POST /api/db/library/bulk-create persists license/custom_license_text/gate
     $this->postJson('/api/db/library/bulk-create', ['data' => [
         'book' => $book,
         'title' => 'BulkCreate License Test',
-        'license' => 'MIT',
+        'license' => 'custom',
         'custom_license_text' => 'my custom terms',
         'gate_defaults' => ['hideAI' => true],
         'annotations_updated_at' => 4242,
     ]])
         ->assertStatus(200)
         ->assertJson(['success' => true, 'library' => [
-            'license' => 'MIT',
+            'license' => 'custom',
             'custom_license_text' => 'my custom terms',
             'gate_defaults' => ['hideAI' => true],
             'annotations_updated_at' => 4242,
         ]]);
+});
+
+test('bulk-create canonicalises a mis-cased code and keeps an unknown one honestly as custom text', function () {
+    // Before App\Support\Licenses the server stored any string, and the reader UI showed every
+    // code it did not know (`all-rights-reserved`, `MIT`) as the site's CC BY-SA No-AI licence.
+    $this->loginUser();
+
+    $a = 'apitest_' . \Illuminate\Support\Str::random(10);
+    $this->postJson('/api/db/library/bulk-create', ['data' => ['book' => $a, 'title' => 'x', 'license' => 'all-rights-reserved']])
+        ->assertStatus(200)
+        ->assertJson(['library' => ['license' => 'All-Rights-Reserved']]);
+
+    $b = 'apitest_' . \Illuminate\Support\Str::random(10);
+    $this->postJson('/api/db/library/bulk-create', ['data' => ['book' => $b, 'title' => 'y', 'license' => 'MIT']])
+        ->assertStatus(200)
+        ->assertJson(['library' => ['license' => 'custom', 'custom_license_text' => 'MIT']]);
 });
 
 test('POST /api/db/library/bulk-create falls back to DB defaults when those fields are omitted', function () {

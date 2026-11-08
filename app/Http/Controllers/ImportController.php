@@ -397,10 +397,18 @@ class ImportController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid session'], 401);
         }
 
+        // An uploaded FILE is often someone else's text (a PDF of a published book), so it is
+        // never born under the uploader's own CC BY-SA No-AI licence: a licence the import form
+        // sends is honoured, otherwise "Licence unknown" until the owner picks one. Only on
+        // CREATE — re-running an import over an existing row must not reset a chosen licence.
+        $licenseOnCreate = PgLibrary::where('book', $bookId)->exists()
+            ? []
+            : ['license' => \App\Support\Licenses::canonicalCode($request->input('license')) ?? \App\Support\Licenses::UNKNOWN];
+
         // Create library record immediately so the book "exists" in the UI
         $createdRecord = PgLibrary::updateOrCreate(
             ['book' => $bookId],
-            [
+            $licenseOnCreate + [
                 'title' => $request->input('title'),
                 'author' => $request->input('author'),
                 'type' => $request->input('type') ?? 'book',

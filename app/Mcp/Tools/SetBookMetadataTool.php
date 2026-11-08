@@ -79,6 +79,13 @@ class SetBookMetadataTool extends HyperlitTool
             return Response::error('Provide at least one metadata field to set.');
         }
 
+        // Bump library.timestamp: it is the freshness signal every client compares
+        // against its IndexedDB copy (and BookCache against its prerender). Without it
+        // an MCP edit lands in Postgres while every open/returning browser keeps
+        // showing the old card until its cache is wiped (prod 2026-11-07: /terms
+        // retitled via MCP, only a private window saw it).
+        $data['timestamp'] = (int) round(microtime(true) * 1000);
+
         $result = InternalCall::call(DbLibraryController::class, 'upsert', ['data' => $data], $this->user($request));
 
         // The controller NO-OPS non-owner writes with success:true and a

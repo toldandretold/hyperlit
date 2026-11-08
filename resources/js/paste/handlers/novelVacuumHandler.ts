@@ -18,7 +18,6 @@ import { handleLargePaste } from './largePasteHandler';
 import { getCurrentChunk } from '../../utilities/chunkState';
 import { glowCloudGreen, glowCloudOrange, glowCloudRed } from '../../components/cloudRef/editIndicator';
 import { initializeMainLazyLoader, lazyLoaders } from '../../pageLoad/index';
-import { drainResponse } from '../../utilities/drainResponse';
 import {
   setPasteInProgress,
   isPasteInProgress as isPasteInProgressState
@@ -334,12 +333,22 @@ export async function handleNovelVacuum(url: any, targetBookId: any, isSubBook: 
       const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
       const allNodes = await getNodesFromIndexedDB(pasteBook);
 
-      const response = await drainResponse(await fetch('/api/db/nodes/upsert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
-        credentials: 'include',
-        body: JSON.stringify({ book: pasteBook, data: allNodes }),
-      }));
+      const { beginFullBookReplace, endFullBookReplace } = await import('../../indexedDB/serverSync/countReconcile');
+      beginFullBookReplace(pasteBook);
+      let replaceServerCount: unknown;
+      let response: Response;
+      try {
+        response = await fetch('/api/db/nodes/upsert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+          credentials: 'include',
+          body: JSON.stringify({ book: pasteBook, data: allNodes }),
+        });
+        const body = await response.json().catch(() => null);
+        if (response.ok) replaceServerCount = body?.server_node_count;
+      } finally {
+        endFullBookReplace(pasteBook, replaceServerCount);
+      }
 
       if (response.ok) {
         glowCloudGreen();

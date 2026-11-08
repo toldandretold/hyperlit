@@ -445,9 +445,14 @@ class DbNodeController extends Controller
                     }
                 }
 
+                // Post-write count for the client's layer-3 watchdog (countReconcile.ts) —
+                // same contract as unified-sync's envelope. This nuclear path bypasses
+                // unified-sync, so without it the watchdog compared the pasted IDB against
+                // the PRE-paste count and cried divergence (prod 2026-11-07, /privacy).
                 return response()->json([
                     'success' => true,
                     'message' => "Node chunks synced successfully for book: {$book}",
+                    'server_node_count' => \App\Models\PgNode::where('book', $book)->count(),
                 ]);
             }
 

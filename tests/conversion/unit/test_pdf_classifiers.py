@@ -80,6 +80,92 @@ def test_wackstem_citation_group_ratio_excuses_resets():
     assert M.WackStemClassifier().matches(_sig(**{**borderline, 'citation_group_ratio': 0.03})) is False
 
 
+def test_wackstem_back_citations_stand_in_for_page_spread():
+    # A SHORT numbered-bibliography paper (jenny2012social, MDPI, 54 refs over 16 pages): no number
+    # reaches 3 pages, so the spread gate alone misrouted it to document_endnotes and the reference
+    # list became 54 FOOTNOTES. But it re-cites earlier refs after the numbering has moved on
+    # ([14], [22,23] after [49]) — a footnote is never called twice, so a scattered handful of those
+    # is recurrence too.
+    short = _sig(ref_number_max_page_spread=2, co_location_ratio=0.0, notes_page_count=0,
+                 reset_count=2, reset_frequency=0.17, max_ref_number=54)
+    assert M.WackStemClassifier().matches(short) is False
+    assert M.WackStemClassifier().matches(
+        _sig(**{**short, 'back_citation_count': 6, 'back_citation_ratio': 0.11})) is True
+    # Guard: two stray re-citations are not enough evidence…
+    assert M.WackStemClassifier().matches(
+        _sig(**{**short, 'back_citation_count': 2, 'back_citation_ratio': 0.04})) is False
+    # …and a MAJORITY re-used is a chapter-endnote restart re-using its low numbers, not citation.
+    assert M.WackStemClassifier().matches(
+        _sig(**{**short, 'back_citation_count': 30, 'back_citation_ratio': 0.6})) is False
+    # The rejection names the back-citation alternative, not just the spread.
+    assert 'back-citation' in M.WackStemClassifier().rejected_because(short)
+
+
+def _pages(*mds):
+    return {"pages": [{"index": i, "markdown": md} for i, md in enumerate(mds)]}
+
+
+def test_back_citation_signal_counts_regroups_and_needs_resumption():
+    filler = "Body text that runs on for a while. " * 3
+    refs = "# References\n\n" + "\n".join(f"{n}. Author, A. Title {n}; Press: City, 2001." for n in range(1, 21))
+    # Re-cites [3], [4,5] and the 2 in [2,15–16] after the sequence passed them, then resumes past
+    # its old high-water mark ([17]+): back-citations 2, 3, 4, 5.
+    cited = _pages(
+        filler + "a [1] b [2] c [3] d [4] e [5].",
+        filler + "f [6] g [7] h [8] i [9] j [10].",
+        filler + "k [11] l [12] m [3] n [4,5] o [13] p [14].",
+        filler + "q [2,15–16] r [17] s [18] t [19] u [20].",
+        refs,
+    )
+    sig = M.classify_footnotes(cited)["signals"]
+    assert sig["back_citation_count"] == 4
+    assert sig["back_citation_ratio"] == round(4 / 20, 4)
+    # A restart that never climbs back past the old max is NOT back-citation (chapter endnotes).
+    restart = _pages(
+        filler + "a [1] b [2] c [3] d [4] e [5] f [6].",
+        filler + "a [1] b [2] c [3] d [4].",
+        refs,
+    )
+    assert M.classify_footnotes(restart)["signals"]["back_citation_count"] == 0
+
+
+def test_wackstem_wraps_mixed_comma_range_groups():
+    # "[9,40–42]" (jenny2012social): a comma group with a range INSIDE matched neither the range
+    # pattern nor the comma pattern, so refs 9 and 40–42 shipped as plain text. Each member gets its
+    # own anchor and the range member carries data-refs; nothing is double-wrapped.
+    out = M.wrap_stem_citations("prevalent to date (e.g., [9,40–42]).")
+    assert out == ('prevalent to date (e.g., <a class="wackSTEMcite">[9]</a>,'
+                   '<a class="wackSTEMcite" data-refs="stemref_40,stemref_41,stemref_42">[40–42]</a>).')
+    assert out.count('<a ') == 2
+    # Plain comma groups and plain ranges are unchanged.
+    assert M.wrap_stem_citations("x [32,33] y") == 'x <a class="wackSTEMcite">[32]</a>, <a class="wackSTEMcite">[33]</a> y'
+    assert M.wrap_stem_citations("x [6–9] y").count('<a ') == 1
+
+
+def test_wackstem_wraps_double_hyphen_ranges():
+    # OCR renders a typeset en-dash as "--" ("[43--45]", 6c4e7d58) — it shipped as plain text.
+    out = M.wrap_stem_citations("as argued [43--45] here and [1,43--45] there")
+    assert out.count('data-refs="stemref_43,stemref_44,stemref_45"') == 2
+    assert '[43--45]</a>' in out
+
+
+def test_wackstem_assembler_expands_latex_affiliation_markers():
+    # 6c4e7d58: "$^{1}$" affiliation markers on the wackSTEM path became "$[^1]$"; the leftover
+    # dollars paired up as LaTeX that swallowed the author names, and the addresses vanished.
+    md = ("Lyla Mehta $^{1,2}$, Shilpi Srivastava $^{1}$, Synne Movik $^{2}$\n\n# Addresses\n\n"
+          "$^{1}$ The Institute of Development Studies, Brighton\n$^{2}$ Norwegian University of Life Sciences\n\n"
+          "Body text cites a work [1] and another [2].\n\n# References\n\n"
+          "1. Adger W: Cultural dimensions. Nature 2013.\n2. Hulme M: Why We Disagree. CUP 2009.\n")
+    out = M.WackStemAssembler().post_combine(None, md)
+    assert '$' not in out
+    assert 'Lyla Mehta [^1][^2], Shilpi Srivastava [^1], Synne Movik [^2]' in out
+    assert '[^1]: The Institute of Development Studies' in out
+    assert '[^2]: Norwegian University' in out
+    # The numbered bibliography stays the bibliography — never claimed as footnotes 1/2.
+    assert 'id="stemref_1"' in out and 'id="stemref_2"' in out
+    assert '<a class="wackSTEMcite">[1]</a>' in out
+
+
 def test_page_bottom_classifier_both_gates():
     cont = _sig(co_location_ratio=0.5, pages_with_both=3, reset_frequency=0.0, max_ref_number=20)
     assert M.PageBottomClassifier().matches(cont) is True

@@ -3,7 +3,9 @@
 namespace App\Services\OpenAlex;
 
 use App\Models\PgLibrary;
+use App\Services\Licensing\WorkLicenseResolver;
 use App\Services\OpenLibraryService;
+use App\Support\Licenses;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -70,6 +72,7 @@ class LibraryStubWriter
                         'oa_url'         => $candidate['oa_url'],
                         'pdf_url'        => $candidate['pdf_url'],
                         'work_license'   => $candidate['work_license'],
+                        ...WorkLicenseResolver::resolve([$candidate['work_license']], $candidate['oa_status']),
                         'cited_by_count' => $candidate['cited_by_count'],
                         'language'       => $candidate['language'],
                         'type'           => $candidate['type'],
@@ -195,6 +198,7 @@ class LibraryStubWriter
                 'oa_url'         => null,
                 'pdf_url'        => null,
                 'work_license'   => null,
+                'license'        => Licenses::UNKNOWN, // Open Library carries no licence; never the site default
                 'cited_by_count' => null,
                 'language'       => null,
                 'type'           => $normalised['type'] ?? null,

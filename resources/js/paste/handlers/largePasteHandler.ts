@@ -24,7 +24,6 @@ import { ProgressOverlayConductor } from '../../SPA/navigation/ProgressOverlayCo
 import { sanitizeHtml } from '../../utilities/sanitizeConfig';
 import { extractFootnoteIdsFromHtml } from '../utils/extractFootnoteIds';
 import { BLOCK_ELEMENT_SELECTOR } from '../../utilities/blockElements';
-import { drainResponse } from '../../utilities/drainResponse';
 
 // Snapshot for undo support lives in the ../pasteSnapshot leaf (see clearPasteSnapshot importers).
 
@@ -462,15 +461,25 @@ export async function undoLastLargePaste() {
     const { glowCloudOrange, glowCloudGreen, glowCloudRed } = await import('../../components/cloudRef/editIndicator');
     glowCloudOrange();
 
-    const response = await drainResponse(await fetch('/api/db/nodes/upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
-      },
-      credentials: 'include',
-      body: JSON.stringify({ book: bookId, data: allNodes })
-    }));
+    const { beginFullBookReplace, endFullBookReplace } = await import('../../indexedDB/serverSync/countReconcile');
+    beginFullBookReplace(bookId);
+    let replaceServerCount: unknown;
+    let response: Response;
+    try {
+      response = await fetch('/api/db/nodes/upsert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
+        },
+        credentials: 'include',
+        body: JSON.stringify({ book: bookId, data: allNodes })
+      });
+      const body = await response.json().catch(() => null);
+      if (response.ok) replaceServerCount = body?.server_node_count;
+    } finally {
+      endFullBookReplace(bookId, replaceServerCount);
+    }
 
     if (response.ok) {
       glowCloudGreen();

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessDocumentImportJob;
 use App\Models\PgLibrary;
 use App\Services\CanonicalSourceMatcher;
+use App\Services\Licensing\WorkLicenseResolver;
 use App\Services\SourceImport\CanonicalRegistry;
 use App\Services\SourceImport\ImportOrchestrator;
+use App\Support\Licenses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
@@ -230,6 +232,10 @@ class UrlImportController extends Controller
                 'oa_url'         => $result->metadata->oaUrl(),
                 'pdf_url'        => $result->metadata->pdfUrl(),
                 'work_license'   => $result->metadata->license(),
+                // The WORK's licence (Gutenberg "Public domain in the USA." → PDM, an OpenAlex
+                // CC slug → its CC code). Never the importer's own default licence: this is a
+                // third party's text. No evidence at all → "Licence unknown".
+                ...$this->importedWorkLicense($result->metadata->license(), $result->metadata->oaStatus()),
                 'url'            => $result->identifier->url(),
                 'type'           => $result->metadata->data['type'] ?? 'article',
                 'journal'        => $result->metadata->data['journal'] ?? null,
@@ -358,5 +364,17 @@ class UrlImportController extends Controller
             'no_fetcher_attempted'    => 'No PDF source available for this work.',
             default                   => 'Fetch failed' . ($reason ? ": {$reason}" : '.'),
         };
+    }
+
+    /**
+     * @return array{license: string, custom_license_text: ?string, license_url: ?string}
+     */
+    private function importedWorkLicense(?string $rawLicense, ?string $oaStatus): array
+    {
+        if (trim((string) $rawLicense) === '' && trim((string) $oaStatus) === '') {
+            return ['license' => Licenses::UNKNOWN, 'custom_license_text' => null, 'license_url' => null];
+        }
+
+        return WorkLicenseResolver::resolve([$rawLicense], $oaStatus);
     }
 }

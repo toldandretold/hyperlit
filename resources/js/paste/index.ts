@@ -22,6 +22,7 @@
 
 import { sanitizeHtml } from '../utilities/sanitizeConfig';
 import { log, verbose } from '../utilities/logger';
+import { beginFullBookReplace, endFullBookReplace } from '../indexedDB/serverSync/countReconcile';
 import { marked } from 'marked';
 import type { BookId } from '../utilities/idHelpers';
 import { parseChunkId } from '../utilities/idHelpers';
@@ -173,29 +174,39 @@ async function syncPasteToPostgreSQL(bookId: BookId) {
       log.error(`SUSPICIOUS: Only ${allNodes.length} nodes in IndexedDB for full sync - potential data loss risk`, '/paste/index.ts');
     }
 
-    // Full book sync: deletes all existing nodes for book, then inserts all fresh
-    const response = await fetch('/api/db/nodes/upsert', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        book: bookId,
-        data: allNodes
-      })
-    });
+    // Full book sync: deletes all existing nodes for book, then inserts all fresh.
+    // Bracketed for the server-count watchdog: a count scheduled by an earlier sync
+    // (e.g. the select-all-delete just before this paste) is stale the moment this
+    // replace lands — see countReconcile.ts.
+    beginFullBookReplace(bookId);
+    let replaceServerCount: unknown;
+    try {
+      const response = await fetch('/api/db/nodes/upsert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as any)?.content
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          book: bookId,
+          data: allNodes
+        })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      log.error('Failed to sync full book to PostgreSQL', '/paste/index.ts', errorText);
-      const syncError = new Error(`Full book sync failed: ${errorText}`);
-      (syncError as any).status = response.status;
-      throw syncError;
+      if (!response.ok) {
+        const errorText = await response.text();
+        log.error('Failed to sync full book to PostgreSQL', '/paste/index.ts', errorText);
+        const syncError = new Error(`Full book sync failed: ${errorText}`);
+        (syncError as any).status = response.status;
+        throw syncError;
+      }
+
+      const body = await response.json();
+      replaceServerCount = body?.server_node_count;
+    } finally {
+      endFullBookReplace(bookId, replaceServerCount);
     }
-
-    await response.json();
 
     // Push paste-seeded footnotes + references now. Their eager per-store syncs are
     // SKIPPED while a paste is in progress (see indexedDB/footnotes & bibliography):

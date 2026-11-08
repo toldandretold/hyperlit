@@ -98,6 +98,19 @@ Route::post('/openalex/save-to-library', [OpenAlexController::class, 'saveToLibr
     ->middleware('throttle:10,1,save-to-library');
 
 // OpenAlex citation lookup — requires authentication
+// Time machine: a book's full data as of a timestamp (for IndexedDB loading). PUBLIC for public
+// books — NodeHistoryController::getTimeMachineData already permits reading a public book
+// without ownership; behind `author` it 401'd every logged-out reader, which broke the pinned
+// licence link ("the terms this work was published under") for exactly the people it is for.
+// Private books still require ownership in-controller.
+Route::get('/books/{book}/timemachine-data', [NodeHistoryController::class, 'getTimeMachineData'])
+    ->middleware('throttle:timemachine-read');
+
+// Public: a reader's licence line resolves the work's licence BOOK (custom licences are books).
+Route::get('/license-books/{book}/info', [\App\Http\Controllers\LicenseBookController::class, 'info'])
+    ->where('book', '[A-Za-z0-9_-]+')
+    ->middleware('throttle:license-book-info');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/openalex/lookup-citation', [OpenAlexController::class, 'lookupCitation']);
 
@@ -117,6 +130,21 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/user/api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'store']);
         Route::delete('/user/api-tokens/{tokenId}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])
             ->whereNumber('tokenId');
+    });
+
+    // Custom licences are BOOKS (LicenseBookController): the picker's list, minting one from
+    // typed terms, a usage count for the delete/re-apply prompts, and re-apply. NAMED limiter.
+    // Reads and writes in SEPARATE buckets: every edit-form open fires a usage read, and in
+    // one shared bucket those reads 429'd the "Create licence page" button (licenses.spec).
+    Route::middleware('throttle:license-books-read')->group(function () {
+        Route::get('/license-books', [\App\Http\Controllers\LicenseBookController::class, 'index']);
+        Route::get('/license-books/{book}/usage', [\App\Http\Controllers\LicenseBookController::class, 'usage'])
+            ->where('book', '[A-Za-z0-9_-]+');
+    });
+    Route::middleware('throttle:license-books')->group(function () {
+        Route::post('/license-books', [\App\Http\Controllers\LicenseBookController::class, 'store']);
+        Route::post('/license-books/{book}/reapply', [\App\Http\Controllers\LicenseBookController::class, 'reapply'])
+            ->where('book', '[A-Za-z0-9_-]+');
     });
 
     // Billing
@@ -374,10 +402,14 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->middleware(['auth:sanctum', 'throttle:5,1,claim-premium']);
 
     /* ----------------  Unified Sync Endpoint  ---------------- */
+    // The editor's SAVE path gets its own NAMED bucket (rate-limiters review gate): in the
+    // group's inline throttle:120,1 it shared one per-user counter with every chunk/library/
+    // annotation read, so a reader moving between books could have their next edit 429'd
+    // (caught by tests/e2e/specs/workflows/licenses.spec.js). Same ceiling, own counter.
     Route::post(
         '/db/unified-sync',
         [UnifiedSyncController::class, 'sync']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:unified-sync');
 
     /* ----------------  Homepage / library stats  ---------------- */
     Route::get(
@@ -452,10 +484,14 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [DbHyperciteController::class, 'upsert']
     );
 
+    // Own NAMED bucket (rate-limiters review gate): in the group's inline throttle:120,1 it
+    // shared one per-user counter with every chunk/library/annotation read, so a user editing
+    // their library card (licence, citation) while moving between books got 429 on the SAVE —
+    // caught by tests/e2e/specs/workflows/licenses.spec.js.
     Route::post(
         '/db/library/upsert',
         [DbLibraryController::class, 'upsert']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:library-upsert');
 
     /* ----------------  Source verification ([check source])  ---------------- */
     // Owner-gated in-controller (mirrors /db/library/upsert). Look a book's citation identity up
@@ -628,11 +664,6 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         [NodeHistoryController::class, 'restoreBookToTimestamp']
     );
 
-    // Time machine: get full book data at a timestamp (for IndexedDB loading)
-    Route::get(
-        '/books/{book}/timemachine-data',
-        [NodeHistoryController::class, 'getTimeMachineData']
-    );
 
     /* ----------------  Scraper  ---------------- */
     Route::post('/scrape/novel/chapters', [ScrapeController::class, 'novelChapters']);

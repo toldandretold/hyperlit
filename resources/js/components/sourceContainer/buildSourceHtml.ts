@@ -13,7 +13,8 @@ import { sourceStatusSectionHtml, librarianSectionHtml, isCitationLinked } from 
 import { autoMetaIconHtml, proposalMountHtml } from './autoMetadata/card';
 import { buildVisibilityControlHtml, CHECK_SVG } from './visibilityControl';
 import { researchWorkflowsSectionHtml } from './researchWorkflows';
-import { licenseInfoFor } from './licenseInfo';
+import { fetchLicenseBookInfo, licenseLineHtml, licenseLinkFor } from './licenseInfo';
+import { licenseFieldsHtml } from './licensePicker';
 import type { LibraryRecord } from '../../indexedDB/types';
 
 /**
@@ -198,19 +199,11 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
   // toggle guards). Encryption row is omitted for sub-books inside the builder.
   const visibilityControlHtml = buildVisibilityControlHtml(record, canEdit, accessDenied);
 
-  // Get license info (shared vocabulary — covers harvested-source licenses too)
-  const license = record?.license || 'CC-BY-SA-4.0-NO-AI';
-  const licenseInfo = licenseInfoFor(license);
-  let licenseHtml = '';
-
-  if (licenseInfo.url) {
-    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px;">📄 <a href="${licenseInfo.url}" target="_blank" style="color: var(--color-label); text-decoration: underline;">${licenseInfo.short}</a></p>`;
-  } else if (license === 'custom' && record?.custom_license_text) {
-    const escapedText = record.custom_license_text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px; cursor: help;" title="${escapedText}">📄 ${licenseInfo.short}</p>`;
-  } else {
-    licenseHtml = `<p class="license-line" style="font-size: var(--sc-12); color: var(--color-label); margin-top: 10px;">📄 ${licenseInfo.short}</p>`;
-  }
+  // Licence line: a link wherever there is one to give (CC deed, the owner's licence BOOK —
+  // pinned to the terms this work was published under — or an upstream terms page). The
+  // licence-book lookup is public, cached per page, and falls back to the snapshot text.
+  const licenseBookInfo = record?.license_book ? await fetchLicenseBookInfo(record.license_book) : null;
+  const licenseHtml = licenseLineHtml(licenseLinkFor(record, licenseBookInfo), record);
 
   // Completeness badge: a harvested source can be a chapter/excerpt (partial) or
   // of unknown extent (unverified). Flag it so a reader — and citation review —
@@ -518,20 +511,8 @@ ${urlField}${publisherField}${journalField}${pagesField}${schoolField}${noteFiel
             <input type="text" id="edit-editor" name="editor" class="optional-field" style="display: none;" placeholder="Editor name(s)">
           </div>
 
-          <!-- License Section -->
-          <div class="form-section">
-            <label for="edit-license">Content License</label>
-            <select id="edit-license" name="license">
-              <option value="CC-BY-SA-4.0-NO-AI">CC BY-SA 4.0 (No AI Training) - Default</option>
-              <option value="CC-BY-4.0">CC BY 4.0 (Allows AI Training)</option>
-              <option value="CC-BY-NC-SA-4.0">CC BY-NC-SA 4.0 (Non-Commercial, No AI)</option>
-              <option value="CC0">CC0 (Public Domain)</option>
-              <option value="All-Rights-Reserved">All Rights Reserved (Private)</option>
-              <option value="custom">Custom License...</option>
-            </select>
-            <textarea id="edit-custom-license-text" name="custom_license_text" style="display:none; margin-top: 10px;" rows="4" placeholder="Enter your custom license terms..."></textarea>
-            <div class="field-hint">Choose how others can use your content. <a href="/LICENSE-CONTENT.md" target="_blank">Learn more</a></div>
-          </div>
+          <!-- Licence section (licensePicker.ts) -->
+${licenseFieldsHtml(record?.license)}
 
         </form>
       </div>

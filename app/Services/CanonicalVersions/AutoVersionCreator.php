@@ -5,7 +5,7 @@ namespace App\Services\CanonicalVersions;
 use App\Models\CanonicalSource;
 use App\Services\ContentFetchService;
 use App\Services\Metadata\MetadataDriftDetector;
-use App\Services\SourceHarvest\OaLicenseMapper;
+use App\Services\Licensing\WorkLicenseResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -193,23 +193,27 @@ class AutoVersionCreator
     }
 
     /**
-     * Map the imported copy's OpenAlex license onto the auto-version library row's
-     * `license` (+ `custom_license_text`). Prefers the license of the winning OA
-     * candidate (what we actually downloaded), falling back to the work's
-     * primary-location license; the no-license case is decided by OA status.
+     * Stamp the imported copy's licence onto the auto-version row (license +
+     * custom_license_text + license_url) via WorkLicenseResolver: the licence of the winning
+     * OA candidate (what we actually downloaded), then the work's own licence, then the
+     * journal's DOAJ licence, then OA status.
+     *
+     * The old `$fetchTrace['won_license'] ?? $canonical->work_license` let an EMPTY-STRING
+     * won_license mask a known work licence (`??` only skips null) — a CC BY work came out
+     * "Open access (unspecified)". The resolver skips blanks.
      *
      * @param array{won_license?: ?string} $fetchTrace
      */
     private function applyOaLicense(string $bookId, CanonicalSource $canonical, array $fetchTrace): void
     {
-        $slug = $fetchTrace['won_license'] ?? $canonical->work_license;
-        $mapped = OaLicenseMapper::toLibraryLicense($slug, $canonical->oa_status);
+        $mapped = WorkLicenseResolver::forCanonical($canonical, $fetchTrace['won_license'] ?? null);
 
         DB::connection('pgsql_admin')->table('library')
             ->where('book', $bookId)
             ->update([
                 'license'             => $mapped['license'],
                 'custom_license_text' => $mapped['custom_license_text'],
+                'license_url'         => $mapped['license_url'],
                 'updated_at'          => now(),
             ]);
     }
