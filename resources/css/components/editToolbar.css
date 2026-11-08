@@ -180,6 +180,22 @@
   opacity: 1;
   visibility: visible;
 }
+
+/* A modal side panel owns the screen while it is open: #source-container /
+   #archive-container dim the page (250vmax box-shadow) and trap focus, and the
+   editor toolbar can't act on anything behind them. The toolbar's z-index
+   (9999 here, 999999 on mobile) sat ABOVE the panel's 1001, so it covered the
+   panel's bottom #source-action-bar (like / shelf / share / edit card) and
+   floated undimmed over the shade. Step it aside rather than raise the panel —
+   lifting the panel past 999999 would bury the body-mounted popups it opens
+   (shelf picker, share panel). Out-specifies both .visible rules (desktop and
+   buttonsMobile.css), neither of which is !important. */
+body:has(#source-container.open) #edit-toolbar.visible,
+body:has(#archive-container.open) #edit-toolbar.visible {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 #edit-toolbar button.disabled {
   opacity: 0.3 !important;
   pointer-events: none !important;
