@@ -228,6 +228,14 @@ class AppServiceProvider extends ServiceProvider
                 ->by('book-create|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // Content writes (node/annotation/footnote/sub-book upserts, the full-book push, the
+        // unload beacon) — their OWN bucket, so page READS can't starve a save. Same 120/min
+        // ceiling they had in the shared group bucket.
+        \Illuminate\Support\Facades\RateLimiter::for('content-write', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('content-write|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // Library-card saves (POST /api/db/library/upsert) — the source panel's edit form and
         // the bulk library sync. Same ceiling as before, but its OWN bucket.
         \Illuminate\Support\Facades\RateLimiter::for('library-upsert', function ($request) {

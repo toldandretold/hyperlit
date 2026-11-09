@@ -433,20 +433,25 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     );
 
     /* ----------------  Bulk-create  ---------------- */
+    // Content WRITES ride their own NAMED bucket `content-write` (rate-limiters review gate).
+    // In the group's inline throttle:120,1 they shared one per-user counter with every chunk/
+    // library/annotation READ, so a user browsing while writing got 429 on the SAVE: the new
+    // book's first content push (/db/nodes/upsert from NewBookTransition) 429'd in
+    // nested-authoring-stress (2026-11-09) while licenses.spec hammered reads as the same user.
     Route::post(
         '/db/nodes/bulk-create',
         [DbNodeController::class, 'bulkCreate']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hyperlights/bulk-create',
         [DbHyperlightController::class, 'bulkCreate']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hypercites/bulk-create',
         [DbHyperciteController::class, 'bulkCreate']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     // Own NAMED bucket (rate-limiters review gate): the new-book create handshake. A 429 here
     // left the book with no library row on the server, and every later save 500'd.
@@ -459,32 +464,32 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post(
         '/db/nodes/upsert',
         [DbNodeController::class, 'upsert']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/nodes/targeted-upsert',
         [DbNodeController::class, 'targetedUpsert']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hyperlights/upsert',
         [DbHyperlightController::class, 'upsert']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hyperlights/delete',
         [DbHyperlightController::class, 'delete']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hyperlights/hide',
         [DbHyperlightController::class, 'hide']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/hypercites/upsert',
         [DbHyperciteController::class, 'upsert']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     // Own NAMED bucket (rate-limiters review gate): in the group's inline throttle:120,1 it
     // shared one per-user counter with every chunk/library/annotation read, so a user editing
@@ -530,7 +535,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post(
         '/db/library/update-timestamp',
         [DbLibraryController::class, 'updateTimestamp']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::post(
         '/db/library/set-slug',
@@ -562,7 +567,7 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     Route::post(
         '/db/sync/beacon',
         [BeaconSyncController::class, 'handleSync']
-    );
+    )->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     Route::delete('/books/{book}', [DbLibraryController::class, 'destroy'])->middleware('auth:sanctum');
 
@@ -619,15 +624,15 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
     )->where('book', '.+')->where('hyperlightId', 'HL_[A-Za-z0-9]+')
         ->withoutMiddleware('author');
 
-    Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert']);
-    Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences']);
+    Route::post('/db/footnotes/upsert', [DbFootnoteController::class, 'upsert'])->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
+    Route::post('/db/references/upsert', [DbReferencesController::class, 'upsertReferences'])->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     /* ----------------  Sub-Books  ---------------- */
-    Route::post('/db/sub-books/create', [SubBookController::class, 'create']);
-    Route::post('/db/sub-books/migrate-existing', [SubBookController::class, 'migrateExisting']);
+    Route::post('/db/sub-books/create', [SubBookController::class, 'create'])->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
+    Route::post('/db/sub-books/migrate-existing', [SubBookController::class, 'migrateExisting'])->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
     // Per-highlight privacy: flip a hyperlight's annotation sub-book visibility
     // (highlight-creator-only; see SubBookController::setVisibility).
-    Route::post('/db/sub-books/visibility', [SubBookController::class, 'setVisibility']);
+    Route::post('/db/sub-books/visibility', [SubBookController::class, 'setVisibility'])->withoutMiddleware('throttle:120,1')->middleware('throttle:content-write');
 
     /* ----------------  Node History / Version Control  ---------------- */
     // Get all versions of a specific node
