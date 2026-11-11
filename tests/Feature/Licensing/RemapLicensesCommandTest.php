@@ -71,3 +71,16 @@ test('an assumed 4.0 only ever loses its version — never changes family, never
     expect(remapLicense('remap_vague')['license'])->toBe('CC-BY-NC-ND-4.0');
     expect(remapLicense('remap_won')['license'])->toBe('CC-BY-4.0');
 });
+
+test('a user upload they VERIFIED as a published work is repaired; an unverified upload is their own writing', function () {
+    remapSeed('remap_verified_upload', ['creator' => 'someone', 'canonical_match_method' => 'user_verified', 'work_license' => 'cc-by', 'oa_status' => 'hybrid']);
+    remapSeed('remap_plain_upload', ['creator' => 'someone']);
+    remapSeed('remap_verified_chosen', ['creator' => 'someone', 'canonical_match_method' => 'user_verified', 'license_source' => 'user', 'work_license' => 'cc-by']);
+
+    $this->artisan('library:remap-licenses', ['--book' => ['remap_verified_upload', 'remap_plain_upload', 'remap_verified_chosen'], '--apply' => true])
+        ->assertSuccessful();
+
+    expect(remapLicense('remap_verified_upload')['license'])->toBe('CC-BY');
+    expect(remapLicense('remap_plain_upload')['license'])->toBe('CC-BY-SA-4.0-NO-AI');
+    expect(remapLicense('remap_verified_chosen')['license'])->toBe('CC-BY-SA-4.0-NO-AI');
+});

@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Models\CanonicalSource;
 use App\Models\PgLibrary;
+use App\Services\Licensing\LicenseDiscovery;
+use App\Services\Licensing\WorkLicenseResolver;
+use App\Support\Licenses;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -284,9 +287,39 @@ class CanonicalSourceMatcher
                 // refresh the display bibtex so the source panel's citation reflects the verified work
                 'bibtex'              => $normalised['bibtex'] ?? $library->bibtex,
                 'updated_at'          => $now,
-            ]);
+            ] + self::licenceOnVerify($library, $canonical));
 
         return $canonical;
+    }
+
+    /**
+     * The user just confirmed this book IS a published work, so the site default (CC BY-SA No-AI —
+     * the licence for a user's OWN writing) cannot be its licence. Replace an untouched default
+     * with what the work's metadata says (WorkLicenseResolver), or "Licence unknown" so
+     * `library:discover-licenses` looks it up. A licence the owner actually chose
+     * (license_source = user, or any non-default code) is never touched.
+     */
+    private static function licenceOnVerify(PgLibrary $library, CanonicalSource $canonical): array
+    {
+        $current = trim((string) $library->license);
+        if (($current !== '' && $current !== Licenses::DEFAULT_USER) || $library->license_source === LicenseDiscovery::SOURCE_USER) {
+            return [];
+        }
+        $candidates = [$canonical->work_license, WorkLicenseResolver::journalLicense($canonical->journal_source_id ?? null)];
+        $hasEvidence = array_filter($candidates, fn ($c) => trim((string) $c) !== '') || trim((string) $canonical->oa_status) !== '';
+        $new = $hasEvidence
+            ? WorkLicenseResolver::resolve($candidates, $canonical->oa_status)
+            : ['license' => Licenses::UNKNOWN, 'custom_license_text' => null, 'license_url' => null];
+
+        return [
+            'license' => $new['license'],
+            'custom_license_text' => $new['custom_license_text'] ?? null,
+            'license_url' => $new['license_url'] ?? null,
+            'license_source' => $new['license'] === Licenses::UNKNOWN ? null : LicenseDiscovery::SOURCE_REMAP,
+            // NOT library.timestamp: the owner is mid-session, and moving their content clock
+            // would make their next node sync look stale (409). The verify response carries the
+            // licence back to their local record instead.
+        ];
     }
 
     /**

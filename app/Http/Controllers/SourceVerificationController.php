@@ -147,6 +147,10 @@ class SourceVerificationController extends Controller
             'canonical_match_score'    => $l->canonical_match_score !== null ? (float) $l->canonical_match_score : null,
             'canonical_metadata_score' => $l->canonical_metadata_score !== null ? (float) $l->canonical_metadata_score : null,
             'human_reviewed_at'        => $l->human_reviewed_at,
+            // verify replaces an untouched site-default licence (see CanonicalSourceMatcher::licenceOnVerify)
+            'license'                  => $l->license,
+            'custom_license_text'      => $l->custom_license_text,
+            'license_url'              => $l->license_url,
         ];
     }
 }

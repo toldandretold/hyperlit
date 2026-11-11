@@ -94,7 +94,8 @@ class RemapLicensesCommand extends Command
                 $tally[$key] = ($tally[$key] ?? 0) + 1;
                 $changed++;
                 if ($apply) {
-                    $db->table('library')->where('book', $row->book)->update(['license' => $family, 'license_source' => $source, 'updated_at' => now()]);
+                    $db->table('library')->where('book', $row->book)->update(['license' => $family, 'license_source' => $source, 'updated_at' => now(), 'timestamp' => self::nowMs()]);
+                    self::invalidate($row->book);
                 }
                 if ($limit && $changed >= $limit) {
                     break;
@@ -131,7 +132,8 @@ class RemapLicensesCommand extends Command
             $tally[$key] = ($tally[$key] ?? 0) + 1;
             $changed++;
             if ($apply) {
-                $db->table('library')->where('book', $row->book)->update($new + ['license_source' => $source, 'updated_at' => now()]);
+                $db->table('library')->where('book', $row->book)->update($new + ['license_source' => $source, 'updated_at' => now(), 'timestamp' => self::nowMs()]);
+                self::invalidate($row->book);
             }
             if ($limit && $changed >= $limit) {
                 break;
@@ -178,5 +180,20 @@ class RemapLicensesCommand extends Command
         $hit = is_string($won) ? OaLicenseMapper::parse($won) : null;
 
         return $hit !== null && Licenses::statesVersion($hit['license']);
+    }
+
+    /** Move the content clock so open readers re-fetch the library row (and its new licence). */
+    private static function nowMs(): int
+    {
+        return (int) round(microtime(true) * 1000);
+    }
+
+    private static function invalidate(string $book): void
+    {
+        try {
+            app(\App\Services\BookCache::class)->invalidate($book);
+        } catch (\Throwable) {
+            // best effort — the prerender rebuilds once the timestamp moved
+        }
     }
 }

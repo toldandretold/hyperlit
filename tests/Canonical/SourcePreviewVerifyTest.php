@@ -273,3 +273,30 @@ test('ingestExternal backfills missing OA fields on an existing canonical (no ov
     expect($row->pdf_url)->toBe('https://example.org/canonv.pdf');                  // backfilled from candidate
     expect($row->work_license)->toBe('cc-by');                                      // curated value preserved
 });
+
+test('verifying an upload as a published work replaces the untouched site-default licence, never a chosen one', function () {
+    $this->mock(OpenAlexService::class, fn ($m) => $m->shouldReceive('metadataScore')->andReturn(['score' => 0.9]));
+    $matcher = app(CanonicalSourceMatcher::class);
+
+    // Untouched default + work metadata names a licence → that licence.
+    $lib = spvLibrary(['license' => 'CC-BY-SA-4.0-NO-AI', 'license_source' => null]);
+    $matcher->verifyAndLink($lib, canonvNormalisedWork(['openalex_id' => 'W_canonv_lic_1', 'doi' => '10.9999/canonv-lic-1', 'title' => 'CanonV Licence Case 1', 'work_license' => 'cc-by-nc']), 'tester');
+    $row = canonvDb()->table('library')->where('book', $lib->book)->first();
+    expect($row->license)->toBe('CC-BY-NC');
+    expect($row->license_source)->toBe('remap');
+
+    // Untouched default, no licence evidence at all → Unknown (discovery will look it up).
+    $lib2 = spvLibrary(['license' => 'CC-BY-SA-4.0-NO-AI', 'license_source' => null]);
+    $matcher->verifyAndLink($lib2, canonvNormalisedWork(['openalex_id' => 'W_canonv_lic_2', 'doi' => '10.9999/canonv-lic-2', 'title' => 'CanonV Licence Case 2', 'work_license' => null, 'oa_status' => null]), 'tester');
+    expect(canonvDb()->table('library')->where('book', $lib2->book)->value('license'))->toBe('Unknown');
+
+    // The owner chose the default themselves → left alone.
+    $lib3 = spvLibrary(['license' => 'CC-BY-SA-4.0-NO-AI', 'license_source' => 'user']);
+    $matcher->verifyAndLink($lib3, canonvNormalisedWork(['openalex_id' => 'W_canonv_lic_3', 'doi' => '10.9999/canonv-lic-3', 'title' => 'CanonV Licence Case 3', 'work_license' => 'cc-by']), 'tester');
+    expect(canonvDb()->table('library')->where('book', $lib3->book)->value('license'))->toBe('CC-BY-SA-4.0-NO-AI');
+
+    // Any other stored licence → left alone.
+    $lib4 = spvLibrary(['license' => 'All-Rights-Reserved', 'license_source' => null]);
+    $matcher->verifyAndLink($lib4, canonvNormalisedWork(['openalex_id' => 'W_canonv_lic_4', 'doi' => '10.9999/canonv-lic-4', 'title' => 'CanonV Licence Case 4', 'work_license' => 'cc-by']), 'tester');
+    expect(canonvDb()->table('library')->where('book', $lib4->book)->value('license'))->toBe('All-Rights-Reserved');
+});

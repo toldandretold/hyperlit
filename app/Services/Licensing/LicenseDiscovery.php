@@ -361,7 +361,10 @@ class LicenseDiscovery
     {
         $q->where(function ($w) use ($alias) {
             $w->whereIn("{$alias}.creator", self::SYSTEM_CREATORS)
-                ->orWhereRaw("{$alias}.raw_json->>'imported_via' = 'url'");
+                ->orWhereRaw("{$alias}.raw_json->>'imported_via' = 'url'")
+                // A user's upload they have VERIFIED as a published work (the uploaded PDF of
+                // someone's article) — it is somebody else's text, not the uploader's writing.
+                ->orWhere("{$alias}.canonical_match_method", 'user_verified');
         })
             ->where("{$alias}.book", 'not like', '%/%')
             ->whereRaw("{$alias}.book not like 'shelf\\_%'");
