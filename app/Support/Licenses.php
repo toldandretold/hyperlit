@@ -26,6 +26,12 @@ final class Licenses
 
     public const CUSTOM = 'custom';
 
+    /**
+     * arXiv's default: the author grants arXiv (only) a perpetual right to distribute. Not an
+     * open licence — it says nothing about anyone else redistributing the paper.
+     */
+    public const ARXIV_NONEXCLUSIVE = 'arXiv-Nonexclusive';
+
     /** CC term sets, in the order the picker lists them. */
     private const CC_TERMS = [
         'BY'       => 'by',
@@ -64,6 +70,15 @@ final class Licenses
         ];
 
         foreach (self::CC_TERMS as $code => $path) {
+            // The family with NO version: what upstream gives when it says only "cc-by"
+            // (OpenAlex/Unpaywall slugs). Stating a version we were never told would be a
+            // claim about the work we can't back, so it links the current deed and says so.
+            $all["CC-{$code}"] = [
+                'label' => "CC {$code} (version not stated)",
+                'url' => "https://creativecommons.org/licenses/{$path}/4.0/",
+                'selectable' => false,
+                'group' => 'cc',
+            ];
             foreach (self::CC_VERSIONS as $v) {
                 $all["CC-{$code}-{$v}"] = [
                     'label' => "CC {$code} {$v}",
@@ -91,6 +106,12 @@ final class Licenses
                 'label' => 'All rights reserved',
                 'url' => null,
                 'selectable' => true,
+                'group' => 'other',
+            ],
+            self::ARXIV_NONEXCLUSIVE => [
+                'label' => 'arXiv licence (non-exclusive distribution)',
+                'url' => 'http://arxiv.org/licenses/nonexclusive-distrib/1.0/',
+                'selectable' => false,
                 'group' => 'other',
             ],
             'Publisher-Open' => [
@@ -172,7 +193,11 @@ final class Licenses
         return $url;
     }
 
-    /** CC code for a term path + version, e.g. ('by-nc', '3.0') → 'CC-BY-NC-3.0'. Null if unknown. */
+    /**
+     * CC code for a term path + version, e.g. ('by-nc', '3.0') → 'CC-BY-NC-3.0'. No (or an
+     * unrecognisable) version → the version-less family code ('CC-BY-NC') — never an assumed
+     * 4.0. Null if the term set is unknown.
+     */
     public static function ccCode(string $termPath, ?string $version): ?string
     {
         $termPath = strtolower($termPath);
@@ -180,12 +205,23 @@ final class Licenses
         if ($code === false) {
             return null;
         }
-        $v = $version ?: '4.0';
-        if (! in_array($v, self::CC_VERSIONS, true)) {
-            // e.g. "4" → "4.0"; anything else falls back to the unversioned default.
-            $v = in_array("{$v}.0", self::CC_VERSIONS, true) ? "{$v}.0" : '4.0';
+        $v = (string) $version;
+        if ($v !== '' && ! in_array($v, self::CC_VERSIONS, true)) {
+            $v = in_array("{$v}.0", self::CC_VERSIONS, true) ? "{$v}.0" : ''; // "4" → "4.0"
         }
 
-        return "CC-{$code}-{$v}";
+        return $v === '' ? "CC-{$code}" : "CC-{$code}-{$v}";
+    }
+
+    /** True for a CC code that states its version (CC-BY-4.0), false for a family code (CC-BY). */
+    public static function statesVersion(string $code): bool
+    {
+        return ! preg_match('/^CC-BY(?:-NC)?(?:-SA|-ND)?$/', $code);
+    }
+
+    /** The version-less family of a versioned CC code (CC-BY-NC-3.0 → CC-BY-NC); null otherwise. */
+    public static function ccFamily(string $code): ?string
+    {
+        return preg_match('/^(CC-BY(?:-NC)?(?:-SA|-ND)?)-\d\.\d$/', $code, $m) ? $m[1] : null;
     }
 }

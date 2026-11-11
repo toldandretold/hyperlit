@@ -104,6 +104,23 @@ class OaLicenseMapper
             return null;
         }
 
+        // ── arXiv's own licences (not open: arXiv alone may distribute) ─────────────
+        if (preg_match('#arxiv\.org/licenses/(nonexclusive-distrib|assumed-1991-2003)#', $s)) {
+            return self::hit(Licenses::ARXIV_NONEXCLUSIVE, $raw);
+        }
+
+        // ── Publisher terms URLs (what Crossref `license[]` carries for paywalled VoRs) ─
+        // Elsevier's open-archive user licence = free to read under publisher terms; its TDM
+        // licence and the other publishers' standard terms are the ordinary copyright terms.
+        if (str_contains($s, 'elsevier.com/open-access/userlicense')) {
+            return self::hit('Publisher-Open', $raw);
+        }
+        // Only patterns we are sure of; any other terms URL stays `custom` carrying its link,
+        // which is honest — a guessed "all rights reserved" would not be.
+        if (preg_match('#elsevier\.com/tdm/userlicense|springer\.com/tdm|springernature\.com/gp/researchers/text-and-data-mining|wiley\.com/termsandconditions|wiley\.com/10\.1002/tdm_license|ieeexplore\.ieee\.org/xplorehelp/downloads/license-information/ieee\.html|cambridge\.org/core/terms|acm\.org/publications/policies/copyright_policy#', $s)) {
+            return self::hit('All-Rights-Reserved', $raw);
+        }
+
         // ── Public domain ──────────────────────────────────────────────────────────
         // Gutenberg: "Public domain in the USA." Slugs: pd, pdm, public-domain, publicdomain.
         if (preg_match('/\bpublic[\s_-]?domain\b/', $s) || in_array($s, ['pd', 'pdm', 'public domain mark'], true)) {
@@ -145,7 +162,7 @@ class OaLicenseMapper
             return self::hit('Publisher-Open');
         }
         if (in_array($s, ['other-oa', 'unspecified-oa', 'other', 'implied-oa'], true)
-            || str_contains($s, 'info:eu-repo/semantics/openaccess')
+            || preg_match('#info:eu[\s_-]?repo/semantics/openaccess#', $s)
         ) {
             return self::hit('Open-Unspecified');
         }
@@ -182,9 +199,15 @@ class OaLicenseMapper
         return 'by' . ($nc ? '-nc' : '') . ($sa ? '-sa' : '') . ($nd ? '-nd' : '');
     }
 
-    /** @return array{license: string, custom_license_text: null, license_url: null} */
-    private static function hit(string $code): array
+    /**
+     * @param  ?string  $termsUrl  kept as `license_url` when the code has no deed of its own
+     *                             (publisher terms, arXiv), so the reader can still follow it
+     * @return array{license: string, custom_license_text: null, license_url: ?string}
+     */
+    private static function hit(string $code, ?string $termsUrl = null): array
     {
-        return ['license' => $code, 'custom_license_text' => null, 'license_url' => null];
+        $url = ($termsUrl !== null && preg_match('#^https?://#i', trim($termsUrl))) ? mb_substr(trim($termsUrl), 0, 1000) : null;
+
+        return ['license' => $code, 'custom_license_text' => null, 'license_url' => $url];
     }
 }

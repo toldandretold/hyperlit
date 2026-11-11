@@ -48,6 +48,8 @@ class PgLibrary extends Model
         'license_url',
         'license_book',
         'license_book_at',
+        'license_source',
+        'license_checked_at',
         'timestamp',
         'annotations_updated_at',
         'title',

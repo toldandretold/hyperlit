@@ -9,6 +9,7 @@ use App\Models\PgHyperlight;
 use App\Models\PgLibrary;
 use App\Models\AnonymousSession;
 use App\Services\BookDeletionService;
+use App\Services\Commoner\CommonerScoreService;
 use App\Services\Notifications\NotificationWriter;
 use App\Services\Security\NodeHtmlSanitizer;
 use Illuminate\Http\Request;
@@ -617,6 +618,7 @@ class DbHyperlightController extends Controller
                 $deletedCount = 0;
                 $deletedBookIds = [];
                 $deletedSubBookIds = [];
+                $scoredSuggesters = []; // suggesters whose accepted/liked row is being deleted
 
                 foreach ($data['data'] as $index => $item) {
                     // Find the existing record to check permissions
@@ -651,6 +653,12 @@ class DbHyperlightController extends Controller
                     // Capture sub_book_id before deleting
                     $subBookId = $existingRecord->sub_book_id;
                     $bookId = $existingRecord->book;
+                    // Deleting an accepted/liked suggestion removes the hectares
+                    // it earned its (named) suggester — recompute them below.
+                    if ($existingRecord->creator !== null
+                        && in_array($existingRecord->suggestion_status, ['accepted', 'liked'], true)) {
+                        $scoredSuggesters[$existingRecord->creator] = true;
+                    }
                     $existingRecord->delete();
                     $deletedCount++;
                     if ($bookId) {
@@ -688,6 +696,13 @@ class DbHyperlightController extends Controller
                 // Bump annotations_updated_at server-side so readers drop the
                 // deleted highlight on next open (see upsert note).
                 $this->updateAnnotationsTimestamp($deletedBookIds);
+
+                // Un-credit suggesters whose accepted/liked suggestion just
+                // vanished (afterCommit — deadlock guard, pgsql_admin write).
+                if (!empty($scoredSuggesters)) {
+                    $suggesters = array_keys($scoredSuggesters);
+                    DB::afterCommit(fn () => app(CommonerScoreService::class)->recompute($suggesters));
+                }
 
                 Log::info('DbHyperlightController::delete - Success', [
                     'records_deleted' => $deletedCount,
@@ -1016,7 +1031,7 @@ class DbHyperlightController extends Controller
             $row = DB::connection('pgsql_admin')->table('hyperlights')
                 ->where('book', $bookId)
                 ->where('hyperlight_id', $hyperlightId)
-                ->first(['suggestion_status']);
+                ->first(['suggestion_status', 'creator', 'suggested_text']);
 
             if (!$row) {
                 return response()->json(['error' => 'Hyperlight not found.'], 404);
@@ -1048,6 +1063,34 @@ class DbHyperlightController extends Controller
 
             // Readers re-pull annotations on next open.
             $this->updateAnnotationsTimestamp([$bookId]);
+
+            // Reward the SUGGESTER (named users only — an anon suggester has no
+            // account to credit). Every transition changes accepted/liked
+            // membership, so recompute their commoner score unconditionally
+            // (recompute-from-state: revert/reopen un-credit automatically);
+            // the notification fires on accept/like only (positive-sum).
+            $suggester = $row->creator;
+            if ($suggester !== null) {
+                $decoded = is_string($row->suggested_text)
+                    ? json_decode($row->suggested_text, true)
+                    : $row->suggested_text;
+                $snippet = null;
+                if (is_array($decoded) && !isset($decoded['__hlenc__'])) {
+                    $firstPair = reset($decoded) ?: null;
+                    $snippet = is_array($firstPair) ? ($firstPair['after'] ?? null) : null;
+                }
+                NotificationWriter::suggestionResolved(
+                    $suggester,
+                    $user?->name,
+                    $bookId,
+                    $hyperlightId,
+                    $resolution,
+                    $snippet,
+                );
+                // afterCommit (deadlock guard): the recompute writes on
+                // pgsql_admin; runs immediately here as no transaction is open.
+                DB::afterCommit(fn () => app(CommonerScoreService::class)->recompute([$suggester]));
+            }
 
             Log::info('Suggested edit resolved', [
                 'book' => $bookId,

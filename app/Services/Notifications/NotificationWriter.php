@@ -23,8 +23,21 @@ use Illuminate\Support\Facades\Log;
  * upserts, and a replay must not re-notify.
  *
  * Recipients are logged-in owners only (v1): an anon-owned book (creator NULL)
- * produces no row. Anonymous ACTORS do notify (actor NULL renders "Someone").
- * Self-events (actor === recipient) are skipped.
+ * produces no row. Anonymous ACTORS notify by default (actor NULL renders
+ * "Someone"). Self-events (actor === recipient) are skipped.
+ *
+ * RECIPIENT CONTROLS (allowed(), checked in insert() so every trigger — the
+ * sync endpoints, offline replays, MCP — passes through one gate): the
+ * recipient's users.preferences can switch off each type (PREFERENCE_KEYS),
+ * silence anonymous actors (notify_anonymous), and mute named actors
+ * (notify_muted, written only by NotificationController::mute). On top of
+ * that a FLOOD CAP drops anything past FLOOD_CAP_PER_HOUR rows from one actor
+ * to one recipient within the last hour — even for owners who never touch
+ * their settings. Every anonymous actor is the same NULL actor, so the cap
+ * meters anonymous activity per recipient AS A GROUP; that is deliberate
+ * (anon sessions are free to mint, so per-session caps are no cap at all) and
+ * the anonymous toggle is the owner's escape hatch. terms_published is a legal
+ * notice and bypasses every control.
  */
 class NotificationWriter
 {
@@ -33,6 +46,25 @@ class NotificationWriter
     public const TYPE_LIKE = 'like';
     public const TYPE_TERMS_PUBLISHED = 'terms_published';
     public const TYPE_SUGGESTED_EDIT = 'suggested_edit';
+    public const TYPE_SUGGESTION_ACCEPTED = 'suggestion_accepted';
+    public const TYPE_SUGGESTION_LIKED = 'suggestion_liked';
+
+    /** users.preferences key that switches each recipient-controllable type off (absent = on). */
+    public const PREFERENCE_KEYS = [
+        self::TYPE_HYPERLIGHT => 'notify_hyperlight',
+        self::TYPE_SUGGESTED_EDIT => 'notify_suggested_edit',
+        self::TYPE_HYPERCITE_PAIRED => 'notify_hypercite',
+        self::TYPE_LIKE => 'notify_like',
+    ];
+
+    /** users.preferences key: false = anonymous actors never notify (absent = on). */
+    public const PREF_ANONYMOUS = 'notify_anonymous';
+
+    /** users.preferences key: list of usernames whose activity never notifies. */
+    public const PREF_MUTED = 'notify_muted';
+
+    /** Rows from ONE actor to ONE recipient within the trailing hour, past which the rest are dropped. */
+    public const FLOOD_CAP_PER_HOUR = 20;
 
     /**
      * The terms-of-service announcement (terms:announce) — the one SYSTEM
@@ -108,6 +140,7 @@ class NotificationWriter
             return;
         }
         self::deferred(function () use ($actor, $book, $hyperlightId, $snippet) {
+            $written = false;
             $recipient = self::writeForBookOwner(
                 type: self::TYPE_SUGGESTED_EDIT,
                 actor: $actor,
@@ -115,8 +148,12 @@ class NotificationWriter
                 subjectId: $hyperlightId,
                 citingRef: null,
                 snippet: $snippet,
+                written: $written,
             );
-            if ($recipient !== null) {
+            // Retract the plain-highlight row ONLY when the suggestion row
+            // actually replaced it — with suggested edits switched off (or the
+            // actor capped) the owner must keep the highlight notice they had.
+            if ($recipient !== null && $written) {
                 DB::connection('pgsql_admin')->table('notifications')
                     ->where('recipient', $recipient)
                     ->where('type', self::TYPE_HYPERLIGHT)
@@ -124,6 +161,45 @@ class NotificationWriter
                     ->where('subject_id', $hyperlightId)
                     ->delete();
             }
+        });
+    }
+
+    /**
+     * A suggested edit was ACCEPTED or LIKED by the book's owner — tell the
+     * SUGGESTER. The INVERSE direction from every other notification here
+     * (which tell a book owner about activity on their book): this one rewards
+     * a CONTRIBUTOR, so recipient = the suggestion's creator and actor = the
+     * resolving book owner. Reject / revert / reopen stay silent (positive-sum
+     * — a declined suggestion must not read as a reprimand). An anonymous
+     * suggester (null) or a self-suggestion (suggester === owner) produces no
+     * row. Deferred + dedup'd like the rest.
+     */
+    public static function suggestionResolved(
+        ?string $suggester,
+        ?string $bookOwner,
+        string $book,
+        string $hyperlightId,
+        string $resolution,
+        ?string $snippet = null,
+    ): void {
+        $type = match ($resolution) {
+            'accepted' => self::TYPE_SUGGESTION_ACCEPTED,
+            'liked' => self::TYPE_SUGGESTION_LIKED,
+            default => null, // reject / revert / reopen (→ pending): silent
+        };
+        if ($type === null || $suggester === null || $suggester === $bookOwner) {
+            return;
+        }
+        self::deferred(function () use ($suggester, $bookOwner, $type, $book, $hyperlightId, $snippet) {
+            self::insert(
+                recipient: $suggester,
+                actor: $bookOwner,
+                type: $type,
+                book: $book,
+                subjectId: $hyperlightId,
+                citingRef: null,
+                data: self::buildSuggesterData($book, $snippet),
+            );
         });
     }
 
@@ -321,8 +397,9 @@ class NotificationWriter
 
     /**
      * Resolve the owner of $book and insert one row. Returns the recipient
-     * username when a row was attempted, null when skipped (anon owner /
-     * self-event / unknown book).
+     * username when one was resolved, null when skipped (anon owner /
+     * self-event / unknown book). $written reports whether the row passed the
+     * recipient's controls — a resolved recipient may still have suppressed it.
      */
     private static function writeForBookOwner(
         string $type,
@@ -331,7 +408,9 @@ class NotificationWriter
         ?string $subjectId,
         ?string $citingRef,
         ?string $snippet,
+        bool &$written = false,
     ): ?string {
+        $written = false;
         $library = DB::connection('pgsql_admin')->table('library')
             ->where('book', $book)
             ->first(['creator']);
@@ -341,7 +420,7 @@ class NotificationWriter
             return null;
         }
 
-        self::insert(
+        $written = self::insert(
             recipient: $recipient,
             actor: $actor,
             type: $type,
@@ -354,6 +433,11 @@ class NotificationWriter
         return $recipient;
     }
 
+    /**
+     * Insert one row unless the recipient's controls suppress it. Returns
+     * false when suppressed, true when the INSERT was issued (it may still
+     * dedupe to nothing — that is a replay, not a suppression).
+     */
     private static function insert(
         string $recipient,
         ?string $actor,
@@ -362,7 +446,11 @@ class NotificationWriter
         ?string $subjectId,
         ?string $citingRef,
         array $data,
-    ): void {
+    ): bool {
+        if (! self::allowed($recipient, $actor, $type)) {
+            return false;
+        }
+
         DB::connection('pgsql_admin')->statement(
             'INSERT INTO notifications (recipient, actor, type, book, root_book, subject_id, citing_ref, data)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -378,6 +466,58 @@ class NotificationWriter
                 json_encode($data),
             ]
         );
+
+        return true;
+    }
+
+    /**
+     * The recipient's controls — see the class docblock. Reads on pgsql_admin
+     * with an EXACT users.name match: the recipient is a stored creator name,
+     * which is what RLS compares (never the case-folded URL key).
+     */
+    private static function allowed(string $recipient, ?string $actor, string $type): bool
+    {
+        if ($type === self::TYPE_TERMS_PUBLISHED) {
+            return true;
+        }
+
+        $raw = DB::connection('pgsql_admin')->table('users')
+            ->where('name', $recipient)
+            ->value('preferences');
+        $prefs = is_string($raw) ? (json_decode($raw, true) ?: []) : (is_array($raw) ? $raw : []);
+
+        $typeKey = self::PREFERENCE_KEYS[$type] ?? null;
+        if ($typeKey !== null && ($prefs[$typeKey] ?? true) === false) {
+            return false;
+        }
+        if ($actor === null && ($prefs[self::PREF_ANONYMOUS] ?? true) === false) {
+            return false;
+        }
+        if ($actor !== null && in_array($actor, (array) ($prefs[self::PREF_MUTED] ?? []), true)) {
+            return false;
+        }
+
+        $recent = DB::connection('pgsql_admin')->table('notifications')
+            ->where('recipient', $recipient)
+            ->when(
+                $actor === null,
+                fn ($q) => $q->whereNull('actor'),
+                fn ($q) => $q->where('actor', $actor),
+            )
+            ->where('created_at', '>', now()->subHour())
+            ->count();
+        if ($recent >= self::FLOOD_CAP_PER_HOUR) {
+            Log::info('Notification dropped: flood cap', [
+                'recipient' => $recipient,
+                'actor' => $actor,
+                'type' => $type,
+                'recent' => $recent,
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -408,6 +548,29 @@ class NotificationWriter
 
         return [
             'context_label' => $label,
+            'root_title' => $title,
+            'snippet' => $snippet !== null ? mb_substr(trim(strip_tags($snippet)), 0, 160) : null,
+        ];
+    }
+
+    /**
+     * Context for a SUGGESTER-facing notification. buildData() says "your book",
+     * which is wrong here — the recipient does NOT own the book — so this reads
+     * "on “Title”" instead (full line: "<owner> accepted your suggested edit on
+     * “Title”").
+     */
+    private static function buildSuggesterData(string $book, ?string $snippet): array
+    {
+        $rootBook = ConnectionCountQuery::rootBook($book);
+        $title = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $rootBook)
+            ->value('title');
+        $title = $title !== null ? trim(strip_tags((string) $title)) : null;
+
+        return [
+            'context_label' => $title !== null && $title !== ''
+                ? 'on “' . mb_substr($title, 0, 120) . '”'
+                : 'on a book',
             'root_title' => $title,
             'snippet' => $snippet !== null ? mb_substr(trim(strip_tags($snippet)), 0, 160) : null,
         ];

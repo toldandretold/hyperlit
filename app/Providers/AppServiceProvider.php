@@ -212,6 +212,13 @@ class AppServiceProvider extends ServiceProvider
                 ->by('api-tokens|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // Notification mute/unmute (the panel's per-row "Mute" + the settings
+        // list's "Unmute"). Named so the shared inline bucket can't 429 a mute.
+        \Illuminate\Support\Facades\RateLimiter::for('notification-mute', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(30)
+                ->by('notification-mute|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // The editor's unified sync (POST /api/db/unified-sync) — its own bucket so page reads
         // can never starve a save.
         \Illuminate\Support\Facades\RateLimiter::for('unified-sync', function ($request) {

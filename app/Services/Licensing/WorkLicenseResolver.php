@@ -4,6 +4,7 @@ namespace App\Services\Licensing;
 
 use App\Models\CanonicalSource;
 use App\Services\SourceHarvest\OaLicenseMapper;
+use App\Support\Licenses;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -34,6 +35,7 @@ class WorkLicenseResolver
     public static function resolve(array $candidates, ?string $oaStatus = null): array
     {
         $firstUnrecognised = null;
+        $familyHit = null;
 
         foreach ($candidates as $raw) {
             $raw = trim((string) $raw);
@@ -41,9 +43,23 @@ class WorkLicenseResolver
                 continue;
             }
             if ($hit = OaLicenseMapper::parse($raw)) {
-                return $hit;
+                if ($familyHit === null) {
+                    if (Licenses::statesVersion($hit['license'])) {
+                        return $hit;
+                    }
+                    // "cc-by" says the family but not the version: a later candidate that
+                    // states a version of the SAME family completes it (never a different one).
+                    $familyHit = $hit;
+                } elseif (Licenses::ccFamily($hit['license']) === $familyHit['license']) {
+                    return $hit;
+                }
+
+                continue;
             }
             $firstUnrecognised ??= $raw;
+        }
+        if ($familyHit !== null) {
+            return $familyHit;
         }
 
         if ($firstUnrecognised !== null) {

@@ -117,6 +117,7 @@ export function getProfileHTML(emailVerified = true): string {
       </button>`;
   return `
     <div class="user-profile">
+      <div id="commonerHectares" class="commoner-hectares" hidden title="Hectares of the knowledge commons you've tilled — earned when the creator of a book accepts or likes a suggested edit of yours. Private to you."></div>
       <button id="myBooksBtn" class="menu-row-btn">
         ${ICON_LIBRARY}
         My Library

@@ -123,3 +123,12 @@ Schedule::command('embeddings:reconcile')
     ->dailyAt('04:30')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Licence discovery: look up the real licence of third-party works stored as Unknown /
+// open-unspecified / version-less / status-inferred (Crossref, DataCite, OpenAlex, Europe PMC,
+// Semantic Scholar, arXiv, Internet Archive). Daily and bounded so newly minted rows get
+// looked at; rows are re-asked at most monthly. Rides citation-pipeline, never `default`.
+Schedule::job(new \App\Jobs\DiscoverLicensesJob(limit: 1500))
+    ->dailyAt('05:10')
+    ->withoutOverlapping()
+    ->onOneServer();

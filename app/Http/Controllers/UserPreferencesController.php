@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\UserPreferencesStore;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class UserPreferencesController extends Controller
 {
@@ -17,6 +16,16 @@ class UserPreferencesController extends Controller
         'text_size_mobile', 'text_size_desktop',
         'content_width_mobile', 'content_width_desktop',
         'reading_mode_mobile', 'reading_mode_desktop',
+        // Notification controls (NotificationWriter::allowed) — booleans, absent = on.
+        // notify_muted is NOT here: only NotificationController::mute/unmute write it.
+        'notify_hyperlight', 'notify_suggested_edit', 'notify_hypercite', 'notify_like',
+        'notify_anonymous',
+    ];
+
+    /** Keys whose value must be a boolean (or null to clear) — the writer compares `=== false`. */
+    private const BOOLEAN_KEYS = [
+        'notify_hyperlight', 'notify_suggested_edit', 'notify_hypercite', 'notify_like',
+        'notify_anonymous',
     ];
 
     // Device-scoped base keys. The client only ever WRITES the suffixed variant
@@ -38,6 +47,15 @@ class UserPreferencesController extends Controller
 
         $incoming = $request->only(self::ALLOWED_KEYS);
 
+        foreach (self::BOOLEAN_KEYS as $key) {
+            if (array_key_exists($key, $incoming) && ! is_null($incoming[$key]) && ! is_bool($incoming[$key])) {
+                return response()->json([
+                    'message' => "The {$key} preference must be true or false.",
+                    'errors' => [$key => ['Must be a boolean.']],
+                ], 422);
+            }
+        }
+
         foreach ($incoming as $key => $value) {
             if (is_null($value)) {
                 // Clearing a device-scoped base key clears its _mobile/_desktop
@@ -50,15 +68,7 @@ class UserPreferencesController extends Controller
             }
         }
 
-        $preferences = $current ?: null;
-
-        $affected = DB::connection('pgsql_admin')->table('users')
-            ->where('id', $user->id)
-            ->update(['preferences' => $preferences ? json_encode($preferences) : null]);
-
-        if ($affected === 0) {
-            Log::warning('Preferences update affected 0 rows', ['user_id' => $user->id]);
-        }
+        UserPreferencesStore::write((int) $user->id, $current);
 
         return response()->json($current);
     }

@@ -110,3 +110,14 @@ test('leaving custom clears the custom-only columns', function () {
     expect($row->license_book_at)->toBeNull();
     expect($row->custom_license_text)->toBeNull();
 });
+
+test('a licence the owner changes is stamped as theirs; an unrelated edit keeps the provenance', function () {
+    // library:discover-licenses never overwrites license_source = 'user'.
+    ($this->own)('lic_prov', ['license' => 'Unknown', 'license_source' => 'crossref']);
+
+    $this->actingAs($this->user)->postJson('/api/db/library/upsert', ['data' => ['book' => 'lic_prov', 'title' => 'Renamed', 'license' => '']])->assertOk();
+    expect(licenseRow('lic_prov')->license_source)->toBe('crossref');
+
+    $this->actingAs($this->user)->postJson('/api/db/library/upsert', ['data' => ['book' => 'lic_prov', 'license' => 'CC-BY-4.0']])->assertOk();
+    expect(licenseRow('lic_prov')->license_source)->toBe('user');
+});

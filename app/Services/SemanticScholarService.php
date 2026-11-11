@@ -120,6 +120,37 @@ class SemanticScholarService
     }
 
     /**
+     * The licence of the open copy Semantic Scholar links (`openAccessPdf.license`) — used by
+     * licence discovery. `infra` = we couldn't ask (429/5xx/timeout), which is not evidence.
+     *
+     * @return array{license: ?string, infra: bool, note: ?string}
+     */
+    public function openAccessLicenseByDoi(string $doi): array
+    {
+        try {
+            $this->rateGate();
+
+            $request = Http::timeout(15);
+            if ($this->apiKey) {
+                $request = $request->withHeaders(['x-api-key' => $this->apiKey]);
+            }
+            $response = $request->get(self::BASE_URL . '/paper/DOI:' . $doi, ['fields' => 'openAccessPdf']);
+
+            if ($response->status() === 429 || $response->serverError()) {
+                return ['license' => null, 'infra' => true, 'note' => 'HTTP ' . $response->status()];
+            }
+            if (! $response->successful()) {
+                return ['license' => null, 'infra' => false, 'note' => 'HTTP ' . $response->status()];
+            }
+            $license = $response->json('openAccessPdf.license');
+
+            return ['license' => is_string($license) && trim($license) !== '' ? $license : null, 'infra' => false, 'note' => null];
+        } catch (\Exception $e) {
+            return ['license' => null, 'infra' => true, 'note' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Search Semantic Scholar for multiple queries, respecting 1 req/s rate limit.
      * Uses the existing rateGate() + retry logic from search() for each request sequentially.
      * Still faster than the old approach because these only run for entries that survived

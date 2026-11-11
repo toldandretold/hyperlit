@@ -12,6 +12,8 @@
  *    wired through archivePanel/exportDownload.ts with the USER scope — the
  *    same state machine the user-page archive panel uses, so exports work
  *    from any page instead of bouncing the user to their library first.
+ *  - notification controls — the same notificationSettings.ts view the
+ *    Notifications panel's gear opens, rendered into the Settings section;
  *  - the privacy policy (a Hyperlit book at /privacy);
  *  - account deletion — hands off to the dialog-based flow in
  *    userContainer/deleteAccount.ts (the overlay closes first: the flow's
@@ -22,12 +24,16 @@ import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import { getCurrentUserInfo } from '../../utilities/auth/index';
 import { initExportDownload, type ExportDownloadHandle } from '../archivePanel/exportDownload';
 import { savePreference } from '../../utilities/preferences';
+import { renderNotificationSettings } from '../notificationsOverlay/notificationSettings';
 
 let overlayEl: HTMLElement | null = null;
 let releaseTrap: (() => void) | null = null;
 let exportHandles: ExportDownloadHandle[] = [];
+let notifSettingsCleanup: (() => void) | null = null;
 
 export function closeDataSovereigntyOverlay(): void {
+    notifSettingsCleanup?.();
+    notifSettingsCleanup = null;
     // Export buttons poll the build status — stop them with the overlay.
     exportHandles.forEach((h) => h.destroy());
     exportHandles = [];
@@ -136,7 +142,9 @@ export function openDataSovereigntyOverlay(): void {
               <span class="datasov-row-desc">Your private (non-encrypted) texts are converted to vector embeddings when saved, so you can search your own library by meaning. The embedding provider states it does not store or train on the text, but it is an external service. Turning this off stops new embeddings and removes existing ones within a day.</span>
             </span>
             <input type="checkbox" id="datasov-embed-toggle" ${embedOn ? 'checked' : ''}>
-          </label>`
+          </label>
+          <p class="datasov-section-label">Notifications</p>
+          <div id="datasov-notif-settings"></div>`
         : '';
 
     const exportSection = name
@@ -205,6 +213,9 @@ export function openDataSovereigntyOverlay(): void {
         const prefs = (window as any).__userPreferences || ((window as any).__userPreferences = {});
         prefs.embed_private_books = on;
     });
+
+    const notifHolder = overlay.querySelector<HTMLElement>('#datasov-notif-settings');
+    if (notifHolder) notifSettingsCleanup = renderNotificationSettings(notifHolder);
 
     const panel = overlay.querySelector<HTMLElement>('.datasov-panel');
     if (panel) {

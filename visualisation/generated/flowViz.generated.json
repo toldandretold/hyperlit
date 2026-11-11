@@ -6,7 +6,7 @@
     "moduleCount": 424,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4199,
+    "edgeCount": 4200,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -28468,7 +28468,8 @@
       "id": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners__call__components/userContainer/profile:attachProfileButtonListeners",
       "source": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
       "target": "components/userContainer/profile:attachProfileButtonListeners",
-      "rel": "call"
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/userContainer/index:UserContainerManager.closeContainer__domwrite__dom",
@@ -28639,6 +28640,12 @@
       "source": "components/userContainer/profile:attachProfileButtonListeners",
       "target": "components/userContainer/profile:showUserProfile",
       "rel": "call"
+    },
+    {
+      "id": "components/userContainer/profile:attachProfileButtonListeners__domwrite__dom",
+      "source": "components/userContainer/profile:attachProfileButtonListeners",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/userContainer/profile:showUserProfile__call__components/userContainer/forms:getProfileHTML",

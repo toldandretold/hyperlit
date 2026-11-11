@@ -65,6 +65,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'status',
         'credits',
         'debits',
+        'commoner_score',
         'preferences',
         'is_admin',
     ];
@@ -92,6 +93,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'credits' => 'decimal:4',
             'debits' => 'decimal:4',
+            // Commoner score ("hectares of the commons tilled") — set-based
+            // write by CommonerScoreService; invisible on Auth::user() (not in
+            // the auth_lookup column list), read via that service for display.
+            'commoner_score' => 'integer',
             'preferences' => 'array',
             'is_admin' => 'boolean',
         ];

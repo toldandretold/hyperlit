@@ -31,9 +31,9 @@ function canonvMintLicense(array $canonical): object
     return canonvDb()->table('library')->where('book', $book)->first(['license', 'custom_license_text', 'license_url', 'work_license']);
 }
 
-test('a CC slug becomes its CC code', function () {
+test('a CC slug becomes its version-less CC family code', function () {
     $row = canonvMintLicense(['work_license' => 'cc-by-nc-nd', 'oa_status' => 'gold']);
-    expect($row->license)->toBe('CC-BY-NC-ND-4.0');
+    expect($row->license)->toBe('CC-BY-NC-ND');
     expect($row->work_license)->toBe('cc-by-nc-nd');
 });
 

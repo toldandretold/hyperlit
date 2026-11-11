@@ -263,3 +263,208 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* ---------- Per-row mute control ----------
+   .notif-item wraps the row anchor and its SIBLING mute button (a button can't
+   live inside the <a>). The button is quiet until the row is hovered or
+   focused; on touch screens (no hover) it is always faintly visible. */
+#notifications-overlay .notif-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+#notifications-overlay .notif-item > .notif-row {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+#notifications-overlay .notif-mute {
+  flex-shrink: 0;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+#notifications-overlay .notif-item:hover .notif-mute,
+#notifications-overlay .notif-item:focus-within .notif-mute {
+  opacity: 0.6;
+}
+
+#notifications-overlay .notif-mute:hover,
+#notifications-overlay .notif-mute:focus-visible {
+  opacity: 1;
+  background: rgba(128, 128, 128, 0.18);
+}
+
+#notifications-overlay .notif-mute:disabled {
+  cursor: progress;
+}
+
+@media (hover: none) {
+  #notifications-overlay .notif-mute { opacity: 0.45; }
+}
+
+/* Header gear (opens the settings view) — same chip as the close button. */
+#notifications-overlay .notifications-panel-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#notifications-overlay .notifications-panel-gear {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.18);
+  color: inherit;
+  cursor: pointer;
+}
+
+#notifications-overlay .notifications-panel-gear:hover,
+#notifications-overlay .notifications-panel-gear[aria-pressed="true"] {
+  background: rgba(128, 128, 128, 0.32);
+}
+
+#notifications-overlay .notif-settings-back {
+  margin: 4px 4px 8px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.85em;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+#notifications-overlay .notif-settings-back:hover {
+  opacity: 1;
+}
+
+/* ---------- Notification settings (notificationSettings.ts) ----------
+   Deliberately NOT scoped to one overlay: the same view renders inside the
+   Notifications panel and the Data sovereignty panel (both stylesheets ship
+   on the same four page bundles). Row chrome mirrors the datasov toggle. */
+.notif-settings-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  margin: 0 0 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 10px;
+  color: var(--color-text, #eee);
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notif-settings-row:hover {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.notif-settings-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notif-settings-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notif-settings-desc {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.65;
+}
+
+.notif-settings-row input[type="checkbox"] {
+  flex-shrink: 0;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 10px;
+  accent-color: var(--hyperlit-aqua, #4EACAE);
+  cursor: pointer;
+}
+
+.notif-settings-label {
+  margin: 14px 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.notif-settings-empty {
+  margin: 2px 4px 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.6;
+}
+
+.notif-settings-muted {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notif-settings-muted-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 0 0 4px;
+  border: 1px solid rgba(128, 128, 128, 0.18);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.notif-settings-muted-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notif-settings-unmute {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: 6px;
+  color: inherit;
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.notif-settings-unmute:hover {
+  background: rgba(128, 128, 128, 0.18);
+}

@@ -97,11 +97,18 @@ uses(InteractsWithApi::class)->in('Feature/Api');
 // a bare User::factory()->create() is rejected (see SeedsRlsFixtures). Bind the admin-
 // seeding helpers + auto-clean the admin-committed rows after each test.
 uses(SeedsRlsFixtures::class)->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference', 'Feature/Billing', 'Feature/Translation', 'Feature/Console', 'Feature/CitationMetadata', 'Feature/Account', 'Feature/Mcp', 'Feature/Oauth', 'Feature/Licensing');
-afterEach(function () {
+// `uses()->afterEach(...)`, NOT a bare top-level `afterEach(...)->in(...)`: the bare form
+// registers against Pest.php itself and never ran for any folder — every admin-seeded fixture
+// leaked (~35k users in the test DB, until terms:announce faked a mail to each and the suite
+// hit its 512 MB memory limit).
+uses()->afterEach(function () {
     if (method_exists($this, 'cleanupRlsFixtures')) {
         $this->cleanupRlsFixtures();
     }
-})->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference', 'Feature/Billing', 'Feature/Translation', 'Feature/Account', 'Feature/Oauth', 'Feature/Licensing');
+// Every folder that seeds through the trait is cleaned: Console / CitationMetadata / Mcp used to
+// be left out and leaked their users (Mcp alone ~100 per run). cleanupRlsFixtures is idempotent,
+// so a file that also calls it itself is fine.
+})->in('Feature/Security', 'Feature/Auth', 'Feature/E2ee', 'Feature/BookImages', 'Feature/BookAudio', 'Feature/Inference', 'Feature/Billing', 'Feature/Translation', 'Feature/Account', 'Feature/Oauth', 'Feature/Licensing', 'Feature/Console', 'Feature/CitationMetadata', 'Feature/Mcp');
 
 // E2EE passkey ceremony tests forge real WebAuthn credentials (CBOR + ES256).
 uses(Tests\Support\MakesWebAuthnCredentials::class)->in('Feature/E2ee');

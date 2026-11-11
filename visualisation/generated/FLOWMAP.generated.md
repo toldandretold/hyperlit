@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2015 functions in 424 modules · 10 object stores · 10 PG tables · 4199 edges
+**MarkdownDB** schema v28 · 2015 functions in 424 modules · 10 object stores · 10 PG tables · 4200 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -585,7 +585,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UserContainerManager.toggleContainer` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.triggerContentRefresh` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.updateButtonColor` | `components/userContainer/index` | — | — | read | — |
-| `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read | — |
+| `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read/write | — |
 | `showUserProfile` | `components/userContainer/profile` | — | — | read/write | — |
 | `attachValidationListeners` | `components/userContainer/validation` | — | — | read | — |
 | `showValidationMessage` | `components/userContainer/validation` | — | — | read/write | — |

@@ -39,7 +39,7 @@ test('dry run changes nothing; --apply repairs harvested rows and keeps user boo
     expect(remapLicense('remap_harvest')['license'])->toBe('CC-BY-SA-4.0-NO-AI');
 
     $this->artisan('library:remap-licenses', $only + ['--apply' => true])->assertSuccessful();
-    expect(remapLicense('remap_harvest')['license'])->toBe('CC-BY-NC-ND-4.0');
+    expect(remapLicense('remap_harvest')['license'])->toBe('CC-BY-NC-ND'); // slug carries no version
     expect(remapLicense('remap_shout'))->toBe(['license' => 'CC-BY-NC-4.0', 'custom_license_text' => null]);
     expect(remapLicense('remap_gutenberg')['license'])->toBe('PDM');
     expect(remapLicense('remap_user')['license'])->toBe('CC-BY-SA-4.0-NO-AI');

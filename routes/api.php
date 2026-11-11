@@ -261,10 +261,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/creator/stats', [CreatorStatsController::class, 'index']);
     Route::get('/creator/stats/{book}', [CreatorStatsController::class, 'show']);
 
+    // Commoner score ("hectares tilled") — PRIVATE own-view only.
+    Route::get('/me/commoner', [\App\Http\Controllers\CommonerController::class, 'me']);
+
     // Notifications (Notifications overlay) — RLS scopes rows to the recipient
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/read', [NotificationController::class, 'markRead']);
+    // Recipient controls: mute an actor who has notified you / unmute them.
+    Route::middleware('throttle:notification-mute')->group(function () {
+        Route::post('/notifications/mute', [NotificationController::class, 'mute']);
+        Route::delete('/notifications/mute', [NotificationController::class, 'unmute']);
+    });
 });
 
 // Public like count (+ requester's own liked state when authed) — no auth, throttled

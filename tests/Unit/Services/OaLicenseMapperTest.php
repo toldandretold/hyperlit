@@ -14,13 +14,15 @@ use App\Support\Licenses;
 
 $code = fn (?string $raw, ?string $status = null) => OaLicenseMapper::toLibraryLicense($raw, $status)['license'];
 
-test('maps bare OpenAlex CC slugs, defaulting the version to 4.0', function () use ($code) {
-    expect($code('cc-by'))->toBe('CC-BY-4.0');
-    expect($code('cc-by-sa'))->toBe('CC-BY-SA-4.0');
-    expect($code('cc-by-nc'))->toBe('CC-BY-NC-4.0');
-    expect($code('cc-by-nd'))->toBe('CC-BY-ND-4.0');
-    expect($code('cc-by-nc-sa'))->toBe('CC-BY-NC-SA-4.0');
-    expect($code('cc-by-nc-nd'))->toBe('CC-BY-NC-ND-4.0');
+test('a bare OpenAlex CC slug maps to its version-less family, never an assumed 4.0', function () use ($code) {
+    // OpenAlex/Unpaywall say "cc-by" — the family, not the version. Printing "CC BY 4.0" for
+    // a CC BY 3.0 article would be a claim we were never told.
+    expect($code('cc-by'))->toBe('CC-BY');
+    expect($code('cc-by-sa'))->toBe('CC-BY-SA');
+    expect($code('cc-by-nc'))->toBe('CC-BY-NC');
+    expect($code('cc-by-nd'))->toBe('CC-BY-ND');
+    expect($code('cc-by-nc-sa'))->toBe('CC-BY-NC-SA');
+    expect($code('cc-by-nc-nd'))->toBe('CC-BY-NC-ND');
     expect($code('cc0'))->toBe('CC0');
 });
 
@@ -34,19 +36,19 @@ test('reads Creative Commons URLs in every shape seen upstream', function () use
     expect($code('https://creativecommons.org/licenses/by-nc-nd/4.0/'))->toBe('CC-BY-NC-ND-4.0');
     expect($code('HTTPS://CREATIVECOMMONS.ORG/LICENSES/BY NC ND/4.0/'))->toBe('CC-BY-NC-ND-4.0');
     expect($code('http://creativecommons.org/licenses/by/4.0/deed.no'))->toBe('CC-BY-4.0');
-    expect($code('http://creativecommons.org/licenses/by-nc-nd'))->toBe('CC-BY-NC-ND-4.0');
-    expect($code('https://creativecommons.org/licenses/by'))->toBe('CC-BY-4.0');
+    expect($code('http://creativecommons.org/licenses/by-nc-nd'))->toBe('CC-BY-NC-ND'); // no version in the URL
+    expect($code('https://creativecommons.org/licenses/by'))->toBe('CC-BY');
     expect($code('https://creativecommons.org/licenses/by-sa/4.0/legalcode'))->toBe('CC-BY-SA-4.0');
     expect($code('https://creativecommons.org/publicdomain/zero/1.0/'))->toBe('CC0');
     expect($code('https://creativecommons.org/publicdomain/mark/1.0/'))->toBe('PDM');
 });
 
 test('reads underscored, spaced and spelled-out CC names', function () use ($code) {
-    expect($code('CC_BY'))->toBe('CC-BY-4.0');
-    expect($code('CC BY NC'))->toBe('CC-BY-NC-4.0');
+    expect($code('CC_BY'))->toBe('CC-BY');
+    expect($code('CC BY NC'))->toBe('CC-BY-NC');
     expect($code('CC BY 4.0'))->toBe('CC-BY-4.0');
     expect($code('Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International'))->toBe('CC-BY-NC-SA-4.0');
-    expect($code('cc-by-sa-nc'))->toBe('CC-BY-NC-SA-4.0'); // order-insensitive
+    expect($code('cc-by-sa-nc'))->toBe('CC-BY-NC-SA'); // order-insensitive
 });
 
 test('public domain is the Public Domain Mark, not a CC0 dedication', function () use ($code) {
@@ -101,4 +103,35 @@ test('every code the mapper can emit is in the vocabulary', function () {
     foreach ($inputs as $in) {
         expect(Licenses::isValid(OaLicenseMapper::toLibraryLicense($in, 'gold')['license']))->toBeTrue();
     }
+});
+
+test('arXiv\'s own licences map to arXiv-Nonexclusive, keeping the link', function () {
+    $r = OaLicenseMapper::parse('http://arxiv.org/licenses/nonexclusive-distrib/1.0/');
+    expect($r['license'])->toBe(Licenses::ARXIV_NONEXCLUSIVE);
+    expect($r['license_url'])->toBe('http://arxiv.org/licenses/nonexclusive-distrib/1.0/');
+    expect(OaLicenseMapper::parse('http://arxiv.org/licenses/assumed-1991-2003/')['license'])->toBe(Licenses::ARXIV_NONEXCLUSIVE);
+});
+
+test('publisher standard-terms URLs (Crossref license[]) read as all rights reserved, with the link', function () {
+    foreach ([
+        'https://www.elsevier.com/tdm/userlicense/1.0/',
+        'http://www.springer.com/tdm',
+        'https://www.springernature.com/gp/researchers/text-and-data-mining',
+        'http://onlinelibrary.wiley.com/termsAndConditions#vor',
+        'http://doi.wiley.com/10.1002/tdm_license_1.1',
+        'https://www.cambridge.org/core/terms',
+        'https://www.acm.org/publications/policies/copyright_policy#Background',
+    ] as $url) {
+        $r = OaLicenseMapper::parse($url);
+        expect($r['license'])->toBe('All-Rights-Reserved', $url);
+        expect($r['license_url'])->toBe($url);
+    }
+    // Elsevier's OPEN-archive user licence is free-to-read publisher terms, not ARR.
+    expect(OaLicenseMapper::parse('https://www.elsevier.com/open-access/userlicense/1.0/')['license'])->toBe('Publisher-Open');
+    // An unknown publisher URL is not guessed at.
+    expect(OaLicenseMapper::parse('https://example-press.org/terms'))->toBeNull();
+});
+
+test('the eu-repo open-access statement is read with spaces too', function () use ($code) {
+    expect($code('INFO:EU REPO/SEMANTICS/OPENACCESS'))->toBe('Open-Unspecified');
 });

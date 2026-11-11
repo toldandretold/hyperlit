@@ -17,12 +17,22 @@
  * and a pink dot rides #userButton (Account) and the Notifications menu row —
  * both live only INSIDE menus, deliberately: nothing on the always-visible
  * logo nav, so reading is never interrupted.
+ *
+ * Recipient controls (notificationSettings.ts): the header gear swaps the body
+ * to the settings view, and every engagement row carries a sibling mute
+ * button — a SIBLING of the row anchor, never inside it (a button nested in
+ * an <a> is invalid HTML and its click would also navigate). A named actor is
+ * muted server-side (their existing rows go too); an anonymous row offers
+ * "silence anonymous readers" instead, since anonymous actors are all NULL
+ * and can't be told apart.
  */
 
 import { log } from '../../utilities/logger';
 import { trapModalFocus } from '../../utilities/modalFocusTrap';
 import { drainResponse } from '../../utilities/drainResponse';
 import { getAuthContext } from '../../utilities/auth/session';
+import { confirmDialog } from '../dialog/dialog';
+import { renderNotificationSettings, requestMute, setNotifyToggle } from './notificationSettings';
 
 interface NotificationItem {
     id: number;
@@ -39,8 +49,12 @@ interface NotificationItem {
 
 let overlayEl: HTMLElement | null = null;
 let releaseTrap: (() => void) | null = null;
+/** Non-null while the body shows the settings view (its listener cleanup). */
+let settingsCleanup: (() => void) | null = null;
 
 export function closeNotificationsOverlay(): void {
+    settingsCleanup?.();
+    settingsCleanup = null;
     releaseTrap?.();
     releaseTrap = null;
     overlayEl?.remove();
@@ -70,6 +84,12 @@ function timeAgo(iso: string | null): string {
     return `${Math.floor(months / 12)}y ago`;
 }
 
+// Lucide "bell-off" — the per-row mute control and the anonymous-silence one.
+const ICON_BELL_OFF = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742"/><path d="m2 2 20 20"/><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05"/></svg>`;
+
+// Lucide "settings" — the header gear that opens notification settings.
+const ICON_GEAR = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`;
+
 // The aqua heart shown to the left of a "liked" row — the SAME glyph and
 // colour #like-book takes in its pressed state (sourceContainer.css
 // #like-book.liked svg → fill/stroke var(--hyperlit-aqua)).
@@ -85,7 +105,9 @@ function verbHtml(n: NotificationItem): string {
     const verb = esc(n.verb);
     if (n.type === 'hyperlight') return `<mark class="notif-verb-highlight">${verb}</mark>`;
     if (n.type === 'hypercite_paired') return `<span class="notif-verb-cite">${verb}</span>`;
-    if (n.type === 'suggested_edit') return `<span class="notif-verb-suggest">${verb}</span>`;
+    if (n.type === 'suggested_edit' || n.type === 'suggestion_accepted' || n.type === 'suggestion_liked') {
+        return `<span class="notif-verb-suggest">${verb}</span>`;
+    }
     return verb;
 }
 
@@ -113,8 +135,11 @@ function rowHtml(n: NotificationItem): string {
 
     // The whole row is a real ANCHOR: "go to the highlight/citation/book" is a
     // plain navigation the SPA link handler owns (no preventDefault branch).
+    // The mute control is its SIBLING inside .notif-item (see file header).
     const heart = n.type === 'like' ? LIKE_HEART : '';
+    const muteLabel = n.actor ? `Mute ${n.actor}` : 'Silence anonymous readers';
     return `
+      <div class="notif-item" data-actor="${esc(n.actor ?? '')}">
       <a class="notif-row notif-row-${esc(n.type)}${n.read_at ? '' : ' notif-unread'}" href="${esc(n.link)}">
         ${heart}
         <span class="notif-row-main">
@@ -122,7 +147,9 @@ function rowHtml(n: NotificationItem): string {
           ${n.snippet ? `<span class="notif-row-snippet">&ldquo;${esc(n.snippet)}&rdquo;</span>` : ''}
         </span>
         <span class="notif-row-time">${esc(timeAgo(n.created_at))}</span>
-      </a>`;
+      </a>
+      <button type="button" class="notif-mute" aria-label="${esc(muteLabel)}" title="${esc(muteLabel)}">${ICON_BELL_OFF}</button>
+      </div>`;
 }
 
 /** Paged like the stats list: a fresh open RESETS, "Load more" APPENDS. */
@@ -217,6 +244,24 @@ function onOverlayClick(e: Event): void {
         return;
     }
 
+    if (target.closest('.notifications-panel-gear, .notif-settings-back')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const panel = overlayEl.querySelector<HTMLElement>('.notifications-panel');
+        if (panel) toggleSettingsView(panel);
+        return;
+    }
+
+    // Checked BEFORE the row branch: the mute button is a sibling of the row
+    // anchor, and must never close the panel or navigate.
+    const muteBtn = target.closest<HTMLButtonElement>('.notif-mute');
+    if (muteBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        void handleMute(muteBtn);
+        return;
+    }
+
     // A notification row: close the panel and let the click through — the
     // SPA's link handler (or a plain navigation) takes it from here.
     if (target.closest('.notif-row')) {
@@ -232,6 +277,83 @@ function onOverlayClick(e: Event): void {
     }
 }
 
+/** Swap the body between the feed and the settings view. */
+function toggleSettingsView(panel: HTMLElement): void {
+    const body = panel.querySelector<HTMLElement>('.notifications-panel-body');
+    const gear = panel.querySelector<HTMLElement>('.notifications-panel-gear');
+    if (!body) return;
+
+    if (settingsCleanup) {
+        settingsCleanup();
+        settingsCleanup = null;
+        gear?.setAttribute('aria-pressed', 'false');
+        // Settings may have muted someone — reload rather than restore.
+        void loadNotifications(panel, false);
+        return;
+    }
+
+    listRequestSeq++; // an in-flight feed load must not overwrite the settings view
+    listState.loading = false;
+    gear?.setAttribute('aria-pressed', 'true');
+    const holder = document.createElement('div');
+    body.innerHTML = '<button type="button" class="notif-settings-back">&larr; Back to notifications</button>';
+    body.appendChild(holder);
+    settingsCleanup = renderNotificationSettings(holder);
+    body.querySelector<HTMLElement>('.notif-settings-back')?.focus();
+}
+
+/** Remove every open feed item for $actor ('' = anonymous) — returns how many. */
+function removeItemsFor(actor: string): number {
+    if (!overlayEl) return 0;
+    let removed = 0;
+    overlayEl.querySelectorAll<HTMLElement>('.notif-item').forEach((item) => {
+        if ((item.dataset.actor ?? '') === actor) {
+            item.remove();
+            removed++;
+        }
+    });
+    return removed;
+}
+
+async function handleMute(btn: HTMLButtonElement): Promise<void> {
+    const actor = btn.closest<HTMLElement>('.notif-item')?.dataset.actor ?? '';
+
+    if (actor === '') {
+        const ok = await confirmDialog({
+            title: 'Silence anonymous readers?',
+            message: 'You won’t be notified about anything readers do while logged out. Anonymous readers can’t be muted one by one, so this covers all of them. You can turn it back on in notification settings.',
+            confirmLabel: 'Silence',
+        });
+        if (!ok) return;
+        setNotifyToggle('notify_anonymous', false);
+        // Existing anonymous rows stay (nothing is deleted); their mute
+        // buttons no longer mean anything.
+        overlayEl?.querySelectorAll<HTMLElement>('.notif-item[data-actor=""] .notif-mute').forEach((b) => b.remove());
+        return;
+    }
+
+    const ok = await confirmDialog({
+        title: `Mute ${actor}?`,
+        message: `You won’t be notified about anything ${actor} does with your work, and their existing notifications will be removed. You can unmute them in notification settings.`,
+        confirmLabel: 'Mute',
+    });
+    if (!ok) return;
+
+    btn.disabled = true;
+    const muted = await requestMute(actor, true);
+    if (muted === null) {
+        btn.disabled = false;
+        return;
+    }
+    const removed = removeItemsFor(actor);
+    listState.offset = Math.max(0, listState.offset - removed);
+    listState.total = Math.max(0, listState.total - removed);
+    const body = overlayEl?.querySelector<HTMLElement>('.notifications-panel-body');
+    if (body && !body.querySelector('.notif-row')) {
+        body.innerHTML = '<p class="notifications-panel-empty">Nothing yet — you’ll hear it here when someone highlights, cites, or likes your work.</p>';
+    }
+}
+
 export async function openNotificationsOverlay(): Promise<void> {
     if (overlayEl) return; // already open
 
@@ -242,6 +364,7 @@ export async function openNotificationsOverlay(): Promise<void> {
         <div class="notifications-panel-header">
           <span class="notifications-panel-title">Notifications</span>
           <span class="notifications-panel-actions">
+            <button type="button" class="notifications-panel-gear" aria-label="Notification settings" title="Notification settings" aria-pressed="false">${ICON_GEAR}</button>
             <button type="button" class="notifications-panel-close" aria-label="Close">&times;</button>
           </span>
         </div>

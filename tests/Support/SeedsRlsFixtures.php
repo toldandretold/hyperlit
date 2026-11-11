@@ -158,21 +158,31 @@ trait SeedsRlsFixtures
         // can't break, since the test transaction is idle, not deadlocked). A short lock_timeout turns that
         // hang into a fast skip; the row is harmless (idempotent seeds overwrite it, and the next cleanup
         // when no request holds the lock removes it). Without this, one such test hangs the whole suite.
+        // Short (100ms), because waiting buys nothing: a locked row is parked in RlsFixtureJanitor and
+        // deleted at the next test's cleanup, after this transaction has rolled back.
         try {
-            $admin->statement("SET lock_timeout = '2s'");
+            $admin->statement("SET lock_timeout = '100ms'");
         } catch (\Throwable $e) {
             // ignore — best-effort
         }
 
+        // Rows an EARLIER test couldn't delete (its transaction held them) — free now.
+        RlsFixtureJanitor::flush();
+
         if ($this->rlsSeededBooks) {
             $books = array_values(array_unique($this->rlsSeededBooks));
-            foreach (['hyperlights', 'hypercites', 'nodes', 'book_images', 'book_audio', 'book_audio_meta', 'library'] as $table) {
+            $locked = false;
+            foreach (RlsFixtureJanitor::BOOK_TABLES as $table) {
                 try {
                     $admin->table($table)->whereIn('book', $books)->delete();
                 } catch (\Throwable $e) {
                     // table absent, OR the row is locked by this test's open transaction (lock_timeout
-                    // fired) — either way, skip; it is overwritten/removed by a later seed or cleanup.
+                    // fired). The latter is parked and retried once the transaction has rolled back.
+                    $locked = $locked || str_contains($e->getMessage(), 'lock') || (string) $e->getCode() === '55P03';
                 }
+            }
+            if ($locked) {
+                RlsFixtureJanitor::park([], $books);
             }
             $this->rlsSeededBooks = [];
         }
@@ -180,7 +190,9 @@ trait SeedsRlsFixtures
             try {
                 $admin->table('users')->whereIn('id', $this->rlsSeededUserIds)->delete();
             } catch (\Throwable $e) {
-                // locked by this test's open transaction (lock_timeout fired) — skip, removed later.
+                // Locked by this test's open transaction (or one user has a billing_ledger row) —
+                // park them all; the janitor retries one by one after the rollback.
+                RlsFixtureJanitor::park($this->rlsSeededUserIds, []);
             }
             $this->rlsSeededUserIds = [];
         }

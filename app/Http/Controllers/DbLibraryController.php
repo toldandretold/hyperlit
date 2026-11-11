@@ -20,6 +20,7 @@ use App\Services\BookDeletionService;
 use App\Services\Connections\ConnectionCountQuery;
 use App\Services\Security\NodeHtmlSanitizer;
 use App\Services\ShelfCacheInvalidator;
+use App\Services\Licensing\LicenseDiscovery;
 use App\Support\Licenses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -327,7 +328,7 @@ class DbLibraryController extends Controller
                             'title', 'author', 'type', 'bibtex', 'url', 'year', 'journal',
                             'pages', 'publisher', 'school', 'note', 'volume', 'issue',
                             'booktitle', 'chapter', 'editor', 'license', 'custom_license_text',
-                            'license_url', 'license_book', 'license_book_at',
+                            'license_url', 'license_book', 'license_book_at', 'license_source',
                             'visibility', 'listed', 'gate_defaults',
                         ] as $f) {
                             $updateData[$f] = $libraryRecord->$f;
@@ -1101,13 +1102,13 @@ class DbLibraryController extends Controller
         }
 
         if ($license !== Licenses::CUSTOM) {
-            return [
+            return self::stampLicenseSource($stored, [
                 'license' => $license,
                 'custom_license_text' => null,
                 'license_url' => $license === $stored->license ? $stored->license_url : null,
                 'license_book' => null,
                 'license_book_at' => null,
-            ];
+            ]);
         }
 
         $licenseUrl = $stored->license_url;
@@ -1139,13 +1140,28 @@ class DbLibraryController extends Controller
             $licenseBookAt = (int) round(microtime(true) * 1000);
         }
 
-        return [
+        return self::stampLicenseSource($stored, [
             'license' => Licenses::CUSTOM,
             'custom_license_text' => $customText,
             'license_url' => $licenseUrl,
             'license_book' => $licenseBook,
             'license_book_at' => $licenseBookAt,
-        ];
+        ]);
+    }
+
+    /**
+     * A licence a PERSON changed is theirs: `license_source = 'user'`, which licence discovery
+     * (library:discover-licenses) never overwrites. An upsert that leaves the licence as it
+     * was keeps whatever provenance the row already had.
+     */
+    private static function stampLicenseSource(PgLibrary $stored, array $cols): array
+    {
+        $changed = $cols['license'] !== $stored->license
+            || ($cols['custom_license_text'] ?? null) !== ($stored->custom_license_text ?? null)
+            || ($cols['license_url'] ?? null) !== ($stored->license_url ?? null)
+            || ($cols['license_book'] ?? null) !== ($stored->license_book ?? null);
+
+        return $cols + ['license_source' => $changed ? LicenseDiscovery::SOURCE_USER : $stored->license_source];
     }
 
     /** A licence book must be the same owner's, public, and plaintext. */

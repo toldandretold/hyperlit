@@ -19,6 +19,12 @@ export const LICENSES: Record<string, LicenseDef> = {
         "selectable": true,
         "group": "hyperlit"
     },
+    "CC-BY": {
+        "label": "CC BY (version not stated)",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+        "selectable": false,
+        "group": "cc"
+    },
     "CC-BY-4.0": {
         "label": "CC BY 4.0",
         "url": "https://creativecommons.org/licenses/by/4.0/",
@@ -46,6 +52,12 @@ export const LICENSES: Record<string, LicenseDef> = {
     "CC-BY-1.0": {
         "label": "CC BY 1.0",
         "url": "https://creativecommons.org/licenses/by/1.0/",
+        "selectable": false,
+        "group": "cc"
+    },
+    "CC-BY-SA": {
+        "label": "CC BY-SA (version not stated)",
+        "url": "https://creativecommons.org/licenses/by-sa/4.0/",
         "selectable": false,
         "group": "cc"
     },
@@ -79,6 +91,12 @@ export const LICENSES: Record<string, LicenseDef> = {
         "selectable": false,
         "group": "cc"
     },
+    "CC-BY-NC": {
+        "label": "CC BY-NC (version not stated)",
+        "url": "https://creativecommons.org/licenses/by-nc/4.0/",
+        "selectable": false,
+        "group": "cc"
+    },
     "CC-BY-NC-4.0": {
         "label": "CC BY-NC 4.0",
         "url": "https://creativecommons.org/licenses/by-nc/4.0/",
@@ -106,6 +124,12 @@ export const LICENSES: Record<string, LicenseDef> = {
     "CC-BY-NC-1.0": {
         "label": "CC BY-NC 1.0",
         "url": "https://creativecommons.org/licenses/by-nc/1.0/",
+        "selectable": false,
+        "group": "cc"
+    },
+    "CC-BY-ND": {
+        "label": "CC BY-ND (version not stated)",
+        "url": "https://creativecommons.org/licenses/by-nd/4.0/",
         "selectable": false,
         "group": "cc"
     },
@@ -139,6 +163,12 @@ export const LICENSES: Record<string, LicenseDef> = {
         "selectable": false,
         "group": "cc"
     },
+    "CC-BY-NC-SA": {
+        "label": "CC BY-NC-SA (version not stated)",
+        "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+        "selectable": false,
+        "group": "cc"
+    },
     "CC-BY-NC-SA-4.0": {
         "label": "CC BY-NC-SA 4.0",
         "url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
@@ -166,6 +196,12 @@ export const LICENSES: Record<string, LicenseDef> = {
     "CC-BY-NC-SA-1.0": {
         "label": "CC BY-NC-SA 1.0",
         "url": "https://creativecommons.org/licenses/by-nc-sa/1.0/",
+        "selectable": false,
+        "group": "cc"
+    },
+    "CC-BY-NC-ND": {
+        "label": "CC BY-NC-ND (version not stated)",
+        "url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
         "selectable": false,
         "group": "cc"
     },
@@ -215,6 +251,12 @@ export const LICENSES: Record<string, LicenseDef> = {
         "label": "All rights reserved",
         "url": null,
         "selectable": true,
+        "group": "other"
+    },
+    "arXiv-Nonexclusive": {
+        "label": "arXiv licence (non-exclusive distribution)",
+        "url": "http://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+        "selectable": false,
         "group": "other"
     },
     "Publisher-Open": {
