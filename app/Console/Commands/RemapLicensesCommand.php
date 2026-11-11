@@ -79,6 +79,30 @@ class RemapLicensesCommand extends Command
         // OFFSET pages would silently skip as many rows as the previous page changed (a dry
         // run said 5,510 and --apply changed 3,010).
         foreach ($q->lazyById(1000, 'l.book', 'book') as $row) {
+            // An assumed-4.0 row only ever loses its version — never changes family. The
+            // stored code may not have come from work_license at all (the won copy's licence
+            // outranks it in the resolver), so a family that disagrees with work_license, or
+            // a version the hosted copy really stated, is left for discovery to settle.
+            if ($family = Licenses::ccFamily((string) $row->license)) {
+                $slug = OaLicenseMapper::parse((string) $row->work_license);
+                if (($slug['license'] ?? null) !== $family || self::wonCopyStatesVersion($row->book)) {
+                    continue;
+                }
+                $new = ['license' => $family, 'custom_license_text' => null, 'license_url' => null];
+                $source = LicenseDiscovery::SOURCE_REMAP;
+                $key = "{$row->license} → {$family}";
+                $tally[$key] = ($tally[$key] ?? 0) + 1;
+                $changed++;
+                if ($apply) {
+                    $db->table('library')->where('book', $row->book)->update(['license' => $family, 'license_source' => $source, 'updated_at' => now()]);
+                }
+                if ($limit && $changed >= $limit) {
+                    break;
+                }
+
+                continue;
+            }
+
             $hasEvidence = trim((string) $row->work_license) !== '' || trim((string) $row->oa_status) !== ''
                 || ($row->license === Licenses::CUSTOM && trim((string) $row->custom_license_text) !== '');
             if (! $hasEvidence && ! $row->journal_source_id) {
@@ -141,5 +165,18 @@ class RemapLicensesCommand extends Command
         $this->info(($apply ? 'Updated ' : 'Would update ') . $changed . ' row(s).' . ($apply ? '' : ' Re-run with --apply to write.'));
 
         return self::SUCCESS;
+    }
+
+    /** The hosted copy's own recorded licence states a version (fetch_trace.json `won_license`). */
+    private static function wonCopyStatesVersion(string $book): bool
+    {
+        $path = resource_path("markdown/{$book}/fetch_trace.json");
+        if (! is_file($path)) {
+            return false;
+        }
+        $won = (json_decode((string) file_get_contents($path), true) ?: [])['won_license'] ?? null;
+        $hit = is_string($won) ? OaLicenseMapper::parse($won) : null;
+
+        return $hit !== null && Licenses::statesVersion($hit['license']);
     }
 }

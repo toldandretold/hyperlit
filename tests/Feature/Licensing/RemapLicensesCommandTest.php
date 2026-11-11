@@ -45,3 +45,29 @@ test('dry run changes nothing; --apply repairs harvested rows and keeps user boo
     expect(remapLicense('remap_user')['license'])->toBe('CC-BY-SA-4.0-NO-AI');
     expect(remapLicense('remap_case')['license'])->toBe('All-Rights-Reserved');
 });
+
+test('an assumed 4.0 only ever loses its version — never changes family, never drops a version the hosted copy stated', function () {
+    $base = ['creator' => 'canonicalizer_v1'];
+    remapSeed('remap_assumed', $base + ['license' => 'CC-BY-NC-ND-4.0', 'work_license' => 'cc-by-nc-nd']);
+    // Stored family disagrees with work_license: the code came from elsewhere (won copy outranks it).
+    remapSeed('remap_otherfam', $base + ['license' => 'CC-BY-NC-SA-4.0', 'work_license' => 'cc-by-nc-nd']);
+    remapSeed('remap_vague', $base + ['license' => 'CC-BY-NC-ND-4.0', 'work_license' => 'other-oa', 'oa_status' => 'gold']);
+    // The copy we host recorded a real 4.0.
+    remapSeed('remap_won', $base + ['license' => 'CC-BY-4.0', 'work_license' => 'cc-by', 'has_nodes' => true]);
+    $dir = resource_path('markdown/remap_won');
+    @mkdir($dir, 0777, true);
+    file_put_contents("{$dir}/fetch_trace.json", json_encode(['won_license' => 'https://creativecommons.org/licenses/by/4.0/']));
+
+    try {
+        $this->artisan('library:remap-licenses', ['--book' => ['remap_assumed', 'remap_otherfam', 'remap_vague', 'remap_won'], '--apply' => true])
+            ->assertSuccessful();
+    } finally {
+        @unlink("{$dir}/fetch_trace.json");
+        @rmdir($dir);
+    }
+
+    expect(remapLicense('remap_assumed')['license'])->toBe('CC-BY-NC-ND');
+    expect(remapLicense('remap_otherfam')['license'])->toBe('CC-BY-NC-SA-4.0');
+    expect(remapLicense('remap_vague')['license'])->toBe('CC-BY-NC-ND-4.0');
+    expect(remapLicense('remap_won')['license'])->toBe('CC-BY-4.0');
+});
