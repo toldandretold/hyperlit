@@ -29,7 +29,7 @@ class ArchiveCorpusResolver
     /** Columns the panel, digest and builders need. */
     private const BOOK_COLUMNS = [
         'book', 'title', 'author', 'year', 'timestamp', 'visibility',
-        'encrypted', 'annotations_updated_at',
+        'encrypted', 'annotations_updated_at', 'slug',
     ];
 
     /** @return ArchiveCorpus|null null = unknown scope (caller 404s) */
@@ -83,6 +83,9 @@ class ArchiveCorpusResolver
         }
 
         $rows = $journal->shelf_id ? $this->publicShelfRows($journal->shelf_id) : [];
+        // A journal page has no "pinned book is the about text" choice, so a
+        // pinned overview is an ordinary note here — listed first.
+        $rows = $journal->shelf_id ? $this->leadWithOverview($rows, $journal->shelf_id) : $rows;
 
         return $this->corpus('journal', $slug, $journal->display_name, $journal->publisher ?: $journal->display_name, url('/j/' . $slug), $rows);
     }
@@ -104,7 +107,29 @@ class ArchiveCorpusResolver
             ? ($identity->creator($archive) ?: $name)
             : $name . ' maintainers';
 
-        return $this->corpus('archive', $slug, $name, $author, url('/a/' . $slug), $rows);
+        // Hub (the vault's README) follows the archive PAGE: whatever is the
+        // page's about text. That is the pinned overview book only when the
+        // owner ticked "use the pinned book as the about text"
+        // (overview_as_about); otherwise the page's own About book once it
+        // says something — and the pinned book is an ordinary note, first.
+        $hub = null;
+        $ownerMinted = $archive->shelf_id && $identity->isOwnerMinted($archive);
+        $about = app(\App\Services\Archives\ArchiveAboutBook::class);
+        if ($ownerMinted && ($about->settings($archive->shelf_id)['overview_as_about'] ?? null) === true) {
+            $hub = $this->shelfHub($archive->shelf_id);
+        }
+        if (!$hub && $archive->shelf_id) {
+            $rows = $this->leadWithOverview($rows, $archive->shelf_id);
+        }
+        if (!$hub && $ownerMinted && $rows !== []) {
+            if (\App\Services\Archives\ArchiveAboutBook::hasContent($about->nodes($archive->shelf_id))) {
+                $hub = DB::connection('pgsql_admin')->table('library')
+                    ->where('book', \App\Services\Archives\ArchiveAboutBook::bookId($archive->shelf_id))
+                    ->first(['book', 'title', 'slug', 'creator', 'timestamp']);
+            }
+        }
+
+        return $this->corpus('archive', $slug, $name, $author, url('/a/' . $slug), $rows, $hub);
     }
 
     /**
@@ -157,8 +182,33 @@ class ArchiveCorpusResolver
             ->all();
     }
 
-    private function corpus(string $scopeType, string $scopeId, string $displayName, string $citeAuthor, string $pageUrl, array $rows): ArchiveCorpus
+    /** A PUBLIC shelf's nominated overview book (ShelfOverview), if any. */
+    private function shelfHub(string $shelfId): ?object
     {
+        $isPublic = DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', $shelfId)->where('visibility', 'public')->exists();
+
+        return $isPublic ? \App\Services\Shelves\ShelfOverview::publicBook($shelfId) : null;
+    }
+
+    /** Put the shelf's pinned overview book (when it is among the rows) first. */
+    private function leadWithOverview(array $rows, string $shelfId): array
+    {
+        $overview = \App\Services\Shelves\ShelfOverview::publicBook($shelfId);
+        if (!$overview) {
+            return $rows;
+        }
+        $lead = array_values(array_filter($rows, fn ($r) => $r->book === $overview->book));
+
+        return array_merge($lead, array_values(array_filter($rows, fn ($r) => $r->book !== $overview->book)));
+    }
+
+    private function corpus(string $scopeType, string $scopeId, string $displayName, string $citeAuthor, string $pageUrl, array $rows, ?object $hub = null): ArchiveCorpus
+    {
+        // The hub introduces the readings — it is not one of them.
+        if ($hub) {
+            $rows = array_values(array_filter($rows, fn ($r) => $r->book !== $hub->book));
+        }
         $books = array_values(array_filter($rows, fn ($r) => !$r->encrypted));
         $encrypted = array_values(array_filter($rows, fn ($r) => (bool) $r->encrypted));
 
@@ -170,6 +220,7 @@ class ArchiveCorpusResolver
             pageUrl: $pageUrl,
             books: $books,
             encryptedBooks: $encrypted,
+            hub: $hub,
         );
     }
 }

@@ -32,9 +32,27 @@ export function initializeHomepageBookActions() {
       { id: 'add-to-shelf', label: 'Add to shelf', icon: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>' },
     ];
 
+    // On your OWN archive page (/a/{slug} — the owner seed is rendered for the
+    // shelf's creator only): nominate this book as the shelf's overview, or
+    // un-nominate it. Same action as the card menu on the shelf itself.
+    if (document.querySelector('#bottom-right-buttons[data-archive-edit]')) {
+      const isOverview = !!target.closest('.libraryCard-overview');
+      menuItems.push({
+        id: isOverview ? 'unset-overview' : 'set-overview',
+        label: isOverview ? 'Unpin as overview' : 'Pin as shelf overview',
+        icon: '<svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>',
+      });
+    }
+
     const { showFloatingMenu } = await import('../floatingActionMenu/floatingActionMenu');
     showFloatingMenu(target, menuItems, async (action: any) => {
       switch (action) {
+        case 'set-overview':
+        case 'unset-overview': {
+          const { setShelfOverview } = await import('../shelves/shelfOverview');
+          await setShelfOverview(action === 'set-overview' ? bookId : null);
+          break;
+        }
         case 'preview':
           const { showShelfPreview } = await import('../shelves/shelfPreview');
           showShelfPreview(bookId);

@@ -30,6 +30,7 @@ export class NewBookContainerManager extends (ContainerManager as any) implement
   animationTimeout: ReturnType<typeof setTimeout> | null = null;
   transitionEndHandler: ((ev?: Event) => void) | null = null;
   originalButtonRect: ButtonRect | null = null;
+  dockRightPx: number | null = null;
   originalContent: string | null = null;
   recentExternalLinkClick = false;
   resizeHandler: (() => void) | null = null;

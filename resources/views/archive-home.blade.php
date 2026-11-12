@@ -121,7 +121,20 @@
     <span id="main-start" tabindex="-1"></span>
     <section class="welcome-copy journal-about" aria-label="About this archive">
       @php($aboutParas = array_values(array_filter(array_map('trim', preg_split('/\R{2,}/', (string) ($archive->about ?? ''))))))
-      @if(!empty($aboutNodes))
+      @if(!empty($overviewNodes))
+        {{-- The shelf's nominated OVERVIEW book (ShelfOverview): the course
+             intro / readme. A book in its own right — read-only here (it is
+             edited at its own URL), capped, with a link to the whole text.
+             Node content is sanitized on the write path, as for every book. --}}
+        <div id="archive-overview-book" class="sub-book-content">
+          @foreach($overviewNodes as $n)
+            {{-- Drop the block's own id/data-node-id: this is a read-only
+                 excerpt, and node ids ("100") collide with the feed cards'. --}}
+            {!! preg_replace('/^(<\w+)((?:\s+(?!id=|data-node-id=)[\w-]+(?:="[^"]*")?)*)(?:\s+(?:id|data-node-id)="[^"]*")+/', '$1$2', $n->content) !!}
+          @endforeach
+        </div>
+        <p class="archive-overview-more"><a href="{{ $overviewUrl }}">{{ !empty($overviewTruncated) ? 'Keep reading the overview' : 'Open the overview' }} &rarr;</a></p>
+      @elseif(!empty($aboutNodes))
         {{-- Owner-minted archive: the About BOOK (shelf_about_{shelfId}) in
              the editor's DOM contract (.chunk > block[id=startLine][data-node-id]),
              same as the user page's #user-about-book — the pencil attaches the

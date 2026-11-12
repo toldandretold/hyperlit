@@ -55,6 +55,9 @@ interface PageSettings {
     /** Hypercite-network SVG under the about section. DEFAULT ON: absent/null
      *  = shown; only an explicit `false` (the stored opt-out) hides it. */
     show_map?: boolean | null;
+    /** ARCHIVE pages only: show the shelf's pinned overview book as the about
+     *  text instead of the page's own. DEFAULT OFF: only `true` is stored. */
+    overview_as_about?: boolean | null;
     about_html?: string | null;
 }
 
@@ -293,12 +296,14 @@ function engageAboutEditing(): void {
         (document.getElementById('copy-feed-close') as HTMLElement | null)?.click();
     }
     const containerId = ABOUT_CONTAINER();
-    void import('./userAboutBook').then(m => m.enterAboutEdit(containerId));
+    void import('./userAboutBook').then(m => m.enterAboutEdit(containerId))
+        .catch(error => log.error('About editor failed to start', '/components/userProfile/userPageEditor.ts', error as Error));
 }
 
 function releaseAboutEditing(): void {
     const containerId = ABOUT_CONTAINER();
-    void import('./userAboutBook').then(m => m.exitAboutEdit(containerId));
+    void import('./userAboutBook').then(m => m.exitAboutEdit(containerId))
+        .catch(error => log.error('About editor failed to stop', '/components/userProfile/userPageEditor.ts', error as Error));
 }
 
 /* ── the palette ─────────────────────────────────────────────────────── */
@@ -359,6 +364,13 @@ function buildPanel(): HTMLElement {
           <span>Connection map — ${archiveSeed ? 'this archive’s' : 'your library’s'} hypercite network under the about text</span>
         </label>
       </div>
+      ${archiveSeed ? `
+      <div class="upe-row">
+        <label class="upe-shelf">
+          <input type="checkbox" data-overview-as-about${settings.overview_as_about === true ? ' checked' : ''}>
+          <span>Use the pinned book as this page’s about text, and as the README of the downloaded vault — instead of the text you write here (which is kept)</span>
+        </label>
+      </div>` : ''}
       ${shelvesHtml}
       <p class="upe-hint">Your title${archiveSeed ? ' (the shelf’s name)' : ''} is editable in place, and the about text below gets the FULL editor — click into it and select text for formatting, links and images. Tap the logo (or drop an image on it) to swap it.</p>
       <button type="button" class="upe-btn upe-done" data-done>Done</button>
@@ -586,6 +598,25 @@ function onPanelChange(e: Event): void {
             if (!saved) return;
             const block = document.querySelector<HTMLElement>('.journal-hypercite-map');
             if (block) block.style.display = on ? '' : 'none';
+        });
+        return;
+    }
+
+    // Archive only: pinned overview book as the about text. The about section
+    // is server-rendered either way, so save, let the about editor flush what
+    // was typed, then reload onto the other rendering.
+    if (target instanceof HTMLInputElement && target.dataset.overviewAsAbout !== undefined) {
+        const on = target.checked;
+        void putSettings({ overview_as_about: on ? true : null }).then(async (saved) => {
+            if (!saved) { target.checked = !on; return; }
+            const containerId = ABOUT_CONTAINER();
+            try {
+                const m = await import('./userAboutBook');
+                await m.exitAboutEdit(containerId);
+            } catch (error) {
+                log.error('About editor failed to stop', '/components/userProfile/userPageEditor.ts', error as Error);
+            }
+            window.location.reload();
         });
         return;
     }

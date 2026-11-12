@@ -72,6 +72,8 @@ class ShelfController extends Controller
             // membership comes from liking, not from a checkbox) while the
             // profile/tabs treat it as any other shelf.
             'shelves.kind',
+            // The member book nominated as the shelf's overview (ShelfOverview).
+            'shelves.overview_book',
             'shelves.created_at',
             'shelves.updated_at',
             // item_count used by the AI Brain shelf picker to refuse submit on empty shelves
@@ -89,6 +91,17 @@ class ShelfController extends Controller
         }
 
         $shelves = $query->orderByDesc('shelves.updated_at')->get($columns);
+
+        // Where each shelf opens (the add-to-shelf menu's arrow): its archive
+        // page — the shelf's "home page" — when it has one and is public (a
+        // private shelf's /a/ page shows nothing), else the shelf on the
+        // owner's user page.
+        $archiveSlugs = \App\Models\ArchiveSource::whereIn('shelf_id', $shelves->pluck('id'))->pluck('slug', 'shelf_id');
+        foreach ($shelves as $shelf) {
+            $shelf->url = ($shelf->visibility === 'public' && isset($archiveSlugs[$shelf->id]))
+                ? url('/a/' . $archiveSlugs[$shelf->id])
+                : \App\Support\UsernameKey::shelfUrl($user->name, $shelf->slug ?: $shelf->id);
+        }
 
         return response()->json(['shelves' => $shelves]);
     }
@@ -161,6 +174,9 @@ class ShelfController extends Controller
             'description' => 'nullable|string',
             'visibility' => 'nullable|string|in:private,public',
             'default_sort' => 'nullable|string|in:recent,views,added,manual,connected,lit,title,author',
+            // The shelf's overview book (ShelfOverview): a member's id, or
+            // null / '' to clear it.
+            'overview_book' => 'nullable|string|max:255',
         ]);
 
         $user = Auth::user();
@@ -191,6 +207,25 @@ class ShelfController extends Controller
             $updates['slug'] = $this->generateUniqueSlug($updates['name'], $user->name, $id);
         }
 
+        // Overview: only a book that is ON this shelf can be nominated; an
+        // explicit null/'' clears. (Any member — your own intro book, or one
+        // of the readings.) Changing it reorders every cached render.
+        $overviewChanged = false;
+        if ($request->has('overview_book')) {
+            $overview = $request->overview_book ?: null;
+            if ($overview !== null) {
+                $isMember = DB::connection('pgsql_admin')->table('shelf_items')
+                    ->where('shelf_id', $id)->where('book', $overview)->exists();
+                if (!$isMember) {
+                    return response()->json(['error' => 'Only a book on this shelf can be its overview.'], 422);
+                }
+            }
+            $overviewChanged = $overview !== ($shelf->overview_book ?? null);
+            if ($overviewChanged) {
+                $updates['overview_book'] = $overview;
+            }
+        }
+
         $sortChanged = isset($updates['default_sort']) && $updates['default_sort'] !== $shelf->default_sort;
 
         if (!empty($updates)) {
@@ -198,8 +233,12 @@ class ShelfController extends Controller
             DB::connection('pgsql_admin')->table('shelves')->where('id', $id)->update($updates);
         }
 
-        if ($sortChanged) {
+        if ($sortChanged || $overviewChanged) {
             (new ShelfCacheInvalidator())->flush($id);
+        }
+        if ($overviewChanged && ($archiveId = \App\Models\ArchiveSource::where('shelf_id', $id)->value('id'))) {
+            // The archive page's connection map leaves the overview out.
+            Cache::forget(\App\Http\Controllers\ArchivePageController::mapCacheKey($archiveId));
         }
 
         return response()->json(['success' => true]);
@@ -305,8 +344,22 @@ class ShelfController extends Controller
             ->first(['id', 'name', 'description', 'creator']);
         $book = $aboutBook->ensure($full);
 
-        $input = $request->except(['pill_shelves', 'about_html']);
+        $input = $request->except(['pill_shelves', 'about_html', 'overview_as_about']);
         $result = $validator->validate($input, $book, $shelf->creator);
+        // Archive-only: show the shelf's pinned OVERVIEW book as this page's
+        // about text, in place of the page's own (editable) about. Default
+        // OFF — only `true` is stored; false/null clear the key.
+        if ($request->has('overview_as_about')) {
+            $raw = $request->input('overview_as_about');
+            if ($raw === true) {
+                $result['settings']['overview_as_about'] = true;
+            } elseif ($raw === false || $raw === null) {
+                $result['settings']['overview_as_about'] = null;
+            } else {
+                $result['ok'] = false;
+                $result['errors']['overview_as_about'] = 'overview_as_about must be a boolean.';
+            }
+        }
         if (!$result['ok']) {
             return response()->json(['error' => 'Validation failed', 'errors' => $result['errors']], 422);
         }
@@ -399,6 +452,13 @@ class ShelfController extends Controller
         }
 
         $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
+        // An admin maintains the system-owned collection shelves (journals,
+        // maintainer archives) — invisible to their RLS context, so looked up
+        // on the admin connection. Same rule as ImportBatchController::store.
+        if (!$shelf && $user->isAdmin()) {
+            $shelf = DB::connection('pgsql_admin')->table('shelves')->where('id', $id)
+                ->where('creator', \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR)->first();
+        }
         if (!$shelf) {
             return response()->json(['error' => 'Shelf not found'], 404);
         }
@@ -479,6 +539,7 @@ class ShelfController extends Controller
             ->where('shelf_id', $id)
             ->where('book', $book)
             ->delete();
+        \App\Services\Shelves\ShelfOverview::forget($book, $id);
 
         (new ShelfCacheInvalidator())->flush($id);
 
@@ -721,6 +782,20 @@ class ShelfController extends Controller
             }
         }
 
+        // The shelf's OVERVIEW book (ShelfOverview) leads every sort, for
+        // EVERY viewer, and its card wears a visible pin. Visitors only get it
+        // pinned when it's a book they can open — a locked card on top of the
+        // shelf would be a dead end where the intro should be.
+        $overviewBook = \App\Services\Shelves\ShelfOverview::memberBook($id);
+        if ($overviewBook !== null) {
+            $lead = $items->firstWhere('book', $overviewBook);
+            if ($lead && ($isOwner || ($lead->book_visibility ?? 'public') === 'public')) {
+                $items = collect([$lead])->merge($items->reject(fn ($i) => $i->book === $overviewBook));
+            } else {
+                $overviewBook = null;
+            }
+        }
+
         $items = $items->values();
 
         // Generate nodes using LibraryCardGenerator
@@ -730,7 +805,11 @@ class ShelfController extends Controller
 
         foreach ($items as $i => $record) {
             $locked = !$isOwner && ($record->book_visibility ?? 'public') !== 'public';
-            $chunks[] = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', $locked);
+            $chunk = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', $locked);
+            if ($overviewBook !== null && $record->book === $overviewBook) {
+                $chunk = $generator->markAsOverview($chunk);
+            }
+            $chunks[] = $chunk;
             $positionId++;
         }
 

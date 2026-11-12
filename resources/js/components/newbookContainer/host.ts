@@ -24,6 +24,8 @@ export interface ContainerHost {
   animationTimeout: ReturnType<typeof setTimeout> | null;
   transitionEndHandler: ((ev?: Event) => void) | null;
   originalButtonRect: ButtonRect | null;
+  /** One-shot: dock the next form open to the right (geometry.ts dockRightPx). Cleared on close. */
+  dockRightPx: number | null;
   originalContent: string | null;
   recentExternalLinkClick: boolean;
   resizeHandler: (() => void) | null;

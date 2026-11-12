@@ -22,10 +22,15 @@ export interface FormGeometryInput {
   /** Right edge of #logoNavWrapper (left-anchored desktop only): the form flies
       out to the right of the logo-nav glass column instead of covering it. */
   navRight?: number | null;
+  /** Desktop only: dock the form's RIGHT edge this many px from the viewport's
+      right edge, instead of anchoring to the +button. Set when the form is
+      opened from somewhere on the right (the archive panel's plus), so it
+      opens where the click was rather than beside the left nav. */
+  dockRightPx?: number | null;
 }
 
 export function computeFormGeometry(
-  { isMobile, isLeftAnchored, buttonRect, innerWidth, navRight }: FormGeometryInput,
+  { isMobile, isLeftAnchored, buttonRect, innerWidth, navRight, dockRightPx }: FormGeometryInput,
 ): FormGeometry {
   if (isMobile) {
     // Full-width sheet on left-anchored (reader); right-edge-sized on right-anchored (home/user).
@@ -46,6 +51,19 @@ export function computeFormGeometry(
   // clamped to the viewport — on narrow windows it slides left over the nav, stacking
   // on top of it (the panel z-index sits above the nav for exactly this case);
   // right-anchored (home/user) sits just below the + button.
+  if (dockRightPx != null) {
+    return {
+      width: '400px',
+      maxWidth: '400px',
+      height: '80vh',
+      top: '15px',
+      padding: '0',
+      left: '',
+      // Never off-screen: on a window narrower than the form it hugs the left margin.
+      right: `${Math.max(10, Math.min(dockRightPx, innerWidth - 400 - 10))}px`,
+    };
+  }
+
   const leftFlyout = navRight != null
     ? Math.max(10, Math.min(navRight + 4, innerWidth - 400 - 10))
     : 50;

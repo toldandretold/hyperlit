@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2023,
-    "moduleCount": 426,
+    "fnCount": 2025,
+    "moduleCount": 427,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4216,
+    "edgeCount": 4228,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2334,6 +2334,14 @@
       "leaf": false
     },
     {
+      "id": "components/shelves/shelfOverview:setShelfOverview",
+      "label": "setShelfOverview",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfOverview",
+      "leaf": false
+    },
+    {
       "id": "components/shelves/shelfPreview:hideShelfPreview",
       "label": "hideShelfPreview",
       "kind": "fn",
@@ -3872,6 +3880,14 @@
     {
       "id": "components/sourceContainer/readerActions:initReaderActions",
       "label": "initReaderActions",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/readerActions",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/readerActions:wirePanelPopover",
+      "label": "wirePanelPopover",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/readerActions",
@@ -18957,6 +18973,15 @@
       ]
     },
     {
+      "id": "components/shelves/shelfOverview",
+      "label": "components/shelves/shelfOverview",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfOverview:setShelfOverview"
+      ]
+    },
+    {
       "id": "components/shelves/shelfPreview",
       "label": "components/shelves/shelfPreview",
       "stage": "components",
@@ -19427,6 +19452,7 @@
       "band": "components",
       "fnIds": [
         "components/sourceContainer/readerActions:initReaderActions",
+        "components/sourceContainer/readerActions:wirePanelPopover",
         "components/sourceContainer/readerActions:wireShareControl"
       ]
     },
@@ -23649,10 +23675,22 @@
       "dataPath": true
     },
     {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions__call__components/sourceContainer/readerActions:wirePanelPopover",
+      "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "target": "components/sourceContainer/readerActions:wirePanelPopover",
+      "rel": "call"
+    },
+    {
       "id": "components/archivePanel/index:ArchivePanelManager.wireActions__call__components/sourceContainer/readerActions:wireShareControl",
       "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
       "target": "components/sourceContainer/readerActions:wireShareControl",
       "rel": "call"
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions__write__store:sessionStorage",
+      "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "target": "store:sessionStorage",
+      "rel": "write"
     },
     {
       "id": "components/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
@@ -24024,6 +24062,13 @@
       "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
       "source": "components/homepage/homepage:initializeHomepageBookActions",
       "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/shelfOverview:setShelfOverview",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/shelves/shelfOverview:setShelfOverview",
       "rel": "call",
       "dataPath": true
     },
@@ -26181,6 +26226,25 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/shelves/shelfOverview:setShelfOverview__call__components/shelves/shelfTabs:invalidateShelfCache",
+      "source": "components/shelves/shelfOverview:setShelfOverview",
+      "target": "components/shelves/shelfTabs:invalidateShelfCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfOverview:setShelfOverview__call__components/shelves/shelfTabs:openShelf",
+      "source": "components/shelves/shelfOverview:setShelfOverview",
+      "target": "components/shelves/shelfTabs:openShelf",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfOverview:setShelfOverview__domwrite__dom",
+      "source": "components/shelves/shelfOverview:setShelfOverview",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/shelves/shelfPreview:hideShelfPreview__domwrite__dom",
       "source": "components/shelves/shelfPreview:hideShelfPreview",
       "target": "dom",
@@ -27968,6 +28032,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/sourceContainer/readerActions:wirePanelPopover__domwrite__dom",
+      "source": "components/sourceContainer/readerActions:wirePanelPopover",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/readerActions:wireShareControl__call__components/sourceContainer/readerActions:wirePanelPopover",
+      "source": "components/sourceContainer/readerActions:wireShareControl",
+      "target": "components/sourceContainer/readerActions:wirePanelPopover",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/readerActions:wireShareControl__domwrite__dom",
       "source": "components/sourceContainer/readerActions:wireShareControl",
       "target": "dom",
@@ -29134,6 +29210,13 @@
       "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/addToShelfMenu:showAddToShelfMenu",
       "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
       "target": "components/shelves/addToShelfMenu:showAddToShelfMenu",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/shelfOverview:setShelfOverview",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/shelves/shelfOverview:setShelfOverview",
       "rel": "call",
       "dataPath": true
     },
@@ -31251,6 +31334,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/shelves/shelfOverview:setShelfOverview",
+      "source": "dom",
+      "target": "components/shelves/shelfOverview:setShelfOverview",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/shelves/shelfPreview:showShelfPreview",
       "source": "dom",
       "target": "components/shelves/shelfPreview:showShelfPreview",
@@ -31644,6 +31733,12 @@
       "id": "dom__domread__components/sourceContainer/readerActions:initReaderActions",
       "source": "dom",
       "target": "components/sourceContainer/readerActions:initReaderActions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/readerActions:wirePanelPopover",
+      "source": "dom",
+      "target": "components/sourceContainer/readerActions:wirePanelPopover",
       "rel": "domread"
     },
     {
@@ -46107,6 +46202,13 @@
       "label": "/api/shelves/{}/like"
     },
     {
+      "id": "route:/api/shelves__pull__components/shelves/shelfOverview:setShelfOverview",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfOverview:setShelfOverview",
+      "rel": "pull",
+      "label": "/api/shelves/{}"
+    },
+    {
       "id": "route:/api/shelves__pull__components/shelves/shelfTabs:closeTab",
       "source": "route:/api/shelves",
       "target": "components/shelves/shelfTabs:closeTab",
@@ -50626,6 +50728,11 @@
     },
     {
       "source": "components/archivePanel/index",
+      "target": "SPA/navigation/navigationRegistry",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/archivePanel/index",
       "target": "components/shelves/shelfLike",
       "kind": "lazy"
     },
@@ -50732,6 +50839,11 @@
     {
       "source": "components/homepage/homepage",
       "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/shelves/shelfOverview",
       "kind": "lazy"
     },
     {
@@ -51357,6 +51469,11 @@
     {
       "source": "components/shelves/shelfLike",
       "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfOverview",
+      "target": "components/shelves/shelfTabs",
       "kind": "lazy"
     },
     {
@@ -52037,6 +52154,11 @@
     {
       "source": "components/userProfile/userProfilePage",
       "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "components/shelves/shelfOverview",
       "kind": "lazy"
     },
     {
@@ -56365,6 +56487,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 315
+    "lazyCount": 319
   }
 }

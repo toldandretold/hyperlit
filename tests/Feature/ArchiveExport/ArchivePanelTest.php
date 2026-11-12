@@ -87,12 +87,16 @@ test('user scope: visitor sees public books only; owner export includes private'
     $visitor = $this->getJson('/api/archive-export/user/' . rawurlencode($owner->name) . '/panel');
     $visitor->assertOk()
         ->assertJsonPath('audience', 'public')
+        ->assertJsonPath('canAdd', false)
         ->assertJsonPath('counts.export_books', 1)
         ->assertJsonPath('counts.public_books', 1);
 
     $asOwner = $this->actingAs($owner)->getJson('/api/archive-export/user/' . rawurlencode($owner->name) . '/panel');
     $asOwner->assertOk()
         ->assertJsonPath('audience', 'owner')
+        // The panel's plus: the owner can add to their own library (no shelf).
+        ->assertJsonPath('canAdd', true)
+        ->assertJsonPath('addShelfId', null)
         ->assertJsonPath('counts.export_books', 2)
         ->assertJsonPath('counts.public_books', 1);
 });
@@ -161,7 +165,12 @@ test('journal scope: corpus is the public shelf members, always public audience'
     $res->assertOk()
         ->assertJsonPath('audience', 'public')
         ->assertJsonPath('counts.export_books', 1)
-        ->assertJsonPath('displayName', 'APanel Journal');
+        ->assertJsonPath('displayName', 'APanel Journal')
+        ->assertJsonPath('canAdd', false);
+
+    // A signed-in stranger keeps nothing here: no plus, no shelf id leaked.
+    $this->actingAs(apanelUser())->getJson("/api/archive-export/journal/{$slug}/panel")
+        ->assertOk()->assertJsonPath('canAdd', false)->assertJsonPath('addShelfId', null);
 });
 
 test('unknown scopeId 404s; unknown scopeType is not a route', function () {

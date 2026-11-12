@@ -349,7 +349,11 @@ class UserHomeServerController extends Controller
             $shelves = DB::table('shelves')
                 ->where('creator', $actualUsername)
                 ->orderByDesc('updated_at')
-                ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort'])
+                // `kind` is load-bearing client-side: shelfHeader only marks an
+                // ordinary ('user') shelf as a drop target / overview-pinnable,
+                // and hides the like button on licence_review. Omitted, every
+                // shelf read as kind-less and all three silently never applied.
+                ->get(['id', 'name', 'slug', 'description', 'visibility', 'default_sort', 'kind', 'overview_book'])
                 ->toArray();
         }
 

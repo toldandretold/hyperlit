@@ -24,6 +24,14 @@ class ArchiveCorpus
         public readonly array $books,
         /** @var object[] */
         public readonly array $encryptedBooks,
+        /**
+         * The collection's HUB text, when it has one — a shelf's nominated
+         * overview book (ShelfOverview), else an owner-minted archive's About
+         * book. A library row (book, title, slug, timestamp). It introduces
+         * the readings rather than being one: never in $books, and the vault
+         * exports it as the top-level hub note.
+         */
+        public readonly ?object $hub = null,
     ) {
     }
 
@@ -64,6 +72,10 @@ class ArchiveCorpus
             $r->visibility,
         ], $this->books);
         usort($rows, fn ($a, $b) => strcmp($a[0], $b[0]));
+        if ($this->hub) {
+            // Editing (or swapping) the hub must rebuild the vault too.
+            $rows[] = ['hub:' . $this->hub->book, (int) ($this->hub->timestamp ?? 0), 0, 'public'];
+        }
 
         return $rows;
     }

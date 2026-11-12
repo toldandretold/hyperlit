@@ -60,6 +60,16 @@ class ArchivePageController extends Controller
         // prod; a visitor still only ever hears about public documents).
         $readable = $shelfId ? $readableCount->forPublic($archive->id, $shelfId) : 0;
 
+        // The shelf's nominated OVERVIEW book (ShelfOverview) — a course intro
+        // / reading-list readme. It is not one of the readings, so it leaves
+        // the count. Whether it also stands in as this page's ABOUT is the
+        // owner's choice (page setting `overview_as_about`, default OFF — see
+        // below): by default the page keeps its own, directly-editable about.
+        $overview = $shelfId ? \App\Services\Shelves\ShelfOverview::publicBook($shelfId) : null;
+        if ($overview) {
+            $readable = max(0, $readable - 1);
+        }
+
         // Owner-minted archives get a real About BOOK (rich text, full editor —
         // ArchiveAboutBook). Minted on the owner's visit, only while the shelf
         // is PUBLIC (it's seeded from the description). Visitors see it once
@@ -94,18 +104,34 @@ class ArchivePageController extends Controller
             ? $pageSettings['background_art'] : null;
         $showMap = $ownerMinted && $shelfId && (($pageSettings['show_map'] ?? null) !== false);
 
+        // Opted in: the overview book renders as the about — read-only here
+        // (it is edited at its own URL), capped, with a link to the whole text.
+        $overviewNodes = [];
+        $overviewTruncated = false;
+        if ($overview && ($pageSettings['overview_as_about'] ?? null) === true) {
+            $overviewNodes = DB::connection('pgsql_admin')->table('nodes')
+                ->where('book', $overview->book)
+                ->orderBy('startLine')
+                ->limit(self::OVERVIEW_NODE_CAP + 1)
+                ->get(['startLine', 'node_id', 'content'])
+                ->all();
+            $overviewTruncated = count($overviewNodes) > self::OVERVIEW_NODE_CAP;
+            $overviewNodes = array_slice($overviewNodes, 0, self::OVERVIEW_NODE_CAP);
+        }
+
         // Connection map: the hypercite network of the shelf's PUBLIC books
         // (JournalHyperciteMap, same figure as the user/journal pages). Cached
         // flexibly like the user page's — rebuilt deferred when stale.
         $hyperciteMap = null;
         if ($showMap) {
-            $mapCached = Cache::flexible(self::mapCacheKey($archive->id), [900, 86400], function () use ($shelfId, $name) {
+            $mapCached = Cache::flexible(self::mapCacheKey($archive->id), [900, 86400], function () use ($shelfId, $name, $overview) {
                 $corpus = DB::connection('pgsql_admin')->table('shelf_items as si')
                     ->join('library as l', 'l.book', '=', 'si.book')
                     ->where('si.shelf_id', $shelfId)
                     ->where('l.visibility', 'public')
                     ->where('l.has_nodes', true)
                     ->where('l.book', 'NOT LIKE', '%/%')
+                    ->when($overview, fn ($q) => $q->where('l.book', '!=', $overview->book))
                     ->get(['l.book', 'l.title', 'l.author', 'l.year', 'l.slug'])
                     ->keyBy('book')
                     ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year, 'slug' => $r->slug])
@@ -147,12 +173,15 @@ class ArchivePageController extends Controller
             'readable'        => $readable,
             'aboutIsPlain'    => $ownerMinted,
             'aboutBookId'     => $aboutBookId,
+            'overviewNodes'   => $overviewNodes,
+            'overviewUrl'     => $overview ? \App\Helpers\BookSlugHelper::canonicalPath($overview->book, $overview->slug ?: null) : null,
+            'overviewTruncated' => $overviewTruncated,
             'mediaBook'       => $mediaBook,
             'logoImage'       => $logoImage,
             'backgroundImage' => $backgroundImage,
             'backgroundArt'   => $backgroundArt,
             'hyperciteMap'    => $hyperciteMap,
-            'pageSettings'    => $canEdit ? array_intersect_key($pageSettings, array_flip(['logo_image', 'background_image', 'background_art', 'show_map'])) : null,
+            'pageSettings'    => $canEdit ? array_intersect_key($pageSettings, array_flip(['logo_image', 'background_image', 'background_art', 'show_map', 'overview_as_about'])) : null,
             'aboutNodes'      => $aboutNodes,
             'archiveEdit'     => $canEdit ? [
                 'shelfId'     => $archive->shelf_id,
@@ -161,6 +190,9 @@ class ArchivePageController extends Controller
             ] : null,
         ]);
     }
+
+    /** How much of a nominated overview book the archive page shows inline. */
+    private const OVERVIEW_NODE_CAP = 120;
 
     public static function mapCacheKey(string $archiveId): string
     {

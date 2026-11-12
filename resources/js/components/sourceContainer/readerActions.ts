@@ -72,14 +72,35 @@ export function wireShareControl(
   getUrl: () => string,
   getCitation: () => string,
 ): void {
-  const self = { container };
   const control: any = container.querySelector('#share-control');
-  if (!control || control._listenerAttached) return;
-  control._listenerAttached = true;
+  if (!control) return;
+  wirePanelPopover(container, control, control.querySelector('#share-book'), (opt) => {
+    const kind = opt.dataset.share ?? 'link';
+    const text = kind === 'citation' ? getCitation() : getUrl();
+    if (!text) return;
+    void copyWithFeedback(opt, text, kind);
+  });
+}
 
-  const trigger = control.querySelector('#share-book');
+/**
+ * One in-panel popover (a `.share-control` holding a trigger + `.share-panel`
+ * of `.share-option`s): opens upward from the action bar, blurs the panel's
+ * content behind it, traps focus, closes on Escape / outside click. Share uses
+ * it to copy; the archive panel's plus uses it to offer Blank / Import.
+ * `onPick` gets the chosen option and a `close()` for options that leave.
+ */
+export function wirePanelPopover(
+  container: HTMLElement,
+  control: any,
+  triggerEl: HTMLElement | null,
+  onPick: (option: HTMLElement, close: () => void) => void,
+): void {
+  const self = { container };
+  if (!control || control._listenerAttached) return;
   const panel = control.querySelector('.share-panel');
-  if (!trigger || !panel) return;
+  if (!triggerEl || !panel) return;
+  const trigger: HTMLElement = triggerEl;
+  control._listenerAttached = true;
 
   const onOutside = (e: any) => { if (!control.contains(e.target)) close(); };
   let releaseTrap: (() => void) | null = null;
@@ -127,10 +148,7 @@ export function wireShareControl(
     opt.addEventListener('click', (e: Event) => {
       e.preventDefault();
       e.stopPropagation();
-      const kind = opt.dataset.share;
-      const text = kind === 'citation' ? getCitation() : getUrl();
-      if (!text) return;
-      void copyWithFeedback(opt, text, kind);
+      onPick(opt, close);
     });
   });
 }

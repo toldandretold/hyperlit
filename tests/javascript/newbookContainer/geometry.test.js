@@ -101,3 +101,24 @@ describe('applyFormGeometry', () => {
     expect(el.style.right).toBe('20px');
   });
 });
+
+describe('computeFormGeometry — docked right (opened from the archive panel plus)', () => {
+  const base = { isLeftAnchored: true, buttonRect: { left: 20, right: 60, top: 10, bottom: 40 }, navRight: 120 };
+
+  it('desktop: anchors by RIGHT edge at the given inset, ignoring the left nav', () => {
+    const g = computeFormGeometry({ ...base, isMobile: false, innerWidth: 1400, dockRightPx: 24 });
+    expect(g.right).toBe('24px');
+    expect(g.left).toBe('');
+    expect(g.width).toBe('400px');
+  });
+
+  it('never runs off a narrow window', () => {
+    const g = computeFormGeometry({ ...base, isMobile: false, innerWidth: 500, dockRightPx: 300 });
+    expect(g.right).toBe('90px'); // 500 - 400 - 10
+  });
+
+  it('mobile keeps its full-width sheet', () => {
+    const g = computeFormGeometry({ ...base, isMobile: true, innerWidth: 390, dockRightPx: 24 });
+    expect(g.left).toBe('15px');
+  });
+});

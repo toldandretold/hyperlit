@@ -230,6 +230,7 @@ class BookDeletionService
                     $stats['shelves_removed_from'] = $shelfIds->count();
                 }
                 $shelfAdmin->table('shelf_pins')->where('book', $bookId)->delete();
+                \App\Services\Shelves\ShelfOverview::forget($bookId);
             } catch (\Throwable $e) {
                 Log::warning('BookDeletionService: shelf membership cleanup failed', ['book' => $bookId, 'error' => $e->getMessage()]);
             }

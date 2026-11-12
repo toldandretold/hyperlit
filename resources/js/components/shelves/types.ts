@@ -21,6 +21,10 @@ export interface Shelf {
    * hides it and the server refuses manual adds.
    */
   kind: 'user' | 'likes' | 'licence_review' | string;
+  /** The member book nominated as the shelf's overview (pinned first for everyone), if any. */
+  overview_book?: string | null;
+  /** Where the shelf opens: its archive page when it has a public one, else the shelf on the owner's user page. */
+  url?: string;
   created_at: string;
   updated_at: string;
   item_count: number;

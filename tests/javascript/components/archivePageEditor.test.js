@@ -67,8 +67,12 @@ describe('archive page = the user page editor', () => {
     document.title = 'Cyber Politics — Hyperlit';
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Entering edit mode kicks off lazy imports; let them land before the
+    // environment is torn down (else they reject after teardown, under load).
+    await vi.dynamicImportSettled();
     destroyUserPageEditor();
+    await vi.dynamicImportSettled();
     delete document.body.dataset.page;
   });
 
@@ -92,6 +96,8 @@ describe('archive page = the user page editor', () => {
     expect(p.querySelector('[data-image-pick="background_image"]')).not.toBeNull();
     expect(p.querySelector('[data-bg-art="none"]')).not.toBeNull();
     expect(p.querySelector('[data-show-map]')).not.toBeNull();
+    // Pinned-book-as-about: offered on archives, OFF by default.
+    expect(p.querySelector('[data-overview-as-about]').checked).toBe(false);
     expect(aboutContainerId()).toBe('archive-about-book');
     expect(profile.setUserProfileEditingEnabled).not.toHaveBeenCalled();
     expect(title().getAttribute('contenteditable')).toMatch(/plaintext-only|true/);
@@ -110,6 +116,22 @@ describe('archive page = the user page editor', () => {
     expect(url).toBe(`/api/shelves/${SHELF}/archive/page-settings`);
     expect(init.method).toBe('PUT');
     expect(JSON.parse(init.body)).toEqual({ background_art: 'none' });
+  });
+
+  it('ticking "use the pinned book as the about text" saves it and reloads', async () => {
+    globalThis.fetch = vi.fn(() => ok({ success: true, page_settings: { overview_as_about: true } }));
+    const reload = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload });
+    render();
+    pencil().click();
+    const box = panel().querySelector('[data-overview-as-about]');
+    box.checked = true;
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+    await vi.waitFor(() => expect(reload).toHaveBeenCalled());
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toBe(`/api/shelves/${SHELF}/archive/page-settings`);
+    expect(JSON.parse(init.body)).toEqual({ overview_as_about: true });
+    vi.unstubAllGlobals();
   });
 
   it('images upload into the archive About book and render from its media', async () => {

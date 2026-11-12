@@ -289,7 +289,14 @@ class HomePageServerController extends Controller
         foreach ($records->values() as $i => $record) {
             // positionId = $i + 1 → startLine 1..N; the generator's
             // floor($i / 100) chunk math matches the old floor((pos - 1) / 100).
-            $chunks[] = $generator->generateLibraryCardChunk($record, $bookName, $i + 1, false, false, $i);
+            $chunk = $generator->generateLibraryCardChunk($record, $bookName, $i + 1, false, false, $i);
+            // The pinned welcome book leads most-recent BY FIAT, not by date —
+            // show the pin so the placement explains itself. (In the ranked
+            // feeds it sits wherever its score puts it: no pin.)
+            if ($i === 0 && $bookName === 'most-recent' && $record->book === self::PINNED_BOOK_ID) {
+                $chunk = $generator->markPinned($chunk);
+            }
+            $chunks[] = $chunk;
         }
 
         foreach (array_chunk($chunks, 500) as $batch) {

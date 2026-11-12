@@ -306,3 +306,91 @@ test('vault notes open with citation front matter and a link back to hyperlit', 
         ->not->toContain('license:')
         ->not->toContain('doi:');
 });
+
+test('the vault README follows the archive page: the pinned book is the README only when it is the about text', function () {
+    $owner = aexUser();
+    $reading = aexBook($owner, 'reading', 'public', ['slug' => 'aex-reading-' . Str::lower(Str::random(5))]);
+    $other = aexBook($owner, 'second', 'public');
+    $overview = aexBook($owner, 'overview', 'public', ['has_nodes' => true]);
+    $readingSlug = aexDb()->table('library')->where('book', $reading)->value('slug');
+    $host = rtrim(config('app.url'), '/');
+    aexDb()->table('nodes')->where('book', $overview)->update([
+        'content' => '<p>Week 1: read <a href="' . $host . '/' . $readingSlug . '">the first reading</a>, then <a href="/' . $other . '#intro">the second</a>. Background: <a href="https://example.org/' . $reading . '">elsewhere</a>.</p>',
+    ]);
+
+    $shelfId = (string) Str::uuid();
+    aexDb()->table('shelves')->insert([
+        'id' => $shelfId, 'creator' => $owner->name, 'name' => 'Aex Course', 'slug' => 'aex-course-' . Str::lower(Str::random(5)),
+        'visibility' => 'public', 'default_sort' => 'recent', 'overview_book' => $overview,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    foreach ([$reading, $other, $overview] as $b) {
+        aexDb()->table('shelf_items')->insert(['shelf_id' => $shelfId, 'book' => $b, 'added_at' => now()]);
+    }
+    $slug = 'aex-course-arch-' . Str::lower(Str::random(5));
+    aexDb()->table('archive_sources')->insert([
+        'shelf_id' => $shelfId, 'slug' => $slug, 'display_name' => null, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $readVault = function () use ($slug) {
+        $this->postJson("/api/archive-export/archive/{$slug}/build", ['kind' => 'markdown'])->assertStatus(202);
+        $path = $this->get("/exports/archive/{$slug}/markdown")->assertOk()->baseResponse->getFile()->getPathname();
+        $zip = new ZipArchive();
+        expect($zip->open($path))->toBeTrue();
+        $notes = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $notes[basename($zip->getNameIndex($i))] = $zip->getFromIndex($i);
+        }
+        $zip->close();
+
+        return $notes;
+    };
+    $overviewNote = 'Aex Author - Aex Overview Title.md';
+
+    try {
+        // DEFAULT (overview_as_about off): the pinned book is an ordinary
+        // note, listed FIRST; the README is the generated one.
+        $corpus = app(ArchiveCorpusResolver::class)->resolve('archive', $slug, false);
+        expect($corpus->hub)->toBeNull()
+            ->and($corpus->bookIds()[0])->toBe($overview)
+            ->and($corpus->bookIds())->toContain($reading)->toContain($other);
+
+        $notes = $readVault();
+        expect(array_keys($notes))->toHaveCount(4)->toContain($overviewNote);
+        expect($notes['README.md'])->toContain('3 texts in this vault')->not->toContain('Week 1: read');
+        expect($notes[$overviewNote])->toContain('Week 1: read');
+
+        // OPTED IN: the pinned book IS the README — renamed only: it keeps
+        // its own citation front matter and its own link back.
+        $about = app(\App\Services\Archives\ArchiveAboutBook::class);
+        $about->ensure(aexDb()->table('shelves')->where('id', $shelfId)->first(['id', 'name', 'description', 'creator']));
+        $about->saveSettings($shelfId, ['overview_as_about' => true]);
+
+        $corpus = app(ArchiveCorpusResolver::class)->resolve('archive', $slug, false);
+        expect($corpus->hub?->book)->toBe($overview)
+            ->and($corpus->bookIds())->toContain($reading)->toContain($other)->not->toContain($overview);
+
+        $notes = $readVault();
+        expect(array_keys($notes))->toHaveCount(3)->not->toContain($overviewNote);
+
+        $hub = $notes['README.md'];
+        expect($hub)->toStartWith("---\ntitle: \"Aex Overview Title\"")
+            ->toContain('hyperlit: "' . url('/' . $overview) . '"')
+            ->toContain('archive: "' . url('/a/' . $slug) . '"')
+            ->toContain('[the first reading](' . rawurlencode('Aex Author - Aex Reading Title.md') . ')')
+            ->toContain('[the second](' . rawurlencode('Aex Author - Aex Second Title.md') . ')')
+            // Another site's URL is never rewritten, even if it names a book id.
+            ->toContain('[elsewhere](https://example.org/' . $reading . ')')
+            ->toContain('## About this vault')
+            ->toContain('2 texts in this vault');
+    } finally {
+        app(\App\Services\Archives\ArchiveAboutBook::class)->delete($shelfId);
+        aexDb()->table('archive_sources')->where('shelf_id', $shelfId)->delete();
+        aexDb()->table('shelf_items')->where('shelf_id', $shelfId)->delete();
+        aexDb()->table('shelves')->where('id', $shelfId)->delete();
+        File::deleteDirectory(storage_path('app/archive-exports/archive-' . $slug));
+        foreach (glob(storage_path('app/archive-exports/archive-' . $slug . '*')) ?: [] as $dir) {
+            File::deleteDirectory($dir);
+        }
+    }
+});

@@ -16,6 +16,10 @@ export interface ArchivePanelData {
   audience: 'public' | 'owner';
   /** The PUBLIC shelf behind a journal/archive corpus (what Like likes); null for a user library. */
   shelfId?: string | null;
+  /** The viewer keeps this collection (library owner / the shelf's creator): show the plus. */
+  canAdd?: boolean;
+  /** The shelf a book made from the plus joins; null for a user library. */
+  addShelfId?: string | null;
   counts: {
     public_books: number;
     export_books: number;
@@ -107,7 +111,35 @@ function actionBar(data: ArchivePanelData): string {
           </div>
         </div>
       </div>
-      <div class="source-action-group"></div>
+      <div class="source-action-group">${data.canAdd ? `
+        <div id="add-control" class="share-control add-control">
+          <button type="button" id="archive-add-book" aria-haspopup="true" aria-expanded="false" aria-label="Add a new book to this ${what}" title="New book">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+          </button>
+          <div class="share-panel" style="display: none;">
+            <button type="button" class="share-option" data-add="blank">
+              <span class="share-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </span>
+              <span class="share-option-label">Blank</span>
+            </button>
+            <button type="button" class="share-option" data-add="import">
+              <span class="share-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </span>
+              <span class="share-option-label">Import</span>
+            </button>
+          </div>
+        </div>` : ''}</div>
     </div>`;
 }
 

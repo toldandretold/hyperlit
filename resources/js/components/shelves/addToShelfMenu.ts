@@ -173,6 +173,20 @@ export async function showAddToShelfMenu(anchorEl: any, bookId: any) {
 
         item.appendChild(checkbox);
         item.appendChild(label);
+
+        // Arrow on the right: open the shelf (its archive page when it has
+        // one). A link inside the label — clicking it follows the link and
+        // does NOT tick the box.
+        if (shelf.url) {
+            const open = document.createElement('a');
+            open.className = 'add-shelf-open';
+            open.href = shelf.url;
+            open.textContent = '↗';
+            open.title = 'Open shelf';
+            open.setAttribute('aria-label', `Open ${shelf.name}`);
+            open.addEventListener('click', (e) => e.stopPropagation());
+            item.appendChild(open);
+        }
         menu.appendChild(item);
     }
 }

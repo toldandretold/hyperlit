@@ -32,15 +32,21 @@ class MarkdownVaultBuilder
         }
 
         $root = $this->rootFolder($corpus);
-        $zip->addFromString("{$root}/README.md", $this->readme($corpus));
+
+        // Note names first: the hub note links to the readings BY NAME.
+        $usedNames = ['readme.md' => true];
+        $names = [];
+        foreach ($corpus->books as $row) {
+            $names[$row->book] = $this->dedupe($this->exporter->filenameFor($row), $usedNames);
+        }
+
+        $zip->addFromString("{$root}/README.md", $this->hubOrReadme($corpus, $names));
 
         $total = max(1, count($corpus->books));
-        $usedNames = [];
         foreach ($corpus->books as $i => $row) {
             $markdown = $this->exporter->markdownFor($row->book, obsidianLinks: true);
             if (trim($markdown) !== '') {
-                $name = $this->dedupe($this->exporter->filenameFor($row), $usedNames);
-                $zip->addFromString("{$root}/{$name}", $this->frontMatter($row->book, $corpus) . $markdown);
+                $zip->addFromString("{$root}/{$names[$row->book]}", $this->frontMatter($row->book, $corpus) . $markdown);
             }
             $onProgress(($i + 1) / $total);
         }
@@ -113,6 +119,92 @@ class MarkdownVaultBuilder
         $lines[] = '---';
 
         return implode("\n", $lines) . "\n\n";
+    }
+
+    /**
+     * The vault's top note. With a HUB text (a shelf's overview book / an
+     * archive's About book — ArchiveCorpus::$hub) the README *is* that text:
+     * the course intro / reading-list readme, with its links to the shelf's
+     * readings pointed at the notes in this vault, and the export details as a
+     * footer. Without one it is the generated README.
+     *
+     * @param  array<string, string>  $names  book id => note filename
+     */
+    private function hubOrReadme(ArchiveCorpus $corpus, array $names): string
+    {
+        $readme = $this->readme($corpus);
+        if (!$corpus->hub) {
+            return $readme;
+        }
+        $body = trim($this->exporter->markdownFor($corpus->hub->book, obsidianLinks: true));
+        if ($body === '') {
+            return $readme;
+        }
+
+        $quote = fn (string $v) => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $v) . '"';
+        $front = implode("\n", [
+            '---',
+            'title: ' . $quote($corpus->displayName),
+            'hyperlit: ' . $quote($corpus->pageUrl),
+            'exported: ' . $quote(now()->toDateString()),
+            '---',
+        ]);
+        // A pinned overview BOOK standing in as the README is still that work:
+        // only its file name changes — it keeps its own citation front matter
+        // and its own link back. (The page's About book is not a work; it
+        // takes the collection's.)
+        if (!str_starts_with($corpus->hub->book, \App\Services\Archives\ArchiveAboutBook::PREFIX)) {
+            $own = trim($this->frontMatter($corpus->hub->book, $corpus));
+            $front = $own !== '' ? $own : $front;
+        }
+
+        // The generated README minus its H1 becomes the footer.
+        $details = trim((string) preg_replace('/\A# .*\R+/', '', $readme));
+
+        return $front . "\n\n" . $this->linkReadings($body, $corpus, $names)
+            . "\n\n---\n\n## About this vault\n\n" . $details . "\n";
+    }
+
+    /**
+     * Point the hub's links to this collection's readings at their notes: a
+     * markdown link whose target is a hyperlit URL (absolute on this site, or
+     * site-relative) for a book in the vault — by id or slug — becomes a link
+     * to that note's file. Everything else (other sites, books not in the
+     * vault, in-note `#` links) is left exactly as written.
+     */
+    private function linkReadings(string $markdown, ArchiveCorpus $corpus, array $names): string
+    {
+        $byKey = [];
+        foreach ($corpus->books as $row) {
+            if (!isset($names[$row->book])) {
+                continue;
+            }
+            $byKey[$row->book] = $names[$row->book];
+            if (!empty($row->slug)) {
+                $byKey[$row->slug] = $names[$row->book];
+            }
+        }
+        if ($byKey === []) {
+            return $markdown;
+        }
+        $host = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return preg_replace_callback(
+            '/\]\(<?((?:https?:\/\/([^\/)\s]+))?\/([^\/)#?\s>]+)[^)\s>]*)>?\)/',
+            function ($m) use ($byKey, $host) {
+                if (($m[2] ?? '') !== '' && strcasecmp($m[2], (string) $host) !== 0) {
+                    return $m[0]; // another site
+                }
+                $key = rawurldecode(str_replace('\\', '', $m[3]));
+                if (!isset($byKey[$key])) {
+                    return $m[0];
+                }
+
+                // Obsidian resolves a markdown link to a note by its (encoded) file name.
+                return '](' . rawurlencode($byKey[$key]) . ')';
+            },
+            $markdown
+        ) ?? $markdown;
     }
 
     private function rootFolder(ArchiveCorpus $corpus): string

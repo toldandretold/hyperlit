@@ -17,6 +17,25 @@
 }
 .add-shelf-checkbox-item {
   cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+.add-shelf-checkbox-item > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The hypercite arrow, at the row's right edge: opens the shelf. */
+.add-shelf-checkbox-item .add-shelf-open {
+  flex: 0 0 auto;
+  margin-left: 10px;
+  padding: 2px 4px;
+  color: var(--color-primary);
+  text-decoration: none;
+  line-height: 1;
+}
+.add-shelf-checkbox-item .add-shelf-open:hover,
+.add-shelf-checkbox-item .add-shelf-open:focus-visible {
+  color: var(--hyperlit-orange, #EF8D34);
 }
 .add-shelf-checkbox-item input[type="checkbox"] {
   margin-right: 8px;
@@ -671,6 +690,25 @@
   width: 14px;
   height: 14px;
   fill: #cc4444;
+}
+
+/* Pinned cards: a shelf's OVERVIEW (shelves.overview_book — first, for
+   everyone) and the homepage's pinned welcome book. */
+.libraryCard-overview .pin-icon,
+.libraryCard-pinned .pin-icon {
+  display: inline-flex;
+  align-items: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.libraryCard-overview .pin-icon svg,
+.libraryCard-pinned .pin-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--hyperlit-aqua, #4eacae);
+  transform: rotate(35deg);
 }
 
 /* Private book indicator in combined library view */

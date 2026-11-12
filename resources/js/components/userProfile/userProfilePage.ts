@@ -166,6 +166,19 @@ export function initializeUserProfilePage() {
             const isShelfTab = (activeTab as any)?.dataset.filter === 'shelf';
             const deleteLabel = isShelfTab ? 'Remove from shelf' : 'Delete book';
 
+            // On your own ordinary shelf: nominate this book as the shelf's
+            // OVERVIEW (intro / readme — pinned first for everyone, the archive
+            // page's about, the vault's hub note), or un-nominate it.
+            const dropShelfId = isShelfTab ? document.getElementById('shelf-header')?.dataset.dropShelfId : undefined;
+            if (dropShelfId) {
+                const isOverview = !!target.closest('.libraryCard-overview');
+                menuItems.push({
+                    id: isOverview ? 'unset-overview' : 'set-overview',
+                    label: isOverview ? 'Unpin as overview' : 'Pin as shelf overview',
+                    icon: '<svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>',
+                });
+            }
+
             menuItems.push(
                 { id: 'share', label: 'Share', icon: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' },
                 { id: 'delete', label: deleteLabel, icon: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' },
@@ -199,6 +212,13 @@ export function initializeUserProfilePage() {
                 case 'delete':
                     await handleDeleteBook(bookId, target);
                     break;
+
+                case 'set-overview':
+                case 'unset-overview': {
+                    const { setShelfOverview } = await import('../shelves/shelfOverview');
+                    await setShelfOverview(action === 'set-overview' ? bookId : null);
+                    break;
+                }
             }
         });
     };

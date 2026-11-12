@@ -53,6 +53,33 @@ class LibraryCardGenerator
      * Generate the HTML for a library card.
      * Uses a "..." action button instead of a trash icon.
      */
+    /**
+     * Mark a generated card chunk as its shelf's OVERVIEW (ShelfOverview): a
+     * `libraryCard-overview` class + a leading pin glyph.
+     */
+    public function markAsOverview(array $chunk): array
+    {
+        return $this->markPinned($chunk, 'Shelf overview', 'libraryCard-overview');
+    }
+
+    /**
+     * Give a finished card chunk a visible pin (class + leading glyph) — the
+     * shelf overview, the homepage's pinned welcome book. Done on the finished
+     * chunk so the generator's nine-argument signature doesn't grow a tenth.
+     */
+    public function markPinned(array $chunk, string $label = 'Pinned', string $class = 'libraryCard-pinned'): array
+    {
+        $pin = '<span class="pin-icon" title="' . e($label) . '" aria-label="' . e($label) . '">'
+            . '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>'
+            . '</span>';
+        $content = (string) ($chunk['content'] ?? '');
+        $content = preg_replace('/class="libraryCard\b/', 'class="libraryCard ' . $class, $content, 1) ?? $content;
+        $content = preg_replace('/<span class="card-citation">/', $pin . '<span class="card-citation">', $content, 1) ?? $content;
+        $chunk['content'] = $content;
+
+        return $chunk;
+    }
+
     public function generateLibraryCardHtml($record, int $positionId, bool $isOwner, string $nodeId, bool $locked = false, bool $isPrivate = false): string
     {
         $citationHtml = $this->generateCitationHtml($record);

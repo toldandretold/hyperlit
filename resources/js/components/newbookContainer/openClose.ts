@@ -69,7 +69,7 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
     const geom = computeFormGeometry({
       isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
-      navRight: navRightEdge(isLeftAnchored),
+      navRight: navRightEdge(isLeftAnchored), dockRightPx: host.dockRightPx,
     });
 
     requestAnimationFrame(() => {
@@ -118,7 +118,7 @@ export function openContainer(host: ContainerHost, mode = 'buttons'): void {
 
       const geom = computeFormGeometry({
         isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
-        navRight: navRightEdge(isLeftAnchored),
+        navRight: navRightEdge(isLeftAnchored), dockRightPx: host.dockRightPx,
       });
       applyFormGeometry(host.container, geom, { anchor: true });
 
@@ -187,6 +187,7 @@ export function closeContainer(host: ContainerHost): void {
   }
 
   host.originalButtonRect = null; // Recalculate next open.
+  host.dockRightPx = null;
   host.cleanupResizeListener();
 
   const icon = host.button.querySelector('.icon');
@@ -228,7 +229,7 @@ export function setResponsiveFormSize(host: ContainerHost): void {
   const isLeftAnchored = !!host.button.closest('#logoNavMenu');
   const geom = computeFormGeometry({
     isMobile, isLeftAnchored, buttonRect: host.originalButtonRect, innerWidth: window.innerWidth,
-    navRight: navRightEdge(isLeftAnchored),
+    navRight: navRightEdge(isLeftAnchored), dockRightPx: host.dockRightPx,
   });
 
   if (isMobile) {

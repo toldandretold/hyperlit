@@ -58,12 +58,37 @@ class ArchiveExportController extends Controller
             // The PUBLIC shelf behind a journal/archive corpus — what the
             // panel's like button likes (null for a user library: no shelf).
             'shelfId' => $this->publicShelfIdFor($scopeType, $scopeId),
+            // The panel's plus ("add a new book here"): the owner of a user
+            // library, or whoever keeps the shelf behind a journal/archive.
+            // `addShelfId` is the shelf the new book joins (null = a library).
+            ...$this->addTargetFor($scopeType, $scopeId, $audience),
             'counts' => [
                 'public_books' => $publicBooks,
                 'export_books' => count($corpus->books),
                 'e2ee_skipped' => count($corpus->encryptedBooks),
             ],
         ]);
+    }
+
+    /** @return array{canAdd: bool, addShelfId: ?string} */
+    private function addTargetFor(string $scopeType, string $scopeId, string $audience): array
+    {
+        if ($scopeType === 'user') {
+            return ['canAdd' => $audience === 'owner', 'addShelfId' => null];
+        }
+        $viewer = Auth::guard('sanctum')->user();
+        $shelfId = match ($scopeType) {
+            'journal' => \App\Models\JournalSource::where('slug', $scopeId)->value('shelf_id'),
+            'archive' => \App\Models\ArchiveSource::where('slug', $scopeId)->value('shelf_id'),
+            default => null,
+        };
+        // The shelf's creator, or an admin (journal and maintainer-archive
+        // shelves are system-owned: admins are their maintainers) — the same
+        // rule ImportBatchController::store and ShelfController::addItem apply.
+        $mine = $viewer && $shelfId && ($viewer->isAdmin() || DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', $shelfId)->where('creator', $viewer->name)->exists());
+
+        return ['canAdd' => (bool) $mine, 'addShelfId' => $mine ? $shelfId : null];
     }
 
     private function publicShelfIdFor(string $scopeType, string $scopeId): ?string

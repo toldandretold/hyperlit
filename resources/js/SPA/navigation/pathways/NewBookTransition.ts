@@ -24,6 +24,7 @@ import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheet
 import { initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { createNewBook, fireAndForgetSync } from '../../createNewBook';
 import { trackNewBookEstablishment } from '../../../utilities/newBookEstablished';
+import { takeNewBookShelfTarget, addBookToShelf } from '../../../utilities/newBookShelfTarget';
 import { syncIndexedDBtoPostgreSQL } from '../../../indexedDB/serverSync/index';
 
 export class NewBookTransition {
@@ -508,6 +509,10 @@ export class NewBookTransition {
           glowCloudRed({ error: result.error, savedLocally: true });
           return;
         }
+        // Made from an archive/journal panel's plus: the book joins that shelf
+        // now that the server has it (utilities/newBookShelfTarget).
+        const shelfTarget = takeNewBookShelfTarget();
+        if (shelfTarget) void addBookToShelf(shelfTarget, pendingSyncData.bookId);
         try {
           verbose.nav('Ensuring initial H1 node is queued for sync', 'NewBookTransition.js');
           await syncIndexedDBtoPostgreSQL(pendingSyncData.bookId);

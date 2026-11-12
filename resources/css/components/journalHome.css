@@ -219,3 +219,16 @@ body[data-page="journal"] .journal-about .journal-about-counts {
   text-align: center;
   opacity: 0.8;
 }
+
+/* ---------- archive page: the shelf's nominated overview book ---------- */
+.welcome-copy .archive-overview-more {
+  margin: 1.2em 0 1.6em;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 600;
+}
+
+.welcome-copy .archive-overview-more a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

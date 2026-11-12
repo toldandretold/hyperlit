@@ -89,6 +89,36 @@ class ArchivePanelManager extends ContainerManager {
         const { wireShelfLikeButton } = await import('../shelves/shelfLike');
         wireShelfLikeButton(likeBtn, data.shelfId, data.noun || 'archive');
       }
+
+      // Plus (keeper only): a popover in this panel, like Share — Blank or
+      // Import. On a journal/archive the book it makes joins this
+      // collection's shelf (newBookShelfTarget). Only once a choice is made
+      // does the panel close: Blank navigates to the new book, Import hands
+      // over to the import form (which lives in the New panel).
+      const addControl = container.querySelector<HTMLElement>('#add-control');
+      if (addControl) {
+        const { wirePanelPopover } = await import('../sourceContainer/readerActions');
+        const { setNewBookShelfTarget, clearNewBookShelfTarget } = await import('../../utilities/newBookShelfTarget');
+        wirePanelPopover(container, addControl, addControl.querySelector<HTMLElement>('#archive-add-book'), (opt, close) => {
+          if (data.addShelfId) setNewBookShelfTarget(data.addShelfId);
+          else clearNewBookShelfTarget();
+          // Measured BEFORE the panel closes: the import form opens where this
+          // panel is (its right edge), not beside the left nav.
+          const dockRightPx = Math.max(10, window.innerWidth - container.getBoundingClientRect().right);
+          close();
+          this.closeContainer();
+          if (opt.dataset.add === 'import') {
+            const newBook = (window as unknown as { newBookManager?: { dockRightPx: number | null } }).newBookManager;
+            if (newBook) newBook.dockRightPx = dockRightPx;
+            document.getElementById('importBook')?.click();
+            return;
+          }
+          sessionStorage.removeItem('pending_new_book_encrypted'); // a stale tick must not encrypt this one
+          void import('../../SPA/navigation/navigationRegistry')
+            .then(({ navigate }) => navigate('create-new-book', { createAndTransition: true }))
+            .catch((e) => log.error('new book from the archive panel failed', '/components/archivePanel', e));
+        });
+      }
     } catch (e) {
       log.error('archive panel actions failed to wire', '/components/archivePanel', e);
     }

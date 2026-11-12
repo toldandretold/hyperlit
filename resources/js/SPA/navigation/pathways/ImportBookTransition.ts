@@ -14,6 +14,7 @@ import { ProgressOverlayEnactor } from '../ProgressOverlayEnactor.js';
 import { syncPageStylesheets, syncBodyAttributes } from '../utils/pageStylesheets';
 import { waitForLayoutStabilization, waitForContentReady } from '../../domReadiness';
 import { destroyUserContainer } from '../../../components/userButton/userButton';
+import { takeNewBookShelfTarget } from '../../../utilities/newBookShelfTarget';
 import { destroyNewBookContainer } from '../../../components/newBookButton/newBookButton';
 import { destroyHomepageDisplayUnit } from '../../../components/homepage/homepageDisplayUnit';
 import { resetEditModeState, enforceEditableState, enableEditMode } from '../../../components/editButton/index';
@@ -720,6 +721,9 @@ export class ImportBookTransition {
           const book = String(formData.get('book') || '');
           const title = String(formData.get('title') || '') || book;
           if (book) {
+            // Opened from an archive/journal panel's plus: the import joins
+            // that shelf (the server re-authorizes shelf_id).
+            const shelfTarget = takeNewBookShelfTarget();
             const batchResp = await fetch('/api/import-batches', {
               method: 'POST',
               headers: {
@@ -732,6 +736,7 @@ export class ImportBookTransition {
                 label: title,
                 source: 'files',
                 auto_shelf: false,
+                ...(shelfTarget ? { shelf_id: shelfTarget } : {}),
                 items: [{ book, title }],
               }),
             });

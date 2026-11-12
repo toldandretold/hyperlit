@@ -3,8 +3,14 @@
     overflow-x: auto;
 }
 
-/* Make tables in main-content horizontally scrollable */
-.main-content table {
+/* Make tables in main-content horizontally scrollable.
+   `.welcome-copy table` too: a hero page's about text (the user/archive About
+   book, or an archive's pinned overview book) can hold a table, and one wider
+   than the column otherwise makes the whole page wrapper overflow sideways —
+   which, with the native vertical bar those wrappers keep, paints the
+   browser's white scrollbar-corner square at the bottom right. */
+.main-content table,
+.welcome-copy table {
     display: block;
     overflow-x: auto;
     max-width: 100%;
@@ -19,7 +25,9 @@
    minimum width instead of squishing to slivers — when those minimums still
    exceed the reading column, the table's overflow-x: auto scrolls instead. */
 .main-content table th,
-.main-content table td {
+.main-content table td,
+.welcome-copy table th,
+.welcome-copy table td {
     white-space: normal;
     overflow-wrap: break-word;
     padding: 0.45em 0.6em;

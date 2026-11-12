@@ -293,9 +293,17 @@
    bottom edge — and that direction is load-bearing, not cosmetic:
    #source-container is overflow:hidden, so a downward panel would be clipped
    away entirely. Growing up into the content area keeps it inside the clip. */
-:is(#source-container, #archive-container) #share-control {
+:is(#source-container, #archive-container) #share-control,
+:is(#source-container, #archive-container) .add-control {
   position: relative;
   display: inline-flex;
+}
+
+/* The archive panel's plus sits in the bar's RIGHT group, so its popover
+   hangs from the right edge instead of running out of the panel. */
+:is(#source-container, #archive-container) .add-control .share-panel {
+  left: auto;
+  right: -4px;
 }
 
 /* THE thing that makes a glass popover read as solid rather than as cling film:
