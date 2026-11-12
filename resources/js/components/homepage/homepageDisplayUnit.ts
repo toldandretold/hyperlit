@@ -87,6 +87,7 @@ async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist
         isOwner: true,
         username: (window as any).username,
         slug: shelf?.slug || shelfSlug,
+        kind: shelf?.kind,
       });
     } else {
       showShelfHeader({

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2015,
-    "moduleCount": 424,
+    "fnCount": 2023,
+    "moduleCount": 426,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4200,
+    "edgeCount": 4216,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -242,6 +242,14 @@
     {
       "id": "components/archivePanel/index:ArchivePanelManager.readScope",
       "label": "ArchivePanelManager.readScope",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/archivePanel/index",
+      "leaf": false
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "label": "ArchivePanelManager.wireActions",
       "kind": "fn",
       "stage": "components",
       "module": "components/archivePanel/index",
@@ -562,6 +570,14 @@
     {
       "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
       "label": "initializeFileDropTarget",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/fileDropTarget/fileDropTarget",
+      "leaf": false
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:openOwnedShelf",
+      "label": "openOwnedShelf",
       "kind": "fn",
       "stage": "components",
       "module": "components/fileDropTarget/fileDropTarget",
@@ -2270,6 +2286,22 @@
       "leaf": false
     },
     {
+      "id": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "label": "createShelfArchiveButton",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfArchiveButton",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfArchiveButton:slugifyInput",
+      "label": "slugifyInput",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfArchiveButton",
+      "leaf": true
+    },
+    {
       "id": "components/shelves/shelfHeader:removeShelfHeader",
       "label": "removeShelfHeader",
       "kind": "fn",
@@ -2291,6 +2323,14 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/shelves/shelfHeader",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/shelfLike:wireShelfLikeButton",
+      "label": "wireShelfLikeButton",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/shelfLike",
       "leaf": false
     },
     {
@@ -3832,6 +3872,14 @@
     {
       "id": "components/sourceContainer/readerActions:initReaderActions",
       "label": "initReaderActions",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/readerActions",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/readerActions:wireShareControl",
+      "label": "wireShareControl",
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/readerActions",
@@ -12501,6 +12549,14 @@
       "leaf": true
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:whenServerCountReconcilesSettle",
+      "label": "whenServerCountReconcilesSettle",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": true
+    },
+    {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "label": "flushAllPendingEdits",
       "kind": "fn",
@@ -13235,6 +13291,14 @@
     {
       "id": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
       "label": "isBackgroundDownloadInProgress",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/backgroundDownload",
+      "leaf": true
+    },
+    {
+      "id": "pageLoad/backgroundDownload:supersedeBackgroundDownload",
+      "label": "supersedeBackgroundDownload",
       "kind": "fn",
       "stage": "pageLoad",
       "module": "pageLoad/backgroundDownload",
@@ -18119,7 +18183,8 @@
         "components/archivePanel/index:ArchivePanelManager.constructor",
         "components/archivePanel/index:ArchivePanelManager.destroyDownloads",
         "components/archivePanel/index:ArchivePanelManager.openContainer",
-        "components/archivePanel/index:ArchivePanelManager.readScope"
+        "components/archivePanel/index:ArchivePanelManager.readScope",
+        "components/archivePanel/index:ArchivePanelManager.wireActions"
       ]
     },
     {
@@ -18215,7 +18280,8 @@
       "band": "components",
       "fnIds": [
         "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
-        "components/fileDropTarget/fileDropTarget:initializeFileDropTarget"
+        "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+        "components/fileDropTarget/fileDropTarget:openOwnedShelf"
       ]
     },
     {
@@ -18861,6 +18927,16 @@
       ]
     },
     {
+      "id": "components/shelves/shelfArchiveButton",
+      "label": "components/shelves/shelfArchiveButton",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+        "components/shelves/shelfArchiveButton:slugifyInput"
+      ]
+    },
+    {
       "id": "components/shelves/shelfHeader",
       "label": "components/shelves/shelfHeader",
       "stage": "components",
@@ -18869,6 +18945,15 @@
         "components/shelves/shelfHeader:removeShelfHeader",
         "components/shelves/shelfHeader:renderLibrarySorted",
         "components/shelves/shelfHeader:showShelfHeader"
+      ]
+    },
+    {
+      "id": "components/shelves/shelfLike",
+      "label": "components/shelves/shelfLike",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/shelfLike:wireShelfLikeButton"
       ]
     },
     {
@@ -19341,7 +19426,8 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
-        "components/sourceContainer/readerActions:initReaderActions"
+        "components/sourceContainer/readerActions:initReaderActions",
+        "components/sourceContainer/readerActions:wireShareControl"
       ]
     },
     {
@@ -21720,7 +21806,8 @@
         "indexedDB/serverSync/countReconcile:beginFullBookReplace",
         "indexedDB/serverSync/countReconcile:endFullBookReplace",
         "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
-        "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile"
+        "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+        "indexedDB/serverSync/countReconcile:whenServerCountReconcilesSettle"
       ]
     },
     {
@@ -22055,6 +22142,7 @@
       "fnIds": [
         "pageLoad/backgroundDownload:backgroundDownloadRemainingChunks",
         "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+        "pageLoad/backgroundDownload:supersedeBackgroundDownload",
         "pageLoad/backgroundDownload:waitForBackgroundDownload"
       ]
     },
@@ -23554,6 +23642,19 @@
       "dataPath": true
     },
     {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions__call__components/shelves/shelfLike:wireShelfLikeButton",
+      "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "target": "components/shelves/shelfLike:wireShelfLikeButton",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions__call__components/sourceContainer/readerActions:wireShareControl",
+      "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "target": "components/sourceContainer/readerActions:wireShareControl",
+      "rel": "call"
+    },
+    {
       "id": "components/cloudRef/cloudRefButton:destroySourceButtonListener__domwrite__dom",
       "source": "components/cloudRef/cloudRefButton:destroySourceButtonListener",
       "target": "dom",
@@ -23869,6 +23970,12 @@
       "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
       "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
       "target": "components/fileDropTarget/fileDropTarget:destroyFileDropTarget",
+      "rel": "call"
+    },
+    {
+      "id": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget__call__components/fileDropTarget/fileDropTarget:openOwnedShelf",
+      "source": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "target": "components/fileDropTarget/fileDropTarget:openOwnedShelf",
       "rel": "call"
     },
     {
@@ -25972,6 +26079,18 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/shelves/shelfArchiveButton:createShelfArchiveButton__call__components/shelves/shelfArchiveButton:slugifyInput",
+      "source": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "target": "components/shelves/shelfArchiveButton:slugifyInput",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfArchiveButton:createShelfArchiveButton__domwrite__dom",
+      "source": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/shelves/shelfHeader:removeShelfHeader__domwrite__dom",
       "source": "components/shelves/shelfHeader:removeShelfHeader",
       "target": "dom",
@@ -25991,6 +26110,13 @@
       "dataPath": true
     },
     {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfHeader:removeShelfHeader",
       "source": "components/shelves/shelfHeader:showShelfHeader",
       "target": "components/shelves/shelfHeader:removeShelfHeader",
@@ -26000,6 +26126,13 @@
       "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfHeader:renderLibrarySorted",
       "source": "components/shelves/shelfHeader:showShelfHeader",
       "target": "components/shelves/shelfHeader:renderLibrarySorted",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/shelfLike:wireShelfLikeButton",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/shelfLike:wireShelfLikeButton",
       "rel": "call",
       "dataPath": true
     },
@@ -26034,6 +26167,18 @@
       "source": "components/shelves/shelfHeader:showShelfHeader",
       "target": "store:localStorage",
       "rel": "write"
+    },
+    {
+      "id": "components/shelves/shelfLike:wireShelfLikeButton__call__components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "source": "components/shelves/shelfLike:wireShelfLikeButton",
+      "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/shelfLike:wireShelfLikeButton__domwrite__dom",
+      "source": "components/shelves/shelfLike:wireShelfLikeButton",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/shelves/shelfPreview:hideShelfPreview__domwrite__dom",
@@ -27811,8 +27956,20 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/readerActions:initReaderActions__call__components/sourceContainer/readerActions:wireShareControl",
+      "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "components/sourceContainer/readerActions:wireShareControl",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/readerActions:initReaderActions__domwrite__dom",
       "source": "components/sourceContainer/readerActions:initReaderActions",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/readerActions:wireShareControl__domwrite__dom",
+      "source": "components/sourceContainer/readerActions:wireShareControl",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -28468,8 +28625,7 @@
       "id": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners__call__components/userContainer/profile:attachProfileButtonListeners",
       "source": "components/userContainer/index:UserContainerManager.attachProfileButtonListeners",
       "target": "components/userContainer/profile:attachProfileButtonListeners",
-      "rel": "call",
-      "dataPath": true
+      "rel": "call"
     },
     {
       "id": "components/userContainer/index:UserContainerManager.closeContainer__domwrite__dom",
@@ -28640,12 +28796,6 @@
       "source": "components/userContainer/profile:attachProfileButtonListeners",
       "target": "components/userContainer/profile:showUserProfile",
       "rel": "call"
-    },
-    {
-      "id": "components/userContainer/profile:attachProfileButtonListeners__domwrite__dom",
-      "source": "components/userContainer/profile:attachProfileButtonListeners",
-      "target": "dom",
-      "rel": "domwrite"
     },
     {
       "id": "components/userContainer/profile:showUserProfile__call__components/userContainer/forms:getProfileHTML",
@@ -30495,6 +30645,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/archivePanel/index:ArchivePanelManager.wireActions",
+      "source": "dom",
+      "target": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/cloudRef/editIndicator:glowCloudGreen",
       "source": "dom",
       "target": "components/cloudRef/editIndicator:glowCloudGreen",
@@ -30642,6 +30798,12 @@
       "id": "dom__domread__components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
       "source": "dom",
       "target": "components/fileDropTarget/fileDropTarget:initializeFileDropTarget",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/fileDropTarget/fileDropTarget:openOwnedShelf",
+      "source": "dom",
+      "target": "components/fileDropTarget/fileDropTarget:openOwnedShelf",
       "rel": "domread"
     },
     {
@@ -31083,6 +31245,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/shelves/shelfLike:wireShelfLikeButton",
+      "source": "dom",
+      "target": "components/shelves/shelfLike:wireShelfLikeButton",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/shelves/shelfPreview:showShelfPreview",
       "source": "dom",
       "target": "components/shelves/shelfPreview:showShelfPreview",
@@ -31476,6 +31644,12 @@
       "id": "dom__domread__components/sourceContainer/readerActions:initReaderActions",
       "source": "dom",
       "target": "components/sourceContainer/readerActions:initReaderActions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/readerActions:wireShareControl",
+      "source": "dom",
+      "target": "components/sourceContainer/readerActions:wireShareControl",
       "rel": "domread"
     },
     {
@@ -43420,15 +43594,9 @@
       "dataPath": true
     },
     {
-      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:supersedeBackgroundDownload",
       "source": "pageLoad/loadHyperText:loadHyperText",
-      "target": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
-      "rel": "call"
-    },
-    {
-      "id": "pageLoad/loadHyperText:loadHyperText__call__pageLoad/backgroundDownload:waitForBackgroundDownload",
-      "source": "pageLoad/loadHyperText:loadHyperText",
-      "target": "pageLoad/backgroundDownload:waitForBackgroundDownload",
+      "target": "pageLoad/backgroundDownload:supersedeBackgroundDownload",
       "rel": "call"
     },
     {
@@ -45918,11 +46086,25 @@
       "label": "/api/shelves/{}/items"
     },
     {
+      "id": "route:/api/shelves__pull__components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
+      "rel": "pull",
+      "label": "/api/shelves/{}/archive"
+    },
+    {
       "id": "route:/api/shelves__pull__components/shelves/shelfHeader:showShelfHeader",
       "source": "route:/api/shelves",
       "target": "components/shelves/shelfHeader:showShelfHeader",
       "rel": "pull",
       "label": "/api/shelves/{}"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/shelfLike:wireShelfLikeButton",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/shelfLike:wireShelfLikeButton",
+      "rel": "pull",
+      "label": "/api/shelves/{}/like"
     },
     {
       "id": "route:/api/shelves__pull__components/shelves/shelfTabs:closeTab",
@@ -45951,6 +46133,13 @@
       "target": "components/shelves/shelfTabs:openShelf",
       "rel": "pull",
       "label": "/api/shelves/{}/render"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/userProfile/userPageEditor:initUserPageEditor",
+      "source": "route:/api/shelves",
+      "target": "components/userProfile/userPageEditor:initUserPageEditor",
+      "rel": "pull",
+      "label": "/api/shelves/{}/archive/page-settings"
     },
     {
       "id": "route:/api/shelves__pull__editToolbar/citationMode/index:CitationMode._ensureShelvesLoaded",
@@ -50436,6 +50625,16 @@
       "kind": "static"
     },
     {
+      "source": "components/archivePanel/index",
+      "target": "components/shelves/shelfLike",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/archivePanel/index",
+      "target": "components/sourceContainer/readerActions",
+      "kind": "lazy"
+    },
+    {
       "source": "components/cloudRef/cloudRefButton",
       "target": "components/sourceContainer/index",
       "kind": "static"
@@ -51142,7 +51341,22 @@
     },
     {
       "source": "components/shelves/shelfHeader",
+      "target": "components/shelves/shelfArchiveButton",
+      "kind": "static"
+    },
+    {
+      "source": "components/shelves/shelfHeader",
+      "target": "components/shelves/shelfLike",
+      "kind": "static"
+    },
+    {
+      "source": "components/shelves/shelfHeader",
       "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/shelfLike",
+      "target": "components/shelves/addToShelfMenu",
       "kind": "lazy"
     },
     {
@@ -56151,6 +56365,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 312
+    "lazyCount": 315
   }
 }

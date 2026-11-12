@@ -14,6 +14,8 @@ export interface ArchivePanelData {
   /** Book-panel-parity attribution: who keeps this collection. */
   librarian: { label: string; name: string; url: string | null };
   audience: 'public' | 'owner';
+  /** The PUBLIC shelf behind a journal/archive corpus (what Like likes); null for a user library. */
+  shelfId?: string | null;
   counts: {
     public_books: number;
     export_books: number;
@@ -51,6 +53,62 @@ function librarianSection(data: ArchivePanelData): string {
         <h3>Librarian</h3>
         <p style="font-size: var(--sc-12); color: var(--color-text-secondary); margin: 0;">${escapeHtml(label)} ${who}</p>
       </div>`;
+}
+
+/**
+ * The book panel's action bar (buildSourceHtml's #source-action-bar) for a
+ * whole corpus: Like (only when the corpus is a shelf — journals and archives)
+ * and the Share popover (Link / Citation). Same ids/classes on purpose — the
+ * bar's CSS (sourceContainer.css) and the share wiring (readerActions'
+ * wireShareControl) are shared; lookups are container-scoped.
+ */
+function actionBar(data: ArchivePanelData): string {
+  const what = escapeHtml(data.noun || 'archive');
+  const like = data.shelfId ? `
+        <button type="button" id="like-book" aria-pressed="false" aria-label="Like this ${what}" title="Like">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+          </svg>
+        </button>` : '';
+  const check = '<span class="share-option-check"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>';
+
+  return `
+    <div id="source-action-bar">
+      <div class="source-action-group">${like}
+        <div id="share-control" class="share-control">
+          <button type="button" id="share-book" aria-haspopup="true" aria-expanded="false" aria-label="Share this ${what}" title="Share">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--icon-stroke-primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+              <polyline points="16 6 12 2 8 6"></polyline>
+              <line x1="12" y1="2" x2="12" y2="15"></line>
+            </svg>
+          </button>
+          <div class="share-panel" style="display: none;">
+            <button type="button" class="share-option" data-share="link">
+              <span class="share-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+              </span>
+              <span class="share-option-label">Link</span>
+              ${check}
+            </button>
+            <button type="button" class="share-option" data-share="citation">
+              <span class="share-option-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M6 17h3l2-4V7H5v6h3z"></path>
+                  <path d="M15 17h3l2-4V7h-6v6h3z"></path>
+                </svg>
+              </span>
+              <span class="share-option-label">Citation</span>
+              ${check}
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="source-action-group"></div>
+    </div>`;
 }
 
 export async function buildArchiveHtml(data: ArchivePanelData): Promise<string> {
@@ -92,5 +150,6 @@ export async function buildArchiveHtml(data: ArchivePanelData): Promise<string> 
         </button>
       </div>
     </div>
+    ${actionBar(data)}
   `;
 }

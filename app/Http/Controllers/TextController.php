@@ -116,6 +116,13 @@ class TextController extends Controller
             }
         }
 
+        // A work we HOLD but don't publish (HostingPolicy — review evidence, closed works):
+        // answer with its citation and the original, never the text. Checked BEFORE the
+        // file-source fallbacks for the same reason as deleted books: its markdown is on disk.
+        if ($username === null && ($held = $this->heldSourceResponse($book))) {
+            return $held;
+        }
+
         // Check all possible data sources
         $bookExistsInDB = DB::table('nodes')->where('book', $book)->exists();
         $markdownPath = resource_path("markdown/{$book}/main-text.md");
@@ -258,6 +265,29 @@ class TextController extends Controller
         ], $seoData));
     }
 
+
+    /** A system-held private row the viewer can't see → citation page; otherwise null. */
+    private function heldSourceResponse(string $book)
+    {
+        $row = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $book)
+            ->where('visibility', 'private')
+            ->whereIn('creator', \App\Services\Licensing\LicenseDiscovery::SYSTEM_CREATORS)
+            ->first(['title', 'author', 'year', 'journal', 'publisher', 'url', 'doi', 'oa_url']);
+        if (! $row || DB::table('library')->where('book', $book)->exists()) {
+            return null; // not held, or this viewer may read it anyway
+        }
+        $original = $row->doi ? 'https://doi.org/' . $row->doi : ($row->url ?: $row->oa_url);
+        $byline = implode(' · ', array_filter([$row->author, $row->journal ?: $row->publisher, $row->year]));
+
+        return response()->view('book-held', [
+            'title' => $row->title,
+            'byline' => $byline,
+            'originalUrl' => $original && preg_match('#^https?://#i', $original) ? $original : null,
+            'host' => $original ? preg_replace('#^www\.#', '', (string) parse_url($original, PHP_URL_HOST)) : null,
+            'noindex' => true,
+        ]);
+    }
 
     /**
      * Time machine: read-only historical view of a book at a specific timestamp.

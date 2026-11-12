@@ -57,26 +57,3 @@
   background: rgba(128, 128, 128, 0.15) !important;
 }
 
-/* Commoner score ("hectares tilled") — a private, non-interactive line at the
-   top of the profile menu (userContainer/forms.ts). Hidden until a non-zero
-   score loads. Styled as a soft green banner, echoing suggestedEdit.css's
-   .se-add / .suggestion-chip green. */
-.commoner-hectares {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 8px 12px;
-  margin-bottom: 4px;
-  border-radius: 8px;
-  background: rgba(46, 164, 79, 0.12);
-  color: inherit;
-  font-size: 0.9em;
-  line-height: 1.3;
-}
-.commoner-hectares .commoner-line strong {
-  color: #2ea44f;
-}
-.commoner-hectares .commoner-breakdown {
-  opacity: 0.6;
-  font-size: 0.82em;
-}

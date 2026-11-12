@@ -47,6 +47,7 @@ import {
   backgroundDownloadRemainingChunks,
   waitForBackgroundDownload,
   isBackgroundDownloadInProgress,
+  supersedeBackgroundDownload,
 } from '../../../resources/js/pageLoad/backgroundDownload';
 
 /** A lazyLoader stub with a one-chunk manifest (one batch request). */
@@ -152,5 +153,69 @@ describe('background download is book-scoped', () => {
     await sub;
 
     expect(rebuildAndRenumber).toHaveBeenCalled();
+  });
+
+  /*
+   * Supersession: the timestamp check used to WAIT for an in-flight download
+   * of the same book before comparing — 10s+ on the user page's ~120-chunk
+   * aggregate book, during which a renamed card kept its old title
+   * (library-home-sync.spec.js). It now compares at once and, when stale,
+   * retires the download so its as-of-start data cannot land over the refresh.
+   */
+  describe('supersession', () => {
+    it('a superseded download writes nothing and fires no completion', async () => {
+      const done = vi.fn();
+      window.addEventListener('backgroundDownloadComplete', done);
+      const a = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+      await tick();
+
+      expect(supersedeBackgroundDownload('book_A')).toBe(true);
+      expect(isBackgroundDownloadInProgress('book_A')).toBe(false);
+
+      fetchStub.release('book_A'); // the stale batch arrives after all
+      await a;
+      window.removeEventListener('backgroundDownloadComplete', done);
+
+      expect(loadNodesToIndexedDB).not.toHaveBeenCalled();
+      expect(rebuildAndRenumber).not.toHaveBeenCalled();
+      expect(window.nodes).toBeUndefined();
+      expect(done).not.toHaveBeenCalled();
+    });
+
+    it('lets a replacement start at once, and the stale run cannot clear its flag', async () => {
+      const stale = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+      await tick();
+      supersedeBackgroundDownload('book_A');
+
+      // The replacement is NOT swallowed by the double-download guard.
+      let releaseFresh;
+      global.fetch = vi.fn(() => new Promise((resolve) => {
+        releaseFresh = () => resolve({ ok: true, json: async () => ({ nodes: [{ startLine: 100, chunk_id: 0, content: '<p>fresh</p>' }] }) });
+      }));
+      const fresh = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+      await tick();
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(isBackgroundDownloadInProgress('book_A')).toBe(true);
+
+      // A waiter parked on book_A is released by the REPLACEMENT, not the stale run.
+      let resolved = false;
+      const waiter = waitForBackgroundDownload('book_A').then(() => { resolved = true; });
+      fetchStub.release('book_A');
+      await stale;
+      await tick();
+      expect(isBackgroundDownloadInProgress('book_A'), 'stale run must not clear the replacement').toBe(true);
+      expect(resolved).toBe(false);
+
+      releaseFresh();
+      await fresh;
+      await waiter;
+      expect(resolved).toBe(true);
+      expect(loadNodesToIndexedDB).toHaveBeenCalledTimes(1);
+      expect(window.nodes[0].content).toBe('<p>fresh</p>');
+    });
+
+    it('is a no-op when nothing is downloading', () => {
+      expect(supersedeBackgroundDownload('book_none')).toBe(false);
+    });
   });
 });

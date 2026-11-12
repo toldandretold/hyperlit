@@ -29,6 +29,9 @@ class UserHomeBookNames
      */
     public const SORTS = ['recent', 'title', 'author', 'connected', 'lit'];
 
+    /** Suffixes on the sanitized username that make the five system books. */
+    public const SYSTEM_SUFFIXES = ['', 'Private', 'All', 'Account', 'About'];
+
     public static function sanitize(string $username): string
     {
         return UsernameKey::forUrl($username);
@@ -37,13 +40,7 @@ class UserHomeBookNames
     /** The five system books generated for a user page. */
     public static function systemBookNames(string $sanitized): array
     {
-        return [
-            $sanitized,
-            $sanitized . 'Private',
-            $sanitized . 'All',
-            $sanitized . 'Account',
-            $sanitized . 'About',
-        ];
+        return array_map(fn ($suffix) => $sanitized . $suffix, self::SYSTEM_SUFFIXES);
     }
 
     /** Every sorted-variant name (all visibilities × all sorts). */
@@ -69,5 +66,25 @@ class UserHomeBookNames
     public static function allGeneratedNames(string $sanitized): array
     {
         return array_merge(self::systemBookNames($sanitized), self::sortedVariantNames($sanitized));
+    }
+
+    /**
+     * SQL predicate: `$bookCol` is one of `$usernameCol`'s generated books
+     * (system books OR sorted variants). The set-based form of
+     * allGeneratedNames(), for queries that span many users at once — the same
+     * explicit names, built from the same constants, never a LIKE pattern.
+     * Column expressions only (trusted identifiers); the constants are inlined
+     * because they are code, not input.
+     */
+    public static function sqlIsGenerated(string $bookCol, string $usernameCol): string
+    {
+        $q = fn (string $v) => "'" . str_replace("'", "''", $v) . "'";
+        $s = "replace({$usernameCol}, ' ', '')";
+        $system = implode(', ', array_map(fn ($suf) => $suf === '' ? $s : "{$s} || {$q($suf)}", self::SYSTEM_SUFFIXES));
+        $vis = implode(', ', array_map($q, self::VISIBILITIES));
+        $sorts = implode(', ', array_map($q, self::SORTS));
+
+        return "({$bookCol} IN ({$system}) OR {$bookCol} IN ("
+            . "SELECT {$s} || '_' || v || '_' || so FROM unnest(ARRAY[{$vis}]) v CROSS JOIN unnest(ARRAY[{$sorts}]) so))";
     }
 }

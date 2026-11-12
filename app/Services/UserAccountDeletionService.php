@@ -408,6 +408,12 @@ class UserAccountDeletionService
                 'user_token' => Str::uuid()->toString(), // rotation severs every RLS owner-write
                 'status' => 'deleted',
                 'is_admin' => false,
+                // The commoner snapshot is a profile of what this person did —
+                // it goes with them (CommonerScoreService::recompute never
+                // writes a deleted row again, so it stays empty).
+                'commoner_score' => 0,
+                'commoner_breakdown' => null,
+                'commoner_computed_at' => null,
             ];
 
             try {

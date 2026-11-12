@@ -9,7 +9,13 @@
    <style id="user-page-settings-css"> on load, userPageEditor inline while
    editing). Color/font theming is deliberately NOT customizable: it belongs
    to the READER's theme preference, and owner overrides fought the theme
-   switcher. */
+   switcher.
+
+   The owner-minted ARCHIVE page (/a/{slug}, #app-container.archive-hero) runs
+   the same editor (userPageEditor), so the rules it needs — custom logo,
+   background image, background art, editing affordances, the palette and the
+   logo badge — match it too via :is(…archive-hero). The rest stays user-only;
+   journal pages import this file for the archive's sake. */
 
 /* ---------- logo lockup: colon squares (or custom logo) + library title ---------- */
 
@@ -40,7 +46,7 @@ body[data-page="user"] #app-container.lava-lamp-background .fixed-header #imageC
 }
 
 /* A custom logo image gets the colon's height slot but may be any ratio. */
-body[data-page="user"] #app-container.lava-lamp-background .fixed-header #imageContainer img.user-page-logo {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) #app-container.lava-lamp-background .fixed-header #imageContainer img.user-page-logo {
   width: auto;
   max-width: min(40vw, 160px);
   height: var(--colon-h, var(--colon-fallback, clamp(2.4rem, 7vw, 3.6rem)));
@@ -66,7 +72,7 @@ body[data-page="user"] #userLibraryContainer {
 
 /* ---------- customization surface: page background / text / fonts ---------- */
 
-body[data-page="user"] #app-container.lava-lamp-background {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) #app-container.lava-lamp-background {
   /* An owner background image covers the lava — that is the point of setting
      one. The ONLY owner styling hook: color/font theming is a READER
      preference (theme switcher), never a page-owner one. */
@@ -126,7 +132,9 @@ body[data-page="user"] .user-pill-scroller .shelf-picker-trigger {
 
 /* Editable-in-place affordances while the mode is on. */
 body.user-page-editing #userLibraryTitle.editable-field,
-body.user-page-editing #user-about-book[contenteditable="true"] {
+body.user-page-editing #user-about-book[contenteditable="true"],
+body.user-page-editing #archiveTitle.editable-field,
+body.user-page-editing #archive-about-book[contenteditable="true"] {
   outline: 1px dashed #00afaf;
   outline-offset: 4px;
   border-radius: 4px;
@@ -338,7 +346,7 @@ body.user-page-editing .journal-colon-link.upe-drop-hover {
 
 /* Camera badge on the lockup while editing — THE mobile customization path
    (tap it, or the logo itself, to open the picker). */
-body[data-page="user"] .journal-colon-link {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) .journal-colon-link {
   position: relative;
 }
 
@@ -393,11 +401,11 @@ body[data-page="user"] #app-container.lava-lamp-background.content-active .main-
 
 /* ---------- background art (registry: bg-art-{name}) ----------
    'none': plain theme background — the lava mount and its scroll hint go. */
-body[data-page="user"] #app-container.bg-art-none ~ #lava-lamp-mount {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) #app-container.bg-art-none ~ #lava-lamp-mount {
   display: none;
 }
 
-body[data-page="user"] #app-container.bg-art-none .copy-scroll-hint {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) #app-container.bg-art-none .copy-scroll-hint {
   display: none;
 }
 
@@ -423,7 +431,7 @@ body[data-page="user"] #app-container.bg-art-none .copy-scroll-hint {
    hills up it renders bare, exactly like journal-home. ONLY when the owner
    picked "No art" (page can be a dark theme surface) does the map get the
    light backing card the figureViewer download decoration uses. */
-body[data-page="user"] #app-container.bg-art-none .user-about .journal-hypercite-map {
+:is(body[data-page="user"], body:has(#app-container.archive-hero)) #app-container.bg-art-none .welcome-copy .journal-hypercite-map {
   background: #f2ede4;
   border-radius: 14px;
   padding: 18px 18px 14px;

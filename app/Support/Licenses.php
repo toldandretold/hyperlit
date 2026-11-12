@@ -144,6 +144,27 @@ final class Licenses
     }
 
     /** @return list<string> */
+    /**
+     * Codes that make a work OPEN ACCESS: every Creative Commons licence, the
+     * public-domain marks, and the two upstream "open but terms unstated"
+     * codes. Excludes the Hyperlit No-AI default (that is the user's licence
+     * for their OWN writing, not evidence a published work is OA), arXiv's
+     * non-exclusive licence, all-rights-reserved, custom and unknown.
+     *
+     * @return string[]
+     */
+    public static function openAccessCodes(): array
+    {
+        $open = [];
+        foreach (self::all() as $code => $info) {
+            if (in_array($info['group'], ['cc', 'public-domain'], true)) {
+                $open[] = $code;
+            }
+        }
+
+        return array_merge($open, ['Publisher-Open', 'Open-Unspecified']);
+    }
+
     public static function codes(): array
     {
         return array_keys(self::all());

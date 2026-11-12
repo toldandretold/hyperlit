@@ -58,7 +58,22 @@ function citationText(self: any): string {
  * the feedback with it.
  */
 function initShareControl(self: any): void {
-  const control = self.container.querySelector('#share-control');
+  wireShareControl(self.container, bookUrl, () => citationText(self));
+}
+
+/**
+ * The popover wiring itself, generic over WHAT is shared — the book panel
+ * passes the book's url/citation; the archive panel (a whole library, journal
+ * or archive) passes its page url and corpus citation. `container` is the
+ * panel holding #share-control (and the content the open popover blurs).
+ */
+export function wireShareControl(
+  container: HTMLElement,
+  getUrl: () => string,
+  getCitation: () => string,
+): void {
+  const self = { container };
+  const control: any = container.querySelector('#share-control');
   if (!control || control._listenerAttached) return;
   control._listenerAttached = true;
 
@@ -113,7 +128,7 @@ function initShareControl(self: any): void {
       e.preventDefault();
       e.stopPropagation();
       const kind = opt.dataset.share;
-      const text = kind === 'citation' ? citationText(self) : bookUrl();
+      const text = kind === 'citation' ? getCitation() : getUrl();
       if (!text) return;
       void copyWithFeedback(opt, text, kind);
     });

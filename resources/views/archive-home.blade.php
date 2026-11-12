@@ -31,11 +31,23 @@
 
 @section('styles')
     @vite(['resources/css/app.css', 'resources/css/pages/journal.css'])
+    @if(!empty($backgroundImage) && !empty($mediaBook))
+    {{-- Owner-minted archive customization (same contract as user.blade's
+         #user-page-settings-css): ABSOLUTE url, validator-checked filename. --}}
+    <style id="user-page-settings-css">
+      #app-container.archive-hero {
+        --up-bg-image: url('{{ url('/' . $mediaBook . '/media/' . $backgroundImage) }}');
+      }
+    </style>
+    @endif
 @endsection
 
 @section('content')
 
-<div id="app-container" class="lava-lamp-background">
+{{-- .archive-hero: an owner-minted archive (customizable like a user page —
+     userPageHero.css's background/art/logo rules match it). bg-art-{name} =
+     the owner's background-art pick. --}}
+<div id="app-container" class="lava-lamp-background{{ !empty($mediaBook) ? ' archive-hero' : '' }}{{ !empty($backgroundArt) && $backgroundArt !== 'hills' ? ' bg-art-' . $backgroundArt : '' }}">
 
   @include('partials.logo-nav-flyout')
 
@@ -51,6 +63,9 @@
            the journal's name where "hyperlit" would be. The colon links home. --}}
       <div id="imageContainer" class="top-content journal-logo-lockup">
         <a href="/" aria-label="Hyperlit home" class="journal-colon-link">
+        @if(!empty($logoImage) && !empty($mediaBook))
+        <img class="journal-colon user-page-logo" src="/{{ $mediaBook }}/media/{{ $logoImage }}" alt="">
+        @else
         <svg class="journal-colon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28.33 85" aria-hidden="true">
           <defs>
             <linearGradient id="New_Gradient_Swatch_copy" data-name="New Gradient Swatch copy" x1="14.17" y1="28.33" x2="14.17" y2="0" gradientTransform="translate(28.33 28.33) rotate(-180)" gradientUnits="userSpaceOnUse">
@@ -67,8 +82,9 @@
           <rect width="28.33" height="28.33" transform="translate(28.33 28.33) rotate(180)" fill="url(#New_Gradient_Swatch_copy)"/>
           <rect y="56.67" width="28.33" height="28.33" fill="url(#New_Gradient_Swatch_copy_4)"/>
         </svg>
+        @endif
         </a>
-        <h1 class="journal-title">{{ $archive->display_name }}</h1>
+        <h1 id="archiveTitle" class="journal-title">{{ $archive->display_name }}</h1>
       </div>
       <div class="arranger-buttons-container">
         <!-- Shelf-scoped search — the journal-* ids are deliberate: the
@@ -105,16 +121,48 @@
     <span id="main-start" tabindex="-1"></span>
     <section class="welcome-copy journal-about" aria-label="About this archive">
       @php($aboutParas = array_values(array_filter(array_map('trim', preg_split('/\R{2,}/', (string) ($archive->about ?? ''))))))
-      @if(!empty($aboutParas))
+      @if(!empty($aboutNodes))
+        {{-- Owner-minted archive: the About BOOK (shelf_about_{shelfId}) in
+             the editor's DOM contract (.chunk > block[id=startLine][data-node-id]),
+             same as the user page's #user-about-book — the pencil attaches the
+             full editToolbar/divEditor stack inline (archivePageEditor). Node
+             content is sanitized on the write path, as for every book. --}}
+        <div id="archive-about-book" class="sub-book-content" data-book-id="{{ $aboutBookId }}" contenteditable="false">
+          <div class="chunk" data-chunk-id="0">
+            @foreach($aboutNodes as $n)
+              {!! preg_replace('/^<(\w+)/', '<$1 id="' . e($n->startLine) . '" data-node-id="' . e($n->node_id) . '"', $n->content) !!}
+            @endforeach
+          </div>
+        </div>
+      @elseif(!empty($aboutParas))
         {{-- Raw output is deliberate: about copy may carry links to the scraped
              source. Sanitized via NodeHtmlSanitizer on save AND in the
              controller before render. --}}
+        @if(!empty($aboutIsPlain))
+        {{-- Owner-minted: the shelf description, plain text → escaped. --}}
+        <h1 class="mega">{{ $aboutParas[0] }}</h1>
+        @foreach(array_slice($aboutParas, 1) as $para)
+          <h2 class="journal-about-meta">{{ $para }}</h2>
+        @endforeach
+        @else
         <h1 class="mega">{!! $aboutParas[0] !!}</h1>
         @foreach(array_slice($aboutParas, 1) as $para)
           <h2 class="journal-about-meta">{!! $para !!}</h2>
         @endforeach
+        @endif
       @else
         <h1 class="mega">{{ $archive->display_name }} — a hypertext archive on Hyperlit.</h1>
+      @endif
+      @if($hyperciteMap ?? null)
+        {{-- Connection map (owner-toggleable, default on): the shelf's public
+             documents' hypercite network — journalHyperciteMap is generic over
+             this wrapper/expand id, as on the user page. --}}
+        <div class="journal-hypercite-map">
+          {!! $hyperciteMap !!}
+          <div class="journal-map-actions">
+            <button type="button" id="journal-map-expand" tabindex="-1" aria-label="Expand the hypercite network">&#10530; Expand diagram</button>
+          </div>
+        </div>
       @endif
       <h2 class="journal-about-counts">{{ number_format($readable) }} document{{ $readable === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet public.@endif</h2>
     </section>
@@ -130,6 +178,21 @@
 {{-- Lava-lamp background mount (must be AFTER #app-container: the dimming rule
      uses the sibling selector #app-container.content-active ~ #lava-lamp-mount) --}}
 <div id="lava-lamp-mount" aria-hidden="true"></div>
+
+@if(!empty($archiveEdit))
+{{-- Owner-only edit toggle for an owner-minted archive (archivePageEditor):
+     the user page's #editButton structure, so it gets the same pencil styling
+     and perimeter handling. Title + about edit in place and save to the shelf. --}}
+<script>window.userPageSettings = @json((object) ($pageSettings ?? []));</script>
+<div id="bottom-right-buttons" class="loading" data-archive-edit='@json($archiveEdit)'>
+  <button type="button" id="editButton" aria-label="Edit this archive" title="Edit this archive">
+    <svg viewBox="0 0 24 24" width="100%" height="100%" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  </button>
+</div>
+@endif
 
 <!-- Bottom left settings button -->
 <div id="bottom-left-buttons" class="loading">
@@ -221,6 +284,11 @@
 <div id="user-overlay"></div>
 
 <x-settings-panel />
+
+@if(!empty($archiveEdit))
+{{-- The inline About-book editor's toolbar — same partial as the reader/user page. --}}
+@include('partials.edit-toolbar')
+@endif
 
 @include('partials.search-toolbar')
 

@@ -289,6 +289,87 @@
 .shelf-header-copy-btn svg { width: 16px; height: 16px; fill: var(--color-text); }
 .shelf-header-copy-btn.copied svg { fill: var(--color-accent); }
 
+.shelf-header-like-btn {
+  cursor: pointer;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-text);
+  transition: opacity 0.2s ease;
+}
+.shelf-header-like-btn:hover,
+.shelf-header-like-btn:focus-visible,
+.shelf-header-like-btn.liked { opacity: 1; }
+.shelf-header-like-btn svg { width: 16px; height: 16px; }
+.shelf-header-like-btn.liked svg { fill: var(--hyperlit-aqua); stroke: var(--hyperlit-aqua); }
+
+.shelf-header-archive-btn {
+  cursor: pointer;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  transition: opacity 0.2s ease;
+}
+.shelf-header-archive-btn:hover,
+.shelf-header-archive-btn:focus-visible,
+.shelf-header-archive-btn[aria-expanded="true"] { opacity: 1; }
+.shelf-header-archive-btn svg { width: 22px; height: 16px; fill: var(--color-text); }
+.shelf-header-archive-btn:disabled { cursor: progress; }
+
+.shelf-header-archive-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 6px 0 10px;
+  font-size: 0.9em;
+}
+.shelf-archive-url {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--color-text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  opacity: 0.9;
+}
+.shelf-archive-prefix { opacity: 0.6; white-space: nowrap; }
+.shelf-archive-slug-input {
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  min-width: 8ch;
+  width: 22ch;
+  max-width: 100%;
+  padding: 0;
+}
+.shelf-archive-status { opacity: 0.75; }
+.shelf-archive-status[data-state="ok"] { color: var(--color-accent); opacity: 1; }
+.shelf-archive-status[data-state="bad"] { color: #d73a49; opacity: 1; }
+.shelf-archive-create,
+.shelf-archive-cancel {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-text);
+  background: transparent;
+  color: inherit;
+}
+.shelf-archive-create:disabled { opacity: 0.4; cursor: default; }
+.shelf-archive-cancel { border-color: transparent; opacity: 0.7; }
+.shelf-archive-note { flex-basis: 100%; margin: 0; opacity: 0.6; font-size: 0.85em; }
+
 .shelf-header-delete-btn {
   cursor: pointer;
   opacity: 0.6;

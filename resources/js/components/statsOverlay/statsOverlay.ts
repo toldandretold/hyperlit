@@ -25,6 +25,7 @@
 
 import { log } from '../../utilities/logger';
 import { trapModalFocus } from '../../utilities/modalFocusTrap';
+import { loadTillage, tillageSectionHtml } from './tillage';
 
 interface CreatorBookStats {
     book: string;
@@ -142,7 +143,7 @@ const listState = { sort: 'views', q: '', offset: 0, total: 0, loading: false };
 let listRequestSeq = 0;
 
 async function loadBooks(panel: HTMLElement, append: boolean): Promise<void> {
-    const body = panel.querySelector<HTMLElement>('.stats-panel-body');
+    const body = panel.querySelector<HTMLElement>('.stats-book-list');
     if (!body || listState.loading) return;
     listState.loading = true;
     const seq = ++listRequestSeq;
@@ -272,17 +273,23 @@ export async function openStatsOverlay(): Promise<void> {
             <button type="button" class="stats-panel-close" aria-label="Close">&times;</button>
           </span>
         </div>
-        <div class="stats-panel-controls">
-          <select class="stats-sort-select" aria-label="Sort books">
-            <option value="views">Most Viewed</option>
-            <option value="likes">Most Liked</option>
-            <option value="recent">Recently Added</option>
-            <option value="title">Title (A–Z)</option>
-            <option value="author">Author (A–Z)</option>
-          </select>
-          <input type="search" class="stats-search-input" aria-label="Search your books by title or author" placeholder="Search title or author">
+        <div class="stats-panel-body">
+          ${/* Tillage lives INSIDE the scroller, so it scrolls away and leaves
+               the book list the whole panel; the sort/search bar is sticky,
+               so it stays reachable once the chart has gone. */''}
+          ${tillageSectionHtml()}
+          <div class="stats-panel-controls">
+            <select class="stats-sort-select" aria-label="Sort books">
+              <option value="views">Most Viewed</option>
+              <option value="likes">Most Liked</option>
+              <option value="recent">Recently Added</option>
+              <option value="title">Title (A–Z)</option>
+              <option value="author">Author (A–Z)</option>
+            </select>
+            <input type="search" class="stats-search-input" aria-label="Search your books by title or author" placeholder="Search title or author">
+          </div>
+          <div class="stats-book-list"><p class="stats-panel-empty">Loading&hellip;</p></div>
         </div>
-        <div class="stats-panel-body"><p class="stats-panel-empty">Loading&hellip;</p></div>
       </div>`;
     overlay.addEventListener('click', onOverlayClick);
     document.body.appendChild(overlay);
@@ -318,6 +325,8 @@ export async function openStatsOverlay(): Promise<void> {
         });
 
     releaseTrap = trapModalFocus(panel, { onEscape: closeStatsOverlay });
+    const tillage = panel.querySelector<HTMLDetailsElement>('.stats-tillage');
+    if (tillage) void loadTillage(tillage);
     await loadBooks(panel, false);
 }
 

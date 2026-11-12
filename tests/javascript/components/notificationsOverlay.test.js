@@ -167,6 +167,31 @@ describe('notifications overlay', () => {
     expect(row.textContent).toContain('Hyperlit');
   });
 
+  it('links the licence notice to the review shelf as a FULL page load, with no mute button', async () => {
+    stubFetch({
+      items: [{
+        ...ITEM,
+        id: 21,
+        type: 'licence_review',
+        actor_label: 'Hyperlit',
+        verb: 'thinks',
+        context_label: '3 of your published books might not be OK to publish',
+        link: '/u/someone/shelf/might-not-be-ok-to-publish',
+        read_at: new Date().toISOString(),
+      }],
+      unread: 0,
+      total: 1,
+    });
+    await openNotificationsOverlay();
+    const row = document.querySelector('.notif-row-licence_review');
+
+    expect(row.getAttribute('href')).toBe('/u/someone/shelf/might-not-be-ok-to-publish');
+    // A shelf deep link needs user.blade's inline window.activeShelfDeepLink, which an
+    // SPA body swap never runs — routed in-app it opened the user page without the shelf.
+    expect(row.hasAttribute('data-full-nav')).toBe(true);
+    expect(document.querySelector('.notif-mute')).toBeNull();
+  });
+
   it('closes on the close button and releases the focus trap', async () => {
     stubFetch();
     await openNotificationsOverlay();

@@ -134,6 +134,7 @@ class RemapLicensesCommand extends Command
             if ($apply) {
                 $db->table('library')->where('book', $row->book)->update($new + ['license_source' => $source, 'updated_at' => now(), 'timestamp' => self::nowMs()]);
                 self::invalidate($row->book);
+                \App\Services\Licensing\HostingPolicy::enforce($row->book);
             }
             if ($limit && $changed >= $limit) {
                 break;

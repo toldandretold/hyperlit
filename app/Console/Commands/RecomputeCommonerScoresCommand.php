@@ -17,7 +17,7 @@ class RecomputeCommonerScoresCommand extends Command
     protected $signature = 'commoner:recompute
                             {--user=* : Restrict to these usernames (repeatable); default is every user}';
 
-    protected $description = 'Recompute users.commoner_score from accepted/liked suggested edits';
+    protected $description = 'Recompute users.commoner_score (hosted books, likes, citations, suggested edits)';
 
     public function handle(CommonerScoreService $scores): int
     {
@@ -26,7 +26,7 @@ class RecomputeCommonerScoresCommand extends Command
         $this->info($users ? 'Recomputing ' . count($users) . ' user(s)…' : 'Recomputing every user…');
 
         $changed = $scores->recompute($users);
-        $this->info("Rows changed: {$changed}");
+        $this->info("Rows written: {$changed}");
 
         return self::SUCCESS;
     }

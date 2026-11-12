@@ -132,3 +132,20 @@ Schedule::job(new \App\Jobs\DiscoverLicensesJob(limit: 1500))
     ->dailyAt('05:10')
     ->withoutOverlapping()
     ->onOneServer();
+
+// After discovery: shelve each user's PUBLISHED uploads (verified as someone else's work) whose
+// licence is all-rights-reserved / unknown, and notify once per flagged set. Never hides
+// anything — the owner decides (LicenceReviewShelf).
+Schedule::command('library:licence-review')
+    ->dailyAt('05:40')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+// Commoner score ("hectares tilled"): writes every user's snapshot — total,
+// per-source counts, computed_at — which is exactly what the Stats overlay's
+// Tillage reads. Daily stats by design: the live count costs two corpus-wide
+// citation-edge scans, so nothing recounts on an open.
+Schedule::command('commoner:recompute')
+    ->dailyAt('05:55')
+    ->withoutOverlapping()
+    ->onOneServer();

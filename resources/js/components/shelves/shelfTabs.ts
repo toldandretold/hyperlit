@@ -221,6 +221,7 @@ async function activateTab(btn: any) {
             isOwner: true,
             username: (window as any).username,
             slug: shelf?.slug || null,
+            kind: shelf?.kind,
         });
         return;
     }
@@ -259,6 +260,7 @@ async function activateTab(btn: any) {
             isOwner: true,
             username: (window as any).username,
             slug: shelf?.slug || null,
+            kind: shelf?.kind,
         });
     } catch (err) {
         console.error('Failed to open shelf:', err);

@@ -204,6 +204,21 @@ class AppServiceProvider extends ServiceProvider
                 ->by('account-deletion|'.($request->user()?->id ?: $request->ip()));
         });
 
+        // Shelf → archive page (availability check is debounced keystrokes,
+        // the mint is one POST). Named so typing a slug can't fill the shared
+        // inline bucket, and vice versa.
+        \Illuminate\Support\Facades\RateLimiter::for('shelf-archive', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by('shelf-archive|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // Shelf likes (like/unlike + the public count read) — own bucket, so
+        // ordinary SPA traffic can't 429 a heart press.
+        \Illuminate\Support\Facades\RateLimiter::for('shelf-likes', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('shelf-likes|'.($request->user()?->id ?: $request->ip()));
+        });
+
         // API-token management (list/mint/revoke). Named for the same
         // shared-bucket reason as account-deletion; 10/min is plenty for a
         // settings panel and blunts token-mint spam.

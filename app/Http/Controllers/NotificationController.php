@@ -101,7 +101,7 @@ class NotificationController extends Controller
         }
 
         $fromActor = PgNotification::where('actor', $actor)
-            ->where('type', '!=', NotificationWriter::TYPE_TERMS_PUBLISHED);
+            ->whereNotIn('type', NotificationWriter::SYSTEM_TYPES);
         if (! (clone $fromActor)->exists()) {
             return response()->json([
                 'message' => 'You can only mute someone whose activity has reached your notifications.',
@@ -183,9 +183,11 @@ class NotificationController extends Controller
             'suggestion_accepted' => 'accepted your suggested edit',
             'suggestion_liked' => 'liked your suggested edit',
             'hypercite_paired' => 'cited',
-            'like' => 'liked',
+            'like', 'shelf_like' => 'liked',
             // "Hyperlit published its Terms of Service…" (terms:announce)
             'terms_published' => 'published',
+            // "Hyperlit thinks 3 of your published books might not be OK to publish"
+            'licence_review' => 'thinks',
             default => 'engaged with',
         };
 
@@ -195,6 +197,11 @@ class NotificationController extends Controller
             'hyperlight', 'suggested_edit', 'suggestion_accepted', 'suggestion_liked' => '/' . $n->book . ($n->subject_id ? '#' . $n->subject_id : ''),
             // subject_id holds the terms VERSION here, never an anchor.
             'terms_published' => '/terms',
+            // The user's review shelf, written by NotificationWriter::licenceReview.
+            'licence_review' => is_string($data['link'] ?? null) ? $data['link'] : '/' . $n->book,
+            // The shelf's archive page or /u/ shelf URL (NotificationWriter::shelfLiked);
+            // `book` is the synthetic shelf_{id} key, never a place to link.
+            'shelf_like' => is_string($data['link'] ?? null) ? $data['link'] : '/',
             default => '/' . $n->book,
         };
 

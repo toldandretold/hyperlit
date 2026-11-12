@@ -45,13 +45,14 @@ class ArchivePanelManager extends ContainerManager {
     if (!scope) return;
 
     let html: string;
+    let data: ArchivePanelData | null = null;
     try {
       const resp = await fetch(
         `/api/archive-export/${encodeURIComponent(scope.scopeType)}/${encodeURIComponent(scope.scopeId)}/panel`,
         { credentials: 'include' },
       );
       if (!resp.ok) throw new Error(`panel ${resp.status}`);
-      const data = (await resp.json()) as ArchivePanelData;
+      data = (await resp.json()) as ArchivePanelData;
       html = await buildArchiveHtml(data);
     } catch (e) {
       log.error('archive panel load failed', '/components/archivePanel', e);
@@ -62,8 +63,35 @@ class ArchivePanelManager extends ContainerManager {
     // activeContainer and the focus trap.
     super.openContainer(html as any);
 
+    if (data) await this.wireActions(data);
+
     this.mdDownload = initExportDownload(this.container, 'download-archive-md', scope, 'markdown');
     this.sqliteDownload = initExportDownload(this.container, 'download-archive-sqlite', scope, 'sqlite');
+  }
+
+  /**
+   * The action bar (buildArchiveHtml's actionBar): Share copies this page's
+   * link / the rendered corpus citation; Like likes the corpus's shelf.
+   */
+  private async wireActions(data: ArchivePanelData): Promise<void> {
+    const container = this.container as HTMLElement | null;
+    if (!container) return;
+    try {
+      const pageUrl = data.pageUrl || window.location.href;
+      const { wireShareControl } = await import('../sourceContainer/readerActions');
+      wireShareControl(container, () => pageUrl, () => {
+        const citation = container.querySelector('.citation')?.textContent?.trim();
+        return citation ? `${citation}\n${pageUrl}` : '';
+      });
+
+      const likeBtn = container.querySelector<HTMLElement>('#like-book');
+      if (likeBtn && data.shelfId) {
+        const { wireShelfLikeButton } = await import('../shelves/shelfLike');
+        wireShelfLikeButton(likeBtn, data.shelfId, data.noun || 'archive');
+      }
+    } catch (e) {
+      log.error('archive panel actions failed to wire', '/components/archivePanel', e);
+    }
   }
 
   closeContainer(): void {

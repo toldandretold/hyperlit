@@ -136,7 +136,7 @@ class MetadataEnricher
         if (!empty($sourceBookIds)) {
             $libraryRecords = $db->table('library')
                 ->whereIn('book', array_keys($sourceBookIds))
-                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id', 'conversion_method', 'completeness', 'completeness_reason'])
+                ->select(['book', 'title', 'author', 'year', 'openalex_id', 'open_library_key', 'abstract', 'has_nodes', 'type', 'url', 'doi', 'oa_url', 'canonical_source_id', 'conversion_method', 'completeness', 'completeness_reason', 'visibility'])
                 ->get()
                 ->keyBy('book');
         }
@@ -214,6 +214,9 @@ class MetadataEnricher
             $contentBook = $resolvedSource;
             $hasContent  = (bool) ($lib->has_nodes ?? false);
             $provenance  = $hasContent ? 'foundation' : null;
+            // Readers can open the content book in-app only if it is public — a WebFetch page
+            // or a closed work is HELD for review (HostingPolicy), and the report links out instead.
+            $sourceIsPublic = ($lib->visibility ?? 'public') === 'public';
             // Completeness of the copy we'll actually check claims against — so a
             // chapter/excerpt (partial) isn't treated as the whole work.
             $sourceCompleteness = $hasContent ? ($lib->completeness ?? null) : null;
@@ -225,6 +228,7 @@ class MetadataEnricher
                 $provenance  = $best['pointer']
                     ? str_replace('_book', '', $best['pointer'])   // e.g. auto_version
                     : 'linked_version';
+                $sourceIsPublic = true; // bestPublicContentVersion only returns public versions
                 $sourceCompleteness = $best['completeness'] ?? null;
                 // The reason lives on the chosen version; only the foundation row's
                 // reason is loaded here, so keep it only when the content book is
@@ -240,6 +244,7 @@ class MetadataEnricher
                 'verified'            => $tier !== 'unverified',
                 'source_book_id'      => $contentBook,
                 'has_source_content'  => $hasContent,
+                'source_is_public'    => $sourceIsPublic,
                 'source_completeness'        => $sourceCompleteness,
                 'source_completeness_reason' => $sourceCompletenessReason,
                 'bib_citation'        => $bib->content ?? null,

@@ -7,6 +7,8 @@
 import { fixHeaderSpacing, transitionToBookContent } from '../homepage/homepageDisplayUnit';
 import { drainResponse } from '../../utilities/drainResponse';
 import { log } from '../../utilities/logger';
+import { HEART_SVG, wireShelfLikeButton } from './shelfLike';
+import { createShelfArchiveButton, type ShelfArchiveButton } from './shelfArchiveButton';
 import DOMPurify from 'dompurify';
 
 let currentHeader: any = null;
@@ -104,6 +106,14 @@ export function showShelfHeader(opts: any) {
     const header = document.createElement('div');
     header.id = 'shelf-header';
     header.className = 'shelf-header';
+    // The owner's own ordinary shelf is a DROP TARGET: a file dropped on the
+    // page while it's open imports straight onto it (fileDropTarget reads
+    // these). Not system shelves (Library/All), and not the derived kinds —
+    // Likes mirrors book_likes, licence-review is a server-kept worklist.
+    if (isOwner && shelfId && !isSystemShelf && opts.kind === 'user') {
+        header.dataset.dropShelfId = String(shelfId);
+        header.dataset.dropShelfName = String(shelfName ?? '');
+    }
 
     // --- Title row ---
     const titleRow = document.createElement('div');
@@ -303,6 +313,8 @@ export function showShelfHeader(opts: any) {
     let currentVisibility = visibility;
     let visIcon: any = null;
     let shareBtn: any = null;
+    let likeBtn: HTMLButtonElement | null = null;
+    let archiveBtn: ShelfArchiveButton | null = null;
 
     if (!isSystemShelf) {
         visIcon = document.createElement('span');
@@ -328,9 +340,11 @@ export function showShelfHeader(opts: any) {
                     visIcon.innerHTML = newVis === 'public' ? GLOBE_SVG : LOCK_SVG;
                     visIcon.title = newVis === 'public' ? 'Public' : 'Private';
                     // Show/hide share button
+                    if (likeBtn) likeBtn.style.display = newVis === 'public' ? '' : 'none';
                     if (shareBtn) {
                         shareBtn.style.display = newVis === 'public' ? '' : 'none';
                     }
+                    archiveBtn?.setVisibility(newVis);
                 } catch (err) {
                     console.error('Failed to toggle visibility:', err);
                 }
@@ -355,6 +369,27 @@ export function showShelfHeader(opts: any) {
             });
         });
         titleRow.appendChild(shareBtn);
+
+        // --- Like (public custom shelves, every viewer) ---
+        if (shelfId) {
+            likeBtn = document.createElement('button');
+            likeBtn.type = 'button';
+            likeBtn.className = 'shelf-header-like-btn';
+            likeBtn.innerHTML = HEART_SVG;
+            likeBtn.style.display = currentVisibility === 'public' ? '' : 'none';
+            wireShelfLikeButton(likeBtn, String(shelfId));
+            titleRow.appendChild(likeBtn);
+        }
+
+        // --- View as archive (owner, public custom shelves) → /a/{slug} ---
+        if (isOwner && shelfId && opts.kind !== 'licence_review') {
+            archiveBtn = createShelfArchiveButton({
+                shelfId: String(shelfId),
+                visibility: currentVisibility,
+                mountPicker: (row) => titleRow.after(row),
+            });
+            titleRow.appendChild(archiveBtn.el);
+        }
 
         // --- Delete button (owner only, custom shelves) ---
         if (isOwner) {

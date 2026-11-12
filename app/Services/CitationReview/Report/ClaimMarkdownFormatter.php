@@ -318,6 +318,12 @@ final class ClaimMarkdownFormatter
         return $md . "\n---\n\n";
     }
 
+    /** Can a reader open this claim's source book in-app? Not a held web page or private copy. */
+    private static function sourceReadable(array $claim): bool
+    {
+        return ($claim['source_is_public'] ?? true) && ($claim['source_type'] ?? null) !== 'web_source';
+    }
+
     public function buildSourceMd(array $claim): ?string
     {
         $title = $claim['source_title'] ?? null;
@@ -332,8 +338,14 @@ final class ClaimMarkdownFormatter
         // The source line links IN-APP ONLY (the reviewed version carrying the
         // highlights). No external link here — the bibliography citation line
         // below already carries the URL/DOI.
-        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id']))
+        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id']) && self::sourceReadable($claim))
             ? '/' . $this->urls->mdSafe($claim['source_book_id']) : null;
+        // A source we hold only as review evidence (a web page, a closed paper) is not ours to
+        // publish — link the ORIGINAL instead of our private copy.
+        $outUrl = (!$inAppUrl && !self::sourceReadable($claim)) ? $this->urls->resolve($claim) : null;
+        if ($outUrl && $title) {
+            $title = "[{$title}](" . $this->urls->mdSafe($outUrl) . ') ↗';
+        }
 
         if ($inAppUrl && $title) {
             $linkedTitle = "[{$title}]({$inAppUrl})";

@@ -143,6 +143,7 @@ class AutoVersionCreator
             // free-to-read copy) instead of the site default the stub was minted
             // with. Flows through the existing library.license display + edit path.
             $this->applyOaLicense($bookId, $canonical, $fetchTrace);
+            \App\Services\Licensing\HostingPolicy::enforce($bookId);
 
             // Flag how COMPLETE this imported copy is (verified_full / partial /
             // unverified), so citation review never treats a chapter or teaser as

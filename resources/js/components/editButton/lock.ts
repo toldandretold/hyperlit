@@ -91,6 +91,13 @@ export async function checkEditPermissionsAndUpdateUI() {
 
   if (!editBtn) return;
 
+  // READER ONLY. On hero pages #editButton is a different pencil (the user
+  // page's customization toggle, an owner-minted archive's in-place editor)
+  // whose visibility the SERVER already decided; `book` there is a feed/route
+  // id, not a book the viewer edits, so this check would lock and hide it
+  // (the archive pencil vanished this way — called via crossTab/auth paths).
+  if (['home', 'user', 'journal'].includes(document.body.dataset.page ?? '')) return;
+
   // Don't modify button during edit mode
   if ((window as any).isEditing) {
     return;

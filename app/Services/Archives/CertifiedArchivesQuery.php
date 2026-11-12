@@ -49,7 +49,6 @@ class CertifiedArchivesQuery
     {
         $archives = ArchiveSource::query()
             ->whereNotNull('certified_at')
-            ->orderBy('display_name')
             ->get();
 
         if ($archives->isEmpty()) {
@@ -60,13 +59,19 @@ class CertifiedArchivesQuery
             $archives->pluck('shelf_id', 'id')->all()
         );
 
+        // Names via ArchiveIdentity: a certified OWNER-minted archive has no
+        // display_name of its own (it borrows its shelf's), so sorting happens
+        // after resolution rather than in SQL.
+        $identity = app(ArchiveIdentity::class);
+
         return $archives
             ->map(fn (ArchiveSource $a) => [
                 'slug'         => $a->slug,
-                'display_name' => $a->display_name,
+                'display_name' => $identity->name($a),
                 'readable'     => $counts[$a->id] ?? 0,
             ])
             ->filter(fn (array $row) => $row['readable'] > 0)
+            ->sortBy('display_name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values()
             ->all();
     }

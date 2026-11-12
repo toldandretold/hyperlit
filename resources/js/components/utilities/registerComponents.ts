@@ -816,7 +816,9 @@ export function registerAllComponents() {
     name: 'userPageEditor',
     initFn: initUserPageEditor,
     destroyFn: destroyUserPageEditor,
-    pages: ['user'],
+    // 'journal' = the owner-minted archive page (/a/{slug} runs pageType
+    // 'journal'); a no-op on /j/ pages (no data-archive-edit seed).
+    pages: ['user', 'journal'],
     dependencies: [],
     required: false
   });

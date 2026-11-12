@@ -43,7 +43,7 @@ const TOGGLES: ReadonlyArray<{ key: NotifyToggleKey; title: string; desc: string
     { key: 'notify_hyperlight', title: 'Highlights', desc: 'Someone highlights a passage of your work.' },
     { key: 'notify_suggested_edit', title: 'Suggested edits', desc: 'Someone suggests an edit to your text. The notification shows their suggested wording.' },
     { key: 'notify_hypercite', title: 'Citations', desc: 'Someone cites a passage of your work in a public text.' },
-    { key: 'notify_like', title: 'Likes', desc: 'Someone likes one of your texts.' },
+    { key: 'notify_like', title: 'Likes', desc: 'Someone likes one of your texts or shelves.' },
     { key: 'notify_anonymous', title: 'Activity from anonymous readers', desc: 'Readers who aren’t logged in appear as “Someone”. They can’t be muted one by one, so this switch silences all of them.' },
 ];
 

@@ -25,7 +25,7 @@ import { registerBookOpen } from "../utilities/BroadcastListener";
 
 import { buildFootnoteMap, hasOldFormatFootnotes, migrateOldFormatFootnotes } from '../footnotes/FootnoteNumberingService';
 
-import { isBackgroundDownloadInProgress, waitForBackgroundDownload } from './backgroundDownload';
+import { supersedeBackgroundDownload, backgroundDownloadRemainingChunks } from './backgroundDownload';
 import { resolveFirstChunkPromise, resetFirstChunkPromise, getFirstChunkLoadedResolver } from './firstChunkPromise';
 import { setupOnlineSyncListener } from './onlineRetry';
 import { primeImageDims } from '../lazyLoader/imageDims';
@@ -515,24 +515,12 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     return;
   }
 
-  // THIS book's background download in progress: wait for it, then compare
-  // anyway. Scoped by book: another book's download says nothing about this
-  // one's freshness (the old global flag silently skipped the check whenever
-  // a previous page's download outlived the navigation). Waiting — not
-  // SKIPPING, which this used to do — matters because a download carries data
-  // as-of its START: a metadata write landing DURING it (a rename while a
-  // big aggregate feed book is still streaming) would otherwise stay stale
-  // until some later navigation happened to re-check. The compare after the
-  // wait is two record reads and a no-op when the download really was fresh.
-  if (isBackgroundDownloadInProgress(bookId)) {
-    verbose.content(`⏳ Background download in progress — deferring timestamp check for ${bookId}`, '/pageLoad/loadHyperText.ts');
-    await waitForBackgroundDownload(String(bookId));
-    // The reader may have moved on while we waited — nothing on screen to
-    // refresh, and the IDB write already happened book-keyed in the download.
-    if (lazyLoader?.container && !lazyLoader.container.isConnected) {
-      return;
-    }
-  }
+  // NOT gated on an in-flight background download of this book. It used to
+  // SKIP (stale forever), then WAIT (correct but slow: the user page's
+  // aggregate book is ~120 chunks, and the user stared at a renamed book's old
+  // title for 10s+ while it streamed — library-home-sync.spec.js). The compare
+  // is two record reads, so do it now; if the server moved on, the stale
+  // download is SUPERSEDED below rather than waited out.
 
   // A brand-new book isn't on the server yet, so there is no server timestamp to
   // compare against (utilities/pendingNewBook — the reload-surviving half of that
@@ -594,107 +582,123 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     if (serverTimestamp > localTimestamp) {
       verbose.content(`🔥 Book content changed for ${bookId}. Surgical refresh for current target...`, '/pageLoad/loadHyperText.ts');
 
-      // Preserve target priority: explicit nav target (deep link in flight) > LIVE anchor.
-      // Without a target the fetch below resolves the SERVER resume bookmark — which lags
-      // this device by the debounced position save (or doesn't exist yet) — so the refreshed
-      // node set misses the reader's position entirely and the book lands at the top.
-      let preserveTarget = capturedNavigationTarget;
-      if (!preserveTarget && lazyLoader) {
-        try {
-          lazyLoader.forceSaveScrollPosition?.();
-          const live = lazyLoader._scrollAnchor;
-          if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
-            preserveTarget = String(live.element.id);
-          }
-        } catch { /* anchor unavailable — fall through untargeted */ }
-      }
-
-      // Fetch fresh chunk for the current navigation target (stores all annotations
-      // + target chunk to IndexedDB via put semantics — no wipe needed)
-      const freshResult = await fetchInitialChunk(bookId, preserveTarget ?? null);
-
-      if (freshResult?.success) {
-        // Snapshot the records the reader is CURRENTLY looking at before they
-        // are replaced — the visible-change comparison below runs against them.
-        const prevNodes = Array.isArray(lazyLoader?.nodes) ? lazyLoader.nodes : null;
-
-        // Update lazyLoader with fresh data for the target chunk
-        lazyLoader.nodes = freshResult.nodes;
-        (window as any).nodes = freshResult.nodes;
-        if (freshResult.chunkManifest) {
-          (window as any).chunkManifest = freshResult.chunkManifest;
-          lazyLoader.chunkManifest = freshResult.chunkManifest;
+      // A download of this book still streaming carries data as of ITS start —
+      // older than what we're about to fetch. Retire it first, so it can't
+      // land afterwards and put stale nodes back over the refresh; the backfill
+      // below replaces it (and releases anyone waiting on this book).
+      const supersededDownload = supersedeBackgroundDownload(String(bookId));
+      let replacementStarted = false;
+      try {
+        // Preserve target priority: explicit nav target (deep link in flight) > LIVE anchor.
+        // Without a target the fetch below resolves the SERVER resume bookmark — which lags
+        // this device by the debounced position save (or doesn't exist yet) — so the refreshed
+        // node set misses the reader's position entirely and the book lands at the top.
+        let preserveTarget = capturedNavigationTarget;
+        if (!preserveTarget && lazyLoader) {
+          try {
+            lazyLoader.forceSaveScrollPosition?.();
+            const live = lazyLoader._scrollAnchor;
+            if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
+              preserveTarget = String(live.element.id);
+            }
+          } catch { /* anchor unavailable — fall through untargeted */ }
         }
 
-        notifyContentUpdated();
+        // Fetch fresh chunk for the current navigation target (stores all annotations
+        // + target chunk to IndexedDB via put semantics — no wipe needed)
+        const freshResult = await fetchInitialChunk(bookId, preserveTarget ?? null);
 
-        // refresh() is a full teardown+rebuild of every rendered chunk — a
-        // visible jolt SECONDS after the reader settled (this check is
-        // un-awaited). Only pay that when a node in a currently-rendered chunk
-        // actually changed. refresh() re-renders FROM lazyLoader.nodes and the
-        // fetch only brought the target chunk's records, so comparing exactly
-        // the fetched records against their predecessors is as strong as
-        // anything the teardown could display: identical records ⇒ an
-        // identical rebuild ⇒ pure jitter. A change elsewhere in the book
-        // lands in IndexedDB (put semantics above + the backfill below) and
-        // renders fresh when scrolled to.
-        const visibleChange = findRenderedContentChange(prevNodes, freshResult.nodes, lazyLoader?.container ?? null);
-        recordNavDecision({
-          phase: 'timestamp-refresh',
-          visibleChange,
-          prevCount: prevNodes?.length ?? null,
-          freshCount: freshResult.nodes?.length ?? null,
-        });
-        if (visibleChange === null) {
-          verbose.content(`⏭️ Timestamp newer but rendered chunks identical — skipping visible refresh for ${bookId}`, '/pageLoad/loadHyperText.ts');
-          // Annotations may still have moved server-side — re-apply them to
-          // the visible nodes non-destructively (same path as the
-          // annotations-only branch below).
-          await reapplyAnnotationsToVisibleNodes(bookId);
+        if (freshResult?.success) {
+          // Snapshot the records the reader is CURRENTLY looking at before they
+          // are replaced — the visible-change comparison below runs against them.
+          const prevNodes = Array.isArray(lazyLoader?.nodes) ? lazyLoader.nodes : null;
+
+          // Update lazyLoader with fresh data for the target chunk
+          lazyLoader.nodes = freshResult.nodes;
+          (window as any).nodes = freshResult.nodes;
+          if (freshResult.chunkManifest) {
+            (window as any).chunkManifest = freshResult.chunkManifest;
+            lazyLoader.chunkManifest = freshResult.chunkManifest;
+          }
+
+          notifyContentUpdated();
+
+          // refresh() is a full teardown+rebuild of every rendered chunk — a
+          // visible jolt SECONDS after the reader settled (this check is
+          // un-awaited). Only pay that when a node in a currently-rendered chunk
+          // actually changed. refresh() re-renders FROM lazyLoader.nodes and the
+          // fetch only brought the target chunk's records, so comparing exactly
+          // the fetched records against their predecessors is as strong as
+          // anything the teardown could display: identical records ⇒ an
+          // identical rebuild ⇒ pure jitter. A change elsewhere in the book
+          // lands in IndexedDB (put semantics above + the backfill below) and
+          // renders fresh when scrolled to.
+          const visibleChange = findRenderedContentChange(prevNodes, freshResult.nodes, lazyLoader?.container ?? null);
+          recordNavDecision({
+            phase: 'timestamp-refresh',
+            visibleChange,
+            prevCount: prevNodes?.length ?? null,
+            freshCount: freshResult.nodes?.length ?? null,
+          });
+          if (visibleChange === null) {
+            verbose.content(`⏭️ Timestamp newer but rendered chunks identical — skipping visible refresh for ${bookId}`, '/pageLoad/loadHyperText.ts');
+            // Annotations may still have moved server-side — re-apply them to
+            // the visible nodes non-destructively (same path as the
+            // annotations-only branch below).
+            await reapplyAnnotationsToVisibleNodes(bookId);
+          } else {
+            if (capturedNavigationTarget) {
+              verbose.content(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`, '/pageLoad/loadHyperText.ts');
+            }
+
+            // Never tear the DOM down under an active gesture: refresh() rips
+            // out every chunk (the scroller collapses under the reader's
+            // finger) and re-lands — mid-scroll that is unrecoverable jank.
+            // Wait for scroll-idle (capped — freshness eventually wins), then
+            // re-anchor to wherever the reader ENDED UP, not where they were
+            // when the check fired.
+            await waitForScrollIdle(15_000);
+            if (!capturedNavigationTarget && lazyLoader) {
+              try {
+                lazyLoader.forceSaveScrollPosition?.();
+                const live = lazyLoader._scrollAnchor;
+                if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
+                  preserveTarget = String(live.element.id);
+                }
+              } catch { /* keep the earlier target */ }
+            }
+
+            // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
+            NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
+            await lazyLoader.refresh(preserveTarget ?? capturedNavigationTarget);
+            // 🚦 Signal CONTENT_REFRESH complete
+            NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
+          }
+
+          // Kick off background backfill of remaining chunks (non-blocking).
+          // Static import: it must register in-flight synchronously so a waiter
+          // released by nothing else (see the finally below) stays parked on it.
+          backgroundDownloadRemainingChunks(bookId, lazyLoader);
+          replacementStarted = true;
         } else {
-          if (capturedNavigationTarget) {
-            verbose.content(`🎯 Passing captured target to refresh(): ${capturedNavigationTarget}`, '/pageLoad/loadHyperText.ts');
-          }
+          // Fall back to full sync if initial chunk fetch failed
+          console.log(`⚠️ Surgical refresh failed, falling back to full sync for ${bookId}`);
+          await (syncBookDataFromDatabase as any)(bookId, true);
+          notifyContentUpdated();
 
-          // Never tear the DOM down under an active gesture: refresh() rips
-          // out every chunk (the scroller collapses under the reader's
-          // finger) and re-lands — mid-scroll that is unrecoverable jank.
-          // Wait for scroll-idle (capped — freshness eventually wins), then
-          // re-anchor to wherever the reader ENDED UP, not where they were
-          // when the check fired.
-          await waitForScrollIdle(15_000);
-          if (!capturedNavigationTarget && lazyLoader) {
-            try {
-              lazyLoader.forceSaveScrollPosition?.();
-              const live = lazyLoader._scrollAnchor;
-              if (live?.element && /^\d+(\.\d+)?$/.test(String(live.element.id))) {
-                preserveTarget = String(live.element.id);
-              }
-            } catch { /* keep the earlier target */ }
-          }
-
-          // 🚦 Register CONTENT_REFRESH before calling refresh() (if barrier is active)
           NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
           await lazyLoader.refresh(preserveTarget ?? capturedNavigationTarget);
-          // 🚦 Signal CONTENT_REFRESH complete
           NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
         }
-
-        // Kick off background backfill of remaining chunks (non-blocking)
-        import('./backgroundDownload').then(({ backgroundDownloadRemainingChunks }) => {
-          backgroundDownloadRemainingChunks(bookId, lazyLoader);
-        }).catch(err => {
-          console.warn('Background download module not available:', err);
-        });
-      } else {
-        // Fall back to full sync if initial chunk fetch failed
-        console.log(`⚠️ Surgical refresh failed, falling back to full sync for ${bookId}`);
-        await (syncBookDataFromDatabase as any)(bookId, true);
-        notifyContentUpdated();
-
-        NavigationCompletionBarrier.registerProcess(NavigationProcess.CONTENT_REFRESH);
-        await lazyLoader.refresh(preserveTarget ?? capturedNavigationTarget);
-        NavigationCompletionBarrier.completeProcess(NavigationProcess.CONTENT_REFRESH, true);
+      } finally {
+        // We retired a download but never started its replacement (full-sync
+        // fallback, or the refresh threw): release whoever was waiting on it
+        // rather than leave them parked until waitForBackgroundDownload's 30s cap.
+        if (supersededDownload && !replacementStarted) {
+          window.dispatchEvent(new CustomEvent('backgroundDownloadFailed', {
+            detail: { bookId: String(bookId), superseded: true },
+          }));
+        }
       }
       return; // Refresh includes annotations, no need to check further
     }

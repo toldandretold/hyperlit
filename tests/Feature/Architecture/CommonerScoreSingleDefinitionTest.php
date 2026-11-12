@@ -31,7 +31,7 @@ test('the hectares weights live only in CommonerScoreService', function () {
         if ($path === 'app/Services/Commoner/CommonerScoreService.php') {
             continue;
         }
-        if (str_contains($source, 'ACCEPTED_HECTARES') || str_contains($source, 'LIKED_HECTARES')) {
+        if (preg_match('/[A-Z_]+_HECTARES\b|CommonerScoreService::SOURCES/', $source)) {
             $offenders[] = $path;
         }
     }

@@ -18,16 +18,19 @@ import { log, verbose } from '../../utilities/logger';
 import { asBookId, type BookId } from '../../utilities/idHelpers';
 
 const CONTAINER_ID = 'user-about-book';
+// Container-agnostic: the owner-minted archive page (/a/{slug}) reuses this
+// whole module for its About book (#archive-about-book, archivePageEditor) —
+// every export takes the container id, defaulting to the user page's.
 
 let editingAbout = false;
 let previousIsEditing = false;
 
-export function aboutBookContainer(): HTMLElement | null {
-    return document.getElementById(CONTAINER_ID);
+export function aboutBookContainer(containerId: string = CONTAINER_ID): HTMLElement | null {
+    return document.getElementById(containerId);
 }
 
-export function aboutBookId(): BookId | null {
-    const raw = aboutBookContainer()?.dataset.bookId;
+export function aboutBookId(containerId: string = CONTAINER_ID): BookId | null {
+    const raw = aboutBookContainer(containerId)?.dataset.bookId;
     return raw ? asBookId(raw) : null;
 }
 
@@ -37,16 +40,16 @@ export function aboutBookId(): BookId | null {
  * editor's expected shape, then attaches annotation listeners. Safe for
  * owner AND visitor; no-op when the container/book is absent.
  */
-export async function hydrateAboutBook(): Promise<void> {
-    const container = aboutBookContainer();
-    const bookId = aboutBookId();
+export async function hydrateAboutBook(containerId: string = CONTAINER_ID): Promise<void> {
+    const container = aboutBookContainer(containerId);
+    const bookId = aboutBookId(containerId);
     if (!container || !bookId) return;
 
     try {
         const { syncBookDataFromDatabase } = await import('../../indexedDB/serverSync/index');
         await syncBookDataFromDatabase(bookId);
         // Container may have been swapped away by SPA nav during the await
-        if (!document.getElementById(CONTAINER_ID)) return;
+        if (!document.getElementById(containerId)) return;
 
         const { getNodesFromIndexedDB } = await import('../../indexedDB/index');
         const nodes: any = await getNodesFromIndexedDB(bookId);
@@ -85,9 +88,9 @@ export function isAboutEditing(): boolean {
 }
 
 /** Enter inline edit mode on the About book (owner pencil). */
-export async function enterAboutEdit(): Promise<void> {
-    const container = aboutBookContainer();
-    const bookId = aboutBookId();
+export async function enterAboutEdit(containerId: string = CONTAINER_ID): Promise<void> {
+    const container = aboutBookContainer(containerId);
+    const bookId = aboutBookId(containerId);
     if (!container || !bookId || editingAbout) return;
 
     editingAbout = true;
@@ -115,7 +118,7 @@ export async function enterAboutEdit(): Promise<void> {
         // targeted at the About container.
         initEditToolbar({
             toolbarId: 'edit-toolbar',
-            editableSelector: `#${CONTAINER_ID}[contenteditable='true']`,
+            editableSelector: `#${containerId}[contenteditable='true']`,
             currentBookId: bookId,
         });
     }
@@ -129,9 +132,9 @@ export async function enterAboutEdit(): Promise<void> {
 }
 
 /** Exit inline edit mode: flush saves, verify integrity, restore state. */
-export async function exitAboutEdit(): Promise<void> {
-    const container = aboutBookContainer();
-    const bookId = aboutBookId();
+export async function exitAboutEdit(containerId: string = CONTAINER_ID): Promise<void> {
+    const container = aboutBookContainer(containerId);
+    const bookId = aboutBookId(containerId);
     if (!editingAbout) return;
     editingAbout = false;
 
@@ -154,7 +157,7 @@ export async function exitAboutEdit(): Promise<void> {
 
         if (container && bookId) {
             const { runIntegritySweep }: any = await import('../../integrity/verifier');
-            await runIntegritySweep(bookId, container, 'user-about-edit-off');
+            await runIntegritySweep(bookId, container, containerId === CONTAINER_ID ? 'user-about-edit-off' : `${containerId}-edit-off`);
         }
     } catch (error) {
         log.error('About edit teardown failed', '/components/userProfile/userAboutBook.ts', error);

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2015 functions in 424 modules · 10 object stores · 10 PG tables · 4200 edges
+**MarkdownDB** schema v28 · 2023 functions in 426 modules · 10 object stores · 10 PG tables · 4216 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -22,6 +22,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ArchivePanelManager.destroyDownloads` | `components/archivePanel/index` | — | — | — | — |
 | `ArchivePanelManager.openContainer` | `components/archivePanel/index` | — | — | — | — |
 | `ArchivePanelManager.readScope` | `components/archivePanel/index` | — | — | read | — |
+| `ArchivePanelManager.wireActions` | `components/archivePanel/index` | — | — | read | — |
 | `destroySourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
 | `initializeSourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
 | `cancelForcedVisibility` | `components/cloudRef/editIndicator` | — | — | — | — |
@@ -62,6 +63,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `updateEditButtonVisibility` | `components/editButton/lock` | — | — | read/write | — |
 | `destroyFileDropTarget` | `components/fileDropTarget/fileDropTarget` | — | — | write | — |
 | `initializeFileDropTarget` | `components/fileDropTarget/fileDropTarget` | — | — | read/write | — |
+| `openOwnedShelf` | `components/fileDropTarget/fileDropTarget` | — | — | read | — |
 | `hideFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | write | — |
 | `showFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | read/write | — |
 | `destroyHomepageListeners` | `components/homepage/homepage` | — | — | — | — |
@@ -272,9 +274,12 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
 | `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
 | `showLoginPromptMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | — |
+| `createShelfArchiveButton` | `components/shelves/shelfArchiveButton` | — | — | write | `↓route:/api/shelves` |
+| `slugifyInput` | `components/shelves/shelfArchiveButton` | — | — | — | — |
 | `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
 | `renderLibrarySorted` | `components/shelves/shelfHeader` | `localStorage` | — | — | — |
 | `showShelfHeader` | `components/shelves/shelfHeader` | `localStorage` | `localStorage` | read/write | `↓route:/api/shelves` |
+| `wireShelfLikeButton` | `components/shelves/shelfLike` | — | — | read/write | `↓route:/api/shelves` |
 | `hideShelfPreview` | `components/shelves/shelfPreview` | — | — | write | — |
 | `showShelfPreview` | `components/shelves/shelfPreview` | — | — | read/write | — |
 | `removeSortBar` | `components/shelves/shelfSortAndSearch` | — | — | read/write | — |
@@ -460,6 +465,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `wireLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read/write | — |
 | `initOriginalPdfDownload` | `components/sourceContainer/originalPdfDownload` | — | — | read/write | — |
 | `initReaderActions` | `components/sourceContainer/readerActions` | — | — | read/write | — |
+| `wireShareControl` | `components/sourceContainer/readerActions` | — | — | read/write | — |
 | `isCommonsBook` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
 | `loadResearchWorkflows` | `components/sourceContainer/researchWorkflows` | — | — | read | — |
 | `researchWorkflowsSectionHtml` | `components/sourceContainer/researchWorkflows` | — | — | — | — |
@@ -585,7 +591,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `UserContainerManager.toggleContainer` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.triggerContentRefresh` | `components/userContainer/index` | — | — | — | — |
 | `UserContainerManager.updateButtonColor` | `components/userContainer/index` | — | — | read | — |
-| `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read/write | — |
+| `attachProfileButtonListeners` | `components/userContainer/profile` | — | — | read | — |
 | `showUserProfile` | `components/userContainer/profile` | — | — | read/write | — |
 | `attachValidationListeners` | `components/userContainer/validation` | — | — | read | — |
 | `showValidationMessage` | `components/userContainer/validation` | — | — | read/write | — |
@@ -600,7 +606,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hydrateAboutBook` | `components/userProfile/userAboutBook` | — | — | read/write | — |
 | `isAboutEditing` | `components/userProfile/userAboutBook` | — | — | — | — |
 | `destroyUserPageEditor` | `components/userProfile/userPageEditor` | — | — | read/write | — |
-| `initUserPageEditor` | `components/userProfile/userPageEditor` | — | — | read/write | — |
+| `initUserPageEditor` | `components/userProfile/userPageEditor` | — | — | read/write | `↓route:/api/shelves` |
 | `destroyUserProfileEditor` | `components/userProfile/userProfileEditor` | — | — | write | — |
 | `initializeUserProfileEditor` | `components/userProfile/userProfileEditor` | — | `library` | read/write | — |
 | `setUserProfileEditingEnabled` | `components/userProfile/userProfileEditor` | — | `library` | read/write | — |
@@ -1375,6 +1381,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `endFullBookReplace` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `reconcileServerNodeCount` | `indexedDB/serverSync/countReconcile` | `historyLog` `nodes` | — | — | — |
 | `scheduleServerCountReconcile` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
+| `whenServerCountReconcilesSettle` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | `historyLog` | — | — | — |
 | `loadBibliographyToIndexedDB` | `indexedDB/serverSync/loaders` | — | `bibliography` | — | — |
 | `loadFootnotesToIndexedDB` | `indexedDB/serverSync/loaders` | — | `footnotes` | — | — |
@@ -1461,6 +1468,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handlePrivateBookAccessDenied` | `pageLoad/accessGuards` | — | — | read/write | — |
 | `backgroundDownloadRemainingChunks` | `pageLoad/backgroundDownload` | — | — | read | `↓route:/api/database-to-indexeddb/books/{}/data` |
 | `isBackgroundDownloadInProgress` | `pageLoad/backgroundDownload` | — | — | — | — |
+| `supersedeBackgroundDownload` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `waitForBackgroundDownload` | `pageLoad/backgroundDownload` | — | — | — | — |
 | `buildChainFromUrl` | `pageLoad/containerChain` | `footnotes` `hyperlights` | — | — | — |
 | `openContainerChain` | `pageLoad/containerChain` | — | — | read | — |
@@ -2028,7 +2036,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 312
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 315
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2091,6 +2099,8 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `SPA/viewManager` → `indexedDB/core/connection`
 - `SPA/viewManager` → `indexedDB/core/healthMonitor`
 - `SPA/viewManager` → `indexedDB/core/recoveryToast`
+- `components/archivePanel/index` → `components/shelves/shelfLike`
+- `components/archivePanel/index` → `components/sourceContainer/readerActions`
 - `components/cloudRef/editIndicator` → `components/saveErrorToast/saveErrorToast`
 - `components/editButton/index` → `divEditor/imageDrop/index`
 - `components/editButton/index` → `divEditor/index`
@@ -2122,6 +2132,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/shelves/addToShelfMenu` → `components/shelves/shelfTabs`
 - `components/shelves/addToShelfMenu` → `components/userButton/userButton`
 - `components/shelves/shelfHeader` → `components/shelves/shelfTabs`
+- `components/shelves/shelfLike` → `components/shelves/addToShelfMenu`
 - `components/shelves/shelfPreview` → `components/shelves/addToShelfMenu`
 - `components/shelves/shelfPreview` → `indexedDB/index`
 - `components/shelves/shelfSortAndSearch` → `components/shelves/shelfTabs`

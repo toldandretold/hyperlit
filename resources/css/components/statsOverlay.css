@@ -2,8 +2,10 @@
    Opened from the userButton flyout's "Stats" row
    (components/statsOverlay/statsOverlay.ts). Same shell recipe as the Money
    overlay (accountPage.css): fixed dimmed backdrop, centered panel, header
-   with a round close button, scrolling body. Imported by the four page
-   bundles alongside accountPage.css. */
+   with a round close button, scrolling body. The body holds Tillage, then the
+   sticky sort/search bar, then the book list — so the chart scrolls away and
+   the list gets the whole panel. Imported by the four page bundles alongside
+   accountPage.css. */
 
 #stats-overlay {
   position: fixed;
@@ -76,7 +78,13 @@
   gap: 8px;
   padding: 10px 18px;
   border-bottom: 1px solid rgba(128, 128, 128, 0.15);
-  flex-shrink: 0;
+  /* Lives inside the scroller (below Tillage) and sticks to its top, so the
+     sort/search stays reachable once the chart has scrolled away. Needs an
+     opaque background or the list shows through as it passes under. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-background, #1a1a1a);
 }
 
 #stats-overlay .stats-sort-select {
@@ -106,10 +114,15 @@
    refuses to shrink below its content, so the body would overflow the panel
    instead of scrolling inside it. */
 #stats-overlay .stats-panel-body {
-  padding: 14px 18px 18px;
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+/* The book list's own gutter (the scroller has none, so Tillage and the
+   sticky controls can run edge to edge). */
+#stats-overlay .stats-book-list {
+  padding: 14px 18px 18px;
 }
 
 /* Paging footer. The count is never omitted — "100 of 6722" is the whole
@@ -276,4 +289,237 @@
   opacity: 0.6;
   white-space: nowrap;
   overflow: visible;
+}
+
+/* ---------- Tillage (commoner score) ----------
+   Collapsible section at the top of the scrolling body
+   (statsOverlay/tillage.ts): a rose chart — one slice per dimension, rings
+   per source; clicking a slice opens a rose of its sources. A native <details>, so collapse is
+   keyboard- and screen-reader-correct for free; open/closed is remembered per
+   viewer. */
+#stats-overlay .stats-tillage {
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  /* One green per slice. Rings inside a slice are the same green at falling
+     opacity, set inline from the ring index. */
+  --tillage-g0: #2e7d32;
+  --tillage-g1: #00897b;
+  --tillage-g2: #7cb342;
+  --tillage-g3: #558b2f;
+  --tillage-g4: #9e9d24;
+}
+#stats-overlay .tillage-g-0 { --tillage-c: var(--tillage-g0); }
+#stats-overlay .tillage-g-1 { --tillage-c: var(--tillage-g1); }
+#stats-overlay .tillage-g-2 { --tillage-c: var(--tillage-g2); }
+#stats-overlay .tillage-g-3 { --tillage-c: var(--tillage-g3); }
+#stats-overlay .tillage-g-4 { --tillage-c: var(--tillage-g4); }
+
+#stats-overlay .stats-tillage-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+#stats-overlay .stats-tillage-summary::-webkit-details-marker { display: none; }
+#stats-overlay .stats-tillage-summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  opacity: 0.6;
+  align-self: center;
+}
+#stats-overlay .stats-tillage[open] > .stats-tillage-summary::before {
+  transform: rotate(45deg);
+}
+#stats-overlay .stats-tillage-summary:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+/* The rose as a glyph, cap-height-ish, before the word "Tillage" — always,
+   open or collapsed: it is the section's mark. Empty until the breakdown
+   loads, so it takes no space before then. */
+#stats-overlay .tillage-mini {
+  display: none;
+  align-self: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: -2px;
+}
+#stats-overlay .tillage-mini:not(:empty) {
+  display: inline-block;
+}
+#stats-overlay .tillage-mini-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#stats-overlay .tillage-mini-svg .tillage-track {
+  fill-opacity: 0.18;
+  stroke: none;
+}
+#stats-overlay .tillage-mini-svg .tillage-ring {
+  stroke-width: 3;
+}
+
+#stats-overlay .stats-tillage-title {
+  font-weight: 600;
+  font-size: 0.92em;
+}
+#stats-overlay .stats-tillage-total {
+  font-size: 0.82em;
+  opacity: 0.7;
+}
+
+#stats-overlay .stats-tillage-body {
+  position: relative; /* anchors the share/download actions */
+  padding: 0 18px 12px;
+}
+
+/* Share/copy + download — the user's own act of posting their tillage; small
+   and out of the chart's way in the top-right corner. */
+#stats-overlay .tillage-actions {
+  position: absolute;
+  top: 0;
+  right: 14px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#stats-overlay .tillage-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.12);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.75;
+}
+#stats-overlay .tillage-action:hover,
+#stats-overlay .tillage-action:focus-visible {
+  background: rgba(128, 128, 128, 0.26);
+  opacity: 1;
+}
+/* "Copied" / "Downloaded" — sits to the LEFT of the buttons so it never
+   pushes them around. */
+#stats-overlay .tillage-action-status {
+  order: -1;
+  font-size: 0.75em;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+#stats-overlay .tillage-chart {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  margin: 0 auto;
+  overflow: visible;
+}
+
+#stats-overlay .tillage-track {
+  fill: var(--tillage-c);
+  fill-opacity: 0.09;
+  stroke: var(--tillage-c);
+  stroke-opacity: 0.25;
+  stroke-width: 0.75;
+}
+#stats-overlay .tillage-ring {
+  fill: var(--tillage-c);
+  stroke: var(--color-background, #1a1a1a);
+  stroke-width: 0.75;
+}
+#stats-overlay .tillage-rings {
+  transform-box: view-box;
+  transform-origin: 230px 160px; /* the rose's centre in viewBox units */
+  animation: tillage-bloom 0.5s ease-out both;
+  animation-delay: calc(var(--tillage-i, 0) * 70ms);
+  transition: opacity 0.12s ease;
+}
+#stats-overlay .tillage-hub {
+  fill: currentColor;
+  opacity: 0.35;
+}
+#stats-overlay .tillage-slice-label {
+  fill: currentColor;
+  font-size: 13px;
+  font-weight: 600;
+}
+#stats-overlay .tillage-slice-ha {
+  fill: currentColor;
+  font-size: 11.5px;
+  opacity: 0.6;
+}
+
+/* Top-level slices open on click/Enter. Hovering one steps the others back;
+   keyboard focus gets a visible outline on the slice's track. */
+#stats-overlay .tillage-slice.is-drillable {
+  cursor: pointer;
+  outline: none;
+}
+#stats-overlay .tillage-chart:has(.is-drillable:hover) .is-drillable:not(:hover) .tillage-rings,
+#stats-overlay .tillage-chart:has(.is-drillable:focus-visible) .is-drillable:not(:focus-visible) .tillage-rings {
+  opacity: 0.4;
+}
+#stats-overlay .tillage-slice.is-drillable:hover .tillage-track,
+#stats-overlay .tillage-slice.is-drillable:focus-visible .tillage-track {
+  fill-opacity: 0.16;
+  stroke-opacity: 0.6;
+}
+#stats-overlay .tillage-slice.is-drillable:focus-visible .tillage-track {
+  stroke-width: 2;
+}
+
+/* Drilled-in header: back · dimension · its hectares */
+#stats-overlay .tillage-drill-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+#stats-overlay .tillage-back {
+  border: 0;
+  border-radius: var(--border-radius-md, 6px);
+  background: rgba(128, 128, 128, 0.15);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8em;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+#stats-overlay .tillage-back:hover {
+  background: rgba(128, 128, 128, 0.28);
+}
+#stats-overlay .tillage-drill-title {
+  font-weight: 600;
+  font-size: 0.92em;
+}
+#stats-overlay .tillage-drill-ha {
+  font-size: 0.82em;
+  opacity: 0.65;
+}
+
+#stats-overlay .tillage-note {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 0.78em;
+  opacity: 0.6;
+}
+
+@keyframes tillage-bloom {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #stats-overlay .tillage-rings { animation: none; }
 }

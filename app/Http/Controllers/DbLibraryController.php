@@ -473,6 +473,17 @@ class DbLibraryController extends Controller
                                 \App\Services\Notifications\NotificationWriter::citingBookHidden($bookForShelf);
                             }
                         }
+
+                        // The owner's "might not be OK to publish" shelf follows their books: made
+                        // private or relicensed → off the shelf now, not at the next daily sweep.
+                        // Only when they have one (cheap probe), and never fatal to the save.
+                        if (! str_contains($bookForShelf, '/') && \App\Services\Shelves\LicenceReviewShelf::shelfFor($creator)) {
+                            try {
+                                \App\Services\Shelves\LicenceReviewShelf::reconcile($creator);
+                            } catch (\Throwable $e) {
+                                Log::warning('licence review shelf reconcile failed', ['book' => $bookForShelf, 'err' => $e->getMessage()]);
+                            }
+                        }
                     });
                 }
 

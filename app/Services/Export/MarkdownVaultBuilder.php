@@ -2,6 +2,7 @@
 
 namespace App\Services\Export;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -36,10 +37,10 @@ class MarkdownVaultBuilder
         $total = max(1, count($corpus->books));
         $usedNames = [];
         foreach ($corpus->books as $i => $row) {
-            $markdown = $this->exporter->markdownFor($row->book);
+            $markdown = $this->exporter->markdownFor($row->book, obsidianLinks: true);
             if (trim($markdown) !== '') {
                 $name = $this->dedupe($this->exporter->filenameFor($row), $usedNames);
-                $zip->addFromString("{$root}/{$name}", $markdown);
+                $zip->addFromString("{$root}/{$name}", $this->frontMatter($row->book, $corpus) . $markdown);
             }
             $onProgress(($i + 1) / $total);
         }
@@ -52,6 +53,66 @@ class MarkdownVaultBuilder
         }
 
         return $finalPath;
+    }
+
+    /**
+     * YAML front matter for one note — Obsidian reads it as the note's
+     * Properties (searchable, usable by Dataview/Zotero-style workflows). The
+     * work's citation details as stored on the library row, plus the way BACK:
+     * `hyperlit` is the live version of this text, `archive` the page the
+     * vault was exported from. Only fields the row actually has are written.
+     */
+    private function frontMatter(string $bookId, ArchiveCorpus $corpus): string
+    {
+        $lib = DB::connection('pgsql_admin')->table('library')->where('book', $bookId)
+            ->first(['title', 'author', 'year', 'journal', 'volume', 'issue', 'pages', 'publisher', 'doi', 'url', 'license', 'license_url', 'slug', 'language']);
+        if (!$lib) {
+            return '';
+        }
+
+        $clean = fn ($v) => trim(preg_replace('/\s+/', ' ', strip_tags((string) $v)) ?? '');
+        $authors = array_values(array_filter(array_map('trim', preg_split('/\s*;\s*/', $clean($lib->author)) ?: [])));
+        $doi = $clean($lib->doi);
+        $license = $clean($lib->license);
+
+        $fields = [
+            'title' => $clean($lib->title),
+            'authors' => $authors,
+            'year' => $clean($lib->year),
+            'journal' => $clean($lib->journal),
+            'volume' => $clean($lib->volume),
+            'issue' => $clean($lib->issue),
+            'pages' => $clean($lib->pages),
+            'publisher' => $clean($lib->publisher),
+            'doi' => $doi,
+            'source' => $clean($lib->url) ?: ($doi !== '' ? 'https://doi.org/' . $doi : ''),
+            'language' => $clean($lib->language),
+            // 'Unknown' is the absence of a licence, not one to assert.
+            'license' => $license !== '' && $license !== \App\Support\Licenses::UNKNOWN ? $license : '',
+            'license_url' => $clean($lib->license_url),
+            'hyperlit' => url(\App\Helpers\BookSlugHelper::canonicalPath($bookId, $lib->slug ?: null)),
+            'archive' => $corpus->pageUrl,
+            'exported' => now()->toDateString(),
+        ];
+
+        $quote = fn (string $v) => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $v) . '"';
+        $lines = ['---'];
+        foreach ($fields as $key => $value) {
+            if ($value === '' || $value === []) {
+                continue;
+            }
+            if (is_array($value)) {
+                $lines[] = "{$key}:";
+                foreach ($value as $item) {
+                    $lines[] = '  - ' . $quote($item);
+                }
+            } else {
+                $lines[] = "{$key}: " . $quote($value);
+            }
+        }
+        $lines[] = '---';
+
+        return implode("\n", $lines) . "\n\n";
     }
 
     private function rootFolder(ArchiveCorpus $corpus): string
@@ -69,7 +130,8 @@ class MarkdownVaultBuilder
             'Exported from ' . $corpus->pageUrl . ' on ' . now()->toDateString() . '.',
             '',
             '- ' . count($corpus->books) . ' text' . (count($corpus->books) === 1 ? '' : 's') . ' in this vault, one Markdown file each.',
-            '- Footnotes and hypercite links are resolved into `[^n]` footnotes; each file ends with its references.',
+            '- Each file opens with its citation details as properties (front matter), including `hyperlit` — the link back to the live text.',
+            '- Footnotes and hypercite links are resolved into `[^n]` footnotes; in-text citations link to their bibliography entry.',
             '- Images are linked at their hyperlit URLs (not bundled in the zip).',
         ];
 

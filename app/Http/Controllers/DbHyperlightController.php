@@ -701,7 +701,7 @@ class DbHyperlightController extends Controller
                 // vanished (afterCommit — deadlock guard, pgsql_admin write).
                 if (!empty($scoredSuggesters)) {
                     $suggesters = array_keys($scoredSuggesters);
-                    DB::afterCommit(fn () => app(CommonerScoreService::class)->recompute($suggesters));
+                    DB::afterCommit(static fn () => app()->terminating(static fn () => app(CommonerScoreService::class)->recompute($suggesters)));
                 }
 
                 Log::info('DbHyperlightController::delete - Success', [
@@ -1089,8 +1089,16 @@ class DbHyperlightController extends Controller
                 );
                 // afterCommit (deadlock guard): the recompute writes on
                 // pgsql_admin; runs immediately here as no transaction is open.
-                DB::afterCommit(fn () => app(CommonerScoreService::class)->recompute([$suggester]));
+                DB::afterCommit(static fn () => app()->terminating(static fn () => app(CommonerScoreService::class)->recompute([$suggester])));
             }
+            // The resolving OWNER earns stewardship for accepting someone
+            // else's edit (anon suggesters included), so recompute them too.
+            // All commoner recomputes here run AFTER the response: each costs
+            // two corpus-wide citation-edge scans, and a daily stat must not
+            // sit in front of the owner's click. `terminating`, not a dispatched
+            // closure: dispatch serializes the closure, which would drag the
+            // whole controller along (static fns capture no $this).
+            DB::afterCommit(static fn () => app()->terminating(static fn () => app(CommonerScoreService::class)->recompute(array_filter([$user?->name]))));
 
             Log::info('Suggested edit resolved', [
                 'book' => $bookId,

@@ -194,7 +194,7 @@ async function fetchShelvesWithMembership(bookId: any) {
         // the server refuses a manual add anyway. Showing an unticked box that
         // 422s would read as broken.
         return shelves
-            .filter(s => s.kind !== 'likes')
+            .filter(s => s.kind !== 'likes' && s.kind !== 'licence_review') // system shelves: membership is automatic
             .map(s => ({ ...s, isMember: !!s.is_member }));
     } catch (err) {
         console.error('Failed to fetch shelves for add-to-shelf:', err);

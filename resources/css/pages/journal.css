@@ -70,3 +70,5 @@
 @import url('../components/customScrollbar.css');
 /* — journal-page specifics (title row, about copy) — */
 @import url('../components/journalHome.css');
+/* — the owner-minted archive page's customization (userPageEditor) — */
+@import url('../components/userPageHero.css');

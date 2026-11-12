@@ -1,5 +1,12 @@
 /**
- * User-page customization editor (/u/{username}, owner only).
+ * User-page customization editor (/u/{username}, owner only) — ALSO the
+ * owner-minted archive page's editor (/a/{slug}, "your shelf as an archive"):
+ * same code, same palette, same settings vocabulary. The archive target is
+ * detected from #bottom-right-buttons[data-archive-edit] (owner only) and
+ * differs in exactly: where settings PUT, which book holds the images (the
+ * archive's About book), the title editor (archiveTitleEditor — the title is
+ * the shelf name), the About container id, and no visitor-pill curation (an
+ * archive IS one shelf).
  *
  * The pencil (#editButton inside #bottom-right-buttons — the reader's exact
  * markup/styling, positioned + tap-toggled by togglePerimeterButtons; the
@@ -36,6 +43,7 @@ import { log } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
 import { uploadBookImage, isInsertableImageFile } from '../../utilities/bookImageUpload';
 import { setUserProfileEditingEnabled } from './userProfileEditor';
+import { readArchiveEditSeed, setArchiveTitleEditing } from '../archivePage/archiveTitleEditor';
 
 interface PageSettings {
     logo_image?: string | null;
@@ -72,9 +80,21 @@ let dragHandler: ((e: DragEvent) => void) | null = null;
 let dropHandler: ((e: DragEvent) => void) | null = null;
 let originalColonHtml = '';
 let settings: PageSettings = {};
+/** Non-null on an owner-minted archive page (see the header). */
+let archiveSeed: ReturnType<typeof readArchiveEditSeed> = null;
+
+const ABOUT_CONTAINER = (): string => (archiveSeed ? 'archive-about-book' : 'user-about-book');
+/** Which About container edit mode drives (exported for the archive-target test). */
+export const aboutContainerId = ABOUT_CONTAINER;
+/** The book whose media store holds the logo/background images. */
+const mediaBook = (): string => archiveSeed?.mediaBook ?? String(book);
+const settingsUrl = (): string => (archiveSeed
+    ? `/api/shelves/${archiveSeed.shelfId}/archive/page-settings`
+    : '/api/user-home/page-settings');
 
 const appContainer = (): HTMLElement | null => document.getElementById('app-container');
-const lockupLink = (): HTMLElement | null => document.querySelector('.user-logo-lockup .journal-colon-link');
+// .journal-logo-lockup: the user lockup carries it too (plus .user-logo-lockup).
+const lockupLink = (): HTMLElement | null => document.querySelector('#imageContainer.journal-logo-lockup .journal-colon-link');
 
 /* ── persistence ─────────────────────────────────────────────────────── */
 
@@ -82,7 +102,7 @@ async function putSettings(patch: Partial<PageSettings>): Promise<PageSettings |
     try {
         const csrfToken = await ensureCsrfToken();
         if (!csrfToken) throw new Error('Not authenticated');
-        const response = await fetch('/api/user-home/page-settings', {
+        const response = await fetch(settingsUrl(), {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -117,7 +137,7 @@ function applyLogo(filename: string | null): void {
         const img = document.createElement('img');
         img.className = 'journal-colon user-page-logo';
         img.alt = '';
-        img.src = `/${book}/media/${filename}`;
+        img.src = `/${mediaBook()}/media/${filename}`;
         link.replaceChildren(img);
     } else if (originalColonHtml) {
         link.innerHTML = originalColonHtml;
@@ -130,7 +150,7 @@ function applyBackground(filename: string | null): void {
     if (filename) {
         // ABSOLUTE url: a relative url() in a custom property resolves against
         // the stylesheet consuming the var (the vite origin in dev), not the page.
-        container.style.setProperty('--up-bg-image', `url('${window.location.origin}/${book}/media/${filename}')`);
+        container.style.setProperty('--up-bg-image', `url('${window.location.origin}/${mediaBook()}/media/${filename}')`);
     } else {
         container.style.removeProperty('--up-bg-image');
     }
@@ -241,7 +261,7 @@ async function uploadAndSet(key: 'logo_image' | 'background_image', file: File):
     try {
         const prepared = await normalizeImage(key, file);
         if (!prepared) return; // owner cancelled the crop/fit choice
-        const uploaded = await uploadBookImage(book, prepared);
+        const uploaded = await uploadBookImage(mediaBook(), prepared);
         const saved = await putSettings({ [key]: uploaded.filename });
         if (!saved) return;
         if (key === 'logo_image') applyLogo(uploaded.filename);
@@ -272,11 +292,13 @@ function engageAboutEditing(): void {
     if (app?.classList.contains('content-active')) {
         (document.getElementById('copy-feed-close') as HTMLElement | null)?.click();
     }
-    void import('./userAboutBook').then(m => m.enterAboutEdit());
+    const containerId = ABOUT_CONTAINER();
+    void import('./userAboutBook').then(m => m.enterAboutEdit(containerId));
 }
 
 function releaseAboutEditing(): void {
-    void import('./userAboutBook').then(m => m.exitAboutEdit());
+    const containerId = ABOUT_CONTAINER();
+    void import('./userAboutBook').then(m => m.exitAboutEdit(containerId));
 }
 
 /* ── the palette ─────────────────────────────────────────────────────── */
@@ -309,7 +331,7 @@ function buildPanel(): HTMLElement {
         : '';
     panel.innerHTML = `
       <button type="button" class="upe-toggle" data-upe-toggle aria-expanded="true" aria-controls="upe-body">
-        <span class="upe-heading">Customize your page</span>
+        <span class="upe-heading">${archiveSeed ? 'Customize your archive' : 'Customize your page'}</span>
         <span class="upe-chevron" aria-hidden="true">&#9662;</span>
       </button>
       <div class="upe-body" id="upe-body">
@@ -334,11 +356,11 @@ function buildPanel(): HTMLElement {
       <div class="upe-row">
         <label class="upe-shelf">
           <input type="checkbox" data-show-map${settings.show_map === false ? '' : ' checked'}>
-          <span>Connection map — your library's hypercite network under the about text</span>
+          <span>Connection map — ${archiveSeed ? 'this archive’s' : 'your library’s'} hypercite network under the about text</span>
         </label>
       </div>
       ${shelvesHtml}
-      <p class="upe-hint">Your title is editable in place, and the about text below gets the FULL editor — click into it and select text for formatting, links and images. Tap the logo (or drop an image on it) to swap it.</p>
+      <p class="upe-hint">Your title${archiveSeed ? ' (the shelf’s name)' : ''} is editable in place, and the about text below gets the FULL editor — click into it and select text for formatting, links and images. Tap the logo (or drop an image on it) to swap it.</p>
       <button type="button" class="upe-btn upe-done" data-done>Done</button>
       </div>
     `;
@@ -397,7 +419,8 @@ function enterEditMode(): void {
     document.body.classList.add('user-page-editing');
     // .inverted = the reader edit button's "editing" look (buttonIcons.css)
     document.getElementById('editButton')?.classList.add('inverted');
-    setUserProfileEditingEnabled(true);
+    if (archiveSeed) void setArchiveTitleEditing(true, archiveSeed);
+    else setUserProfileEditingEnabled(true);
     engageAboutEditing();
     addLogoBadge();
     // Rebuild each entry: the shelf list / checked state may have changed.
@@ -412,7 +435,8 @@ function exitEditMode(): void {
     document.body.classList.remove('user-page-editing');
     const pencil = document.getElementById('editButton');
     pencil?.classList.remove('inverted');
-    setUserProfileEditingEnabled(false);
+    if (archiveSeed) void setArchiveTitleEditing(false, archiveSeed);
+    else setUserProfileEditingEnabled(false);
     releaseAboutEditing();
     removeLogoBadge();
     panelEl?.classList.add('hidden');
@@ -425,7 +449,18 @@ export function initUserPageEditor(): void {
     // Hydrate the About BOOK for every viewer (owner AND visitor): fresh
     // pull + re-render with hyperlights/hypercites applied. Fire-and-forget —
     // the server-rendered HTML stands until it lands.
-    void import('./userAboutBook').then(m => m.hydrateAboutBook());
+    // (Both About containers: the user page's and an owner-minted archive's —
+    // hydrate is a no-op where the container is absent.)
+    void import('./userAboutBook').then(m => {
+        void m.hydrateAboutBook('user-about-book');
+        void m.hydrateAboutBook('archive-about-book');
+    });
+
+    // Journal-type pages: only an owner-minted archive (data-archive-edit,
+    // owner only) gets the editor — /j/ pages and visitors render no pencil
+    // seed, and #editButton there is not ours.
+    archiveSeed = readArchiveEditSeed();
+    if (document.body.dataset.page === 'journal' && !archiveSeed) return;
 
     const pencil = document.getElementById('editButton');
     if (!pencil) return; // visitor — the blade didn't render the button
@@ -499,7 +534,7 @@ export function initUserPageEditor(): void {
     // Logo drop: capture phase beats fileDropTarget's window bubble listeners.
     dragHandler = (e: DragEvent) => {
         if (!active) return;
-        const overLockup = e.target instanceof Element && !!e.target.closest('.user-logo-lockup');
+        const overLockup = e.target instanceof Element && !!e.target.closest('.journal-logo-lockup');
         if (overLockup) {
             e.preventDefault();
             e.stopPropagation();
@@ -511,7 +546,7 @@ export function initUserPageEditor(): void {
     dropHandler = (e: DragEvent) => {
         if (!active) return;
         lockupLink()?.classList.remove('upe-drop-hover');
-        const overLockup = e.target instanceof Element && !!e.target.closest('.user-logo-lockup');
+        const overLockup = e.target instanceof Element && !!e.target.closest('.journal-logo-lockup');
         if (!overLockup) return;
         e.preventDefault();
         e.stopPropagation();

@@ -2258,6 +2258,9 @@ class ContentFetchService
                     'updated_at'        => now(),
                 ]);
 
+            // 6b. A closed / all-rights-reserved copy is held for citation review, never published.
+            \App\Services\Licensing\HostingPolicy::settleFetchedCopy($bookId, $this->readFetchTrace($bookId));
+
             // 7. If this row is a version of a canonical work, let every version
             // authority re-evaluate its pointer (today: auto_version_book gets
             // wired once content exists). Never fails the import.
@@ -2760,6 +2763,7 @@ class ContentFetchService
             'timestamp'         => round(microtime(true) * 1000),
             'updated_at'        => $now,
         ]);
+        \App\Services\Licensing\HostingPolicy::settleFetchedCopy($bookId, $this->readFetchTrace($bookId));
         $this->syncCanonicalVersionPointers($bookId);
 
         // Detect the article's language from its fresh content (feeds <html lang>

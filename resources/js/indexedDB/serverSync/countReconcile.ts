@@ -46,6 +46,8 @@ const _timers = new Map<BookId, ReturnType<typeof setTimeout>>();
 const _lastReportTs = new Map<BookId, number>();
 /** Full-book replaces in flight per book (a counter: replaces can overlap). */
 const _replacesInFlight = new Map<BookId, number>();
+/** Reconciles a fired timer started and that haven't finished (see whenServerCountReconcilesSettle). */
+const _running = new Set<Promise<unknown>>();
 
 /**
  * Call immediately BEFORE a full-book replace POST. Any pending reconcile for the
@@ -90,9 +92,22 @@ export function scheduleServerCountReconcile(bookId: BookId, serverCount: number
     bookId,
     setTimeout(() => {
       _timers.delete(bookId);
-      void reconcileServerNodeCount(bookId, serverCount);
+      const run = reconcileServerNodeCount(bookId, serverCount);
+      _running.add(run);
+      void run.finally(() => _running.delete(run));
     }, RECONCILE_DELAY_MS),
   );
+}
+
+/**
+ * Resolves once every reconcile a timer has already started has finished. The reconcile is
+ * real async (dynamic imports resolve through the module loader, IDB reads) — waiting a fixed
+ * number of ticks for it is a race that loses under load.
+ */
+export async function whenServerCountReconcilesSettle(): Promise<void> {
+  while (_running.size > 0) {
+    await Promise.allSettled([..._running]);
+  }
 }
 
 /** Compare the server's post-write node count against local IDB, when safe to. */

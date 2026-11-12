@@ -251,11 +251,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{shelfKey}/pins/{book}', [ShelfController::class, 'unpin']);
         Route::get('/{id}/render', [ShelfController::class, 'render']);
         Route::get('/{id}/search', [ShelfController::class, 'search']);
+        // Own public shelf → global /a/{slug} archive page (slug set once).
+        Route::get('/{id}/archive', [ShelfController::class, 'archiveStatus'])->middleware('throttle:shelf-archive');
+        Route::post('/{id}/archive', [ShelfController::class, 'createArchive'])->middleware('throttle:shelf-archive');
+        Route::put('/{id}/archive/page-settings', [ShelfController::class, 'updateArchivePageSettings'])->middleware('throttle:shelf-archive');
     });
 
     // Likes — logged-in only; one per (book, user), rolled up to the root book
     Route::post('/books/{book}/like', [BookLikeController::class, 'like']);
     Route::delete('/books/{book}/like', [BookLikeController::class, 'unlike']);
+
+    // Shelf likes — the same contract for shelves (and so archive / journal
+    // pages, whose corpus is a shelf). Named limiter (own bucket).
+    Route::post('/shelves/{id}/like', [\App\Http\Controllers\ShelfLikeController::class, 'like'])
+        ->whereUuid('id')->middleware('throttle:shelf-likes');
+    Route::delete('/shelves/{id}/like', [\App\Http\Controllers\ShelfLikeController::class, 'unlike'])
+        ->whereUuid('id')->middleware('throttle:shelf-likes');
 
     // Creator reading stats (Stats overlay) — aggregates only, own books only
     Route::get('/creator/stats', [CreatorStatsController::class, 'index']);
@@ -278,6 +289,10 @@ Route::middleware('auth:sanctum')->group(function () {
 // Public like count (+ requester's own liked state when authed) — no auth, throttled
 Route::get('/books/{book}/likes', [BookLikeController::class, 'show'])
     ->middleware('throttle:60,1');
+
+// Public shelf like count (+ requester's own liked state when authed)
+Route::get('/public/shelves/{id}/likes', [\App\Http\Controllers\ShelfLikeController::class, 'show'])
+    ->whereUuid('id')->middleware('throttle:shelf-likes');
 
 // Public shelf endpoints — no auth, throttled
 Route::prefix('public/shelves')->middleware('throttle:60,1')->whereUuid('id')->group(function () {

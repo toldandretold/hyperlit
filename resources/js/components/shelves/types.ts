@@ -20,7 +20,7 @@ export interface Shelf {
    * its MEMBERSHIP is special: it comes from liking, so the add-to-shelf menu
    * hides it and the server refuses manual adds.
    */
-  kind: 'user' | 'likes' | string;
+  kind: 'user' | 'likes' | 'licence_review' | string;
   created_at: string;
   updated_at: string;
   item_count: number;

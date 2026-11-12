@@ -36,6 +36,7 @@ import {
   scheduleServerCountReconcile,
   beginFullBookReplace,
   endFullBookReplace,
+  whenServerCountReconcilesSettle,
 } from '../../../resources/js/indexedDB/serverSync/countReconcile';
 import { getMasterSyncInFlight } from '../../../resources/js/indexedDB/syncQueue/master';
 import { isBackgroundDownloadInProgress } from '../../../resources/js/pageLoad/backgroundDownload';
@@ -185,13 +186,12 @@ describe('reconcileServerNodeCount', () => {
  * a false data-loss flare while Postgres held exactly 36.
  */
 describe('full-book replace bracketing (paste nuclear upsert)', () => {
-  // The reconcile a fired timer starts is real async (fake-indexeddb runs on
-  // setImmediate, which is NOT faked) — let it finish before asserting, or a
-  // "no flare" assertion passes vacuously. The REAL-divergence test below proves
-  // this settle is long enough to observe a flare.
-  const settle = async () => {
-    for (let i = 0; i < 50; i++) await new Promise((r) => setImmediate(r));
-  };
+  // The reconcile a fired timer starts is real async (dynamic imports resolve through
+  // vitest's module runner, IDB runs on setImmediate) — wait for it to FINISH before
+  // asserting, or a "no flare" assertion passes vacuously. A fixed tick count raced: under
+  // a loaded run the reconcile outlived 50 setImmediates and the real-divergence test
+  // below failed intermittently.
+  const settle = () => whenServerCountReconcilesSettle();
 
   it('a reconcile scheduled before the replace never fires with its stale count; the replace\'s own count is checked instead', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });

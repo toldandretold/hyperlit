@@ -129,31 +129,6 @@ export function attachProfileButtonListeners(self: any) {
     });
   }
 
-  // Commoner score ("hectares tilled") — PRIVATE own-view. Fill the line on
-  // menu open; it stays hidden until a non-zero score loads (no "0 hectares"
-  // to nag a user who hasn't earned any yet). Fire-and-forget — a failed read
-  // just leaves the line hidden.
-  const hectaresEl = self.container.querySelector('#commonerHectares');
-  if (hectaresEl) {
-    void (async () => {
-      try {
-        const res = await fetch('/api/me/commoner', {
-          headers: { Accept: 'application/json' },
-          credentials: 'include',
-        });
-        const data = await res.json().catch(() => null); // consumes the body (drain gate)
-        if (!res.ok || !data) return;
-        const hectares = Number(data.hectares) || 0;
-        if (hectares <= 0) return;
-        const accepted = Number(data.accepted) || 0;
-        const liked = Number(data.liked) || 0;
-        hectaresEl.innerHTML =
-          `<span class="commoner-line">🌱 You've tilled <strong>${hectares}</strong> hectare${hectares === 1 ? '' : 's'} of the commons</span>`
-          + `<span class="commoner-breakdown">${accepted} edit${accepted === 1 ? '' : 's'} accepted · ${liked} liked</span>`;
-        hectaresEl.removeAttribute('hidden');
-      } catch {
-        /* cosmetic line — silent on failure */
-      }
-    })();
-  }
+  // The commoner score ("hectares tilled") lives in the Stats overlay's
+  // collapsible Tillage section (statsOverlay/tillage.ts), not in this menu.
 }

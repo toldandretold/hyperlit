@@ -260,3 +260,49 @@ test('empty corpus is unavailable, build 422s', function () {
     $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'sqlite'])->assertStatus(422);
     $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'nonsense'])->assertStatus(422);
 });
+
+test('vault notes open with citation front matter and a link back to hyperlit', function () {
+    $owner = aexUser();
+    $book = aexBook($owner, 'meta', 'public', [
+        'title'   => 'Aex "Quoted" Title',
+        'author'  => 'Ann Author; Bob Writer',
+        'year'    => '2020',
+        'journal' => 'Aex Journal',
+        'volume'  => '18',
+        'doi'     => '10.1234/aex.1',
+        'license' => 'CC-BY-NC-ND',
+    ]);
+    aexBook($owner, 'bare', 'public', ['author' => null, 'license' => 'Unknown']);
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'markdown'])->assertStatus(202);
+    $path = $this->get("/exports/{$scope}/markdown")->assertOk()->baseResponse->getFile()->getPathname();
+
+    $zip = new ZipArchive();
+    expect($zip->open($path))->toBeTrue();
+    $notes = [];
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $notes[$zip->getNameIndex($i)] = $zip->getFromIndex($i);
+    }
+    $zip->close();
+
+    $meta = collect($notes)->first(fn ($body, $name) => str_contains($name, 'Quoted'));
+    expect($meta)->toStartWith("---\n")
+        ->toContain('title: "Aex \"Quoted\" Title"')
+        ->toContain("authors:\n  - \"Ann Author\"\n  - \"Bob Writer\"")
+        ->toContain('year: "2020"')
+        ->toContain('journal: "Aex Journal"')
+        ->toContain('doi: "10.1234/aex.1"')
+        ->toContain('source: "https://doi.org/10.1234/aex.1"')
+        ->toContain('license: "CC-BY-NC-ND"')
+        ->toContain('hyperlit: "' . url('/' . $book) . '"')
+        ->toContain('archive: "')
+        ->toContain("---\n\nBody of the meta book.");
+
+    // Only what the row has: no empty keys, and "Unknown" is not a licence to assert.
+    $bare = collect($notes)->first(fn ($body, $name) => str_contains($name, 'Aex Bare Title'));
+    expect($bare)->toStartWith("---\n")
+        ->not->toContain('authors:')
+        ->not->toContain('license:')
+        ->not->toContain('doi:');
+});

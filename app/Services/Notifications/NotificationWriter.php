@@ -44,10 +44,15 @@ class NotificationWriter
     public const TYPE_HYPERLIGHT = 'hyperlight';
     public const TYPE_HYPERCITE_PAIRED = 'hypercite_paired';
     public const TYPE_LIKE = 'like';
+    public const TYPE_SHELF_LIKE = 'shelf_like';
     public const TYPE_TERMS_PUBLISHED = 'terms_published';
     public const TYPE_SUGGESTED_EDIT = 'suggested_edit';
     public const TYPE_SUGGESTION_ACCEPTED = 'suggestion_accepted';
     public const TYPE_SUGGESTION_LIKED = 'suggestion_liked';
+    public const TYPE_LICENCE_REVIEW = 'licence_review';
+
+    /** System notices: from 'Hyperlit', never muted, never flood-capped, no per-type switch. */
+    public const SYSTEM_TYPES = [self::TYPE_TERMS_PUBLISHED, self::TYPE_LICENCE_REVIEW];
 
     /** users.preferences key that switches each recipient-controllable type off (absent = on). */
     public const PREFERENCE_KEYS = [
@@ -55,6 +60,8 @@ class NotificationWriter
         self::TYPE_SUGGESTED_EDIT => 'notify_suggested_edit',
         self::TYPE_HYPERCITE_PAIRED => 'notify_hypercite',
         self::TYPE_LIKE => 'notify_like',
+        // One "Likes" switch covers books and shelves.
+        self::TYPE_SHELF_LIKE => 'notify_like',
     ];
 
     /** users.preferences key: false = anonymous actors never notify (absent = on). */
@@ -89,6 +96,39 @@ class NotificationWriter
                 subjectId: $version,
                 citingRef: null,
                 data: ['context_label' => $contextLabel, 'root_title' => null, 'snippet' => $snippet],
+            );
+        });
+    }
+
+    /**
+     * Some of $recipient's PUBLISHED books might not be OK to publish (LicenceReviewShelf).
+     * ONE notice per flagged SET: subject_id is a hash of the sorted book ids, so the daily
+     * sweep re-running never double-notifies, while a newly flagged book notifies again.
+     * `book` is the copyright explainer when configured (else a fixed key); the link — the
+     * user's review shelf — rides in data, since present() can't derive it.
+     *
+     * @param  list<string>  $books
+     */
+    public static function licenceReview(string $recipient, array $books, string $shelfUrl, ?string $explainerBook): void
+    {
+        sort($books);
+        $n = count($books);
+        self::deferred(function () use ($recipient, $books, $n, $shelfUrl, $explainerBook) {
+            self::insert(
+                recipient: $recipient,
+                actor: 'Hyperlit',
+                type: self::TYPE_LICENCE_REVIEW,
+                book: $explainerBook ?? 'licence-review',
+                subjectId: substr(sha1(implode("\n", $books)), 0, 32),
+                citingRef: null,
+                data: [
+                    'context_label' => $n === 1
+                        ? 'one of your published books might not be OK to publish'
+                        : "{$n} of your published books might not be OK to publish",
+                    'root_title' => null,
+                    'snippet' => 'They look like someone else\'s work without an open licence. Nobody has asked us to take them down — it\'s your call. Review them on your shelf.',
+                    'link' => $shelfUrl,
+                ],
             );
         });
     }
@@ -369,6 +409,50 @@ class NotificationWriter
         });
     }
 
+    /**
+     * Someone liked $shelf (a shelves row: id, name, slug, creator) — which is
+     * also how an archive / journal page is liked, its corpus being a shelf.
+     *
+     * Not a book, so it can't ride writeForBookOwner: `book` holds the
+     * synthetic key `shelf_{id}` (the dedupe index needs one; `shelf_%` is
+     * already "not a work" everywhere), the link rides in data like
+     * licenceReview's (the shelf's archive page when it has one, else its
+     * /u/ shelf URL), and subject_id is the ACTOR — so each liker notifies
+     * once, and an unlike→re-like replays to nothing.
+     */
+    public static function shelfLiked(string $actor, object $shelf): void
+    {
+        self::deferred(function () use ($actor, $shelf) {
+            $recipient = $shelf->creator ?? null;
+            if (! $recipient || $recipient === $actor) {
+                return;
+            }
+
+            $archiveSlug = DB::connection('pgsql_admin')->table('archive_sources')
+                ->where('shelf_id', $shelf->id)->value('slug');
+            $link = $archiveSlug
+                ? '/a/' . $archiveSlug
+                : \App\Support\UsernameKey::shelfUrl($recipient, (string) ($shelf->slug ?: $shelf->id));
+
+            $name = trim(strip_tags((string) ($shelf->name ?? '')));
+
+            self::insert(
+                recipient: $recipient,
+                actor: $actor,
+                type: self::TYPE_SHELF_LIKE,
+                book: 'shelf_' . $shelf->id,
+                subjectId: $actor,
+                citingRef: null,
+                data: [
+                    'context_label' => $name !== '' ? 'your shelf “' . mb_substr($name, 0, 120) . '”' : 'your shelf',
+                    'root_title' => $name !== '' ? $name : null,
+                    'snippet' => null,
+                    'link' => $link,
+                ],
+            );
+        });
+    }
+
     /** Is the book a citedIN ref points into public? Unknown book = NOT public. */
     private static function citingBookIsPublic(string $ref): bool
     {
@@ -477,7 +561,7 @@ class NotificationWriter
      */
     private static function allowed(string $recipient, ?string $actor, string $type): bool
     {
-        if ($type === self::TYPE_TERMS_PUBLISHED) {
+        if (in_array($type, self::SYSTEM_TYPES, true)) {
             return true;
         }
 

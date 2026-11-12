@@ -473,7 +473,9 @@ class ShelfImportController extends Controller
     {
         return [
             'slug'         => $archive->slug,
-            'display_name' => $archive->display_name,
+            // Owner-minted archives store NULL and borrow the shelf's live
+            // name; prefill the console with it (saving then pins it).
+            'display_name' => app(\App\Services\Archives\ArchiveIdentity::class)->name($archive),
             'about'        => $archive->about,
             'certified'    => $archive->certified_at !== null,
             'public_page'  => '/a/' . $archive->slug,

@@ -447,8 +447,12 @@ class WebFetchService
                 'has_nodes' => false,
                 'type' => 'web_source',
                 'creator' => 'WebFetch',
-                'visibility' => 'public',
+                // Evidence for a citation review, not a publication: someone else's page, read by
+                // the review pipeline on pgsql_admin. Never public (HostingPolicy), never the
+                // No-AI default licence (that is a user's OWN writing).
+                'visibility' => 'private',
                 'listed' => false,
+                'license' => \App\Support\Licenses::UNKNOWN,
                 'raw_json' => json_encode([
                     'source_url' => $url,
                     'method' => 'pdf_staged',
@@ -664,8 +668,12 @@ class WebFetchService
                 'type' => 'web_source',
                 'has_nodes' => false,
                 'creator' => 'WebFetch',
-                'visibility' => 'public',
+                // Evidence for a citation review, not a publication: someone else's page, read by
+                // the review pipeline on pgsql_admin. Never public (HostingPolicy), never the
+                // No-AI default licence (that is a user's OWN writing).
+                'visibility' => 'private',
                 'listed' => false,
+                'license' => \App\Support\Licenses::UNKNOWN,
                 'raw_json' => json_encode([
                     'source_url' => $url,
                     'method' => 'web_fetch',

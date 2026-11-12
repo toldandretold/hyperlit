@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # workers.sh — one memorable command for the Hyperlit prod queue workers.
 #
-# There are EIGHT Supervisor programs, one per queue, and remembering their names
+# There are NINE Supervisor programs — one per queue, plus the scheduler — and remembering their names
 # + the right supervisorctl/artisan incantations is the chore this wraps:
 #
 #   hyperlit-worker        → queues `imports,default`  (user imports jump bulk reconverts)
@@ -13,6 +13,7 @@
 #   hyperlit-translation   → queue `translation`       (TranslateBookJob, whole-book zh↔en, up to 1 h)
 #   hyperlit-embeddings    → queue `embeddings`        (GenerateNodeEmbedding, high volume)
 #   hyperlit-search        → queue `search-supplement` (citation-modal external ingest, seconds)
+#   hyperlit-scheduler     → `schedule:work` (routes/console.php; replaces a schedule:run crontab)
 #
 # Run it ON the droplet after `cd /var/www/hyperlit`, or from your laptop via the
 # `hw` alias (defined in deploy/README.md).
@@ -21,7 +22,7 @@
 # for you as its last step. See deploy/README.md.
 #
 # Usage:
-#   ./deploy/supervisor/workers.sh status              # are all 8 RUNNING?
+#   ./deploy/supervisor/workers.sh status              # are all 9 RUNNING?
 #   ./deploy/supervisor/workers.sh restart             # graceful: finish job, reload code
 #   ./deploy/supervisor/workers.sh restart citation    # one program only
 #   ./deploy/supervisor/workers.sh force-restart       # hard SIGTERM (can WAIT on in-flight)
@@ -37,7 +38,7 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." >/dev/null 2>&1 && pwd)"
 cd "${REPO_ROOT}"
 
 # Short name → Supervisor program / log file. One place to add a worker.
-SHORT_NAMES="worker citation vibe audio package translation embeddings search"
+SHORT_NAMES="worker citation vibe audio package translation embeddings search scheduler"
 program_for() {
     case "$1" in
         worker|default|import|imports) echo "hyperlit-worker" ;;
@@ -48,6 +49,7 @@ program_for() {
         translation|translate|tran)    echo "hyperlit-translation" ;;
         embeddings|embed|embeds)       echo "hyperlit-embeddings" ;;
         search|supplement)             echo "hyperlit-search" ;;
+        scheduler|schedule|cron)       echo "hyperlit-scheduler" ;;
         *) return 1 ;;
     esac
 }
@@ -61,6 +63,7 @@ logfile_for() {
         hyperlit-translation)   echo "storage/logs/translation-worker.log" ;;
         hyperlit-embeddings)    echo "storage/logs/embeddings-worker.log" ;;
         hyperlit-search)        echo "storage/logs/search-worker.log" ;;
+        hyperlit-scheduler)     echo "storage/logs/scheduler.log" ;;
     esac
 }
 
@@ -96,7 +99,7 @@ usage() {
     cat <<EOF
 workers.sh — manage the Hyperlit prod queue workers (run on the droplet, or via the 'hw' alias)
 
-  status              are all 8 workers RUNNING?
+  status              are all 9 programs RUNNING?
   restart             graceful reload (finish current job, pick up new code) — safe after deploy
   restart <name>      hard-restart ONE program (e.g. restart citation)
   force-restart       hard SIGTERM all (can wait on an in-flight job — prefer 'restart')
@@ -118,7 +121,8 @@ case "${cmd}" in
         ${SUPERVISORCTL} status 'hyperlit-worker:*' 'hyperlit-citation:*' \
                                 'hyperlit-vibe:*' 'hyperlit-audio:*' \
                                 'hyperlit-audio-package:*' 'hyperlit-translation:*' \
-                                'hyperlit-embeddings:*' 'hyperlit-search:*'
+                                'hyperlit-embeddings:*' 'hyperlit-search:*' \
+                                'hyperlit-scheduler:*'
         ;;
 
     restart)
@@ -146,7 +150,8 @@ case "${cmd}" in
             y|Y|yes) ${SUPERVISORCTL} restart 'hyperlit-worker:*' 'hyperlit-citation:*' \
                                               'hyperlit-vibe:*' 'hyperlit-audio:*' \
                                               'hyperlit-audio-package:*' 'hyperlit-translation:*' \
-                                              'hyperlit-embeddings:*' 'hyperlit-search:*' ;;
+                                              'hyperlit-embeddings:*' 'hyperlit-search:*' \
+                                'hyperlit-scheduler:*' ;;
             *) echo "aborted." ;;
         esac
         ;;

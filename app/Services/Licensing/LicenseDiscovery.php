@@ -347,6 +347,8 @@ class LicenseDiscovery
         } catch (\Throwable) {
             // best effort — the prerender rebuilds on its own once the timestamp moved
         }
+        // A hosted copy we just learned is all-rights-reserved stops being public.
+        HostingPolicy::enforce($row->book);
 
         return true;
     }

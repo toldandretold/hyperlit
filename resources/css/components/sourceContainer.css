@@ -129,7 +129,8 @@
 /* Content scrolls UNDER the action bar, so the last of it must be able to
    clear the strip (44px) plus a little breathing room. Scoped with :has() —
    a panel with no bar (synthetic book, no edit rights) keeps its normal end
-   padding, and #archive-content never has a bar at all. */
+   padding. The archive panel carries the bar too (Like + Share). */
+#archive-container:has(#source-action-bar) #archive-content,
 #source-container:has(#source-action-bar) #source-content,
 #source-container:has(#source-action-bar) #edit-form-container .scroller {
   padding-bottom: 56px;
@@ -162,6 +163,8 @@
    editToolbar.css still supplies its size/stroke/inverted-state styling. */
 
 /* ── Action bar ────────────────────────────────────────────────────────────
+   (Selectors are widened to #archive-container: the archive panel — a whole
+   library / journal / archive — carries the same bar with Like + Share.)
    One glass strip pinned across the bottom of the panel: reader actions
    (like / add to shelf / share) on the left, edit on the right. Content
    scrolls UNDER it — both scrollers carry a padding-bottom of the bar's
@@ -184,7 +187,7 @@
 
    No border-top: the strip is the same material as the panel it sits in, so a
    hairline rule just cuts the surface in half. */
-#source-container #source-action-bar {
+:is(#source-container, #archive-container) #source-action-bar {
   position: absolute;
   left: 0;
   right: 0;
@@ -200,7 +203,7 @@
   backdrop-filter: var(--container-glass-blur);
 }
 
-#source-container .source-action-group {
+:is(#source-container, #archive-container) .source-action-group {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -210,7 +213,7 @@
    block (and the svg/hover rules below): the share popover's labelled rows are
    BUTTONS nested inside the bar, and without the guard they inherit the disc
    sizing and collapse into circles with their labels clipped. */
-#source-container #source-action-bar button:not(.share-option) {
+:is(#source-container, #archive-container) #source-action-bar button:not(.share-option) {
   position: relative;
   width: 28px;
   height: 28px;
@@ -229,7 +232,7 @@
    `width: 90% !important` from its corner-button era, which would make the
    edit glyph noticeably larger than its four neighbours in the bar. Two IDs
    here outweigh that rule's one, so every icon in the strip matches. */
-#source-container #source-action-bar button:not(.share-option) svg {
+:is(#source-container, #archive-container) #source-action-bar button:not(.share-option) svg {
   width: 20px !important;
   height: 20px !important;
   pointer-events: none;
@@ -237,8 +240,8 @@
 
 /* Copy feedback: the button flashes the accent for ~1.5s (the .copied class
    the shelf header's share button already uses). */
-#source-container #source-action-bar button.copied svg,
-#source-container #source-action-bar button.copied svg path {
+:is(#source-container, #archive-container) #source-action-bar button.copied svg,
+:is(#source-container, #archive-container) #source-action-bar button.copied svg path {
   stroke: var(--hyperlit-aqua, #4eacae);
 }
 
@@ -255,28 +258,28 @@
    `#edit-source path { stroke: var(--icon-stroke-primary) !important }`.
    Without it the edit button alone would hover to a solid blob — the same
    paint-the-glyph-out failure, one rule deeper. */
-#source-container #source-action-bar button:hover:not(.inverted):not(.share-option),
-#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) {
+:is(#source-container, #archive-container) #source-action-bar button:hover:not(.inverted):not(.share-option),
+:is(#source-container, #archive-container) #source-action-bar button:focus-visible:not(.inverted):not(.share-option) {
   background-color: var(--icon-hover-background);
   border-radius: 50%;
 }
 
-#source-container #source-action-bar button:hover:not(.inverted):not(.share-option) svg,
-#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg,
-#source-container #source-action-bar button:hover:not(.inverted):not(.share-option) svg path,
-#source-container #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg path {
+:is(#source-container, #archive-container) #source-action-bar button:hover:not(.inverted):not(.share-option) svg,
+:is(#source-container, #archive-container) #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg,
+:is(#source-container, #archive-container) #source-action-bar button:hover:not(.inverted):not(.share-option) svg path,
+:is(#source-container, #archive-container) #source-action-bar button:focus-visible:not(.inverted):not(.share-option) svg path {
   stroke: var(--icon-hover-stroke) !important;
 }
 
 /* A liked heart is FILLED, so its fill must invert on hover too — otherwise
    the aqua fill sits on the inverted disc and swallows the outline. */
-#source-container #like-book.liked:hover svg,
-#source-container #like-book.liked:focus-visible svg {
+:is(#source-container, #archive-container) #like-book.liked:hover svg,
+:is(#source-container, #archive-container) #like-book.liked:focus-visible svg {
   fill: var(--icon-hover-stroke);
 }
 
 /* Liked state: filled heart in the brand aqua */
-#source-container #like-book.liked svg {
+:is(#source-container, #archive-container) #like-book.liked svg {
   fill: var(--hyperlit-aqua);
   stroke: var(--hyperlit-aqua);
 }
@@ -290,7 +293,7 @@
    bottom edge — and that direction is load-bearing, not cosmetic:
    #source-container is overflow:hidden, so a downward panel would be clipped
    away entirely. Growing up into the content area keeps it inside the clip. */
-#source-container #share-control {
+:is(#source-container, #archive-container) #share-control {
   position: relative;
   display: inline-flex;
 }
@@ -302,7 +305,7 @@
    a washed-out translucent smear no matter how the panel itself is styled. The
    bar and its popover are SIBLINGS of #source-content, so they stay sharp.
    NB: do NOT transition the blur radius — see the visibility note below. */
-#source-container:has(.share-control.share-open) #source-content {
+:is(#source-container, #archive-container):has(.share-control.share-open) :is(#source-content, #archive-content) {
   filter: blur(5px);
 }
 
@@ -326,12 +329,12 @@
   filter: blur(5px);
 }
 
-#source-container .add-to-shelf-backdrop--in-panel {
+:is(#source-container, #archive-container) .add-to-shelf-backdrop--in-panel {
   position: absolute;
   z-index: 1000;
 }
 
-#source-container .add-to-shelf-menu--in-panel {
+:is(#source-container, #archive-container) .add-to-shelf-menu--in-panel {
   position: absolute;
   bottom: 52px; /* 44px bar + 8px gap */
   left: 8px;
@@ -344,7 +347,7 @@
   z-index: 1003;
 }
 
-#source-container .share-panel {
+:is(#source-container, #archive-container) .share-panel {
   position: absolute;
   bottom: calc(100% + 8px);
   left: -4px;
@@ -359,7 +362,7 @@
   z-index: 1003;
 }
 
-#source-container .share-option {
+:is(#source-container, #archive-container) .share-option {
   width: 100%;
   display: flex;
   align-items: center;
@@ -375,13 +378,13 @@
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-#source-container .share-option:hover,
-#source-container .share-option:focus-visible {
+:is(#source-container, #archive-container) .share-option:hover,
+:is(#source-container, #archive-container) .share-option:focus-visible {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
   color: var(--color-text);
 }
 
-#source-container .share-option-icon {
+:is(#source-container, #archive-container) .share-option-icon {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -390,12 +393,12 @@
   height: 20px;
 }
 
-#source-container .share-option-icon svg {
+:is(#source-container, #archive-container) .share-option-icon svg {
   width: 18px;
   height: 18px;
 }
 
-#source-container .share-option-label {
+:is(#source-container, #archive-container) .share-option-label {
   flex: 1 1 auto;
   text-align: left;
 }
@@ -403,7 +406,7 @@
 /* Copy confirmation: the row's tick fades in for ~1.5s. Same `.copied` class
    the bar's buttons used to flash with — the row IS the confirmation, so there
    is still no toast for a copy this small. */
-#source-container .share-option-check {
+:is(#source-container, #archive-container) .share-option-check {
   flex: 0 0 auto;
   display: inline-flex;
   color: var(--hyperlit-aqua);
@@ -411,11 +414,11 @@
   transition: opacity 0.15s ease;
 }
 
-#source-container .share-option.copied .share-option-check {
+:is(#source-container, #archive-container) .share-option.copied .share-option-check {
   opacity: 1;
 }
 
-#source-container .share-option.copied {
+:is(#source-container, #archive-container) .share-option.copied {
   color: var(--color-text);
 }
 

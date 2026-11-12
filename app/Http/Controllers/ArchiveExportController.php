@@ -9,6 +9,7 @@ use App\Services\Export\ArchiveExportStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -54,12 +55,30 @@ class ArchiveExportController extends Controller
             'bibtex' => $this->archiveBibtex($corpus),
             'librarian' => $this->librarianFor($corpus),
             'audience' => $audience,
+            // The PUBLIC shelf behind a journal/archive corpus — what the
+            // panel's like button likes (null for a user library: no shelf).
+            'shelfId' => $this->publicShelfIdFor($scopeType, $scopeId),
             'counts' => [
                 'public_books' => $publicBooks,
                 'export_books' => count($corpus->books),
                 'e2ee_skipped' => count($corpus->encryptedBooks),
             ],
         ]);
+    }
+
+    private function publicShelfIdFor(string $scopeType, string $scopeId): ?string
+    {
+        $shelfId = match ($scopeType) {
+            'journal' => \App\Models\JournalSource::where('slug', $scopeId)->value('shelf_id'),
+            'archive' => \App\Models\ArchiveSource::where('slug', $scopeId)->value('shelf_id'),
+            default => null,
+        };
+        if (! $shelfId) {
+            return null;
+        }
+
+        return DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', $shelfId)->where('visibility', 'public')->value('id');
     }
 
     /** A run claiming 'building' with no progress write for this long is dead. */

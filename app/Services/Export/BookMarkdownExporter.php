@@ -47,8 +47,19 @@ class BookMarkdownExporter
         $this->converter->getEnvironment()->addConverter(new TableConverter());
     }
 
-    /** @return string full markdown document for one book */
-    public function markdownFor(string $bookId): string
+    /**
+     * @param  bool  $obsidianLinks  make in-text citations WORK as Obsidian
+     *   links (the vault export): each bibliography entry the body carries
+     *   (`<a class="bib-entry" id="harvey2020">`) gets an Obsidian block id
+     *   (` ^harvey2020` at the end of its paragraph) and every in-text citation
+     *   pointing at one (`[2020](#harvey2020)`) becomes a block link
+     *   (`[2020](#^harvey2020)`). Off by default: a bare `#id` fragment has no
+     *   target in plain markdown either way, but the ` ^id` suffix is literal
+     *   text to every reader that isn't Obsidian (the MCP export, the study's
+     *   re-import), so only the vault asks for it.
+     * @return string full markdown document for one book
+     */
+    public function markdownFor(string $bookId, bool $obsidianLinks = false): string
     {
         $nodes = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
@@ -121,6 +132,12 @@ class BookMarkdownExporter
             $el->parentNode?->replaceChild($doc->createTextNode($text), $el);
         }
 
+        // Bibliography anchors → block-id sentinels at the END of the entry's
+        // own block (where Obsidian requires a block id to sit). The empty
+        // anchor itself would be dropped by the converter, which is why the
+        // in-text `#id` links had nothing to land on.
+        $blockIds = $obsidianLinks ? $this->markBibEntries($xpath, $doc) : [];
+
         // Absolutize image sources (vault v1 links, doesn't bundle).
         foreach ($xpath->query('//img[@src]') as $img) {
             /** @var \DOMElement $img */
@@ -143,7 +160,79 @@ class BookMarkdownExporter
             $sections[] = "---\n\n" . $references;
         }
 
-        return implode("\n\n", $sections) . "\n";
+        $markdown = implode("\n\n", $sections) . "\n";
+
+        return $blockIds === [] ? $markdown : $this->linkToBlockIds($markdown, $blockIds);
+    }
+
+    // ---------- obsidian citation links ----------
+
+    /** Obsidian block ids: letters, digits and hyphens only. */
+    private static function blockId(string $refId): string
+    {
+        return trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $refId), '-');
+    }
+
+    /**
+     * Tag each `a.bib-entry[id]` block with a sentinel carrying its block id.
+     *
+     * @return array<string, string> refId => block id
+     */
+    private function markBibEntries(\DOMXPath $xpath, \DOMDocument $doc): array
+    {
+        $blockIds = [];
+        $taken = [];
+        $anchors = $xpath->query('//a[@id and contains(concat(" ", normalize-space(@class), " "), " bib-entry ")]');
+        foreach ($anchors as $anchor) {
+            /** @var \DOMElement $anchor */
+            $refId = $anchor->getAttribute('id');
+            $blockId = self::blockId($refId);
+            if ($blockId === '' || isset($blockIds[$refId])) {
+                continue;
+            }
+            // Two refIds that fold to one block id ("a_b" / "a-b") stay distinct.
+            for ($base = $blockId, $n = 2; isset($taken[$blockId]); $n++) {
+                $blockId = "{$base}-{$n}";
+            }
+
+            // The entry's own block: the nearest p / li / blockquote / div.
+            $block = $anchor->parentNode;
+            while ($block instanceof \DOMElement
+                && !in_array($block->nodeName, ['p', 'li', 'blockquote', 'div', 'dd', 'td'], true)) {
+                $block = $block->parentNode;
+            }
+            if (!$block instanceof \DOMElement || $block->getAttribute('id') === '__hl_export_root__') {
+                continue;
+            }
+
+            $taken[$blockId] = true;
+            $blockIds[$refId] = $blockId;
+            $block->appendChild($doc->createTextNode(' @@HLBLOCK' . count($blockIds) . '@@'));
+        }
+
+        return $blockIds;
+    }
+
+    /** Swap the sentinels for ` ^id`, and point `](#refId)` links at them. */
+    private function linkToBlockIds(string $markdown, array $blockIds): string
+    {
+        $ordered = array_values($blockIds);
+        $markdown = preg_replace_callback(
+            '/[ \t]*@@HLBLOCK(\d+)@@/',
+            fn ($m) => isset($ordered[(int) $m[1] - 1]) ? ' ^' . $ordered[(int) $m[1] - 1] : '',
+            $markdown
+        ) ?? $markdown;
+
+        return preg_replace_callback(
+            '/\]\(#([^)\s]+)\)/',
+            function ($m) use ($blockIds) {
+                // The converter may have escaped markdown-special characters in the fragment.
+                $refId = rawurldecode(str_replace('\\', '', $m[1]));
+
+                return isset($blockIds[$refId]) ? '](#^' . $blockIds[$refId] . ')' : $m[0];
+            },
+            $markdown
+        ) ?? $markdown;
     }
 
     /** Vault filename: "{Author} - {Title}.md" (client getBookDownloadName parity). */

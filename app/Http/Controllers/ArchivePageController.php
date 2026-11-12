@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ArchiveSource;
+use App\Services\Archives\ArchiveIdentity;
 use App\Services\Archives\ArchiveReadableCount;
 use App\Services\Archives\CertifiedArchivesQuery;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -22,12 +24,27 @@ class ArchivePageController extends Controller
         return view('archive-index', ['archives' => $certified->forHomepage()]);
     }
 
-    public function show(string $slug, ArchiveReadableCount $readableCount)
+    public function show(string $slug, ArchiveReadableCount $readableCount, ArchiveIdentity $identity)
     {
         $archive = ArchiveSource::where('slug', $slug)->first();
         if (!$archive) {
             abort(404, 'Archive not found');
         }
+
+        // An owner-minted archive borrows its shelf's LIVE name/description
+        // (ArchiveIdentity). Resolved onto the in-memory model only — never
+        // saved — so the blade and JSON-LD read one set of fields.
+        // Resolve BOTH before assigning: about() keys off a NULL display_name.
+        [$name, $about] = [$identity->name($archive), $identity->about($archive)];
+        $ownerMinted = $identity->isOwnerMinted($archive);
+        $archive->display_name = $name;
+        $archive->about = $about;
+
+        // The shelf's owner edits an owner-minted archive in place (title =
+        // shelf name, about = shelf description, saved via PATCH /api/shelves).
+        // A maintainer archive's copy is edited in the shelf-import console.
+        $viewer = auth()->user();
+        $canEdit = $ownerMinted && $viewer && $viewer->name === $identity->creator($archive);
 
         // Feeds only exist for a PUBLIC shelf — the arranger buttons hit the
         // public render endpoint. Read via pgsql_admin (shelves is RLS'd and a
@@ -43,9 +60,73 @@ class ArchivePageController extends Controller
         // prod; a visitor still only ever hears about public documents).
         $readable = $shelfId ? $readableCount->forPublic($archive->id, $shelfId) : 0;
 
+        // Owner-minted archives get a real About BOOK (rich text, full editor —
+        // ArchiveAboutBook). Minted on the owner's visit, only while the shelf
+        // is PUBLIC (it's seeded from the description). Visitors see it once
+        // it says something; until then the shelf description stands in.
+        $aboutBookId = null;
+        $aboutNodes = [];
+        if ($ownerMinted) {
+            $aboutBook = app(\App\Services\Archives\ArchiveAboutBook::class);
+            if ($canEdit && $shelfId) {
+                $shelfRow = DB::connection('pgsql_admin')->table('shelves')
+                    ->where('id', $archive->shelf_id)->first(['id', 'name', 'description', 'creator']);
+                if ($shelfRow) {
+                    $aboutBook->ensure($shelfRow);
+                }
+            }
+            $nodes = $aboutBook->nodes($archive->shelf_id);
+            if ($nodes && ($canEdit || ($shelfId && \App\Services\Archives\ArchiveAboutBook::hasContent($nodes)))) {
+                $aboutBookId = \App\Services\Archives\ArchiveAboutBook::bookId($archive->shelf_id);
+                $aboutNodes = $nodes;
+            }
+        }
+
+        // Page customization — the user page's vocabulary (userPageEditor +
+        // UserPageSettingsValidator), stored on the About book's library row.
+        // Every value is re-validated before it reaches the blade.
+        $pageSettings = $ownerMinted ? app(\App\Services\Archives\ArchiveAboutBook::class)->settings($archive->shelf_id) : [];
+        $imageNameOk = fn ($v) => is_string($v) && preg_match('/^[A-Za-z0-9._-]{1,255}$/', $v);
+        $mediaBook = $ownerMinted ? \App\Services\Archives\ArchiveAboutBook::bookId($archive->shelf_id) : null;
+        $logoImage = $imageNameOk($pageSettings['logo_image'] ?? null) ? $pageSettings['logo_image'] : null;
+        $backgroundImage = $imageNameOk($pageSettings['background_image'] ?? null) ? $pageSettings['background_image'] : null;
+        $backgroundArt = in_array($pageSettings['background_art'] ?? null, \App\Services\UserPageSettingsValidator::BACKGROUND_ARTS, true)
+            ? $pageSettings['background_art'] : null;
+        $showMap = $ownerMinted && $shelfId && (($pageSettings['show_map'] ?? null) !== false);
+
+        // Connection map: the hypercite network of the shelf's PUBLIC books
+        // (JournalHyperciteMap, same figure as the user/journal pages). Cached
+        // flexibly like the user page's — rebuilt deferred when stale.
+        $hyperciteMap = null;
+        if ($showMap) {
+            $mapCached = Cache::flexible(self::mapCacheKey($archive->id), [900, 86400], function () use ($shelfId, $name) {
+                $corpus = DB::connection('pgsql_admin')->table('shelf_items as si')
+                    ->join('library as l', 'l.book', '=', 'si.book')
+                    ->where('si.shelf_id', $shelfId)
+                    ->where('l.visibility', 'public')
+                    ->where('l.has_nodes', true)
+                    ->where('l.book', 'NOT LIKE', '%/%')
+                    ->get(['l.book', 'l.title', 'l.author', 'l.year', 'l.slug'])
+                    ->keyBy('book')
+                    ->map(fn ($r) => ['title' => (string) $r->title, 'author' => $r->author, 'year' => $r->year, 'slug' => $r->slug])
+                    ->all();
+
+                return ['svg' => app(\App\Services\JournalHarvest\JournalHyperciteMap::class)->buildSvgForBooks(
+                    $corpus,
+                    'Hypercite network of ' . $name,
+                    ['noun' => 'document', 'plural' => 'documents', 'beyond' => 'beyond this archive'],
+                )];
+            });
+            $hyperciteMap = $mapCached['svg'] ?? null;
+        }
+
         // The blade renders about UNESCAPED (links belong in archive copy).
         // The write path already sanitizes; this covers rows saved before it did.
-        $archive->about = \App\Services\Security\NodeHtmlSanitizer::clean($archive->about);
+        // An owner-minted archive's about is the shelf description — PLAIN
+        // text, which the blade escapes instead (aboutIsPlain).
+        if (!$ownerMinted) {
+            $archive->about = \App\Services\Security\NodeHtmlSanitizer::clean($archive->about);
+        }
 
         $description = $archive->display_name
             . " — a hypertext archive on Hyperlit: {$readable} readable document"
@@ -64,7 +145,27 @@ class ArchivePageController extends Controller
             'archive'         => $archive,
             'shelfId'         => $shelfId,
             'readable'        => $readable,
+            'aboutIsPlain'    => $ownerMinted,
+            'aboutBookId'     => $aboutBookId,
+            'mediaBook'       => $mediaBook,
+            'logoImage'       => $logoImage,
+            'backgroundImage' => $backgroundImage,
+            'backgroundArt'   => $backgroundArt,
+            'hyperciteMap'    => $hyperciteMap,
+            'pageSettings'    => $canEdit ? array_intersect_key($pageSettings, array_flip(['logo_image', 'background_image', 'background_art', 'show_map'])) : null,
+            'aboutNodes'      => $aboutNodes,
+            'archiveEdit'     => $canEdit ? [
+                'shelfId'     => $archive->shelf_id,
+                'name'        => $name,
+                'mediaBook'   => $mediaBook,
+            ] : null,
         ]);
+    }
+
+    public static function mapCacheKey(string $archiveId): string
+    {
+        // Stores RENDERED markup — bump the version when the figure changes.
+        return "archive-hypercite-map:{$archiveId}:v1";
     }
 
     private function buildArchiveJsonLd(ArchiveSource $archive): array

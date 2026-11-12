@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\File;
 class ArchiveExportStore
 {
     /** Bump when any builder's output format changes — invalidates all caches. */
-    public const SCHEMA_VERSION = 3;
+    public const SCHEMA_VERSION = 4;
 
     public const KINDS = ['markdown', 'sqlite'];
 

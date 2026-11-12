@@ -11,7 +11,9 @@ use App\Services\EmbeddingService;
 use App\Services\LibraryCardGenerator;
 use App\Services\SearchService;
 use App\Services\ShelfCacheInvalidator;
+use App\Services\Shelves\LicenceReviewShelf;
 use App\Services\Shelves\LikesShelf;
+use App\Services\Shelves\ShelfKinds;
 use App\Services\Stats\ReadStatsCounter;
 use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
@@ -178,6 +180,12 @@ class ShelfController extends Controller
             'default_sort' => $request->default_sort,
         ], fn($v) => $v !== null);
 
+        // An explicitly-sent empty description CLEARS it (ConvertEmptyStrings
+        // turns '' into null, which the filter above would drop as "absent").
+        if ($request->has('description') && $request->description === null) {
+            $updates['description'] = null;
+        }
+
         // Regenerate slug when name changes
         if (isset($updates['name']) && $updates['name'] !== $shelf->name) {
             $updates['slug'] = $this->generateUniqueSlug($updates['name'], $user->name, $id);
@@ -220,13 +228,159 @@ class ShelfController extends Controller
                 'error' => 'The Likes shelf can\'t be deleted — it follows what you\'ve liked. Unlike books to empty it, or make it private.',
             ], 422);
         }
+        if (($shelf->kind ?? null) === LicenceReviewShelf::KIND) {
+            return response()->json([
+                'error' => 'This shelf follows your published books that might not be OK to publish — it empties itself as you make them private.',
+            ], 422);
+        }
 
         // Flush cached synthetic books before deleting
         (new ShelfCacheInvalidator())->flush($id);
 
         DB::connection('pgsql_admin')->table('shelves')->where('id', $id)->delete();
 
+        // archive_sources has no FK to shelves — an archive page for a deleted
+        // shelf would be an empty hero squatting a global /a/ slug.
+        \App\Models\ArchiveSource::where('shelf_id', $id)->delete();
+        app(\App\Services\Archives\ArchiveAboutBook::class)->delete($id);
+        DB::connection('pgsql_admin')->table('shelf_likes')->where('shelf_id', $id)->delete();
+
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * The owner's shelf, gated for an archive page: must exist, be theirs, be public.
+     *
+     * @return object|\Illuminate\Http\JsonResponse  the shelf row, or the refusal
+     */
+    private function archivableShelf(string $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+        $shelf = DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', $id)
+            ->where('creator', $user->name)
+            ->first(['id', 'name', 'slug', 'creator', 'visibility', 'kind']);
+        if (!$shelf) {
+            return response()->json(['error' => 'Shelf not found'], 404);
+        }
+        // The licence-review shelf is a private worklist of books that may
+        // NOT be OK to publish — giving it a global public page is the inverse
+        // of its purpose.
+        if (($shelf->kind ?? null) === LicenceReviewShelf::KIND) {
+            return response()->json(['error' => 'This shelf lists books that might not be OK to publish, so it can\'t become an archive.'], 422);
+        }
+        if ($shelf->visibility !== 'public') {
+            return response()->json(['error' => 'Make the shelf public to give it an archive page.'], 422);
+        }
+
+        return $shelf;
+    }
+
+    /**
+     * PUT /api/shelves/{id}/archive/page-settings — the owner customizes their
+     * archive page exactly like their user page (userPageEditor, same
+     * UserPageSettingsValidator vocabulary), minus visitor shelf pills (an
+     * archive IS one shelf). Stored on the About book's library row.
+     */
+    public function updateArchivePageSettings(
+        Request $request,
+        string $id,
+        \App\Services\Archives\ShelfArchiveMinter $minter,
+        \App\Services\Archives\ArchiveAboutBook $aboutBook,
+        \App\Services\UserPageSettingsValidator $validator,
+    ) {
+        $shelf = $this->archivableShelf($id);
+        if ($shelf instanceof \Illuminate\Http\JsonResponse) {
+            return $shelf;
+        }
+        $archive = $minter->existing($shelf->id);
+        if (!$archive || $archive->display_name !== null) {
+            return response()->json(['error' => 'This shelf has no archive page of its own.'], 404);
+        }
+
+        $full = DB::connection('pgsql_admin')->table('shelves')->where('id', $shelf->id)
+            ->first(['id', 'name', 'description', 'creator']);
+        $book = $aboutBook->ensure($full);
+
+        $input = $request->except(['pill_shelves', 'about_html']);
+        $result = $validator->validate($input, $book, $shelf->creator);
+        if (!$result['ok']) {
+            return response()->json(['error' => 'Validation failed', 'errors' => $result['errors']], 422);
+        }
+        unset($result['settings']['pill_shelves'], $result['settings']['about_html']);
+
+        $merged = $aboutBook->saveSettings($shelf->id, $result['settings']);
+        Cache::forget(\App\Http\Controllers\ArchivePageController::mapCacheKey($archive->id));
+
+        return response()->json(['success' => true, 'page_settings' => $merged ?: (object) []]);
+    }
+
+    /**
+     * GET /api/shelves/{id}/archive[?slug=] — does this shelf have an archive
+     * page yet? If not: the suggested slug, plus whether ?slug= is free (the
+     * live check behind the shelf header's one-time URL picker).
+     */
+    public function archiveStatus(Request $request, string $id, \App\Services\Archives\ShelfArchiveMinter $minter)
+    {
+        $shelf = $this->archivableShelf($id);
+        if ($shelf instanceof \Illuminate\Http\JsonResponse) {
+            return $shelf;
+        }
+
+        if ($archive = $minter->existing($shelf->id)) {
+            return response()->json(['exists' => true, 'slug' => $archive->slug, 'url' => '/a/' . $archive->slug]);
+        }
+
+        $payload = ['exists' => false, 'suggestion' => $minter->suggest($shelf)];
+        $asked = $request->query('slug');
+        if (is_string($asked) && $asked !== '') {
+            $payload['slug'] = $asked;
+            $payload['valid'] = \App\Services\Archives\ShelfArchiveMinter::isValidSlug($asked);
+            $payload['available'] = $minter->isAvailable($asked);
+        }
+
+        return response()->json($payload);
+    }
+
+    /**
+     * POST /api/shelves/{id}/archive {slug} — mint the shelf's archive page.
+     * SET ONCE: a shelf that already has one gets it back unchanged, whatever
+     * slug was asked for (see ShelfArchiveMinter).
+     */
+    public function createArchive(Request $request, string $id, \App\Services\Archives\ShelfArchiveMinter $minter)
+    {
+        $shelf = $this->archivableShelf($id);
+        if ($shelf instanceof \Illuminate\Http\JsonResponse) {
+            return $shelf;
+        }
+
+        $slug = (string) $request->input('slug', '');
+        if (!\App\Services\Archives\ShelfArchiveMinter::isValidSlug($slug)) {
+            if ($archive = $minter->existing($shelf->id)) {
+                return response()->json(['slug' => $archive->slug, 'url' => '/a/' . $archive->slug, 'created' => false]);
+            }
+
+            return response()->json([
+                'error' => 'Use lowercase letters, numbers and single hyphens (max ' . \App\Services\Archives\ShelfArchiveMinter::SLUG_MAX . ').',
+                'suggestion' => $minter->suggest($shelf),
+            ], 422);
+        }
+
+        $result = $minter->mint($shelf, $slug);
+        if ($result === null) {
+            return response()->json([
+                'error' => "/a/{$slug} is taken.",
+                'suggestion' => $minter->suggest($shelf),
+            ], 422);
+        }
+        return response()->json([
+            'slug'    => $result['archive']->slug,
+            'url'     => '/a/' . $result['archive']->slug,
+            'created' => $result['created'],
+        ]);
     }
 
     /**
@@ -257,6 +411,9 @@ class ShelfController extends Controller
                 'error' => 'Books join the Likes shelf by being liked, not by being added.',
             ], 422);
         }
+        if (ShelfKinds::isSystem($shelf)) {
+            return response()->json(['error' => 'This shelf is kept up to date automatically — books can\'t be added by hand.'], 422);
+        }
 
         // Upsert (ignore if already exists)
         DB::connection('pgsql_admin')->table('shelf_items')->updateOrInsert(
@@ -285,6 +442,12 @@ class ShelfController extends Controller
         $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
         if (!$shelf) {
             return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        if (($shelf->kind ?? null) === LicenceReviewShelf::KIND) {
+            return response()->json([
+                'error' => 'Make the book private (or give it an open licence) to take it off this shelf.',
+            ], 422);
         }
 
         // Removing from the Likes shelf IS unliking — otherwise the row comes

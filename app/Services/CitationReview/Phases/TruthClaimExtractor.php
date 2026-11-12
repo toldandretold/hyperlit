@@ -491,6 +491,7 @@ class TruthClaimExtractor
             'source_author'        => $meta['author'] ?? null,
             'source_year'          => $meta['year'] ?? null,
             'has_source_content'   => $meta['has_source_content'] ?? false,
+            'source_is_public'     => $meta['source_is_public'] ?? true,
             'source_completeness'        => $meta['source_completeness'] ?? null,
             'source_completeness_reason' => $meta['source_completeness_reason'] ?? null,
             'abstract'             => $meta['abstract'] ?? null,

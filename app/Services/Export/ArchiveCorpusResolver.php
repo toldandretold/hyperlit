@@ -96,7 +96,15 @@ class ArchiveCorpusResolver
 
         $rows = $archive->shelf_id ? $this->publicShelfRows($archive->shelf_id) : [];
 
-        return $this->corpus('archive', $slug, $archive->display_name, $archive->display_name . ' maintainers', url('/a/' . $slug), $rows);
+        // An owner-minted archive is that user's curation, so the corpus is
+        // cited to them; a maintainer archive keeps the "{name} maintainers" line.
+        $identity = app(\App\Services\Archives\ArchiveIdentity::class);
+        $name = $identity->name($archive);
+        $author = $identity->isOwnerMinted($archive)
+            ? ($identity->creator($archive) ?: $name)
+            : $name . ' maintainers';
+
+        return $this->corpus('archive', $slug, $name, $author, url('/a/' . $slug), $rows);
     }
 
     /**

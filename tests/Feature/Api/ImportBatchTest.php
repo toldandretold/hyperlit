@@ -448,3 +448,21 @@ test('onJobTerminal ignores books that belong to no batch', function () {
     app(ImportBatches::class)->onJobTerminal('batchtest_' . Str::random(10), true, null);
     expect(true)->toBeTrue(); // no exception is the assertion
 });
+
+test('derived shelves (Likes, licence-review) refuse an import target, even for their owner', function () {
+    $user = $this->loginUser();
+    $admin = DB::connection('pgsql_admin');
+    foreach ([\App\Services\Shelves\LikesShelf::KIND, \App\Services\Shelves\LicenceReviewShelf::KIND] as $kind) {
+        $shelfId = (string) \Illuminate\Support\Str::uuid();
+        $admin->table('shelves')->insert([
+            'id' => $shelfId, 'creator' => $user->name, 'name' => 'ImportBatch derived ' . $kind,
+            'slug' => 'importbatch-derived-' . $kind . '-' . \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(5)),
+            'visibility' => 'private', 'default_sort' => 'recent', 'kind' => $kind,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => $shelfId]))->assertStatus(422);
+
+        $admin->table('shelves')->where('id', $shelfId)->delete();
+    }
+});

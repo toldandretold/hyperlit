@@ -27,8 +27,10 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(75, 75, 75, 0.6);
-  color: var(--hyperlit-white, #CBCCCC);
+  /* Same theme tokens as the .arranger-button pills beside it
+     (userPageTabs.css) — it is one of the row, not a disabled-looking extra. */
+  background: var(--color-background);
+  color: var(--color-text);
   cursor: pointer;
   transition: background 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
 }
@@ -56,7 +58,8 @@
 }
 
 #archivist-brain-button:hover {
-  background: rgba(95, 95, 95, 0.75);
+  background: #444;
+  color: #fff;
 }
 
 /* lit while archivist mode is on — the way back out */
@@ -67,10 +70,9 @@
   box-shadow: 0 0 12px rgba(0, 175, 175, 0.45);
 }
 
-/* logged-out: dimmed but still clickable (submitting shows the login prompt) */
-#archivist-brain-button.archivist-guest {
-  opacity: 0.45;
-}
+/* logged-out (.archivist-guest) is deliberately NOT dimmed: it is fully
+   usable — submitting shows the login prompt — and a faded disc read as
+   "disabled". */
 
 /* ---- the takeover: toggles + feed buttons yield to a wide prompt box ---- */
 

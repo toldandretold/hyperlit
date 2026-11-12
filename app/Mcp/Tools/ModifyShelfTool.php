@@ -63,6 +63,9 @@ class ModifyShelfTool extends HyperlitTool
             if ($kind === 'likes') {
                 return Response::error('The Likes shelf is managed by liking/unliking books — use like_book instead of modify_shelf.');
             }
+            if ($kind === \App\Services\Shelves\LicenceReviewShelf::KIND) {
+                return Response::error('This shelf is kept up to date automatically: it lists the user\'s published books that might not be OK to publish. Make a book private (set_book_visibility) to take it off.');
+            }
         }
 
         $result = match ($action) {

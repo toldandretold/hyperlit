@@ -120,3 +120,35 @@ test('relative image sources are absolutized', function () {
 
     expect($md)->toContain('![fig](' . rtrim(config('app.url'), '/') . '/storage/book-images/x.png)');
 });
+
+test('obsidianLinks: in-text citations become block links to the bibliography entry', function () {
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>Networks are “vast and open” (Harvey <a class="in-text-citation" href="#harvey2020">2020</a>; see <a class="in-text-citation" href="#beck_1992">Beck</a>, and <a class="in-text-citation" href="#missing9">nobody</a>).</p>');
+    bmeNode($book, 200, '<h2>References</h2>');
+    bmeNode($book, 300, '<p><a class="bib-entry" id="harvey2020"></a>Harvey, David. 2020. Anti-Capitalist Politics.</p>');
+    bmeNode($book, 400, '<p><a class="bib-entry" id="beck_1992"></a>Beck, Ulrich. 1992. <i>Risk Society</i>.</p>');
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book, obsidianLinks: true);
+
+    expect($md)
+        ->toContain('(Harvey [2020](#^harvey2020);')
+        ->toContain('[Beck](#^beck-1992)')
+        // Obsidian needs the block id at the END of the entry's own paragraph.
+        ->toMatch('/^Harvey, David\. 2020\. Anti-Capitalist Politics\. \^harvey2020$/m')
+        ->toMatch('/^Beck, Ulrich\. 1992\. \*Risk Society\*\. \^beck-1992$/m')
+        // A citation with no entry in the document is left alone, never pointed at a block that isn't there.
+        ->toContain('[nobody](#missing9)')
+        ->not->toContain('@@HLBLOCK');
+});
+
+test('without obsidianLinks the export carries no block ids (MCP export, study re-import)', function () {
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>(Harvey <a class="in-text-citation" href="#harvey2020">2020</a>)</p>');
+    bmeNode($book, 200, '<p><a class="bib-entry" id="harvey2020"></a>Harvey, David. 2020. Anti-Capitalist Politics.</p>');
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book);
+
+    expect($md)->toContain('[2020](#harvey2020)')
+        ->not->toContain('^harvey2020')
+        ->not->toContain('@@HLBLOCK');
+});

@@ -34,6 +34,35 @@ const CHUNKS_PER_BATCH = 50;
  */
 const inFlight = new Set<string>();
 
+/* ── Supersession ─────────────────────────────────────────────────────────
+ * A download carries the book AS OF ITS START. When the timestamp check finds
+ * the server has moved on while one is still streaming (a rename landing
+ * during the user page's ~120-chunk aggregate-book download), it must not have
+ * to wait for that stale download to finish before refreshing — that wait ran
+ * 10s+ and the user page showed the old title the whole time
+ * (library-home-sync.spec.js). Instead the check SUPERSEDES it: the old run
+ * stops fetching and writes nothing (no IDB upsert to clobber the refresh, no
+ * global swap, no completion event), and the refresh starts a fresh download
+ * whose completion releases any waiters. A per-book generation counter is the
+ * whole mechanism — each run remembers the generation it started under.
+ */
+const generation = new Map<string, number>();
+const generationOf = (bookId: string): number => generation.get(bookId) ?? 0;
+
+/**
+ * Retire `bookId`'s in-flight download (if any) because its data is known to
+ * be stale. Returns true when there was one. Waiters stay parked: the caller
+ * is expected to start a replacement download, or — if it cannot — to
+ * dispatch `backgroundDownloadComplete` / `backgroundDownloadFailed` itself.
+ */
+export function supersedeBackgroundDownload(bookId: string): boolean {
+    const id = String(bookId);
+    if (!inFlight.has(id)) return false;
+    generation.set(id, generationOf(id) + 1);
+    markInFlight(id, false);
+    return true;
+}
+
 function markInFlight(bookId: string, active: boolean): void {
     if (active) inFlight.add(bookId);
     else inFlight.delete(bookId);
@@ -99,6 +128,8 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
     }
 
     markInFlight(bookId, true);
+    const myGeneration = generationOf(bookId);
+    const superseded = () => generationOf(bookId) !== myGeneration;
 
     try {
         verbose.content(`Starting batched background download for: ${bookId}`, 'backgroundDownloader.js');
@@ -107,7 +138,7 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
         const manifest = lazyLoader.chunkManifest || (window as any).chunkManifest;
         if (!manifest || manifest.length === 0) {
             verbose.content('No chunk manifest available, falling back to full download', 'backgroundDownloader.js');
-            await fullDownloadFallback(bookId, lazyLoader);
+            await fullDownloadFallback(bookId, lazyLoader, superseded);
             return;
         }
 
@@ -124,6 +155,10 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
         const allNodes = [];
 
         for (let i = 0; i < batches.length; i++) {
+            if (superseded()) {
+                verbose.content(`Background download for ${bookId} superseded — stopping`, 'backgroundDownloader.js');
+                return;
+            }
             const { from, to } = batches[i];
             const batchUrl = buildBatchUrl(bookId, from, to);
 
@@ -166,6 +201,13 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             if (retried) {
                 verbose.content(`Batch ${i + 1} succeeded on retry`, 'backgroundDownloader.js');
             }
+        }
+
+        // A newer download replaced this one while the last batch was in
+        // flight — everything accumulated here predates it. Write nothing.
+        if (superseded()) {
+            verbose.content(`Background download for ${bookId} superseded — discarding`, 'backgroundDownloader.js');
+            return;
         }
 
         // === Atomic swap: same semantics as before ===
@@ -216,6 +258,7 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
         }));
 
     } catch (error: any) {
+        if (superseded()) return; // its outcome no longer matters to anyone
         log.error(`Background download failed: ${error.message}`, 'backgroundDownloader.js', error);
 
         // Fire failure event so UI can show retry
@@ -223,7 +266,9 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
             detail: { bookId, error: error.message }
         }));
     } finally {
-        markInFlight(bookId, false);
+        // A superseded run already left the registry, and a replacement may
+        // have re-entered it under the same id — leave that one alone.
+        if (!superseded()) markInFlight(bookId, false);
     }
 }
 
@@ -325,15 +370,17 @@ function buildDataUrl(bookId: string) {
  * Fallback: monolithic download when no chunk manifest is available.
  * Preserves the original behavior for sub-books and edge cases.
  */
-async function fullDownloadFallback(bookId: string, lazyLoader: any) {
+async function fullDownloadFallback(bookId: string, lazyLoader: any, superseded: () => boolean = () => false) {
     const url = buildDataUrl(bookId);
     const response = await fetch(url);
 
     if (!response.ok) {
+        await response.text().catch(() => {});
         throw new Error(`Background download failed: ${response.status}`);
     }
 
     const data = await response.json();
+    if (superseded()) return; // stale as of its start — see supersedeBackgroundDownload
 
     // Upsert all data to IndexedDB
     const db = await openDatabase();

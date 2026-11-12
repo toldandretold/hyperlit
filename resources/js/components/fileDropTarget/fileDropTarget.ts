@@ -77,6 +77,18 @@ function buildOverlay() {
   return el;
 }
 
+/**
+ * The viewer's OWN shelf currently open in the feed (shelfHeader stamps it for
+ * owner + ordinary shelf only). A drop while it's open imports onto that shelf
+ * — the server re-authorizes the shelf_id (ImportBatchController::store).
+ */
+export function openOwnedShelf(): { id: string; name: string } | null {
+  const header = document.getElementById('shelf-header');
+  const id = header?.dataset.dropShelfId;
+  if (!header?.isConnected || !id) return null;
+  return { id, name: header.dataset.dropShelfName || 'this shelf' };
+}
+
 function renderDragMessage() {
   if (!cardEl) return;
   cardEl.innerHTML = '';
@@ -87,7 +99,8 @@ function renderDragMessage() {
   icon.className = 'page-drop-icon page-drop-icon--arrow';
 
   const title = document.createElement('div');
-  title.textContent = 'Drop your file to import';
+  const shelf = openOwnedShelf();
+  title.textContent = shelf ? `Drop to add to “${shelf.name}”` : 'Drop your file to import';
   title.className = 'page-drop-title';
 
   const hint = document.createElement('div');
@@ -195,12 +208,14 @@ function renderBatchMessage(title: string, detail: string, autoHideMs: number | 
   }
 }
 
-function showBatchStartedOverlay(count: number) {
+function showBatchStartedOverlay(count: number, shelfName?: string) {
   renderBatchMessage(
     `Importing ${count} text${count === 1 ? '' : 's'}…`,
-    count === 1
-      ? 'Queued — track progress in the corner panel.'
-      : 'Track progress in the corner panel. Books land on a shelf as they finish.',
+    shelfName
+      ? `Track progress in the corner panel. ${count === 1 ? 'It lands' : 'Books land'} on “${shelfName}” when finished.`
+      : count === 1
+        ? 'Queued — track progress in the corner panel.'
+        : 'Track progress in the corner panel. Books land on a shelf as they finish.',
     4000,
   );
 }
@@ -305,7 +320,7 @@ async function handleAcceptedDrop(files: File[]) {
  * Multi-book drop (folder of PDFs / an Obsidian vault): register a batch and
  * upload sequentially — the corner import-queue widget is the progress UI.
  */
-async function handleBatchDrop(plan: IngestPlan) {
+async function handleBatchDrop(plan: IngestPlan, targetShelf: { id: string; name: string } | null = null) {
   if (!(await checkLoggedInOrPrompt())) return;
 
   // Multi-book drops get an auto-shelf (folder name, or a dated label for
@@ -319,14 +334,17 @@ async function handleBatchDrop(plan: IngestPlan) {
   // out in place. Pages without the widget (journal) fall back to the
   // drop-overlay info card.
   if (!showImportQueuePreparing(plan.bundles.length)) {
-    showBatchStartedOverlay(plan.bundles.length);
+    showBatchStartedOverlay(plan.bundles.length, targetShelf?.name);
   }
 
   try {
     const result = await uploadBatch(plan.bundles, {
       label,
       source: plan.source,
-      autoShelf: plan.bundles.length > 1,
+      // Dropped onto the owner's open shelf → append THERE (even one book);
+      // otherwise multi-book drops get their own auto-shelf.
+      autoShelf: !targetShelf && plan.bundles.length > 1,
+      ...(targetShelf ? { shelfId: targetShelf.id } : {}),
       manifest: plan.manifest,
     });
     verbose.content(`fileDropTarget: batch ${result.batchId} — ${result.uploaded} uploaded, ${result.failed} failed`, '/components/fileDropTarget/fileDropTarget.ts');
@@ -385,6 +403,18 @@ async function routeDrop(entries: ReturnType<typeof captureDropEntries>, plainFi
     // waiting behind the running import (the queue grows as you add).
     plan = planAsBatch(plan);
     if (plan.kind !== 'batch') return;
+  }
+
+  // The owner's own shelf is open: everything dropped lands ON it. Single
+  // books ride the batch lane too (no form) — shelf_id is a batch concept,
+  // and "drop here → it's on this shelf" shouldn't detour through a form.
+  const targetShelf = openOwnedShelf();
+  if (targetShelf) {
+    plan = planAsBatch(plan);
+    if (plan.kind === 'batch') {
+      await handleBatchDrop(plan, targetShelf);
+      return;
+    }
   }
 
   if (plan.kind === 'single' || plan.kind === 'one-book-folder') {

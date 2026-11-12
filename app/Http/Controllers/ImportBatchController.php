@@ -64,7 +64,17 @@ class ImportBatchController extends Controller
             // to the caller's RLS context — authorization is explicit below.
             $shelf = DB::connection('pgsql_admin')->table('shelves')
                 ->where('id', $validated['shelf_id'])
-                ->first(['id', 'name', 'slug', 'creator']);
+                ->first(['id', 'name', 'slug', 'creator', 'kind']);
+
+            // Derived shelves have ONE writer each: Likes mirrors book_likes,
+            // licence-review is rebuilt by library:licence-review. An import
+            // appended to either would be a row nothing else knows about.
+            if ($shelf && in_array($shelf->kind ?? null, [
+                \App\Services\Shelves\LikesShelf::KIND,
+                \App\Services\Shelves\LicenceReviewShelf::KIND,
+            ], true)) {
+                return response()->json(['message' => 'Books can\'t be imported straight onto this shelf.'], 422);
+            }
 
             $allowed = $shelf && (
                 (Auth::user()?->isAdmin() ?? false)

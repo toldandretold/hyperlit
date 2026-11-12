@@ -33,11 +33,16 @@ final class SourceHtmlBuilder
         // The source line links IN-APP ONLY (the reviewed version carrying the
         // highlights). No external link here — the bibliography citation line
         // below already carries the URL/DOI.
-        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id']))
+        $inAppUrl = (!empty($claim['has_source_content']) && !empty($claim['source_book_id'])
+            && ($claim['source_is_public'] ?? true) && ($claim['source_type'] ?? null) !== 'web_source')
             ? '/' . $claim['source_book_id'] : null;
 
+        $heldOnly = !$inAppUrl && !empty($claim['has_source_content']);
         if ($inAppUrl && $title) {
             $linkedTitle = '<a href="' . e($inAppUrl) . '">' . e($title) . '</a>';
+        } elseif ($heldOnly && $externalUrl && $title) {
+            // Held as review evidence, not published by us — link the original.
+            $linkedTitle = '<a href="' . e($externalUrl) . '" target="_blank" rel="noopener">' . e($title) . '</a> ↗';
         } else {
             $linkedTitle = e($title ?: implode(' — ', $sourceInfo));
         }

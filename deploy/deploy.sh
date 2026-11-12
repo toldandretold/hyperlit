@@ -316,10 +316,10 @@ else
         RUNNING_N="$(echo "${WORKER_STATUS}" | grep -c 'RUNNING' || true)"
         if [ -n "${BROKEN}" ]; then
             warn "worker(s) not healthy: $(echo "${BROKEN}" | awk '{print $1}' | tr '\n' ' ')— ./deploy/supervisor/workers.sh logs <name>"
-        elif [ "${RUNNING_N}" -lt 8 ]; then
-            warn "only ${RUNNING_N}/8 workers RUNNING (rest still settling?) — re-check: ./deploy/supervisor/workers.sh status"
+        elif [ "${RUNNING_N}" -lt 9 ]; then
+            warn "only ${RUNNING_N}/9 programs RUNNING (rest still settling?) — re-check: ./deploy/supervisor/workers.sh status"
         else
-            ok "all 8 workers RUNNING on the new code"
+            ok "all 9 programs RUNNING on the new code (8 queue workers + scheduler)"
         fi
     else
         warn "could not read worker status (supervisorctl?) — check manually"

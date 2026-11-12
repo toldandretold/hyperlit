@@ -65,6 +65,12 @@ hw force-restart       # hard SIGTERM all — can WAIT on an in-flight job, avoi
 - Job: `IngestExternalCitationCandidatesJob` (OpenAlex/Open Library fetch when a citation search returns thin local results).
 - Seconds-long and the ONLY queue a user actively waits on in real time — the citation modal polls for ~8s after dispatch. On `default` it queued behind 15-min imports, so the polls always missed. Lightest class in the budget (< embeddings' 50 MB peak); `--sleep=1` for snappy pickup.
 
+### The scheduler → `hyperlit-scheduler` (`schedule:work`)
+
+- Not a queue worker: runs Laravel's scheduler (`routes/console.php`) every minute, as a fresh `schedule:run` subprocess, so new code is picked up without a restart. Replaces a crontab line — none running `schedule:run` was ever found for `marx`, so scheduled tasks (daily stats, licence discovery 05:10, licence review 05:40, cleanup) may never have run on prod.
+- Before installing, check no cron ALSO runs it (`crontab -l`, `sudo crontab -l`, `sudo crontab -u www-data -l`) — two schedulers run every task twice.
+- Light (~40 MB): heavy scheduled work is dispatched as jobs onto the workers above.
+
 ### Topology notes & invariants
 
 > **`default` carries more than imports.** Any `ShouldQueue` job that does *not* call `onQueue(...)` lands on `default` and is served by `hyperlit-worker` alongside imports: `QueueBookEmbeddings` (the fan-out that dispatches the per-node `embeddings` jobs), `PandocConversionJob` (DOCX path), `WarmBookCacheJob`, and the scheduled `DatabaseCleanupJob` / `DailyStatsJob` / `UpdateLibraryStatsJob` / `UpdateHomepageJob`. They're light or scheduled, so they don't warrant their own worker — but they *do* share the import worker's single serial head, which matters when reasoning about blocking.

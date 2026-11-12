@@ -411,6 +411,7 @@ class BookCache
             )
             ->where('bibliography.book', $bookId)
             ->get();
+        \App\Services\Licensing\RestrictedSourceRows::fill($references);
         if ($references->isEmpty()) {
             return null;
         }

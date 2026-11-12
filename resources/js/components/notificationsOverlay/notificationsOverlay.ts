@@ -133,10 +133,26 @@ function rowHtml(n: NotificationItem): string {
       </div>`;
     }
 
+    // System licence notice: a link to the user's review shelf, but no mute button —
+    // "Mute Hyperlit" would silence a notice about the user's own books.
+    // data-full-nav: a shelf deep link needs user.blade's inline
+    // window.activeShelfDeepLink, which SPA body swaps never execute — routed
+    // in-app it lands on the user page with the shelf not selected.
+    if (n.type === 'licence_review') {
+        return `
+      <a class="notif-row notif-row-licence_review${n.read_at ? '' : ' notif-unread'}" href="${esc(n.link)}" data-full-nav>
+        <span class="notif-row-main">
+          <span class="notif-row-text"><strong>${esc(n.actor_label)}</strong> ${verbHtml(n)} ${esc(n.context_label)}</span>
+          ${n.snippet ? `<span class="notif-row-snippet">${esc(n.snippet)}</span>` : ''}
+        </span>
+        <span class="notif-row-time">${esc(timeAgo(n.created_at))}</span>
+      </a>`;
+    }
+
     // The whole row is a real ANCHOR: "go to the highlight/citation/book" is a
     // plain navigation the SPA link handler owns (no preventDefault branch).
     // The mute control is its SIBLING inside .notif-item (see file header).
-    const heart = n.type === 'like' ? LIKE_HEART : '';
+    const heart = n.type === 'like' || n.type === 'shelf_like' ? LIKE_HEART : '';
     const muteLabel = n.actor ? `Mute ${n.actor}` : 'Silence anonymous readers';
     return `
       <div class="notif-item" data-actor="${esc(n.actor ?? '')}">

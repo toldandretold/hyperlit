@@ -95,6 +95,70 @@ class ConnectionCountQuery
         return $out;
     }
 
+    /**
+     * Edges per book OWNER, in one direction: for each creator, how many
+     * (their book, counterpart text) pairs exist, per family. `in` = other
+     * texts citing their work; `out` = texts their books cite. Same edge rules
+     * as every other count here — public + has_nodes on both ends, same-owner
+     * and self-loops dropped, sub-books rolled up — so either direction can
+     * only ever mean someone ELSE's text. Feeds the commoner score
+     * (CommonerScoreService), which must not re-derive what an edge is.
+     *
+     * One direction per call on purpose: the scan is pruned to the owners'
+     * books on ONE side, and the two-sided OR prune measured ~5x slower.
+     *
+     * @param  'in'|'out'  $dir
+     * @param  ?string[]  $creators  Restrict to these usernames; null = everyone.
+     * @return array<string, array{hypercite:int, reference:int}>
+     */
+    public function edgesByCreator(string $dir, ?array $creators = null): array
+    {
+        if (! in_array($dir, ['in', 'out'], true)) {
+            throw new \InvalidArgumentException("edgesByCreator: dir must be 'in' or 'out', got '{$dir}'");
+        }
+
+        $books = null;
+        $scope = '';
+        $scopeBindings = [];
+        if ($creators !== null) {
+            $creators = array_values(array_unique(array_filter($creators, fn ($c) => is_string($c) && $c !== '')));
+            if ($creators === []) {
+                return [];
+            }
+            $books = DB::connection('pgsql_admin')->table('library')
+                ->whereIn('creator', $creators)
+                ->where('book', 'not like', '%/%')
+                ->pluck('book')->all();
+            if ($books === []) {
+                return [];
+            }
+            $scope = ' AND lt.creator IN (' . $this->placeholders($creators) . ')';
+            $scopeBindings = $creators;
+        }
+
+        [$cte, $bindings] = $this->edgeCte($books, $dir);
+        $sql = <<<SQL
+            {$cte}
+            SELECT
+                lt.creator,
+                COUNT(DISTINCT (d.book, d.counterpart)) FILTER (WHERE d.kind = 'hypercite') AS hypercite,
+                COUNT(DISTINCT (d.book, d.counterpart)) FILTER (WHERE d.kind = 'reference') AS reference
+            FROM directed d
+            JOIN library lt ON lt.book = d.book
+            WHERE d.dir = ?
+              AND lt.creator IS NOT NULL
+              {$scope}
+            GROUP BY lt.creator
+        SQL;
+
+        $out = [];
+        foreach (DB::connection('pgsql_admin')->select($sql, array_merge($bindings, [$dir], $scopeBindings)) as $r) {
+            $out[$r->creator] = ['hypercite' => (int) $r->hypercite, 'reference' => (int) $r->reference];
+        }
+
+        return $out;
+    }
+
     /** The weighted score for one family's in/out counts. */
     public static function score(int $inbound, int $outbound): int
     {
@@ -294,14 +358,21 @@ class ConnectionCountQuery
      *
      * @return array{0:string, 1:array<int, mixed>}
      */
-    private function edgeCte(?array $books): array
+    private function edgeCte(?array $books, ?string $side = null): array
     {
         $bestVersion = BestVersionService::sqlCoalesceExpression('cs');
         $bindings = [];
 
         // Prune early when scoped: an edge can only affect a book it touches.
+        // A one-direction caller needs just that side ('in' → the cited book,
+        // 'out' → the citing book), and dropping the OR lets the planner use
+        // the list as a plain filter.
         $prune = '';
-        if ($books !== null) {
+        if ($books !== null && $side !== null) {
+            $col = $side === 'in' ? 'e.cited_book' : 'e.citing_book';
+            $prune = " AND {$col} IN (" . $this->placeholders($books) . ')';
+            $bindings = $books;
+        } elseif ($books !== null) {
             $ph = $this->placeholders($books);
             $prune = " AND (e.citing_book IN ({$ph}) OR e.cited_book IN ({$ph}))";
             $bindings = array_merge($books, $books);
