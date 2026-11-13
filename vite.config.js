@@ -154,35 +154,38 @@ export default defineConfig({
                 // just the lava-lamp background behind the consent card)
                 'resources/js/pages/oauthAuthorize.ts',
 
+                // Workbench index (standalone, non-SPA, admin-only — /maintainer; CSS only)
+                'resources/css/pages/maintainer-index.css',
+
                 // Maintainer triage page (standalone, non-SPA, admin-only — /maintainer/conversion)
                 'resources/css/pages/maintainer.css',
-                'resources/js/maintainer/main.ts',
+                'resources/js/workbenches/conversion/main.ts',
 
                 // Job-failure triage page (standalone, non-SPA, admin-only — /maintainer/jobs)
                 'resources/css/pages/maintainer-jobs.css',
-                'resources/js/maintainerJobs/main.ts',
+                'resources/js/workbenches/jobs/main.ts',
 
                 // Storage analysis page (standalone, non-SPA, admin-only — /maintainer/storage)
                 'resources/css/pages/maintainer-storage.css',
-                'resources/js/maintainerStorage/main.ts',
+                'resources/js/workbenches/storage/main.ts',
 
                 // Site-wide reading stats page (standalone, non-SPA, admin-only — /maintainer/stats)
                 'resources/css/pages/maintainer-stats.css',
-                'resources/js/maintainerStats/main.ts',
+                'resources/js/workbenches/stats/main.ts',
 
                 // Journal import console (standalone, non-SPA, admin-only — /maintainer/journal-import)
                 'resources/css/pages/maintainer-journal-import.css',
-                'resources/js/maintainerJournalImport/main.ts',
+                'resources/js/workbenches/journalImport/main.ts',
 
                 // Hypercite review console (standalone, non-SPA, admin-only — /maintainer/hypercites)
                 'resources/css/pages/maintainer-hypercites.css',
-                'resources/js/maintainerHypercites/main.ts',
+                'resources/js/workbenches/hypercites/main.ts',
                 'resources/css/pages/maintainer-citations.css',
-                'resources/js/maintainerCitations/main.ts',
+                'resources/js/workbenches/citations/main.ts',
 
                 // Citation-study review workbench (standalone, non-SPA, admin-only — /maintainer/study)
                 'resources/css/pages/maintainer-study.css',
-                'resources/js/maintainerStudy/main.ts',
+                'resources/js/workbenches/study/main.ts',
         // You can include the service worker here if you wish,
         // but it will be processed by Vite and not end up at the root.
       ],

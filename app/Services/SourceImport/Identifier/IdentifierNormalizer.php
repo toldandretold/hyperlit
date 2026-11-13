@@ -7,7 +7,8 @@ namespace App\Services\SourceImport\Identifier;
  *
  * Accepts: arXiv URLs (arxiv.org/abs, arxiv.org/pdf, ar5iv variants), bare arXiv IDs
  * (new-style "2302.08927", old-style "cs/0301001"), DOI URLs (doi.org/..., dx.doi.org/...),
- * bare DOIs ("doi:10.xxxx/..." or "10.xxxx/..."), and Project Gutenberg book URLs
+ * bare DOIs ("doi:10.xxxx/..." or "10.xxxx/..."), OpenAlex work ids ("W2126853606",
+ * openalex.org/W…), and Project Gutenberg book URLs
  * (gutenberg.org/ebooks/<id>, plus /cache/epub/<id>/ and /files/<id>/ file links).
  *
  * Pure parsing — no I/O. arXiv is checked before DOI because arXiv DOIs would also match
@@ -31,7 +32,28 @@ class IdentifierNormalizer
             return $gutenberg;
         }
 
+        // Before DOI: an openalex.org URL can never contain a DOI, and a bare "W123…"
+        // can never be one, so the order only matters for clarity.
+        if ($openAlex = $this->tryOpenAlex($trimmed)) {
+            return $openAlex;
+        }
+
         return $this->tryDoi($trimmed);
+    }
+
+    private function tryOpenAlex(string $input): ?OpenAlexId
+    {
+        // https://openalex.org/W2126853606, https://api.openalex.org/works/W2126853606
+        if (preg_match('#openalex\.org/(?:works/)?(W\d{3,})\b#i', $input, $m)) {
+            return new OpenAlexId($m[1]);
+        }
+
+        // Bare id, optionally "openalex:"-prefixed. Anchored: a "W123" inside prose is not an id.
+        if (preg_match('#^(?:openalex:\s*)?(W\d{3,})$#i', $input, $m)) {
+            return new OpenAlexId($m[1]);
+        }
+
+        return null;
     }
 
     private function tryGutenberg(string $input): ?GutenbergId
@@ -87,10 +109,29 @@ class IdentifierNormalizer
 
         // doi: prefix or bare DOI
         if (preg_match('#(?:^doi:\s*)?(10\.\d{4,9}/[^\s<>"]+)#i', $input, $m)) {
-            return new Doi($this->trimDoiTail($m[1]));
+            $doi = $m[1];
+            // A DOI lifted out of a PUBLISHER url ("…/doi/full/10.1080/x?src=recsys",
+            // "…/doi/10.1111/x/abstract") drags the page's own tail along with it, and the
+            // result is a DOI OpenAlex has never heard of. Only for URLs: a bare DOI may
+            // legitimately contain "?" or "#" (old SICI-style Wiley DOIs do).
+            if (preg_match('#^https?://#i', $input)) {
+                $doi = $this->stripPublisherUrlTail($doi);
+            }
+
+            return new Doi($this->trimDoiTail($doi));
         }
 
         return null;
+    }
+
+    /** Path segments publishers append AFTER the DOI in their article URLs. */
+    private const PUBLISHER_URL_SUFFIX_RE = '#/(?:full|fulltext|abstract|pdf|epdf|pdfdirect|html|references|figures|metrics)/?$#i';
+
+    private function stripPublisherUrlTail(string $doi): string
+    {
+        $doi = preg_replace('/[?#].*$/', '', $doi) ?? $doi;
+
+        return preg_replace(self::PUBLISHER_URL_SUFFIX_RE, '', $doi) ?? $doi;
     }
 
     /**

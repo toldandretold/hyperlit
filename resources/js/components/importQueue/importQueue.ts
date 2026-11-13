@@ -180,7 +180,7 @@ function buildBatchSection(batch: ImportQueueBatch): HTMLElement {
     const shelfLink = document.createElement('a');
     shelfLink.className = 'import-queue-action';
     shelfLink.textContent = 'View shelf';
-    shelfLink.href = batch.shelf.creator
+    shelfLink.href = batch.shelf.url ? batch.shelf.url : batch.shelf.creator
       ? `/u/${encodeURIComponent(batch.shelf.creator)}/shelf/${encodeURIComponent(batch.shelf.slug || batch.shelf.id)}`
       : '#';
     // Shelf deep links need the user page's inline blade script

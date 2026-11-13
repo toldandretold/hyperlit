@@ -44,12 +44,15 @@ function seedFailure(string $jobClass, string $exception, string $failedAt, stri
 
 // ── Namespace move ────────────────────────────────────────────────────────
 
-test('bare /maintainer redirects to the conversion page, keeping the deep link', function () {
+test('a /maintainer?book= deep link still lands on the conversion page', function () {
+    // The whole namespace is admin-gated now, so a guest gets the same 404 the
+    // conversion page would have given them one hop later.
+    $this->get('/maintainer?book=book_123')->assertNotFound();
+
+    $this->loginUser(['is_admin' => true]);
     // Flag emails already in inboxes point at /maintainer?book=<id>.
     $this->get('/maintainer?book=book_123')
         ->assertRedirect('/maintainer/conversion?book=book_123');
-
-    $this->get('/maintainer')->assertRedirect('/maintainer/conversion');
 });
 
 // ── Admin gating ──────────────────────────────────────────────────────────

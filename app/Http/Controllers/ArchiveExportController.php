@@ -62,12 +62,30 @@ class ArchiveExportController extends Controller
             // library, or whoever keeps the shelf behind a journal/archive.
             // `addShelfId` is the shelf the new book joins (null = a library).
             ...$this->addTargetFor($scopeType, $scopeId, $audience),
+            // The shelf OWNER's hypercite workbench for this archive, or null.
+            // Decided by ShelfWorkbenchAccess — the same check the page and its
+            // API apply — so the button never offers a page that will 404.
+            'curateUrl' => $this->curateUrlFor($scopeType, $scopeId),
             'counts' => [
                 'public_books' => $publicBooks,
                 'export_books' => count($corpus->books),
                 'e2ee_skipped' => count($corpus->encryptedBooks),
             ],
         ]);
+    }
+
+    private function curateUrlFor(string $scopeType, string $scopeId): ?string
+    {
+        if ($scopeType !== 'archive') {
+            return null;
+        }
+        $archive = \App\Models\ArchiveSource::where('slug', $scopeId)->first(['slug', 'shelf_id']);
+        $viewer = Auth::guard('sanctum')->user();
+
+        return $archive && app(\App\Services\Shelves\ShelfWorkbenchAccess::class)
+            ->canCurate((string) $archive->shelf_id, $viewer)
+            ? "/a/{$archive->slug}/hypercites"
+            : null;
     }
 
     /** @return array{canAdd: bool, addShelfId: ?string} */

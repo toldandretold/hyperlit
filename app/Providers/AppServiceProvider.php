@@ -175,6 +175,14 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Archive-export panel/status/build: each export button polls /status
+        // every 2s while a build runs (two buttons = 60/min on their own), so
+        // on the shared inline bucket the poll starved against normal traffic.
+        \Illuminate\Support\Facades\RateLimiter::for('archive-export', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(180)
+                ->by('archive-export|' . ($request->user()?->id ?: $request->ip()));
+        });
+
         // Import status traffic (the /api/import-progress poll, its notify
         // opt-in, and the /api/my-imports aggregate) shares the same
         // shared-bucket failure mode as blob-swap: N concurrent import cards
@@ -207,6 +215,14 @@ class AppServiceProvider extends ServiceProvider
         // Shelf → archive page (availability check is debounced keystrokes,
         // the mint is one POST). Named so typing a slug can't fill the shared
         // inline bucket, and vice versa.
+        // The shelf-owner workbench (/api/shelf-workbench): its own bucket, so the
+        // review loop's reads and run polls (one every 2.5s) are not spent by — and
+        // do not spend — the SPA's shared inline-throttle counter.
+        \Illuminate\Support\Facades\RateLimiter::for('shelf-workbench', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(120)
+                ->by('shelf-workbench|'.($request->user()?->id ?: $request->ip()));
+        });
+
         \Illuminate\Support\Facades\RateLimiter::for('shelf-archive', function ($request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
                 ->by('shelf-archive|'.($request->user()?->id ?: $request->ip()));

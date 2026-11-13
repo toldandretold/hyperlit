@@ -6,6 +6,7 @@ use App\Http\Controllers\ImportController;
 use App\Http\Controllers\UrlImportController;
 use App\Mcp\Support\InternalCall;
 use App\Mcp\TokenAbilities;
+use App\Services\SourceImport\SingleWorkImporter;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -18,15 +19,19 @@ use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
  * Import a document into the user's library. Two inputs:
  *  - file_base64 + filename: a base64-encoded document (md/docx/epub/html/
  *    txt/rtf/odt or an image), capped ~10MB for MCP-arg practicality.
- *  - url: a web page / open-access record, resolved server-side. arXiv URLs,
- *    DOIs and Project Gutenberg book URLs ride dedicated identifier pathways
- *    (ar5iv HTML / OA PDF / Gutenberg EPUB) and are reliable; anything else
- *    falls back to the headless-browser PDF hunt, which is best-effort.
+ *  - url: a work IDENTIFIER, resolved server-side. arXiv (ar5iv HTML) and
+ *    Project Gutenberg (EPUB) fetch one known file. A DOI or OpenAlex work id
+ *    goes to SingleWorkImporter — the open-access acquisition ladder the source
+ *    harvester uses — and lands as the shared commons copy, or a private copy
+ *    when that copy may not be hosted publicly. Anything else (a plain web
+ *    page) is NOT fetched: it is refused as an unrecognised identifier.
  *
  * PDFs are the only paid path (OCR), so they take an estimate → confirm flow:
  * call once to get the price + a confirm_token, call again WITH the token (and
- * the `spend` ability) to run it. All imports are async — the returned book id
- * is polled with import_status.
+ * the `spend` ability) to run it. For an uploaded PDF the estimate comes back
+ * at once; for a DOI / OpenAlex import it surfaces through import_status
+ * (status awaiting_confirmation) once the ladder has found a PDF. All imports
+ * are async — the returned id is polled with import_status.
  */
 #[IsIdempotent(false)]
 class ImportDocumentTool extends HyperlitTool
@@ -40,7 +45,7 @@ class ImportDocumentTool extends HyperlitTool
 
     protected string $name = 'import_document';
 
-    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a `url`. URL imports are RELIABLE for recognised identifiers — arXiv links, DOIs, and Project Gutenberg book URLs (gutenberg.org/ebooks/<id>, imported as the EPUB) — and best-effort for anything else (the generic web fetcher is weak; prefer content/file there). Returns a book id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
+    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a work identifier via `url`: a DOI or an OpenAlex work id (the `doi` / `openalex_id` that search_sources returns) runs Hyperlit\'s open-access acquisition ladder — every free copy known to OpenAlex, Unpaywall, CORE, Semantic Scholar and Europe PMC — and so does not need you to fetch the text yourself; arXiv links and Project Gutenberg book URLs (gutenberg.org/ebooks/<id>) are fetched directly. A DOI/OpenAlex import can still fail (no open copy exists, or every copy is walled) and import_status then says why. An ordinary web page URL is NOT supported — fetch it yourself and pass `content`. Returns an id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
 
     public function schema(JsonSchema $schema): array
     {
@@ -52,8 +57,8 @@ class ImportDocumentTool extends HyperlitTool
             'format' => $schema->string()->enum(['markdown', 'html'])->description('How to interpret `content`. Default markdown.'),
             'file_base64' => $schema->string()->description('Base64-encoded file bytes (for binary formats: docx/epub/pdf/odt/rtf). Provide with filename.'),
             'filename' => $schema->string()->description('Original filename incl. extension (drives the parser), for file_base64.'),
-            'url' => $schema->string()->description('A work URL or identifier. RELIABLE for arXiv URLs, DOIs, and Project Gutenberg book URLs (gutenberg.org/ebooks/<id> — imports the EPUB); metadata and slug are derived server-side. For any OTHER web page the fetcher is unreliable — prefer content or file_base64.'),
-            'confirm_token' => $schema->string()->description('For PDFs only: the token returned by the first (estimate) call, to confirm the charge.'),
+            'url' => $schema->string()->description('A work identifier: a DOI (bare or doi.org URL), an OpenAlex work id (W… or openalex.org/W…), an arXiv URL/id, or a Project Gutenberg book URL. Metadata is derived server-side. A DOI/OpenAlex import returns the shared commons copy when one can be hosted, otherwise a private copy for the user. Not for arbitrary web pages — use content for those.'),
+            'confirm_token' => $schema->string()->description('For PDFs only: the token from the estimate (returned by the first call for an uploaded PDF, or by import_status for a DOI/OpenAlex import that found a PDF), to confirm the OCR charge. Pass it alone to confirm a DOI/OpenAlex import.'),
             'force' => $schema->boolean()->description('Skip the "already in Hyperlit?" duplicate check and import anyway. Default false.'),
         ];
     }
@@ -98,6 +103,13 @@ class ImportDocumentTool extends HyperlitTool
                 );
             }
             return $this->importFile($request, 'pasted.'.$format, $format, $content);
+        }
+
+        // Confirm leg of a DOI / OpenAlex import that paused on a PDF: the token alone
+        // identifies it (the PDF is already on the server, so there is no file to resend).
+        $confirmToken = trim((string) $request->get('confirm_token', ''));
+        if ($confirmToken !== '' && app(SingleWorkImporter::class)->ownsConfirmToken($confirmToken, $this->user($request))) {
+            return $this->confirmWorkImport($request, $confirmToken);
         }
 
         $url = trim((string) $request->get('url', ''));
@@ -168,22 +180,87 @@ class ImportDocumentTool extends HyperlitTool
         $result = InternalCall::call(UrlImportController::class, 'commit', [
             'url' => $url,
             'book' => $book,
+            // DOI / OpenAlex lane: pause for an OCR estimate instead of billing unasked.
+            'surface' => SingleWorkImporter::SURFACE_MCP,
         ], $this->user($request));
 
         $json = is_array($result['json']) ? $result['json'] : [];
         if (($json['ok'] ?? false) !== true) {
-            $error = $json['error'] ?? 'unknown_error';
-            return Response::error(match ($error) {
-                'closed_access_requires_upload' => 'This work is not open-access and can\'t be auto-fetched — download the PDF and import it with file_base64 instead.',
-                'book_id_taken' => 'A book id collision occurred; retry.',
-                default => "URL import failed: {$error}.",
-            });
+            return Response::error($this->urlImportFailure($json));
+        }
+
+        // Already readable — the commons copy, or a copy the user owns. Nothing was fetched.
+        if (($json['existing'] ?? false) === true) {
+            return Response::json([
+                'book' => $json['bookId'],
+                'status' => 'complete',
+                'already_in_hyperlit' => true,
+                'outcome' => $json['outcome'] ?? null,
+                'note' => ($json['outcome'] ?? null) === 'commons'
+                    ? 'This work is already in Hyperlit as a shared commons copy — read it with get_book / read_book, or add it to a shelf with modify_shelf.'
+                    : 'The user already has their own copy of this work — read it with get_book / read_book.',
+            ]);
+        }
+
+        if (($json['async'] ?? false) === true) {
+            return Response::json([
+                'import' => $json['import'],
+                'status' => 'queued',
+                'next' => 'Poll import_status with this id (pass it as `book`). When complete it returns the real book id and whether it is the shared commons copy or a private copy. If it reports awaiting_confirmation, an open copy was found as a PDF: relay the OCR estimate to the user, then call import_document with just the confirm_token.',
+            ]);
         }
 
         return Response::json([
-            'book' => $json['book'] ?? $book,
+            'book' => $json['bookId'] ?? $book,
             'status' => 'queued',
             'next' => 'Poll import_status with this book id.',
+        ]);
+    }
+
+    /**
+     * Say WHY a url import failed. The old `URL import failed: <code>` threw away the
+     * controller's reason and the publisher link, so an agent could not tell "no open copy
+     * exists" from "the publisher walled us" from "that is not an identifier".
+     *
+     * @param  array<string, mixed>  $json
+     */
+    private function urlImportFailure(array $json): string
+    {
+        $error = (string) ($json['error'] ?? 'unknown_error');
+        $source = ! empty($json['source_url']) ? " Source: {$json['source_url']}." : '';
+
+        return match ($error) {
+            'unrecognised_identifier' => 'That is not a recognised work identifier. `url` takes a DOI, an OpenAlex work id (W…), an arXiv link or a Project Gutenberg book URL — not an ordinary web page. For a web page, fetch the text yourself and pass it as `content`.',
+            'metadata_unavailable', 'metadata_unavailable_but_canonical_exists' => 'OpenAlex has no record for that identifier, so the work could not be resolved. Check the DOI / id (search_sources returns valid ones), or import the text via `content`.',
+            'closed_access_requires_upload' => 'No open-access copy of this work is listed by OpenAlex, Unpaywall, CORE or Semantic Scholar, so it cannot be fetched automatically. If the user has the PDF, import it with file_base64.'.$source,
+            'content_fetch_failed' => 'The file for this work could not be downloaded ('.($json['reason'] ?? 'unknown reason').').'.$source,
+            'book_id_taken' => 'A book id collision occurred; retry.',
+            'invalid_session' => 'The session is not valid for importing.',
+            default => "URL import failed: {$error}.".$source,
+        };
+    }
+
+    private function confirmWorkImport(Request $request, string $confirmToken): Response
+    {
+        $user = $this->user($request);
+        $spendToken = $user->currentAccessToken();
+        if ($spendToken instanceof \Laravel\Sanctum\PersonalAccessToken && ! $spendToken->can(TokenAbilities::SPEND)) {
+            return Response::error("Confirming a paid PDF import needs the 'spend' ability — the user can mint a token with it via the user button → Data sovereignty → MCP for AI access → Connect an AI.");
+        }
+        if (! app(\App\Services\BillingService::class)->canProceed($user)) {
+            return Response::error('Insufficient balance for OCR. The user can top up credits in Account → Money.');
+        }
+
+        $result = app(SingleWorkImporter::class)->confirm($confirmToken, $user);
+        if (! $result['ok']) {
+            return Response::error('That confirm_token is unknown or no longer awaiting confirmation — poll import_status for the current state.');
+        }
+
+        return Response::json([
+            'import' => $result['import'],
+            'status' => 'queued',
+            'charged' => 'OCR will be billed per page after conversion succeeds.',
+            'next' => 'Poll import_status with this id.',
         ]);
     }
 

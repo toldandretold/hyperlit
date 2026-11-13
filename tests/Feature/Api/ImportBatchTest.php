@@ -466,3 +466,26 @@ test('derived shelves (Likes, licence-review) refuse an import target, even for 
         $admin->table('shelves')->where('id', $shelfId)->delete();
     }
 });
+
+test('my-imports links a batch\'s shelf to its archive page when it has one, else the user-page shelf', function () {
+    $owner = $this->seedUser(['email' => 'batch_home@test.local']);
+    $withArchive = seedAdminShelf($owner->name);
+    $plain = seedAdminShelf($owner->name);
+    $slug = 'batchtest-archive-' . strtolower(Str::random(6));
+    DB::connection('pgsql_admin')->table('archive_sources')->insert([
+        'slug' => $slug, 'shelf_id' => $withArchive, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $this->actingAs($owner);
+
+    try {
+        $a = $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => $withArchive]))->assertStatus(201)->json('id');
+        $b = $this->postJson('/api/import-batches', batchPayload(1, ['shelf_id' => $plain]))->assertStatus(201)->json('id');
+
+        $batches = collect($this->getJson('/api/my-imports')->assertStatus(200)->json('batches'))->keyBy('id');
+        expect($batches[$a]['shelf']['url'])->toBe(url('/a/' . $slug))
+            ->and($batches[$b]['shelf']['url'])->toContain('/u/')
+            ->and($batches[$b]['shelf']['url'])->toContain('/shelf/');
+    } finally {
+        DB::connection('pgsql_admin')->table('archive_sources')->where('slug', $slug)->delete();
+    }
+});

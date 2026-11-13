@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\File;
  */
 class MarkdownVaultBuilder
 {
+    /** Pending note bytes that trigger a zip flush — the build's memory ceiling. */
+    public const FLUSH_BYTES = 8 * 1024 * 1024;
+
+    /** Overridable so a test can force a flush between every note. */
+    public int $flushBytes = self::FLUSH_BYTES;
+
     public function __construct(private readonly BookMarkdownExporter $exporter)
     {
     }
@@ -42,11 +48,29 @@ class MarkdownVaultBuilder
 
         $zip->addFromString("{$root}/README.md", $this->hubOrReadme($corpus, $names));
 
+        // ZipArchive keeps every addFromString() payload in memory until
+        // close(), so an unflushed build peaks at the WHOLE corpus's markdown.
+        // Close + reopen (append) once the pending notes pass FLUSH_BYTES:
+        // peak is then one flush window, whatever the corpus size.
+        $pending = 0;
         $total = max(1, count($corpus->books));
         foreach ($corpus->books as $i => $row) {
             $markdown = $this->exporter->markdownFor($row->book, obsidianLinks: true);
             if (trim($markdown) !== '') {
-                $zip->addFromString("{$root}/{$names[$row->book]}", $this->frontMatter($row->book, $corpus) . $markdown);
+                $note = $this->frontMatter($row->book, $corpus) . $markdown;
+                $zip->addFromString("{$root}/{$names[$row->book]}", $note);
+                $pending += strlen($note);
+                unset($note);
+            }
+            unset($markdown);
+            if ($pending >= $this->flushBytes) {
+                if (!$zip->close()) {
+                    throw new \RuntimeException('Zip flush failed');
+                }
+                if ($zip->open($workPath) !== true) {
+                    throw new \RuntimeException("Cannot reopen zip at {$workPath}");
+                }
+                $pending = 0;
             }
             $onProgress(($i + 1) / $total);
         }

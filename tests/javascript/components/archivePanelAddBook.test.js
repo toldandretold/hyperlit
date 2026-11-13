@@ -33,6 +33,24 @@ describe('archive panel plus', () => {
     expect(document.getElementById('archive-add-book')).not.toBeNull();
   });
 
+  it('Creator Tools (with the hypercite workbench) renders only when the server grants curateUrl', async () => {
+    document.body.innerHTML = await buildArchiveHtml({ ...base, canAdd: true, addShelfId: SHELF });
+    expect(document.getElementById('creator-tools-section')).toBeNull();
+    expect(document.getElementById('archive-hypercite-workbench')).toBeNull();
+
+    document.body.innerHTML = await buildArchiveHtml({ ...base, curateUrl: '/a/course/hypercites' });
+    // The book panel's collapsible section, collapsed by default, inside the scroller.
+    const section = document.querySelector('#archive-content #creator-tools-section');
+    expect(section).not.toBeNull();
+    expect(section.querySelector('#creator-tools-toggle').textContent).toContain('Creator Tools');
+    expect(section.querySelector('#creator-tools-content').style.display).toBe('none');
+    const btn = section.querySelector('#creator-tools-content #archive-hypercite-workbench');
+    expect(btn.dataset.href).toBe('/a/course/hypercites');
+    expect(btn.textContent).toContain('Hypercite workbench');
+    // It is a tool row, not an action-bar icon any more.
+    expect(document.querySelector('#source-action-bar #archive-hypercite-workbench')).toBeNull();
+  });
+
   it('the plus is an in-panel popover (Blank / Import) that blurs the panel, like Share', async () => {
     const { wirePanelPopover } = await import('../../../resources/js/components/sourceContainer/readerActions');
     document.body.innerHTML = `<div id="archive-container">${await buildArchiveHtml({ ...base, canAdd: true, addShelfId: SHELF })}</div>`;

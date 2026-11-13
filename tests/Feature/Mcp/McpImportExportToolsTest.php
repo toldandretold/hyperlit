@@ -193,6 +193,185 @@ test('import_status reads a real progress file (importProgress takes no Request)
     }
 });
 
+// ── url: a DOI / OpenAlex id rides the open-access acquisition ladder ─────────
+
+/** A normalised OpenAlex work, as OpenAlexService::fetchByDoi / fetchByOpenAlexId return it. */
+function ieWork(bool $isOa = true): array
+{
+    $suffix = Str::lower(Str::random(8));
+
+    return [
+        'title' => 'IE Ladder Work '.$suffix,
+        'author' => 'Tester, A.',
+        'year' => 2021,
+        'doi' => '10.5555/ie.'.$suffix,
+        'openalex_id' => 'W8'.random_int(100000000, 999999999),
+        'is_oa' => $isOa,
+        'oa_status' => $isOa ? 'gold' : 'closed',
+        'type' => 'article',
+    ];
+}
+
+/** work_imports rows commit on pgsql_admin (outside RefreshDatabase) — clear this user's. */
+function ieForgetWorkImports(User $user): void
+{
+    $db = DB::connection('pgsql_admin');
+    foreach ($db->table('work_imports')->where('user_id', $user->id)->pluck('id') as $id) {
+        \Illuminate\Support\Facades\File::deleteDirectory(resource_path("markdown/{$id}"));
+    }
+    $db->table('work_imports')->where('user_id', $user->id)->delete();
+}
+
+test('import_document with a DOI queues a single-work import on the MCP surface', function () {
+    Queue::fake();
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+    $work = ieWork();
+    $this->mock(\App\Services\OpenAlexService::class, fn ($m) => $m->shouldReceive('fetchByDoi')
+        ->with($work['doi'])->andReturn($work));
+
+    try {
+        $response = ieCall($this, $token, 'import_document', ['url' => 'https://doi.org/'.$work['doi']]);
+
+        expect($response->json('result.isError'))->not->toBeTrue();
+        $json = ieJson($response);
+        expect($json['status'])->toBe('queued');
+        expect($json['import'] ?? '')->toStartWith('book_');
+        Queue::assertPushedOn(ProcessDocumentImportJob::QUEUE_INTERACTIVE, \App\Jobs\ImportWorkJob::class);
+        // The old importer's job is NOT what runs a DOI any more.
+        Queue::assertNotPushed(ProcessDocumentImportJob::class);
+
+        $row = DB::connection('pgsql_admin')->table('work_imports')->where('id', $json['import'])->first();
+        expect($row)->surface->toBe('mcp')->user_id->toBe($user->id)->identifier->toBe('doi:'.$work['doi']);
+    } finally {
+        ieForgetWorkImports($user);
+    }
+});
+
+test('import_document accepts an OpenAlex work id', function () {
+    Queue::fake();
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+    $work = ieWork();
+    $this->mock(\App\Services\OpenAlexService::class, fn ($m) => $m->shouldReceive('fetchByOpenAlexId')
+        ->once()->with($work['openalex_id'])->andReturn($work));
+
+    try {
+        $response = ieCall($this, $token, 'import_document', ['url' => $work['openalex_id']]);
+
+        expect($response->json('result.isError'))->not->toBeTrue();
+        expect(ieJson($response)['status'])->toBe('queued');
+        Queue::assertPushed(\App\Jobs\ImportWorkJob::class, 1);
+    } finally {
+        ieForgetWorkImports($user);
+    }
+});
+
+test('import_document says an ordinary web page is not an identifier, instead of a bare error code', function () {
+    Queue::fake();
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+
+    $response = ieCall($this, $token, 'import_document', ['url' => 'https://www.theguardian.com/some/article']);
+
+    expect($response->json('result.isError'))->toBeTrue();
+    $text = (string) $response->json('result.content.0.text');
+    expect($text)->toContain('not a recognised work identifier')->toContain('content');
+    Queue::assertNothingPushed();
+});
+
+test('a closed work with no open copy anywhere is refused with the reason and the source link', function () {
+    Queue::fake();
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+    $work = ieWork(isOa: false);
+    $this->mock(\App\Services\OpenAlexService::class, fn ($m) => $m->shouldReceive('fetchByDoi')->andReturn($work));
+    $this->mock(\App\Services\SourceImport\Content\OaLocationResolver::class, fn ($m) => $m->shouldReceive('resolve')->andReturn([]));
+
+    $response = ieCall($this, $token, 'import_document', ['url' => $work['doi']]);
+
+    expect($response->json('result.isError'))->toBeTrue();
+    $text = (string) $response->json('result.content.0.text');
+    expect($text)->toContain('No open-access copy')->toContain('https://doi.org/'.$work['doi']);
+    Queue::assertNothingPushed();
+});
+
+test('a closed work that has a repository copy is queued, not refused', function () {
+    Queue::fake();
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+    $work = ieWork(isOa: false);
+    $this->mock(\App\Services\OpenAlexService::class, fn ($m) => $m->shouldReceive('fetchByDoi')->andReturn($work));
+    $this->mock(\App\Services\SourceImport\Content\OaLocationResolver::class, fn ($m) => $m->shouldReceive('resolve')->andReturn([
+        ['url' => 'https://figshare.com/x.pdf', 'kind' => 'pdf', 'host' => 'figshare.com', 'host_class' => 'repository', 'source' => 'unpaywall'],
+    ]));
+
+    try {
+        $response = ieCall($this, $token, 'import_document', ['url' => $work['doi']]);
+
+        expect($response->json('result.isError'))->not->toBeTrue();
+        Queue::assertPushed(\App\Jobs\ImportWorkJob::class, 1);
+    } finally {
+        ieForgetWorkImports($user);
+    }
+});
+
+test('confirming a paused DOI import needs the spend ability, then re-queues it', function () {
+    Queue::fake();
+    $user = $this->seedUser(['status' => 'premium']);
+    $id = 'book_ieconfirm_'.Str::lower(Str::random(6));
+    $confirm = 'ieconfirm'.Str::lower(Str::random(10));
+    DB::connection('pgsql_admin')->table('work_imports')->insert([
+        'id' => $id, 'user_id' => $user->id, 'creator' => $user->name,
+        'canonical_source_id' => (string) Str::uuid(), 'identifier' => 'doi:10.5555/ie.confirm',
+        'surface' => 'mcp', 'status' => 'awaiting_confirmation', 'confirm_token' => $confirm,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    try {
+        $noSpend = ieCall($this, ieToken($user, [TokenAbilities::IMPORT]), 'import_document', ['confirm_token' => $confirm]);
+        expect($noSpend->json('result.isError'))->toBeTrue();
+        expect((string) $noSpend->json('result.content.0.text'))->toContain('spend');
+        Queue::assertNothingPushed();
+
+        $ok = ieCall($this, ieToken($user, [TokenAbilities::IMPORT, TokenAbilities::SPEND]), 'import_document', ['confirm_token' => $confirm]);
+        expect($ok->json('result.isError'))->not->toBeTrue();
+        expect(ieJson($ok))->toMatchArray(['import' => $id, 'status' => 'queued']);
+        Queue::assertPushedOn(ProcessDocumentImportJob::QUEUE_INTERACTIVE, \App\Jobs\ImportWorkJob::class);
+
+        $row = DB::connection('pgsql_admin')->table('work_imports')->where('id', $id)->first();
+        expect((bool) $row->ocr_confirmed)->toBeTrue()->and($row->confirm_token)->toBeNull();
+    } finally {
+        ieForgetWorkImports($user);
+    }
+});
+
+test('import_status hands back the real book, the outcome and a pending OCR estimate', function () {
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::READ]);
+    $import = 'book_ieprog_'.Str::lower(Str::random(6));
+    $dir = resource_path("markdown/{$import}");
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+
+    try {
+        \App\Services\SourceImport\SingleWorkImporter::writeProgress($import, 'awaiting_confirmation', 'awaiting_confirmation', 40, 'needs OCR', [
+            'estimated_pages' => 24, 'estimated_cost_usd' => 0.07, 'confirm_token' => 'tok123',
+        ]);
+        $paused = ieJson(ieCall($this, $token, 'import_status', ['book' => $import]));
+        expect($paused)->toMatchArray([
+            'status' => 'awaiting_confirmation', 'estimated_pages' => 24, 'estimated_cost_usd' => 0.07, 'confirm_token' => 'tok123',
+        ]);
+
+        \App\Services\SourceImport\SingleWorkImporter::writeProgress($import, 'complete', 'complete', 100, 'done', [
+            'book' => 'the-real-book-uuid', 'outcome' => 'commons',
+        ]);
+        $done = ieJson(ieCall($this, $token, 'import_status', ['book' => $import]));
+        expect($done)->toMatchArray(['status' => 'complete', 'book' => 'the-real-book-uuid', 'outcome' => 'commons']);
+    } finally {
+        \Illuminate\Support\Facades\File::deleteDirectory($dir);
+    }
+});
+
 test('export_markdown returns the book body, paginated', function () {
     $user = $this->seedUser();
     $book = 'book_mcpx_'.Str::random(6);

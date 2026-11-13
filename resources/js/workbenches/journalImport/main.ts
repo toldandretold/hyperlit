@@ -1,0 +1,2176 @@
+/**
+ * /maintainer/journal-import — the journal pipeline console (standalone, non-SPA, admin-only;
+ * see Maintainer\JournalImportController).
+ *
+ * One entry, two pages. The INDEX picks a journal from the existing registry; the DETAIL page
+ * (`window.__journalImport.slug`) works one journal's articles. Which one is running is decided
+ * by that global, not by the URL, so the blade stays the source of truth.
+ *
+ * The unit on the detail page is the LANE, not the article: a canonical can carry sibling
+ * library rows (pdf / html / ar5iv), and comparing what each produced is the whole point of the
+ * page. Selecting a lane loads what we produced beside what we produced it from.
+ */
+
+import { log } from '../../utilities/logger';
+import { csrfHeaders as sharedCsrfHeaders } from '../shared/http';
+import { initShelfDrop } from './shelfDrop';
+import { hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision } from './articleFilters';
+import { drainResponse } from '../../utilities/drainResponse';
+import {
+  applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
+} from '../../utilities/sourceFrameTheme';
+
+interface JournalRow {
+  slug: string;
+  display_name: string;
+  publisher: string | null;
+  issn_l: string | null;
+  openalex_source_id: string;
+  is_diamond: boolean;
+  diamond_provenance: string | null;
+  /** An operator vouched for this journal — it is listed on the homepage. Toggled on the detail page. */
+  certified: boolean;
+  works_count: number | null;
+  cited_by_count: number | null;
+  last_harvested_at: string | null;
+  harvest_runs: number;
+  harvest_spend: number;
+  articles_total: number;
+  articles_imported: number;
+  articles_eligible: number;
+}
+
+interface FetchTrace {
+  won_host?: string;
+  won_source?: string;
+  completeness?: string;
+  body_verdict?: string;
+  body_reason?: string;
+}
+
+interface Lane {
+  book: string;
+  lane: string;
+  foundation_source: string | null;
+  conversion_method: string | null;
+  has_nodes: boolean;
+  listed: boolean;
+  visibility: string | null;
+  completeness: string | null;
+  completeness_reason: string | null;
+  pdf_url_status: string | null;
+  is_version: boolean;
+  needs_approval: boolean;
+  fixture: string | null;
+  golden_complete: boolean;
+  open_flags: number;
+  maintainer_note: string | null;
+  metadata_drift: MetadataDrift | null;
+  artifacts: string[];
+  fetch_trace: FetchTrace | null;
+}
+
+/**
+ * The publisher's own page disagrees with the citation metadata we stored.
+ *
+ * `action` is the detector's verdict per field: `correct`/`fill` were applied because the stored
+ * value was provably broken (an epoch sentinel, or a year before the journal existed);
+ * `dispute` means both values are plausible and a human has to choose; `reject_page` means the
+ * PAGE failed the plausibility gate and we kept what we had.
+ */
+interface DriftField {
+  stored: string | number | null;
+  page: string | number | null;
+  action: 'correct' | 'fill' | 'dispute' | 'reject_page';
+  rule: string | null;
+}
+
+interface MetadataDrift {
+  /** true = a maintainer has to choose; false = an audit record of what was already corrected. */
+  needs_decision: boolean;
+  fields: Record<string, DriftField>;
+  applied: Record<string, string | number>;
+}
+
+/** One readable line per field, for the badge tooltip. */
+function describeDrift(drift: MetadataDrift): string {
+  const show = (v: string | number | null): string =>
+    v === null || v === '' ? '(empty)' : String(v);
+
+  return Object.entries(drift.fields)
+    .map(([field, d]) => {
+      const verb = d.action === 'dispute' ? 'DISPUTED —' : d.action === 'reject_page' ? 'kept ours —' : 'fixed —';
+      return `${field}: ${verb} stored ${show(d.stored)}, publisher page ${show(d.page)}${d.rule ? ` (${d.rule})` : ''}`;
+    })
+    .join('\n');
+}
+
+interface Article {
+  canonical_id: string;
+  title: string | null;
+  author: string | null;
+  year: string | null;
+  volume: string | null;
+  issue: string | null;
+  doi: string | null;
+  cited_by_count: number | null;
+  is_oa: boolean;
+  fetchable: boolean;
+  version_book: string | null;
+  lanes: Lane[];
+}
+
+const el = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+const has = (id: string): boolean => document.getElementById(id) !== null;
+
+/**
+ * Disable/enable a set of buttons, ignoring any this page doesn't have.
+ *
+ * The journal and shelf consoles are the same module and share these id lists, but not their
+ * markup — the shelf blade has no enumerate or bulk-import control. A hard `el()` lookup here
+ * throws on the first press of any action the two pages DO share.
+ */
+function setButtonsDisabled(ids: string[], disabled: boolean): void {
+  for (const id of ids) {
+    const button = document.getElementById(id) as HTMLButtonElement | null;
+    if (button) button.disabled = disabled;
+  }
+}
+
+/**
+ * The blade's boot handshake. mode 'shelf' is the shelf-import console — same
+ * page, same JS, but `articles` and `run` hit the shelf-scoped API while the
+ * book-/run-keyed endpoints (promote, resolve, runStatus, note) stay shared.
+ */
+interface Boot {
+  slug?: string | null;
+  shelfId?: string | null;
+  shelfName?: string | null;
+  mode?: 'journal' | 'shelf';
+}
+
+const boot: Boot = (window as unknown as { __journalImport?: Boot }).__journalImport ?? {};
+const isDetail = !!(boot.slug || boot.shelfId);
+
+/** The scope-keyed API base: everything else is book- or run-keyed and shared. */
+function apiBase(): string {
+  return boot.shelfId
+    ? `/api/maintainer/shelf-import/${encodeURIComponent(boot.shelfId)}`
+    : `/api/maintainer/journal-import/${encodeURIComponent(boot.slug ?? '')}`;
+}
+
+let statusTimer: number | undefined;
+
+/**
+ * The run currently being polled, or null.
+ *
+ * Guards the re-attach in loadDetail(): the articles payload reports an in-flight run on every
+ * load, and without this a reload that lands while a poll is already running would start a
+ * second loop against the same row.
+ */
+let pollingRunId: string | null = null;
+
+/** When the current run was first seen queued — for the "no worker is running" hint. */
+let queuedSince: number | null = null;
+
+/**
+ * Re-attach an in-flight run, set by wireJournalActions (which owns the buttons and the status
+ * line it needs). Null on the shelf console, which has no journal-scoped actions to resume.
+ *
+ * Declared up here with the rest of the module state rather than beside its assignment: a `let`
+ * is in the temporal dead zone until its declaration is evaluated, and loadDetail() reads this.
+ */
+let resumeActiveRun: ((run: RunState) => void) | null = null;
+
+function setStatus(text: string): void {
+  const node = document.getElementById('ji-status') || document.getElementById('ji-actions-status');
+  if (!node) return;
+  node.textContent = text;
+  node.classList.add('ji-visible');
+  window.clearTimeout(statusTimer);
+  statusTimer = window.setTimeout(() => node.classList.remove('ji-visible'), 4000);
+}
+
+// ── Index page ─────────────────────────────────────────────────────────────
+
+let journals: { started: JournalRow[]; next: JournalRow[] } = { started: [], next: [] };
+
+async function loadIndex(): Promise<void> {
+  const resp = await fetch('/api/maintainer/journal-import/journals', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Journal list fetch failed (${resp.status})`, 'maintainer-journal-import');
+    setStatus(`could not load journals (${resp.status})`);
+    return;
+  }
+
+  journals = await resp.json();
+  const total = journals.started.length + journals.next.length;
+  const imported = journals.started.reduce((n, j) => n + j.articles_imported, 0);
+  el<HTMLElement>('ji-summary').textContent =
+    `${total} journal${total === 1 ? '' : 's'} · ${journals.started.length} started · ${imported} article${imported === 1 ? '' : 's'} imported`;
+  renderIndex();
+}
+
+function renderIndex(): void {
+  const filter = (el<HTMLInputElement>('ji-filter')?.value || '').trim().toLowerCase();
+  const match = (j: JournalRow): boolean =>
+    !filter
+    || j.display_name.toLowerCase().includes(filter)
+    || (j.publisher || '').toLowerCase().includes(filter)
+    || (j.issn_l || '').toLowerCase().includes(filter);
+
+  renderJournalList('ji-started-list', 'ji-started-empty', journals.started.filter(match), true);
+  renderJournalList('ji-next-list', 'ji-next-empty', journals.next.filter(match), false);
+}
+
+function renderJournalList(listId: string, emptyId: string, rows: JournalRow[], started: boolean): void {
+  const list = el<HTMLDivElement>(listId);
+  list.textContent = '';
+  el<HTMLElement>(emptyId).hidden = rows.length > 0;
+
+  for (const j of rows) {
+    const item = document.createElement('a');
+    item.className = 'ji-journal';
+    item.setAttribute('role', 'listitem');
+    item.href = `/maintainer/journal-import/${encodeURIComponent(j.slug)}`;
+
+    const name = document.createElement('span');
+    name.className = 'ji-journal-name';
+    name.textContent = j.display_name;
+    item.appendChild(name);
+
+    const meta = document.createElement('span');
+    meta.className = 'ji-journal-meta';
+    const bits: string[] = [];
+    if (j.publisher) bits.push(j.publisher);
+    if (j.cited_by_count) bits.push(`${j.cited_by_count.toLocaleString()} citations`);
+    if (j.works_count) bits.push(`${j.works_count.toLocaleString()} works`);
+    meta.textContent = bits.join(' · ');
+    item.appendChild(meta);
+
+    const stats = document.createElement('span');
+    stats.className = 'ji-journal-stats';
+    if (started) {
+      stats.textContent = `${j.articles_imported} imported · ${j.articles_eligible} left`;
+    } else {
+      stats.textContent = j.articles_total ? `${j.articles_total} enumerated` : 'not enumerated';
+    }
+    item.appendChild(stats);
+
+    if (j.is_diamond) {
+      const badge = document.createElement('span');
+      badge.className = 'ji-badge ji-badge-diamond';
+      badge.textContent = '◆ diamond';
+      badge.title = j.diamond_provenance || '';
+      item.appendChild(badge);
+    }
+
+    // Read-only: the row is an <a>, so the toggle can't live here (a button inside an
+    // anchor is invalid markup). It's on the journal's own page, which is where you'd
+    // have just read the conversions you're vouching for.
+    if (j.certified) {
+      const badge = document.createElement('span');
+      badge.className = 'ji-badge ji-badge-certified';
+      badge.textContent = '★ certified';
+      badge.title = 'Listed on the Hyperlit homepage';
+      item.appendChild(badge);
+    }
+
+    list.appendChild(item);
+  }
+}
+
+// ── Detail page ────────────────────────────────────────────────────────────
+
+let articles: Article[] = [];
+let selected: Lane | null = null;
+/** Set instead of `selected` when an article with no lanes is picked (the import bar's target). */
+let selectedArticle: Article | null = null;
+/** Which lane the note editor is currently showing, so a re-render doesn't shut it under you. */
+let noteStripBook: string | null = null;
+
+async function loadDetail(): Promise<void> {
+  const resp = await fetch(`${apiBase()}/articles`, {
+    credentials: 'include',
+  });
+  if (!resp.ok) {
+    log.error(`Articles fetch failed (${resp.status})`, 'maintainer-journal-import');
+    setStatus(`could not load articles (${resp.status})`);
+    return;
+  }
+
+  const data = await resp.json();
+  articles = (data.articles ?? []) as Article[];
+
+  // A bulk run that outlived the page. The poll lives in a promise chain with no persisted id, so
+  // before this a reload mid-import was indistinguishable from a dead worker — the job kept going
+  // and the console never mentioned it again. Absent on the shelf console, which has no bulk runs.
+  if (data.active_run && resumeActiveRun) resumeActiveRun(data.active_run as RunState);
+
+  // A reconvert_all that finished QUEUEING but is still draining through the import
+  // worker (shelf payloads carry no count — this no-ops there). Skipped while a live
+  // run owns the panel; pollRun re-seeds it when the run settles.
+  if (!pollingRunId) renderReconvertBacklog(Number(data.reconvert_backlog ?? 0));
+
+  const link = el<HTMLAnchorElement>('ji-public-link');
+  if (data.shelf) {
+    const s = data.shelf as {
+      name: string; creator: string; item_count: number; unlinked_count: number; public_page: string;
+    };
+    el<HTMLElement>('ji-journal-name').textContent = s.name;
+    el<HTMLElement>('ji-journal-meta').textContent =
+      `${articles.length} work${articles.length === 1 ? '' : 's'} · ${s.item_count} shelf item${s.item_count === 1 ? '' : 's'}`
+      + (s.unlinked_count ? ` · ${s.unlinked_count} without a canonical` : '')
+      + ` · ${s.creator}`;
+    link.href = s.public_page;
+  } else {
+    const j = data.journal;
+    el<HTMLElement>('ji-journal-name').textContent = j.display_name;
+    const est = data.estimate ?? {};
+    el<HTMLElement>('ji-journal-meta').textContent =
+      `${est.already_harvested ?? 0} imported · ${est.eligible ?? 0} eligible · ${est.total ?? 0} enumerated`
+      + (j.publisher ? ` · ${j.publisher}` : '');
+    link.href = j.public_page;
+    // Server truth, every reload — the flag is settable from anywhere with the API.
+    paintCertifyButton(!!j.certified);
+    paintHeroNameField(j.hero_name ?? null);
+  }
+
+  // The selected lane is a snapshot of the previous payload; re-point it at the fresh row so the
+  // strip shows what the server now holds (a saved note can have opened a flag) rather than a
+  // stale copy that merely looks right because the textarea kept what you typed.
+  if (selected) {
+    const fresh = articles.flatMap((a) => a.lanes).find((l) => l.book === selected?.book);
+    if (fresh) {
+      selected = fresh;
+      renderDetailStrip(fresh);
+    }
+  }
+
+  renderArticles();
+}
+
+function renderArticles(): void {
+  const onlyImported = el<HTMLInputElement>('ji-only-imported')?.checked ?? false;
+  // "Failed" = this work has NO usable version, not "some lane is empty".
+  //
+  // A failed import still mints its lane row and never gets content, so an empty lane used to be a
+  // sound proxy for a failed work — back when a work had one lane. The html-first strategy broke
+  // that: it tries the free publisher page per work and falls back to the PDF, so every work whose
+  // HTML lane failed and whose PDF lane then SUCCEEDED carries a permanent empty `journal_html`
+  // stub beside a perfectly good pdf lane. After a 944-work run that was most of the journal, and
+  // "failed only" listed nearly all of it.
+  const onlyFailed = el<HTMLInputElement>('ji-only-failed')?.checked ?? false;
+  const onlyMetadata = el<HTMLInputElement>('ji-only-metadata')?.checked ?? false;
+
+  const needle = (el<HTMLInputElement>('ji-article-search')?.value || '').trim().toLowerCase();
+
+  let rows = articles;
+  if (onlyImported) rows = rows.filter(isAttempted);
+  // Attempted but nothing came of it. A work nobody has tried has no lanes at all and is correctly
+  // excluded — that is "not imported yet", not "failed". See articleFilters.ts for why this is
+  // "no lane has content" rather than the cheaper "some lane is empty".
+  if (onlyFailed) rows = rows.filter(isFailed);
+  // Metadata flags cover two things: a dispute someone must settle, and an audit record of a
+  // correction already made. Show the decisions if there are any, and only fall back to the whole
+  // set when there is nothing to decide — otherwise a journal-wide repair's thousand audit rows
+  // bury the handful that are actually work.
+  if (onlyMetadata) {
+    const decisions = rows.filter(needsMetadataDecision);
+    rows = decisions.length > 0 ? decisions : rows.filter(hasMetadataDrift);
+  }
+  if (needle) {
+    rows = rows.filter((a) => (a.title || '').toLowerCase().includes(needle)
+      || (a.doi || '').toLowerCase().includes(needle));
+  }
+
+  const list = el<HTMLDivElement>('ji-articles-list');
+  list.textContent = '';
+  el<HTMLElement>('ji-articles-empty').hidden = rows.length > 0;
+  el<HTMLElement>('ji-articles-count').textContent =
+    `${rows.length} article${rows.length === 1 ? '' : 's'}`;
+
+  for (const article of rows) {
+    list.appendChild(buildArticle(article));
+  }
+}
+
+function buildArticle(article: Article): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'ji-article';
+  wrap.setAttribute('role', 'listitem');
+  if (selectedArticle?.canonical_id === article.canonical_id) wrap.classList.add('ji-article-selected');
+
+  const title = document.createElement('div');
+  title.className = 'ji-article-title';
+  title.textContent = article.title || '(untitled)';
+  title.tabIndex = 0;
+  // Selecting the ARTICLE (not a lane) is how an un-imported work is acted on: without this,
+  // clicking one of the 106 rows with nothing under it did nothing at all.
+  const pick = (): void => { selectArticle(article); };
+  title.addEventListener('click', pick);
+  title.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
+  });
+  wrap.appendChild(title);
+
+  const meta = document.createElement('div');
+  meta.className = 'ji-article-meta';
+  const bits: string[] = [];
+  if (article.year) bits.push(String(article.year));
+  if (article.volume) bits.push(`vol ${article.volume}${article.issue ? `(${article.issue})` : ''}`);
+  if (article.cited_by_count) bits.push(`cited ${article.cited_by_count}`);
+  if (!article.lanes.length) bits.push(article.fetchable ? 'not imported' : 'nothing fetchable');
+  meta.textContent = bits.join(' · ');
+  wrap.appendChild(meta);
+
+  for (const lane of article.lanes) {
+    wrap.appendChild(buildLane(lane));
+  }
+
+  return wrap;
+}
+
+function buildLane(lane: Lane): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'ji-lane';
+  if (selected?.book === lane.book) row.classList.add('ji-lane-selected');
+  row.tabIndex = 0;
+
+  const name = document.createElement('span');
+  name.className = `ji-lane-name ji-lane-${lane.lane}`;
+  name.textContent = lane.lane;
+  row.appendChild(name);
+
+  if (lane.is_version) {
+    const star = document.createElement('span');
+    star.className = 'ji-badge ji-badge-version';
+    star.textContent = '★ version';
+    star.title = 'The promoted version — what /j, the shelf and readers resolve to';
+    row.appendChild(star);
+  }
+
+  // Evidence badges: what the conversion is, how complete, what the gates said.
+  const badges: Array<[string, string, string]> = [];
+  if (lane.conversion_method) badges.push(['method', lane.conversion_method, '']);
+  if (!lane.has_nodes) badges.push(['warn', 'no content', lane.pdf_url_status || '']);
+  if (lane.completeness && lane.completeness !== 'verified_full') {
+    badges.push(['warn', lane.completeness, lane.completeness_reason || '']);
+  }
+  if (lane.fetch_trace?.body_verdict === 'absent') {
+    badges.push(['warn', 'body absent', lane.fetch_trace.body_reason || '']);
+  }
+  if (lane.fetch_trace?.won_host) badges.push(['dim', lane.fetch_trace.won_host, 'winning OA host']);
+  if (lane.open_flags) badges.push(['flag', `${lane.open_flags} flag${lane.open_flags === 1 ? '' : 's'}`, '']);
+  if (lane.metadata_drift) {
+    // Its own badge rather than folding into the flag count: the conversion is fine here, a
+    // CITATION FIELD is wrong, and the two need different actions from the maintainer. The title
+    // carries the whole stored-vs-page diff so it is readable without a drill-down. A dispute is
+    // a decision waiting on someone (warn); an applied correction is a record to check (dim).
+    badges.push(lane.metadata_drift.needs_decision
+      ? ['warn', '⚑ metadata — decide', describeDrift(lane.metadata_drift)]
+      : ['dim', '⚑ metadata — corrected', describeDrift(lane.metadata_drift)]);
+  }
+  if (lane.fixture) {
+    badges.push(lane.golden_complete
+      ? ['ok', 'golden ✓', `regression golden frozen (${lane.fixture})`]
+      : ['dim', `fixture · ${lane.fixture}`, 'regression fixture captured — golden not yet frozen (✓ golden after the fix)']);
+  }
+  if (lane.needs_approval) {
+    // Not the same thing as `unlisted`. A losing sibling is unlisted BECAUSE another lane won —
+    // correct, and needs nobody. This one has content, is invisible to readers, and cannot ever
+    // publish itself: the authenticity gate did not confirm it, so no sweep will promote it. It is
+    // waiting on a person, and the old dim "unlisted" badge gave no hint of that.
+    badges.push(['warn', '⚑ needs approval',
+      'Imported but NOT public, and it cannot promote itself — the authenticity gate could not '
+      + 'confirm it (usually no reference list, e.g. an editorial). Select it and press ★ to '
+      + 'publish it yourself.']);
+  } else if (!lane.listed && lane.has_nodes) {
+    badges.push(['dim', 'unlisted', 'imported but not public — another lane is the version']);
+  }
+
+  for (const [kind, text, title] of badges) {
+    const b = document.createElement('span');
+    b.className = `ji-badge ji-badge-${kind}`;
+    b.textContent = text;
+    if (title) b.title = title;
+    row.appendChild(b);
+  }
+
+  const select = (): void => { void selectLane(lane); };
+  row.addEventListener('click', select);
+  row.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      select();
+    }
+  });
+
+  return row;
+}
+
+/**
+ * The book id you paste into a dev command, plus the note that rides the case bundle. Separate
+ * from selectLane so a reload can refresh it in place: after saving a note the lane's flag count
+ * changes, and re-running the whole selection would rebuild both iframes for nothing.
+ */
+function renderDetailStrip(lane: Lane): void {
+  el<HTMLElement>('ji-detail-strip').hidden = false;
+  el<HTMLElement>('ji-bookid').textContent = lane.book;
+  el<HTMLAnchorElement>('ji-bookid-open').href = `/${lane.book}`;
+  el<HTMLElement>('ji-bookid-meta').textContent =
+    `${lane.lane} · ${lane.conversion_method ?? 'unknown'}`
+    + (lane.open_flags ? ` · ${lane.open_flags} open flag${lane.open_flags === 1 ? '' : 's'}` : '');
+  el<HTMLTextAreaElement>('ji-note').value = lane.maintainer_note ?? '';
+
+  // The dot is the whole point of collapsing the editor: with it shut you still need to be able
+  // to see, at a glance down the lanes, which ones you have already written up.
+  const hasNote = !!lane.maintainer_note?.trim();
+  const toggle = el<HTMLButtonElement>('ji-note-toggle');
+  el<HTMLElement>('ji-note-dot').hidden = !hasNote;
+  toggle.setAttribute('aria-label', hasNote ? 'note (saved)' : 'note');
+  toggle.title = hasNote ? 'A note is saved for this lane' : 'Write a note for the case bundle';
+
+  // Collapse when the LANE changes — an editor left open over a different lane's note is how you
+  // save the right words against the wrong book. Not on every render: the strip re-renders after
+  // a save, and shutting the panel there would hide ✓ fixed / ✕ dismiss just as you reach them.
+  if (noteStripBook !== lane.book) {
+    setNoteOpen(false);
+    noteStripBook = lane.book;
+  }
+
+  // Nothing to close when nothing is open.
+  el<HTMLButtonElement>('ji-resolve').hidden = lane.open_flags === 0;
+  el<HTMLButtonElement>('ji-dismiss').hidden = lane.open_flags === 0;
+}
+
+/** Expand or collapse the note editor, keeping the toggle's ARIA state honest. */
+function setNoteOpen(open: boolean): void {
+  el<HTMLElement>('ji-note-row').hidden = !open;
+  el<HTMLButtonElement>('ji-note-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+  el<HTMLButtonElement>('ji-note-toggle').classList.toggle('ji-note-toggle-open', open);
+  if (open) el<HTMLTextAreaElement>('ji-note').focus();
+}
+
+async function selectLane(lane: Lane): Promise<void> {
+  selected = lane;
+  selectedArticle = null;
+  renderArticles();
+
+  el<HTMLElement>('ji-import-bar').hidden = true;
+  el<HTMLElement>('ji-actions').hidden = false;
+  el<HTMLElement>('ji-actions-book').textContent = `${lane.lane} · ${lane.book}`;
+
+  // Reconvert needs something to reconvert FROM. The two lanes reach it differently: the PDF
+  // lane replays its OCR cache through the shared /maintainer/conversion path, the HTML lane
+  // re-runs the paste engine over its stored page.
+  const isHtmlLane = lane.lane === 'html';
+  const reconvert = el<HTMLButtonElement>('ji-reconvert');
+  const hasStoredPage = lane.artifacts.includes('fetched_page.html');
+  const hasPdfSource = lane.artifacts.some((a) => a.startsWith('original.') || a === 'ocr_response.json');
+  reconvert.disabled = isHtmlLane ? !hasStoredPage : !hasPdfSource;
+  reconvert.title = reconvert.disabled
+    ? 'Nothing on disk to reconvert from — this is a re-fetch case'
+    : (isHtmlLane
+      ? 'Re-run the converter over the stored page — no network, no cost'
+      : 'Reconvert from the OCR cache (shared /maintainer/conversion path)');
+
+  // Re-acquiring a PDF means re-running the whole OA ladder, which is a retract-and-re-harvest,
+  // not a button — the same answer /maintainer/conversion gives.
+  const refetch = el<HTMLButtonElement>('ji-refetch');
+  refetch.disabled = !isHtmlLane;
+  refetch.title = isHtmlLane
+    ? 'Fetch the publisher page again — for when what we stored is not the article'
+    : 'PDF lanes re-acquire by retract + re-harvest, not from here';
+
+  // Disable only for the STRUCTURAL blocks — no content, or already the version. A lane the
+  // AUTHENTICITY gate refused stays clickable on purpose: that is precisely what the operator
+  // override is for, and greying it out here made the override unreachable (an editorial can
+  // never clear the gate, so the article was permanently unpublishable through the UI).
+  const promote = el<HTMLButtonElement>('ji-promote');
+  promote.disabled = !lane.has_nodes || lane.is_version;
+  // Say what the click will actually do — pressing "make version" on a lane that is about to
+  // refuse and ask you to override reads as a broken button.
+  promote.textContent = lane.needs_approval ? '★ publish anyway' : '★ make version';
+  promote.title = lane.is_version
+    ? 'Already the version readers get'
+    : !lane.has_nodes
+      ? 'Nothing to publish — this lane has no content'
+      : lane.needs_approval
+        ? 'This lane did not pass automatic verification (usually no reference list). You have read it — publish it anyway.'
+        : 'Make this lane the version readers get';
+
+  // Local-dev only button (the production blade never renders it): freezing a
+  // golden needs a captured fixture to freeze.
+  const golden = document.getElementById('ji-approve-golden') as HTMLButtonElement | null;
+  if (golden) {
+    golden.disabled = !lane.fixture;
+    golden.title = !lane.fixture
+      ? 'No regression fixture captured for this book (book:import-cases captures one at ingest)'
+      : lane.golden_complete
+        ? 'Golden already frozen — re-approve to overwrite it with the current conversion'
+        : 'Freeze the current conversion as the regression golden (run_regression.py --update-golden)';
+  }
+
+  renderDetailStrip(lane);
+
+  // Left pane: what we produced.
+  const converted = el<HTMLIFrameElement>('ji-converted');
+  const convertedPlaceholder = el<HTMLElement>('ji-converted-placeholder');
+  if (lane.has_nodes) {
+    converted.src = `/${lane.book}`;
+    convertedPlaceholder.hidden = true;
+  } else {
+    converted.src = 'about:blank';
+    convertedPlaceholder.textContent = lane.pdf_url_status || 'nothing imported for this lane';
+    convertedPlaceholder.hidden = false;
+  }
+  el<HTMLElement>('ji-converted-label').textContent = `converted output · ${lane.conversion_method ?? 'unknown'}`;
+
+  // Right pane: what we produced it FROM. Probe first — a lane whose fetch failed has no file,
+  // and pointing an iframe at a 404 renders the error page inside the pane.
+  const source = el<HTMLIFrameElement>('ji-source');
+  const sourcePlaceholder = el<HTMLElement>('ji-source-placeholder');
+  const sourceUrl = `/api/maintainer/conversion/original/${encodeURIComponent(lane.book)}`;
+  source.src = 'about:blank';
+  sourcePlaceholder.hidden = false;
+  sourcePlaceholder.textContent = 'checking…';
+  el<HTMLElement>('ji-source-label').textContent = `source · ${sourceKindOf(lane)}`;
+
+  try {
+    const probe = await drainResponse(await fetch(sourceUrl, { method: 'HEAD', credentials: 'include' }));
+    if (selected?.book !== lane.book) return; // selection moved while probing
+    if (probe.ok) {
+      // Paint the fetched page in the operator's theme once it lands. A PDF can't be skinned, so
+      // the pane falls back to a light canvas — the viewer paints its own background anyway.
+      // Sandbox the fetched page's SCRIPTS. We serve it from our own origin, so left alone the
+      // publisher's JS runs same-origin with this admin console and could drive the maintainer
+      // API as the logged-in admin (the session cookie is HttpOnly, but same-origin fetch doesn't
+      // need to read it). `allow-same-origin` WITHOUT `allow-scripts` is the exact combination we
+      // want: nothing executes, but the document keeps our origin so the theme injection below
+      // still reaches it. (allow-scripts + allow-same-origin together would let a frame remove
+      // its own sandbox — with no scripts there is nothing to do that.)
+      // PDFs are left unsandboxed: they execute nothing of ours and the browser's viewer is
+      // fussy enough already.
+      // Decide the canvas NOW, from the artifacts — not inside onload. A PDF frame may never
+      // fire load, which would leave the class at the PREVIOUS lane's value and paint a PDF on a
+      // dark canvas (or a themed page on a white one).
+      // What the server SAID it is beats what we think is on disk (see skinnableContentType).
+      const skinnable = skinnableContentType(probe.headers.get('content-type'))
+        ?? sourceIsSkinnable(lane.artifacts);
+      const pane = document.querySelector('.ji-source');
+      pane?.classList.toggle('ji-source-unskinned', !skinnable);
+      // Must be set BEFORE the src assignment — sandbox applies at load time.
+      if (skinnable) source.setAttribute('sandbox', 'allow-same-origin');
+      else source.removeAttribute('sandbox');
+      source.onload = (): void => {
+        if (!skinnable) return;
+        pane?.classList.toggle('ji-source-unskinned', !applySourceFrameTheme(source));
+      };
+      source.src = sourceUrl;
+      sourcePlaceholder.hidden = true;
+    } else {
+      sourcePlaceholder.textContent = 'no source file on disk';
+    }
+  } catch {
+    if (selected?.book === lane.book) sourcePlaceholder.textContent = 'no source file on disk';
+  }
+}
+
+/** What the right pane is showing, from the artifacts we know exist. */
+function sourceKindOf(lane: Lane): string {
+  if (lane.artifacts.includes('original.pdf')) return 'original.pdf';
+  if (lane.artifacts.includes('fetched_page.html')) return 'fetched_page.html';
+  if (lane.artifacts.includes('original.html')) return 'original.html';
+  const other = lane.artifacts.find((a) => a.startsWith('original.'));
+  return other ?? 'none';
+}
+
+// ── Shared chrome ──────────────────────────────────────────────────────────
+
+function wireHelp(): void {
+  const toggle = document.getElementById('ji-help-toggle');
+  const panel = document.getElementById('ji-help-panel');
+  const close = document.getElementById('ji-help-close');
+  if (!toggle || !panel) return;
+
+  const setOpen = (open: boolean): void => {
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+  };
+  toggle.addEventListener('click', () => setOpen(panel.hidden === true));
+  close?.addEventListener('click', () => setOpen(false));
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !panel.hidden) setOpen(false);
+  });
+}
+
+/** The action bar is draggable and remembers where you put it (as on /maintainer/conversion). */
+function wireActionBar(): void {
+  const bar = document.getElementById('ji-actions');
+  const grip = document.getElementById('ji-actions-grip');
+  if (!bar || !grip) return;
+
+  try {
+    const saved = localStorage.getItem('ji_actions_pos');
+    if (saved) {
+      const { left, top } = JSON.parse(saved) as { left: number; top: number };
+      bar.style.left = `${left}px`;
+      bar.style.top = `${top}px`;
+      bar.style.right = 'auto';
+      bar.style.bottom = 'auto';
+    }
+  } catch { /* a bad saved position must never stop the page rendering */ }
+
+  let dx = 0;
+  let dy = 0;
+  grip.addEventListener('pointerdown', (e: PointerEvent) => {
+    const rect = bar.getBoundingClientRect();
+    dx = e.clientX - rect.left;
+    dy = e.clientY - rect.top;
+    grip.setPointerCapture(e.pointerId);
+
+    const move = (ev: PointerEvent): void => {
+      bar.style.left = `${ev.clientX - dx}px`;
+      bar.style.top = `${ev.clientY - dy}px`;
+      bar.style.right = 'auto';
+      bar.style.bottom = 'auto';
+    };
+    const up = (): void => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      try {
+        const rect2 = bar.getBoundingClientRect();
+        localStorage.setItem('ji_actions_pos', JSON.stringify({ left: rect2.left, top: rect2.top }));
+      } catch { /* storage unavailable — position just won't persist */ }
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+  });
+
+  grip.addEventListener('dblclick', () => {
+    bar.style.left = '';
+    bar.style.top = '';
+    bar.style.right = '';
+    bar.style.bottom = '';
+    try { localStorage.removeItem('ji_actions_pos'); } catch { /* nothing to clear */ }
+  });
+}
+
+/**
+ * Select an ARTICLE rather than a lane, and offer to fetch it. Clears the panes: there is no
+ * output yet, and leaving the previous lane's book on screen next to a different article's title
+ * is exactly the kind of thing that gets the wrong version promoted.
+ */
+function selectArticle(article: Article): void {
+  selected = null;
+  selectedArticle = article;
+  renderArticles();
+
+  el<HTMLElement>('ji-detail-strip').hidden = true;
+  el<HTMLElement>('ji-actions').hidden = true;
+  el<HTMLElement>('ji-import-bar').hidden = false;
+  el<HTMLElement>('ji-import-title').textContent = article.title || '(untitled)';
+
+  const importable = article.fetchable;
+  for (const id of ['ji-import-pdf', 'ji-import-html', 'ji-import-both']) {
+    const b = el<HTMLButtonElement>(id);
+    b.disabled = !importable;
+    b.title = importable ? b.title : 'Nothing to fetch from: no DOI, no OA url, no PDF url';
+  }
+  el<HTMLElement>('ji-import-status').textContent = article.lanes.length
+    ? 'already has lane(s) — re-importing adds the missing one'
+    : '';
+
+  const converted = el<HTMLIFrameElement>('ji-converted');
+  converted.src = 'about:blank';
+  el<HTMLElement>('ji-converted-placeholder').textContent = 'not imported yet';
+  el<HTMLElement>('ji-converted-placeholder').hidden = false;
+  el<HTMLElement>('ji-converted-label').textContent = 'converted output';
+
+  const source = el<HTMLIFrameElement>('ji-source');
+  source.src = 'about:blank';
+  el<HTMLElement>('ji-source-placeholder').textContent = 'nothing fetched yet';
+  el<HTMLElement>('ji-source-placeholder').hidden = false;
+  el<HTMLElement>('ji-source-label').textContent = 'source';
+}
+
+/**
+ * Fire one queued action and follow it to the end.
+ *
+ * Everything here either hits a publisher or runs OCR, so the server queues it and hands back a
+ * run id; this polls that row. `setter` writes to whichever status line belongs to the bar that
+ * fired it, so a long import doesn't silently report into the other one.
+ */
+async function runAction(
+  body: Record<string, string>,
+  setter: (text: string) => void,
+  buttons: string[],
+  showPanel = false,
+): Promise<void> {
+  if (!isDetail) return;
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  // Tolerant of ids that aren't on THIS page: the journal and shelf consoles share this module and
+  // this button list, and the shelf blade has no enumerate or bulk-import control. A hard lookup
+  // here throws on the first press of any control the two pages DO share.
+  setButtonsDisabled(buttons, true);
+  setter('dispatching…');
+  // Up front, not on the first poll tick 2.5s later: the whole point is that pressing the button
+  // visibly does something. A panel that appears two and a half seconds after the click has
+  // already spent the moment it exists to fill.
+  if (showPanel) {
+    queuedSince = Date.now();
+    renderRunProgress(
+      { status: 'pending', step_detail: 'dispatching…' },
+      runHeadline({ status: 'pending', step_detail: null, action: body.action, lanes: body.lanes ?? null,
+        work_limit: body.limit != null ? Number(body.limit) : null }),
+    );
+  }
+
+  try {
+    const resp = await fetch(`${apiBase()}/run`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const payload = await resp.json().catch(() => ({})) as {
+      run_id?: string; message?: string; already_running?: boolean; action?: string;
+    };
+    if (!resp.ok || !payload.run_id) {
+      setter(payload.message || `failed (${resp.status})`);
+      return;
+    }
+    // Joining a run you didn't press — a bulk import fired while an enumerate is still going —
+    // would otherwise report that other job's progress as if it were yours.
+    if (payload.already_running && payload.action && payload.action !== body.action) {
+      setter(`waiting: "${payload.action}" is already running on this journal`);
+    }
+    await pollRun(payload.run_id, setter, showPanel);
+  } catch (e) {
+    log.error('Journal import action failed', 'maintainer-journal-import', e);
+    setter('failed — see logs');
+  } finally {
+    setButtonsDisabled(buttons, false);
+  }
+}
+
+/**
+ * Poll a run row to completion, then reload the list so the new/changed lane shows.
+ *
+ * `showPanel` is only set by the JOURNAL-scoped bar. An article-scoped action already reports
+ * into its own bar beside the buttons that fired it, and mirroring it into the run panel would
+ * put one article's progress where the bulk run's belongs.
+ */
+async function pollRun(runId: string, setter: (text: string) => void, showPanel = false): Promise<void> {
+  // Claimed before the first tick so a loadDetail() that lands mid-run doesn't start a second
+  // loop against the same row — two pollers race and the panel flickers between their ticks.
+  pollingRunId = runId;
+  queuedSince = Date.now();
+  let headline = 'run';
+  // The row being polled RIGHT NOW, which is not always the one we were handed: a self-continuing
+  // import hands off to its successor mid-loop (see the `completed` branch).
+  let currentId = runId;
+
+  try {
+    for (;;) {
+      await new Promise((r) => window.setTimeout(r, 2500));
+      const resp = await fetch(`/api/maintainer/journal-import/runs/${encodeURIComponent(currentId)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) {
+        setter(`lost the run (${resp.status})`);
+        if (showPanel) {
+          renderRunProgress({ status: 'failed', step_detail: null, error: `lost the run (${resp.status})` }, headline);
+        }
+        return;
+      }
+      const run = await resp.json() as RunState;
+      if (run.action) headline = runHeadline(run);
+      if (run.status !== 'pending') queuedSince = null;
+      if (showPanel) renderRunProgress(run, headline);
+
+      if (run.status === 'completed') {
+        // Reload FIRST: the failure rows link into the article list, which must hold the fresh
+        // lanes before a click can find them.
+        if (isDetail) await loadDetail();
+        renderFailures(run.counts?.failures ?? []);
+
+        // A self-continuing import is one JOURNAL-level operation spread over many run rows,
+        // because each is capped at 50 minutes. Reporting "done" at the end of link 1 of 12 is
+        // the whole bug this follows through: hand off to the successor the job just enqueued and
+        // keep the same panel, the same disabled buttons, and the same poll alive.
+        const next = run.counts?.next_run_id;
+        if (next) {
+          setter(`continuing — ${run.counts?.remaining_eligible ?? 0} still eligible`);
+          currentId = next;
+          pollingRunId = next;
+          queuedSince = Date.now();
+          continue;
+        }
+
+        setter(run.counts?.summary ? `done — ${run.counts.summary}` : 'done');
+        return;
+      }
+      if (run.status === 'failed') {
+        setter(run.error ? `failed: ${run.error}` : 'failed');
+        return;
+      }
+      setter(run.step_detail || run.status);
+    }
+  } finally {
+    // Released on every exit, including the early returns above — a stuck id would make the
+    // resume check below refuse to ever re-attach. Compared against the CURRENT id, not the one
+    // we started with, or a chain that handed off would leave its successor's claim behind.
+    if (pollingRunId === currentId) pollingRunId = null;
+    queuedSince = null;
+    // A reconvert_all that just reported `completed` has only finished QUEUEING —
+    // hand the panel to the drain poll (a no-op when nothing is queued). Deferred a
+    // beat so it reads the released pollingRunId, and from the FINALLY so every exit
+    // path (done, failed, lost) checks; a run that died mid-queue can still have
+    // hundreds of jobs draining behind it.
+    window.setTimeout(() => void pollReconvertBacklog(), 1000);
+  }
+}
+
+/**
+ * The PDF lane's reconvert is the SHARED one (/api/books/{book}/reconvert + import-progress) —
+ * that book has an original.pdf and an OCR cache, and duplicating that pipeline here would give
+ * the app two reconvert implementations to keep in step.
+ */
+async function reconvertPdfLane(book: string): Promise<void> {
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const button = el<HTMLButtonElement>('ji-reconvert');
+  button.disabled = true;
+  setStatus('dispatching…');
+
+  try {
+    const resp = await fetch(`/api/books/${encodeURIComponent(book)}/reconvert`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({})) as { message?: string };
+      setStatus(body.message || `reconvert failed (${resp.status})`);
+      return;
+    }
+
+    for (;;) {
+      await new Promise((r) => window.setTimeout(r, 2500));
+      const p = await fetch(`/api/import-progress/${encodeURIComponent(book)}`, { credentials: 'include' });
+      if (!p.ok) continue;
+      const progress = await p.json() as { status?: string; percent?: number; stage?: string };
+      setStatus(`${progress.status ?? '…'} ${progress.percent ?? 0}% ${progress.stage ?? ''}`);
+      if (progress.status === 'complete' || progress.status === 'failed') {
+        if (progress.status === 'complete') {
+          setStatus('reconverted — reloading');
+          if (isDetail) await loadDetail();
+          // The converted pane is an IFRAME of the reader — loadDetail refreshes lane
+          // metadata but never touches it, and the reader inside ran its staleness check
+          // BEFORE the reconvert finished, so without this the pane shows the old
+          // conversion until the lane is manually re-selected.
+          if (selected?.book === book) {
+            const conv = el<HTMLIFrameElement>('ji-converted');
+            try {
+              conv.contentWindow?.location.reload();
+            } catch {
+              conv.src = `/${book}`;
+            }
+          }
+          setStatus('reconverted ✓');
+        } else {
+          setStatus('reconvert FAILED — see logs');
+        }
+        return;
+      }
+    }
+  } catch (e) {
+    log.error('PDF reconvert failed', 'maintainer-journal-import', e);
+    setStatus('reconvert failed — see logs');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function csrfHeaders(): Promise<Record<string, string> | null> {
+  const headers = await sharedCsrfHeaders();
+  if (!headers) setStatus('session error — refresh and retry');
+  return headers;
+}
+
+/**
+ * Make the selected lane the version readers get. Reloads the article list afterwards rather
+ * than patching state locally: promotion moves the pointer, the listing AND shelf membership,
+ * and a half-updated view of that is worse than a round-trip.
+ */
+async function promoteSelected(force = false): Promise<void> {
+  if (!selected) return;
+  if (selected.is_version) {
+    setStatus('already the version');
+    return;
+  }
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const button = el<HTMLButtonElement>('ji-promote');
+  button.disabled = true;
+  setStatus(force ? 'publishing anyway…' : 'promoting…');
+
+  try {
+    const resp = await fetch(`/api/maintainer/journal-import/promote/${encodeURIComponent(selected.book)}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      // The scope shelf rides along so promotion can swap the winner onto it —
+      // a "Cited by:" shelf is not reachable through the work's own journal.
+      body: JSON.stringify({ force, shelf_id: boot.shelfId ?? undefined }),
+    });
+    const body = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      // The authenticity gate refuses when UNSURE — which is right for automation and wrong as a
+      // veto over someone who has read the lane. An editorial with no reference list can never
+      // clear it, so without this the work is importable but permanently unpublishable.
+      if (body.overridable && !force) {
+        button.disabled = false;
+        if (window.confirm(
+          `This lane did not pass automatic verification (${body.refusal}).\n\n`
+          + 'That usually means the page carried no reference list, so we could not confirm it is '
+          + 'the full article — common for editorials and short front matter.\n\n'
+          + 'You have read it. Publish it anyway?'
+        )) {
+          await promoteSelected(true);
+        }
+        return;
+      }
+      setStatus(body.message || `promote failed (${resp.status})`);
+      return;
+    }
+
+    const demoted = (body.demoted ?? []) as string[];
+    setStatus(demoted.length ? `promoted — unlisted ${demoted.length} sibling` : 'promoted');
+    if (isDetail) await loadDetail();
+  } catch (e) {
+    log.error('Promote failed', 'maintainer-journal-import', e);
+    setStatus('promote failed — see logs');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/**
+ * Freeze the selected lane's regression golden — the promote-to-golden step of the case loop,
+ * done AFTER the converter fix. The endpoint shells run_regression.py --update-golden and only
+ * exists outside production (the blade doesn't render the button there either).
+ */
+async function approveGolden(): Promise<void> {
+  if (!selected?.fixture) return;
+  if (!window.confirm(
+    `Freeze the CURRENT conversion of\n${selected.book}\nas the regression golden?\n\n`
+    + 'Do this only after the converter fix — it is what run_regression.py will demand forever after.'
+  )) return;
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const button = el<HTMLButtonElement>('ji-approve-golden');
+  button.disabled = true;
+  setStatus('freezing golden… (runs the fixture through the converter)');
+
+  try {
+    const resp = await fetch(`/api/maintainer/conversion/golden/${encodeURIComponent(selected.book)}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+    });
+    const body = await resp.json().catch(() => ({})) as {
+      ok?: boolean; message?: string; tree?: string; output_tail?: string;
+    };
+    if (!resp.ok || !body.ok) {
+      setStatus(body.message || `golden update failed (${resp.status})`);
+      if (body.output_tail) log.error(`update-golden output: ${body.output_tail}`, 'maintainer-journal-import');
+      return;
+    }
+    setStatus(`golden frozen (${body.tree}) — run_regression.py now guards this case`);
+    if (isDetail) await loadDetail();
+  } catch (e) {
+    log.error('Golden approve failed', 'maintainer-journal-import', e);
+    setStatus('golden update failed — see logs');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/**
+ * Save the maintainer's read of this lane. It lives in the open flags' details and travels with
+ * the case bundle, so the dev side sees the diagnosis next to the artifacts. A lane nobody has
+ * flagged gets one opened for it server-side — you noticing IS the report.
+ */
+async function saveNote(): Promise<void> {
+  if (!selected) return;
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const button = el<HTMLButtonElement>('ji-note-save');
+  const note = el<HTMLTextAreaElement>('ji-note').value;
+  button.disabled = true;
+  setStatus('saving note…');
+
+  try {
+    const resp = await fetch(
+      `/api/maintainer/conversion/flags/${encodeURIComponent(selected.book)}/note`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note }),
+      },
+    );
+    const body = await resp.json().catch(() => ({})) as { message?: string; saved?: number };
+    if (!resp.ok) {
+      setStatus(body.message || `note failed (${resp.status})`);
+      return;
+    }
+    setStatus(note.trim() ? 'note saved — it rides the bundle' : 'note cleared');
+    // The flag count on the lane may have just changed (a note can open a case).
+    if (isDetail) await loadDetail();
+  } catch (e) {
+    log.error('Save note failed', 'maintainer-journal-import', e);
+    setStatus('note failed — see logs');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+/**
+ * Close this lane's case without leaving the page.
+ *
+ * Deliberately the journal-import endpoint, not the shared conversion one: that one treats
+ * approval as the listing gate and would publish whatever lane you resolved — including the loser,
+ * leaving two public versions of one article. Here listing only follows if this lane is already
+ * the promoted one; ★ make version stays the only way to publish.
+ */
+async function resolveCase(resolution: 'reconverted' | 'dismissed'): Promise<void> {
+  if (!selected) return;
+
+  const headers = await csrfHeaders();
+  if (!headers) return;
+
+  const buttons = ['ji-resolve', 'ji-dismiss'];
+  setButtonsDisabled(buttons, true);
+  setStatus('closing case…');
+
+  try {
+    const resp = await fetch(
+      `/api/maintainer/journal-import/resolve/${encodeURIComponent(selected.book)}`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolution }),
+      },
+    );
+    const body = await resp.json().catch(() => ({})) as {
+      message?: string; resolved?: number; listed?: boolean;
+    };
+    if (!resp.ok) {
+      setStatus(body.message || `close failed (${resp.status})`);
+      return;
+    }
+
+    setStatus(`case closed (${body.resolved ?? 0} flag${body.resolved === 1 ? '' : 's'})`
+      + (body.listed ? ' — lane is now listed' : ''));
+    if (isDetail) await loadDetail();
+  } catch (e) {
+    log.error('Close case failed', 'maintainer-journal-import', e);
+    setStatus('close failed — see logs');
+  } finally {
+    setButtonsDisabled(buttons, false);
+  }
+}
+
+function wireDetailActions(): void {
+  document.getElementById('ji-open-reader')?.addEventListener('click', () => {
+    if (selected) window.open(`/${selected.book}`, '_blank', 'noopener');
+  });
+  document.getElementById('ji-promote')?.addEventListener('click', () => { void promoteSelected(); });
+
+  // Two bundles, two fix loops (BookExport::KIND_*): `conversion` blames the converter and
+  // replays through run_regression.py; `harvest` blames acquisition and ships canonical_source +
+  // fetch_trace.json. Picking one IS the diagnosis, so neither is a default.
+  const bundle = (kind: 'conversion' | 'harvest') => (): void => {
+    if (!selected) return;
+    setStatus(`building ${kind} bundle…`);
+    // origin= lands in the bundle manifest, so the importing side knows the case came off a
+    // journal lane rather than the generic conversion queue.
+    window.location.href =
+      `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}`
+      + `?kind=${kind}&origin=${boot.mode === 'shelf' ? 'shelf-import' : 'journal-import'}`;
+    window.setTimeout(() => setStatus(''), 4000);
+  };
+  document.getElementById('ji-export')?.addEventListener('click', bundle('conversion'));
+  document.getElementById('ji-export-harvest')?.addEventListener('click', bundle('harvest'));
+  // Shelf-import blade only, and only outside production — hence the optional chain.
+  document.getElementById('ji-approve-golden')?.addEventListener('click', () => { void approveGolden(); });
+
+  document.getElementById('ji-reconvert')?.addEventListener('click', () => {
+    if (!selected) return;
+    if (selected.lane !== 'html') {
+      void reconvertPdfLane(selected.book);
+      return;
+    }
+    void runAction(
+      { action: 'reconvert_html', book: selected.book },
+      setStatus,
+      ['ji-reconvert', 'ji-refetch'],
+    );
+  });
+
+  document.getElementById('ji-refetch')?.addEventListener('click', () => {
+    if (!selected) return;
+    if (!window.confirm('Re-fetch this page from the publisher? The stored copy is replaced.')) return;
+    void runAction(
+      { action: 'refetch_html', book: selected.book },
+      setStatus,
+      ['ji-reconvert', 'ji-refetch'],
+    );
+  });
+
+  const importButtons = ['ji-import-pdf', 'ji-import-html', 'ji-import-both'];
+  const setImportStatus = (text: string): void => {
+    el<HTMLElement>('ji-import-status').textContent = text;
+  };
+  const startImport = (lanes: 'pdf' | 'html' | 'both') => (): void => {
+    if (!selectedArticle) return;
+    if (lanes !== 'html'
+      && !window.confirm('The PDF lane runs OCR, which is charged to your account. Continue?')) {
+      return;
+    }
+    void runAction(
+      { action: 'import', lanes, canonical_id: selectedArticle.canonical_id },
+      setImportStatus,
+      importButtons,
+    );
+  };
+  document.getElementById('ji-import-pdf')?.addEventListener('click', startImport('pdf'));
+  document.getElementById('ji-import-html')?.addEventListener('click', startImport('html'));
+  document.getElementById('ji-import-both')?.addEventListener('click', startImport('both'));
+
+  const bookId = document.getElementById('ji-bookid');
+  const copyBookId = (): void => {
+    if (!selected) return;
+    void navigator.clipboard?.writeText(selected.book).then(
+      () => setStatus('book id copied'),
+      () => setStatus('copy failed — select and copy manually'),
+    );
+  };
+  bookId?.addEventListener('click', copyBookId);
+  bookId?.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copyBookId(); }
+  });
+
+  document.getElementById('ji-note-toggle')?.addEventListener('click', () => {
+    // `hidden` types as boolean | "until-found", so coerce rather than pass it straight through.
+    setNoteOpen(!!el<HTMLElement>('ji-note-row').hidden);
+  });
+  document.getElementById('ji-note-save')?.addEventListener('click', () => { void saveNote(); });
+  document.getElementById('ji-resolve')?.addEventListener('click', () => { void resolveCase('reconverted'); });
+  document.getElementById('ji-dismiss')?.addEventListener('click', () => { void resolveCase('dismissed'); });
+
+  document.getElementById('ji-only-imported')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-only-failed')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-only-metadata')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-article-search')?.addEventListener('input', renderArticles);
+}
+
+interface RunFailure {
+  lane: string;
+  title: string;
+  canonical_id: string | null;
+  book: string | null;
+  status: string;
+  reason: string | null;
+}
+
+/** The live beat a running job writes to `journal_import_runs.progress`, one write per work. */
+interface RunProgress {
+  phase: 'html' | 'pdf' | 'enumerate' | 'shelf' | 'reconvert' | null;
+  n: number;
+  total: number;
+  title: string | null;
+  imported: number;
+  already: number;
+  failed: number;
+  // reconvert_all beats only: that loop QUEUES (conversions drain afterwards), so it reports
+  // queued/skipped and never touches the import-vocabulary fields above.
+  queued?: number;
+  skipped?: number;
+  recent_failures: RunFailure[];
+}
+
+/**
+ * What the bulk control can ask for. `html_first` is a STRATEGY, not a lane — it tries the free
+ * publisher page per work and buys OCR only where that yields nothing publishable — which is why
+ * it is offered here and not on the per-article import bar, where you are picking a lane to look at.
+ */
+type BulkLane = 'pdf' | 'html' | 'both' | 'html_first';
+
+const LANE_LABELS: Record<BulkLane, string> = {
+  html_first: 'HTML, PDF if needed',
+  html: 'HTML only',
+  pdf: 'PDF only',
+  both: 'both',
+};
+
+/** What `runStatus` (and, for an in-flight run, the articles payload) hands back. */
+interface RunState {
+  id?: string;
+  status: string;
+  action?: string;
+  lanes?: string | null;
+  work_limit?: number | null;
+  step_detail: string | null;
+  progress?: RunProgress | null;
+  counts?: {
+    summary?: string;
+    failures?: RunFailure[];
+    /** True when the run hit the 50-minute work budget with work still queued. */
+    stopped_early?: boolean;
+    /** Set when the run gave up because OUR egress was failing — pressing again is not the fix. */
+    aborted_reason?: string | null;
+    remaining_eligible?: number;
+    /** Eligible-but-for the retry cooldown: excluded from `remaining_eligible`, not forgotten. */
+    cooling_off?: number;
+    /** Set by the job when it enqueued its own successor — the chain's next link. */
+    next_run_id?: string;
+  };
+  error?: string | null;
+  /** Chain state, for a self-continuing bulk import. */
+  continue_until_done?: boolean;
+  chain_position?: number;
+  chain_spend?: number;
+  spend_cap?: number | null;
+}
+
+/**
+ * Paint the run panel from one poll of a run row.
+ *
+ * Falls back to `step_detail` whenever `progress` is absent: a run dispatched before the progress
+ * column shipped, one still being worked by a pre-deploy worker, or an article-scoped action whose
+ * steps have no countable work. That line already carries the same n/total as prose, so the panel
+ * degrades to a sentence rather than to nothing.
+ */
+function renderRunProgress(run: RunState, headline: string): void {
+  const panel = document.getElementById('ji-run-panel');
+  if (!panel) return;   // the shelf console's blade has no panel — it has no bulk runs to show
+
+  const p = run.progress ?? null;
+  const terminal = run.status === 'completed' || run.status === 'failed';
+  const queued = run.status === 'pending';
+
+  panel.hidden = false;
+  panel.classList.toggle('is-done', run.status === 'completed');
+  panel.classList.toggle('is-failed', run.status === 'failed');
+
+  el<HTMLElement>('ji-run-title').textContent = headline;
+
+  // Indeterminate whenever there is no honest denominator: queued, enumerating (OpenAlex
+  // paginates, so the count is unknown until the last page), or shelf sync.
+  const fill = el<HTMLElement>('ji-run-bar-fill');
+  const determinate = !!p && p.total > 0 && !queued;
+  fill.classList.toggle('is-indeterminate', !determinate && !terminal);
+  fill.style.width = determinate ? `${Math.min(100, Math.round((p.n / p.total) * 100))}%` : '';
+
+  const count = el<HTMLElement>('ji-run-count');
+  const current = el<HTMLElement>('ji-run-current');
+
+  if (terminal) {
+    count.textContent = run.status === 'completed' ? '✓' : '✗';
+    current.textContent = run.status === 'completed'
+      ? (run.counts?.summary ?? 'done')
+      : (run.error ?? 'failed');
+  } else if (queued) {
+    count.textContent = '';
+    // A run can sit here legitimately for a few seconds. Past that it is nearly always the
+    // citation-pipeline worker being down — a real and recurring failure mode, and the row's own
+    // watchdog does not call it for THIRTY MINUTES. Say so rather than spin silently.
+    const waited = queuedSince ? Date.now() - queuedSince : 0;
+    current.textContent = waited > 15000
+      ? 'queued — no worker has picked this up (is the citation-pipeline worker running?)'
+      : 'queued — waiting for a worker';
+  } else if (p && p.total > 0) {
+    count.textContent = `${p.n} / ${p.total}`;
+    current.textContent = p.title ?? '';
+  } else {
+    count.textContent = '';
+    current.textContent = p?.title ?? run.step_detail ?? run.status;
+  }
+
+  const tallies = el<HTMLElement>('ji-run-tallies');
+  // reconvert_all beats carry `queued`/`skipped`, never `imported` — that loop only QUEUES,
+  // and saying "imported" here is how a mid-drain corpus got its button pressed twice. The
+  // conversions run CONCURRENTLY on the import worker from book #1, so this line also carries
+  // the live drain (converted so far / waiting), from the same one-count endpoint the
+  // post-completion drain panel polls. Keyed on the reconvert PHASE, not on the new beat keys,
+  // so a run started under pre-deploy backend code still gets the drain numbers.
+  const isReconvertRun = !!p && (p.phase === 'reconvert' || p.queued !== undefined);
+  if (isReconvertRun && !terminal) {
+    void refreshRunBacklog();
+    const queuedSoFar = p.queued ?? p.imported ?? 0;
+    const skipped = p.skipped ?? p.failed ?? 0;
+    const drain = runBacklogPending === null
+      ? 'conversions running in the background'
+      : `${Math.max(0, queuedSoFar - runBacklogPending)} converted so far · ${runBacklogPending} waiting`;
+    tallies.textContent = [
+      `${queuedSoFar} queued`,
+      drain,
+      skipped ? `${skipped} skipped (no cached source)` : '',
+    ].filter(Boolean).join(' · ');
+  } else {
+    tallies.textContent = p && (p.imported || p.already || p.failed)
+      ? [
+        `${p.imported} imported`,
+        p.already ? `${p.already} already there` : '',
+        p.failed ? `${p.failed} failed` : '',
+        p.phase ? `· ${p.phase} lane` : '',
+      ].filter(Boolean).join(' · ')
+      : '';
+  }
+
+  // The running tail only. The grouped-by-cause panel that lands at completion is still where
+  // triage happens — this is here so a run that dies at minute 40 has already said why.
+  const errors = el<HTMLElement>('ji-run-errors');
+  const recent = p?.recent_failures ?? [];
+  errors.textContent = '';
+  errors.hidden = recent.length === 0 || terminal;
+  for (const f of recent) {
+    const row = document.createElement('div');
+    row.className = 'ji-run-error';
+    row.textContent = `✗ ${f.lane} · ${f.reason || f.status}`;
+    row.title = `${f.title}\n${f.reason || f.status}`;
+    errors.appendChild(row);
+  }
+
+  renderStoppedEarly(run, terminal);
+
+  // Dismissable only once nothing is still moving — closing it mid-run would put the operator
+  // straight back in the silence this exists to end.
+  el<HTMLButtonElement>('ji-run-close').hidden = !terminal;
+}
+
+/**
+ * The banner for a run that stopped at its time limit with work still queued.
+ *
+ * This is the single most important fact about a big import and it used to be a CLAUSE at the end
+ * of the summary sentence, in the small grey line, while "7 failed" got a panel with a bold header.
+ * The result was exactly backwards: a tripleC run did 73 of 960 works and read as a finished job
+ * with a handful of errors. The headline is "you are 8% done and must press again"; the failures
+ * are the footnote.
+ *
+ * Silent unless there is something to say — a run that emptied the queue has no banner, and a
+ * chain that is still continuing reports its own progress rather than asking for a press.
+ */
+function renderStoppedEarly(run: RunState, terminal: boolean): void {
+  const banner = document.getElementById('ji-run-continue');
+  if (!banner) return;
+
+  const aborted = run.counts?.aborted_reason ?? null;
+  const stopped = terminal && run.status === 'completed' && run.counts?.stopped_early === true;
+  const remaining = run.counts?.remaining_eligible ?? 0;
+  banner.hidden = !terminal || (!aborted && (!stopped || remaining < 1));
+  if (banner.hidden) return;
+
+  // Our egress failing is a different message with a different next action: "press again" is
+  // actively wrong while the proxy is down, so the banner names the fix and hides the button.
+  if (aborted) {
+    el<HTMLElement>('ji-run-continue-text').textContent = aborted;
+    el<HTMLButtonElement>('ji-run-continue-go').hidden = true;
+
+    return;
+  }
+
+  const cooling = run.counts?.cooling_off ?? 0;
+  const chaining = !!run.counts?.next_run_id;
+
+  el<HTMLElement>('ji-run-continue-text').textContent = chaining
+    ? `Hit the 50-minute limit — continuing automatically. ${remaining} still eligible`
+      + (cooling ? `, ${cooling} cooling off after earlier failures.` : '.')
+    : `Hit the 50-minute limit with ${remaining} still eligible`
+      + (cooling ? ` (plus ${cooling} cooling off after earlier failures)` : '')
+      + '. This journal is not finished — press continue, or tick "keep going" to have it run itself.';
+
+  // The chain is already doing what the button would do; offering it invites a second run that
+  // the server would only refuse as already-running.
+  el<HTMLButtonElement>('ji-run-continue-go').hidden = chaining;
+}
+
+/** Timer for the reconvert-drain poll, cleared on every repaint so pollers never stack. */
+let backlogTimer: number | undefined;
+
+// Live drain numbers WHILE a reconvert_all is still queueing (the run panel's tallies line).
+// Conversions start draining the moment book #1 is queued — hiding that until queueing finished
+// made a working sweep indistinguishable from a dead one. Throttled to the drain panel's own
+// 20s cadence; one count query, never /articles.
+let runBacklogPending: number | null = null;
+let runBacklogAt = 0;
+let runBacklogInflight = false;
+
+async function refreshRunBacklog(): Promise<void> {
+  if (boot.shelfId) return;                       // backlog endpoint is journal-scoped
+  if (runBacklogInflight || Date.now() - runBacklogAt < 20_000) return;
+  runBacklogInflight = true;
+  try {
+    const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
+    if (resp.ok) {
+      runBacklogPending = Number(((await resp.json()) as { pending?: number }).pending ?? 0);
+      runBacklogAt = Date.now();
+    }
+  } catch {
+    /* transient — the next render retries after the throttle window */
+  } finally {
+    runBacklogInflight = false;
+  }
+}
+
+/**
+ * The status for a DRAINING reconvert_all — the gap that got the button pressed twice.
+ *
+ * A reconvert_all run reports `completed` when it has finished QUEUEING its ~900
+ * ProcessDocumentImportJobs; the conversions then drain through the serial import worker for
+ * hours, with every still-queued book sitting content-cleared (the "no content" badges). The run
+ * poll ends at `completed`, so before this the console showed a gutted corpus and NO sign anything
+ * was still happening — indistinguishable from a broken import, which is exactly what it looked
+ * like (tripleC, 2026-09-15: 941 books re-pressed mid-drain).
+ *
+ * Paints the run panel with the queued count and keeps a light poll alive (a one-count endpoint,
+ * NOT /articles — folding 950 articles every 20s for hours is not a poll). On zero it repaints
+ * the corpus, whose lanes have their content back.
+ */
+function renderReconvertBacklog(pending: number): void {
+  const panel = document.getElementById('ji-run-panel');
+  if (!panel || pending <= 0) return;   // shelf console has no panel and no bulk runs
+
+  window.clearTimeout(backlogTimer);
+
+  panel.hidden = false;
+  panel.classList.remove('is-done', 'is-failed');
+  el<HTMLElement>('ji-run-title').textContent = 'reconversion draining';
+  const fill = el<HTMLElement>('ji-run-bar-fill');
+  fill.classList.add('is-indeterminate');
+  fill.style.width = '';
+  el<HTMLElement>('ji-run-count').textContent = String(pending);
+  el<HTMLElement>('ji-run-current').textContent =
+    `${pending} conversion${pending === 1 ? '' : 's'} still queued on the import worker — a book shows `
+    + `"no content" until its turn comes; do NOT press reconvert all again`;
+  el<HTMLElement>('ji-run-tallies').textContent = '';
+  el<HTMLElement>('ji-run-errors').hidden = true;
+  const banner = document.getElementById('ji-run-continue');
+  if (banner) banner.hidden = true;
+  el<HTMLButtonElement>('ji-run-close').hidden = true;
+
+  backlogTimer = window.setTimeout(() => void pollReconvertBacklog(), 20_000);
+}
+
+async function pollReconvertBacklog(): Promise<void> {
+  if (boot.shelfId || !document.getElementById('ji-run-panel')) return;
+  if (pollingRunId) return;   // a live run owns the panel; its completed branch re-seeds this
+
+  const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
+  if (!resp.ok) return;       // transient — the next loadDetail re-seeds the poll
+  const pending = Number(((await resp.json()) as { pending?: number }).pending ?? 0);
+
+  if (pending > 0) {
+    renderReconvertBacklog(pending);
+    return;
+  }
+
+  // Drained. Only replace a panel that was actually SHOWING the drain — a just-completed
+  // import_all also lands here (pollRun kicks this from its finally) and its "✓ done"
+  // summary must not be overwritten by a drain message about nothing.
+  const panel = document.getElementById('ji-run-panel');
+  const wasDraining = el<HTMLElement>('ji-run-title').textContent === 'reconversion draining';
+  if (panel && !panel.hidden && wasDraining) {
+    panel.classList.add('is-done');
+    el<HTMLElement>('ji-run-title').textContent = 'reconversion drained';
+    el<HTMLElement>('ji-run-count').textContent = '✓';
+    el<HTMLElement>('ji-run-current').textContent = 'all queued conversions have run';
+    el<HTMLElement>('ji-run-bar-fill').classList.remove('is-indeterminate');
+    el<HTMLButtonElement>('ji-run-close').hidden = false;
+    // Repaint the corpus — the lanes have their content back.
+    if (isDetail) void loadDetail();
+  }
+}
+
+/** Headline for the run panel: what was asked for, in the words of the controls that asked. */
+function runHeadline(run: RunState): string {
+  const bits = [{ import_all: 'import', reconvert_all: 'reconvert all' }[run.action ?? ''] ?? (run.action ?? 'run')];
+  if (run.lanes) bits.push(run.lanes === 'html_first' ? 'html → pdf' : run.lanes);
+  if (run.work_limit != null) bits.push(run.work_limit === 0 ? 'all eligible' : `next ${run.work_limit}`);
+  // Link N of a self-continuing chain. Without it every link looks like the operator's original
+  // press, and a chain seven runs deep is indistinguishable from one stuck on its first.
+  if ((run.chain_position ?? 1) > 1) bits.push(`run ${run.chain_position}`);
+  return bits.join(' · ');
+}
+
+/** The failures of the last bulk run, kept so the copy button can reproduce exactly what is shown. */
+let lastFailures: RunFailure[] = [];
+
+/**
+ * Group failures by REASON rather than listing them flat.
+ *
+ * "13 failed" is not a diagnosis and neither is a list of 13 titles. The split is: are these empty
+ * shells (publisher intermittency — press the button again) or identity/converter failures (ours to
+ * fix)? Reasons carry per-work detail like a URL in brackets, so the key strips that to make works
+ * that failed the SAME way land together.
+ */
+function failureKey(f: RunFailure): string {
+  const raw = (f.reason || f.status || 'unknown').replace(/\s+/g, ' ').trim();
+  return raw
+    .replace(/\s*\([^)]*\)\s*$/, '')   // a complete trailing parenthetical: the per-work URL
+    .replace(/["'].*$/, '')            // a quoted page title — differs per work, groups the same
+    .replace(/\s*\([^)]*$/, '')        // …and the now-dangling "(title:" the line above leaves
+    .replace(/[\s:,\-–—]+$/, '')       // trailing punctuation orphaned by the strips above
+    .trim()
+    .slice(0, 90) || f.status;
+}
+
+function groupFailures(failures: RunFailure[]): Map<string, RunFailure[]> {
+  const groups = new Map<string, RunFailure[]>();
+  for (const f of failures) {
+    const key = failureKey(f);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(f);
+  }
+  // Biggest cause first — that is the one worth acting on.
+  return new Map([...groups.entries()].sort((a, b) => b[1].length - a[1].length));
+}
+
+function renderFailures(failures: RunFailure[]): void {
+  lastFailures = failures;
+  const panel = document.getElementById('ji-failures');
+  if (!panel) return;
+
+  if (!failures.length) {
+    panel.hidden = true;
+    return;
+  }
+
+  const groups = groupFailures(failures);
+  el<HTMLElement>('ji-failures-title').textContent =
+    `${failures.length} failed · ${groups.size} cause${groups.size === 1 ? '' : 's'}`;
+
+  const body = el<HTMLDivElement>('ji-failures-body');
+  body.textContent = '';
+
+  for (const [reason, items] of groups) {
+    const group = document.createElement('div');
+    group.className = 'ji-failure-group';
+
+    const head = document.createElement('div');
+    head.className = 'ji-failure-reason';
+    head.textContent = `${items.length}× ${reason}`;
+    group.appendChild(head);
+
+    for (const f of items) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'ji-failure-row';
+      row.textContent = `${f.lane} · ${f.title}`;
+      row.title = f.reason || f.status;
+      // Straight to the article, where the lane's badge, its stored page and the harvest bundle are.
+      row.addEventListener('click', () => {
+        const article = articles.find((a) => a.canonical_id === f.canonical_id);
+        if (article) selectArticle(article);
+      });
+      group.appendChild(row);
+    }
+
+    body.appendChild(group);
+  }
+
+  panel.hidden = false;
+}
+
+/** The same grouping as plain text, for pasting into a bug report or a chat. */
+function failuresAsText(): string {
+  const groups = groupFailures(lastFailures);
+  const lines: string[] = [`${lastFailures.length} failed · ${groups.size} cause(s)`];
+
+  for (const [reason, items] of groups) {
+    lines.push('', `${items.length}× ${reason}`);
+    for (const f of items) {
+      lines.push(`  - [${f.lane}] ${f.title}${f.book ? ` (${f.book})` : ''}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+function wireFailuresPanel(): void {
+  document.getElementById('ji-failures-close')?.addEventListener('click', () => {
+    el<HTMLElement>('ji-failures').hidden = true;
+  });
+
+  document.getElementById('ji-failures-copy')?.addEventListener('click', () => {
+    void navigator.clipboard?.writeText(failuresAsText()).then(
+      () => setStatus('failures copied'),
+      () => setStatus('copy failed — select the text manually'),
+    );
+  });
+}
+
+/**
+ * The two JOURNAL-scoped buttons.
+ *
+ * Everything else on this page targets one article, which left a journal nobody had enumerated
+ * with an empty list and no way to fill it — the article rows every other control hangs off did
+ * not exist yet. Enumerate creates them (free: OpenAlex only, no publisher, no OCR); import works
+ * the queue in bulk.
+ */
+function wireJournalActions(): void {
+  // Every journal-scoped control, disabled together for the duration of any one of them: the
+  // server refuses a second journal-wide run anyway, so leaving them live would only produce
+  // "already running" messages for a press that could not have worked.
+  const buttons = ['ji-enumerate', 'ji-bulk-import', 'ji-reconvert-all'];
+  // `.ji-actions-status` is opacity:0 until `.ji-visible` is on it. Setting textContent alone —
+  // which this did — painted every message this bar has ever produced into an invisible span:
+  // "dispatching…", every "html 7/25: <title>", the final summary, the failure, and both certify
+  // confirmations. A 50-minute import reported itself perfectly to nobody.
+  //
+  // No auto-hide here, unlike setStatus(): this line tracks a RUN, and a progress report that
+  // fades after 4 seconds while the run keeps going is the same silence with extra steps. The
+  // run panel and pollRun own when it stops meaning something.
+  const setJournalStatus = (text: string): void => {
+    const node = document.getElementById('ji-journal-status');
+    if (!node) return;
+    node.textContent = text;
+    node.classList.add('ji-visible');
+  };
+
+  const certify = document.getElementById('ji-certify');
+  certify?.addEventListener('click', () => {
+    // The button's own pressed state is the current value — it is painted from the
+    // server on every loadDetail(), so there is no separate copy to drift.
+    const next = certify.getAttribute('aria-pressed') !== 'true';
+    void (async () => {
+      const headers = await csrfHeaders();
+      if (!headers) return;
+      certify.setAttribute('disabled', 'true');
+      try {
+        const resp = await fetch(`${apiBase()}/certify`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ certified: next }),
+        });
+        if (!resp.ok) {
+          log.error(`Certify failed (${resp.status})`, 'maintainer-journal-import');
+          setJournalStatus(`could not certify (${resp.status})`);
+          return;
+        }
+        const data = await resp.json();
+        paintCertifyButton(!!data.certified);
+        setJournalStatus(data.certified
+          ? 'certified — listed on the homepage once it has a readable article'
+          : 'no longer certified — removed from the homepage');
+      } finally {
+        certify.removeAttribute('disabled');
+      }
+    })();
+  });
+
+  // The hero name: what /j/{slug} calls this journal. Saved on its own, not folded into an
+  // import run — it is a one-column write about presentation, and must not wait on (or take
+  // the lock of) whatever is harvesting beside it.
+  const heroName = document.getElementById('ji-hero-name') as HTMLInputElement | null;
+  const heroSave = document.getElementById('ji-hero-name-save');
+  const saveHeroName = (): void => {
+    if (!heroName || !heroSave) return;
+    const value = heroName.value.trim();
+    void (async () => {
+      const headers = await csrfHeaders();
+      if (!headers) return;
+      heroSave.setAttribute('disabled', 'true');
+      try {
+        const resp = await fetch(`${apiBase()}/hero-name`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hero_name: value }),
+        });
+        if (!resp.ok) {
+          log.error(`Hero name save failed (${resp.status})`, 'maintainer-journal-import');
+          setJournalStatus(`could not save the hero name (${resp.status})`);
+          return;
+        }
+        const data = await resp.json();
+        heroName.value = data.hero_name ?? '';
+        setJournalStatus(data.hero_name
+          ? `public page now reads “${data.hero_name}”`
+          : 'public page back to the full registered title');
+      } finally {
+        heroSave.removeAttribute('disabled');
+      }
+    })();
+  };
+  heroSave?.addEventListener('click', saveHeroName);
+  heroName?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveHeroName(); }
+  });
+
+  document.getElementById('ji-run-close')?.addEventListener('click', () => {
+    el<HTMLElement>('ji-run-panel').hidden = true;
+  });
+
+  document.getElementById('ji-enumerate')?.addEventListener('click', () => {
+    void runAction({ action: 'enumerate' }, setJournalStatus, buttons, true);
+  });
+
+  document.getElementById('ji-reconvert-all')?.addEventListener('click', () => {
+    // Optional: the shelf console has this button but no lane picker, and defaults to both.
+    const picker = document.getElementById('ji-bulk-lanes') as HTMLSelectElement | null;
+    const lanes = (picker?.value || 'both') as BulkLane;
+    // The picker is shared with import, where `html_first` is a fetch STRATEGY. There is nothing to
+    // choose between when reconverting — every lane already exists — so it collapses to "both",
+    // rather than quietly reconverting only half the corpus.
+    const scope = lanes === 'html_first' ? 'both' : lanes;
+
+    // Confirmed despite being free, because it is not reversible: every book in scope has its
+    // nodes cleared and rebuilt, and any annotation the reattachment pass cannot re-anchor is
+    // orphaned. Worth a sentence before a few hundred of them.
+    const where = boot.mode === 'shelf' ? 'shelf' : 'journal';
+    if (!window.confirm(
+      `Re-run the current converter over every imported ${scope === 'both' ? '' : scope + ' '}lane in this ${where}?\n\n`
+      + 'Free — each lane reconverts from its cached source, so nothing is re-fetched and no OCR runs.\n\n'
+      + 'Every book in scope is rebuilt from scratch and they convert one at a time, so a big corpus '
+      + 'takes hours. Watch progress at /maintainer/jobs.',
+    )) return;
+
+    void runAction({ action: 'reconvert_all', lanes: scope }, setJournalStatus, buttons, true);
+  });
+
+  document.getElementById('ji-bulk-import')?.addEventListener('click', () => {
+    void startBulkImport();
+  });
+
+  // Same action as the bulk button, fired from the "stopped at the time limit" banner so
+  // continuing is one click where the news is, rather than a trip back up to the controls.
+  document.getElementById('ji-run-continue-go')?.addEventListener('click', () => {
+    void startBulkImport();
+  });
+
+  function startBulkImport(): void {
+    const lanes = (el<HTMLSelectElement>('ji-bulk-lanes').value || 'html_first') as BulkLane;
+    const limit = el<HTMLSelectElement>('ji-bulk-limit').value || '5';
+    const keepGoing = el<HTMLInputElement>('ji-bulk-continue').checked;
+    const howMany = limit === '0' ? 'EVERY eligible work' : `up to ${limit} works`;
+
+    // Three separate things worth stopping for: spending money, unbounded scope, and a run that
+    // will restart itself unattended. Any one of them alone deserves the prompt — "all eligible"
+    // on the free HTML lane still hammers a publisher.
+    if (lanes !== 'html' || limit === '0' || keepGoing) {
+      const cost = lanes === 'html'
+        ? 'The HTML lane is free, but this fetches from the publisher repeatedly.'
+        : lanes === 'html_first'
+          ? 'Each work tries the free publisher page first; OCR is charged to you only where that yields nothing publishable.'
+          : 'The PDF lane runs OCR, which is charged to your account.';
+      const chain = keepGoing
+        ? '\n\n"Keep going" restarts the run until the journal is done — possibly for hours, unattended. It stops at its spend cap.'
+        : '';
+      if (!window.confirm(`Import ${howMany} (${LANE_LABELS[lanes]}) for this journal?\n\n${cost}${chain}`)) return;
+    }
+
+    void runAction(
+      { action: 'import_all', lanes, limit, continue_until_done: keepGoing ? '1' : '0' },
+      setJournalStatus,
+      buttons,
+      true,
+    );
+  }
+
+  // A run already in flight when the page loads — the operator refreshed, or opened the console
+  // in a second tab. Re-attach rather than sit silent for the rest of it.
+  resumeActiveRun = (run: RunState): void => {
+    if (!run.id || pollingRunId === run.id) return;
+    renderRunProgress(run, runHeadline(run));
+    setJournalStatus(run.step_detail ?? run.status);
+    setButtonsDisabled(buttons, true);
+    void runResume(run.id, setJournalStatus, buttons);
+  };
+}
+
+/**
+ * Re-attached poll. Same loop as a pressed action, minus the dispatch — the run is already out
+ * there, so this only follows it and puts the buttons back when it settles.
+ */
+async function runResume(runId: string, setter: (text: string) => void, buttons: string[]): Promise<void> {
+  try {
+    await pollRun(runId, setter, true);
+  } catch (e) {
+    log.error('Journal import run resume failed', 'maintainer-journal-import', e);
+    setter('lost the run — reload to re-attach');
+  } finally {
+    setButtonsDisabled(buttons, false);
+  }
+}
+
+
+/**
+ * Paint the certify toggle from a known state. Absent on the shelf console, which has no
+ * journal to certify — every caller is a no-op there.
+ */
+/**
+ * Paint the hero-name box from server truth. Skipped while it has focus: the payload is
+ * re-fetched after every action (and on every run poll tick), and overwriting a half-typed
+ * name mid-edit is the same class of bug as the note editor's re-render guard.
+ *
+ * Absent on the shelf console — a shelf has no journal hero to name.
+ */
+function paintHeroNameField(heroName: string | null): void {
+  const input = document.getElementById('ji-hero-name') as HTMLInputElement | null;
+  if (!input || document.activeElement === input) return;
+  input.value = heroName ?? '';
+}
+
+function paintCertifyButton(certified: boolean): void {
+  const button = document.getElementById('ji-certify');
+  if (!button) return;
+  button.setAttribute('aria-pressed', certified ? 'true' : 'false');
+  button.classList.toggle('ji-on', certified);
+  button.textContent = certified ? '★ certified' : '☆ certify';
+}
+
+// ── Shelf index page ───────────────────────────────────────────────────────
+
+interface ShelfIndexRow {
+  id: string;
+  name: string;
+  slug: string;
+  creator: string;
+  item_count: number;
+  linked_count: number;
+  is_system: boolean;
+}
+
+let shelves: ShelfIndexRow[] = [];
+
+async function loadShelfIndex(): Promise<void> {
+  const resp = await fetch('/api/maintainer/shelf-import/shelves', { credentials: 'include' });
+  if (!resp.ok) {
+    log.error(`Shelf list fetch failed (${resp.status})`, 'maintainer-journal-import');
+    setStatus(`could not load shelves (${resp.status})`);
+    return;
+  }
+
+  shelves = ((await resp.json()).shelves ?? []) as ShelfIndexRow[];
+  const linked = shelves.reduce((n, s) => n + s.linked_count, 0);
+  el<HTMLElement>('ji-summary').textContent =
+    `${shelves.length} public shel${shelves.length === 1 ? 'f' : 'ves'} · ${linked} assessable work${linked === 1 ? '' : 's'}`;
+  renderShelfIndex();
+}
+
+function renderShelfIndex(): void {
+  const filter = (el<HTMLInputElement>('ji-filter')?.value || '').trim().toLowerCase();
+  const rows = shelves.filter((s) => !filter
+    || s.name.toLowerCase().includes(filter)
+    || s.creator.toLowerCase().includes(filter));
+
+  const list = el<HTMLDivElement>('ji-shelf-list');
+  list.textContent = '';
+  el<HTMLElement>('ji-shelf-empty').hidden = rows.length > 0;
+
+  for (const s of rows) {
+    const item = document.createElement('a');
+    item.className = 'ji-journal';
+    item.setAttribute('role', 'listitem');
+    item.href = `/maintainer/shelf-import/${encodeURIComponent(s.id)}`;
+
+    const name = document.createElement('span');
+    name.className = 'ji-journal-name';
+    name.textContent = s.name;
+    item.appendChild(name);
+
+    const meta = document.createElement('span');
+    meta.className = 'ji-journal-meta';
+    meta.textContent = s.creator;
+    item.appendChild(meta);
+
+    const stats = document.createElement('span');
+    stats.className = 'ji-journal-stats';
+    stats.textContent = `${s.item_count} item${s.item_count === 1 ? '' : 's'} · ${s.linked_count} assessable`;
+    item.appendChild(stats);
+
+    if (s.is_system) {
+      const badge = document.createElement('span');
+      badge.className = 'ji-badge ji-badge-diamond';
+      badge.textContent = '⚙ system';
+      badge.title = 'A machine-built collection shelf';
+      item.appendChild(badge);
+    }
+
+    list.appendChild(item);
+  }
+}
+
+// ── Archive-page panel (shelf mode) ────────────────────────────────────────
+
+/**
+ * The archive_sources editor: slug + display name + pasted about copy + the
+ * certified ★. One record per shelf, written synchronously via
+ * /api/maintainer/shelf-import/{id}/archive — the /a/{slug} page and the
+ * homepage's certified-archives list render from it.
+ */
+function wireArchivePanel(): void {
+  if (!has('ji-archive-panel')) return;
+
+  const panel = el<HTMLElement>('ji-archive-panel');
+  const toggle = el<HTMLButtonElement>('ji-archive-toggle');
+  const slugInput = el<HTMLInputElement>('ji-archive-slug');
+  const nameInput = el<HTMLInputElement>('ji-archive-name');
+  const aboutInput = el<HTMLTextAreaElement>('ji-archive-about');
+  const saveBtn = el<HTMLButtonElement>('ji-archive-save');
+  const certifyBtn = el<HTMLButtonElement>('ji-archive-certify');
+  const pageLink = el<HTMLAnchorElement>('ji-archive-link');
+  const statusEl = el<HTMLElement>('ji-archive-status');
+
+  let certified = false;
+  let loaded = false;
+
+  const paint = (archive: { slug: string; display_name: string; about: string | null; certified: boolean; public_page: string } | null): void => {
+    if (archive) {
+      slugInput.value = archive.slug;
+      nameInput.value = archive.display_name;
+      aboutInput.value = archive.about ?? '';
+      certified = archive.certified;
+      pageLink.href = archive.public_page;
+      pageLink.hidden = false;
+    } else {
+      certified = false;
+      pageLink.hidden = true;
+    }
+    certifyBtn.textContent = certified ? '★ certified' : '☆ certify';
+    certifyBtn.classList.toggle('ji-certified', certified);
+  };
+
+  const status = (text: string): void => {
+    statusEl.textContent = text;
+    statusEl.classList.add('ji-visible');
+    window.setTimeout(() => statusEl.classList.remove('ji-visible'), 4000);
+  };
+
+  const load = async (): Promise<void> => {
+    try {
+      const resp = await fetch(`${apiBase()}/archive`, { credentials: 'include' });
+      if (!resp.ok) {
+        status(`could not load the archive record (${resp.status})`);
+        return;
+      }
+      const data = await resp.json();
+      paint(data.archive ?? null);
+      loaded = true;
+      // No record yet: seed from the shelf so a plain "save" works — an
+      // example-value placeholder here once fooled a user into thinking the
+      // fields were already filled.
+      if (!data.archive && boot.shelfName) {
+        if (!nameInput.value.trim()) nameInput.value = boot.shelfName;
+        if (!slugInput.value.trim()) {
+          slugInput.value = boot.shelfName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+        }
+      }
+    } catch (e) {
+      log.error('Archive record load failed', 'maintainer-journal-import', e);
+    }
+  };
+
+  const save = async (): Promise<void> => {
+    const slug = slugInput.value.trim();
+    const displayName = nameInput.value.trim();
+    const missing = [!slug ? 'slug' : null, !displayName ? 'display name' : null].filter(Boolean);
+    if (missing.length) {
+      status(`${missing.join(' and ')} ${missing.length === 1 ? 'is' : 'are'} empty — grey text is just the hint`);
+      (!slug ? slugInput : nameInput).focus();
+      return;
+    }
+    const headers = await csrfHeaders();
+    if (!headers) return;
+    saveBtn.disabled = true;
+    certifyBtn.disabled = true;
+    try {
+      const resp = await fetch(`${apiBase()}/archive`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          slug,
+          display_name: displayName,
+          about: aboutInput.value.trim() || null,
+          certified,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        status(String((data as { message?: string }).message || `save failed (${resp.status})`));
+        return;
+      }
+      paint((data as { archive: Parameters<typeof paint>[0] }).archive);
+      status('saved');
+    } catch (e) {
+      log.error('Archive record save failed', 'maintainer-journal-import', e);
+      status('save failed — see logs');
+    } finally {
+      saveBtn.disabled = false;
+      certifyBtn.disabled = false;
+    }
+  };
+
+  toggle.addEventListener('click', () => {
+    const open = panel.hidden;
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open && !loaded) void load();
+  });
+  el<HTMLButtonElement>('ji-archive-close').addEventListener('click', () => {
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  });
+  saveBtn.addEventListener('click', () => void save());
+  certifyBtn.addEventListener('click', () => {
+    certified = !certified;
+    certifyBtn.textContent = certified ? '★ certified' : '☆ certify';
+    certifyBtn.classList.toggle('ji-certified', certified);
+    void save();
+  });
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+
+wireHelp();
+
+if (isDetail) {
+  wireActionBar();
+  wireDetailActions();
+  wireJournalActions();
+  wireFailuresPanel();
+  // Shelf mode: the page is a drop target — dropped files import onto THIS
+  // shelf and the articles pane reloads when the batch settles — and carries
+  // the archive-page record editor.
+  if (boot.mode === 'shelf' && boot.shelfId) {
+    initShelfDrop(boot.shelfId, () => void loadDetail());
+    wireArchivePanel();
+  }
+  void loadDetail();
+} else if (has('ji-shelf-list')) {
+  el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderShelfIndex);
+  void loadShelfIndex();
+} else if (has('ji-started-list')) {
+  el<HTMLInputElement>('ji-filter')?.addEventListener('input', renderIndex);
+  void loadIndex();
+}

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
  * /maintainer/stats — site-wide reading analytics: views (one book_reads row
  * per reader per day), likes, and depth over the whole corpus.
  *
- * Admin checked in-controller (non-admins 404), matching the sibling
+ * Admin gated by the `admin.page` route middleware (non-admins 404), matching the sibling
  * maintainer pages; API behind auth:sanctum + admin in routes/api.php.
  * Reads ride pgsql_admin — aggregates must see every reader's rows.
  * Responses are aggregates only: reader identities never leave the server.
@@ -20,11 +20,6 @@ class StatsController extends Controller
     /** GET /maintainer/stats */
     public function show(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-stats');
     }
 

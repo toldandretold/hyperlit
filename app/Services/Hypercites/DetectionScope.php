@@ -24,6 +24,9 @@ class DetectionScope
     /** @var array<string,true> */
     private array $memberBooks = [];
 
+    /** Shelf scopes only: the owner whose view bounds the walk (null = operator, unrestricted). */
+    private ?string $viewer = null;
+
     private function __construct(
         public readonly string $type,          // journal | shelf
         public readonly ?string $journalSourceId,
@@ -39,6 +42,20 @@ class DetectionScope
     public static function forShelf(object $shelf): self
     {
         return new self('shelf', null, (string) $shelf->id, (string) $shelf->name);
+    }
+
+    /**
+     * Restrict a SHELF scope to the books this person may have scanned: public
+     * ones and their own. A public shelf can hold another user's private book
+     * (the shelf's owner sees it locked), and an unrestricted walk would read
+     * that book's text and bill a bibliography scan for it. The operator's
+     * scope (no viewer) is unrestricted, as before.
+     */
+    public function visibleTo(?string $ownerName): self
+    {
+        $this->viewer = $ownerName;
+
+        return $this;
     }
 
     /** The scope columns every candidate/run row carries (exactly one set). */
@@ -87,6 +104,9 @@ class DetectionScope
             ->where('si.shelf_id', $this->shelfId)
             ->where('l.has_nodes', true)
             ->where('l.visibility', '!=', 'deleted')
+            ->when($this->viewer !== null, fn ($q) => $q->where(
+                fn ($w) => $w->where('l.visibility', 'public')->orWhere('l.creator', $this->viewer)
+            ))
             ->orderBy('si.added_at')
             ->get(['l.book', 'l.canonical_source_id', 'l.title']);
 

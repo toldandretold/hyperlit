@@ -313,7 +313,10 @@ Route::get('/vibes/public', [VibesController::class, 'publicIndex'])
 // Archive panel (the top-right #archiveRef button on user/journal/archive
 // pages) — no auth: audience is computed server-side (sanctum owner check),
 // never taken from the client. {scopeId} may be a URL-encoded username.
-Route::prefix('archive-export')->middleware('throttle:60,1')
+// NAMED limiter: an export button polls /status every 2s for the length of a
+// build, and a bare throttle:60,1 shares ONE per-user bucket with every other
+// inline-throttled route — the poll 429'd against ordinary SPA traffic.
+Route::prefix('archive-export')->middleware('throttle:archive-export')
     ->whereIn('scopeType', \App\Services\Export\ArchiveCorpusResolver::SCOPE_TYPES)
     ->group(function () {
         Route::get('/{scopeType}/{scopeId}/panel', [\App\Http\Controllers\ArchiveExportController::class, 'panel']);
@@ -922,6 +925,31 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::post('/maintainer/hypercites/{slug}/import-cited-bulk', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importCitedBulk'])
         ->where('slug', '[a-z0-9-]+');
 });
+
+// ── Shelf-owner workbench ───────────────────────────────────────────────────
+// The workbench tools a shelf's OWNER may run on their own public shelf — today
+// just hypercites (/a/{slug}/hypercites). Deliberately NOT under /api/maintainer:
+// that prefix is admin-only by a route-table gate (MaintainerRoutesAdminOnlyTest),
+// and this must never be reachable by loosening it. `shelf.owner` resolves and
+// authorises the shelf (404 otherwise); the controller reuses the operator
+// console's actions under a WorkbenchActor that bounds every read to the shelf
+// and every write to the owner's own citing books. No auto-approve, no bulk import.
+Route::middleware(['auth:sanctum', 'shelf.owner', 'throttle:shelf-workbench'])
+    ->prefix('shelf-workbench/{shelf}/hypercites')
+    ->where(['shelf' => '[0-9a-f-]{36}', 'id' => '[0-9a-f-]{36}'])
+    ->controller(\App\Http\Controllers\ShelfWorkbench\HyperciteController::class)
+    ->group(function () {
+        Route::get('/candidates', 'ownerCandidates');
+        Route::post('/detect', 'ownerDetect');
+        Route::get('/runs/{id}', 'ownerRunStatus');
+        Route::post('/candidates/{id}/approve', 'ownerApprove');
+        Route::post('/candidates/{id}/reject', 'ownerReject');
+        Route::post('/candidates/{id}/revert', 'ownerRevert');
+        Route::post('/candidates/{id}/occurrence', 'ownerOccurrence');
+        Route::post('/batch-approve', 'ownerBatchApprove');
+        Route::get('/most-cited', 'ownerMostCited');
+        Route::post('/import-source', 'ownerImportSource');
+    });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history
 Route::get('/books/{book}/snapshots', [NodeHistoryController::class, 'getSnapshots']);

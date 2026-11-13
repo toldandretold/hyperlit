@@ -67,7 +67,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'debits',
         'commoner_score',
         'preferences',
-        'is_admin',
+        // `is_admin` is deliberately NOT fillable: it is granted only by an
+        // explicit DB write (pgsql_admin), never by mass assignment.
     ];
 
     /**

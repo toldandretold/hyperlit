@@ -8,11 +8,21 @@
 
 import { log, verbose } from '../../utilities/logger';
 import { ensureCsrfToken } from '../../utilities/auth/csrf';
+import { drainResponse } from '../../utilities/drainResponse';
 
 const BUSY_CLASS = 'is-busy';
 const POLL_MS = 2000;
 /** Stop polling a build that never reports progress rather than spinning forever. */
 const MAX_POLLS = 900; // 30 minutes
+/**
+ * Consecutive unreadable status polls tolerated before the wait is abandoned.
+ * A single failed read is ROUTINE during a minutes-long build — Safari kills
+ * in-flight fetches when the tab is backgrounded or the phone locks ("Fetch
+ * API cannot load … due to access control checks"), a deploy blips a 502, a
+ * poll 429s — and used to end the wait silently: the button sat dimmed at its
+ * last % forever and the finished artifact was never downloaded.
+ */
+const MAX_CONSECUTIVE_FAILURES = 30; // a minute of nothing but failures
 
 export type ExportKind = 'markdown' | 'sqlite';
 
@@ -39,7 +49,11 @@ function apiBase(scope: ArchiveScope): string {
 async function fetchStatus(scope: ArchiveScope, kind: ExportKind): Promise<ExportStatus | null> {
   try {
     const resp = await fetch(`${apiBase(scope)}/status?kind=${kind}`, { credentials: 'include' });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      await drainResponse(resp);
+
+      return null;
+    }
 
     return (await resp.json()) as ExportStatus;
   } catch {
@@ -62,6 +76,8 @@ export function initExportDownload(
   let destroyed = false;
   let downloadWhenReady = false;
   let latest: ExportStatus | null = null;
+  let failures = 0;
+  let sawBuilding = false;
 
   const stopPolling = (): void => {
     if (timer !== null) window.clearTimeout(timer);
@@ -83,8 +99,36 @@ export function initExportDownload(
     a.remove();
   };
 
+  /** End a wait that will never produce a download, and SAY so. */
+  const abandonWait = (message: string): void => {
+    const wasOurs = downloadWhenReady; // merely watching someone else's build → no dialog
+    downloadWhenReady = false;
+    sawBuilding = false;
+    stopPolling();
+    setBusy(false);
+    if (!wasOurs) return;
+    void import('../dialog/dialog').then(({ alertDialog }) => alertDialog({ title: 'Export unavailable', message }));
+  };
+
   const apply = (status: ExportStatus | null): void => {
-    if (destroyed || !status) return;
+    if (destroyed) return;
+    if (!status) {
+      // Unreadable poll. If we're mid-wait, KEEP WAITING — the build is
+      // server-side and unaffected; only give up after a sustained outage.
+      if (!button.classList.contains(BUSY_CLASS)) return;
+      failures++;
+      if (failures < MAX_CONSECUTIVE_FAILURES) {
+        schedulePoll();
+
+        return;
+      }
+      log.error(`archive export status unreadable ${failures}x in a row — giving up the wait (${kind})`, '/components/archivePanel/exportDownload');
+      failures = 0;
+      abandonWait('Lost contact with the server while the export was being prepared. Please try again.');
+
+      return;
+    }
+    failures = 0;
     latest = status;
 
     if (status.state === 'unavailable') {
@@ -103,10 +147,13 @@ export function initExportDownload(
 
       return;
     }
-    if (status.message && downloadWhenReady) {
-      downloadWhenReady = false; // the build reported a failure
-      stopPolling();
-      setBusy(false);
+    if (status.state === 'building') sawBuilding = true;
+    // The build we were waiting on is gone without an artifact: it reported a
+    // failure, OR it went 'building' → 'buildable' (worker died / no worker on
+    // the queue and the heartbeat went stale / the corpus changed under it).
+    // Either way stop — spinning to MAX_POLLS tells the user nothing.
+    if (downloadWhenReady && (status.message || (sawBuilding && status.state === 'buildable'))) {
+      abandonWait(status.message ?? 'The export did not finish. Please try again.');
 
       return;
     }
@@ -126,7 +173,12 @@ export function initExportDownload(
 
   function schedulePoll(): void {
     stopPolling();
-    if (destroyed || polls >= MAX_POLLS) return;
+    if (destroyed) return;
+    if (polls >= MAX_POLLS) {
+      abandonWait('The export is taking too long. Please try again later.');
+
+      return;
+    }
     timer = window.setTimeout(() => {
       polls++;
       void fetchStatus(scope, kind).then(apply);
@@ -146,6 +198,8 @@ export function initExportDownload(
 
     // Not packaged yet: kick off the build and download it when it lands.
     downloadWhenReady = true;
+    sawBuilding = false;
+    failures = 0;
     setBusy(true, '0%');
     void (async () => {
       try {

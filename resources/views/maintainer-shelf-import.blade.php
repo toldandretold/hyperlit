@@ -15,14 +15,7 @@
     @vite(['resources/css/pages/maintainer-journal-import.css'])
 </head>
 <body @if($isDetail) class="ji-detail" @endif>
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
 @if($isDetail)
     <header class="ji-header">
@@ -186,6 +179,7 @@
             <a href="/maintainer/hypercites">hypercites →</a>
             <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="ji-help-toggle" aria-expanded="false" aria-controls="ji-help-panel" title="How this works">?</button>
@@ -221,6 +215,6 @@
 @endif
 
     <script>window.__journalImport = { slug: null, shelfId: @json($shelfId), shelfName: @json($shelfName), mode: 'shelf' };</script>
-    @vite(['resources/js/maintainerJournalImport/main.ts'])
+    @vite(['resources/js/workbenches/journalImport/main.ts'])
 </body>
 </html>

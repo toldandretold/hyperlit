@@ -174,6 +174,20 @@ The user-facing orchestrator that chains the pieces above from a single button i
 
 State lives in `source_network_harvests` (frontier + depth make it recursion-ready: raising `source_harvest.max_depth` walks the citation network outward, harvesting the harvested texts' own citations). A live-progress overlay renders the four-stage chain (scan → select → harvest → shelf) from the run's telemetry, an opt-in emails the owner when it finishes, every imported source is collected onto a per-book "Harvested from: <Title>" shelf on the owner's page, and a living "Source Yield Report" book on that shelf lists — as formatted citations with links — the open-access texts the automation could NOT pull (Cloudflare walls, unverifiable copies) so a human can chase them by hand. Full design, eligibility rules, idempotency guarantees, and API surface: `app/Services/SourceHarvest/README.md`.
 
+## Importing ONE work — `SingleWorkImporter`
+
+The harvester imports a whole citation network; `App\Services\SourceImport\SingleWorkImporter` is the one-off: a user (web URL importer) or their AI client (MCP `import_document`) hands over a DOI or an OpenAlex id. It chains `OpenAlexService::fetchByDoi` / `fetchByOpenAlexId` → `CanonicalSourceMatcher::ingestExternal` → a queued `ImportWorkJob` → `AutoVersionCreator::create`, so the result is an ordinary system auto version, not a second kind of row.
+
+- **Reuse first.** If the canonical already has a public version with content (or the requester owns a copy), nothing is fetched.
+- **Closed is not refused on OpenAlex's word.** A work is turned away only when OpenAlex says closed AND `OaLocationResolver` finds no candidate — repository pre-prints are exactly what `is_oa` misses.
+- **Two legs, split at the cost.** `create($canonical, skipOcr: true)` first; a downloaded PDF then needs OCR, which over MCP waits for an explicit confirm and on the web needs a positive balance. `AutoVersionCreator` treats a `downloaded` row with its PDF on disk as already fetched, so the second leg OCRs that file instead of re-running the ladder.
+- **Commons if hostable, else the importer's own.** A public system version goes on the importer's private "Imported works" shelf. A version `HostingPolicy` holds gets a private, user-owned `PersonalCopyMaker` copy linked to the same canonical (`conversion_method = 'personal_copy'`, deliberately outside `AutoVersionResolver::SYSTEM_CONVERSION_METHODS`), built by replaying the converted artifacts (`ContentFetchService::adoptConvertedArtifacts`) — no re-fetch, no re-OCR, no second charge.
+- **State and polling.** One `work_imports` row per request (worker-only, via `pgsql_admin`); progress is mirrored to `resources/markdown/{import id}/progress.json`, so `/api/import-progress/{id}` and MCP `import_status` follow it with no new endpoint.
+
+Not built yet: editing a commons copy into "my version" (`PersonalCopyMaker` is the primitive for it) and version labels such as machine import / commoner-maintained; `CommonsVersionResolver` is still a stub.
+
+Tests: `tests/Feature/Import/SingleWorkImportTest.php`, the ladder cases in `tests/Feature/Api/ImportUrlCitationApiTest.php`, and the resume case in `tests/Canonical/AutoVersionCreatorTest.php`.
+
 ## Authorships & identity verification
 
 Canonicals created via the OpenAlex API carry an `authorships` JSONB column holding a structured author list:

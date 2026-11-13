@@ -91,6 +91,19 @@ body[data-page="journal"] #topRightContainer:has(#archiveRef)::after {
   height: 100%;
 }
 
+/* The Creator Tools workbench glyph is a solid silhouette, so at full size it
+   reads heavier than the outlined download icons — drawn a little smaller and
+   centred in the same slot, so the row's text still lines up with the others. */
+#archive-container #archive-hypercite-workbench .icon-wrapper {
+  display: grid;
+  place-items: center;
+}
+
+#archive-container #archive-hypercite-workbench .download-icon {
+  width: 75%;
+  height: 75%;
+}
+
 #archive-container .archive-export-btn .export-name {
   font-weight: 600;
   font-size: var(--sc-13);

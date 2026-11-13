@@ -81,6 +81,46 @@ class HarvestShelf
         return (object) ['id' => $id, 'name' => $name, 'slug' => $slug, 'creator' => $root->creator];
     }
 
+    /** The one private shelf collecting the commons copies a user imported one at a time. */
+    public const IMPORTS_NAME = 'Imported works';
+
+    /**
+     * Find-or-create a user's "Imported works" shelf. A single-work import that lands as the
+     * shared commons copy is system-owned, so without a shelf it would appear nowhere on the
+     * importer's own page. Private, like a user's harvest shelf. Returns {id, name, slug, creator}.
+     */
+    public function ensureImportShelfFor(string $creator): object
+    {
+        $db = DB::connection('pgsql_admin');
+
+        $existing = $db->table('shelves')
+            ->where('creator', $creator)
+            ->where('name', self::IMPORTS_NAME)
+            ->select(['id', 'name', 'slug', 'creator'])
+            ->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $id = (string) Str::uuid();
+        $slug = ShelfSlug::unique(self::IMPORTS_NAME, $creator);
+
+        $db->table('shelves')->insert([
+            'id'            => $id,
+            'creator'       => $creator,
+            'creator_token' => null,
+            'name'          => self::IMPORTS_NAME,
+            'slug'          => $slug,
+            'description'   => 'Open-access works you imported by DOI or OpenAlex id. These are the shared commons copies.',
+            'visibility'    => 'private',
+            'default_sort'  => 'recent',
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+
+        return (object) ['id' => $id, 'name' => self::IMPORTS_NAME, 'slug' => $slug, 'creator' => $creator];
+    }
+
     /** Shelf display-name prefix for journal-level harvests. */
     public const JOURNAL_NAME_PREFIX = 'Journal: ';
 

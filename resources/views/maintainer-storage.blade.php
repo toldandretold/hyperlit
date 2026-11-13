@@ -8,15 +8,7 @@
     @vite(['resources/css/pages/maintainer-storage.css'])
 </head>
 <body>
-    {{-- Theme before paint: the reader's storage key (same pattern as the sibling pages). --}}
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="ms-header">
         <h1>Storage</h1>
@@ -25,6 +17,7 @@
             <a href="/maintainer/conversion">conversions &rarr;</a>
             <a href="/maintainer/jobs">jobs &rarr;</a>
             <a href="/maintainer/journal-import">journals &rarr;</a>
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="ms-rescan" title="Measure now — walks the file trees (~2s)">↻ rescan</button>
@@ -160,6 +153,6 @@
         <p class="ms-help-doc">Drift warnings mean bytes on disk that no DB row accounts for — untracked blobs.</p>
     </div>
 
-    @vite(['resources/js/maintainerStorage/main.ts'])
+    @vite(['resources/js/workbenches/storage/main.ts'])
 </body>
 </html>

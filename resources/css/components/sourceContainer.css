@@ -702,7 +702,8 @@
    that toggles their content. Scoped under #source-container to outrank
    `#source-container button` (16px). Both use the identical dropdown style. */
 #source-container #research-workflows-toggle,
-#source-container #creator-tools-toggle {
+#source-container #creator-tools-toggle,
+#archive-container #creator-tools-toggle {
   width: 100%;
   display: flex;
   align-items: center;
@@ -724,13 +725,15 @@
 }
 
 #source-container #research-workflows-toggle .research-workflows-chevron,
-#source-container #creator-tools-toggle .creator-tools-chevron {
+#source-container #creator-tools-toggle .creator-tools-chevron,
+#archive-container #creator-tools-toggle .creator-tools-chevron {
   transition: transform 0.2s ease;
   flex-shrink: 0;
 }
 
 #source-container #research-workflows-toggle.expanded .research-workflows-chevron,
-#source-container #creator-tools-toggle.expanded .creator-tools-chevron {
+#source-container #creator-tools-toggle.expanded .creator-tools-chevron,
+#archive-container #creator-tools-toggle.expanded .creator-tools-chevron {
   transform: rotate(180deg);
 }
 

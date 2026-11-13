@@ -8,6 +8,7 @@ use App\Services\SourceImport\Identifier\ArxivId;
 use App\Services\SourceImport\Identifier\Doi;
 use App\Services\SourceImport\Identifier\GutenbergId;
 use App\Services\SourceImport\Identifier\Identifier;
+use App\Services\SourceImport\Identifier\OpenAlexId;
 
 /**
  * Lookup-by-identifier on canonical_source. Used pre-import for dedup ("does the
@@ -23,6 +24,10 @@ class CanonicalRegistry
      */
     public function findByIdentifier(Identifier $id): ?CanonicalSource
     {
+        if ($id instanceof OpenAlexId) {
+            return CanonicalSource::where('openalex_id', $id->value())->first();
+        }
+
         $doiCandidates = $this->doiCandidates($id);
         foreach ($doiCandidates as $doi) {
             if ($hit = CanonicalSource::whereRaw('LOWER(doi) = ?', [strtolower($doi)])->first()) {
@@ -66,6 +71,15 @@ class CanonicalRegistry
             return PgLibrary::query()
                 ->where('has_nodes', true)
                 ->where('url', $id->url())
+                ->orderBy('timestamp', 'desc')
+                ->get()
+                ->all();
+        }
+
+        if ($id instanceof OpenAlexId) {
+            return PgLibrary::query()
+                ->where('has_nodes', true)
+                ->where('openalex_id', $id->value())
                 ->orderBy('timestamp', 'desc')
                 ->get()
                 ->all();

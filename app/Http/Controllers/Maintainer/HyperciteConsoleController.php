@@ -12,6 +12,7 @@ use App\Services\Hypercites\AutoApprovePolicy;
 use App\Services\Hypercites\CitedWorksQuery;
 use App\Services\Hypercites\HyperciteMinter;
 use App\Services\Hypercites\MatchLocations;
+use App\Services\Hypercites\WorkbenchActor;
 use App\Services\SourceHarvest\HarvestShelf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ use Illuminate\Support\Str;
  * shelf globally). The shelf routes must register before the slug catch:
  * "shelf" itself matches the slug pattern.
  *
- * Web routes: admin checked in-controller, non-admins 404 (the page isn't
+ * Web routes: admin gated by the `admin.page` route middleware, non-admins 404 (the page isn't
  * advertised — house pattern). API routes sit behind auth:sanctum + admin in
  * routes/api.php.
  *
@@ -51,14 +52,45 @@ use Illuminate\Support\Str;
  */
 class HyperciteConsoleController extends Controller
 {
-    private const CANDIDATE_STATUSES = ['pending', 'matched', 'no_match', 'rejected', 'applied', 'failed'];
+    protected const CANDIDATE_STATUSES = ['pending', 'matched', 'no_match', 'rejected', 'applied', 'failed'];
+
+    /* ───────────────────────── Who is asking ───────────────────────── */
+
+    /**
+     * The operator: unrestricted. The shelf-owner workbench
+     * (ShelfWorkbench\HyperciteController) reuses every action below and
+     * overrides ONLY this and the two detect hooks — so a rule about what a
+     * non-admin may see or write lives in WorkbenchActor, not scattered here.
+     */
+    protected function actor(Request $request): WorkbenchActor
+    {
+        return WorkbenchActor::admin();
+    }
+
+    /** A response that stops a detect before it is queued (estimate / no credit), or null. */
+    protected function detectPreflight(Request $request, array $scope): ?\Illuminate\Http\JsonResponse
+    {
+        return null;
+    }
+
+    /** Does a detect started here charge its user for bibliography scans? (hypercite_runs.billed) */
+    protected function detectIsBilled(): bool
+    {
+        return false;
+    }
+
+    /** HTTP status for a WorkbenchActor refusal, or null when the code is not one. */
+    protected function actorRefusalStatus(string $refusal): ?int
+    {
+        return in_array($refusal, [WorkbenchActor::NOT_YOUR_BOOK, WorkbenchActor::CITED_NOT_VERIFIED], true) ? 403 : null;
+    }
 
     /* ───────────────────────── Scope resolution ───────────────────────── */
 
     /**
      * @return ?array{type:string, column:string, id:string, label:string, meta:array}
      */
-    private function journalScope(string $slug): ?array
+    protected function journalScope(string $slug): ?array
     {
         $journal = JournalSource::where('slug', $slug)->first();
         if (! $journal) {
@@ -79,7 +111,7 @@ class HyperciteConsoleController extends Controller
         ];
     }
 
-    private function shelfScope(string $id): ?array
+    protected function shelfScope(string $id): ?array
     {
         if (! Str::isUuid($id)) {
             return null;
@@ -111,21 +143,12 @@ class HyperciteConsoleController extends Controller
     /** GET /maintainer/hypercites — pick a journal or a public shelf. */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-hypercites', ['journalSlug' => null, 'shelfId' => null, 'scopeLabel' => null]);
     }
 
     /** GET /maintainer/hypercites/{slug} — review one journal's candidates. */
     public function show(Request $request, string $slug)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
         $scope = $this->journalScope($slug);
         if (! $scope) {
             abort(404);
@@ -137,10 +160,6 @@ class HyperciteConsoleController extends Controller
     /** GET /maintainer/hypercites/shelf/{id} — review one public shelf's candidates. */
     public function showShelf(Request $request, string $id)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
         $scope = $this->shelfScope($id);
         if (! $scope) {
             abort(404);
@@ -230,7 +249,7 @@ class HyperciteConsoleController extends Controller
      * sides' titles resolved. Filters are query params; all optional. Shelf
      * books may be canonical-less, so citing titles fall back to library.title.
      */
-    private function candidatesFor(Request $request, array $scope)
+    protected function candidatesFor(Request $request, array $scope)
     {
         $db = DB::connection('pgsql_admin');
 
@@ -313,6 +332,10 @@ class HyperciteConsoleController extends Controller
         // id, parsed from the hypercite row's citedIN) so the citing pane can
         // deep-link to the exact arrow rather than just the paragraph.
         $this->attachAnchorIds($rows);
+        // `mintable` + `not_mintable_reason`: always true for the operator; for a
+        // shelf owner, whether THEY may approve this row (own citing book, system-held
+        // cited work) — so the page disables Approve instead of offering a refusal.
+        $this->actor($request)->annotate($rows);
 
         $statusCounts = [];
         foreach ($db->table('hypercite_candidates')
@@ -359,7 +382,7 @@ class HyperciteConsoleController extends Controller
      *
      * @param \Illuminate\Support\Collection<int, object> $rows
      */
-    private function attachStartLines($rows): void
+    protected function attachStartLines($rows): void
     {
         $pairs = [];
         foreach ($rows as $r) {
@@ -406,7 +429,7 @@ class HyperciteConsoleController extends Controller
      *
      * @return list<string>
      */
-    private function locationNodeIds(object $r): array
+    protected function locationNodeIds(object $r): array
     {
         $locations = MatchLocations::decode($r->match_locations ?? null);
         if ($locations === []) {
@@ -437,7 +460,7 @@ class HyperciteConsoleController extends Controller
      *
      * @param \Illuminate\Support\Collection<int, object> $rows
      */
-    private function attachAnchorIds($rows): void
+    protected function attachAnchorIds($rows): void
     {
         $applied = $rows->filter(fn ($r) => (bool) $r->hypercite_id);
         foreach ($rows as $r) {
@@ -488,7 +511,7 @@ class HyperciteConsoleController extends Controller
      * journal-import's run(): one detect per scope at a time; a dead worker is
      * failed by the 30-minute watchdog in runStatus rather than blocking forever.
      */
-    private function detectFor(Request $request, array $scope)
+    protected function detectFor(Request $request, array $scope)
     {
         $db = DB::connection('pgsql_admin');
 
@@ -506,6 +529,13 @@ class HyperciteConsoleController extends Controller
             ]);
         }
 
+        // After the join-a-running-run check on purpose: joining costs nothing new,
+        // so it must not be blocked by an estimate prompt or an empty balance.
+        if ($stop = $this->detectPreflight($request, $scope)) {
+            return $stop;
+        }
+
+        $billed = $this->detectIsBilled();
         $runId = (string) Str::uuid();
         $db->table('hypercite_runs')->insert([
             'id'             => $runId,
@@ -513,12 +543,15 @@ class HyperciteConsoleController extends Controller
             'user_id'        => $request->user()?->id,
             'action'         => 'detect',
             'status'         => 'pending',
+            'billed'         => $billed,
             'counts'         => '{}',
             'created_at'     => now(),
             'updated_at'     => now(),
         ]);
 
-        DetectHyperciteCandidatesJob::dispatch($runId, $request->boolean('auto_approve'));
+        // Auto-approve mints as the operator (no WorkbenchActor) — never on a billed
+        // (shelf-owner) run. The job refuses it too; this keeps the request honest.
+        DetectHyperciteCandidatesJob::dispatch($runId, ! $billed && $request->boolean('auto_approve'));
 
         return response()->json(['run_id' => $runId, 'already_running' => false]);
     }
@@ -528,7 +561,9 @@ class HyperciteConsoleController extends Controller
     {
         $db = DB::connection('pgsql_admin');
         $run = $db->table('hypercite_runs')->where('id', $id)->first();
-        if (! $run) {
+        // A run from another scope is "not found" to a shelf owner — the id alone
+        // must not confirm it exists, let alone report its progress.
+        if (! $run || ! $this->actor($request)->inScope($run)) {
             return response()->json(['message' => 'Run not found.'], 404);
         }
 
@@ -584,10 +619,16 @@ class HyperciteConsoleController extends Controller
 
         $candidate = $db->table('hypercite_candidates')
             ->where('id', $id)
-            ->first(['id', 'hypercite_id', 'match_locations']);
+            ->first(['id', 'hypercite_id', 'match_locations', 'shelf_id', 'citing_book', 'cited_book']);
 
-        if (! $candidate) {
+        // Moving the target is a write about the citing book's future link — same
+        // ownership rule as reject (own citing book), and out-of-scope is not found.
+        $denied = $candidate ? $this->actor($request)->refusal($candidate, minting: false) : 'not_found';
+        if ($denied === 'not_found') {
             return response()->json(['message' => 'Candidate not found.'], 404);
+        }
+        if ($denied) {
+            return response()->json(['message' => "Cannot change this candidate: {$denied}", 'refusal' => $denied], 403);
         }
         if ($candidate->hypercite_id) {
             return response()->json([
@@ -626,7 +667,7 @@ class HyperciteConsoleController extends Controller
      */
     public function approve(Request $request, string $id, HyperciteMinter $minter, ConnectionRefresher $refresher)
     {
-        $result = $minter->mint($id, $request->user()?->id);
+        $result = $minter->mint($id, $request->user()?->id, actor: $this->actor($request));
 
         if ($result['applied'] ?? false) {
             // A new edge changes both books' connection scores AND invalidates
@@ -641,7 +682,7 @@ class HyperciteConsoleController extends Controller
                 $refusal === 'not_found'            => 404,
                 $refusal === 'already_minted'       => 409,
                 str_starts_with($refusal, 'stale_') => 409,
-                default                             => 422,
+                default                             => $this->actorRefusalStatus($refusal) ?? 422,
             };
 
             return response()->json([
@@ -660,7 +701,7 @@ class HyperciteConsoleController extends Controller
      */
     public function revert(Request $request, string $id, HyperciteMinter $minter, ConnectionRefresher $refresher)
     {
-        $result = $minter->unmint($id, $request->user()?->id);
+        $result = $minter->unmint($id, $request->user()?->id, $this->actor($request));
 
         if ($result['reverted'] ?? false) {
             $refresher->refresh([$result['citingBook'] ?? null, $result['citedBook'] ?? null]);
@@ -671,7 +712,7 @@ class HyperciteConsoleController extends Controller
             $status = match (true) {
                 $refusal === 'not_found'            => 404,
                 str_starts_with($refusal, 'stale_') => 409,
-                default                             => 422,
+                default                             => $this->actorRefusalStatus($refusal) ?? 422,
             };
 
             return response()->json([
@@ -686,7 +727,7 @@ class HyperciteConsoleController extends Controller
     /** POST /api/maintainer/hypercites/candidates/{id}/reject */
     public function reject(Request $request, string $id, HyperciteMinter $minter)
     {
-        if (! $minter->reject($id, $request->user()?->id)) {
+        if (! $minter->reject($id, $request->user()?->id, $this->actor($request))) {
             return response()->json(['message' => 'Candidate not found or not rejectable.'], 422);
         }
 
@@ -712,7 +753,7 @@ class HyperciteConsoleController extends Controller
      * AutoApprovePolicy per row (the client's filter is a convenience, not the
      * gate) and stays synchronous, hence the cap: past it, narrow the filter.
      */
-    private function batchApproveFor(Request $request, array $scope, HyperciteMinter $minter)
+    protected function batchApproveFor(Request $request, array $scope, HyperciteMinter $minter)
     {
         $ids = array_values(array_filter((array) $request->input('ids', []), 'is_string'));
         $max = (int) config('hypercites.batch_approve_max', 25);
@@ -730,6 +771,10 @@ class HyperciteConsoleController extends Controller
         $userId = $request->user()?->id;
         $results = ['applied' => 0, 'skipped_policy' => 0, 'failed' => 0];
         $touched = [];
+        $actor = $this->actor($request);
+        if (! $actor->isAdmin()) {
+            $results['skipped_not_mintable'] = 0;
+        }
 
         foreach ($db->table('hypercite_candidates')
             ->whereIn('id', $ids)
@@ -739,7 +784,13 @@ class HyperciteConsoleController extends Controller
                 $results['skipped_policy']++;
                 continue;
             }
-            $r = $minter->mint($candidate->id, $userId);
+            // The actor rule is re-checked per row INSIDE the minter; counted apart from
+            // `failed` because nothing went wrong — the asker just may not write that one.
+            $r = $minter->mint($candidate->id, $userId, actor: $actor);
+            if (! ($r['applied'] ?? false) && $this->actorRefusalStatus((string) ($r['refusal'] ?? '')) !== null) {
+                $results['skipped_not_mintable']++;
+                continue;
+            }
             $results[($r['applied'] ?? false) ? 'applied' : 'failed']++;
             if ($r['applied'] ?? false) {
                 $touched[] = $r['citingBook'] ?? null;
@@ -781,11 +832,14 @@ class HyperciteConsoleController extends Controller
      * exists (created by the first import), so the page can link straight to
      * /maintainer/shelf-import for assessment.
      */
-    private function mostCitedFor(array $scope)
+    protected function mostCitedFor(array $scope)
     {
         $rows = app(CitedWorksQuery::class)->rows($scope);
 
-        $citedShelf = DB::connection('pgsql_admin')->table('shelves')
+        // The "Cited by:" shelf is a system shelf filled by the OPERATOR's bulk import
+        // and assessed in /maintainer/shelf-import; a shelf owner's imports land on
+        // their own "Imported works" shelf instead, so they are never pointed at it.
+        $citedShelf = isset($scope['viewer']) ? null : DB::connection('pgsql_admin')->table('shelves')
             ->where('creator', \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR)
             ->where('name', HarvestShelf::CITED_NAME_PREFIX . Str::limit($scope['label'], 230, '…'))
             ->first(['id', 'name']);
@@ -815,7 +869,7 @@ class HyperciteConsoleController extends Controller
      * Fetch one external cited work so a re-detect can match against it.
      * Queued (it hits a publisher and may run OCR); billed to the presser.
      */
-    private function importSourceFor(Request $request, array $scope)
+    protected function importSourceFor(Request $request, array $scope)
     {
         $canonicalId = (string) $request->input('canonical_source_id', '');
         $db = DB::connection('pgsql_admin');
@@ -882,7 +936,7 @@ class HyperciteConsoleController extends Controller
     }
 
     /** The bulk cap options — same ladder as journal-import's import_all (0 = all listed). */
-    private const BULK_WORK_LIMITS = [5, 25, 100, 0];
+    protected const BULK_WORK_LIMITS = [5, 25, 100, 0];
 
     /**
      * Import the scope's importable external works in one press, collecting
@@ -890,7 +944,7 @@ class HyperciteConsoleController extends Controller
      * /maintainer/shelf-import. Queued and capped: every work may hit a
      * publisher and run OCR, billed to the presser.
      */
-    private function importCitedBulkFor(Request $request, array $scope)
+    protected function importCitedBulkFor(Request $request, array $scope)
     {
         $limit = (int) $request->input('limit', 5);
         if (! in_array($limit, self::BULK_WORK_LIMITS, true)) {

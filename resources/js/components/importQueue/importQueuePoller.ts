@@ -31,6 +31,8 @@ export interface ImportQueueShelf {
   name: string;
   slug: string;
   creator?: string;
+  /** Server-resolved home of the shelf: its archive page, else the user-page shelf. */
+  url?: string;
 }
 
 export interface ImportQueueBatch {

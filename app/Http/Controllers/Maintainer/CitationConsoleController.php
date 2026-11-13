@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * An answer PATCHES THE STORED NODES immediately (choose an entry → confirmed link; "not a
  * citation" → unlinked text) and persists in the ledger, which every later reconvert re-applies.
  *
- * Web page: admin checked in-controller, non-admins 404 (the house pattern — the page is not
+ * Web page: admin gated by the `admin.page` route middleware, non-admins 404 (the house pattern — the page is not
  * advertised). API routes sit behind auth:sanctum + admin in routes/api.php.
  */
 class CitationConsoleController extends Controller
@@ -28,11 +28,6 @@ class CitationConsoleController extends Controller
     /** GET /maintainer/citations */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-citations');
     }
 

@@ -10,14 +10,7 @@
     @vite(['resources/css/pages/maintainer-journal-import.css'])
 </head>
 <body class="ji-detail">
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="ji-header">
         <h1 id="ji-journal-name">…</h1>
@@ -98,6 +91,7 @@
             <a id="ji-public-link" href="#" target="_blank" rel="noopener">public page →</a>
             <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
         </nav>
         <button type="button" id="ji-help-toggle" aria-expanded="false" aria-controls="ji-help-panel" title="How this works">?</button>
     </header>
@@ -266,6 +260,6 @@
     </div>
 
     <script>window.__journalImport = { slug: @json($journalSlug) };</script>
-    @vite(['resources/js/maintainerJournalImport/main.ts'])
+    @vite(['resources/js/workbenches/journalImport/main.ts'])
 </body>
 </html>

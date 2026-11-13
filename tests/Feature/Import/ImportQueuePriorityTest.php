@@ -136,6 +136,16 @@ test('user-facing import dispatch sites route to the interactive lane', function
     }
 });
 
+test('a single-work (DOI / OpenAlex) import rides the interactive lane too', function () {
+    // ImportWorkJob is user-initiated — one person waiting on one work — so both of
+    // SingleWorkImporter's dispatches (start + the MCP confirm leg) must jump the bulk lane.
+    $src = file_get_contents(app_path('Services/SourceImport/SingleWorkImporter.php'));
+    expect(substr_count($src, 'ImportWorkJob::dispatch('))->toBe(2)
+        ->and(substr_count($src, '->onQueue(ProcessDocumentImportJob::QUEUE_INTERACTIVE)'))->toBe(2);
+    // …and the job must not pin itself to some other queue behind the dispatcher's back.
+    expect(file_get_contents(app_path('Jobs/ImportWorkJob.php')))->not->toContain('onQueue(');
+});
+
 test('the bulk reconvert-all fan-out does NOT ride the interactive lane', function () {
     // JournalImportActionJob::runReconvertAll queues one job per lane of a whole
     // journal — the exact backlog the lane exists to jump. It must never pass

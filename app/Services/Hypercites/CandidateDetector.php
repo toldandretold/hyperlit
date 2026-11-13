@@ -51,6 +51,9 @@ class CandidateDetector
      *        so the run stops itself with time to spare and the JOB dispatches
      *        its own continuation; every stage is idempotent (scanned books
      *        skip the scan, candidates upsert), so the next slice resumes.
+     * @param ?ScanBilling $billing set for a requester-pays run: each bibliography scan
+     *        is metered and charged to the run's user after it succeeds, and scanning
+     *        stops (the walk does not) when they run out of credit. Null = unbilled.
      * @return array<string,int> counts for the run row (`stopped_early` =
      *         books not reached when the budget ran out; `skipped_oversized` =
      *         bibliographies too large to scan in any slice, needing an
@@ -58,7 +61,7 @@ class CandidateDetector
      *         scans this slice declined to START for want of remaining budget,
      *         which the NEXT slice picks up first)
      */
-    public function detect(DetectionScope $scope, string $runId, ?int $deadline = null): array
+    public function detect(DetectionScope $scope, string $runId, ?int $deadline = null, ?ScanBilling $billing = null): array
     {
         $db = DB::connection('pgsql_admin');
 
@@ -71,6 +74,11 @@ class CandidateDetector
             // a run that quietly declined to scan its biggest books reads as full coverage.
             'skipped_oversized' => 0, 'deferred_scans' => 0,
         ];
+        if ($billing) {
+            // A requester-pays run (the shelf-owner workbench): scans declined because the
+            // payer ran out of credit are reported, never silently skipped.
+            $counts['skipped_no_credit'] = 0;
+        }
 
         $citing = $scope->citingEntries($this->versions);
         $total = count($citing);
@@ -140,6 +148,10 @@ class CandidateDetector
                     // Enough budget to walk the book, not enough to safely finish a scan.
                     // Defer it — the next slice starts from the top and reaches it first.
                     $counts['deferred_scans']++;
+                } elseif ($billing && ! $billing->canAffordScan()) {
+                    // Requester-pays and out of credit: decline the SCAN, keep the book —
+                    // whatever its bibliography already resolves to still yields candidates.
+                    $counts['skipped_no_credit']++;
                 } else {
                     // The expensive step, and the one worth naming separately: minutes per article
                     // against an LLM plus external lookups, and it is the whole reason a first pass
@@ -153,12 +165,15 @@ class CandidateDetector
                         'title' => $title !== '' ? $title : $citingBook,
                         'refs'  => $refRows,
                     ]);
+                    $billing?->begin();
                     $exit = Artisan::call('citation:scan-bibliography', ['target' => $citingBook]);
                     if ($exit !== 0) {
+                        // A failed scan is never charged (house rule: failed work is free).
                         Log::warning('hypercites: scan-bibliography failed', ['book' => $citingBook, 'exit' => $exit]);
                         continue;
                     }
                     $counts['scanned']++;
+                    $billing?->chargeFor($citingBook);
                 }
             }
 
@@ -368,7 +383,7 @@ class CandidateDetector
         return (int) config('hypercites.scan_reserve_seconds', 900);
     }
 
-    private function needsBibliographyScan(string $book): bool
+    public function needsBibliographyScan(string $book): bool
     {
         $db = DB::connection('pgsql_admin');
 

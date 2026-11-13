@@ -88,6 +88,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'author'     => \App\Http\Middleware\RequireAuthor::class,
             'cors'       => \App\Http\Middleware\CorsMiddleware::class, // Add alias for manual use
             'admin'      => \App\Http\Middleware\RequireAdmin::class,
+            'shelf.owner' => \App\Http\Middleware\RequireShelfOwner::class, // /api/shelf-workbench: the shelf's creator only
+            'admin.page' => \App\Http\Middleware\RequireAdminPage::class, // 404, not 403: pages aren't advertised
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

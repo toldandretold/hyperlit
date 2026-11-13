@@ -1,0 +1,297 @@
+/**
+ * Typed fetch layer for /maintainer/hypercites (see HyperciteConsoleController).
+ * Every POST carries the CSRF pair via shared/http.ts, matching the other
+ * maintainer consoles.
+ */
+
+import { getJson, postJson } from '../shared/http';
+
+export interface JournalRow {
+  slug: string;
+  display_name: string;
+  publisher: string | null;
+  works_count: number | null;
+  last_harvested_at: string | null;
+  candidates: Record<string, number>;
+}
+
+export interface ShelfRow {
+  shelf_id: string;
+  name: string;
+  creator: string;
+  item_count: number;
+  candidates: Record<string, number>;
+}
+
+export interface ScopeMeta {
+  scope_type: 'journal' | 'shelf';
+  slug?: string;
+  shelf_id?: string;
+  display_name: string;
+  publisher: string | null;
+}
+
+/** One place the quote was found in the cited work. */
+export interface MatchLocation {
+  node_ids: string[];
+  char_data: Record<string, { charStart: number; charEnd: number }>;
+  method: 'exact' | 'normalized' | 'fts_fuzzy';
+  score: number | string;
+}
+
+export interface Candidate {
+  id: string;
+  status: 'pending' | 'matched' | 'no_match' | 'rejected' | 'applied' | 'failed';
+  error: string | null;
+  is_internal: boolean;
+  citing_canonical_source_id: string;
+  cited_canonical_source_id: string;
+  citing_book: string;
+  cited_book: string;
+  reference_id: string;
+  occurrence_index: number;
+  citing_node_id: string;
+  citing_start_line: number | string | null;
+  cited_start_line: number | string | null;
+  marker_offset: number;
+  claim_start: number | null;
+  claim_end: number | null;
+  has_quote: boolean;
+  quote_kind: 'inline' | 'blockquote' | null;
+  quote_text: string | null;
+  quote_node_id: string | null;
+  // The SELECTED location, mirrored from match_locations[match_location_index].
+  match_node_ids: string[] | null;
+  match_char_data: Record<string, { charStart: number; charEnd: number }> | null;
+  match_method: 'exact' | 'normalized' | 'fts_fuzzy' | null;
+  match_score: number | string | null; // Postgres floats arrive as strings via PDO
+  match_occurrences: number | null;
+  // Every place the quote was found in the cited work, ranked best-first (body
+  // prose ahead of the title block), for the occurrence picker to step through.
+  match_locations: MatchLocation[];
+  match_location_index: number;
+  // startLine per location, index-aligned with match_locations — the cited pane
+  // scrolls by startLine, so the picker needs one for locations not yet chosen.
+  location_start_lines: (number | string | null)[];
+  // Whether THIS viewer may approve the row. Always true for the operator; for a
+  // shelf owner false when the citing book is not theirs (`not_your_book`) or the
+  // cited one is not a system-held work (`cited_not_verified`) — see WorkbenchActor.
+  mintable?: boolean;
+  not_mintable_reason?: 'not_your_book' | 'cited_not_verified' | null;
+  hypercite_id: string | null;
+  anchor_id: string | null; // the citing-side ↗ element id, applied rows only
+  auto_approved: boolean;
+  reviewed_at: string | null;
+  applied_at: string | null;
+  citing_title: string | null;
+  citing_author: string | null;
+  citing_year: number | null;
+  cited_title: string | null;
+  cited_author: string | null;
+  cited_year: number | null;
+}
+
+/**
+ * The live beat a running detect writes to `hypercite_runs.progress`, one write per book (and one
+ * per mint during auto-approve). Null whenever the run is terminal, predates the column, or is
+ * being worked by a pre-deploy worker — the console falls back to `step_detail`.
+ */
+export interface RunProgress {
+  /** What it is doing: walking a book, paying for a bibliography scan, or minting. */
+  phase: 'scanning' | 'resolving' | 'minting' | null;
+  /**
+   * Which SLICE this is. A detect is capped at a 50-minute budget and re-dispatches itself on the
+   * same run row, walking the scope list from the top again — so n/total restarts every pass and
+   * the number is what stops that reading as the bar going backwards. Absent on the mint phase.
+   */
+  pass?: number;
+  n: number;
+  total: number;
+  book?: string;
+  title: string | null;
+  candidates?: number;
+  matched?: number;
+  no_match?: number;
+  with_quote?: number;
+  scanned?: number;
+  minted?: number;
+}
+
+export interface CandidatesPayload {
+  scope: ScopeMeta;
+  status_counts: Record<string, number>;
+  active_run: {
+    id: string;
+    status: string;
+    step_detail: string | null;
+    progress: RunProgress | null;
+  } | null;
+  candidates: Candidate[];
+}
+
+export interface RunStatus {
+  id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  action: string;
+  step_detail: string | null;
+  counts: Record<string, unknown>;
+  progress?: RunProgress | null;
+  error: string | null;
+}
+
+export interface MostCitedRow {
+  canonical_id: string;
+  title: string | null;
+  author: string | null;
+  year: number | null;
+  journal: string | null;
+  doi: string | null;
+  citing_count: number;
+  cited_by_count: number | null;
+  is_internal: boolean;
+  held: boolean;
+  is_oa: boolean;
+  fetchable: boolean;
+  importable: boolean;
+}
+
+/** The scope's "Cited by:" collection shelf, once the first import created it. */
+export interface CitedShelf {
+  id: string;
+  name: string;
+}
+
+export interface ApproveResult {
+  applied: boolean;
+  refusal?: string;
+  message?: string;
+  hyperciteId?: string;
+  anchorId?: string;
+  citedBook?: string;
+  citedNodeId?: string;
+}
+
+/**
+ * Where the un-scoped endpoints (runs/{id}, candidates/{id}/…) live. The operator
+ * console's are global under /api/maintainer/hypercites; the shelf-owner workbench's
+ * hang off its own shelf base (/api/shelf-workbench/{shelf}/hypercites), where the
+ * server checks every id against that shelf. Set once at boot by useOwnerApi().
+ */
+let apiRoot = '/api/maintainer/hypercites';
+let ownerBase: string | null = null;
+
+/** Point every call at the shelf-owner API (the page was opened at /a/{slug}/hypercites). */
+export function useOwnerApi(base: string): void {
+  apiRoot = base;
+  ownerBase = base;
+}
+
+export const isOwnerApi = (): boolean => ownerBase !== null;
+
+/**
+ * The API base for one detection scope: journals live at .../{slug}, public
+ * shelves at .../shelf/{uuid}; the owner workbench has exactly one scope, its
+ * own base. Everything scope-keyed hangs off this.
+ */
+export function scopeBase(slug: string | null, shelfId: string | null): string {
+  if (ownerBase) return ownerBase;
+  return slug
+    ? `/api/maintainer/hypercites/${encodeURIComponent(slug)}`
+    : `/api/maintainer/hypercites/shelf/${encodeURIComponent(shelfId ?? '')}`;
+}
+
+/** What a billed detect will scan — returned instead of a run until confirmed. */
+export interface ScanEstimate {
+  books: number;
+  books_to_scan: number;
+  references: number;
+}
+
+export interface DetectResult {
+  run_id?: string;
+  already_running?: boolean;
+  action?: string;
+  needs_confirm?: boolean;
+  estimate?: ScanEstimate;
+  refusal?: string;
+  message?: string;
+}
+
+/** The owner's single-work import (SingleWorkImporter), polled via /api/import-progress. */
+export interface OwnerImportResult {
+  status?: 'queued' | 'running' | 'already_available' | 'awaiting_confirmation';
+  import?: string | null;
+  book?: string | null;
+  outcome?: string | null;
+  refusal?: string;
+  message?: string;
+}
+
+export const api = {
+  journals: () => getJson<{ journals: JournalRow[]; shelves: ShelfRow[] }>('/api/maintainer/hypercites/journals'),
+
+  candidates: (base: string, filters: Record<string, string>) => {
+    const qs = new URLSearchParams(filters).toString();
+    return getJson<CandidatesPayload>(`${base}/candidates${qs ? `?${qs}` : ''}`);
+  },
+
+  detect: (base: string, autoApprove: boolean, confirm = false) =>
+    postJson<DetectResult>(`${base}/detect`, { auto_approve: autoApprove, confirm }),
+
+  runStatus: (id: string) => getJson<RunStatus>(`${apiRoot}/runs/${encodeURIComponent(id)}`),
+
+  approve: (id: string) =>
+    postJson<ApproveResult>(`${apiRoot}/candidates/${encodeURIComponent(id)}/approve`, {}),
+
+  reject: (id: string) =>
+    postJson<{ rejected?: boolean; message?: string }>(
+      `${apiRoot}/candidates/${encodeURIComponent(id)}/reject`,
+      {},
+    ),
+
+  revert: (id: string) =>
+    postJson<{ reverted?: boolean; refusal?: string; message?: string }>(
+      `${apiRoot}/candidates/${encodeURIComponent(id)}/revert`,
+      {},
+    ),
+
+  /** Move which occurrence of the quote the hypercite will land on. */
+  chooseOccurrence: (id: string, index: number) =>
+    postJson<{ chosen?: number; refusal?: string; message?: string }>(
+      `${apiRoot}/candidates/${encodeURIComponent(id)}/occurrence`,
+      { index },
+    ),
+
+  batchApprove: (base: string, ids: string[]) =>
+    postJson<{ applied?: number; skipped_policy?: number; skipped_not_mintable?: number; failed?: number; message?: string }>(
+      `${base}/batch-approve`,
+      { ids },
+    ),
+
+  mostCited: (base: string) =>
+    getJson<{ internal: MostCitedRow[]; external: MostCitedRow[]; cited_shelf: CitedShelf | null }>(
+      `${base}/most-cited`,
+    ),
+
+  importSource: (base: string, canonicalId: string) =>
+    postJson<{ run_id: string; already_running: boolean; message?: string }>(
+      `${base}/import-source`,
+      { canonical_source_id: canonicalId },
+    ),
+
+  /** Owner workbench only: one cited work via the user-billed single-work importer. */
+  ownerImportSource: (base: string, canonicalId: string) =>
+    postJson<OwnerImportResult>(`${base}/import-source`, { canonical_source_id: canonicalId }),
+
+  /** Progress of an owner import — the same poll the URL importer uses. */
+  importProgress: (importId: string) =>
+    getJson<{ status?: string; detail?: string; percent?: number }>(
+      `/api/import-progress/${encodeURIComponent(importId)}`,
+    ),
+
+  importCitedBulk: (base: string, limit: number) =>
+    postJson<{ run_id: string; already_running: boolean; action?: string; message?: string }>(
+      `${base}/import-cited-bulk`,
+      { limit },
+    ),
+};

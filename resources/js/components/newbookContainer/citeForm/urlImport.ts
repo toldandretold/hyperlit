@@ -83,9 +83,17 @@ export function setupUrlImport() {
     lastInspected = null;
   };
 
+  // A DOI / OpenAlex id can be importable even when OpenAlex calls the work closed — a
+  // repository pre-print counts. The server's `fetchable` is the gate; older responses
+  // (arXiv / Gutenberg) only carry `access`.
+  const isFetchable = (plan: any) => plan.fetchable ?? plan.access === 'open';
+
   const fmtAccess = (plan: any) => {
     if (plan.access === 'open') {
       return `<span class="access-badge open">Open&nbsp;Access</span>`;
+    }
+    if (isFetchable(plan)) {
+      return `<span class="access-badge open">Open&nbsp;copy&nbsp;found</span> &nbsp;— the publisher's version is closed, but a free copy (e.g. a repository pre-print) is listed.`;
     }
     return `<span class="access-badge closed">Closed&nbsp;Access</span> &nbsp;— switch to <em>Import a file</em> to upload the PDF.`;
   };
@@ -104,7 +112,7 @@ export function setupUrlImport() {
           <div class="import-existing-versions">
             <p><strong>This source is already in the library:</strong></p>
             <ul>${items}</ul>
-            <p class="muted">Continue below to create your own version anyway.</p>
+            <p class="muted import-existing-continue">Continue below to create your own version anyway.</p>
           </div>`;
   };
 
@@ -125,7 +133,12 @@ export function setupUrlImport() {
           ${fmtExistingVersions(data.existing_versions)}
         `;
 
-    const canCreate = data.plan.access === 'open';
+    const canCreate = isFetchable(data.plan);
+    // The ladder lane reuses a readable copy instead of minting a duplicate.
+    if (data.plan.via_ladder) {
+      const cont = previewBody.querySelector('.import-existing-continue');
+      if (cont) cont.textContent = 'Continue below to open the copy already in the library.';
+    }
     commitBtn.disabled = !canCreate;
     commitBtn.style.display = canCreate ? '' : 'none';
     bookInput.style.display = canCreate ? '' : 'none';
@@ -247,18 +260,53 @@ export function setupUrlImport() {
         resetButton();
         return;
       }
+      // The work was already readable (the commons copy, or one you own) — nothing to wait for.
+      if (data.existing) {
+        pollCtl.stop = true;
+        await pollPromise.catch(() => {});
+        clearSavedFormData();
+        resetFileSelectionTracking();
+        window.location.href = `/${data.bookId}`;
+        return;
+      }
+
       // POST returned (fetch succeeded, job dispatched). Polling continues
       // through the queue processor until the worker has populated nodes.
-      const result = await pollPromise;
+      let result: any;
+      if (data.async) {
+        // DOI / OpenAlex lane: the fetch itself runs in the queued job. Restart the poll
+        // AFTER the POST — the pre-POST poll may have read a stale progress file left by an
+        // earlier attempt under the same /url.
+        pollCtl.stop = true;
+        await pollPromise.catch(() => {});
+        const asyncCtl = { stop: false };
+        result = await waitForImportCompletion(data.bookId, (label: any, pct: any, detail: any) => {
+          const human = STAGE_LABELS[label] || label || 'Working';
+          commitBtn.textContent = pct != null ? `${human} ${pct}%` : `${human}…`;
+          if (detail) setStatus(detail, false);
+        }, asyncCtl);
+      } else {
+        result = await pollPromise;
+      }
       if (result.status === 'failed') {
-        setStatus(result.detail || 'Import job failed. Check Laravel logs for details.', true);
+        const link = data.async && urlInput.value.trim().startsWith('http')
+          ? { url: urlInput.value.trim(), label: 'Open publisher page →' }
+          : null;
+        setStatus(result.detail || 'Import job failed. Check Laravel logs for details.', true, link);
+        resetButton();
+        return;
+      }
+      if (data.async && result.status === 'timeout') {
+        setStatus('Still working — this import is taking a while. It will appear in your library when it finishes.', false);
         resetButton();
         return;
       }
       // The book exists — the draft describes it, not the next import.
       clearSavedFormData();
       resetFileSelectionTracking();
-      window.location.href = `/${data.bookId}`;
+      // A ladder import opens the book it landed as (the shared commons copy keeps its own
+      // id; only a private copy takes the /url typed above).
+      window.location.href = `/${result.book || data.bookId}`;
     } catch (e) {
       console.error(e);
       pollCtl.stop = true;
@@ -277,6 +325,9 @@ const STAGE_LABELS: any = {
   fetching_pdf_locating: 'Locating PDF',
   fetching_pdf_downloading: 'Downloading PDF',
   fetch_failed: 'Fetch failed',
+  fetching_work: 'Finding an open copy',
+  ocr: 'Reading PDF',
+  delivering: 'Adding to library',
   queued: 'Queued',
   starting: 'Starting',
   doc_parse: 'Parsing',
@@ -303,7 +354,7 @@ async function waitForImportCompletion(bookId: any, onProgress: any, ctl: any) {
       const resp = await fetch(`/api/import-progress/${bookId}`);
       if (resp.ok) {
         const data = await resp.json();
-        if (data.status === 'complete') return { status: 'complete', detail: data.detail };
+        if (data.status === 'complete') return { status: 'complete', detail: data.detail, book: data.book, outcome: data.outcome };
         if (data.status === 'failed') return { status: 'failed', detail: data.detail };
         onProgress?.(data.stage || 'processing', data.percent ?? null, data.detail);
       } else if (resp.status !== 404) {
@@ -346,10 +397,10 @@ function suggestBookId(metadata: any) {
 
 function humanError(code: any) {
   switch (code) {
-    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL, DOI, or Project Gutenberg link.";
+    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL, DOI, OpenAlex id, or Project Gutenberg link.";
     case 'metadata_unavailable': return "Couldn't find metadata for this work.";
     case 'metadata_unavailable_but_canonical_exists': return 'This source exists in the library, but external metadata could not be refreshed.';
-    case 'closed_access_requires_upload': return 'This work is not open access. Switch to "Import a file" to upload the PDF.';
+    case 'closed_access_requires_upload': return 'This work is not open access and no free copy is listed anywhere we could check. Switch to "Import a file" to upload the PDF.';
     case 'canonical_already_exists': return 'This source already exists in the library.';
     case 'book_id_taken': return 'That /url is already taken — pick a different one.';
     case 'content_fetch_failed': return 'We could not download the content. Try uploading the file instead.';

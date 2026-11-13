@@ -85,7 +85,7 @@ Deploy the fix (`migrate` if needed, `queue:restart` always), then back on `/mai
 ## Where things live
 
 - Queue + flags: `conversion_flags` table, `App\Models\ConversionFlag`, `App\Services\Conversion\ReconvertQueue`, `library:reconvert-queue` / `library:flag-sweep` commands.
-- Page: `resources/views/maintainer.blade.php` + `resources/js/maintainer/main.ts` + `resources/css/pages/maintainer.css`; API in `MaintainerController`.
+- Page: `resources/views/maintainer.blade.php` + `resources/js/workbenches/conversion/main.ts` + `resources/css/pages/maintainer.css`; API in `MaintainerController`.
 - Bundle: `book:export` / `book:import` commands (`app/Console/Commands/Book{Export,Import}.php`).
 - Annotation preservation: `App\Services\Annotations\{AnnotationSnapshotService,AnnotationReattachmentService}` + `App\Services\Import\BookContentClearer`; hooks in `ProcessDocumentImportJob` and `ContentFetchService::processLocalPdf`.
 - Regression suite: `tests/conversion/` (see its README for fixture conventions).

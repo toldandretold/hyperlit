@@ -3,6 +3,12 @@
      percent, and without it the panes grow to the whole candidate list (the
      same descendant-selector trap the journal-import console hit). --}}
 @php($isDetail = (bool) ($journalSlug || $shelfId))
+{{-- $owner is set ONLY by ShelfWorkbench\HyperciteController (/a/{slug}/hypercites): the
+     shelf owner's view of this same page. It removes the operator-only controls
+     (auto-approve, bulk import, the /maintainer nav) and points the script at the
+     owner API. Removed server-side, not hidden — an owner must not be shown a control
+     whose endpoint does not exist for them. --}}
+@php($owner = $owner ?? null)
 <html lang="en" class="hx-root{{ $isDetail ? ' hx-root-detail' : '' }}">
 <head>
     <meta charset="UTF-8">
@@ -12,14 +18,7 @@
     @vite(['resources/css/pages/maintainer-hypercites.css'])
 </head>
 <body class="{{ $isDetail ? 'hx-detail' : 'hx-index' }}">
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="hx-header">
         <h1 id="hx-title">Hypercites</h1>
@@ -29,9 +28,11 @@
         <div class="hx-journal-actions">
             <button type="button" id="hx-detect"
                     title="Walk this collection's citation graph: find citations of works we hold, detect quotes, and try to locate each quote in the cited text. Free — no publisher is contacted.">⌕ detect candidates</button>
+            @if (! $owner)
             <label class="hx-auto-approve" title="Also mint every candidate the auto-approve policy clears: exact verbatim match, single occurrence, real quote length. Off by default — the point of this page is that you review first.">
                 <input type="checkbox" id="hx-auto-approve"> auto-approve exact
             </label>
+            @endif
             <span class="hx-actions-status" id="hx-run-status" role="status" aria-live="polite"></span>
         </div>
 
@@ -42,7 +43,9 @@
         @endif
 
         <nav class="hx-header-nav">
-            @if ($isDetail)
+            @if ($owner)
+            <a href="{{ $owner['archiveUrl'] }}">&larr; back to the library</a>
+            @elseif ($isDetail)
             <a href="/maintainer/hypercites">&larr; all collections</a>
             @if ($journalSlug)
             <a id="hx-journal-import-link" href="/maintainer/journal-import/{{ $journalSlug }}">journal import →</a>
@@ -51,6 +54,9 @@
             <a href="/maintainer/journal-import">journal import →</a>
             <a href="/maintainer/citations">citations →</a>
             <a href="/maintainer/conversion">conversions →</a>
+            @endif
+            @if (! $owner)
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
             @endif
         </nav>
         <button type="button" id="hx-help-toggle" aria-expanded="false" aria-controls="hx-help-panel" title="How this works">?</button>
@@ -117,6 +123,7 @@
             <div id="hx-mostcited-tab" hidden>
                 <div class="hx-list-head">
                     <span id="hx-mostcited-count">…</span>
+                    @if (! $owner)
                     <span class="hx-mc-bulk">
                         <select id="hx-bulk-limit" title="How many of the importable works to attempt in one run">
                             <option value="5" selected>next 5</option>
@@ -127,6 +134,7 @@
                         <button type="button" id="hx-import-all"
                             title="Import the most-cited external OA works in one run, collected onto a public 'Cited by:' shelf for assessment. PDF fetch + OCR is charged to you.">⇩ import all OA</button>
                     </span>
+                    @endif
                 </div>
                 <div class="hx-list-head">
                     <span class="hx-actions-status" id="hx-mc-status" role="status" aria-live="polite"></span>
@@ -214,10 +222,15 @@
             <li><strong>A 409 on approve</strong> means a book changed since detection (usually a reconvert) — press detect again and re-review.</li>
             <li><strong>most cited</strong> ranks the works this collection's books cite. Import the big external OA ones, re-run detect, and their quotes become matchable too.</li>
         </ol>
+        @if ($owner)
+        <p class="hx-help-doc"><strong>What you can approve.</strong> A hypercite edits the citing book, so you can approve only where the citing book is your own and the cited one is a published work held in the commons. Other rows are listed so you can see the citation graph, with ✓ disabled and the reason shown.</p>
+        <p class="hx-help-doc"><strong>What costs credit.</strong> Detection itself is free. A book whose references have never been resolved needs a bibliography scan first, billed at metered cost; you are shown how many books need one before anything runs. Importing a cited work may run OCR, billed as any import.</p>
+        @else
         <p class="hx-help-doc">Design: plan file + <code>docs/journal-harvest.md</code></p>
+        @endif
     </div>
 
-    <script>window.__hyperciteConsole = { slug: @json($journalSlug), shelfId: @json($shelfId), scopeLabel: @json($scopeLabel) };</script>
-    @vite(['resources/js/maintainerHypercites/main.ts'])
+    <script>window.__hyperciteConsole = { slug: @json($journalSlug), shelfId: @json($shelfId), scopeLabel: @json($scopeLabel), apiBase: @json($owner['apiBase'] ?? null) };</script>
+    @vite(['resources/js/workbenches/hypercites/main.ts'])
 </body>
 </html>

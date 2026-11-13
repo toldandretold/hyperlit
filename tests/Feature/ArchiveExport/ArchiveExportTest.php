@@ -394,3 +394,29 @@ test('the vault README follows the archive page: the pinned book is the README o
         }
     }
 });
+
+test('the vault zip is flushed mid-build without losing a note (bounded memory)', function () {
+    // ZipArchive holds every addFromString payload until close(); the builder
+    // closes + reopens past flushBytes so peak RAM is one window, not the
+    // corpus. Force a flush after EVERY note and prove nothing is dropped.
+    $owner = aexUser();
+    foreach (['one', 'two', 'three', 'four'] as $suffix) {
+        aexBook($owner, $suffix, 'public');
+    }
+    $this->app->resolving(\App\Services\Export\MarkdownVaultBuilder::class, function ($builder) {
+        $builder->flushBytes = 1;
+    });
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'markdown'])->assertStatus(202);
+
+    $res = $this->get("/exports/{$scope}/markdown");
+    $res->assertOk();
+    $names = aexZipNames($res->baseResponse->getFile()->getPathname());
+    $joined = implode("\n", $names);
+
+    expect($names)->toHaveCount(5); // README + four notes, each exactly once
+    expect($joined)->toContain('README.md')
+        ->toContain('Aex One Title')->toContain('Aex Two Title')
+        ->toContain('Aex Three Title')->toContain('Aex Four Title');
+});

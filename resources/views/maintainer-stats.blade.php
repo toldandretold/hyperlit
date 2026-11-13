@@ -8,15 +8,7 @@
     @vite(['resources/css/pages/maintainer-stats.css'])
 </head>
 <body>
-    {{-- Theme before paint: the reader's storage key (same pattern as the sibling pages). --}}
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="mst-header">
         <h1>Stats</h1>
@@ -26,6 +18,7 @@
             <a href="/maintainer/jobs">jobs &rarr;</a>
             <a href="/maintainer/storage">storage &rarr;</a>
             <a href="/maintainer/journal-import">journals &rarr;</a>
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="mst-help-toggle" aria-expanded="false" aria-controls="mst-help-panel" title="How this works">?</button>
@@ -67,6 +60,6 @@
         <p>Capture rides the reader's scroll detector: a chunk counts only when it was actually on screen, not merely loaded. Sub-books roll up to their parent; home/user feed pages are never counted.</p>
     </div>
 
-    @vite(['resources/js/maintainerStats/main.ts'])
+    @vite(['resources/js/workbenches/stats/main.ts'])
 </body>
 </html>

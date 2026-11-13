@@ -35,7 +35,7 @@ use Symfony\Component\Process\Process;
  * An explicit Apply step folds labels into ground_truth.json, making the
  * human review the baseline the AI is scored against.
  *
- * Web page: admin checked in-controller, non-admins 404 (house pattern).
+ * Web page: admin gated by the `admin.page` route middleware, non-admins 404 (house pattern).
  * API routes sit behind auth:sanctum + admin in routes/api.php.
  */
 class StudyConsoleController extends Controller
@@ -48,10 +48,6 @@ class StudyConsoleController extends Controller
     /** GET /maintainer/study */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
         return view('maintainer-study', [
             'slug' => null,
             'corpus' => $this->corpusName($request),
@@ -62,10 +58,6 @@ class StudyConsoleController extends Controller
     /** GET /maintainer/study/{slug} */
     public function show(Request $request, string $slug)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
         return view('maintainer-study', [
             'slug' => $slug,
             'corpus' => $this->corpusName($request),

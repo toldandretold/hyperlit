@@ -212,3 +212,52 @@ test('a fetch that imported directly (JATS/HTML lane) skips OCR and only defers 
 
     expect($result['status'])->toBe('deferred');
 });
+
+test('a PDF already downloaded is OCR\'d in place, never re-fetched — even when the row has an oa_url', function () {
+    // The single-work import pauses between "PDF downloaded" and "OCR" for the user to accept
+    // the estimate. The second leg must OCR THAT file: re-running the ladder could land a
+    // different copy than the one quoted, and re-downloads for nothing.
+    $id = canonvSeedCanonical([
+        'title'   => 'CanonV AVC ResumeDownloaded',
+        'oa_url'  => 'https://example.org/canonv-avc-resume',
+        'pdf_url' => 'https://example.org/canonv-avc-resume.pdf',
+    ]);
+    $stub = canonvSeedLibrary([
+        'title'               => 'CanonV AVC Resume Stub',
+        'canonical_source_id' => $id,
+        'conversion_method'   => AutoVersionResolver::CONVERSION_METHOD,
+        'foundation_source'   => AutoVersionResolver::FOUNDATION_SOURCE,
+        'creator'             => AutoVersionResolver::CREATOR,
+        'has_nodes'           => false,
+        'listed'              => false,
+    ]);
+    canonvDb()->table('library')->where('book', $stub)->update([
+        'oa_url'         => 'https://example.org/canonv-avc-resume',
+        'pdf_url_status' => 'downloaded',
+    ]);
+    $dir = resource_path("markdown/{$stub}");
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+    \Illuminate\Support\Facades\File::put("{$dir}/original.pdf", '%PDF-1.4');
+    \Illuminate\Support\Facades\File::put("{$dir}/fetch_trace.json", json_encode(['won_license' => 'cc-by', 'candidates' => 2]));
+
+    try {
+        $fetcher = Mockery::mock(ContentFetchService::class);
+        $fetcher->shouldNotReceive('fetch');
+        $fetcher->shouldReceive('processLocalPdf')->once()->andReturnUsing(function () use ($stub) {
+            canonvDb()->table('library')->where('book', $stub)
+                ->update(['has_nodes' => true, 'pdf_url_status' => 'imported']);
+
+            return ['status' => 'imported', 'reason' => 'imported', 'node_count' => 3];
+        });
+
+        $result = avcCreator($fetcher)->create(CanonicalSource::findOrFail($id));
+
+        expect($result['status'])->toBe('assigned')
+            ->and($result['book'])->toBe($stub);
+        // The licence of the copy the FIRST leg won survives the pause (read back from the
+        // stored trace), instead of being re-derived from the work's licence alone.
+        expect(canonvDb()->table('library')->where('book', $stub)->value('license'))->toBe('CC-BY');
+    } finally {
+        \Illuminate\Support\Facades\File::deleteDirectory($dir);
+    }
+});

@@ -83,6 +83,21 @@ describe('drop onto your own open shelf', () => {
     expect(importClicks).toBe(0);
   });
 
+  it("on the owner's archive page (the shelf's home page) a drop goes onto that shelf", async () => {
+    const holder = document.createElement('div');
+    holder.id = 'bottom-right-buttons';
+    holder.dataset.archiveEdit = JSON.stringify({ shelfId: SHELF, name: 'Cyber Politics' });
+    document.body.appendChild(holder);
+    expect(openOwnedShelf()).toEqual({ id: SHELF, name: 'Cyber Politics' });
+
+    drop();
+    await flush();
+
+    expect(uploader.uploadBatch).toHaveBeenCalledTimes(1);
+    expect(uploader.uploadBatch.mock.calls[0][1].shelfId).toBe(SHELF);
+    expect(importClicks).toBe(0);
+  });
+
   it('with no owned shelf open, a single file still opens the import form', async () => {
     header({}); // a visitor's / system shelf header: no drop stamp
     expect(openOwnedShelf()).toBeNull();

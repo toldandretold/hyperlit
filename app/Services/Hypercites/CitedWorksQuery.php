@@ -47,12 +47,19 @@ class CitedWorksQuery
             SQL;
             $internalExpr = '(cs.journal_source_id = :scope2)';
         } else {
+            // A shelf owner's view (scope['viewer']) is bounded to public books and
+            // their own — same rule as DetectionScope::visibleTo(). No viewer = operator.
+            $viewer = $scope['viewer'] ?? null;
+            $viewerClause = $viewer !== null
+                ? "AND (l.visibility = 'public' OR l.creator = :viewer)"
+                : '';
             $articlesCte = <<<SQL
                 SELECT l.book
                 FROM shelf_items si
                 JOIN library l ON l.book = si.book
                 WHERE si.shelf_id = :scope
                   AND l.has_nodes = true
+                  {$viewerClause}
             SQL;
             $internalExpr = <<<SQL
                 EXISTS (
@@ -101,10 +108,12 @@ class CitedWorksQuery
             LIMIT {$limit}
         SQL;
 
-        return collect(DB::connection('pgsql_admin')->select($sql, [
-            'scope'  => $scope['id'],
-            'scope2' => $scope['id'],
-        ]))->map(function ($r) {
+        $bindings = ['scope' => $scope['id'], 'scope2' => $scope['id']];
+        if ($scope['type'] !== 'journal' && ($scope['viewer'] ?? null) !== null) {
+            $bindings['viewer'] = $scope['viewer'];
+        }
+
+        return collect(DB::connection('pgsql_admin')->select($sql, $bindings))->map(function ($r) {
             $fetchable = (bool) ($r->pdf_url || $r->oa_url || $r->doi);
 
             return [

@@ -76,8 +76,6 @@ return [
     'throttle:30,1 POST /api/passkeys/registration-options',
     'throttle:30,1 POST /api/passkeys/{id}/vault-key',
     'throttle:6,1 POST /api/maintainer/storage/rescan',
-    'throttle:60,1 GET|HEAD /api/archive-export/{scopeType}/{scopeId}/panel',
-    'throttle:60,1 GET|HEAD /api/archive-export/{scopeType}/{scopeId}/status',
     'throttle:60,1 GET|HEAD /api/books/{book}/likes',
     'throttle:60,1 GET|HEAD /api/public/library/{username}/render',
     'throttle:60,1 GET|HEAD /api/public/library/{username}/search',
@@ -90,6 +88,5 @@ return [
     'throttle:60,1 GET|HEAD /api/search/openalex',
     'throttle:60,1 GET|HEAD /api/search/semantic',
     'throttle:60,1 GET|HEAD /api/vibes/public',
-    'throttle:60,1 POST /api/archive-export/{scopeType}/{scopeId}/build',
     'throttle:60,1 POST /api/integrity/import-failure',
 ];

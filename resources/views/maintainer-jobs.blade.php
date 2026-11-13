@@ -8,15 +8,7 @@
     @vite(['resources/css/pages/maintainer-jobs.css'])
 </head>
 <body>
-    {{-- Theme before paint: the reader's storage key (same pattern as /maintainer/conversion). --}}
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="mj-header">
         <h1>Job failures</h1>
@@ -25,6 +17,7 @@
             <a href="/maintainer/conversion">conversions →</a>
             <a href="/maintainer/journal-import">journals →</a>
             <a href="/maintainer/storage">storage →</a>
+            <a href="/maintainer" title="Every workbench">all workbenches</a>
             <a href="/">&larr; Hyperlit</a>
         </nav>
         <button type="button" id="mj-help-toggle" aria-expanded="false" aria-controls="mj-help-panel" title="How this works">?</button>
@@ -69,6 +62,6 @@
         <p class="mj-help-doc">Which worker runs what: <code>deploy/supervisor/README.md</code></p>
     </div>
 
-    @vite(['resources/js/maintainerJobs/main.ts'])
+    @vite(['resources/js/workbenches/jobs/main.ts'])
 </body>
 </html>

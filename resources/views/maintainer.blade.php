@@ -8,15 +8,7 @@
     @vite(['resources/css/pages/maintainer.css'])
 </head>
 <body>
-    {{-- Theme before paint: the reader's storage key (same pattern as docuverse). --}}
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="mt-header">
         <h1>Maintainer</h1>
@@ -25,6 +17,7 @@
         <a href="/maintainer/jobs">job failures &rarr;</a>
         <a href="/maintainer/journal-import">journals &rarr;</a>
         <a href="/maintainer/storage">storage &rarr;</a>
+        <a href="/maintainer" title="Every workbench">all workbenches</a>
         <a href="/">&larr; Hyperlit</a>
         <button type="button" id="mt-regressions-toggle" aria-pressed="false" hidden
             title="Show only cases with a captured regression fixture (the pulled-and-fixed review loop)">⚗ regressions</button>
@@ -85,6 +78,6 @@
     <script>
         window.__maintainer = { book: @json($deepLinkBook) };
     </script>
-    @vite(['resources/js/maintainer/main.ts'])
+    @vite(['resources/js/workbenches/conversion/main.ts'])
 </body>
 </html>

@@ -1209,7 +1209,7 @@ class ContentFetchService
      * to tell a slow publisher from a dead one without re-running the fetch by hand.
      *
      * Shaped for the console's failure grouping: the stable CAUSE leads, and the per-work URL goes
-     * last in a parenthetical, which `failureKey()` in maintainerJournalImport/main.ts already
+     * last in a parenthetical, which `failureKey()` in workbenches/journalImport/main.ts already
      * strips. Playwright's own message inlines both its call prefix and the URL, so both are
      * removed here — left in, five identical timeouts would render as five separate one-off causes.
      */
@@ -2926,6 +2926,72 @@ class ContentFetchService
         } catch (\Exception $e) {
             Log::warning('Failed to set pdf_url_status', ['book' => $bookId, 'error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Give $targetBook the converted content $sourceBook already has, without fetching or
+     * converting anything again: copy the pipeline's own artifacts (nodes.jsonl, footnotes,
+     * references, media) and run them through the same savers every lane uses, so the copy
+     * gets fresh node ids and its own footnote sub-books exactly as a new conversion would.
+     * Lane-agnostic on purpose — a JATS or paste-engine import has no PDF to re-OCR.
+     *
+     * The caller owns $targetBook's library row (it must exist) and everything about it;
+     * this touches content only. Returns the node count.
+     *
+     * @throws \RuntimeException when the source has no converted artifacts on disk
+     */
+    public function adoptConvertedArtifacts(string $sourceBook, string $targetBook): int
+    {
+        $src = resource_path("markdown/{$sourceBook}");
+        $dst = resource_path("markdown/{$targetBook}");
+
+        if (!File::exists("{$src}/nodes.jsonl")) {
+            throw new \RuntimeException("no converted artifacts on disk for {$sourceBook}");
+        }
+        File::ensureDirectoryExists($dst);
+
+        // Image paths (and nothing else we rely on) embed the book id; the source id is a
+        // UUID, so a literal replace cannot hit prose.
+        $hasFootnoteJsonl = File::exists("{$src}/footnotes.jsonl");
+        foreach (['nodes.jsonl', 'footnotes.jsonl', 'references.json'] as $file) {
+            if (File::exists("{$src}/{$file}")) {
+                File::put("{$dst}/{$file}", str_replace($sourceBook, $targetBook, File::get("{$src}/{$file}")));
+            }
+        }
+        if (!$hasFootnoteJsonl && File::exists("{$src}/footnotes.json")) {
+            File::put("{$dst}/footnotes.json", str_replace($sourceBook, $targetBook, File::get("{$src}/footnotes.json")));
+        }
+        if (File::isDirectory("{$src}/media")) {
+            File::copyDirectory("{$src}/media", "{$dst}/media");
+        }
+
+        $this->saveNodesToDatabase($dst, $targetBook);
+        $this->saveFootnotesToDatabase($dst, $targetBook);
+
+        if (File::exists("{$dst}/references.json")) {
+            $this->saveReferencesToDatabase($dst, $targetBook);
+        } else {
+            // The JATS / HTML lanes write the bibliography straight to the table (persistArticle)
+            // and leave no references.json behind — copy the rows.
+            $db = DB::connection('pgsql_admin');
+            $now = now();
+            $rows = $db->table('bibliography')->where('book', $sourceBook)
+                ->get(['referenceId', 'source_id', 'content'])
+                ->map(fn ($r) => [
+                    'book'        => $targetBook,
+                    'referenceId' => $r->referenceId,
+                    'source_id'   => $r->source_id,
+                    'content'     => $r->content,
+                    'created_at'  => $now,
+                    'updated_at'  => $now,
+                ])->all();
+            $db->table('bibliography')->where('book', $targetBook)->delete();
+            foreach (array_chunk($rows, 500) as $batch) {
+                $db->table('bibliography')->insert($batch);
+            }
+        }
+
+        return (int) DB::connection('pgsql_admin')->table('nodes')->where('book', $targetBook)->count();
     }
 
     /**

@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\File;
  * SAMEORIGIN note); right: the original source file (browser-native PDF
  * viewer); bottom: dev-bundle download / reconvert / resolve actions.
  *
- * Web route: admin checked in-controller, non-admins get 404 (the page's
+ * Web route: admin gated by the `admin.page` route middleware, non-admins get 404 (the page's
  * existence isn't advertised — mirrors /dev/conversion-tests). API routes:
  * behind the auth:sanctum + admin middleware group in routes/api.php.
  */
@@ -26,11 +26,6 @@ class MaintainerController extends Controller
     /** GET /maintainer/conversion — the standalone triage page (docuverse pattern). */
     public function show(Request $request)
     {
-        $user = $request->user();
-        if (!$user || !$user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer', [
             'deepLinkBook' => $this->cleanBookId((string) $request->query('book', '')) ?: null,
         ]);

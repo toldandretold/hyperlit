@@ -39,11 +39,11 @@ class HyperciteMinter
      * @return array{applied:bool, refusal?:string, hyperciteId?:string, anchorId?:string,
      *               citedBook?:string, citingBook?:string, citedNodeId?:string}
      */
-    public function mint(string $candidateId, ?int $reviewerId, bool $auto = false): array
+    public function mint(string $candidateId, ?int $reviewerId, bool $auto = false, ?WorkbenchActor $actor = null): array
     {
         $db = DB::connection('pgsql_admin');
 
-        return $db->transaction(function () use ($db, $candidateId, $reviewerId, $auto) {
+        return $db->transaction(function () use ($db, $candidateId, $reviewerId, $auto, $actor) {
             $candidate = $db->table('hypercite_candidates')
                 ->where('id', $candidateId)
                 ->lockForUpdate()
@@ -51,6 +51,14 @@ class HyperciteMinter
 
             if (! $candidate) {
                 return ['applied' => false, 'refusal' => 'not_found'];
+            }
+            // ── Who is asking. A null actor is the operator (admin console, CLI,
+            // auto-approve) and is unrestricted; a shelf owner may only write
+            // into their OWN citing book, against a system-held cited work. Here,
+            // inside the lock, so no caller can route around it — and a plain
+            // return rather than refuse(): the candidate is fine, the asker isn't.
+            if ($actor && ($denied = $actor->refusal($candidate))) {
+                return ['applied' => false, 'refusal' => $denied];
             }
             // ── Ownership guard. Deliberately BEFORE the status check, because
             // status alone is not a safe answer to "did this already mint?": a
@@ -230,11 +238,11 @@ class HyperciteMinter
      *
      * @return array{reverted:bool, refusal?:string, citedBook?:string, citingBook?:string}
      */
-    public function unmint(string $candidateId, ?int $reviewerId): array
+    public function unmint(string $candidateId, ?int $reviewerId, ?WorkbenchActor $actor = null): array
     {
         $db = DB::connection('pgsql_admin');
 
-        return $db->transaction(function () use ($db, $candidateId, $reviewerId) {
+        return $db->transaction(function () use ($db, $candidateId, $reviewerId, $actor) {
             $candidate = $db->table('hypercite_candidates')
                 ->where('id', $candidateId)
                 ->lockForUpdate()
@@ -242,6 +250,10 @@ class HyperciteMinter
 
             if (! $candidate) {
                 return ['reverted' => false, 'refusal' => 'not_found'];
+            }
+            // Reverting edits the citing book too — same ownership rule as mint().
+            if ($actor && ($denied = $actor->refusal($candidate, minting: false))) {
+                return ['reverted' => false, 'refusal' => $denied];
             }
             // Keyed on OWNERSHIP, not status: a re-detect parks an applied row
             // at `pending` while it still owns a live hypercite, and gating on
@@ -351,8 +363,20 @@ class HyperciteMinter
      * would strand its live hypercite and its ↗ with nothing tracking them.
      * Revert first.
      */
-    public function reject(string $candidateId, ?int $reviewerId): bool
+    public function reject(string $candidateId, ?int $reviewerId, ?WorkbenchActor $actor = null): bool
     {
+        // A shelf owner may only decline suggestions about their OWN citing book:
+        // rejecting someone else's (or a commons) candidate would hide it from the
+        // operator, the only one who can approve it.
+        if ($actor && ! $actor->isAdmin()) {
+            $candidate = DB::connection('pgsql_admin')->table('hypercite_candidates')
+                ->where('id', $candidateId)
+                ->first(['id', 'shelf_id', 'citing_book', 'cited_book']);
+            if (! $candidate || $actor->refusal($candidate, minting: false)) {
+                return false;
+            }
+        }
+
         return DB::connection('pgsql_admin')->table('hypercite_candidates')
             ->where('id', $candidateId)
             ->whereNull('hypercite_id')

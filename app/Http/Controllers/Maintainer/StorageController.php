@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
  * stops being true, move the rescan to the light `embeddings` queue — never to
  * `default`, which must not queue behind imports.
  *
- * Admin checked in-controller (non-admins 404), matching the sibling maintainer
+ * Admin gated by the `admin.page` route middleware (non-admins 404), matching the sibling maintainer
  * pages; API behind auth:sanctum + admin in routes/api.php.
  */
 class StorageController extends Controller
@@ -29,11 +29,6 @@ class StorageController extends Controller
     /** GET /maintainer/storage */
     public function show(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-storage');
     }
 

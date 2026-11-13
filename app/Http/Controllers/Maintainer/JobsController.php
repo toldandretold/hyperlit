@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\File;
  * case bundle down to a dev machine — the same loop as the conversion page's
  * "⤓ dev bundle".
  *
- * Web route: admin checked in-controller, non-admins get 404 (the page isn't
+ * Web route: admin gated by the `admin.page` route middleware, non-admins get 404 (the page isn't
  * advertised — mirrors MaintainerController). API routes: behind the
  * auth:sanctum + admin middleware group in routes/api.php.
  */
@@ -32,11 +32,6 @@ class JobsController extends Controller
     /** GET /maintainer/jobs — the standalone triage page. */
     public function show(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-jobs');
     }
 

@@ -26,8 +26,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
 
 const PANES = [
-  'resources/js/maintainer/main.ts',
-  'resources/js/maintainerJournalImport/main.ts',
+  'resources/js/workbenches/conversion/main.ts',
+  'resources/js/workbenches/journalImport/main.ts',
 ];
 
 describe('maintainer source panes sandbox the fetched page', () => {

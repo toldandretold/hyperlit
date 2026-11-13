@@ -20,6 +20,8 @@ export interface ArchivePanelData {
   canAdd?: boolean;
   /** The shelf a book made from the plus joins; null for a user library. */
   addShelfId?: string | null;
+  /** The viewer owns the shelf behind this archive: the URL of its hypercite workbench. */
+  curateUrl?: string | null;
   counts: {
     public_books: number;
     export_books: number;
@@ -143,6 +145,37 @@ function actionBar(data: ArchivePanelData): string {
     </div>`;
 }
 
+/**
+ * Creator Tools — the same collapsible section (same ids, same toggle style) the
+ * book panel carries, for whoever keeps the shelf behind this archive. Rendered
+ * only when the server grants `curateUrl` (ShelfWorkbenchAccess). One tool today:
+ * the hypercite workbench. A standalone page, so the row opens it in a new tab.
+ */
+function creatorToolsSection(data: ArchivePanelData): string {
+  if (!data.curateUrl) return '';
+
+  return `
+      <div id="creator-tools-section" style="margin-top: 15px; padding-top: 15px;">
+        <button type="button" id="creator-tools-toggle" aria-expanded="false" aria-controls="creator-tools-content">
+          <span>Creator Tools</span>
+          <svg class="creator-tools-chevron" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
+        <div id="creator-tools-content" style="display: none;">
+          <button type="button" id="archive-hypercite-workbench" class="download-btn archive-export-btn" data-href="${escapeHtml(data.curateUrl)}">
+            <div class="icon-wrapper">
+              <svg class="download-icon" viewBox="0 0 122.88 122.44" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="M50.14,42.06l39.38,37.6C107.96,56.04,88.92,15.88,61.27,0c41.32,9.42,65.89,58.63,42.23,92.52l17.75,16.87 c5.75,6.5-5.04,17.12-12.41,11.44l-16.7-18.12c-22.17,10-41.35,5.93-55.09-10.11c-0.34,2.18-2.33,3.69-4.92,5.31 c-6.12,3.84-8.02,7.07-9.27,9.99c-0.84,1.96-1.38,3.78-2.7,5.55c-4.09,5.46-8.33,9.51-15.44,8.54c-2.8,0.85-5.06-0.76-4.45-3.48 c-1.51-6.83,3.42-14.05,10.86-17.91c2.33-1.21,4.47-1.75,6.74-3.21c0.87-0.56,1.67-1.17,2.37-1.88c5.01-5.11,3.75-6.61,6.51-9.04 c0.96-0.85,2.08-1.36,3.39-1.42c0.95-1.46,3.13-2.47,5.62-1.6l3.36-2.86c11.66,11.96,25.97,12.95,39.02,7.77L41.68,50.65 L27.29,64.77L11.98,49.44l30.59-30.29l26.76,3.86L50.14,42.06L50.14,42.06z"></path>
+              </svg>
+            </div>
+            <span class="export-name">Hypercite workbench</span>
+            <span class="export-desc">Find the citations between these texts and link them — opens in a new tab</span>
+          </button>
+        </div>
+      </div>`;
+}
+
 export async function buildArchiveHtml(data: ArchivePanelData): Promise<string> {
   const citation = await formatBibtexToCitation(data.bibtex);
 
@@ -181,6 +214,7 @@ export async function buildArchiveHtml(data: ArchivePanelData): Promise<string> 
           <span class="export-desc">.sqlite — texts, annotations and vector embeddings for offline work</span>
         </button>
       </div>
+      ${creatorToolsSection(data)}
     </div>
     ${actionBar(data)}
   `;

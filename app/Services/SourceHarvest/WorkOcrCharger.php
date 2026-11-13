@@ -29,6 +29,12 @@ class WorkOcrCharger
             return 0.0;
         }
 
+        // RESTORE (not blank) the previous vars afterwards — the rule in docs/billing.md. Under
+        // QUEUE_CONNECTION=sync (and in tests) the calling job runs INSIDE an HTTP request, where
+        // blanking would strip that request's own RLS context for everything after the charge.
+        $prev = DB::selectOne(
+            "SELECT current_setting('app.current_user', true) AS u, current_setting('app.current_token', true) AS t"
+        );
         DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
         DB::statement("SELECT set_config('app.current_token', ?, false)", [(string) $user->user_token]);
         try {
@@ -39,8 +45,8 @@ class WorkOcrCharger
                 $description ?? "Harvest OCR: {$bookId}",
             );
         } finally {
-            DB::statement("SELECT set_config('app.current_user', '', false)");
-            DB::statement("SELECT set_config('app.current_token', '', false)");
+            DB::statement("SELECT set_config('app.current_user', ?, false)", [$prev->u ?? '']);
+            DB::statement("SELECT set_config('app.current_token', ?, false)", [$prev->t ?? '']);
         }
     }
 }

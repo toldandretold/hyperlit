@@ -13,14 +13,7 @@
     @vite(['resources/css/pages/maintainer-study.css'])
 </head>
 <body>
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
     <script>window.__study = @json(['corpus' => $corpus, 'slug' => $slug]);</script>
 
     <header class="st-header">
@@ -38,6 +31,7 @@
         <button type="button" class="st-header-link" id="st-help-toggle" aria-expanded="false">?</button>
         <a class="st-header-link" href="/maintainer/citations">citations</a>
         <a class="st-header-link" href="/maintainer/conversion">conversion</a>
+        <a class="st-header-link" href="/maintainer" title="Every workbench">all workbenches</a>
     </header>
 
     <div class="st-help" id="st-help" hidden>
@@ -109,6 +103,6 @@
         <button type="button" id="st-apply-btn">Apply to ground truth</button>
     </div>
 
-    @vite(['resources/js/maintainerStudy/main.ts'])
+    @vite(['resources/js/workbenches/study/main.ts'])
 </body>
 </html>

@@ -4,6 +4,7 @@ use App\Services\SourceImport\Identifier\ArxivId;
 use App\Services\SourceImport\Identifier\Doi;
 use App\Services\SourceImport\Identifier\GutenbergId;
 use App\Services\SourceImport\Identifier\IdentifierNormalizer;
+use App\Services\SourceImport\Identifier\OpenAlexId;
 
 beforeEach(function () {
     $this->normaliser = new IdentifierNormalizer();
@@ -170,3 +171,49 @@ test('arxiv DOI is parsed as arxiv ID, not generic DOI', function () {
     $id = $this->normaliser->parse('10.48550/arXiv.2302.08927');
     expect($id)->toBeInstanceOf(ArxivId::class);
 });
+
+// ─── OpenAlex work ids ────────────────────────────────────────────────
+
+test('parses a bare OpenAlex work id', function () {
+    $id = $this->normaliser->parse('W2126853606');
+    expect($id)->toBeInstanceOf(OpenAlexId::class);
+    expect($id->value())->toBe('W2126853606');
+    expect($id->kind())->toBe('openalex');
+});
+
+test('parses OpenAlex URLs, api URLs and the openalex: prefix, upper-casing the id', function (string $input) {
+    $id = $this->normaliser->parse($input);
+    expect($id)->toBeInstanceOf(OpenAlexId::class);
+    expect($id->value())->toBe('W2126853606');
+})->with([
+    'https://openalex.org/W2126853606',
+    'https://openalex.org/works/w2126853606',
+    'https://api.openalex.org/works/W2126853606',
+    'openalex:W2126853606',
+    '  w2126853606  ',
+]);
+
+test('a W-number inside prose is not an OpenAlex id', function () {
+    expect($this->normaliser->parse('see W2126853606 for details'))->toBeNull();
+});
+
+// ─── DOIs lifted out of publisher URLs ────────────────────────────────
+
+test('a publisher article URL does not drag its own tail into the DOI', function (string $url, string $doi) {
+    $id = $this->normaliser->parse($url);
+    expect($id)->toBeInstanceOf(Doi::class);
+    expect($id->value())->toBe($doi);
+})->with([
+    ['https://www.tandfonline.com/doi/full/10.1080/00220388.2019.1234567?src=recsys', '10.1080/00220388.2019.1234567'],
+    ['https://onlinelibrary.wiley.com/doi/10.1111/anti.12345/abstract', '10.1111/anti.12345'],
+    ['https://journals.sagepub.com/doi/pdf/10.1177/0309132518777623', '10.1177/0309132518777623'],
+    ['https://onlinelibrary.wiley.com/doi/epdf/10.1111/anti.12345#section-2', '10.1111/anti.12345'],
+]);
+
+test('a bare DOI keeps characters a publisher URL would lose', function () {
+    // Old SICI-style Wiley DOIs legitimately contain "#"-free but odd punctuation; a bare
+    // DOI is never treated as a URL, so nothing after "?" or "/full" is stripped from it.
+    $id = $this->normaliser->parse('10.1000/example/full');
+    expect($id->value())->toBe('10.1000/example/full');
+});
+

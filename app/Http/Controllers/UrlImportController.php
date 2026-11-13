@@ -8,6 +8,8 @@ use App\Services\CanonicalSourceMatcher;
 use App\Services\Licensing\WorkLicenseResolver;
 use App\Services\SourceImport\CanonicalRegistry;
 use App\Services\SourceImport\ImportOrchestrator;
+use App\Services\SourceImport\InspectionResult;
+use App\Services\SourceImport\SingleWorkImporter;
 use App\Support\Licenses;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,6 +24,11 @@ use Illuminate\Support\Facades\Log;
  * Two endpoints, mirroring the orchestrator's two phases:
  *   POST /import-url/inspect — preview (no side effects)
  *   POST /import-url         — commit (fetch content + dispatch processor)
+ *
+ * Two lanes behind commit. arXiv (ar5iv HTML) and Gutenberg (EPUB) fetch one known file here
+ * and mint a book the importer owns. A DOI or OpenAlex id goes to SingleWorkImporter — the
+ * full open-access acquisition ladder, run in a queued job — and comes back as the shared
+ * commons copy, or a private copy when that copy may not be hosted publicly.
  */
 class UrlImportController extends Controller
 {
@@ -29,6 +36,7 @@ class UrlImportController extends Controller
         private readonly ImportOrchestrator $orchestrator,
         private readonly CanonicalRegistry $registry,
         private readonly CanonicalSourceMatcher $matcher,
+        private readonly SingleWorkImporter $singleWork,
     ) {}
 
     public function inspect(Request $request)
@@ -50,6 +58,16 @@ class UrlImportController extends Controller
         // matching when no canonical exists yet — so books imported before this
         // pathway started auto-creating canonicals still surface as duplicates.
         $existingVersions = $this->registry->findVersionsByIdentifier($result->identifier);
+
+        // OpenAlex's is_oa is not the last word for the ladder lane: a "closed" work with a
+        // repository pre-print is importable. Only checked when OpenAlex says closed (it costs
+        // a few free-API calls), and cached on the canonical when one exists.
+        $viaLadder = SingleWorkImporter::handles($result->identifier);
+        $openCopies = null;
+        if ($viaLadder && $result->plan->access !== 'open') {
+            $openCopies = $this->singleWork->openCopyCount($result->metadata, $result->existingCanonical?->id);
+        }
+        $fetchable = $result->plan->access === 'open' || ($openCopies !== null && $openCopies > 0);
 
         return response()->json([
             'ok'         => true,
@@ -76,6 +94,10 @@ class UrlImportController extends Controller
                 'charge_user'      => $result->plan->chargeUser,
                 'access'           => $result->plan->access,
                 'reason'           => $result->plan->reason,
+                // What the UI gates "Create Book" on. `access` stays OpenAlex's own verdict.
+                'fetchable'        => $fetchable,
+                'open_copies'      => $openCopies,
+                'via_ladder'       => $viaLadder,
             ],
             'existing_canonical' => $result->existingCanonical ? [
                 'id'    => $result->existingCanonical->id,
@@ -147,6 +169,11 @@ class UrlImportController extends Controller
         $result = $this->orchestrator->inspect($request->input('url'));
         if (!$result->ok) {
             return response()->json(['ok' => false, 'error' => $result->error], 422);
+        }
+
+        // A DOI / OpenAlex id rides the open-access acquisition ladder, asynchronously.
+        if (SingleWorkImporter::handles($result->identifier)) {
+            return $this->commitViaLadder($request, $result, $bookId);
         }
 
         // Existing versions are surfaced at inspect time so the user can pick
@@ -325,6 +352,76 @@ class UrlImportController extends Controller
             'bookId'  => $bookId,
             'status'  => 'processing',
             'library' => $createdRecord,
+        ]);
+    }
+
+    /**
+     * The ladder lane. Returns at once: either the work is already readable (`existing`), or
+     * an ImportWorkJob is queued and the caller polls /api/import-progress/{bookId} — whose
+     * final payload names the `book` to open and whether it is the `commons` copy or a
+     * `personal_copy`. `bookId` here is the import's handle (and the id a personal copy takes).
+     */
+    private function commitViaLadder(Request $request, InspectionResult $result, string $bookId)
+    {
+        $creatorInfo = app(DbLibraryController::class)->getCreatorInfo($request);
+        if (!$creatorInfo['valid']) {
+            return response()->json(['ok' => false, 'error' => 'invalid_session'], 401);
+        }
+        if (PgLibrary::where('book', $bookId)->exists()) {
+            return response()->json(['ok' => false, 'error' => 'book_id_taken'], 409);
+        }
+
+        $surface = $request->input('surface') === SingleWorkImporter::SURFACE_MCP
+            ? SingleWorkImporter::SURFACE_MCP
+            : SingleWorkImporter::SURFACE_WEB;
+
+        $started = $this->singleWork->start(
+            $result->identifier,
+            $result->metadata,
+            $bookId,
+            Auth::user(),
+            $creatorInfo,
+            $surface,
+        );
+
+        if (!$started['ok']) {
+            $error = $started['error'] ?? 'unknown_error';
+
+            return response()->json([
+                'ok'         => false,
+                'error'      => $error,
+                'source_url' => $result->identifier->url(),
+                'metadata'   => [
+                    'title'  => $result->metadata->title(),
+                    'author' => $result->metadata->author(),
+                    'year'   => $result->metadata->year(),
+                    'doi'    => $result->metadata->doi(),
+                ],
+            ], $error === 'book_id_taken' ? 409 : 422);
+        }
+
+        if ($started['status'] === 'already_available') {
+            return response()->json([
+                'ok'       => true,
+                'bookId'   => $started['book'],
+                'status'   => 'complete',
+                'existing' => true,
+                'outcome'  => $started['outcome'] ?? null,
+            ]);
+        }
+
+        Log::info('Work import queued', [
+            'import'     => $started['import'],
+            'identifier' => $result->identifier->kind() . ':' . $result->identifier->value(),
+            'surface'    => $surface,
+        ]);
+
+        return response()->json([
+            'ok'     => true,
+            'bookId' => $started['import'],
+            'import' => $started['import'],
+            'status' => 'processing',
+            'async'  => true,
         ]);
     }
 

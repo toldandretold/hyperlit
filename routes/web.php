@@ -74,20 +74,27 @@ Route::get('/{book}/AIreview', function (Request $request, $book) {
 Route::get('/dev/conversion-tests', [App\Http\Controllers\ConversionTestController::class, 'dashboard'])
     ->name('conversion-tests.dashboard');
 
-// /maintainer/* — the reserved namespace for operator triage pages (admin-only,
-// checked in-controller so non-admins 404 and the pages aren't advertised).
+// /maintainer/* — the reserved namespace for operator triage pages (admin-only:
+// the `admin.page` middleware 404s guests and non-admins so the pages aren't
+// advertised. It is on the GROUP so a new page cannot forget it — pinned by
+// tests/Feature/Architecture/MaintainerRoutesAdminOnlyTest.php).
 // PREFIXED for the same reason as /3d/ below: every one-segment root route
 // shadows a book of that name via the /{identifier} catch-all, so only the bare
 // word "maintainer" is spent (and it's reserved in config/reserved-routes.php)
 // while the pages themselves live one segment deeper, out of book-URL space.
-Route::prefix('maintainer')->group(function () {
-    // Bare /maintainer keeps working: already-sent flag emails and
-    // library:flag-sweep output carry ?book=<id> deep links, and
-    // Route::redirect() would DROP the query string — so re-append it.
+Route::prefix('maintainer')->middleware('admin.page')->group(function () {
+    // Bare /maintainer is the INDEX of every workbench (config/workbenches.php)
+    // — several were linked from nowhere and got forgotten. A ?book=<id> deep
+    // link still lands on the conversion page: already-sent flag emails and
+    // library:flag-sweep output carry it, and Route::redirect() would DROP
+    // the query string — so re-append it. (302, not the old 301: the bare URL
+    // is a real page now, and a cached permanent redirect would hide it.)
     Route::get('/', function (Request $request) {
-        $qs = $request->getQueryString();
+        if ($request->query('book') !== null) {
+            return redirect('/maintainer/conversion?' . $request->getQueryString());
+        }
 
-        return redirect('/maintainer/conversion' . ($qs ? "?{$qs}" : ''), 301);
+        return view('maintainer-index', ['groups' => config('workbenches')]);
     })->name('maintainer.show');
 
     // Flagged books | live reader iframe | original PDF, side by side.
@@ -171,6 +178,13 @@ Route::prefix('a')->group(function () {
     Route::get('/{slug}', [App\Http\Controllers\ArchivePageController::class, 'show'])
         ->where('slug', '[a-z0-9-]+')
         ->name('archive.show');
+    // The shelf OWNER's hypercite workbench for this archive (404 for anyone
+    // else — gated in-controller via ShelfWorkbenchAccess, the same check that
+    // decides whether the archive panel shows the link). Two segments under the
+    // already-reserved 'a', so it spends no new root word.
+    Route::get('/{slug}/hypercites', [App\Http\Controllers\ShelfWorkbench\HyperciteController::class, 'page'])
+        ->where('slug', '[a-z0-9-]+')
+        ->name('archive.hypercites');
 });
 
 // File import route - requires authentication (logged in or valid anonymous session)

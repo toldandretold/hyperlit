@@ -71,6 +71,15 @@ This is the map of every dollar that moves through hyperlit: what we charge for,
 - **Reservation** — the start endpoint takes an atomic `reserveCredits()` hold for the ESTIMATE (reservation rows share the fossil-named `tts_reservation` category); `TranslateBookJob` releases it in `finally`/`failed()` and charges only the tokens each run used.
 - **Failed runs charge for work done** — a deliberate exception to "no success, no charge" (below): finished paragraphs are CACHED and a retry never re-sends or re-bills them, so a failed run's charge buys real progress. The retry pays only for the remainder. Pinned by `tests/Feature/Translation/BookTranslationTest.php` (exact amounts, hold release on success/failure, premium ledger-only, lock-409) and end-to-end by `tests/e2e/specs/stripe/translation-billing.spec.js` (real worker against a fake Fireworks).
 
+### Bibliography scan for hypercite detection (`category: bibliography_scan`)
+
+- **Who** — a shelf owner running detection from their workbench (`/a/{slug}/hypercites`). The SAME scan run from the operator console (`/maintainer/hypercites`) is the platform's own corpus work and stays unbilled; the difference is `hypercite_runs.billed`, set by the endpoint that queued the run.
+- **Rate** — real LLM token costs of `citation:scan-bibliography` for each book whose references had never been resolved, read off `LlmService::getUsageStats` (the detector runs the scan in-process, so it shares the singleton) and priced from `services.llm.pricing`. One ledger row per scanned book, itemized per model. The external lookups (OpenAlex, Crossref) are free and unmetered; detection itself (string matching over text we hold) is free.
+- **When** — after each book's scan SUCCEEDS (`App\Services\Hypercites\ScanBilling::chargeFor`, called by `CandidateDetector`). A failed scan charges nothing.
+- **Pre-flight** — the detect endpoint returns an ESTIMATE first (books needing a scan, references in them) and only queues on `confirm`; with books to scan and no credit it refuses with 402. The estimate is a count, not a price: there is no calibrated per-book figure, and an invented one would be a promise the ledger then breaks.
+- **Running out mid-run** — `ScanBilling::canAffordScan()` is re-read before every scan; a payer who hits zero stops being scanned (`skipped_no_credit` in the run's counts) while the walk continues over what is already resolved.
+- **RLS** — `ScanBilling::asPayer` sets both session vars and RESTORES the previous values (see the gotcha below). Pinned by `tests/Feature/Api/ShelfHyperciteWorkbenchTest.php`.
+
 ### Free features (deliberately unbilled)
 
 - **Vibe convert** (the AI re-conversion fixer) is FREE — it's an experimental dead end that rarely produces a usable fix, so charging was removed 2026-07 (`VibeConversionJob`). The `canProceed` gate stays (it still costs hyperlit LLM money, so zero-balance accounts can't spam it).

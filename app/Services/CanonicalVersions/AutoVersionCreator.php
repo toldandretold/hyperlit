@@ -89,9 +89,21 @@ class AutoVersionCreator
             // (unless the row has an oa_url, which uses a different path) — the
             // same guard citation:vacuum applies. The OCR step below may still
             // complete a 'downloaded' row from that earlier run.
-            $alreadyFetched = !$record->oa_url && ($record->pdf_url_status ?? null);
+            //
+            // A PDF already DOWNLOADED and still on disk is also "already fetched", whatever
+            // the row's oa_url: a --skip-ocr pass (and the single-work import's estimate →
+            // confirm pause) stops exactly there, and re-running the ladder to re-download the
+            // same file could land a different copy than the one the user was quoted for.
+            $pdfAwaitingOcr = ($record->pdf_url_status ?? null) === 'downloaded'
+                && File::exists(resource_path("markdown/{$bookId}/original.pdf"));
+            $alreadyFetched = $pdfAwaitingOcr || (!$record->oa_url && ($record->pdf_url_status ?? null));
 
             $fetchTrace = ['candidates' => 0, 'won_host' => null, 'won_source' => null];
+            if ($pdfAwaitingOcr) {
+                // The earlier leg's evidence (won_license above all) — without it applyOaLicense
+                // below would re-stamp the copy from the work's licence alone.
+                $fetchTrace = $this->storedFetchTrace($bookId) + $fetchTrace;
+            }
             if (!$alreadyFetched) {
                 $result = $this->fetcher->fetch($record);
                 $fetchTrace = $this->fetcher->lastFetchTrace();
@@ -235,6 +247,17 @@ class AutoVersionCreator
                 'completeness_reason' => $fetchTrace['completeness_reason'] ?? null,
                 'updated_at'          => now(),
             ]);
+    }
+
+    /** @return array<string, mixed> fetch_trace.json as ContentFetchService left it, or []. */
+    private function storedFetchTrace(string $bookId): array
+    {
+        $path = resource_path("markdown/{$bookId}/fetch_trace.json");
+        if (!File::exists($path)) {
+            return [];
+        }
+
+        return json_decode(File::get($path), true) ?: [];
     }
 
     private function loadRecord(string $bookId): ?object

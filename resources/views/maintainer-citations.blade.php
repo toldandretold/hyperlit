@@ -11,20 +11,14 @@
     @vite(['resources/css/pages/maintainer-citations.css'])
 </head>
 <body>
-    <script>
-        (function () {
-            var t = 'dark';
-            try { t = localStorage.getItem('hyperlit_theme_preference') || 'dark'; } catch (e) {}
-            if (['dark', 'light', 'sepia'].indexOf(t) === -1) t = 'dark';
-            document.body.classList.add('theme-' + t);
-        })();
-    </script>
+    @include('partials.maintainer-theme')
 
     <header class="mc-header">
         <h1>Ambiguous citations</h1>
         <span class="mc-header-sub" id="mc-counts"></span>
         <a class="mc-header-link" href="/maintainer/conversion">conversion</a>
         <a class="mc-header-link" href="/maintainer/hypercites">hypercites</a>
+        <a class="mc-header-link" href="/maintainer" title="Every workbench">all workbenches</a>
     </header>
 
     <p class="mc-intro">
@@ -39,6 +33,6 @@
         <p class="mc-empty">Loading…</p>
     </main>
 
-    @vite(['resources/js/maintainerCitations/main.ts'])
+    @vite(['resources/js/workbenches/citations/main.ts'])
 </body>
 </html>

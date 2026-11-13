@@ -50,6 +50,11 @@ hw force-restart       # hard SIGTERM all — can WAIT on an in-flight job, avoi
 - Job: `BuildAudiobookJob` (packages a book's per-node MP3s into one downloadable `.m4b`, docs/audio.md).
 - A ~1–2 minute ffmpeg encode that used to share the `audio` queue — until a prod download sat at "Packaging 0%" for 18 minutes behind someone else's hour-long narration (2026-08-13). Same lesson as vibe/citation/search: a job a user actively waits on must never queue behind a slow one.
 
+### `archive-export` → worker `hyperlit-archive-export`
+
+- Job: `BuildArchiveExportJob` (the whole-library markdown vault zip / SQLite file behind the archive panel and the Data sovereignty overlay).
+- Minutes of pure-PHP HTML→markdown CPU for a big corpus, with a user watching a % readout. It ran with NO worker on prod from 2026-09-08 to 2026-11-13 — the queue was in `package.json` and `queue:probe` but had no conf here, so every download press hung at 0%. `tests/Feature/Architecture/QueueWorkersHaveSupervisorConfTest.php` now fails on a queue without a conf.
+
 ### `translation` → worker `hyperlit-translation`
 
 - Job: `TranslateBookJob` (whole-book Chinese ↔ English translation into a new copy, docs/translation.md).
@@ -118,7 +123,9 @@ Peaks measured 2026-06-12 with real jobs (`tests/load/memprobe.sh`; full method 
 
 (Citation was measured with `--skip-fetch`. A live vacuum phase launches headless chromium per fetch — ~150–300 MB transient on top of the citation worker — so worst case during vacuum trends toward ~900 MB. Check `free -m` during the first real run after installing chromium.)
 
-The arithmetic for this droplet (~1.9 GB physical + 2 GB swap, OOM history):
+> **Update 2026-11-13: the droplet is now 4 GB.** The arithmetic below was written for the old ~1.9 GB box and is kept for the reasoning. On 4 GB the same worst case (~2.2–2.5 GB, plus the `archive-export` worker added that day: ~60 MB idle, build peak unmeasured) fits inside physical RAM with ~1.5 GB spare. Baseline and the archive-export peak still want a fresh `free -m` / `memprobe.sh` reading on the resized box.
+
+The arithmetic for the OLD droplet (~1.9 GB physical + 2 GB swap, OOM history):
 
 ```
 baseline (nginx + PHP-FPM + Postgres + idle workers)   ~700–1000 MB  ← read it: ssh marx@… 'free -m'

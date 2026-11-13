@@ -90,6 +90,28 @@ class ArchivePanelManager extends ContainerManager {
         wireShelfLikeButton(likeBtn, data.shelfId, data.noun || 'archive');
       }
 
+      // Creator Tools (the shelf's owner only — the server decides, via
+      // `curateUrl`): the book panel's collapsible section, same ids and style.
+      const toolsToggle = container.querySelector<HTMLElement>('#creator-tools-toggle');
+      const toolsContent = container.querySelector<HTMLElement>('#creator-tools-content');
+      if (toolsToggle && toolsContent) {
+        toolsToggle.addEventListener('click', () => {
+          const open = toolsContent.style.display === 'none';
+          toolsContent.style.display = open ? 'block' : 'none';
+          toolsToggle.classList.toggle('expanded', open);
+          toolsToggle.setAttribute('aria-expanded', String(open));
+          if (open) toolsContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+      }
+
+      // The hypercite workbench is a standalone non-SPA page, so it opens in a
+      // new tab and the library stays where it was.
+      const workbenchBtn = container.querySelector<HTMLElement>('#archive-hypercite-workbench');
+      if (workbenchBtn?.dataset.href) {
+        const href = workbenchBtn.dataset.href;
+        workbenchBtn.addEventListener('click', () => { window.open(href, '_blank', 'noopener'); });
+      }
+
       // Plus (keeper only): a popover in this panel, like Share — Blank or
       // Import. On a journal/archive the book it makes joins this
       // collection's shelf (newBookShelfTarget). Only once a choice is made

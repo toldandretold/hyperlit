@@ -7,6 +7,7 @@ use App\Services\Hypercites\AutoApprovePolicy;
 use App\Services\Hypercites\CandidateDetector;
 use App\Services\Hypercites\DetectionScope;
 use App\Services\Hypercites\HyperciteMinter;
+use App\Services\Hypercites\ScanBilling;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -97,11 +98,25 @@ class DetectHyperciteCandidatesJob implements ShouldQueue
             return;
         }
 
+        // A run started from the shelf-owner workbench (hypercite_runs.billed): walk only
+        // the books that owner may have scanned, and charge them for each bibliography
+        // scan. With no payer to charge, refuse rather than run it for free.
+        $billing = null;
+        if ($run->billed ?? false) {
+            $billing = ScanBilling::forRun($run, $scope->label);
+            if (! $billing) {
+                $this->mark(['status' => 'failed', 'error' => 'billed run has no user to charge']);
+
+                return;
+            }
+            $scope->visibleTo($db->table('users')->where('id', $run->user_id)->value('name'));
+        }
+
         $this->mark(['status' => 'running', 'error' => null, 'step_detail' => 'starting']);
 
         try {
             $deadline = $this->budgetSeconds !== null ? time() + $this->budgetSeconds : null;
-            $counts = $detector->detect($scope, $this->runId, $deadline);
+            $counts = $detector->detect($scope, $this->runId, $deadline, $billing);
 
             if (! empty($counts['stopped_early'])) {
                 // Out of budget, not out of work: hand the baton to a fresh job
@@ -121,7 +136,9 @@ class DetectHyperciteCandidatesJob implements ShouldQueue
                 return;
             }
 
-            if ($this->autoApprove) {
+            // Never on a billed (shelf-owner) run: auto-approve mints as the operator,
+            // with no WorkbenchActor, and would write into books the owner may not edit.
+            if ($this->autoApprove && ! $billing) {
                 $counts['auto_approved'] = $this->autoApprove($db, $minter);
             }
 
@@ -132,7 +149,9 @@ class DetectHyperciteCandidatesJob implements ShouldQueue
 
             $summary = "{$counts['candidates']} candidates over {$counts['articles']} articles"
                 . " ({$counts['matched']} quote-matched"
-                . ($this->autoApprove ? ", {$counts['auto_approved']} auto-approved" : '')
+                . (isset($counts['auto_approved']) ? ", {$counts['auto_approved']} auto-approved" : '')
+                . ($billing ? ', ' . $counts['scanned'] . ' bibliograph' . ($counts['scanned'] === 1 ? 'y' : 'ies') . ' scanned and billed' : '')
+                . (! empty($counts['skipped_no_credit']) ? ", {$counts['skipped_no_credit']} not scanned — out of credit" : '')
                 . ')';
 
             $this->mark([

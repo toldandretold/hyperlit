@@ -31,7 +31,7 @@ use Illuminate\Support\Str;
  * `canonical_source_id`, NOT on the `auto_version_book` pointer — the pointer join used by
  * JournalPageController::show and HarvestShelf can only ever show the promoted one.
  *
- * Web route: admin checked in-controller, non-admins get 404 (the page isn't advertised —
+ * Web route: admin gated by the `admin.page` route middleware, non-admins get 404 (the page isn't advertised —
  * mirrors MaintainerController/JobsController). API routes sit behind the auth:sanctum + admin
  * middleware group in routes/api.php.
  */
@@ -68,22 +68,12 @@ class JournalImportController extends Controller
     /** GET /maintainer/journal-import — pick a journal. */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-journal-import');
     }
 
     /** GET /maintainer/journal-import/{slug} — work one journal. */
     public function show(Request $request, string $slug)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         $journal = JournalSource::where('slug', $slug)->first();
         if (! $journal) {
             abort(404);

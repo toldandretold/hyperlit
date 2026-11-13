@@ -194,10 +194,14 @@ class ImportBatches
 
             $shelf = null;
             if ($batch->shelf_id) {
-                $shelfRow = DB::table('shelves')->where('id', $batch->shelf_id)->first(['id', 'name', 'slug', 'creator']);
+                $shelfRow = DB::table('shelves')->where('id', $batch->shelf_id)->first(['id', 'name', 'slug', 'creator', 'visibility']);
                 if ($shelfRow) {
-                    // creator feeds the widget's /u/{creator}/shelf/{id} link.
-                    $shelf = ['id' => $shelfRow->id, 'name' => $shelfRow->name, 'slug' => $shelfRow->slug, 'creator' => $shelfRow->creator];
+                    // url feeds the widget's "View shelf" link: the shelf's
+                    // archive page when it has one, else the user-page shelf.
+                    $shelf = [
+                        'id' => $shelfRow->id, 'name' => $shelfRow->name, 'slug' => $shelfRow->slug, 'creator' => $shelfRow->creator,
+                        'url' => \App\Services\Shelves\ShelfHomeUrl::for($shelfRow),
+                    ];
                 }
             }
 

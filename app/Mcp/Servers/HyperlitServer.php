@@ -107,11 +107,20 @@ class HyperlitServer extends Server
           quote appears more than once you'll get the match contexts back and can
           disambiguate with `occurrence`.
         - Imports run asynchronously: `import_document` returns a book id you poll
-          with `import_status`. PREFER passing the full text you fetched/cleaned as
-          `content` (Markdown) — the URL fetcher is unreliable, so only fall back to
-          `url` when you can't get the text yourself. Binary files (docx/epub/pdf)
-          go via `file_base64`. PDF imports cost the user money (OCR) and follow an
-          estimate → confirm flow; the estimate response tells the user the price.
+          with `import_status`. For a PUBLISHED SCHOLARLY WORK, pass its DOI or
+          OpenAlex work id as `url`: Hyperlit runs its own open-access acquisition
+          ladder (every free copy known to OpenAlex, Unpaywall, CORE, Semantic
+          Scholar, Europe PMC), so you do not fetch anything yourself. The result
+          is the shared commons copy (also added to the user's "Imported works"
+          shelf), or a private copy for the user when the copy found may not be
+          hosted publicly; if the work is already in Hyperlit you get it back at
+          once. It fails only when no open copy exists or every copy is walled,
+          and says which. For anything else (a web page, your own cleaned text)
+          pass the full text as `content` (Markdown) — `url` does NOT fetch
+          ordinary web pages. Binary files (docx/epub/pdf) go via `file_base64`.
+          PDF imports cost the user money (OCR) and follow an estimate → confirm
+          flow; the estimate tells the user the price (for a DOI/OpenAlex import
+          it arrives via import_status as awaiting_confirmation).
           import_document checks for an existing book of the same title first and
           returns the match instead of duplicating (pass force:true to override).
         - A good import workflow: search_library first (reuse if it exists) →
@@ -123,8 +132,10 @@ class HyperlitServer extends Server
         - Scholarly databases: search_sources finds works across OpenAlex / Open
           Library / Semantic Scholar; find_full_text locates a free open-access
           copy of a DOI; lookup_citation_metadata resolves a raw reference
-          string. These are free. A natural flow: search_sources or
-          find_full_text → fetch the open-access text → import_document.
+          string. These are free. A natural flow: search_sources →
+          import_document with the result's `doi` (or `openalex_id`) as `url`.
+          find_full_text is for when you want to see or cite the open copies
+          themselves; you do not need it before importing.
         - AI Citation Review checks whether each citation's source actually
           supports its claim. run_citation_review starts it (a long async job);
           poll get_citation_review for progress and the finished report. Set

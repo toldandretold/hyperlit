@@ -27,6 +27,7 @@ import {
 } from '../importQueue/folderIngest';
 import { uploadBatch } from '../importQueue/batchUploader';
 import { showImportQueuePreparing, clearImportQueuePreparing } from '../importQueue/importQueue';
+import { readArchiveEditSeed } from '../archivePage/archiveTitleEditor';
 
 const OVERLAY_ID = 'page-drop-overlay';
 
@@ -78,15 +79,19 @@ function buildOverlay() {
 }
 
 /**
- * The viewer's OWN shelf currently open in the feed (shelfHeader stamps it for
- * owner + ordinary shelf only). A drop while it's open imports onto that shelf
+ * The viewer's OWN shelf currently open — in the feed (shelfHeader stamps it
+ * for owner + ordinary shelf only) or as its archive page. A drop while it's open imports onto that shelf
  * — the server re-authorizes the shelf_id (ImportBatchController::store).
  */
 export function openOwnedShelf(): { id: string; name: string } | null {
   const header = document.getElementById('shelf-header');
   const id = header?.dataset.dropShelfId;
-  if (!header?.isConnected || !id) return null;
-  return { id, name: header.dataset.dropShelfName || 'this shelf' };
+  if (header?.isConnected && id) return { id, name: header.dataset.dropShelfName || 'this shelf' };
+
+  // The owner's archive page (/a/{slug}) IS that shelf's home page: there is
+  // no shelf header there, but the blade seeds the shelf for the owner only.
+  const archive = readArchiveEditSeed();
+  return archive ? { id: archive.shelfId, name: archive.name || 'this shelf' } : null;
 }
 
 function renderDragMessage() {

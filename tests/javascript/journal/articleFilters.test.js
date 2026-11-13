@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision,
-} from '../../../resources/js/maintainerJournalImport/articleFilters.ts';
+} from '../../../resources/js/workbenches/journalImport/articleFilters.ts';
 
 const lanes = (...hasNodes) => ({ lanes: hasNodes.map((has_nodes) => ({ has_nodes })) });
 

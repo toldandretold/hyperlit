@@ -35,7 +35,7 @@ use Illuminate\Support\Str;
  * is accepted as a convenience alias and redirects to that journal's
  * "Cited by:" shelf when one exists.
  *
- * Web routes: admin checked in-controller, non-admins 404 (house pattern).
+ * Web routes: admin gated by the `admin.page` route middleware, non-admins 404 (house pattern).
  * API routes sit behind auth:sanctum + admin in routes/api.php.
  */
 class ShelfImportController extends Controller
@@ -70,11 +70,6 @@ class ShelfImportController extends Controller
     /** GET /maintainer/shelf-import — pick a shelf. */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         return view('maintainer-shelf-import', ['shelfId' => null, 'shelfName' => null]);
     }
 
@@ -88,11 +83,6 @@ class ShelfImportController extends Controller
      */
     public function show(Request $request, string $id)
     {
-        $user = $request->user();
-        if (! $user || ! $user->isAdmin()) {
-            abort(404);
-        }
-
         $shelf = $this->publicShelf($id);
         if (! $shelf) {
             $shelfId = $this->shelfIdForSlug($id);
