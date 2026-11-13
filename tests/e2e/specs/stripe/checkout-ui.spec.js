@@ -21,21 +21,46 @@
 import { test, expect } from '@playwright/test';
 import { provisionUser, getBalance, postRetry, apiHeaders, xsrf, BASE, buildSignedWebhook, sendWebhook } from './helpers/billing.js';
 
-// Stripe's hosted checkout uses stable field ids (not iframes for the hosted page).
+// The real Stripe page is slow, and this spec is also collected by the MAIN e2e
+// config (30s default) — carry the budget here rather than relying on the
+// stripe config's 90s.
+test.describe.configure({ timeout: 120_000 });
+
+// Stripe's hosted checkout has shipped the payment form both in the top document
+// and (since late 2026) inside a same-page iframe, and a page-level locator does
+// not pierce iframes. Find whichever frame actually holds the card field, and
+// address fields by their accessible names (stable across both layouts) rather
+// than by element id.
+async function checkoutFrame(page, timeoutMs = 60_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      const visible = await frame.getByRole('textbox', { name: 'Card number' }).first()
+        .isVisible().catch(() => false);
+      if (visible) return frame;
+    }
+    await page.waitForTimeout(500);
+  }
+  throw new Error(
+    'Stripe checkout: no frame exposed a visible "Card number" field within ' + timeoutMs + 'ms. ' +
+    'Frames: ' + page.frames().map(f => f.url().slice(0, 80)).join(' | '),
+  );
+}
+
 async function fillStripeCheckout(page, { number, exp = '12 / 34', cvc = '123', name = 'Red Team' }) {
   // Wait for the card form to be ready FIRST — fields aren't present at
   // domcontentloaded, and filling too early silently no-ops (email is REQUIRED).
-  await page.locator('#cardNumber').waitFor({ state: 'visible', timeout: 40_000 });
+  const form = await checkoutFrame(page);
 
-  await page.locator('#email').fill('redteam@example.com'); // required on the hosted page
-  await page.locator('#cardNumber').fill(number);
-  await page.locator('#cardExpiry').fill(exp);
-  await page.locator('#cardCvc').fill(cvc);
+  await form.getByRole('textbox', { name: 'Email' }).fill('redteam@example.com'); // required on the hosted page
+  await form.getByRole('textbox', { name: 'Card number' }).fill(number);
+  await form.getByRole('textbox', { name: /expiration/i }).fill(exp);
+  await form.getByRole('textbox', { name: /security code|cvc/i }).fill(cvc);
 
-  const nameField = page.locator('#billingName');
+  const nameField = form.getByRole('textbox', { name: /name on card/i });
   if (await nameField.count()) await nameField.fill(name);
   // Country has a sensible default; a postal field only appears for some regions.
-  const postalField = page.locator('#billingPostalCode');
+  const postalField = form.getByRole('textbox', { name: /^(zip|postal)/i });
   if (await postalField.count() && await postalField.isVisible().catch(() => false)) {
     await postalField.fill('42424');
   }
@@ -43,10 +68,16 @@ async function fillStripeCheckout(page, { number, exp = '12 / 34', cvc = '123', 
   // Uncheck "Save my information for faster checkout" (Stripe Link) — when ticked
   // it adds a REQUIRED phone-number field and blocks Pay. We want a plain card
   // charge, not a Link signup.
-  const linkOptIn = page.getByRole('checkbox', { name: /save my information/i });
+  const linkOptIn = form.getByRole('checkbox', { name: /save my information/i });
   if (await linkOptIn.count() && await linkOptIn.isChecked().catch(() => false)) {
     await linkOptIn.uncheck({ force: true }).catch(() => {});
   }
+  return form;
+}
+
+// The Pay button lives in the same frame as the card form.
+async function submitStripeCheckout(form) {
+  await form.locator('.SubmitButton, button[type="submit"], [data-testid="hosted-payment-submit-button"]').first().click();
 }
 
 async function startCheckout(page, amount) {
@@ -64,10 +95,10 @@ test('@stripe-ui success card pays, redirects back, and the webhook credits the 
     const { checkout_url, session_id } = await startCheckout(page, amount);
 
     await page.goto(checkout_url, { waitUntil: 'domcontentloaded' });
-    await fillStripeCheckout(page, { number: '4242 4242 4242 4242' });
+    const form = await fillStripeCheckout(page, { number: '4242 4242 4242 4242' });
 
     // Pay, then wait to be redirected back to our app with checkout=success.
-    await page.locator('.SubmitButton, button[type="submit"], [data-testid="hosted-payment-submit-button"]').first().click();
+    await submitStripeCheckout(form);
     // 'commit' resolves the moment the redirect URL changes — don't wait for the
     // heavy SPA homepage to fire 'load'.
     await page.waitForURL(/checkout=success/, { timeout: 45_000, waitUntil: 'commit' });
@@ -94,8 +125,8 @@ test('@stripe-ui declined card does not complete payment and credits nothing', a
     const { checkout_url } = await startCheckout(page, 20);
 
     await page.goto(checkout_url, { waitUntil: 'domcontentloaded' });
-    await fillStripeCheckout(page, { number: '4000 0000 0000 0002' }); // generic decline
-    await page.locator('.SubmitButton, button[type="submit"], [data-testid="hosted-payment-submit-button"]').first().click();
+    const form = await fillStripeCheckout(page, { number: '4000 0000 0000 0002' }); // generic decline
+    await submitStripeCheckout(form);
 
     // Stripe rejects the card and keeps us on its page — it must NOT redirect to
     // our success URL. Give it time to process, then assert we never left Stripe
