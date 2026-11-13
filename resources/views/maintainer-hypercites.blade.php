@@ -223,7 +223,7 @@
             <li><strong>most cited</strong> ranks the works this collection's books cite. Import the big external OA ones, re-run detect, and their quotes become matchable too.</li>
         </ol>
         @if ($owner)
-        <p class="hx-help-doc"><strong>What you can approve.</strong> A hypercite edits the citing book, so you can approve only where the citing book is your own and the cited one is a published work held in the commons. Other rows are listed so you can see the citation graph, with ✓ disabled and the reason shown.</p>
+        <p class="hx-help-doc"><strong>What you can approve.</strong> A hypercite edits the citing book, so you can approve only where the citing book is your own and the cited one is either another book of yours or a published work held in the commons. Other rows are listed so you can see the citation graph, with ✓ disabled and the reason shown.</p>
         <p class="hx-help-doc"><strong>What costs credit.</strong> Detection itself is free. A book whose references have never been resolved needs a bibliography scan first, billed at metered cost; you are shown how many books need one before anything runs. Importing a cited work may run OCR, billed as any import.</p>
         @else
         <p class="hx-help-doc">Design: plan file + <code>docs/journal-harvest.md</code></p>

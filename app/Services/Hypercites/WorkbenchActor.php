@@ -25,10 +25,12 @@ use Illuminate\Support\Facades\DB;
  *                      book's text, and nobody edits a book they do not own — not another
  *                      user's, and not a commons one either;
  *                    - the CITED book is a system-held converted work (the commons copy of a
- *                      published source). This half is the anti-rigging rule: without it a
- *                      shelf owner could mint links into their own writing wholesale and
- *                      farm the connectedness score. It is also why commons→commons links
- *                      are admin-only — the owner would be editing a commons book to do it.
+ *                      published source) OR another book of the owner's own. Own → own is
+ *                      allowed on purpose: it is their shelf and both their books, and
+ *                      ConnectionCountQuery already drops same-owner edges from the
+ *                      connectedness score, so there is nothing to farm. What stays
+ *                      refused is a link into ANOTHER user's upload. Commons→commons
+ *                      links are admin-only — the owner would be editing a commons book.
  *
  * The rule is enforced INSIDE HyperciteMinter (inside the row lock), not in a controller,
  * so batch approve and any future caller cannot route around it.
@@ -129,7 +131,8 @@ final class WorkbenchActor
         }
 
         $cited = $books[(string) $candidate->cited_book] ?? null;
-        if (! $cited || ! self::isSystemHeldWork($cited)) {
+        $ownBook = $cited && $cited->creator === $this->ownerName;
+        if (! $cited || (! $ownBook && ! self::isSystemHeldWork($cited))) {
             return self::CITED_NOT_VERIFIED;
         }
 

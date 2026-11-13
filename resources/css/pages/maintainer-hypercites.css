@@ -630,3 +630,14 @@ body.hx-detail {
 .hx-run-note[hidden] {
   display: none;
 }
+
+/* A most-cited title that opens the work (held copy, else its DOI / OA page). */
+a.hx-mc-title {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+}
+a.hx-mc-title:hover,
+a.hx-mc-title:focus-visible {
+    text-decoration-color: currentColor;
+}

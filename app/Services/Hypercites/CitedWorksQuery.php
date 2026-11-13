@@ -100,7 +100,13 @@ class CitedWorksQuery
                     SELECT 1 FROM library lv
                     WHERE lv.canonical_source_id = cs.id
                       AND lv.has_nodes = true AND lv.visibility = 'public'
-                ) AS held
+                ) AS held,
+                (
+                    SELECT lv.book FROM library lv
+                    WHERE lv.canonical_source_id = cs.id
+                      AND lv.has_nodes = true AND lv.visibility = 'public'
+                    ORDER BY lv.book LIMIT 1
+                ) AS held_book
             FROM cited c
             JOIN canonical_source cs ON cs.id = c.cited_id
             GROUP BY cs.id
@@ -127,6 +133,9 @@ class CitedWorksQuery
                 'cited_by_count' => $r->cited_by_count,   // OpenAlex world count, context only
                 'is_internal'    => (bool) $r->is_internal,
                 'held'           => (bool) $r->held,
+                // Where the row's title links: the copy we hold, else the work itself.
+                'held_url'       => $r->held_book ? url('/' . $r->held_book) : null,
+                'source_url'     => $r->doi ? 'https://doi.org/' . $r->doi : ($r->oa_url ?: ($r->pdf_url ?: null)),
                 'is_oa'          => (bool) $r->is_oa,
                 'fetchable'      => $fetchable,
                 'importable'     => (bool) ($r->is_oa && $fetchable && ! $r->held),

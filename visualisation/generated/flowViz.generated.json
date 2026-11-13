@@ -6,7 +6,7 @@
     "moduleCount": 427,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4228,
+    "edgeCount": 4229,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -23685,6 +23685,12 @@
       "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
       "target": "components/sourceContainer/readerActions:wireShareControl",
       "rel": "call"
+    },
+    {
+      "id": "components/archivePanel/index:ArchivePanelManager.wireActions__domwrite__dom",
+      "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "components/archivePanel/index:ArchivePanelManager.wireActions__write__store:sessionStorage",

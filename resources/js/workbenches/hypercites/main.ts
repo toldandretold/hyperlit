@@ -28,7 +28,7 @@ interface ConsoleBoot {
 /** Why a shelf owner may not approve a row — said in the row and on the button. */
 const NOT_MINTABLE: Record<string, string> = {
   not_your_book: 'The citing book isn’t yours — a hypercite edits the citing book, so only its owner (or the maintainer) can add one.',
-  cited_not_verified: 'The cited book isn’t a published work held in the commons — only those can be hypercited from here.',
+  cited_not_verified: 'The cited book is someone else’s upload — from here you can hypercite your own books and the commons copies of published works.',
 };
 
 const scanEstimateText = (e: ScanEstimate): string =>
@@ -966,10 +966,17 @@ function initDetail(boot: ConsoleBoot): void {
     n.textContent = String(r.citing_count);
     n.title = `cited by ${r.citing_count} article(s) of this journal`;
 
-    const t = document.createElement('span');
+    // The title opens the work: our held copy when there is one, else its DOI / OA page.
+    const href = r.held_url || r.source_url || null;
+    const t = document.createElement(href ? 'a' : 'span');
     t.className = 'hx-mc-title';
     t.textContent = `${r.title ?? '(untitled)'}${r.author ? ` — ${r.author}` : ''}${r.year ? ` (${r.year})` : ''}`;
     t.title = r.doi ?? '';
+    if (href && t instanceof HTMLAnchorElement) {
+      t.href = href;
+      t.target = '_blank';
+      t.rel = 'noopener';
+    }
 
     row.append(n, t);
 
@@ -1018,6 +1025,7 @@ function initDetail(boot: ConsoleBoot): void {
   }
 
   function pollImport(runId: string, btn: HTMLButtonElement): void {
+    let misses = 0;
     const tick = async (): Promise<void> => {
       try {
         const run = await api.runStatus(runId);
@@ -1030,16 +1038,32 @@ function initDetail(boot: ConsoleBoot): void {
           btn.disabled = false;
           return;
         }
-        window.setTimeout(tick, 2500);
+        misses = 0;
+        window.setTimeout(tick, 4000);
       } catch {
-        btn.textContent = 'poll failed';
+        retryOrGiveUp(++misses, tick, btn);
       }
     };
     void tick();
   }
 
+  /**
+   * A failed status poll is not a failed import: several rows importing at once can
+   * trip the progress limiter (429), and the work carries on regardless. Back off and
+   * ask again; only after a run of misses say so — and leave the button pressable.
+   */
+  function retryOrGiveUp(misses: number, tick: () => Promise<void>, btn: HTMLButtonElement): void {
+    if (misses <= 8) {
+      window.setTimeout(tick, Math.min(60000, 5000 * misses));
+      return;
+    }
+    btn.textContent = 'still importing? — check your import queue';
+    btn.title = 'Status checks kept failing. The import itself may well have finished: reload this page to see.';
+  }
+
   /** Owner import: follow /api/import-progress until the work lands (or fails). */
   function pollOwnerImport(importId: string, btn: HTMLButtonElement): void {
+    let misses = 0;
     const tick = async (): Promise<void> => {
       try {
         const p = await api.importProgress(importId);
@@ -1057,9 +1081,10 @@ function initDetail(boot: ConsoleBoot): void {
           return;
         }
         btn.textContent = p.detail ? `importing… ${p.detail}` : 'importing…';
-        window.setTimeout(tick, 2500);
+        misses = 0;
+        window.setTimeout(tick, 4000);
       } catch {
-        btn.textContent = 'poll failed';
+        retryOrGiveUp(++misses, tick, btn);
       }
     };
     void tick();

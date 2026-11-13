@@ -835,9 +835,13 @@ test('most-cited splits internal vs external and flags what is importable', func
     $held = $externalRows->firstWhere('canonical_id', $heldExternal['canonical_id']);
     expect($held['held'])->toBeTrue();
     expect($held['importable'])->toBeFalse();
+    // Each row says where its title links: the held copy, else the work's own page.
+    expect($held['held_url'])->toBe(url('/' . $heldExternal['book']));
 
     $unheld = $externalRows->firstWhere('canonical_id', $unheldId);
     expect($unheld['held'])->toBeFalse();
+    expect($unheld['held_url'])->toBeNull();
+    expect($unheld['source_url'])->toBe('https://example.org/unheld.pdf');
     expect($unheld['importable'])->toBeTrue();
     expect($unheld['citing_count'])->toBe(1);
 });

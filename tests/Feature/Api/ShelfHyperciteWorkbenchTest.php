@@ -319,6 +319,22 @@ test('the owner mints into their OWN book against a commons work — and can rev
     expect(swDb()->table('hypercites')->where('book', $fx['cited']['book'])->count())->toBe(0);
 });
 
+test('the owner may hypercite one of their OWN books from another of their own', function () {
+    $owner = $this->loginUser();
+    $shelf = swShelf($owner->name);
+    $citing = swBook($owner->name);
+    $cited = swBook($owner->name);
+    $id = swCandidate($shelf, $citing, $cited);
+
+    $this->getJson(swApi($shelf, '/candidates'))->assertOk()
+        ->assertJsonPath('candidates.0.mintable', true)
+        ->assertJsonPath('candidates.0.not_mintable_reason', null);
+
+    $this->postJson(swApi($shelf, "/candidates/{$id}/approve"))->assertOk()->assertJsonPath('applied', true);
+    expect(swDb()->table('nodes')->where('book', $citing['book'])->value('content'))->toContain('open-icon');
+    expect(swDb()->table('hypercites')->where('book', $cited['book'])->count())->toBe(1);
+});
+
 test('an owner cannot write into a book that is not theirs, or against one that is not a held work', function (string $case, string $reason) {
     $owner = $this->loginUser();
     $stranger = $this->apiUser();
@@ -331,8 +347,6 @@ test('an owner cannot write into a book that is not theirs, or against one that 
         // Commons → commons is a real link, but minting it edits a commons book: operator only.
         'commons → commons'        => [$commons(), $commons()],
         'a stranger\'s book'       => [swBook($stranger->name), $commons()],
-        // Own citing book is fine; the target is the owner's own writing, not a published work.
-        'own → own writing'        => [swBook($owner->name), swBook($owner->name)],
         // A user's upload does not become a held work by being linked to a citation identity.
         'own → a stranger\'s upload' => [swBook($owner->name), swBook($stranger->name, ['canonical_id' => (string) Str::uuid()])],
     };
@@ -355,7 +369,6 @@ test('an owner cannot write into a book that is not theirs, or against one that 
     ['commons → own writing', 'not_your_book'],
     ['commons → commons', 'not_your_book'],
     ['a stranger\'s book', 'not_your_book'],
-    ['own → own writing', 'cited_not_verified'],
     ['own → a stranger\'s upload', 'cited_not_verified'],
 ]);
 

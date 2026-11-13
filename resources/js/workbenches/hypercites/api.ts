@@ -75,7 +75,7 @@ export interface Candidate {
   location_start_lines: (number | string | null)[];
   // Whether THIS viewer may approve the row. Always true for the operator; for a
   // shelf owner false when the citing book is not theirs (`not_your_book`) or the
-  // cited one is not a system-held work (`cited_not_verified`) — see WorkbenchActor.
+  // cited one is neither theirs nor a system-held work (`cited_not_verified`) — see WorkbenchActor.
   mintable?: boolean;
   not_mintable_reason?: 'not_your_book' | 'cited_not_verified' | null;
   hypercite_id: string | null;
@@ -150,6 +150,9 @@ export interface MostCitedRow {
   cited_by_count: number | null;
   is_internal: boolean;
   held: boolean;
+  /** The held copy on Hyperlit (when held), and the work's own page (DOI / OA copy). */
+  held_url?: string | null;
+  source_url?: string | null;
   is_oa: boolean;
   fetchable: boolean;
   importable: boolean;
