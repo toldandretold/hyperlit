@@ -641,3 +641,13 @@ a.hx-mc-title:hover,
 a.hx-mc-title:focus-visible {
     text-decoration-color: currentColor;
 }
+
+/* The kind of open access on a most-cited row, linking to the open copy. */
+a.hx-mc-oa {
+    color: inherit;
+    text-decoration: none;
+}
+a.hx-mc-oa:hover,
+a.hx-mc-oa:focus-visible {
+    text-decoration: underline;
+}

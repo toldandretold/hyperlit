@@ -956,6 +956,14 @@ function initDetail(boot: ConsoleBoot): void {
     void tick();
   }
 
+  const OA_KIND_HELP: Record<string, string> = {
+    gold: 'Gold: open at the publisher, in an open-access journal.',
+    diamond: 'Diamond: open at the publisher, no author fees.',
+    hybrid: 'Hybrid: this article is open at the publisher, in a subscription journal.',
+    green: 'Green: the publisher page may be paywalled — the open copy is in a repository.',
+    bronze: 'Bronze: free to read at the publisher, but with no open licence.',
+  };
+
   function buildMostCitedRow(r: MostCitedRow): HTMLElement {
     const row = document.createElement('div');
     row.className = 'hx-mc-row';
@@ -979,6 +987,21 @@ function initDetail(boot: ConsoleBoot): void {
     }
 
     row.append(n, t);
+
+    // The licence the work resolves to (the same resolver every import path uses), linked
+    // to the open copy OpenAlex lists so the claim can be checked from the row.
+    if (!r.held && r.is_oa) {
+      const oa = document.createElement(r.oa_copy_url ? 'a' : 'span');
+      oa.className = 'hx-badge hx-mc-oa';
+      oa.textContent = `${r.license_label ?? 'open'}${r.oa_copy_url ? ' ↗' : ''}`;
+      oa.title = (r.oa_status ? OA_KIND_HELP[r.oa_status] : undefined) ?? 'Listed as open access by OpenAlex.';
+      if (r.oa_copy_url && oa instanceof HTMLAnchorElement) {
+        oa.href = r.oa_copy_url;
+        oa.target = '_blank';
+        oa.rel = 'noopener';
+      }
+      row.appendChild(oa);
+    }
 
     if (r.held) {
       const b = document.createElement('span');
@@ -1017,7 +1040,12 @@ function initDetail(boot: ConsoleBoot): void {
     } else {
       const b = document.createElement('span');
       b.className = 'hx-badge';
-      b.textContent = r.is_oa ? 'nothing fetchable' : 'not OA';
+      // Free to read is not free to host: an all-rights-reserved copy is never imported
+      // from here (upload your own copy to work with it).
+      b.textContent = !r.is_oa ? 'not OA' : r.hostable === false ? 'free to read only' : 'nothing fetchable';
+      if (r.is_oa && r.hostable === false) {
+        b.title = 'Readable at the publisher, but its licence does not allow a hosted copy. Upload the file yourself to add it.';
+      }
       row.appendChild(b);
     }
 

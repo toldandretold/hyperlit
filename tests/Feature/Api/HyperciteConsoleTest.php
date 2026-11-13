@@ -842,8 +842,59 @@ test('most-cited splits internal vs external and flags what is importable', func
     expect($unheld['held'])->toBeFalse();
     expect($unheld['held_url'])->toBeNull();
     expect($unheld['source_url'])->toBe('https://example.org/unheld.pdf');
+    // The open copy OpenAlex lists is named, so "OA" can be checked from the row.
+    expect($unheld['oa_copy_url'])->toBe('https://example.org/unheld.pdf');
     expect($unheld['importable'])->toBeTrue();
     expect($unheld['citing_count'])->toBe(1);
+});
+
+test('most-cited decides importability by LICENCE, and counts a DOI-matched or own copy as held', function () {
+    $owner = $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $article = hxSeedHeldWork($journal->id, 'HX Licence Root');
+
+    $mk = function (array $attrs) {
+        $id = (string) Str::uuid();
+        hxDb()->table('canonical_source')->insert($attrs + [
+            'id' => $id, 'is_oa' => true, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $id;
+    };
+    // Free to read with no licence (bronze) resolves to all rights reserved: not importable.
+    $bronze = $mk(['title' => 'HX Bronze', 'oa_status' => 'bronze', 'pdf_url' => 'https://example.org/b.pdf']);
+    $ccby = $mk(['title' => 'HX CC BY', 'oa_status' => 'hybrid', 'work_license' => 'cc-by', 'oa_url' => 'https://example.org/c']);
+    // Already in the library under the same DOI, but never linked to this citation identity.
+    $doi = '10.5555/hx.' . strtolower(Str::random(8));
+    $byDoi = $mk(['title' => 'HX Held By DOI', 'oa_status' => 'gold', 'doi' => $doi]);
+    $copy = 'hxdoicopy_' . strtolower(Str::random(8));
+    hxDb()->table('library')->insert([
+        'book' => $copy, 'title' => 'HX Held By DOI', 'creator' => $owner->name, 'visibility' => 'public',
+        'has_nodes' => true, 'doi' => strtoupper($doi), 'timestamp' => 1, 'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    foreach ([['l1', $bronze], ['l2', $ccby], ['l3', $byDoi]] as [$ref, $cid]) {
+        hxDb()->table('bibliography')->insert([
+            'book' => $article['book'], 'referenceId' => $ref, 'content' => 'HX ref',
+            'canonical_source_id' => $cid, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    try {
+        $rows = collect($this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json('external'))
+            ->keyBy('canonical_id');
+
+        expect($rows[$bronze]['license'])->toBe('All-Rights-Reserved')
+            ->and($rows[$bronze]['hostable'])->toBeFalse()
+            ->and($rows[$bronze]['importable'])->toBeFalse();
+        expect($rows[$ccby]['license'])->toBe('CC-BY')
+            ->and($rows[$ccby]['importable'])->toBeTrue();
+        expect($rows[$byDoi]['held'])->toBeTrue()
+            ->and($rows[$byDoi]['importable'])->toBeFalse()
+            ->and($rows[$byDoi]['held_url'])->toBe(url('/' . $copy));
+    } finally {
+        hxDb()->table('library')->where('book', $copy)->delete();
+    }
 });
 
 test('import-source queues a run for an importable work and refuses a non-OA one', function () {

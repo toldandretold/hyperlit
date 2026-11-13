@@ -153,6 +153,13 @@ export interface MostCitedRow {
   /** The held copy on Hyperlit (when held), and the work's own page (DOI / OA copy). */
   held_url?: string | null;
   source_url?: string | null;
+  /** OpenAlex's kind of open access (gold / hybrid / diamond / green / bronze) and the open copy it lists. */
+  oa_status?: string | null;
+  oa_copy_url?: string | null;
+  /** The licence the work resolves to (WorkLicenseResolver) and whether it allows a hosted copy. */
+  license?: string;
+  license_label?: string;
+  hostable?: boolean;
   is_oa: boolean;
   fetchable: boolean;
   importable: boolean;

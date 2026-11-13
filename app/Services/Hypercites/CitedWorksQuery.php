@@ -2,6 +2,9 @@
 
 namespace App\Services\Hypercites;
 
+use App\Services\Licensing\HostingPolicy;
+use App\Services\Licensing\WorkLicenseResolver;
+use App\Support\Licenses;
 use App\Models\JournalSource;
 use App\Services\CanonicalVersions\BestVersionService;
 use Illuminate\Support\Collection;
@@ -93,7 +96,7 @@ class CitedWorksQuery
             )
             SELECT
                 cs.id, cs.title, cs.author, cs.year, cs.journal, cs.doi,
-                cs.is_oa, cs.oa_status, cs.pdf_url, cs.oa_url, cs.cited_by_count,
+                cs.is_oa, cs.oa_status, cs.work_license, cs.pdf_url, cs.oa_url, cs.cited_by_count,
                 {$internalExpr} AS is_internal,
                 COUNT(DISTINCT c.citing_book) AS citing_count,
                 EXISTS (
@@ -119,8 +122,23 @@ class CitedWorksQuery
             $bindings['viewer'] = $scope['viewer'];
         }
 
-        return collect(DB::connection('pgsql_admin')->select($sql, $bindings))->map(function ($r) {
+        $found = collect(DB::connection('pgsql_admin')->select($sql, $bindings));
+        $alsoHeld = $this->heldOutsideTheLink($found, $scope['viewer'] ?? null);
+
+        return $found->map(function ($r) use ($alsoHeld) {
             $fetchable = (bool) ($r->pdf_url || $r->oa_url || $r->doi);
+            $heldBook = $r->held_book ?: ($alsoHeld[$r->id] ?? null);
+            $held = (bool) $r->held || $heldBook !== null;
+
+            // "Open access" is decided where every other path decides it: the licence
+            // (WorkLicenseResolver), then whether that licence lets a copy be hosted
+            // (HostingPolicy). OpenAlex's is_oa alone calls a free-to-read, all-rights-
+            // reserved page (bronze) open, and offered it for import.
+            // No licence AND no status is no evidence either way — Unknown, not "reserved".
+            $license = ($r->work_license || $r->oa_status)
+                ? WorkLicenseResolver::resolve([$r->work_license], $r->oa_status)['license']
+                : Licenses::UNKNOWN;
+            $hostable = HostingPolicy::mayPublish((object) ['license' => $license]);
 
             return [
                 'canonical_id'   => $r->id,
@@ -132,15 +150,77 @@ class CitedWorksQuery
                 'citing_count'   => (int) $r->citing_count,
                 'cited_by_count' => $r->cited_by_count,   // OpenAlex world count, context only
                 'is_internal'    => (bool) $r->is_internal,
-                'held'           => (bool) $r->held,
+                'held'           => $held,
                 // Where the row's title links: the copy we hold, else the work itself.
-                'held_url'       => $r->held_book ? url('/' . $r->held_book) : null,
+                'held_url'       => $heldBook ? url('/' . $heldBook) : null,
                 'source_url'     => $r->doi ? 'https://doi.org/' . $r->doi : ($r->oa_url ?: ($r->pdf_url ?: null)),
                 'is_oa'          => (bool) $r->is_oa,
+                'oa_status'      => $r->oa_status ?: null,
+                'license'        => $license,
+                'license_label'  => Licenses::info($license)['label'],
+                'hostable'       => $hostable,
+                // The open copy OpenAlex lists, so the claim can be checked from the row.
+                'oa_copy_url'    => $r->oa_url ?: ($r->pdf_url ?: null),
                 'fetchable'      => $fetchable,
-                'importable'     => (bool) ($r->is_oa && $fetchable && ! $r->held),
+                'importable'     => (bool) ($r->is_oa && $fetchable && ! $held && $hostable),
             ];
         });
+    }
+
+    /**
+     * Copies the canonical-link test misses, by canonical id => book:
+     *   - the VIEWER's own copy, public or not (a shelf owner already has the book — the
+     *     importer's existingReadableVersion() counts it, so the list must too);
+     *   - a readable copy carrying the same DOI but never linked to this citation identity
+     *     (an upload whose owner filled in the DOI, or a duplicate canonical row).
+     * One query for the whole list. "Readable" = public, or the viewer's own.
+     *
+     * @param  Collection<int, object>  $rows
+     * @return array<string, string>
+     */
+    private function heldOutsideTheLink(Collection $rows, ?string $viewer): array
+    {
+        $unheld = $rows->filter(fn ($r) => ! $r->held_book);
+        if ($unheld->isEmpty()) {
+            return [];
+        }
+        $ids = $unheld->pluck('id')->all();
+        $byDoi = [];
+        foreach ($unheld as $r) {
+            if ($r->doi) {
+                $byDoi[mb_strtolower($r->doi)] = $r->id;
+            }
+        }
+
+        $copies = DB::connection('pgsql_admin')->table('library')
+            ->where('has_nodes', true)
+            ->where('book', 'NOT LIKE', '%/%')
+            ->where(function ($q) use ($viewer) {
+                $q->where('visibility', 'public');
+                if ($viewer !== null) {
+                    $q->orWhere(fn ($own) => $own->where('creator', $viewer)->where('visibility', '!=', 'deleted'));
+                }
+            })
+            ->where(function ($q) use ($ids, $byDoi) {
+                $q->whereIn('canonical_source_id', $ids);
+                if ($byDoi !== []) {
+                    $q->orWhereIn(DB::raw('lower(doi)'), array_keys($byDoi));
+                }
+            })
+            ->orderBy('book')
+            ->get(['book', 'canonical_source_id', 'doi']);
+
+        $out = [];
+        foreach ($copies as $c) {
+            $id = in_array($c->canonical_source_id, $ids, true)
+                ? $c->canonical_source_id
+                : ($byDoi[mb_strtolower((string) $c->doi)] ?? null);
+            if ($id !== null) {
+                $out[$id] ??= $c->book;
+            }
+        }
+
+        return $out;
     }
 
     /**
