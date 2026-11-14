@@ -195,6 +195,7 @@ async function buildOneSection(
     // best readable external URL) + a provenance pill.
     const titleUrl = canonicalResolvedBook ? `/${encodeURIComponent(canonicalResolvedBook)}` : citationExternalLink(result, meta);
     displayContent = metaToCitation(meta, titleUrl);
+    if (canonicalResolvedBook) navHtml = heldVersionNavHtml(String(canonicalResolvedBook), citationExternalLink(result, meta));
     statusHtml = sourceStatusHtml({
       refId, lookupBook, canonicalId: result.canonical_source_id, isOwner,
       matched: true, method: result.reference_match_method || null, provenance: provenanceLink(meta),
@@ -249,6 +250,25 @@ function sourceStatusHtml(o: {
   matched: boolean; method?: string | null; provenance?: { label: string; url: string } | null;
 }): string {
   return `<div class="ref-source-status" data-ref-id="${escapeHtml(o.refId)}" data-book="${escapeHtml(o.lookupBook)}" data-canonical="${escapeHtml(o.canonicalId ?? '')}" data-owner="${o.isOwner ? '1' : '0'}" style="margin-top: 1em;">${sourceStatusInner(o)}</div>`;
+}
+
+/**
+ * A matched reference we hold a readable Hyperlit version of: an explicit "Open in Hyperlit" button
+ * (best-version already filtered by visibility, so no post-open check) + the original outside link,
+ * which the title no longer carries once it points at our copy.
+ */
+function heldVersionNavHtml(bookId: string, externalUrl: string | null): string {
+  const external = externalUrl && /^https?:\/\//i.test(externalUrl)
+    ? `<a href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener" class="citation-original-link" style="${AQUA_LINK_STYLE} font-size: 12px;">Original source ↗</a>`
+    : '';
+  return `
+    <div class="citation-navigation" style="margin-top: 1em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <a href="/${encodeURIComponent(bookId)}" class="citation-source-link" style="${AQUA_BTN_STYLE}">
+        Open in Hyperlit
+        <span class="open-icon">↗</span>
+      </a>
+      ${external}
+    </div>`;
 }
 
 /** The legacy "Open source" button for a source_id-linked library version (visibility resolved post-open). */

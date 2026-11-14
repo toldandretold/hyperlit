@@ -151,9 +151,14 @@ export function formatMetadataToCitation(meta: any): string {
 
   // Title formatting: quotes for articles/chapters, italics for books.
   let formattedTitle = (isArticle || isChapter) ? `"${title}"` : `<i>${title}</i>`;
-  const safeUrl = url && /^https?:\/\//i.test(url) ? url : null;
+  // A root-relative path ("/book_123", never "//host") is an in-app Hyperlit link: same tab, so the
+  // SPA handles it. Rejecting it here left a reference we HOLD a version of with no link at all.
+  const isInternal = !!url && /^\/(?!\/)/.test(url);
+  const safeUrl = url && (isInternal || /^https?:\/\//i.test(url)) ? url : null;
   if (safeUrl) {
-    formattedTitle = `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
+    formattedTitle = isInternal
+      ? `<a href="${safeUrl}">${formattedTitle}</a>`
+      : `<a href="${safeUrl}" target="_blank">${formattedTitle}</a>`;
   }
 
   let citation = `${author}, ${formattedTitle}`;

@@ -95,6 +95,20 @@ describe('plainCitation — clean source-container-style card', () => {
     expect(detail.innerHTML).toContain('https://openalex.org/W123');
   });
 
+  it('matched + a held Hyperlit version: title and button link to it, original source kept', async () => {
+    // Regression: the title url was the root-relative "/book_…", which the formatter rejected as
+    // non-http, so a verified reference we HOLD rendered with no link anywhere.
+    resolveBibliographyTarget.mockResolvedValue({ type: 'library', book: 'book_999', has_nodes: true, metadata: { ...COX_META, doi: '10.1177/0305829819873030' } });
+    await seedStore('bibliography', [bib('Ref1', { canonical_source_id: 'c-1', reference_match_method: 'auto' })]);
+
+    const dom = parse(await buildCitationContent({ referenceId: 'Ref1' }));
+    const titleLink = dom.querySelector('blockquote a');
+    expect(titleLink.getAttribute('href')).toBe('/book_999');
+    expect(titleLink.hasAttribute('target')).toBe(false); // in-app: same tab
+    expect(dom.querySelector('.citation-source-link').getAttribute('href')).toBe('/book_999');
+    expect(dom.querySelector('.citation-original-link').getAttribute('href')).toBe('https://socialistregister.com/download/5594/2492');
+  });
+
   it('matched + user_verified → explanation says confirmed by the author', async () => {
     canUserEditBook.mockResolvedValue(true);
     resolveBibliographyTarget.mockResolvedValue({ type: 'citation-card', metadata: COX_META });
