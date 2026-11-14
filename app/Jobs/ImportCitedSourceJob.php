@@ -61,6 +61,7 @@ class ImportCitedSourceJob implements ShouldQueue
 
             $result = $creator->create($canonical, false);
             $status = $result['status'] ?? 'error';
+            ImportWorkJob::rememberAttempt($canonical->id, $status, $result['reason'] ?? null);
 
             if ($status === 'assigned' && $run->user_id) {
                 $user = User::on('pgsql_admin')->find($run->user_id);

@@ -264,6 +264,13 @@ body.hx-detail {
 #hx-assess-link:hover {
   text-decoration: underline;
 }
+.hx-group-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-right: 12px;
+}
 .hx-group-title {
   font-size: 0.75rem;
   text-transform: uppercase;

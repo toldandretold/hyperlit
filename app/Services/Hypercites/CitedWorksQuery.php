@@ -3,6 +3,8 @@
 namespace App\Services\Hypercites;
 
 use App\Services\Licensing\HostingPolicy;
+use App\Services\Licensing\OpenAccessVerifier;
+use App\Services\SourceImport\Content\OaLocationResolver;
 use App\Services\Licensing\WorkLicenseResolver;
 use App\Support\Licenses;
 use App\Models\JournalSource;
@@ -26,6 +28,9 @@ use Illuminate\Support\Facades\DB;
  */
 class CitedWorksQuery
 {
+    /** @var array<string, true> canonical ids inside a failed-fetch backoff (set by lastImportFailures) */
+    private array $coolingOff = [];
+
     /** The most-cited tab shows (and the bulk import covers) at most this many works. */
     public const LIMIT = 150;
 
@@ -96,7 +101,8 @@ class CitedWorksQuery
             )
             SELECT
                 cs.id, cs.title, cs.author, cs.year, cs.journal, cs.doi,
-                cs.is_oa, cs.oa_status, cs.work_license, cs.pdf_url, cs.oa_url, cs.cited_by_count,
+                cs.is_oa, cs.oa_status, cs.work_license, cs.pdf_url, cs.oa_url, cs.oa_locations, cs.cited_by_count,
+                (SELECT js.doaj_license FROM journal_sources js WHERE js.id = cs.journal_source_id) AS journal_license,
                 {$internalExpr} AS is_internal,
                 COUNT(DISTINCT c.citing_book) AS citing_count,
                 EXISTS (
@@ -125,7 +131,15 @@ class CitedWorksQuery
         $found = collect(DB::connection('pgsql_admin')->select($sql, $bindings));
         $alsoHeld = $this->heldOutsideTheLink($found, $scope['viewer'] ?? null);
 
-        return $found->map(function ($r) use ($alsoHeld) {
+        $failed = $this->lastImportFailures($found->pluck('id')->all());
+
+        $resolver = app(OaLocationResolver::class);
+        $verifier = app(OpenAccessVerifier::class);
+
+        return $found->map(function ($r) use ($alsoHeld, $failed, $resolver, $verifier) {
+            // Is "open" CONFIRMED by something other than an aggregator? (See the verifier.)
+            $open = $r->is_oa ? $verifier->stored($r) : ['state' => null, 'basis' => null];
+            $copies = $this->knownCopies($r, $resolver);
             $fetchable = (bool) ($r->pdf_url || $r->oa_url || $r->doi);
             $heldBook = $r->held_book ?: ($alsoHeld[$r->id] ?? null);
             $held = (bool) $r->held || $heldBook !== null;
@@ -159,12 +173,106 @@ class CitedWorksQuery
                 'license'        => $license,
                 'license_label'  => Licenses::info($license)['label'],
                 'hostable'       => $hostable,
-                // The open copy OpenAlex lists, so the claim can be checked from the row.
-                'oa_copy_url'    => $r->oa_url ?: ($r->pdf_url ?: null),
+                // The open copies the fetch ladder would try, best first — the SAME ranked
+                // list ContentFetchService walks (OaLocationResolver: OpenAlex, Unpaywall,
+                // Semantic Scholar, Crossref, CORE), read from its cache. `copies_checked`
+                // false = those indexes have not been asked yet (only OpenAlex's one URL).
+                'oa_copy_url'    => $copies['list'][0]['url'] ?? null,
+                'copies'         => array_slice($copies['list'], 0, 6),
+                'copies_checked' => $copies['checked'],
                 'fetchable'      => $fetchable,
-                'importable'     => (bool) ($r->is_oa && $fetchable && ! $held && $hostable),
+                // Offered for import (and taken by the bulk run) only once the open claim is
+                // CONFIRMED. `claimed_open` is the same row before that: an index says open,
+                // nothing authoritative does yet — the page offers "check", not "import".
+                'importable'     => (bool) ($r->is_oa && $fetchable && ! $held && $hostable
+                    && $open['state'] === OpenAccessVerifier::CONFIRMED),
+                'claimed_open'   => (bool) ($r->is_oa && $fetchable && ! $held && $hostable),
+                'open_state'     => $open['state'],
+                'open_basis'     => $open['basis'],
+                // Metadata can call a copy open that is not (a repository record whose file
+                // is restricted): once an import of this work has failed, say so on the row.
+                'import_failed'  => $held ? null : ($failed[$r->id] ?? null),
+                // Still inside the harvester's backoff for a failed fetch: a person may
+                // retry it by hand, but an unattended bulk run leaves it alone.
+                'cooling_off'    => ! $held && isset($this->coolingOff[$r->id]),
             ];
         });
+    }
+
+    /**
+     * The open copies known for a work, ranked as the fetch ladder ranks them. Reads the
+     * resolver's persisted gather (canonical_source.oa_locations) — never calls out.
+     *
+     * @return array{checked: bool, list: list<array{url: string, host: string, kind: string, source: string, license: ?string}>}
+     */
+    private function knownCopies(object $r, OaLocationResolver $resolver): array
+    {
+        $raw = [['pdf_url' => $r->pdf_url, 'landing_page_url' => $r->oa_url, 'host_type' => null, 'source' => 'openalex']];
+        $stored = is_string($r->oa_locations) ? json_decode($r->oa_locations, true) : $r->oa_locations;
+        $checked = is_array($stored) && is_array($stored['locations'] ?? null);
+        if ($checked) {
+            $raw = array_merge($raw, $stored['locations']);
+        }
+
+        $list = [];
+        foreach ($resolver->rankAndDedupe($raw) as $c) {
+            $list[] = [
+                'url' => $c['url'], 'host' => $c['host'], 'kind' => $c['kind'],
+                'source' => $c['source'], 'license' => $c['license'] ?? null,
+            ];
+        }
+
+        return ['checked' => $checked, 'list' => $list];
+    }
+
+    /**
+     * Works whose MOST RECENT finished import failed, canonical id => the reason. Anyone's
+     * attempt counts — it is a fact about the work's listed copy, not about the requester.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, string>
+     */
+    private function lastImportFailures(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        $rows = DB::connection('pgsql_admin')->select(
+            'SELECT DISTINCT ON (canonical_source_id) canonical_source_id, status, reason
+             FROM work_imports
+             WHERE canonical_source_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ")
+               AND status IN ('failed', 'completed')
+             ORDER BY canonical_source_id, updated_at DESC",
+            $ids,
+        );
+        $out = [];
+        foreach ($rows as $r) {
+            if ($r->status === 'failed') {
+                $out[$r->canonical_source_id] = trim((string) $r->reason) ?: 'the listed copy could not be fetched';
+            }
+        }
+
+        // The harvester's own memory of failed fetches (harvest_attempts) — the richer
+        // record: every caller of the fetch ladder writes it, and a success clears it.
+        $attempts = DB::connection('pgsql_admin')->table('harvest_attempts')
+            ->whereIn('canonical_source_id', $ids)
+            ->where('attempts', '>', 0)
+            ->orderBy('updated_at')
+            // Compared IN SQL with a bound now(), exactly as HarvestAttemptRecorder::isCoolingOff
+            // does: the stamp is written as a naive app-clock string into a timestamptz, so
+            // parsing it back in PHP reads it in the wrong zone.
+            ->selectRaw('canonical_source_id, attempts, last_failure, (retry_after > ?) AS cooling', [now()])
+            ->get();
+        $this->coolingOff = [];
+        foreach ($attempts as $a) {
+            if ($a->cooling) {
+                $this->coolingOff[$a->canonical_source_id] = true;
+            }
+            $why = trim((string) $a->last_failure) ?: 'no copy could be fetched';
+            $out[$a->canonical_source_id] = $a->attempts > 1 ? "{$why} (tried {$a->attempts} times)" : $why;
+        }
+
+        return $out;
     }
 
     /**
@@ -234,7 +342,7 @@ class CitedWorksQuery
     public function importableExternal(array $scope): Collection
     {
         return $this->rows($scope)
-            ->filter(fn (array $r) => ! $r['is_internal'] && $r['importable'])
+            ->filter(fn (array $r) => ! $r['is_internal'] && $r['importable'] && ! $r['cooling_off'])
             ->values();
     }
 

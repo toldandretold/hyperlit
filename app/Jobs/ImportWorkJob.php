@@ -90,6 +90,7 @@ class ImportWorkJob implements ShouldQueue
             }
 
             $status = $result['status'] ?? 'error';
+            self::rememberAttempt($canonical->id, $status, $result['reason'] ?? null);
             if (!in_array($status, ['assigned', 'assigned_existing'], true) || empty($result['book'])) {
                 $this->failImport($result['reason'] ?? $status, null, $result['via'] ?? null, $result['book'] ?? null);
 
@@ -110,6 +111,26 @@ class ImportWorkJob implements ShouldQueue
         }
     }
 
+    /**
+     * Tell the harvester's attempt memory (harvest_attempts) how this fetch went. Every
+     * caller of AutoVersionCreator shares it: a work that would not fetch here is then
+     * backed off for the harvester and flagged on the workbench's cited-works list, and
+     * a success clears an old failure. Best-effort — bookkeeping never fails an import.
+     */
+    public static function rememberAttempt(string $canonicalId, string $status, ?string $reason): void
+    {
+        try {
+            $attempts = app(\App\Services\SourceHarvest\HarvestAttemptRecorder::class);
+            if (in_array($status, ['assigned', 'assigned_existing'], true)) {
+                $attempts->recordSuccess($canonicalId, \App\Services\SourceHarvest\HarvestAttemptRecorder::LANE_PDF);
+            } elseif ($status !== 'deferred') {
+                $attempts->recordFailure($canonicalId, \App\Services\SourceHarvest\HarvestAttemptRecorder::LANE_PDF, $reason ?? $status);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('rememberAttempt failed', ['canonical' => $canonicalId, 'error' => $e->getMessage()]);
+        }
+    }
+
     private function deliver(object $row, string $systemBook, HarvestShelf $shelves, PersonalCopyMaker $copies, ?string $via): void
     {
         $visibility = DB::connection('pgsql_admin')->table('library')->where('book', $systemBook)->value('visibility');
@@ -119,6 +140,7 @@ class ImportWorkJob implements ShouldQueue
                 $shelf = $shelves->ensureImportShelfFor($row->creator);
                 $shelves->addBooks($shelf->id, [$systemBook]);
             }
+            $this->addToRequestedShelf($row, $systemBook, $shelves);
             $this->complete($systemBook, $systemBook, 'commons', $via);
 
             return;
@@ -132,7 +154,21 @@ class ImportWorkJob implements ShouldQueue
             return;
         }
         $copy = $copies->make($systemBook, $this->importId, $row->creator, $row->creator_token);
+        $this->addToRequestedShelf($row, $copy, $shelves);
         $this->complete($copy, $systemBook, 'personal_copy', $via);
+    }
+
+    /** The shelf the importer asked for (work_imports.shelf_id), on top of "Imported works". */
+    private function addToRequestedShelf(object $row, string $book, HarvestShelf $shelves): void
+    {
+        if (empty($row->shelf_id)) {
+            return;
+        }
+        try {
+            $shelves->addBooks($row->shelf_id, [$book]);
+        } catch (\Throwable $e) {
+            Log::warning('ImportWorkJob: could not add to the requested shelf', ['import' => $this->importId, 'error' => $e->getMessage()]);
+        }
     }
 
     private function pauseForConfirmation(string $systemBook, ?User $user): void

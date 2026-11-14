@@ -910,6 +910,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/hypercites/shelf/{id}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfImportSource'])
         ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/hypercites/shelf/{id}/verify-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfVerifySource'])
+        ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/hypercites/shelf/{id}/import-cited-bulk', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'shelfImportCitedBulk'])
         ->where('id', '[0-9a-f-]{36}');
     Route::get('/maintainer/hypercites/{slug}/candidates', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'candidates'])
@@ -921,6 +923,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/hypercites/{slug}/most-cited', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'mostCited'])
         ->where('slug', '[a-z0-9-]+');
     Route::post('/maintainer/hypercites/{slug}/import-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importSource'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/hypercites/{slug}/verify-source', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'verifySource'])
         ->where('slug', '[a-z0-9-]+');
     Route::post('/maintainer/hypercites/{slug}/import-cited-bulk', [\App\Http\Controllers\Maintainer\HyperciteConsoleController::class, 'importCitedBulk'])
         ->where('slug', '[a-z0-9-]+');
@@ -949,6 +953,7 @@ Route::middleware(['auth:sanctum', 'shelf.owner', 'throttle:shelf-workbench'])
         Route::post('/batch-approve', 'ownerBatchApprove');
         Route::get('/most-cited', 'ownerMostCited');
         Route::post('/import-source', 'ownerImportSource');
+        Route::post('/verify-source', 'ownerVerifySource');
     });
 
 // Snapshots endpoint — outside author middleware so public book readers can see version history

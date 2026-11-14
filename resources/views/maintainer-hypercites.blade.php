@@ -123,6 +123,8 @@
             <div id="hx-mostcited-tab" hidden>
                 <div class="hx-list-head">
                     <span id="hx-mostcited-count">…</span>
+                    <button type="button" id="hx-check-all" class="hx-import-btn"
+                        title="An index (OpenAlex) lists these as open access. This asks the publisher's registry deposit, and opens the repository copies, to see which really are — one at a time.">check claimed-open</button>
                     @if (! $owner)
                     <span class="hx-mc-bulk">
                         <select id="hx-bulk-limit" title="How many of the importable works to attempt in one run">
@@ -143,7 +145,15 @@
                 <p class="hx-mostcited-note">Counts come from resolved bibliographies — run a
                     detect first or they undercount. <strong>⇩ import</strong> fetches an external
                     OA work so the next detect can match quotes against it.</p>
-                <h3 class="hx-group-title">external works</h3>
+                <div class="hx-group-head">
+                    <h3 class="hx-group-title">external works</h3>
+                    @if ($owner)
+                    <button type="button" id="hx-download-all" class="hx-import-btn" disabled
+                        title="Import every work below that is confirmed open, one after another. A PDF copy needs OCR, which is charged to you. Run 'check claimed-open' first to confirm more of them.">⇩ download all</button>
+                    <label class="hx-chk" title="Imported works also go onto this shelf (as well as your 'Imported works' shelf). Applies to the single import buttons too.">
+                        <input type="checkbox" id="hx-to-shelf" checked> add to this shelf</label>
+                    @endif
+                </div>
                 <div id="hx-external-list" role="list"></div>
                 <h3 class="hx-group-title">this journal's own articles</h3>
                 <div id="hx-internal-list" role="list"></div>

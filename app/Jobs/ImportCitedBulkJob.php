@@ -116,6 +116,7 @@ class ImportCitedBulkJob implements ShouldQueue
 
                     $result = $creator->create($canonical, false);
                     $status = $result['status'] ?? 'error';
+                    ImportWorkJob::rememberAttempt($canonical->id, $status, $result['reason'] ?? null);
 
                     if ($status === 'assigned' && $payer && ! empty($result['book'])) {
                         $charger->charge($payer, $result['book'], "Cited-source bulk import OCR ({$scope['label']}): {$result['book']}");
@@ -161,7 +162,7 @@ class ImportCitedBulkJob implements ShouldQueue
                 'remaining'     => $remaining,
             ];
             $counts['summary'] = "{$stats['imported']} imported, {$stats['already_held']} already held, "
-                . "{$stats['failed']} failed, {$remaining} still importable"
+                . "{$stats['failed']} failed, {$remaining} left to try"
                 . ($stoppedEarly ? ' — stopped at the time limit, press again to continue' : '');
 
             $this->mark([

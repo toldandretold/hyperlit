@@ -156,10 +156,23 @@ export interface MostCitedRow {
   /** OpenAlex's kind of open access (gold / hybrid / diamond / green / bronze) and the open copy it lists. */
   oa_status?: string | null;
   oa_copy_url?: string | null;
+  /** The open copies the fetch ladder would try, best first, and whether every index was asked. */
+  copies?: Array<{ url: string; host: string; kind: string; source: string; license: string | null }>;
+  copies_checked?: boolean;
+  /**
+   * Whether the open claim is confirmed by something other than an index (publisher deposit,
+   * arXiv, diamond registry, or a repository copy that answered): 'confirmed' | 'unconfirmed'
+   * | 'unchecked'. `claimed_open` = an index says open and it would otherwise be importable.
+   */
+  open_state?: 'confirmed' | 'unconfirmed' | 'unchecked' | null;
+  open_basis?: string | null;
+  claimed_open?: boolean;
   /** The licence the work resolves to (WorkLicenseResolver) and whether it allows a hosted copy. */
   license?: string;
   license_label?: string;
   hostable?: boolean;
+  /** Why the last import of this work failed (its listed copy may not really be open), or null. */
+  import_failed?: string | null;
   is_oa: boolean;
   fetchable: boolean;
   importable: boolean;
@@ -283,6 +296,10 @@ export const api = {
       `${base}/most-cited`,
     ),
 
+  /** Ask whether a cited work's open-access claim holds up; returns the refreshed row. */
+  verifySource: (base: string, canonicalId: string) =>
+    postJson<{ row?: MostCitedRow; message?: string }>(`${base}/verify-source`, { canonical_source_id: canonicalId }),
+
   importSource: (base: string, canonicalId: string) =>
     postJson<{ run_id: string; already_running: boolean; message?: string }>(
       `${base}/import-source`,
@@ -290,8 +307,8 @@ export const api = {
     ),
 
   /** Owner workbench only: one cited work via the user-billed single-work importer. */
-  ownerImportSource: (base: string, canonicalId: string) =>
-    postJson<OwnerImportResult>(`${base}/import-source`, { canonical_source_id: canonicalId }),
+  ownerImportSource: (base: string, canonicalId: string, toShelf = false) =>
+    postJson<OwnerImportResult>(`${base}/import-source`, { canonical_source_id: canonicalId, to_shelf: toShelf }),
 
   /** Progress of an owner import — the same poll the URL importer uses. */
   importProgress: (importId: string) =>

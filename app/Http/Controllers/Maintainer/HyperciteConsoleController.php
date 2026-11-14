@@ -851,6 +851,44 @@ class HyperciteConsoleController extends Controller
         ]);
     }
 
+    public function verifySource(Request $request, string $slug)
+    {
+        $scope = $this->journalScope($slug);
+
+        return $scope ? $this->verifySourceFor($request, $scope) : response()->json(['message' => 'Journal not found.'], 404);
+    }
+
+    public function shelfVerifySource(Request $request, string $id)
+    {
+        $scope = $this->shelfScope($id);
+
+        return $scope ? $this->verifySourceFor($request, $scope) : response()->json(['message' => 'Shelf not found (or not public).'], 404);
+    }
+
+    /**
+     * "Is this cited work REALLY open?" — asked of the publisher's registry deposit and, failing
+     * that, of the repository copies themselves (OpenAccessVerifier::check). Synchronous: a
+     * couple of short requests. Returns the row as the list would now render it.
+     */
+    protected function verifySourceFor(Request $request, array $scope)
+    {
+        $canonicalId = (string) $request->input('canonical_source_id', '');
+        $cited = Str::isUuid($canonicalId)
+            ? app(CitedWorksQuery::class)->rows($scope)->firstWhere('canonical_id', $canonicalId)
+            : null;
+        if (! $cited) {
+            return response()->json(['message' => 'That work is not cited by this collection.', 'refusal' => 'not_cited_here'], 422);
+        }
+
+        $canonical = DB::connection('pgsql_admin')->table('canonical_source')->where('id', $canonicalId)->first();
+        $canonical->journal_license = \App\Services\Licensing\WorkLicenseResolver::journalLicense($canonical->journal_source_id ?? null);
+        app(\App\Services\Licensing\OpenAccessVerifier::class)->check($canonical);
+
+        return response()->json([
+            'row' => app(CitedWorksQuery::class)->rows($scope)->firstWhere('canonical_id', $canonicalId),
+        ]);
+    }
+
     public function importSource(Request $request, string $slug)
     {
         $scope = $this->journalScope($slug);

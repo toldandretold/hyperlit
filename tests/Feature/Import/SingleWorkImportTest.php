@@ -132,7 +132,7 @@ function swiSystemBook(string $canonicalId, string $title, string $visibility = 
     return $book;
 }
 
-function swiStart(SourceMetadata $meta, string $id, ?User $user, string $surface = SingleWorkImporter::SURFACE_WEB): array
+function swiStart(SourceMetadata $meta, string $id, ?User $user, string $surface = SingleWorkImporter::SURFACE_WEB, ?string $shelfId = null): array
 {
     return app(SingleWorkImporter::class)->start(
         new Doi($meta->doi()),
@@ -141,7 +141,21 @@ function swiStart(SourceMetadata $meta, string $id, ?User $user, string $surface
         $user,
         ['creator' => $user?->name, 'creator_token' => null],
         $surface,
+        $shelfId,
     );
+}
+
+/** A shelf of the user's own (cleaned up by swiCleanup via the swi_ creator prefix). */
+function swiShelf(User $user): string
+{
+    $id = (string) Str::uuid();
+    swiDb()->table('shelves')->insert([
+        'id' => $id, 'creator' => $user->name, 'name' => 'SWI shelf ' . Str::random(6),
+        'slug' => 'swi-' . Str::lower(Str::random(8)), 'visibility' => 'public',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    return $id;
 }
 
 function swiRunJob(string $id): void
@@ -248,6 +262,39 @@ test('a hostable copy is delivered as the commons version on the importer\'s she
     expect(swiProgress($id))->toMatchArray(['status' => 'complete', 'book' => $book, 'outcome' => 'commons']);
     $shelf = swiDb()->table('shelves')->where('creator', $user->name)->where('name', HarvestShelf::IMPORTS_NAME)->first();
     expect(swiDb()->table('shelf_items')->where('shelf_id', $shelf->id)->where('book', $book)->exists())->toBeTrue();
+});
+
+test('an import that names a shelf lands on that shelf as well as "Imported works"', function () {
+    $user = swiUser();
+    $meta = swiMetadata();
+    $target = swiShelf($user);
+    $id = 'swi-' . Str::lower(Str::random(8));
+    swiStart($meta, $id, $user, SingleWorkImporter::SURFACE_WEB, $target);
+    expect(swiRow($id)->shelf_id)->toBe($target);
+    $book = swiSystemBook(swiCanonicalId($meta), $meta->title(), 'public', ['has_nodes' => false]);
+
+    $this->mock(AutoVersionCreator::class, fn ($m) => $m->shouldReceive('create')->once()
+        ->andReturn(['status' => 'assigned', 'book' => $book, 'lane' => 'jats_fulltext', 'reason' => null, 'via' => 'from europepmc.org']));
+    $this->mock(WorkOcrCharger::class, fn ($m) => $m->shouldReceive('charge')->once()->andReturn(0.0));
+
+    swiRunJob($id);
+
+    expect(swiDb()->table('shelf_items')->where('shelf_id', $target)->where('book', $book)->exists())->toBeTrue();
+    $imports = swiDb()->table('shelves')->where('creator', $user->name)->where('name', HarvestShelf::IMPORTS_NAME)->first();
+    expect(swiDb()->table('shelf_items')->where('shelf_id', $imports->id)->where('book', $book)->exists())->toBeTrue();
+});
+
+test('a work already in the library is put on the named shelf without a fetch', function () {
+    $user = swiUser();
+    $meta = swiMetadata();
+    $target = swiShelf($user);
+    $book = swiSystemBook(swiCanonicalId($meta), $meta->title());
+
+    $result = swiStart($meta, 'swi-' . Str::lower(Str::random(8)), $user, SingleWorkImporter::SURFACE_WEB, $target);
+
+    expect($result['status'])->toBe('already_available');
+    Queue::assertNothingPushed();
+    expect(swiDb()->table('shelf_items')->where('shelf_id', $target)->where('book', $book)->exists())->toBeTrue();
 });
 
 test('a held copy is delivered as a private personal copy with its real licence', function () {

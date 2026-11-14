@@ -809,6 +809,8 @@ test('most-cited splits internal vs external and flags what is importable', func
         'created_at'     => now(),
         'updated_at'     => now(),
     ]);
+    // Its open claim has been confirmed; an index's word alone is not enough (see below).
+    \Illuminate\Support\Facades\Cache::put(\App\Services\Licensing\OpenAccessVerifier::cacheKey($unheldId), ['state' => \App\Services\Licensing\OpenAccessVerifier::CONFIRMED, 'basis' => 'test'], 600);
 
     foreach ([
         ['ref1', $internal['canonical_id']],
@@ -864,6 +866,9 @@ test('most-cited decides importability by LICENCE, and counts a DOI-matched or o
     // Free to read with no licence (bronze) resolves to all rights reserved: not importable.
     $bronze = $mk(['title' => 'HX Bronze', 'oa_status' => 'bronze', 'pdf_url' => 'https://example.org/b.pdf']);
     $ccby = $mk(['title' => 'HX CC BY', 'oa_status' => 'hybrid', 'work_license' => 'cc-by', 'oa_url' => 'https://example.org/c']);
+    // Same claim, nobody has checked it: an index says open, so it is CLAIMED open, not importable.
+    $claimed = $mk(['title' => 'HX Claimed Only', 'oa_status' => 'green', 'work_license' => 'cc-by-nc-sa', 'pdf_url' => 'https://hal.science/x/document']);
+    \Illuminate\Support\Facades\Cache::put(\App\Services\Licensing\OpenAccessVerifier::cacheKey($ccby), ['state' => \App\Services\Licensing\OpenAccessVerifier::CONFIRMED, 'basis' => 'test'], 600);
     // Already in the library under the same DOI, but never linked to this citation identity.
     $doi = '10.5555/hx.' . strtolower(Str::random(8));
     $byDoi = $mk(['title' => 'HX Held By DOI', 'oa_status' => 'gold', 'doi' => $doi]);
@@ -873,28 +878,144 @@ test('most-cited decides importability by LICENCE, and counts a DOI-matched or o
         'has_nodes' => true, 'doi' => strtoupper($doi), 'timestamp' => 1, 'raw_json' => '{}', 'created_at' => now(), 'updated_at' => now(),
     ]);
 
-    foreach ([['l1', $bronze], ['l2', $ccby], ['l3', $byDoi]] as [$ref, $cid]) {
+    foreach ([['l1', $bronze], ['l2', $ccby], ['l3', $byDoi], ['l5', $claimed]] as [$ref, $cid]) {
         hxDb()->table('bibliography')->insert([
             'book' => $article['book'], 'referenceId' => $ref, 'content' => 'HX ref',
             'canonical_source_id' => $cid, 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
 
+    // The CC BY work's listed copy turned out not to fetch: the row carries the reason.
+    $wi = 'hxwi_' . strtolower(Str::random(8));
+    hxDb()->table('work_imports')->insert([
+        'id' => $wi, 'canonical_source_id' => $ccby, 'identifier' => 'doi:x', 'surface' => 'web',
+        'status' => 'failed', 'reason' => 'restricted access', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    // The fetch ladder's own cache of copies (every index asked) and its failure memory.
+    hxDb()->table('canonical_source')->where('id', $ccby)->update(['oa_locations' => json_encode(['v' => 2, 'locations' => [
+        ['pdf_url' => 'https://zenodo.org/record/1/files/a.pdf', 'landing_page_url' => null, 'host_type' => 'repository', 'source' => 'unpaywall'],
+    ]])]);
+    $gold = $mk(['title' => 'HX Gold Walled', 'oa_status' => 'gold', 'pdf_url' => 'https://example.org/g.pdf']);
+    \Illuminate\Support\Facades\Cache::put(\App\Services\Licensing\OpenAccessVerifier::cacheKey($gold), ['state' => \App\Services\Licensing\OpenAccessVerifier::CONFIRMED, 'basis' => 'test'], 600);
+    hxDb()->table('bibliography')->insert([
+        'book' => $article['book'], 'referenceId' => 'l4', 'content' => 'HX ref',
+        'canonical_source_id' => $gold, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    App\Jobs\ImportWorkJob::rememberAttempt($gold, 'failed', 'cloudflare_block');
+
     try {
         $rows = collect($this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json('external'))
             ->keyBy('canonical_id');
+        expect($rows[$ccby]['import_failed'])->toBe('restricted access')
+            ->and($rows[$bronze]['import_failed'])->toBeNull();
+        // Repository copy ranks ahead of the publisher landing page, and the row says the indexes were asked.
+        expect($rows[$ccby]['copies_checked'])->toBeTrue()
+            ->and($rows[$ccby]['oa_copy_url'])->toBe('https://zenodo.org/record/1/files/a.pdf')
+            ->and(count($rows[$ccby]['copies']))->toBe(2);
+        expect($rows[$bronze]['copies_checked'])->toBeFalse();
+        // A fetch that failed through ANY import path is remembered, shown, and skipped by the bulk run.
+        expect($rows[$gold]['import_failed'])->toBe('cloudflare_block')
+            ->and($rows[$gold]['cooling_off'])->toBeTrue()
+            ->and($rows[$gold]['importable'])->toBeTrue();
+        $bulk = app(App\Services\Hypercites\CitedWorksQuery::class)
+            ->importableExternal(['type' => 'journal', 'column' => 'journal_source_id', 'id' => $journal->id])
+            ->pluck('canonical_id');
+        expect($bulk)->not->toContain($gold);
+        // …and a later success clears it.
+        App\Jobs\ImportWorkJob::rememberAttempt($gold, 'assigned', null);
+        expect(hxDb()->table('harvest_attempts')->where('canonical_source_id', $gold)->exists())->toBeFalse();
 
         expect($rows[$bronze]['license'])->toBe('All-Rights-Reserved')
             ->and($rows[$bronze]['hostable'])->toBeFalse()
             ->and($rows[$bronze]['importable'])->toBeFalse();
         expect($rows[$ccby]['license'])->toBe('CC-BY')
             ->and($rows[$ccby]['importable'])->toBeTrue();
+        expect($rows[$claimed]['importable'])->toBeFalse()
+            ->and($rows[$claimed]['claimed_open'])->toBeTrue()
+            ->and($rows[$claimed]['open_state'])->toBe('unchecked');
         expect($rows[$byDoi]['held'])->toBeTrue()
             ->and($rows[$byDoi]['importable'])->toBeFalse()
             ->and($rows[$byDoi]['held_url'])->toBe(url('/' . $copy));
     } finally {
         hxDb()->table('library')->where('book', $copy)->delete();
+        hxDb()->table('work_imports')->where('id', $wi)->delete();
     }
+});
+
+test('verify-source confirms an open claim only from a non-aggregator, never from a file that merely downloads', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = hxSeedJournal();
+    $article = hxSeedHeldWork($journal->id, 'HX Verify Root');
+    \App\Services\Licensing\Sources\PoliteHttp::$intervalScale = 0;
+
+    $mk = function (string $title, array $attrs) use ($article) {
+        $id = (string) Str::uuid();
+        hxDb()->table('canonical_source')->insert($attrs + [
+            'id' => $id, 'title' => $title, 'is_oa' => true, 'doi' => '10.5555/hxv.' . strtolower(Str::random(8)),
+            // The copy cache is already filled, so the check never has to gather from the indexes.
+            'oa_locations' => json_encode(['v' => 2, 'locations' => []]),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        hxDb()->table('bibliography')->insert([
+            'book' => $article['book'], 'referenceId' => 'v' . Str::random(5), 'content' => 'HX ref',
+            'canonical_source_id' => $id, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return $id;
+    };
+    // The HAL shape: an index lists a licensed repository copy, but the file is restricted.
+    $restricted = $mk('HX Restricted Repo', ['oa_status' => 'green', 'work_license' => 'cc-by-nc-sa', 'pdf_url' => 'https://hal.science/hal-1/document']);
+    // The JSTOR shape: a publisher PDF that is only the title page. Never probed, never confirmed.
+    $titlePage = $mk('HX Title Page', ['oa_status' => 'hybrid', 'work_license' => 'cc-by', 'pdf_url' => 'https://www.jstor.org/stable/pdf/x.1.pdf']);
+    $deposited = $mk('HX Publisher Deposit', ['oa_status' => 'gold', 'pdf_url' => 'https://www.tandfonline.com/doi/pdf/x']);
+    $answers = $mk('HX Repo Answers', ['oa_status' => 'green', 'pdf_url' => 'https://zenodo.org/record/9/files/a.pdf']);
+    // A repository copy that DOES download but is filed as a "submitted version" (the real HAL
+    // case was a French translation): a different text, so it confirms nothing.
+    $preprint = $mk('HX Submitted Version', ['oa_status' => 'green', 'pdf_url' => 'https://zenodo.org/record/7/files/fr.pdf',
+        'oa_locations' => json_encode(['v' => 2, 'locations' => [
+            ['pdf_url' => 'https://zenodo.org/record/7/files/fr.pdf', 'landing_page_url' => null, 'host_type' => 'repository', 'source' => 'openalex', 'version' => 'submittedVersion'],
+        ]])]);
+    $depositedDoi = hxDb()->table('canonical_source')->where('id', $deposited)->value('doi');
+
+    Http::fake([
+        'api.crossref.org/works/' . rawurlencode($depositedDoi) . '*' => Http::response(['message' => ['license' => [
+            ['URL' => 'https://creativecommons.org/licenses/by/4.0/', 'content-version' => 'vor'],
+        ]]]),
+        'api.crossref.org/*'   => Http::response(['message' => ['license' => [
+            ['URL' => 'https://www.springer.com/tdm', 'content-version' => 'tdm'],
+        ]]]),
+        'api.datacite.org/*'   => Http::response([], 404),
+        'hal.science/*'        => Http::response('<html><body>Restricted access</body></html>'),
+        'zenodo.org/*'         => Http::response("%PDF-1.7\n…"),
+        '*'                    => Http::response('', 404),
+    ]);
+
+    $verify = fn (string $id) => $this->postJson("/api/maintainer/hypercites/{$journal->slug}/verify-source", ['canonical_source_id' => $id])
+        ->assertOk()->json('row');
+
+    $r = $verify($restricted);
+    expect($r['open_state'])->toBe('unconfirmed')->and($r['importable'])->toBeFalse()->and($r['claimed_open'])->toBeTrue();
+    $r = $verify($titlePage);
+    expect($r['open_state'])->toBe('unconfirmed')->and($r['importable'])->toBeFalse();
+    Http::assertNotSent(fn ($req) => str_contains($req->url(), 'jstor.org'));
+    $r = $verify($deposited);
+    expect($r['open_state'])->toBe('confirmed')->and($r['importable'])->toBeTrue()
+        ->and($r['open_basis'])->toContain('Crossref');
+    expect($verify($preprint)['open_state'])->toBe('unconfirmed');
+    $r = $verify($answers);
+    // A repository file that downloads is NOT confirmation — a probe cannot see whether it is
+    // this work (the indexes attached an unrelated French text to a real article's DOI).
+    expect($r['open_state'])->toBe('unconfirmed')->and($r['open_basis'])->toContain('zenodo.org')
+        ->and($r['importable'])->toBeFalse();
+
+    // The verdict is remembered: the plain list now reports it without asking again.
+    $rows = collect($this->getJson("/api/maintainer/hypercites/{$journal->slug}/most-cited")->assertOk()->json('external'))->keyBy('canonical_id');
+    expect($rows[$deposited]['importable'])->toBeTrue()->and($rows[$restricted]['open_state'])->toBe('unconfirmed');
+
+    // A work the collection does not cite cannot be checked through it.
+    $this->postJson("/api/maintainer/hypercites/{$journal->slug}/verify-source", ['canonical_source_id' => (string) Str::uuid()])
+        ->assertStatus(422);
 });
 
 test('import-source queues a run for an importable work and refuses a non-OA one', function () {

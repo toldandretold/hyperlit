@@ -877,6 +877,17 @@ function initDetail(boot: ConsoleBoot): void {
         bulkBtn.textContent = `⇩ import all OA (${importable})`;
         bulkBtn.disabled = importable === 0;
       }
+      const dlAll = el<HTMLButtonElement>('hx-download-all');
+      if (dlAll) {
+        dlAll.textContent = `⇩ download all (${importable})`;
+        dlAll.disabled = importable === 0;
+      }
+      const unchecked = data.external.filter((r) => r.claimed_open && r.open_state === 'unchecked').length;
+      const checkAll = el<HTMLButtonElement>('hx-check-all');
+      if (checkAll) {
+        checkAll.textContent = `check claimed-open (${unchecked})`;
+        checkAll.disabled = unchecked === 0;
+      }
       if (data.cited_shelf) showAssessLink(data.cited_shelf.id);
       mostCitedLoaded = true;
     } catch (err) {
@@ -964,6 +975,83 @@ function initDetail(boot: ConsoleBoot): void {
     bronze: 'Bronze: free to read at the publisher, but with no open licence.',
   };
 
+  /* Check every still-unchecked "claimed open" row, one at a time (each is a few short
+     requests to Crossref / a repository — sequential on purpose, never a burst). */
+  el<HTMLButtonElement>('hx-check-all')?.addEventListener('click', async () => {
+    const all = el<HTMLButtonElement>('hx-check-all');
+    const status = el<HTMLSpanElement>('hx-mc-status');
+    if (all) all.disabled = true;
+    let done = 0;
+    for (;;) {
+      const btn = document.querySelector<HTMLButtonElement>('#hx-external-list .hx-check-btn[data-unchecked]:not([data-tried])');
+      if (!btn) break;
+      btn.dataset.tried = '1';
+      btn.click();
+      await new Promise<void>((resolve) => {
+        const wait = (): void => { if (!btn.isConnected || !btn.disabled) resolve(); else window.setTimeout(wait, 200); };
+        window.setTimeout(wait, 200);
+      });
+      done++;
+      if (status) status.textContent = `checked ${done}…`;
+    }
+    if (status) status.textContent = `checked ${done}`;
+    mostCitedLoaded = false;
+    await loadMostCited();
+  });
+
+  /* ── Owner workbench: "add to this shelf" (remembered per shelf) + download all ── */
+
+  const toShelfKey = `hx-to-shelf:${boot.shelfId ?? ''}`;
+  const toShelfBox = el<HTMLInputElement>('hx-to-shelf');
+  if (toShelfBox) {
+    try {
+      if (window.localStorage.getItem(toShelfKey) === '0') toShelfBox.checked = false;
+    } catch { /* storage unavailable — the box keeps its default */ }
+    toShelfBox.addEventListener('change', () => {
+      try { window.localStorage.setItem(toShelfKey, toShelfBox.checked ? '1' : '0'); } catch { /* not remembered */ }
+    });
+  }
+  const importsGoToShelf = (): boolean => Boolean(toShelfBox?.checked);
+
+  /* Every confirmed-open work, ONE at a time: the import worker is serial anyway, and a
+     burst of status polls is what tripped the limiter before. */
+  el<HTMLButtonElement>('hx-download-all')?.addEventListener('click', async () => {
+    const all = el<HTMLButtonElement>('hx-download-all');
+    const status = el<HTMLSpanElement>('hx-mc-status');
+    const queue = Array.from(
+      document.querySelectorAll<HTMLButtonElement>('#hx-external-list .hx-import-btn[data-importable]:not(:disabled)'),
+    );
+    if (queue.length === 0) return;
+    if (!window.confirm(
+      `Import ${queue.length} confirmed-open work${queue.length === 1 ? '' : 's'}`
+        + `${importsGoToShelf() ? ' onto this shelf' : ''}? Any that arrive as a PDF need OCR, which is charged to you.`,
+    )) return;
+    if (all) all.disabled = true;
+    let done = 0;
+    for (const btn of queue) {
+      if (!btn.isConnected) continue;
+      if (status) status.textContent = `importing ${done + 1} of ${queue.length}…`;
+      btn.click();
+      await new Promise<void>((resolve) => {
+        const wait = (): void => {
+          if (!btn.isConnected || btn.dataset.settled) resolve(); else window.setTimeout(wait, 500);
+        };
+        wait();
+      });
+      done++;
+    }
+    if (status) status.textContent = `download all: ${done} attempted — re-run detect to match against them`;
+    mostCitedLoaded = false;
+    await loadMostCited();
+  });
+
+  /** An import button has reached an end state (done, failed, refused, or handed off). */
+  function settle(btn: HTMLButtonElement, text: string, reenable = false): void {
+    btn.textContent = text;
+    btn.dataset.settled = '1';
+    if (reenable) btn.disabled = false;
+  }
+
   function buildMostCitedRow(r: MostCitedRow): HTMLElement {
     const row = document.createElement('div');
     row.className = 'hx-mc-row';
@@ -993,8 +1081,22 @@ function initDetail(boot: ConsoleBoot): void {
     if (!r.held && r.is_oa) {
       const oa = document.createElement(r.oa_copy_url ? 'a' : 'span');
       oa.className = 'hx-badge hx-mc-oa';
-      oa.textContent = `${r.license_label ?? 'open'}${r.oa_copy_url ? ' ↗' : ''}`;
-      oa.title = (r.oa_status ? OA_KIND_HELP[r.oa_status] : undefined) ?? 'Listed as open access by OpenAlex.';
+      const copies = r.copies ?? [];
+      const count = copies.length === 0
+        ? 'no copy listed'
+        : `${copies.length} cop${copies.length === 1 ? 'y' : 'ies'}${r.copies_checked ? '' : ', unchecked'}`;
+      oa.textContent = `${r.license_label ?? 'open'} · ${count}${r.oa_copy_url ? ' ↗' : ''}`;
+      // What the claim rests on: the copies the fetch would try, in order. None of them
+      // has been opened until an import runs — the badge says so rather than implying it.
+      oa.title = [
+        (r.oa_status ? OA_KIND_HELP[r.oa_status] : undefined) ?? 'Listed as open access.',
+        copies.length
+          ? `Copies it would try, best first: ${copies.map((c) => `${c.host} (${c.kind}, via ${c.source})`).join('; ')}.`
+          : 'No open copy is listed — an import would have to go through the publisher page.',
+        r.copies_checked
+          ? 'Listed by the indexes; not opened until you import.'
+          : 'Only OpenAlex has been asked so far; Unpaywall, CORE and others are asked when you import.',
+      ].join(' ');
       if (r.oa_copy_url && oa instanceof HTMLAnchorElement) {
         oa.href = r.oa_copy_url;
         oa.target = '_blank';
@@ -1009,34 +1111,36 @@ function initDetail(boot: ConsoleBoot): void {
       b.textContent = 'held';
       row.appendChild(b);
     } else if (r.importable) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'hx-import-btn';
-      btn.textContent = '⇩ import';
-      btn.title = 'Fetch this OA work (may run OCR, charged to you). Re-run detect afterwards to match against it.';
-      btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        btn.textContent = 'importing…';
-        try {
-          if (isOwnerApi()) {
-            // The user-facing importer: billed to you, lands on your "Imported works" shelf.
-            const { data } = await api.ownerImportSource(state.base, r.canonical_id);
-            if (data.status === 'already_available') btn.textContent = '✓ already in the library';
-            else if (data.import) pollOwnerImport(data.import, btn);
-            else btn.textContent = data.message ?? 'refused';
-            return;
-          }
-          const { data } = await api.importSource(state.base, r.canonical_id);
-          if (data.run_id) pollImport(data.run_id, btn);
-          else {
-            btn.textContent = data.message ?? 'refused';
-          }
-        } catch (err) {
-          log.error('hypercites: import-source failed', 'maintainer', err);
-          btn.textContent = 'failed';
-        }
-      });
-      row.appendChild(btn);
+      // Confirmed open by something other than an index — say what, then offer the import.
+      const ok = document.createElement('span');
+      ok.className = 'hx-badge hx-mc-confirmed';
+      ok.textContent = '✓ open';
+      ok.title = `Confirmed: ${r.open_basis ?? 'open access'}.`;
+      row.appendChild(ok);
+      appendImportButton(row, r, r.import_failed ? '↻ retry import' : '⇩ import');
+    } else if (r.claimed_open) {
+      // An index (OpenAlex) says this is open; nothing authoritative does. Indexes take a
+      // repository RECORD for an open file and one free page for a whole book, so this is
+      // shown as a claim, with a check — not as an import.
+      const claim = document.createElement('span');
+      claim.className = 'hx-badge hx-mc-unconfirmed';
+      const checked = r.open_state === 'unconfirmed';
+      claim.textContent = checked ? 'not confirmed open' : 'claimed open';
+      claim.title = checked
+        ? `Checked: ${r.open_basis ?? 'nothing confirmed it'}.`
+        : 'An index lists this as open access. Not yet checked against the publisher or the copy itself.';
+      row.appendChild(claim);
+
+      const check = document.createElement('button');
+      check.type = 'button';
+      check.className = 'hx-import-btn hx-check-btn';
+      check.textContent = checked ? 'check again' : 'check';
+      if (!checked) check.dataset.unchecked = '1';
+      check.title = 'Ask the publisher’s registry deposit and open the repository copies to see whether this is really open.';
+      check.addEventListener('click', () => void verifyRow(row, r, check));
+      row.appendChild(check);
+
+      if (checked) appendImportButton(row, r, 'try anyway');
     } else {
       const b = document.createElement('span');
       b.className = 'hx-badge';
@@ -1052,18 +1156,78 @@ function initDetail(boot: ConsoleBoot): void {
     return row;
   }
 
+  /** Run the open-access check for one row and redraw it from the server's answer. */
+  async function verifyRow(row: HTMLElement, r: MostCitedRow, btn: HTMLButtonElement): Promise<boolean> {
+    btn.disabled = true;
+    btn.textContent = 'checking…';
+    try {
+      const { data } = await api.verifySource(state.base, r.canonical_id);
+      if (data.row) {
+        row.replaceWith(buildMostCitedRow(data.row));
+        return true;
+      }
+      btn.textContent = data.message ?? 'check failed';
+    } catch (err) {
+      log.error('hypercites: verify-source failed', 'maintainer', err);
+      btn.textContent = 'check failed';
+    }
+    btn.disabled = false;
+    return false;
+  }
+
+  function appendImportButton(row: HTMLElement, r: MostCitedRow, label: string): void {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'hx-import-btn';
+    btn.textContent = label;
+    if (r.importable) btn.dataset.importable = '1';
+    btn.title = 'Fetch this work (may run OCR, charged to you). Re-run detect afterwards to match against it.';
+    if (r.import_failed) {
+      // A copy that would not fetch last time. Shown so the row stops promising what failed.
+      const failed = document.createElement('span');
+      failed.className = 'hx-badge hx-mc-failed';
+      failed.textContent = '✗ import failed';
+      failed.title = r.import_failed;
+      row.appendChild(failed);
+    }
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      delete btn.dataset.settled;
+      btn.textContent = 'importing…';
+      try {
+        if (isOwnerApi()) {
+          // The user-facing importer: billed to you, lands on your "Imported works" shelf
+          // (and on this shelf, when "add to this shelf" is ticked).
+          const toShelf = importsGoToShelf();
+          const { data } = await api.ownerImportSource(state.base, r.canonical_id, toShelf);
+          if (data.status === 'already_available') {
+            settle(btn, toShelf ? '✓ already in the library — added to this shelf' : '✓ already in the library');
+          } else if (data.import) pollOwnerImport(data.import, btn);
+          else settle(btn, data.message ?? 'refused');
+          return;
+        }
+        const { data } = await api.importSource(state.base, r.canonical_id);
+        if (data.run_id) pollImport(data.run_id, btn);
+        else settle(btn, data.message ?? 'refused');
+      } catch (err) {
+        log.error('hypercites: import-source failed', 'maintainer', err);
+        settle(btn, 'failed');
+      }
+    });
+    row.appendChild(btn);
+  }
+
   function pollImport(runId: string, btn: HTMLButtonElement): void {
     let misses = 0;
     const tick = async (): Promise<void> => {
       try {
         const run = await api.runStatus(runId);
         if (run.status === 'completed') {
-          btn.textContent = '✓ imported';
+          settle(btn, '✓ imported');
           return;
         }
         if (run.status === 'failed') {
-          btn.textContent = `✗ ${run.error ?? 'failed'}`;
-          btn.disabled = false;
+          settle(btn, `✗ ${run.error ?? 'failed'}`, true);
           return;
         }
         misses = 0;
@@ -1085,7 +1249,7 @@ function initDetail(boot: ConsoleBoot): void {
       window.setTimeout(tick, Math.min(60000, 5000 * misses));
       return;
     }
-    btn.textContent = 'still importing? — check your import queue';
+    settle(btn, 'still importing? — check your import queue');
     btn.title = 'Status checks kept failing. The import itself may well have finished: reload this page to see.';
   }
 
@@ -1096,16 +1260,15 @@ function initDetail(boot: ConsoleBoot): void {
       try {
         const p = await api.importProgress(importId);
         if (p.status === 'complete' || p.status === 'completed') {
-          btn.textContent = '✓ imported — re-run detect';
+          settle(btn, '✓ imported — re-run detect');
           return;
         }
         if (p.status === 'failed') {
-          btn.textContent = `✗ ${p.detail ?? 'failed'}`;
-          btn.disabled = false;
+          settle(btn, `✗ ${p.detail ?? 'failed'}`, true);
           return;
         }
         if (p.status === 'awaiting_confirmation') {
-          btn.textContent = 'needs your OK — see your import queue';
+          settle(btn, 'needs your OK — see your import queue');
           return;
         }
         btn.textContent = p.detail ? `importing… ${p.detail}` : 'importing…';

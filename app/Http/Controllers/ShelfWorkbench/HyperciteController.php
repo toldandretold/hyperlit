@@ -217,6 +217,12 @@ class HyperciteController extends HyperciteConsoleController
         return $this->mostCitedFor($this->ownerScope($request));
     }
 
+    /** POST …/verify-source — check one cited work's open-access claim (see verifySourceFor). */
+    public function ownerVerifySource(Request $request)
+    {
+        return $this->verifySourceFor($request, $this->ownerScope($request));
+    }
+
     /**
      * POST …/import-source — bring in ONE work this shelf cites, as the owner.
      *
@@ -224,7 +230,8 @@ class HyperciteController extends HyperciteConsoleController
      * result on a system "Cited by:" shelf. This is the same front door as the URL importer
      * and MCP — the open-access ladder, billed to the importer, delivering the commons copy
      * (or a private personal copy when the licence does not allow public hosting) onto their
-     * own "Imported works" shelf.
+     * own "Imported works" shelf — and, with `to_shelf`, onto THIS shelf as well (the route's
+     * shelf, which `shelf.owner` has already established is the caller's).
      */
     public function ownerImportSource(Request $request, string $shelf, ImportOrchestrator $orchestrator, SingleWorkImporter $importer)
     {
@@ -269,6 +276,7 @@ class HyperciteController extends HyperciteConsoleController
             $user,
             ['creator' => $user->name, 'creator_token' => null],
             SingleWorkImporter::SURFACE_WEB,
+            $request->boolean('to_shelf') ? (string) $this->shelf($request)->id : null,
         );
 
         if (! $started['ok']) {

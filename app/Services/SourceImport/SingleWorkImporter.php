@@ -81,6 +81,9 @@ class SingleWorkImporter
     }
 
     /**
+     * `$shelfId` is an extra shelf to deliver onto (the caller has already checked the
+     * importer owns it) — the shelf owner's hypercite workbench passes its own shelf.
+     *
      * @param  array{creator: ?string, creator_token: ?string}  $creatorInfo
      * @return array{ok: bool, status?: string, import?: string, book?: string, outcome?: string, error?: string}
      */
@@ -91,6 +94,7 @@ class SingleWorkImporter
         ?User $user,
         array $creatorInfo,
         string $surface,
+        ?string $shelfId = null,
     ): array {
         if (!$metadata->doi() && !$metadata->openalexId()) {
             return ['ok' => false, 'error' => 'metadata_unavailable'];
@@ -105,6 +109,9 @@ class SingleWorkImporter
             if ($existing['outcome'] === 'commons' && !empty($creatorInfo['creator'])) {
                 $shelf = $this->shelves->ensureImportShelfFor($creatorInfo['creator']);
                 $this->shelves->addBooks($shelf->id, [$existing['book']]);
+            }
+            if ($shelfId) {
+                $this->shelves->addBooks($shelfId, [$existing['book']]);
             }
 
             return ['ok' => true, 'status' => 'already_available'] + $existing;
@@ -128,6 +135,10 @@ class SingleWorkImporter
             ->where('updated_at', '>', now()->subHours(2))
             ->first();
         if ($inFlight) {
+            if ($shelfId) {
+                $db->table('work_imports')->where('id', $inFlight->id)->update(['shelf_id' => $shelfId]);
+            }
+
             return ['ok' => true, 'status' => $inFlight->status, 'import' => $inFlight->id];
         }
 
@@ -152,6 +163,7 @@ class SingleWorkImporter
             'canonical_source_id' => $canonical->id,
             'identifier'          => mb_substr($identifier->kind() . ':' . $identifier->value(), 0, 300),
             'surface'             => $surface,
+            'shelf_id'            => $shelfId,
             'status'              => 'queued',
             'created_at'          => now(),
             'updated_at'          => now(),

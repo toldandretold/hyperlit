@@ -119,6 +119,8 @@ function icbSeedExternal(string $title, array $opts = []): string
         'created_at' => now(),
         'updated_at' => now(),
     ], $opts));
+    // The bulk run only takes works whose open claim is CONFIRMED (OpenAccessVerifier).
+    \Illuminate\Support\Facades\Cache::put(\App\Services\Licensing\OpenAccessVerifier::cacheKey($id), ['state' => \App\Services\Licensing\OpenAccessVerifier::CONFIRMED, 'basis' => 'test'], 600);
 
     return $id;
 }
@@ -214,7 +216,9 @@ test('the bulk job imports only importable externals, collects them on the cited
     expect($counts['failed'])->toBe(1);
     expect($counts['failures'])->toHaveCount(1);
     expect($counts['failures'][0]['reason'])->toBe('no copy answered');
-    expect($counts['remaining'])->toBe(1);       // the failed one is still importable
+    // The failed one is now inside the harvester's backoff (harvest_attempts), so an
+    // unattended bulk run leaves it alone — a person can still retry it from its row.
+    expect($counts['remaining'])->toBe(0);
     expect($counts['stopped_early'])->toBeFalse();
 
     // The shelf: public, system-owned, named for the scope, holding the imported book.
@@ -291,7 +295,7 @@ test('work_limit slices the list', function () {
     $counts = json_decode((string) icbDb()->table('hypercite_runs')->where('id', $runId)->value('counts'), true);
     expect($counts['requested'])->toBe(2);
     expect($counts['attempted'])->toBe(2);
-    expect($counts['remaining'])->toBe(3); // nothing landed, all three still importable
+    expect($counts['remaining'])->toBe(1); // the two that failed are backing off; one is untried
 });
 
 test('the single-import job now lands its book on the cited shelf too', function () {

@@ -576,9 +576,12 @@ test('import-source hands a cited work to the user-billed single-work importer, 
         new \App\Services\SourceImport\Metadata\SourceMetadata(['doi' => '10.5555/swx', 'title' => 'SWX external work'], 'openalex'),
         null, null, null,
     );
-    $this->mock(ImportOrchestrator::class, fn ($m) => $m->shouldReceive('inspect')->once()->andReturn($inspection));
-    $this->mock(SingleWorkImporter::class, function ($m) use ($owner) {
-        $m->shouldReceive('start')->once()->withArgs(function ($id, $meta, $importId, $user, $creatorInfo, $surface) use ($owner) {
+    $shelvesAsked = [];
+    $this->mock(ImportOrchestrator::class, fn ($m) => $m->shouldReceive('inspect')->twice()->andReturn($inspection));
+    $this->mock(SingleWorkImporter::class, function ($m) use ($owner, &$shelvesAsked) {
+        $m->shouldReceive('start')->twice()->withArgs(function ($id, $meta, $importId, $user, $creatorInfo, $surface, $shelfId = null) use ($owner, &$shelvesAsked) {
+            $shelvesAsked[] = $shelfId;
+
             return $user->id === $owner->id
                 && $creatorInfo === ['creator' => $owner->name, 'creator_token' => null]
                 && $surface === SingleWorkImporter::SURFACE_WEB
@@ -588,4 +591,10 @@ test('import-source hands a cited work to the user-billed single-work importer, 
 
     $this->postJson(swApi($shelf, '/import-source'), ['canonical_source_id' => $canonicalId])
         ->assertOk()->assertJson(['status' => 'queued', 'import' => 'book_123']);
+
+    // "add to this shelf": the route's own shelf is passed on — never one named in the body.
+    $this->postJson(swApi($shelf, '/import-source'), [
+        'canonical_source_id' => $canonicalId, 'to_shelf' => true, 'shelf_id' => (string) Str::uuid(),
+    ])->assertOk();
+    expect($shelvesAsked)->toBe([null, $shelf->id]);
 });
