@@ -171,6 +171,56 @@ test('a short form with NO antecedent stays unlinked AND out of resolution (hone
     }
 });
 
+test('a short form followed by a FULL citation in the same footnote: the row stays for its subs, the short form is still never searched', function () {
+    // Prod 2026-11-14 — "Pratt, 'Reconceptualizing gender'; Chamindra Weerawardhana, 'Profoundly
+    // decolonizing?…', Meridians, 16:1 (2017); Parashar, 'The WPS agenda'". Dropping the ROW took
+    // the findable Meridians article with it: it was never searched.
+    $subs = [
+        ['type' => 'journal-article', 'title' => 'Profoundly decolonizing? Reflections on a transfeminist perspective', 'authors' => ['Weerawardhana, Chamindra'], 'year' => 2017],
+        ['type' => 'short-form', 'surname' => 'Parashar', 'short_title' => 'The WPS agenda', 'title' => null],
+    ];
+    $book = sfSeedBook([
+        ['id' => 'fnA', 'meta' => ['type' => 'short-form', 'surname' => 'Pratt', 'short_title' => 'Reconceptualizing gender', 'sub_citations' => $subs]],
+        // only short-form companions → nothing searchable → dropped exactly as before
+        ['id' => 'fnB', 'meta' => ['type' => 'short-form', 'surname' => 'Millstone', 'short_title' => 'Manuscript', 'sub_citations' => [$subs[1]]]],
+    ]);
+    try {
+        [$job, $m] = sfJob($book);
+        $needs = [(object) ['referenceId' => 'fnA'], (object) ['referenceId' => 'fnB']];
+        $m->invokeArgs($job, [sfDb(), &$needs, null]);
+
+        expect(array_map(fn ($n) => $n->referenceId, $needs))->toBe(['fnA']);
+
+        $rc = new ReflectionClass($job);
+        $flag = $rc->getProperty('subsOnlyRefIds');
+        $flag->setAccessible(true);
+        expect($flag->getValue($job))->toBe(['fnA' => true]); // parent leaves the pool after its subs expand
+    } finally {
+        sfCleanup($book);
+    }
+});
+
+test('a LINKED short form keeps its own sub-citations, not the antecedent\'s', function () use ($hartFull) {
+    $own = [['type' => 'journal-article', 'title' => 'A second work cited alongside the short form', 'year' => 2001]];
+    $book = sfSeedBook([
+        ['id' => 'fnA', 'meta' => $hartFull + ['sub_citations' => [['type' => 'book', 'title' => 'The antecedent footnote\'s other work']]]],
+        ['id' => 'fnB', 'meta' => ['type' => 'short-form', 'surname' => 'Hart', 'short_title' => 'Justice', 'sub_citations' => $own]],
+    ]);
+    try {
+        [$job, $m] = sfJob($book);
+        $needs = [(object) ['referenceId' => 'fnB']];
+        $map = $m->invokeArgs($job, [sfDb(), &$needs, null]);
+
+        expect($map)->toBe(['fnB' => 'fnA']);
+        $meta = json_decode(sfDb()->table('footnotes')->where('book', $book)->where('footnoteId', 'fnB')->value('llm_metadata'), true);
+        expect($meta['short_form_of'])->toBe('fnA');
+        expect($meta['sub_citations'])->toEqual($own); // jsonb reorders keys
+        expect(array_map(fn ($n) => $n->referenceId, $needs))->toBe(['fnB']); // its full sub still gets searched
+    } finally {
+        sfCleanup($book);
+    }
+});
+
 test('ibid after an UNLINKED short form stays unlinked (does not skip back to the wrong work)', function () use ($hartFull) {
     $book = sfSeedBook([
         ['id' => 'fnA', 'meta' => $hartFull],

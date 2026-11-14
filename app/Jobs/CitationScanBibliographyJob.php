@@ -91,6 +91,19 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     private array $subResolutions = [];
 
     /**
+     * Short-form footnotes that ALSO name fully-cited works after a semicolon —
+     * "Pratt, 'Reconceptualizing gender'; Chamindra Weerawardhana, 'Profoundly decolonizing?…',
+     * Meridians, 16:1 (2017); Parashar, 'The WPS agenda'" (prod 2026-11-14). The row's primary is a
+     * short form and must never be searched on its own (the Hart confabulation), but dropping the
+     * ROW took its sub_citations with it, so a perfectly findable article was never looked for.
+     * These rows stay in the pool only long enough to expand their subs; the parent entry is then
+     * removed, so the short form itself still never rides a search wave.
+     *
+     * @var array<string, true>
+     */
+    private array $subsOnlyRefIds = [];
+
+    /**
      * How long a no-match verdict is trusted before the external search waves
      * re-run for that entry. External indexes rarely change day to day, and
      * re-running every historical failure made incremental rescans slow
@@ -527,6 +540,13 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                     $subCitationExpanded++;
                 }
             }
+            // A short-form parent was kept only so its fully-cited subs could be expanded above.
+            // The short form itself must not ride the waves — searching "Pratt, 'Reconceptualizing
+            // gender'" on its own is the confabulation path the short-form step exists to close.
+            foreach (array_keys($this->subsOnlyRefIds) as $subsOnlyParent) {
+                unset($pool[$subsOnlyParent]);
+            }
+
             if ($subCitationExpanded > 0) {
                 Log::info('Pool expanded with sub-citations', [
                     'scan_id'     => $this->scanId,
@@ -1124,6 +1144,9 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                 'id'     => $r->footnoteId,
                 'marker' => $order[$r->footnoteId],
                 'meta'   => $meta,
+                // The footnote's OWN further works. Linking replaces `meta` with the antecedent's,
+                // which would otherwise swap these for the antecedent's sub-citations.
+                'subs'   => is_array($meta['sub_citations'] ?? null) ? $meta['sub_citations'] : [],
                 'text'   => trim(preg_replace('/\s+/', ' ', strip_tags($r->content))),
             ];
         }
@@ -1231,26 +1254,43 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
         // Persist linked metadata; drop ALL short-form/ibid footnotes from
         // independent resolution.
         $shortIds = [];
+        $dropIds = [];
         foreach ($entries as $e) {
             // detect rows that were short-form/ibid in the stored metadata
             $storedType = $e['meta']['type'] ?? null;
             $isShortRow = isset($map[$e['id']]) || in_array($storedType, ['short-form', 'ibid'], true);
             if (!$isShortRow) continue;
             $shortIds[$e['id']] = true;
+
+            // A short form followed by FULL citations in the same footnote: the short form stays
+            // out of the search waves, its fully-cited companions do not (see $subsOnlyRefIds).
+            $searchableSubs = array_filter($e['subs'], fn($sub) => is_array($sub)
+                && !empty($sub['title'])
+                && !in_array($sub['type'] ?? null, ['short-form', 'ibid'], true));
+            if ($searchableSubs) {
+                $this->subsOnlyRefIds[$e['id']] = true;
+            } else {
+                $dropIds[$e['id']] = true;
+            }
+
             if (isset($map[$e['id']])) {
+                $meta = $e['meta'];
+                if ($e['subs']) {
+                    $meta['sub_citations'] = $e['subs']; // this footnote's works, not the antecedent's
+                }
                 $db->table('footnotes')
                     ->where('book', $this->bookId)->where('footnoteId', $e['id'])
                     ->update([
-                        'llm_metadata' => json_encode($e['meta']),
+                        'llm_metadata' => json_encode($meta),
                         'match_method' => 'short_form_antecedent',
                         'updated_at'   => now(),
                     ]);
             }
         }
-        if ($shortIds) {
+        if ($dropIds) {
             $needsResolution = array_values(array_filter(
                 $needsResolution,
-                fn($entry) => !isset($shortIds[$entry->referenceId ?? null]),
+                fn($entry) => !isset($dropIds[$entry->referenceId ?? null]),
             ));
         }
 
@@ -1258,6 +1298,7 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
             Log::info('Short-form footnote antecedents', [
                 'book' => $this->bookId, 'linked' => count($map),
                 'unlinked_short_forms' => count($shortIds) - count($map),
+                'kept_for_sub_citations' => count($this->subsOnlyRefIds),
                 'ambiguous_sent_to_llm' => count($ambiguous),
             ]);
         }
@@ -1623,6 +1664,20 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     {
         foreach ($this->subResolutions as $parentRefId => $subOutcomes) {
             $meta = $llmMetadataMap[$parentRefId] ?? null;
+            // A short-form parent linked to its antecedent had its STORED metadata rewritten
+            // (antecedent's details + short_form_of) after $llmMetadataMap was built. Writing the
+            // map's copy back would undo that link, so read the row as it now stands — its
+            // sub_citations are this footnote's own, in the same order, so the indices still map.
+            if (isset($this->subsOnlyRefIds[$parentRefId])) {
+                $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
+                $stored = json_decode((string) $db->table($this->sourceTable)
+                    ->where('book', $this->bookId)->where($idColumn, $parentRefId)
+                    ->value('llm_metadata'), true);
+                if (is_string($stored)) {
+                    $stored = json_decode($stored, true); // legacy double-encoded jsonb
+                }
+                $meta = is_array($stored) ? $stored : $meta;
+            }
             if (!is_array($meta) || empty($meta['sub_citations'])) {
                 continue;
             }
