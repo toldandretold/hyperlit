@@ -155,6 +155,38 @@ test('mode=semantic returns shelf public books only, with the semantic envelope'
     expect($hit['match'])->toBe(100); // identical vectors → true 100
 });
 
+test("mode=semantic leaves out the shelf's overview book; title search still finds it", function () {
+    Cache::flush();
+    $s = jsearchSeedShelfWithBooks();
+    jsearchDb()->table('nodes')->whereRaw("book LIKE 'book_jsearch_%'")->delete();
+    jsearchEmbedNode($s['match']);
+    jsearchEmbedNode($s['other']);
+    // The course guide: it talks about everything on the shelf, so it would
+    // otherwise sit at the top of every "find me a source" query.
+    jsearchDb()->table('shelves')->where('id', $s['shelfId'])->update(['overview_book' => $s['other']]);
+
+    $this->mock(EmbeddingService::class)
+        ->shouldReceive('embedSearchQuery')
+        ->once()
+        ->andReturn(array_fill(0, 768, 0.1));
+
+    $books = array_column(
+        $this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone economics&mode=semantic")
+            ->assertOk()->json('results'),
+        'book',
+    );
+    expect($books)->toContain($s['match']);
+    expect($books)->not->toContain($s['other']);
+
+    // Looking it up BY NAME is a different job, and still works.
+    $titles = array_column(
+        $this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=unrelated&mode=library")
+            ->assertOk()->json('results'),
+        'book',
+    );
+    expect($titles)->toContain($s['other']);
+});
+
 test('mode=semantic short query returns empty; provider outage 503s', function () {
     Cache::flush();
     $s = jsearchSeedShelfWithBooks();

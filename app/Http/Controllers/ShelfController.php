@@ -850,6 +850,24 @@ class ShelfController extends Controller
      * publicSearch mode. Resolved via pgsql_admin: shelf_items' RLS select
      * policy is owner-only, so a guest-context join yields nothing.
      */
+    /**
+     * A shelf's SEMANTIC corpus leaves out its overview book (ShelfOverview).
+     * The overview is the shelf's guide to its readings — a course intro that
+     * discusses every topic on the shelf — so it out-ranks the sources it
+     * describes on nearly any query. Semantic search is how a reader FINDS
+     * sources, the same reason the archive map keeps the overview out of its
+     * corpus. Title and full-text search still find it: those look for a named
+     * thing or an exact phrase.
+     */
+    private function withoutShelfOverview(array $books, string $shelfId): array
+    {
+        $overview = \App\Services\Shelves\ShelfOverview::memberBook($shelfId);
+
+        return $overview === null
+            ? $books
+            : array_values(array_filter($books, fn ($b) => $b !== $overview));
+    }
+
     private function shelfPublicBooks(string $id): array
     {
         return DB::connection('pgsql_admin')->table('shelf_items')
@@ -941,7 +959,7 @@ class ShelfController extends Controller
                     $results = $searchService->runSemanticNodeSearch(
                         $queryEmbedding,
                         $limit,
-                        $this->shelfPublicBooks($id),
+                        $this->withoutShelfOverview($this->shelfPublicBooks($id), $id),
                     );
                     return ['results' => $results, 'count' => $results->count()];
                 }
@@ -1300,11 +1318,12 @@ class ShelfController extends Controller
                 ], 503);
             }
 
-            $run = function () use ($searchService, $queryEmbedding, $limit, $corpus) {
+            $run = function () use ($searchService, $queryEmbedding, $limit, $corpus, $shelf) {
                 $results = $searchService->runSemanticNodeSearch(
                     $queryEmbedding,
                     $limit,
-                    $corpus(),
+                    // Narrowed to a shelf: its overview is not a source (withoutShelfOverview).
+                    $shelf ? $this->withoutShelfOverview($corpus(), (string) $shelf->id) : $corpus(),
                 );
                 return ['results' => $results, 'count' => $results->count()];
             };
