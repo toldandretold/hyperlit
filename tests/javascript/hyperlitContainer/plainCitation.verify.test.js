@@ -121,6 +121,22 @@ describe('plainCitation — clean source-container-style card', () => {
     expect(dom.querySelector('blockquote a').getAttribute('href')).toBe('https://doi.org/10.1177/0305829819873030');
   });
 
+  it('matched to a WEB page (no canonical): imported text kept, plus a link to the original page', async () => {
+    // Prod 2026-11-14: a scanned book's first references were reports/web pages and showed nothing.
+    await seedStore('bibliography', [bib('Ref1', {
+      source_id: 'web_abc', source_is_web_stub: true, source_has_nodes: false,
+      source_external_url: 'https://www.resilience.org/stories/2021-10-28/global-climate-wall/',
+    })]);
+
+    const dom = parse(await buildCitationContent({ referenceId: 'Ref1' }));
+    expect(dom.textContent).toContain('Imported ref text.');
+    const link = dom.querySelector('.citation-web-source a');
+    expect(link.getAttribute('href')).toBe('https://www.resilience.org/stories/2021-10-28/global-climate-wall/');
+    expect(link.textContent).toContain('resilience.org');
+    expect(dom.querySelector('.source-cat-pill')).toBeNull(); // a web page is not a bibliographic match
+    expect(dom.querySelector('.citation-source-link')).toBeNull(); // never the private stub itself
+  });
+
   it('matched + user_verified → explanation says confirmed by the author', async () => {
     canUserEditBook.mockResolvedValue(true);
     resolveBibliographyTarget.mockResolvedValue({ type: 'citation-card', metadata: COX_META });
@@ -222,10 +238,19 @@ describe('plainCitation — clean source-container-style card', () => {
         : { type: 'citation-card', metadata: { ...COX_META, title: 'Other Work', doi: '10.1177/0305829819873030' } });
       const el = section();
 
-      await mountFootnoteSources(el, ['c-held', 'c-doi', 'c-held'], 'Fn1', 'bookA');
+      // Both shapes: the object form, and the bare-id form a browser may still hold. Plus a cited web page.
+      await mountFootnoteSources(el, [
+        { canonical_source_id: 'c-held' }, 'c-doi', 'c-held',
+        { url: 'https://www.colorlines.com/article/x/', title: 'The color of violence <b>' },
+        { url: 'javascript:alert(1)', title: 'nope' },
+      ], 'Fn1', 'bookA');
 
       const links = [...el.querySelectorAll('.footnote-sources blockquote a')].map((a) => a.getAttribute('href'));
-      expect(links).toEqual(['/held-work-2019', 'https://doi.org/10.1177/0305829819873030']); // deduped
+      expect(links).toEqual(['/held-work-2019', 'https://doi.org/10.1177/0305829819873030', 'https://www.colorlines.com/article/x/']); // deduped, unsafe url dropped
+      const web = el.querySelector('.footnote-source[data-kind="web"]');
+      expect(web.querySelector('a').textContent).toBe('The color of violence <b>'); // escaped, not parsed
+      expect(web.textContent).toContain('colorlines.com');
+      expect(web.querySelector('.source-cat-pill')).toBeNull(); // a web page is not a 'verified' match
       expect(el.querySelector('.footnote-sources h3').textContent).toBe('Sources');
       expect(el.querySelectorAll('.source-cat-pill').length).toBe(2);
       expect(el.querySelector('.ref-check-source')).toBeNull();

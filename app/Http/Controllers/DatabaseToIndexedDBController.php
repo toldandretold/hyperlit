@@ -387,7 +387,7 @@ class DatabaseToIndexedDBController extends Controller
      * citation-matching columns (is_citation/source_id/match_*) + sub_book_id are NOT in this shape;
      * the one thing derived from them is the optional read-only `sources` list (FootnoteSources).
      *
-     * @return array{book: string, data: array<string, array{content: string, preview_nodes: ?array, sources?: list<string>}>}|null
+     * @return array{book: string, data: array<string, array{content: string, preview_nodes: ?array, sources?: list<array<string, ?string>>}>}|null
      */
     private function getFootnotes(string $bookId): ?array
     {
@@ -399,7 +399,7 @@ class DatabaseToIndexedDBController extends Controller
             return null;
         }
 
-        // READ-only, derived: the works a citation footnote was matched to (canonical ids).
+        // READ-only, derived: the works a citation footnote was matched to.
         // Present only on footnotes that have one. See FootnoteSources.
         $sources = \App\Services\Footnotes\FootnoteSources::forBook($bookId);
 

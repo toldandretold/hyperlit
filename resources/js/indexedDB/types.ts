@@ -247,15 +247,26 @@ export interface HyperciteRecord extends AnnotationRecordBase {
  * (The DB also has server-managed citation-matching columns — is_citation/source_id/match_* and the
  * server-set sub_book_id — which are NOT part of the client wire/store shape; `sources` is derived from them.)
  */
+/**
+ * One work a citation footnote was matched to (server: FootnoteSources). A scholarly work is its
+ * `canonical_source_id` (resolved at open via best-version); a cited WEB page has no canonical and
+ * arrives as its original `url` + page `title`. A bare string is the first shipped shape (a
+ * canonical id) and may still sit in a browser's store.
+ */
+export type FootnoteSource =
+  | string
+  | { canonical_source_id: string }
+  | { url: string; title?: string | null };
+
 export interface FootnoteRecord {
   book: BookId;
   footnoteId: string;
   content?: string;
   /** Rendered preview snippets — an opaque array forwarded to the preview renderer. */
   preview_nodes?: unknown[] | null;
-  /** READ-only, server-derived — canonical_source ids of the works this citation footnote was
-   *  matched to (absent when none). Rendered as source links under the footnote; never written back. */
-  sources?: string[] | null;
+  /** READ-only, server-derived — the works this citation footnote was matched to (absent when
+   *  none). Rendered as source links under the footnote; never written back. */
+  sources?: FootnoteSource[] | null;
   /** ISO timestamps set client-side by the inserter / annotation save. */
   created_at?: string;
   updated_at?: string;

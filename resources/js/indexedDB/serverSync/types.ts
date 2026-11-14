@@ -10,7 +10,7 @@
  * Source of truth for the envelopes: DatabaseToIndexedDBController::getBookData
  * (the `/api/database-to-indexeddb/books/{id}/data` + `/annotations` responses).
  */
-import type { BookId, GateDefaults, RelationshipStatus, CharRange, SuggestedEditPair, SuggestionStatus } from '../types';
+import type { BookId, GateDefaults, RelationshipStatus, CharRange, SuggestedEditPair, SuggestionStatus, FootnoteSource } from '../types';
 
 /** A JSON column that arrives either stringified (raw endpoints) or decoded. */
 type JsonColumn<T> = string | T | null;
@@ -87,7 +87,7 @@ export interface ServerHyperciteRow {
 }
 
 /** One footnote value: new format object, or legacy bare content string. */
-type ServerFootnoteValue = { content?: string; preview_nodes?: unknown[] | null; sources?: string[] } | string;
+type ServerFootnoteValue = { content?: string; preview_nodes?: unknown[] | null; sources?: FootnoteSource[] } | string;
 /** The `footnotes` payload: a book id plus a footnoteId→value map. */
 export interface ServerFootnotesPayload {
   book: BookId;

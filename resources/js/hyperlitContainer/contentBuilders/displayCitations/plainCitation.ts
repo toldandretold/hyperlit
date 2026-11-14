@@ -15,7 +15,7 @@
 import { book } from '../../../app';
 import { openDatabase } from '../../../indexedDB/index';
 import { resolveBibliographyTarget } from '../../../indexedDB/bibliography/index';
-import type { BibliographyRecord } from '../../../indexedDB/types';
+import type { BibliographyRecord, FootnoteSource } from '../../../indexedDB/types';
 import { log } from '../../../utilities/logger';
 import { formatMetadataToCitation, doiToUrl } from '../../../utilities/bibtexProcessor';
 import { wireSourceStatus } from '../../../components/sourceContainer/checkSource';
@@ -209,6 +209,10 @@ async function buildOneSection(
   } else {
     // Unmatched (incl. rejected / web-only / no source) → imported text + (owner) Check source.
     statusHtml = sourceStatusHtml({ refId, lookupBook, canonicalId: result.canonical_source_id ?? '', isOwner, matched: false });
+    // The scan matched this reference to a WEB page (no bibliographic record, so no "verified"
+    // pill) — still link the reader to that page. Without this a book whose first references are
+    // reports and web pages looked as if the scan had found nothing at all.
+    if (isWebStub && !rejected) navHtml = webPageLinkHtml(result.source_external_url);
   }
 
   return `
@@ -223,18 +227,52 @@ async function buildOneSection(
 
 // ── Footnote sources: the same matched card, under a citation footnote ──────────────────────────
 
+/** A footnote source as one of two renderable kinds (a bare string is a canonical id — the first shipped shape). */
+function normaliseFootnoteSource(src: FootnoteSource): { key: string; canonicalId?: string; url?: string; title?: string | null } | null {
+  if (typeof src === 'string') return src ? { key: src, canonicalId: src } : null;
+  if (src && 'canonical_source_id' in src && src.canonical_source_id) return { key: src.canonical_source_id, canonicalId: src.canonical_source_id };
+  if (src && 'url' in src && /^https?:\/\//i.test(src.url || '')) return { key: src.url, url: src.url, title: src.title ?? null };
+  return null;
+}
+
+/** "Found online: host ↗" — the original page a reference was matched to. '' for a missing/unsafe url. */
+function webPageLinkHtml(url: unknown): string {
+  const href = typeof url === 'string' ? url : '';
+  if (!/^https?:\/\//i.test(href)) return '';
+  let host = '';
+  try { host = new URL(href).hostname.replace(/^www\./, ''); } catch { host = ''; }
+  return `<div class="citation-web-source" style="margin-top: 1em; font-size: 12px; color: var(--color-text-secondary);">Found online: <a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="${AQUA_LINK_STYLE}">${escapeHtml(host || href)} ↗</a></div>`;
+}
+
+/** A cited WEB page: its title (else its host) linked to the original. No pill — it is the page the footnote names, not a bibliographic match. */
+function webSourceCardHtml(url: string, title: string | null | undefined): string {
+  let host = '';
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { host = ''; }
+  const label = title || host || url;
+  const hostNote = title && host ? ` <span style="font-size: 12px; color: var(--color-text-secondary);">${escapeHtml(host)}</span>` : '';
+  return `<div class="footnote-source" data-kind="web" style="margin-top: 1em;"><blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>${hostNote}</blockquote></div>`;
+}
+
 /**
  * Source cards for a citation FOOTNOTE — one per work the scan matched it to (`FootnoteRecord.sources`,
- * canonical ids derived server-side). Same rendering as a matched bibliography reference: the title
- * links to our readable version if we hold one, else the DOI, with the "Citation verified" pill.
+ * derived server-side). A scholarly work renders like a matched bibliography reference: the title
+ * links to our readable version if we hold one, else the DOI, with the "Citation verified" pill. A
+ * cited web page renders as its title linked to the original page.
  * Read-only by design — no Check source (a footnote's match has no owner write path).
  * Returns '' when nothing resolves, so an unreachable server leaves the footnote as it was.
  */
-export async function buildFootnoteSourcesHtml(canonicalIds: string[], footnoteId: string, lookupBook: any): Promise<string> {
-  const ids = Array.from(new Set((canonicalIds || []).filter(Boolean)));
-  if (!ids.length) return '';
+export async function buildFootnoteSourcesHtml(sources: FootnoteSource[], footnoteId: string, lookupBook: any): Promise<string> {
+  const seen = new Set<string>();
+  const items = (sources || []).map(normaliseFootnoteSource).filter((s): s is NonNullable<typeof s> => {
+    if (!s || seen.has(s.key)) return false;
+    seen.add(s.key);
+    return true;
+  });
+  if (!items.length) return '';
 
-  const cards = await Promise.all(ids.map(async (canonicalId) => {
+  const cards = await Promise.all(items.map(async (item) => {
+    if (item.url) return webSourceCardHtml(item.url, item.title);
+    const canonicalId = item.canonicalId as string;
     try {
       const resolved: any = await resolveBibliographyTarget({ canonical_source_id: canonicalId });
       const meta = resolved?.metadata || null;
@@ -264,9 +302,9 @@ export async function buildFootnoteSourcesHtml(canonicalIds: string[], footnoteI
  * pill. Fire-and-forget from footnoteHandler.postOpen — the footnote text must not wait on it.
  * Idempotent, and a no-op if the popup closed or re-rendered while the lookups were in flight.
  */
-export async function mountFootnoteSources(section: HTMLElement | null, canonicalIds: string[] | null | undefined, footnoteId: string, lookupBook: any): Promise<void> {
-  if (!section || !canonicalIds?.length) return;
-  const html = await buildFootnoteSourcesHtml(canonicalIds, footnoteId, lookupBook);
+export async function mountFootnoteSources(section: HTMLElement | null, sources: FootnoteSource[] | null | undefined, footnoteId: string, lookupBook: any): Promise<void> {
+  if (!section || !sources?.length) return;
+  const html = await buildFootnoteSourcesHtml(sources, footnoteId, lookupBook);
   if (!html || !section.isConnected || section.querySelector('.footnote-sources')) return;
 
   const hr = section.querySelector('hr');

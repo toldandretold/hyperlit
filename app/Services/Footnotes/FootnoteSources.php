@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  *
  * Returned as canonical_source ids — the same identity a bibliography reference carries — so
  * the client resolves each through /api/canonical/{id}/best-version, which applies the
- * per-viewer visibility rules. Nothing here is a book id or body text.
+ * per-viewer visibility rules; a cited WEB page has no canonical and is returned as its
+ * original url + title instead. Nothing here is a book id or body text.
  *
  * Reads on pgsql_admin: the matched rows are system stubs, often private (held for review),
  * which the RLS'd connection hides — and this is also called from BookCache's queue-side warm.
@@ -27,8 +28,8 @@ use Illuminate\Support\Facades\DB;
 final class FootnoteSources
 {
     /**
-     * @return array<string, list<string>>  footnoteId => canonical_source ids, in citation order.
-     *                                       Footnotes with no matched work are absent.
+     * @return array<string, list<array<string, ?string>>>  footnoteId => matched works in citation
+     *         order, each `{canonical_source_id}` or `{url, title}`. Unmatched footnotes are absent.
      */
     public static function forBook(string $bookId): array
     {
@@ -63,26 +64,53 @@ final class FootnoteSources
             return [];
         }
 
-        $canonicalByBook = $db->table('library')
+        $rowsByBook = $db->table('library')
             ->whereIn('book', array_values(array_unique(array_merge(...array_values($booksByFootnote)))))
-            ->whereNotNull('canonical_source_id')
-            ->pluck('canonical_source_id', 'book');
+            ->get(['book', 'canonical_source_id', 'url', 'title'])
+            ->keyBy('book');
 
         $out = [];
         foreach ($booksByFootnote as $footnoteId => $books) {
-            $ids = [];
+            $entries = [];
             foreach ($books as $book) {
-                $canonical = $canonicalByBook[$book] ?? null;
-                if ($canonical && ! in_array($canonical, $ids, true)) {
-                    $ids[] = (string) $canonical;
+                $entry = self::entryFor($rowsByBook[$book] ?? null);
+                if ($entry) {
+                    // keyed so the same work reached twice (primary + a sub) is listed once
+                    $entries[$entry['canonical_source_id'] ?? $entry['url']] ??= $entry;
                 }
             }
-            if ($ids) {
-                $out[$footnoteId] = $ids;
+            if ($entries) {
+                $out[$footnoteId] = array_values($entries);
             }
         }
 
         return $out;
+    }
+
+    /**
+     * A matched library row as the reader needs it: its canonical identity when it has one,
+     * otherwise — a WEB page the footnote cites, which WebFetchService mints with no canonical —
+     * the ORIGINAL url and the page's title. Never the row's own book id: a web stub is private
+     * evidence held for citation review, and readers are linked to the original (HostingPolicy).
+     *
+     * @return array{canonical_source_id:string}|array{url:string,title:?string}|null
+     */
+    private static function entryFor(?object $row): ?array
+    {
+        if (! $row) {
+            return null;
+        }
+        if (! empty($row->canonical_source_id)) {
+            return ['canonical_source_id' => (string) $row->canonical_source_id];
+        }
+        $url = trim((string) ($row->url ?? ''));
+        if (preg_match('#^https?://#i', $url)) {
+            $title = trim((string) ($row->title ?? ''));
+
+            return ['url' => $url, 'title' => ($title === '' || $title === 'Web Source') ? null : $title];
+        }
+
+        return null;
     }
 
     /** llm_metadata is jsonb, and some legacy rows hold a JSON string inside it (double-encoded). */

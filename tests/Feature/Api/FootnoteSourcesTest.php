@@ -16,7 +16,7 @@ beforeEach(function () {
     $this->fsStubs = [];
     $this->fsCanonicals = [];
 
-    $this->fsStub = function (bool $withCanonical = true): array {
+    $this->fsStub = function (bool $withCanonical = true, array $cols = []): array {
         $canonical = null;
         if ($withCanonical) {
             $canonical = (string) Str::uuid();
@@ -27,7 +27,7 @@ beforeEach(function () {
             $this->fsCanonicals[] = $canonical;
         }
         $book = (string) Str::uuid();
-        $this->fsAdmin->table('library')->insert([
+        $this->fsAdmin->table('library')->insert($cols + [
             'book' => $book, 'title' => 'FnSrc Stub', 'visibility' => 'private', 'has_nodes' => false,
             'canonical_source_id' => $canonical, 'raw_json' => '[]', 'timestamp' => 0,
         ]);
@@ -70,15 +70,25 @@ test('maps each citation footnote to the canonical ids of its matched works', fu
     ($this->fsFootnote)('Fn3', ['foundation_source' => $b, 'match_method' => 'short_form_antecedent']);
     // searched, nothing found
     ($this->fsFootnote)('Fn4', ['foundation_source' => 'unknown']);
-    // matched a row with no canonical identity
+    // matched a row with no canonical identity and no url — nothing to link
     ($this->fsFootnote)('Fn5', ['foundation_source' => $noCanon]);
+    // matched a WEB page (WebFetch stubs carry no canonical): the original url, never the stub
+    [$web] = ($this->fsStub)(false, ['type' => 'web_source', 'url' => 'https://colorlines.com/article/x/', 'title' => 'The color of violence']);
+    [$webUntitled] = ($this->fsStub)(false, ['type' => 'web_source', 'url' => 'https://example.org/p', 'title' => 'Web Source']);
+    ($this->fsFootnote)('Fn7', ['foundation_source' => $web, 'llm_metadata' => json_encode(['sub_citations' => [
+        ['resolution' => ['status' => 'matched', 'book' => $webUntitled]],
+    ]])]);
     // not a citation at all
     ($this->fsFootnote)('Fn6', ['foundation_source' => $a, 'is_citation' => false]);
 
     expect(FootnoteSources::forBook($this->fsBook))->toBe([
-        'Fn1' => [$canonA],
-        'Fn2' => [$canonA, $canonB],
-        'Fn3' => [$canonB],
+        'Fn1' => [['canonical_source_id' => $canonA]],
+        'Fn2' => [['canonical_source_id' => $canonA], ['canonical_source_id' => $canonB]],
+        'Fn3' => [['canonical_source_id' => $canonB]],
+        'Fn7' => [
+            ['url' => 'https://colorlines.com/article/x/', 'title' => 'The color of violence'],
+            ['url' => 'https://example.org/p', 'title' => null],
+        ],
     ]);
 });
 
