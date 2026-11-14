@@ -71,8 +71,7 @@ function bookRowHtml(b: CreatorBookStats): string {
         <button type="button" class="stats-book-row" data-book="${esc(b.book)}" aria-expanded="false">
           <span class="stats-book-title">${title}${b.author ? `<span class="stats-book-author">${esc(b.author)}</span>` : ''}</span>
           <span class="stats-book-numbers">
-            <span title="Total views (unique readers per day)">${b.total_views} views</span>
-            <span title="Views in the last 30 days">${b.views_30d} this month</span>
+            <span class="stats-book-views" title="Total views (unique readers per day)" aria-label="${b.total_views} views"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>${b.total_views}</span>
             <span title="Likes">&#9825; ${b.likes}</span>
           </span>
         </button>

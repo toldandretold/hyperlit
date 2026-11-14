@@ -155,7 +155,7 @@
   font-size: 0.8em;
 }
 
-/* Author rides under the title in the same ellipsised column — present so the
+/* Author rides under the (wrapping) title, itself kept to one ellipsised line — present so the
    author sort/search has something visible to act on. */
 #stats-overlay .stats-book-author {
   display: block;
@@ -215,10 +215,11 @@
   background: rgba(128, 128, 128, 0.12);
 }
 
+/* Titles wrap onto further lines rather than ellipsising; the counts stay
+   aligned with the first line (the row is baseline-aligned). */
 #stats-overlay .stats-book-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 #stats-overlay .stats-book-numbers {
@@ -228,6 +229,12 @@
   opacity: 0.75;
   font-size: 0.9em;
   white-space: nowrap;
+}
+
+#stats-overlay .stats-book-views {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 #stats-overlay .stats-book-detail {
