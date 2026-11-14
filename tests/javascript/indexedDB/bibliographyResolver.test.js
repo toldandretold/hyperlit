@@ -79,6 +79,7 @@ describe('resolveBibliographyTarget', () => {
     expect(result).toEqual({
       type: 'library',
       book: 'book_canonical_winner',
+      slug: null,
       has_nodes: true,
       metadata: { title: 'Test' },
     });

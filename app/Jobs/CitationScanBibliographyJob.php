@@ -665,6 +665,9 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                 'error'   => $e->getMessage(),
             ]);
 
+            // A scan that dies part-way has still rewritten the rows it reached.
+            $this->dropStaleBookCache();
+
             $db->table('citation_scans')
                 ->where('id', $this->scanId)
                 ->update([
@@ -1748,6 +1751,25 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                 'results'           => json_encode($results),
                 'updated_at'        => now(),
             ]);
+
+        $this->dropStaleBookCache();
+    }
+
+    /**
+     * The scan rewrites bibliography/footnote match columns WITHOUT moving `library.timestamp`
+     * (bumping it would 409 the owner's next sync), so BookCache still judges its copy fresh and
+     * keeps serving the pre-scan bibliography.json — a book scanned to 86 linked references went
+     * on showing zero "Citation verified" cards (prod 2026-11-14). Same remedy as the manual
+     * verify path (ReferenceSourceVerificationController): drop the cache; the next read is live
+     * and re-warms it. Best-effort — a scan must never fail over a cache directory.
+     */
+    private function dropStaleBookCache(): void
+    {
+        try {
+            app(\App\Services\BookCache::class)->invalidate($this->bookId);
+        } catch (\Throwable $e) {
+            Log::warning('Citation scan: could not drop book cache', ['book' => $this->bookId, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

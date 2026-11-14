@@ -122,6 +122,7 @@ export interface CanonicalMetadata {
 }
 export interface CanonicalBestVersion {
   book: BookId | null;
+  slug?: string | null;
   has_version: boolean;
   metadata: CanonicalMetadata;
 }
@@ -130,6 +131,8 @@ export interface CanonicalBestVersion {
 export interface BibliographyTarget {
   type: 'library' | 'citation-card';
   book?: BookId;
+  /** The version's readable URL segment, when it has one — for LINKS only; `book` is the identity. */
+  slug?: string | null;
   canonical_source_id?: string;
   has_nodes?: boolean;
   metadata?: CanonicalMetadata;
@@ -179,6 +182,7 @@ export async function resolveBibliographyTarget(
           return {
             type: 'library',
             book: data.book,
+            slug: data.slug ?? null,
             has_nodes: true,
             metadata: data.metadata,
           };

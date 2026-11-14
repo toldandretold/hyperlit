@@ -297,6 +297,10 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'has_nodes' => true,
                 ]);
 
+            // A system-owned version (journal HTML lane, ar5iv) now has content: give it a
+            // readable URL instead of its raw UUID. No-op for user books.
+            \App\Services\CanonicalVersions\SystemVersionSlug::ensure($this->bookId);
+
             // Extract metadata and update library record for empty fields
             $this->writeProgress($path, 'processing', 96, 'metadata', 'Checking metadata');
             $this->updateLibraryMetadata($path, $metadataExtractor);

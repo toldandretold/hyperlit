@@ -52,6 +52,9 @@ class CanonicalSourceController extends Controller
 
         return response()->json([
             'book'        => $book,
+            // The readable address, when the version has one — the citation card links here
+            // rather than to a raw UUID. `book` stays the identity.
+            'slug'        => $book !== null ? \App\Helpers\BookSlugHelper::getSlug($book) : null,
             'has_version' => $book !== null,
             'metadata'    => [
                 'title'     => $canonical->title,

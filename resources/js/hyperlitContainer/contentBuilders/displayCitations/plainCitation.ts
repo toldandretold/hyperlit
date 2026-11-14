@@ -179,7 +179,7 @@ async function buildOneSection(
   if (hasCanonicalMatch) {
     try {
       const resolved: any = await resolveBibliographyTarget(result);
-      if (resolved?.type === 'library' && resolved.book) { canonicalResolvedBook = resolved.book; meta = resolved.metadata || null; }
+      if (resolved?.type === 'library' && resolved.book) { canonicalResolvedBook = resolved.slug || resolved.book; meta = resolved.metadata || null; }
       else if (resolved?.type === 'citation-card') { meta = resolved.metadata || null; }
     } catch (e) {
       log.error('displayCitations: canonical resolve failed', 'displayCitations/plainCitation', e);

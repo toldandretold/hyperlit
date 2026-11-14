@@ -34,6 +34,7 @@ function bestVerSeedLibrary(array $opts): string
         'title'               => $opts['title'] ?? 'BestVer Library',
         'author'              => $opts['author'] ?? 'BestVer Author',
         'creator'             => $opts['creator'] ?? null,
+        'year'                => $opts['year'] ?? null,
         'visibility'          => $opts['visibility'] ?? 'public',
         'listed'              => $opts['listed'] ?? true,
         'type'                => 'book',
@@ -256,4 +257,25 @@ test('a contentless citation stub is not a version (book=null, citation-only)', 
     $this->getJson("/api/canonical/{$id}/best-version")
         ->assertOk()
         ->assertJson(['book' => null, 'has_version' => false]);
+});
+
+test('a system version gets a slug once it has content, and best-version returns it', function () {
+    $id = bestVerSeedCanonical(['title' => 'BestVer Slugged']);
+    $creator = \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR;
+    $title = 'BestVer Imperial Dialectics ' . Str::lower(Str::random(6));
+
+    $empty = bestVerSeedLibrary(['title' => $title, 'creator' => $creator, 'has_nodes' => false]);
+    expect(\App\Services\CanonicalVersions\SystemVersionSlug::ensure($empty))->toBeNull(); // no content yet
+
+    $userBook = bestVerSeedLibrary(['title' => $title, 'creator' => 'someone']);
+    expect(\App\Services\CanonicalVersions\SystemVersionSlug::ensure($userBook))->toBeNull(); // not ours to name
+
+    $book = bestVerSeedLibrary(['title' => $title, 'creator' => $creator, 'year' => 2019, 'canonical_source_id' => $id]);
+    $slug = \App\Services\CanonicalVersions\SystemVersionSlug::ensure($book);
+    expect($slug)->toBe(Str::slug($title) . '-2019');
+    expect(\App\Services\CanonicalVersions\SystemVersionSlug::ensure($book))->toBe($slug); // idempotent
+
+    $this->getJson("/api/canonical/{$id}/best-version")
+        ->assertOk()
+        ->assertJson(['book' => $book, 'slug' => $slug]);
 });

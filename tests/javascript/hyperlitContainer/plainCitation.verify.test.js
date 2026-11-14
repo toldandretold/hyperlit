@@ -105,6 +105,11 @@ describe('plainCitation — clean source-container-style card', () => {
     const titleLink = dom.querySelector('blockquote a');
     expect(titleLink.getAttribute('href')).toBe('/book_999');
     expect(titleLink.hasAttribute('target')).toBe(false); // in-app: same tab
+
+    // A version with a slug links by it, not by its raw id.
+    resolveBibliographyTarget.mockResolvedValue({ type: 'library', book: 'b75d82b6-dc45-48ad-8e7f-b5295cffb3ec', slug: 'imperial-dialectics-2019', has_nodes: true, metadata: COX_META });
+    const slugged = parse(await buildCitationContent({ referenceId: 'Ref1' }));
+    expect(slugged.querySelector('blockquote a').getAttribute('href')).toBe('/imperial-dialectics-2019');
   });
 
   it('matched, no held version: title links to the DOI', async () => {
