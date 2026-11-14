@@ -37,7 +37,7 @@ function bestVerSeedLibrary(array $opts): string
         'visibility'          => $opts['visibility'] ?? 'public',
         'listed'              => $opts['listed'] ?? true,
         'type'                => 'book',
-        'has_nodes'           => true,
+        'has_nodes'           => $opts['has_nodes'] ?? true,
         'canonical_source_id' => $opts['canonical_source_id'] ?? null,
         'raw_json'            => '[]',
         'timestamp'           => 0,
@@ -245,4 +245,15 @@ test('a real library version still wins even when a stub is also linked', functi
         ->assertOk()
         ->assertJsonPath('book', $realBook)
         ->assertJsonPath('has_version', true);
+});
+
+test('a contentless citation stub is not a version (book=null, citation-only)', function () {
+    // A verified reference mints a library row with no nodes; linking to it opened an empty page.
+    $id = bestVerSeedCanonical(['title' => 'BestVer Stub Only']);
+    $stub = bestVerSeedLibrary(['canonical_source_id' => $id, 'has_nodes' => false]);
+    bestVerDb()->table('canonical_source')->where('id', $id)->update(['auto_version_book' => $stub]);
+
+    $this->getJson("/api/canonical/{$id}/best-version")
+        ->assertOk()
+        ->assertJson(['book' => null, 'has_version' => false]);
 });

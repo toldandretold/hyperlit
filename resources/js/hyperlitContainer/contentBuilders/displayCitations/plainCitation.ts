@@ -17,7 +17,7 @@ import { openDatabase } from '../../../indexedDB/index';
 import { resolveBibliographyTarget } from '../../../indexedDB/bibliography/index';
 import type { BibliographyRecord } from '../../../indexedDB/types';
 import { log } from '../../../utilities/logger';
-import { formatMetadataToCitation } from '../../../utilities/bibtexProcessor';
+import { formatMetadataToCitation, doiToUrl } from '../../../utilities/bibtexProcessor';
 import { wireSourceStatus } from '../../../components/sourceContainer/checkSource';
 import { privateLockIcon, deletedTrashIcon, MUTED_BTN_STYLE, BTN_SPINNER_HTML, lockButtonEl, enableButtonEl } from '../sourceAccessButton';
 
@@ -42,14 +42,15 @@ function metaToCitation(meta: any, url: string | null): string {
 }
 
 /**
- * The TITLE link — the readable source. Prefers the actual full-text (OA url / PDF) over the DOI
- * landing page, then the OpenAlex/Open Library record; for a WebFetch stub, the original scraped URL.
+ * The TITLE link when we hold no Hyperlit version: the DOI. Works with no DOI fall back to the
+ * scraped URL / OA copy / PDF, then the OpenAlex / Open Library record.
  */
 function citationExternalLink(result: any, meta: any): string | null {
+  const doi = doiToUrl(meta?.doi);
+  if (doi) return doi;
   if (result?.source_external_url) return String(result.source_external_url);
   if (meta?.oa_url) return String(meta.oa_url);
   if (meta?.pdf_url) return String(meta.pdf_url);
-  if (meta?.doi) return `https://doi.org/${meta.doi}`;
   if (meta?.openalex_id) return `https://openalex.org/${meta.openalex_id}`;
   if (meta?.open_library_key) return `https://openlibrary.org${meta.open_library_key}`;
   if (meta?.source_url) return String(meta.source_url);
@@ -195,7 +196,6 @@ async function buildOneSection(
     // best readable external URL) + a provenance pill.
     const titleUrl = canonicalResolvedBook ? `/${encodeURIComponent(canonicalResolvedBook)}` : citationExternalLink(result, meta);
     displayContent = metaToCitation(meta, titleUrl);
-    if (canonicalResolvedBook) navHtml = heldVersionNavHtml(String(canonicalResolvedBook), citationExternalLink(result, meta));
     statusHtml = sourceStatusHtml({
       refId, lookupBook, canonicalId: result.canonical_source_id, isOwner,
       matched: true, method: result.reference_match_method || null, provenance: provenanceLink(meta),
@@ -250,25 +250,6 @@ function sourceStatusHtml(o: {
   matched: boolean; method?: string | null; provenance?: { label: string; url: string } | null;
 }): string {
   return `<div class="ref-source-status" data-ref-id="${escapeHtml(o.refId)}" data-book="${escapeHtml(o.lookupBook)}" data-canonical="${escapeHtml(o.canonicalId ?? '')}" data-owner="${o.isOwner ? '1' : '0'}" style="margin-top: 1em;">${sourceStatusInner(o)}</div>`;
-}
-
-/**
- * A matched reference we hold a readable Hyperlit version of: an explicit "Open in Hyperlit" button
- * (best-version already filtered by visibility, so no post-open check) + the original outside link,
- * which the title no longer carries once it points at our copy.
- */
-function heldVersionNavHtml(bookId: string, externalUrl: string | null): string {
-  const external = externalUrl && /^https?:\/\//i.test(externalUrl)
-    ? `<a href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener" class="citation-original-link" style="${AQUA_LINK_STYLE} font-size: 12px;">Original source ↗</a>`
-    : '';
-  return `
-    <div class="citation-navigation" style="margin-top: 1em; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <a href="/${encodeURIComponent(bookId)}" class="citation-source-link" style="${AQUA_BTN_STYLE}">
-        Open in Hyperlit
-        <span class="open-icon">↗</span>
-      </a>
-      ${external}
-    </div>`;
 }
 
 /** The legacy "Open source" button for a source_id-linked library version (visibility resolved post-open). */

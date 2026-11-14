@@ -103,6 +103,9 @@ class BestVersionService
             // canonical whose only version is a stub resolves to citation-only (null). (NULL type
             // is a normal book, so keep it — Postgres `type != x` alone would drop NULLs.)
             ->where(fn ($q) => $q->whereNull('type')->orWhere('type', '!=', 'web_source'))
+            // A version is something you can READ. A citation stub (a library row minted for a
+            // matched reference, no nodes) is not one — returning it sent readers to an empty page.
+            ->where('has_nodes', true)
             ->where(function ($q) use ($user, $anonymousToken) {
                 // public is enough — `listed` only governs homepage listings,
                 // and auto versions are deliberately public+unlisted.
@@ -130,10 +133,12 @@ class BestVersionService
 
         $row = DB::table('library')
             ->where('book', $book)
-            ->select('creator', 'creator_token', 'visibility', 'listed', 'type')
+            ->select('creator', 'creator_token', 'visibility', 'listed', 'type', 'has_nodes')
             ->first();
 
         if (!$row || $row->visibility === 'deleted') return false;
+        // No content = not a readable version (see anyVisibleLinkedVersion).
+        if (!$row->has_nodes) return false;
         // WebFetch scrape stubs are never surfaced as a readable version (see anyVisibleLinkedVersion).
         if ($row->type === 'web_source') return false;
 
