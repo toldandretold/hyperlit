@@ -274,3 +274,14 @@ test('the extraction taxonomy names every footnote citation kind (no more "other
     $job = file_get_contents(base_path('app/Jobs/CitationScanBibliographyJob.php'));
     expect($job)->toContain("REFERENCE_STYLE_TYPES = ['short-form', 'ibid', 'pointer', 'legislation', 'case-law']");
 });
+
+test('rescan-skipped-subs targets only a short-form footnote with an unsearched full companion', function () {
+    $has = fn (array $meta) => \App\Console\Commands\RescanSkippedSubCitationsCommand::hasSkippedSub(json_encode($meta));
+    $full = ['type' => 'journal-article', 'title' => 'Profoundly decolonizing?'];
+
+    expect($has(['type' => 'short-form', 'sub_citations' => [$full]]))->toBeTrue();
+    expect($has(['type' => 'short-form', 'sub_citations' => [$full + ['resolution' => ['status' => 'no_match']]]]))->toBeFalse(); // already searched
+    expect($has(['type' => 'short-form', 'sub_citations' => [['type' => 'short-form', 'title' => null]]]))->toBeFalse();
+    expect($has(['type' => 'book', 'title' => 'A full primary', 'sub_citations' => [$full]]))->toBeFalse(); // never was skipped
+    expect(\App\Console\Commands\RescanSkippedSubCitationsCommand::hasSkippedSub(json_encode(json_encode(['type' => 'short-form', 'sub_citations' => [$full]]))))->toBeTrue(); // double-encoded jsonb
+});

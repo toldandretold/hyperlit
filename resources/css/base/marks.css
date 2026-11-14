@@ -79,19 +79,22 @@ mark[data-highlight-count].user-highlight[data-highlight-count="9"]:hover {
 
 /* ── Highlighted citation links / footnote sups: use the plain text color ──
    The aqua .in-text-citation vanishes inside the user's AQUA highlight as
-   stacked intensity saturates; the pink footnote sup is camouflaged inside —
-   and, because marks SPLIT AROUND protected sups, BESIDE — others' PINK
-   highlights. In highlight context the hue carries no extra signal, so drop
-   to var(--color-text) (descendant rules for the inside cases, sibling/:has()
-   for the sup sandwiched between mark segments). */
+   stacked intensity saturates; the pink footnote sup is camouflaged inside
+   others' PINK highlights. In highlight context the hue carries no extra
+   signal, so drop to var(--color-text).
+
+   INSIDE only. A sup the highlight covers is wrapped in its own <mark>
+   (chunkRender's wrapProtectedElement), so the descendant rules reach it.
+   There used to be sibling rules here too (`mark + sup`, `sup:has(+ mark)`)
+   for a sup sitting BESIDE a mark segment — but the adjacent-sibling
+   combinator ignores intervening TEXT, so a marker a whole clause after
+   someone's highlight ("…Beijing Platform for Action – including '…peaceful
+   purposes'¹⁴") matched and lost its colour as if it were highlighted. CSS
+   cannot see text nodes; do not bring those selectors back. */
 mark.user-highlight .in-text-citation,
 mark.user-highlight .citation-ref,
 mark[data-highlight-count]:not(.user-highlight) sup[fn-count-id],
-mark[data-highlight-count]:not(.user-highlight) .footnote-ref,
-mark[data-highlight-count]:not(.user-highlight) + sup[fn-count-id],
-mark[data-highlight-count]:not(.user-highlight) + sup[fn-count-id] .footnote-ref,
-sup[fn-count-id]:has(+ mark[data-highlight-count]:not(.user-highlight)),
-sup[fn-count-id]:has(+ mark[data-highlight-count]:not(.user-highlight)) .footnote-ref {
+mark[data-highlight-count]:not(.user-highlight) .footnote-ref {
   color: var(--color-text);
 }
 
