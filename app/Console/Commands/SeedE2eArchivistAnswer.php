@@ -135,13 +135,22 @@ class SeedE2eArchivistAnswer extends Command
             'author' => 'AI Archivist',
         ]));
 
+        // Filler either side of the cited paragraph: the ↗ must sit well
+        // below the fold, or "Back returns to the link you clicked" has
+        // nothing to prove (the whole answer would fit on screen).
+        $filler = fn (int $id) => [$id, '<p id="' . $id . '" data-node-id="' . $book . '_e2efix_' . $id . '">Filler paragraph ' . $id . ' — '
+            . str_repeat('the fixture answer needs real scroll depth so a restored position is distinguishable from the top of the page. ', 4)
+            . '</p>', 'p'];
+
         $this->resetNodes($admin, $book, [
             [1, '<p id="1" data-node-id="' . $book . '_e2efix_1"><b>Prompt</b>: "What does the e2e fixture archive say about delinking?"</p>', 'p'],
             [2, '<p id="2" data-node-id="' . $book . '_e2efix_2"><b>AI Archivist</b>:</p>', 'p'],
+            ...array_map($filler, range(3, 14)),
             // Anchor placement mirrors normalizeCitationTokenPlacement (the ↗
             // follows the sentence's punctuation, never precedes it).
-            [3, '<p id="3" data-node-id="' . $book . '_e2efix_3">The fixture source treats delinking as the submission of external relations to internal development.<a id="' . $hc . '" href="/' . $source . '#' . $hc . '" class="open-icon">↗</a> This paragraph exists so the answer has a live hypercite anchor.</p>', 'p'],
-            [4, '<p id="4" data-node-id="' . $book . '_e2efix_4">A closing paragraph so the answer render has some depth.</p>', 'p'],
+            [20, '<p id="20" data-node-id="' . $book . '_e2efix_20">The fixture source treats delinking as the submission of external relations to internal development.<a id="' . $hc . '" href="/' . $source . '#' . $hc . '" class="open-icon">↗</a> This paragraph exists so the answer has a live hypercite anchor.</p>', 'p'],
+            ...array_map($filler, range(21, 32)),
+            [40, '<p id="40" data-node-id="' . $book . '_e2efix_40">A closing paragraph so the answer render has some depth.</p>', 'p'],
         ]);
 
         // Clean any annotations the app synced onto the answer during past runs

@@ -306,6 +306,19 @@ export function updateUrl(url: any, options: any = {}) {
         // onto the entry being created, and a hero page restores whatever it
         // finds there on a back/forward return.
         delete (newState as Record<string, unknown>).userPageActiveTab;
+        // Same for the AI answer and the open citation container: both belong
+        // to the entry being LEFT. Carried forward, the container the reader
+        // clicked "See in source text" in re-opened itself over the source
+        // book it had just navigated to (its stale stamp can match the
+        // destination, or be absent, and either passes the restore guard) —
+        // and closing it there walked history back to the page it came from.
+        // The destination is a fresh visit: it starts with nothing open
+        // (BookToBookTransition's own push does the same).
+        const fresh = newState as Record<string, unknown>;
+        delete fresh.archivistAnswer;
+        fresh.hyperlitContainer = null;
+        fresh.containerStack = null;
+        fresh.containerStackBookId = null;
         window.history.pushState(newState, '', url);
       }
       verbose.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');

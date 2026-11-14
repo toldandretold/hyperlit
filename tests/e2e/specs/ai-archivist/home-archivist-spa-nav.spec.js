@@ -87,6 +87,17 @@ async function dumpNavState(page, testInfo, label) {
   return state;
 }
 
+/** Where the fixture's ↗ sits on screen, and how far the answer is scrolled. */
+async function linkPlace(page) {
+  return page.evaluate((id) => {
+    const link = document.querySelector(`.main-content a.open-icon[id="${id}"]`);
+    const wrapper = document.querySelector('.home-content-wrapper');
+    if (!link || !wrapper) return null;
+    const r = link.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom, viewport: window.innerHeight, scrollTop: wrapper.scrollTop };
+  }, HYPERCITE);
+}
+
 async function settleStructure(page, structure) {
   await page.waitForFunction((s) => document.body.getAttribute('data-page') === s, structure, { timeout: 30_000 });
   await page.waitForTimeout(500); // let registry init + restore hooks run
@@ -158,11 +169,23 @@ test.describe('AI Archivist homepage SPA nav', () => {
     await expect(arrow).toBeVisible({ timeout: 15_000 });
     await arrow.click();
     await page.waitForSelector('#hyperlit-container a.see-in-source-btn', { timeout: 15_000 });
+    const linkBefore = await linkPlace(page);
     await dumpNavState(page, testInfo, '3-container-open');
     await page.locator('#hyperlit-container a.see-in-source-btn').first().click();
     await settleStructure(page, 'reader');
     expect(new URL(page.url()).pathname).toBe(`/${SOURCE_BOOK}`);
-    await dumpNavState(page, testInfo, '3b-source-book');
+    const s3b = await dumpNavState(page, testInfo, '3b-source-book');
+    // The container that held "See in source text" belongs to the page we
+    // LEFT. It must not ride the new history entry and re-open over the source
+    // (where its own button points at the page already on screen, and closing
+    // it walks history back home).
+    await page.waitForTimeout(1500); // a leaked stack restores after the reader settles
+    expect(s3b.historyState?.containerStack ?? null, 'the source entry inherited the home entry\'s container stack').toBeNull();
+    expect(s3b.historyState?.archivistAnswer ?? null, 'the source entry inherited the answer').toBeNull();
+    expect(
+      await page.locator('#hyperlit-container.open a.see-in-source-btn').count(),
+      'the citation container from the home page re-opened over the source book',
+    ).toBe(0);
 
     // 4. BACK → home with the answer restored
     await page.goBack();
@@ -170,6 +193,19 @@ test.describe('AI Archivist homepage SPA nav', () => {
     const s4 = await dumpNavState(page, testInfo, '4-back-to-home');
     await expect(page.locator(`.main-content.archivist-panel[id="${ANSWER_BOOK}"]`)).toBeVisible({ timeout: 20_000 });
     expect(s4.tombstone).toBeNull();
+
+    // 4b. ...scrolled back to the ↗ that was clicked, not the top of the
+    // answer (the fixture puts it well below the fold).
+    expect(linkBefore.scrollTop, 'fixture answer too short — the ↗ was reachable without scrolling').toBeGreaterThan(200);
+    await expect
+      .poll(async () => {
+        const r = await linkPlace(page);
+        return r && r.top > 0 && r.bottom < r.viewport && r.scrollTop > 200;
+      }, { timeout: 15_000, message: 'back did not return to the clicked hypercite link' })
+      .toBe(true);
+    await page.waitForTimeout(1200); // past the header re-pin: it must STAY in view
+    const linkAfter = await linkPlace(page);
+    expect(linkAfter.top > 0 && linkAfter.bottom < linkAfter.viewport, `link left the viewport after settling: ${JSON.stringify(linkAfter)}`).toBe(true);
 
     // 5. × dismisses the answer — tombstone written, entry state stripped
     await page.click('#copy-feed-close');
@@ -354,3 +390,102 @@ test.describe('AI Archivist homepage SPA nav', () => {
     await expect(page.locator(`.main-content.archivist-panel[id="${ANSWER_BOOK}"]`)).toBeVisible({ timeout: 20_000 });
   });
 });
+
+/**
+ * A citation container opened on a HERO page costs exactly one history entry,
+ * and closing it gives that entry back — the reader's contract.
+ *
+ * Before: the close asked "does this entry's container belong to the book on
+ * screen?" using the reader's <main> and a stamp taken from the stale `book`
+ * global, so on a hero page the answer was always no and the close fell back
+ * to closing IN PLACE. Every open+close left a spare entry behind: N citations
+ * read = N extra presses of Back, each one re-seating the same page.
+ */
+const JOURNAL_PATH = '/j/global-social-challenges-journal';
+
+for (const hero of [
+  { name: 'home', path: '/', structure: 'home', input: '#homepage-search-input' },
+  { name: 'journal', path: JOURNAL_PATH, structure: 'journal', input: '#journal-search-input' },
+]) {
+  test(`${hero.name}: opening and closing citations leaves no spare history entries`, async ({ page, spa }, testInfo) => {
+    test.skip(!seeded, 'e2e:seed-archivist-answer failed — is the dev DB migrated?');
+    test.setTimeout(180_000);
+    const consoleSnapshot = spa.filterConsoleErrors(page.consoleErrors).length;
+    await mockAsk(page);
+
+    // A real page to come back to, so "Back leaves" is checkable.
+    await page.goto(`/${SOURCE_BOOK}`);
+    await page.waitForLoadState('networkidle');
+    const response = await page.goto(hero.path);
+    test.skip(response.status() === 404, `${hero.path} not in this environment's registry`);
+    await page.waitForLoadState('networkidle');
+
+    await enterAiMode(page);
+    await page.fill(hero.input, QUESTION);
+    await page.click('#archivist-ask-button');
+    const answerSel = `.main-content.archivist-panel[id="${ANSWER_BOOK}"]`;
+    await page.waitForSelector(answerSel, { timeout: 30_000 });
+    const arrow = page.locator(`.main-content a.open-icon[id^="hypercite_"]:not([data-cite-group])`).first();
+    await expect(arrow).toBeVisible({ timeout: 15_000 });
+
+    // Tag the rendered answer: a re-seated page mints a NEW element, so the
+    // tag surviving proves nothing below reloaded the page.
+    await page.evaluate((sel) => { document.querySelector(sel).__pinned = true; }, answerSel);
+    const stillPinned = () => page.evaluate((sel) => document.querySelector(sel)?.__pinned === true, answerSel);
+    const lenBefore = await page.evaluate(() => history.length);
+
+    const open = async () => {
+      await arrow.click();
+      await page.waitForSelector('#hyperlit-container.open a.see-in-source-btn', { timeout: 15_000 });
+    };
+    const expectClosedInPlace = async (label) => {
+      await expect(page.locator('#hyperlit-container.open'), `${label}: container still open`).toHaveCount(0, { timeout: 10_000 });
+      await page.waitForTimeout(800); // a re-seat would have swapped the page by now
+      const st = await page.evaluate(() => ({
+        path: location.pathname,
+        search: location.search,
+        stack: history.state?.containerStack ?? null,
+        len: history.length,
+      }));
+      expect(st.path, label).toBe(hero.path);
+      expect(st.search, `${label}: the URL still says a container is open`).not.toContain('cs=');
+      expect(st.stack, `${label}: landed on an entry that still carries a container`).toBeNull();
+      // history.length never shrinks on back(), but each open now REPLACES
+      // the forward entry the last close stepped off, so it never grows past +1.
+      expect(st.len, `${label}: history grew — the close left its entry behind`).toBe(lenBefore + 1);
+      expect(await stillPinned(), `${label}: the page was re-seated`).toBe(true);
+      await expect(page.locator(answerSel), label).toBeVisible();
+    };
+
+    // Escape, three times over
+    for (let i = 1; i <= 3; i++) {
+      await open();
+      await page.keyboard.press('Escape');
+      await expectClosedInPlace(`escape close #${i}`);
+    }
+
+    // The browser's own Back, with the container open: closes it, nothing else
+    await open();
+    await page.goBack();
+    await expectClosedInPlace('browser back with the container open');
+
+    // ...and Forward re-enters that entry without breaking the page
+    await page.goForward();
+    await page.waitForTimeout(1500);
+    await expect(page.locator(answerSel), 'forward onto the container entry lost the answer').toBeVisible({ timeout: 20_000 });
+    expect(await page.locator('.main-content[id="null"]').count()).toBe(0);
+    if (await page.locator('#hyperlit-container.open').count()) await page.keyboard.press('Escape');
+    else await page.goBack();
+    await page.waitForTimeout(1500);
+    await expect(page.locator(answerSel)).toBeVisible({ timeout: 20_000 });
+
+    // ONE Back now leaves the page
+    await dumpNavState(page, testInfo, `${hero.name}-before-leaving`);
+    await page.goBack();
+    await settleStructure(page, 'reader');
+    expect(new URL(page.url()).pathname, 'one Back did not leave the hero page').toBe(`/${SOURCE_BOOK}`);
+
+    const newErrors = spa.filterConsoleErrors(page.consoleErrors).slice(consoleSnapshot);
+    expect(newErrors, `New console errors:\n${newErrors.join('\n---\n')}`).toHaveLength(0);
+  });
+}

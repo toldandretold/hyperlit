@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2033,
-    "moduleCount": 428,
+    "fnCount": 2041,
+    "moduleCount": 429,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4245,
+    "edgeCount": 4266,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -3875,6 +3875,38 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/sourceContainer/licensePicker",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:absolutizeLinks",
+      "label": "absolutizeLinks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/markdownLinks",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "label": "isHyperciteArrow",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/markdownLinks",
+      "leaf": false
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:parseHyperciteHref",
+      "label": "parseHyperciteHref",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/markdownLinks",
+      "leaf": true
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "label": "prepareFootnoteHtml",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/sourceContainer/markdownLinks",
       "leaf": false
     },
     {
@@ -11365,6 +11397,14 @@
       "leaf": true
     },
     {
+      "id": "hyperlitContainer/stack:getStackOriginPath",
+      "label": "getStackOriginPath",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/stack",
+      "leaf": true
+    },
+    {
       "id": "hyperlitContainer/stack:getTopLayer",
       "label": "getTopLayer",
       "kind": "fn",
@@ -11379,6 +11419,14 @@
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/stack",
       "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/stack:isReaderPage",
+      "label": "isReaderPage",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/stack",
+      "leaf": false
     },
     {
       "id": "hyperlitContainer/stack:isStacked",
@@ -11437,6 +11485,14 @@
       "leaf": false
     },
     {
+      "id": "hyperlitContainer/stack:renderedStackBookId",
+      "label": "renderedStackBookId",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/stack",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/stack:resizeAllLayers",
       "label": "resizeAllLayers",
       "kind": "fn",
@@ -11459,6 +11515,14 @@
       "stage": "hyperlitContainer",
       "module": "hyperlitContainer/stack",
       "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/stack:stackOwnerBookId",
+      "label": "stackOwnerBookId",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/stack",
+      "leaf": false
     },
     {
       "id": "hyperlitContainer/stack:syncStackToHistoryState",
@@ -19502,6 +19566,18 @@
       ]
     },
     {
+      "id": "components/sourceContainer/markdownLinks",
+      "label": "components/sourceContainer/markdownLinks",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/sourceContainer/markdownLinks:absolutizeLinks",
+        "components/sourceContainer/markdownLinks:isHyperciteArrow",
+        "components/sourceContainer/markdownLinks:parseHyperciteHref",
+        "components/sourceContainer/markdownLinks:prepareFootnoteHtml"
+      ]
+    },
+    {
       "id": "components/sourceContainer/originalPdfDownload",
       "label": "components/sourceContainer/originalPdfDownload",
       "stage": "components",
@@ -21486,8 +21562,10 @@
         "hyperlitContainer/stack:getCurrentScroller",
         "hyperlitContainer/stack:getDepth",
         "hyperlitContainer/stack:getLayerBelow",
+        "hyperlitContainer/stack:getStackOriginPath",
         "hyperlitContainer/stack:getTopLayer",
         "hyperlitContainer/stack:isEmpty",
+        "hyperlitContainer/stack:isReaderPage",
         "hyperlitContainer/stack:isStackPopPending",
         "hyperlitContainer/stack:isStackPopping",
         "hyperlitContainer/stack:isStacked",
@@ -21495,9 +21573,11 @@
         "hyperlitContainer/stack:popTopLayer",
         "hyperlitContainer/stack:pushLayer",
         "hyperlitContainer/stack:removeStackedContainerDOM",
+        "hyperlitContainer/stack:renderedStackBookId",
         "hyperlitContainer/stack:resizeAllLayers",
         "hyperlitContainer/stack:saveAndPopTopLayer",
         "hyperlitContainer/stack:serializeStack",
+        "hyperlitContainer/stack:stackOwnerBookId",
         "hyperlitContainer/stack:syncStackToHistoryState"
       ]
     },
@@ -27437,6 +27517,30 @@
       "rel": "call"
     },
     {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/markdownLinks:absolutizeLinks",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/sourceContainer/markdownLinks:absolutizeLinks",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/markdownLinks:parseHyperciteHref",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/sourceContainer/markdownLinks:parseHyperciteHref",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
+      "target": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "rel": "call"
+    },
+    {
       "id": "components/sourceContainer/downloads:exportBookAsMarkdown__call__indexedDB/core/connection:openDatabase",
       "source": "components/sourceContainer/downloads:exportBookAsMarkdown",
       "target": "indexedDB/core/connection:openDatabase",
@@ -28102,6 +28206,36 @@
     {
       "id": "components/sourceContainer/licensePicker:wireLicenseFields__domwrite__dom",
       "source": "components/sourceContainer/licensePicker:wireLicenseFields",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:absolutizeLinks__domwrite__dom",
+      "source": "components/sourceContainer/markdownLinks:absolutizeLinks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:prepareFootnoteHtml__call__components/sourceContainer/markdownLinks:absolutizeLinks",
+      "source": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "target": "components/sourceContainer/markdownLinks:absolutizeLinks",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:prepareFootnoteHtml__call__components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "source": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "target": "components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:prepareFootnoteHtml__call__components/sourceContainer/markdownLinks:parseHyperciteHref",
+      "source": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "target": "components/sourceContainer/markdownLinks:parseHyperciteHref",
+      "rel": "call"
+    },
+    {
+      "id": "components/sourceContainer/markdownLinks:prepareFootnoteHtml__domwrite__dom",
+      "source": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -29441,6 +29575,12 @@
       "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/stack:isStackPopPending",
       "source": "components/utilities/containerManager:ContainerManager.rebindElements",
       "target": "hyperlitContainer/stack:isStackPopPending",
+      "rel": "call"
+    },
+    {
+      "id": "components/utilities/containerManager:ContainerManager.rebindElements__call__hyperlitContainer/stack:renderedStackBookId",
+      "source": "components/utilities/containerManager:ContainerManager.rebindElements",
+      "target": "hyperlitContainer/stack:renderedStackBookId",
       "rel": "call"
     },
     {
@@ -31847,6 +31987,24 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/sourceContainer/markdownLinks:absolutizeLinks",
+      "source": "dom",
+      "target": "components/sourceContainer/markdownLinks:absolutizeLinks",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "source": "dom",
+      "target": "components/sourceContainer/markdownLinks:isHyperciteArrow",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "source": "dom",
+      "target": "components/sourceContainer/markdownLinks:prepareFootnoteHtml",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
       "source": "dom",
       "target": "components/sourceContainer/originalPdfDownload:initOriginalPdfDownload",
@@ -33815,15 +33973,33 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/stack:isReaderPage",
+      "source": "dom",
+      "target": "hyperlitContainer/stack:isReaderPage",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/stack:popTopLayer",
       "source": "dom",
       "target": "hyperlitContainer/stack:popTopLayer",
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/stack:renderedStackBookId",
+      "source": "dom",
+      "target": "hyperlitContainer/stack:renderedStackBookId",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/stack:resizeAllLayers",
       "source": "dom",
       "target": "hyperlitContainer/stack:resizeAllLayers",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__hyperlitContainer/stack:stackOwnerBookId",
+      "source": "dom",
+      "target": "hyperlitContainer/stack:stackOwnerBookId",
       "rel": "domread"
     },
     {
@@ -40638,6 +40814,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "hyperlitContainer/stack:renderedStackBookId__call__hyperlitContainer/stack:isReaderPage",
+      "source": "hyperlitContainer/stack:renderedStackBookId",
+      "target": "hyperlitContainer/stack:isReaderPage",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/stack:saveAndPopTopLayer__call__hyperlitContainer/core:getHyperlitEditMode",
       "source": "hyperlitContainer/stack:saveAndPopTopLayer",
       "target": "hyperlitContainer/core:getHyperlitEditMode",
@@ -40658,9 +40840,21 @@
       "dataPath": true
     },
     {
+      "id": "hyperlitContainer/stack:stackOwnerBookId__call__hyperlitContainer/stack:isReaderPage",
+      "source": "hyperlitContainer/stack:stackOwnerBookId",
+      "target": "hyperlitContainer/stack:isReaderPage",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/stack:syncStackToHistoryState__call__hyperlitContainer/stack:serializeStack",
       "source": "hyperlitContainer/stack:syncStackToHistoryState",
       "target": "hyperlitContainer/stack:serializeStack",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/stack:syncStackToHistoryState__call__hyperlitContainer/stack:stackOwnerBookId",
+      "source": "hyperlitContainer/stack:syncStackToHistoryState",
+      "target": "hyperlitContainer/stack:stackOwnerBookId",
       "rel": "call"
     },
     {
@@ -47511,11 +47705,23 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/stack:getStackOriginPath",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "hyperlitContainer/stack:getStackOriginPath",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/stack:popTopLayer",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
       "target": "hyperlitContainer/stack:popTopLayer",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/stack:renderedStackBookId",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner",
+      "target": "hyperlitContainer/stack:renderedStackBookId",
+      "rel": "call"
     },
     {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler._handlePopstateInner__call__hyperlitContainer/stack:serializeStack",
@@ -51894,6 +52100,11 @@
     {
       "source": "components/sourceContainer/downloads",
       "target": "components/sourceContainer/helpers",
+      "kind": "static"
+    },
+    {
+      "source": "components/sourceContainer/downloads",
+      "target": "components/sourceContainer/markdownLinks",
       "kind": "static"
     },
     {

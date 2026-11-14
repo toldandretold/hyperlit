@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\File;
 
 /**
  * Builds the "Obsidian vault" artifact: a zip with one .md per exportable
- * book plus a README carrying the archive citation and what was skipped.
+ * book plus a README carrying the archive citation and what was skipped, and
+ * `references.bib` (VaultBibliography) — one entry per note, keyed by the
+ * same `citekey` each note carries, so the shelf can be cited from with
+ * Obsidian's citation plugins or imported into Zotero.
  * Writes to a .work path, atomic-renames on success (a crashed build never
  * leaves a half-zip at the served path).
  */
@@ -15,6 +18,9 @@ class MarkdownVaultBuilder
 {
     /** Pending note bytes that trigger a zip flush — the build's memory ceiling. */
     public const FLUSH_BYTES = 8 * 1024 * 1024;
+
+    /** The vault's bibliography, at its root beside the README. */
+    public const BIB_FILE = 'references.bib';
 
     /** Overridable so a test can force a flush between every note. */
     public int $flushBytes = self::FLUSH_BYTES;
@@ -54,10 +60,17 @@ class MarkdownVaultBuilder
         // peak is then one flush window, whatever the corpus size.
         $pending = 0;
         $total = max(1, count($corpus->books));
+        $bibliography = new VaultBibliography();
         foreach ($corpus->books as $i => $row) {
             $markdown = $this->exporter->markdownFor($row->book, obsidianLinks: true);
             if (trim($markdown) !== '') {
-                $note = $this->frontMatter($row->book, $corpus) . $markdown;
+                $lib = $this->libraryRow($row->book);
+                $citekey = null;
+                if ($lib) {
+                    $citekey = $bibliography->citekeyFor($lib);
+                    $bibliography->add($citekey, $lib, $this->hyperlitUrl($lib), $names[$row->book]);
+                }
+                $note = $this->frontMatter($row->book, $corpus, $lib, $citekey) . $markdown;
                 $zip->addFromString("{$root}/{$names[$row->book]}", $note);
                 $pending += strlen($note);
                 unset($note);
@@ -73,6 +86,10 @@ class MarkdownVaultBuilder
                 $pending = 0;
             }
             $onProgress(($i + 1) / $total);
+        }
+
+        if (!$bibliography->isEmpty()) {
+            $zip->addFromString("{$root}/" . self::BIB_FILE, $bibliography->render());
         }
 
         if (!$zip->close()) {
@@ -91,11 +108,14 @@ class MarkdownVaultBuilder
      * work's citation details as stored on the library row, plus the way BACK:
      * `hyperlit` is the live version of this text, `archive` the page the
      * vault was exported from. Only fields the row actually has are written.
+     *
+     * `citekey` is this work's key in references.bib, and the `@citekey` alias
+     * makes the NOTE answer to it: `[@barnet2009idiomedia]` cites the work,
+     * `[[@barnet2009idiomedia]]` links the vault's copy of it.
      */
-    private function frontMatter(string $bookId, ArchiveCorpus $corpus): string
+    private function frontMatter(string $bookId, ArchiveCorpus $corpus, ?object $lib = null, ?string $citekey = null): string
     {
-        $lib = DB::connection('pgsql_admin')->table('library')->where('book', $bookId)
-            ->first(['title', 'author', 'year', 'journal', 'volume', 'issue', 'pages', 'publisher', 'doi', 'url', 'license', 'license_url', 'slug', 'language']);
+        $lib ??= $this->libraryRow($bookId);
         if (!$lib) {
             return '';
         }
@@ -107,6 +127,8 @@ class MarkdownVaultBuilder
 
         $fields = [
             'title' => $clean($lib->title),
+            'citekey' => (string) $citekey,
+            'aliases' => $citekey ? ['@' . $citekey] : [],
             'authors' => $authors,
             'year' => $clean($lib->year),
             'journal' => $clean($lib->journal),
@@ -120,7 +142,7 @@ class MarkdownVaultBuilder
             // 'Unknown' is the absence of a licence, not one to assert.
             'license' => $license !== '' && $license !== \App\Support\Licenses::UNKNOWN ? $license : '',
             'license_url' => $clean($lib->license_url),
-            'hyperlit' => url(\App\Helpers\BookSlugHelper::canonicalPath($bookId, $lib->slug ?: null)),
+            'hyperlit' => $this->hyperlitUrl($lib),
             'archive' => $corpus->pageUrl,
             'exported' => now()->toDateString(),
         ];
@@ -143,6 +165,17 @@ class MarkdownVaultBuilder
         $lines[] = '---';
 
         return implode("\n", $lines) . "\n\n";
+    }
+
+    private function libraryRow(string $bookId): ?object
+    {
+        return DB::connection('pgsql_admin')->table('library')->where('book', $bookId)
+            ->first(['book', 'title', 'author', 'year', 'journal', 'volume', 'issue', 'pages', 'publisher', 'doi', 'url', 'license', 'license_url', 'slug', 'language', 'type']);
+    }
+
+    private function hyperlitUrl(object $lib): string
+    {
+        return url(\App\Helpers\BookSlugHelper::canonicalPath($lib->book, $lib->slug ?: null));
     }
 
     /**
@@ -247,6 +280,7 @@ class MarkdownVaultBuilder
             '',
             '- ' . count($corpus->books) . ' text' . (count($corpus->books) === 1 ? '' : 's') . ' in this vault, one Markdown file each.',
             '- Each file opens with its citation details as properties (front matter), including `hyperlit` — the link back to the live text.',
+            '- `' . self::BIB_FILE . '` holds one BibTeX entry per text, keyed by the `citekey` in that text\'s properties. Point an Obsidian citation plugin at it, or import it into Zotero, to cite these texts as `[@citekey]`; `[[@citekey]]` links to the text\'s note in this vault.',
             '- Footnotes and hypercite links are resolved into `[^n]` footnotes; in-text citations link to their bibliography entry.',
             '- Images are linked at their hyperlit URLs (not bundled in the zip).',
         ];

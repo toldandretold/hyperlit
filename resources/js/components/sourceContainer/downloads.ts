@@ -9,6 +9,7 @@ import { openDatabase, getNodesFromIndexedDB } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { getRecord, getBookDownloadName } from './helpers';
 import { log } from '../../utilities/logger';
+import { absolutizeLinks, isHyperciteArrow, parseHyperciteHref, prepareFootnoteHtml } from './markdownLinks';
 
 let _TurndownService: any = null;
 async function loadTurndown() {
@@ -219,6 +220,33 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
     fragments.push(frag);
   }
 
+  // Compact citation of a hypercite's cited book, its title linking the
+  // hyperlit deep URL. Used for body arrows ([^n] definitions) AND for arrows
+  // inside a footnote body (written inline — markdown can't nest footnotes).
+  const hyperciteCitationMd = async (db: any, targetBookId: string, sourceUrl: string): Promise<string> => {
+    let citationMd = `[${targetBookId}](${sourceUrl})`;
+    try {
+      if (db) {
+        const record = await getRecord(db, 'library', targetBookId);
+        if (record?.bibtex) {
+          let citationHtml: any = await formatBibtexToCitation(record.bibtex);
+          if (citationHtml.includes('<a ')) {
+            citationHtml = citationHtml.replace(/(<a\s[^>]*href=")([^"]*)(")/, `$1${sourceUrl}$3`);
+          } else {
+            const titleMatch = citationHtml.match(/(<i>[^<]+<\/i>|"[^"]+")/);
+            if (titleMatch) {
+              citationHtml = citationHtml.replace(titleMatch[0], `<a href="${sourceUrl}">${titleMatch[0]}</a>`);
+            } else {
+              citationHtml = `<a href="${sourceUrl}">${citationHtml}</a>`;
+            }
+          }
+          citationMd = citationHtmlToMarkdown(citationHtml);
+        }
+      }
+    } catch (e) {}
+    return citationMd;
+  };
+
   // --- Phase 2: Pre-scan for footnote refs, hypercite arrows, citation refs, images ---
   const footnoteRefIds: any[] = [];
   const hyperciteArrows: any[] = [];
@@ -239,26 +267,20 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
     });
 
     frag.querySelectorAll('a[href]').forEach((anchor: any) => {
-      if ((anchor.classList.contains('open-icon') || anchor.querySelector('sup.open-icon')) && anchor.id && !seenFnIds.has(anchor.id)) {
+      if (isHyperciteArrow(anchor) && anchor.id && !seenFnIds.has(anchor.id)) {
         seenFnIds.add(anchor.id);
-        try {
-          const href = anchor.getAttribute('href');
-          const parsed = new URL(href, window.location.origin);
-          const segments = parsed.pathname.split('/').filter(Boolean);
-          if (segments.length > 0) {
-            let sourceUrl = parsed.origin + parsed.pathname;
-            if (parsed.hash) {
-              sourceUrl += parsed.hash;
-            }
-            hyperciteArrows.push({ id: anchor.id, targetBookId: decodeURIComponent(segments[0]!), sourceUrl });
-          }
-        } catch (e) {}
+        const target = parseHyperciteHref(anchor.getAttribute('href'), window.location.origin);
+        if (target) hyperciteArrows.push({ id: anchor.id, ...target });
       }
     });
 
     frag.querySelectorAll('img[src]').forEach((img: any) => {
       imageUrls.add(img.getAttribute('src'));
     });
+
+    // A downloaded .md has no site root: a root-relative link is a note path
+    // to Obsidian. (Arrows were read above; the rest are made absolute.)
+    absolutizeLinks(frag, window.location.origin);
   }
 
   // --- Phase 3: Fetch footnote content from IndexedDB ---
@@ -298,7 +320,12 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
       for (const node of (fnNodes || [])) {
         const content = node.content || node.html || '';
         if (content.trim()) {
-          paragraphs.push(simpleTd.turndown(content).trim());
+          const prepared = await prepareFootnoteHtml(
+            content,
+            window.location.origin,
+            (target) => hyperciteCitationMd(fnDb, target.targetBookId, target.sourceUrl),
+          );
+          paragraphs.push(prepared.finish(simpleTd.turndown(prepared.html)).trim());
         }
       }
       footnoteContents.set(fnId, paragraphs.length > 0 ? paragraphs : ['(footnote)']);
@@ -315,29 +342,7 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
   }
 
   for (const { id, targetBookId, sourceUrl } of hyperciteArrows) {
-    let citationMd = targetBookId;
-    try {
-      if (db) {
-        const record = await getRecord(db, 'library', targetBookId);
-        if (record?.bibtex) {
-          let citationHtml: any = await formatBibtexToCitation(record.bibtex);
-          if (sourceUrl) {
-            if (citationHtml.includes('<a ')) {
-              citationHtml = citationHtml.replace(/(<a\s[^>]*href=")([^"]*)(")/, `$1${sourceUrl}$3`);
-            } else {
-              const titleMatch = citationHtml.match(/(<i>[^<]+<\/i>|"[^"]+")/);
-              if (titleMatch) {
-                citationHtml = citationHtml.replace(titleMatch[0], `<a href="${sourceUrl}">${titleMatch[0]}</a>`);
-              } else {
-                citationHtml = `<a href="${sourceUrl}">${citationHtml}</a>`;
-              }
-            }
-          }
-          citationMd = citationHtmlToMarkdown(citationHtml);
-        }
-      }
-    } catch (e) {}
-    hyperciteContents.set(id, citationMd);
+    hyperciteContents.set(id, await hyperciteCitationMd(db, targetBookId, sourceUrl));
   }
 
   // --- Phase 4b: Fetch bibliography records for citation refs ---

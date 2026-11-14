@@ -307,6 +307,56 @@ test('vault notes open with citation front matter and a link back to hyperlit', 
         ->not->toContain('doi:');
 });
 
+test('the vault ships references.bib, keyed by the citekey each note carries', function () {
+    $owner = aexUser();
+    $book = aexBook($owner, 'cite', 'public', [
+        'title'   => 'The Idiomedia & Its Discontents',
+        'author'  => 'Barnet, Belinda; Ann Author',
+        'year'    => '2009',
+        'journal' => 'Continuum',
+        'volume'  => '23',
+        'issue'   => '1',
+        'doi'     => '10.1080/aex_1',
+    ]);
+    // Same author, year and first title word → the second key must differ.
+    aexBook($owner, 'twin', 'public', ['title' => 'Idiomedia Again', 'author' => 'Belinda Barnet', 'year' => '2009']);
+    aexBook($owner, 'anon', 'public', ['title' => 'A Report', 'author' => null, 'publisher' => 'Aex Press']);
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'markdown'])->assertStatus(202);
+    $path = $this->get("/exports/{$scope}/markdown")->assertOk()->baseResponse->getFile()->getPathname();
+
+    $zip = new ZipArchive();
+    expect($zip->open($path))->toBeTrue();
+    $files = [];
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $files[basename($zip->getNameIndex($i))] = $zip->getFromIndex($i);
+    }
+    $zip->close();
+
+    $bib = $files['references.bib'] ?? null;
+    expect($bib)->not->toBeNull()
+        ->toContain('@article{barnet2009idiomedia,')
+        ->toContain('author = {Barnet, Belinda and Ann Author},')
+        ->toContain('title = {The Idiomedia \\& Its Discontents},')
+        ->toContain('journal = {Continuum},')
+        ->toContain('number = {1},')
+        // Verbatim fields are not TeX-escaped — an escaped DOI / URL is a broken one.
+        ->toContain('doi = {10.1080/aex_1},')
+        ->toContain('url = {' . url('/' . $book) . '},')
+        ->toContain('file = {Barnet, Belinda; Ann Author - The Idiomedia & Its Discontents.md},')
+        ->toContain('@misc{barnet2009idiomediab,')
+        ->toContain('@book{report,')
+        ->toContain('publisher = {Aex Press},');
+
+    // The note answers to the same key: a property, and an alias so [[@key]] opens it.
+    $note = $files['Barnet, Belinda; Ann Author - The Idiomedia & Its Discontents.md'];
+    expect($note)->toContain('citekey: "barnet2009idiomedia"')
+        ->toContain("aliases:\n  - \"@barnet2009idiomedia\"");
+
+    expect($files['README.md'])->toContain('references.bib');
+});
+
 test('the vault README follows the archive page: the pinned book is the README only when it is the about text', function () {
     $owner = aexUser();
     $reading = aexBook($owner, 'reading', 'public', ['slug' => 'aex-reading-' . Str::lower(Str::random(5))]);
@@ -356,7 +406,7 @@ test('the vault README follows the archive page: the pinned book is the README o
             ->and($corpus->bookIds())->toContain($reading)->toContain($other);
 
         $notes = $readVault();
-        expect(array_keys($notes))->toHaveCount(4)->toContain($overviewNote);
+        expect(array_keys($notes))->toHaveCount(5)->toContain($overviewNote)->toContain('references.bib');
         expect($notes['README.md'])->toContain('3 texts in this vault')->not->toContain('Week 1: read');
         expect($notes[$overviewNote])->toContain('Week 1: read');
 
@@ -371,7 +421,7 @@ test('the vault README follows the archive page: the pinned book is the README o
             ->and($corpus->bookIds())->toContain($reading)->toContain($other)->not->toContain($overview);
 
         $notes = $readVault();
-        expect(array_keys($notes))->toHaveCount(3)->not->toContain($overviewNote);
+        expect(array_keys($notes))->toHaveCount(4)->not->toContain($overviewNote);
 
         $hub = $notes['README.md'];
         expect($hub)->toStartWith("---\ntitle: \"Aex Overview Title\"")
@@ -415,7 +465,7 @@ test('the vault zip is flushed mid-build without losing a note (bounded memory)'
     $names = aexZipNames($res->baseResponse->getFile()->getPathname());
     $joined = implode("\n", $names);
 
-    expect($names)->toHaveCount(5); // README + four notes, each exactly once
+    expect($names)->toHaveCount(6); // README + four notes, each exactly once, + references.bib
     expect($joined)->toContain('README.md')
         ->toContain('Aex One Title')->toContain('Aex Two Title')
         ->toContain('Aex Three Title')->toContain('Aex Four Title');

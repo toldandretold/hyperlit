@@ -36,6 +36,7 @@ import { createStepManager, brainLoaderSvg, type StepManager } from './stepManag
 import { executeInferenceTicket, readSseStream } from './sseClient';
 import { initCiteGroupRouter, destroyCiteGroupRouter } from './citeGroupRouter';
 import { drainResponse } from '../../utilities/drainResponse';
+import { isHistoryTraversal } from '../../SPA/navigation/historyTraversal';
 
 const BRAIN_BUTTON_ID = 'archivist-brain-button';
 const ASK_BUTTON_ID = 'archivist-ask-button';
@@ -331,11 +332,16 @@ function restoreStoredAnswer(): void {
     }
     if (document.querySelector('.main-content') || document.querySelector('.arranger-button.active')) return;
 
+    // Captured NOW: the popstate bracket that answers this has closed by the
+    // time the answer book has rendered.
+    const returningViaHistory = isHistoryTraversal();
+
     void (async () => {
         try {
             await mountAnswerBook(stored.bookId, stored.shelf?.name);
             const mounted = findPanel();
             if (mounted) stampAskScope(mounted, stored.askScope ?? null);
+            if (mounted && returningViaHistory) void returnToReadingPlace(mounted);
             // This entry was showing an AI answer — put the search header back
             // into archivist mode too (the mode key is a global preference;
             // the ENTRY knows better). searchBox re-applies on the event.
@@ -351,6 +357,45 @@ function restoreStoredAnswer(): void {
             closeAnswerPanel();
         }
     })();
+}
+
+/**
+ * Back onto an answer: put the reader where they were, not at the top.
+ *
+ * Two layers. The saved reading position (the same restore a feed gets) brings
+ * back the viewport they left. Then, when this entry is the one a citation
+ * container was opened on — the usual way to have left: ↗ → "See in source
+ * text" → Back — the entry still names the link that was clicked
+ * (containerStack[0].contentMetadata.anchorId), and that link is brought into
+ * view if the position restore did not already show it. The saved position
+ * lags the real one by up to 250ms and is only written on scroll, so the link
+ * is the more exact signal when we have it.
+ */
+async function returnToReadingPlace(panel: HTMLElement): Promise<void> {
+    try {
+        const { restoreScrollPosition } = await import('../../scrolling/restore');
+        await restoreScrollPosition();
+    } catch (e) {
+        verbose.init('aiArchivist: reading-position restore failed (non-fatal)', '/components/aiArchivist/archivistPanel.ts', e as any);
+    }
+    const state = history.state;
+    const anchorId: unknown = state?.containerStack?.[0]?.contentMetadata?.anchorId
+        ?? state?.hyperlitContainer?.anchorId;
+    if (typeof anchorId !== 'string' || !anchorId) return;
+
+    const showLink = () => {
+        if (!panel.isConnected) return;
+        const link = document.getElementById(anchorId);
+        if (!link || !panel.contains(link)) return; // not rendered (a later chunk) — the position restore stands
+        const rect = link.getBoundingClientRect();
+        // Clear of the docked header at the top and of the bottom edge
+        const comfortable = rect.top > window.innerHeight * 0.35 && rect.bottom < window.innerHeight * 0.85;
+        if (!comfortable) link.scrollIntoView({ block: 'center' });
+    };
+    showLink();
+    // Once more after the header's 0.6s dock transition has re-pinned the
+    // wrapper padding — that shift can push the link back under the header.
+    window.setTimeout(showLink, 750);
 }
 
 /**

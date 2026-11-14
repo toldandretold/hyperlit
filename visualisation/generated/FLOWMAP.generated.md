@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2033 functions in 428 modules · 10 object stores · 10 PG tables · 4245 edges
+**MarkdownDB** schema v28 · 2041 functions in 429 modules · 10 object stores · 10 PG tables · 4266 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -465,6 +465,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `licenseFieldsHtml` | `components/sourceContainer/licensePicker` | — | — | — | — |
 | `populateLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read/write | — |
 | `wireLicenseFields` | `components/sourceContainer/licensePicker` | — | — | read/write | — |
+| `absolutizeLinks` | `components/sourceContainer/markdownLinks` | — | — | read/write | — |
+| `isHyperciteArrow` | `components/sourceContainer/markdownLinks` | — | — | read | — |
+| `parseHyperciteHref` | `components/sourceContainer/markdownLinks` | — | — | — | — |
+| `prepareFootnoteHtml` | `components/sourceContainer/markdownLinks` | — | — | read/write | — |
 | `initOriginalPdfDownload` | `components/sourceContainer/originalPdfDownload` | — | — | read/write | — |
 | `initReaderActions` | `components/sourceContainer/readerActions` | — | — | read/write | — |
 | `wirePanelPopover` | `components/sourceContainer/readerActions` | — | — | read/write | — |
@@ -1252,8 +1256,10 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `getCurrentScroller` | `hyperlitContainer/stack` | — | — | read | — |
 | `getDepth` | `hyperlitContainer/stack` | — | — | — | — |
 | `getLayerBelow` | `hyperlitContainer/stack` | — | — | — | — |
+| `getStackOriginPath` | `hyperlitContainer/stack` | — | — | — | — |
 | `getTopLayer` | `hyperlitContainer/stack` | — | — | — | — |
 | `isEmpty` | `hyperlitContainer/stack` | — | — | — | — |
+| `isReaderPage` | `hyperlitContainer/stack` | — | — | read | — |
 | `isStacked` | `hyperlitContainer/stack` | — | — | — | — |
 | `isStackPopPending` | `hyperlitContainer/stack` | — | — | — | — |
 | `isStackPopping` | `hyperlitContainer/stack` | — | — | — | — |
@@ -1261,9 +1267,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `popTopLayer` | `hyperlitContainer/stack` | — | — | read | — |
 | `pushLayer` | `hyperlitContainer/stack` | — | — | — | — |
 | `removeStackedContainerDOM` | `hyperlitContainer/stack` | — | — | write | — |
+| `renderedStackBookId` | `hyperlitContainer/stack` | — | — | read | — |
 | `resizeAllLayers` | `hyperlitContainer/stack` | — | — | read | — |
 | `saveAndPopTopLayer` | `hyperlitContainer/stack` | — | — | — | — |
 | `serializeStack` | `hyperlitContainer/stack` | — | — | — | — |
+| `stackOwnerBookId` | `hyperlitContainer/stack` | — | — | read | — |
 | `syncStackToHistoryState` | `hyperlitContainer/stack` | — | — | — | — |
 | `destroyAllSubBooks` | `hyperlitContainer/subBookActions` | — | — | — | — |
 | `destroySubBook` | `hyperlitContainer/subBookActions` | — | — | — | — |

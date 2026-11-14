@@ -711,8 +711,26 @@ export class LinkNavigationHandler {
       : nonBookPrefixStructure(window.location.pathname);
     const structureMismatch = (urlWantsReader && renderedStructure !== 'reader')
       || (!!urlPrefixStructure && renderedStructure !== urlPrefixStructure);
-    if (structureMismatch
-        || (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug))) {
+    // A step off a container entry ON A HERO PAGE (closing a citation there
+    // goes history.back(), like the reader): same page, one container fewer.
+    // A hero URL names no book, so the book comparison below can only say
+    // "different" (null vs the stale `book` global) and would re-seat the
+    // whole page for what is a container close. Recognised by: a stack is
+    // open here, it was opened on this very pathname, and the entry we landed
+    // on holds fewer layers. Everything else keeps the existing routing.
+    let heroContainerStep = false;
+    if (!structureMismatch && renderedStructure !== 'reader') {
+      try {
+        const { getDepth, getStackOriginPath } = await import('../../hyperlitContainer/stack');
+        const liveDepth = getDepth();
+        const savedDepth = history.state?.containerStack?.length || 0;
+        heroContainerStep = liveDepth > 0
+          && savedDepth < liveDepth
+          && getStackOriginPath() === window.location.pathname;
+      } catch { /* stack module unavailable — fall through to the normal routing */ }
+    }
+    if (!heroContainerStep && (structureMismatch
+        || (urlBookId !== currentBookVariable && (differsFromRendered || !effectiveSlug || urlBookId !== effectiveSlug)))) {
       verbose.nav(`Back button: URL shows ${urlBookId} but content is ${currentBookVariable}. Using structure-aware navigation.`, '/navigation/LinkNavigationHandler.js');
 
       // Parse cascade segments from URL path (same logic as handleBookToBookNavigation)
@@ -794,7 +812,12 @@ export class LinkNavigationHandler {
       // stamped from the lagging `book` global). Pushing/popping that layer over the wrong
       // book opens the container over unrelated content and then can't find its anchor —
       // when this fails, fall through to the guarded close+restore path below.
-      const renderedBookId = document.querySelector('main.main-content[data-slug]')?.id || null;
+      // On a hero page the "book" is the feed-slot occupant (see stack.ts
+      // stackOwnerBookId) — only reached there via heroContainerStep above.
+      const { renderedStackBookId } = await import('../../hyperlitContainer/stack');
+      const renderedBookId = heroContainerStep
+        ? renderedStackBookId()
+        : (document.querySelector('main.main-content[data-slug]')?.id || null);
       const savedStackBookId = history.state?.containerStackBookId || null;
       const bookMatches = !!renderedBookId && (!savedStackBookId || savedStackBookId === renderedBookId);
 

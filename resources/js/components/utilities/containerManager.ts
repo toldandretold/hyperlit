@@ -254,7 +254,12 @@ export class ContainerManager {
             // the host, so back() would step ANOTHER frame — the reader pane to about:blank, the
             // source pane off its PDF, or the host page itself. Close in place instead.
             const { isEmbeddedReader } = await import('../../utilities/embeddedReader');
-            const renderedBookId = (document.querySelector('main.main-content') as any)?.id || null;
+            // "Rendered book" is the reader's <main> on a reader page and the feed-slot
+            // occupant on a hero page (renderedStackBookId) — with the reader-only selector a
+            // hero close could never match, so it always closed in place and left its history
+            // entry behind (N citations read = N extra presses of Back).
+            const { renderedStackBookId } = await import('../../hyperlitContainer/stack');
+            const renderedBookId = renderedStackBookId();
             const stateBookId = history.state?.containerStackBookId || null;
             if (!isEmbeddedReader() && stateBookId && renderedBookId && stateBookId === renderedBookId) {
               history.back();

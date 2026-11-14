@@ -118,6 +118,49 @@ export function getDepth() {
   return layers.length;
 }
 
+// ── Which book does an open stack belong to, and where was it opened? ──
+// A history entry's stack is stamped with its owner (`containerStackBookId`)
+// so a close can tell "this entry is mine — step back off it" from "this entry
+// belongs to some other book — close in place, don't teleport".
+//
+// On a READER page the owner is the `book` global, as it always was. On the
+// hero pages (home, /j, /a, /u) that global is stale by design — it names
+// whatever was read at boot, not the feed or AI answer mounted in the slot —
+// so every hero container was stamped with a book that was not on screen,
+// every close therefore read as "not mine" and closed IN PLACE, and each
+// open+close left a spare history entry behind. There the owner is the
+// occupant of the feed slot: the rendered `.main-content`.
+export function isReaderPage(): boolean {
+  return document.body?.getAttribute('data-page') === 'reader';
+}
+
+/** The id a NEW stack entry is stamped with (see above). */
+export function stackOwnerBookId(): string | null {
+  if (isReaderPage()) return book;
+  return document.querySelector('.main-content')?.id || book || null;
+}
+
+/**
+ * The id a close / back-forward step compares an entry's stamp against: the
+ * book actually rendered. Readers keep their historical selector; hero pages
+ * mount feeds and answers as `<div class="main-content">`, not `<main>`.
+ */
+export function renderedStackBookId(): string | null {
+  const el = isReaderPage()
+    ? document.querySelector('main.main-content')
+    : document.querySelector('.main-content');
+  return el?.id || null;
+}
+
+// The pathname the currently OPEN stack was first opened on. A hero URL names
+// no book, so this is the only way a popstate can tell "Back off my own
+// container entry, on the page I am still on" from a move to another page of
+// the same structure (/j/x → /j/y).
+let stackOriginPath: string | null = null;
+export function getStackOriginPath(): string | null {
+  return layers.length > 0 ? stackOriginPath : null;
+}
+
 export function getTopLayer() {
   return layers.length > 0 ? layers[layers.length - 1] : null;
 }
@@ -192,6 +235,7 @@ export function clear() {
   if (refOverlay) refOverlay.classList.remove('active');
 
   layers.length = 0;
+  stackOriginPath = null;
   cachedBaseWidthPx = null;
   cachedBaseRightPx = null;
   verbose.nav('📚 Stack cleared', 'hyperlitContainer/stack.ts');
@@ -388,10 +432,13 @@ export function syncStackToHistoryState({ pushHistoryEntry = false, urlOverride 
   }
   const newUrl = baseHref.pathname + baseHref.search + baseHref.hash;
 
+  if (depth === 0) stackOriginPath = null;
+  else if (stackOriginPath === null) stackOriginPath = baseHref.pathname;
+
   const newState = {
     ...history.state,
     containerStack: serialized,
-    containerStackBookId: depth > 0 ? book : null,
+    containerStackBookId: depth > 0 ? stackOwnerBookId() : null,
     // Keep legacy field for backward compat
     hyperlitContainer: serialized && serialized.length > 0
       ? serialized[serialized.length - 1]!.contentMetadata
