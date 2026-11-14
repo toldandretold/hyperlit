@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2027 functions in 427 modules · 10 object stores · 10 PG tables · 4234 edges
+**MarkdownDB** schema v28 · 2033 functions in 428 modules · 10 object stores · 10 PG tables · 4245 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -67,6 +67,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hideFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | write | — |
 | `showFloatingMenu` | `components/floatingActionMenu/floatingActionMenu` | — | — | read/write | — |
 | `destroyHomepageListeners` | `components/homepage/homepage` | — | — | — | — |
+| `closeFeedContent` | `components/homepage/homepageDisplayUnit` | — | — | read/write | — |
 | `destroyHomepageDisplayUnit` | `components/homepage/homepageDisplayUnit` | — | — | — | — |
 | `fixHeaderSpacing` | `components/homepage/homepageDisplayUnit` | — | — | read | — |
 | `initializeHomepageButtons` | `components/homepage/homepageDisplayUnit` | `localStorage` | `localStorage` | read/write | — |
@@ -1845,6 +1846,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `findDuplicateIds` | `SPA/navigation/healthCheck` | — | — | read | — |
 | `startHealthMonitoring` | `SPA/navigation/healthCheck` | — | — | — | — |
 | `stressTestNavigation` | `SPA/navigation/healthCheck` | — | — | — | — |
+| `_resetHistoryTraversalForTests` | `SPA/navigation/historyTraversal` | — | — | — | — |
+| `beginPopstateTraversal` | `SPA/navigation/historyTraversal` | — | — | — | — |
+| `endPopstateTraversal` | `SPA/navigation/historyTraversal` | — | — | — | — |
+| `isHistoryTraversal` | `SPA/navigation/historyTraversal` | — | — | — | — |
+| `noteSpaNavigation` | `SPA/navigation/historyTraversal` | — | — | — | — |
 | `initializeImportedBook` | `SPA/navigation/index` | — | — | — | — |
 | `initializeReaderView` | `SPA/navigation/index` | — | — | — | — |
 | `smartNavigate` | `SPA/navigation/index` | — | — | — | — |

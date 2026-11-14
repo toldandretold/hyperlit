@@ -203,19 +203,76 @@ test.describe('AI Archivist homepage SPA nav', () => {
       await page.locator('.main-content.archivist-panel').count(),
       `dismissed answer resurrected — nav state: ${JSON.stringify(s8)}`,
     ).toBe(0);
-    // Ideal (not yet implemented): this back should restore the most-recent
-    // feed. Current contract only guarantees "not the archivist".
-    testInfo.annotations.push({
-      type: 'todo',
-      description: `back-after-dismissal should restore the feed tab; currently shows: ${s8.occupant ? s8.occupant.id : 'hero'}`,
-    });
+    // ...and the feed that was open on this entry comes back instead
+    // (scroll-restore/hero-feed-back-restore.spec.js owns the full contract).
+    await expect(page.locator('.home-content-wrapper .main-content#most-recent .libraryCard').first())
+      .toBeVisible({ timeout: 20_000 });
 
     // 9. no new console errors across the whole journey
     const newErrors = spa.filterConsoleErrors(page.consoleErrors).slice(consoleSnapshot);
     expect(newErrors, `New console errors:\n${newErrors.join('\n---\n')}`).toHaveLength(0);
   });
 
-  test('guest: Ask opens the login flow, never the panel or the endpoint', async ({ browser }, testInfo) => {
+  // The feed-restore-on-back contract (scroll-restore/hero-feed-back-restore
+  // .spec.js) must not steal an entry from the archivist: an entry showed a
+  // FEED first, then an ANSWER took the slot — every return to that entry
+  // (closing the citation container, or Back from the source) shows the
+  // answer, never the feed that was open before the question was asked.
+  test('answer asked OVER an open feed: closing the container / back from source return to the answer, not the feed', async ({ page, spa }, testInfo) => {
+    test.setTimeout(180_000);
+    await mockAsk(page);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    await spa.openHomeFeed(page);
+    await expect(page.locator('.libraryCard a').first()).toBeVisible({ timeout: 15_000 });
+    await dumpNavState(page, testInfo, 'overfeed-1-feed-open');
+
+    await askQuestion(page);
+    const sAsk = await dumpNavState(page, testInfo, 'overfeed-2-answer-over-feed');
+    expect(sAsk.historyState?.archivistAnswer?.bookId).toBe(ANSWER_BOOK);
+    expect(sAsk.historyState?.userPageActiveTab ?? null, 'the entry still remembers the feed the answer replaced').toBeNull();
+
+    const answer = page.locator(`.main-content.archivist-panel[id="${ANSWER_BOOK}"]`);
+    const arrow = page.locator(`.main-content a.open-icon[id^="hypercite_"]:not([data-cite-group])`).first();
+
+    // ↗ → container → CLOSE it (Escape) → still the answer
+    await expect(arrow).toBeVisible({ timeout: 15_000 });
+    await arrow.click();
+    await page.waitForSelector('#hyperlit-container a.see-in-source-btn', { timeout: 15_000 });
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#hyperlit-container.open')).toHaveCount(0, { timeout: 10_000 });
+    await page.waitForTimeout(1500); // a wrongly restored feed would have landed by now
+    const sClosed = await dumpNavState(page, testInfo, 'overfeed-3-container-closed');
+    await expect(answer, `closing the container replaced the answer — ${JSON.stringify(sClosed)}`).toBeVisible();
+    expect(sClosed.activeTab).toBeNull();
+
+    // ↗ → container → source → BACK → the answer, not the feed
+    await arrow.click();
+    await page.waitForSelector('#hyperlit-container a.see-in-source-btn', { timeout: 15_000 });
+    await page.locator('#hyperlit-container a.see-in-source-btn').first().click();
+    await settleStructure(page, 'reader');
+    await page.goBack();
+    await settleStructure(page, 'home');
+    await page.waitForTimeout(1500);
+    const sBack = await dumpNavState(page, testInfo, 'overfeed-4-back-from-source');
+    await expect(answer, `back from the source did not restore the answer — ${JSON.stringify(sBack)}`).toBeVisible({ timeout: 20_000 });
+    expect(sBack.activeTab).toBeNull();
+    expect(await page.locator('.home-content-wrapper .main-content#most-recent').count()).toBe(0);
+
+    // One more Back: a move between two entries of the HOME page itself (the
+    // closed container left its entry behind). '/' names no book, and the
+    // home→home swap used to load "book null" — an empty .main-content#null
+    // where the answer had been.
+    await page.goBack();
+    await page.waitForTimeout(1500);
+    const sBack2 = await dumpNavState(page, testInfo, 'overfeed-5-back-again');
+    expect(new URL(sBack2.href).pathname).toBe('/');
+    await expect(answer, `back between two home entries lost the answer — ${JSON.stringify(sBack2)}`).toBeVisible({ timeout: 20_000 });
+    expect(await page.locator('.main-content[id="null"]').count()).toBe(0);
+  });
+
+  test('guest: Ask opens the login flow, never the panel or the endpoint',async ({ browser }, testInfo) => {
     test.setTimeout(60_000);
     // storageState MUST be explicitly emptied: the fixture-wrapped
     // browser.newContext() inherits the project's authenticated state.

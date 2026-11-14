@@ -12,20 +12,23 @@
  *  - .content-active an arranger tab is open — hero docks, copy hides,
  *                    feed shows, × (#copy-feed-close) appears
  *
- * The homepage always boots to the hero: homepageDisplayUnit would otherwise
- * restore the last tab (localStorage 'homepage_active_button' / history.state
- * .userPageActiveTab) and auto-load the feed, so init clears both. homepageHero
- * registers before homepageDisplayUnit, so this runs before its restore reads.
- * The × closes the feed the same way. SPA returns from a book DO restore the
- * feed DOM — the MutationObserver re-applies .content-active for that case.
+ * A fresh visit or reload always boots to the hero: homepageDisplayUnit would
+ * otherwise restore the last tab (localStorage 'homepage_active_button' /
+ * history.state.userPageActiveTab) and auto-load the feed, so init clears both.
+ * homepageHero registers before homepageDisplayUnit, so this runs before its
+ * restore reads. The × closes the feed the same way. A back/forward RETURN
+ * (SPA/navigation/historyTraversal.ts) keeps the entry's history.state tab, so
+ * the feed that was open on that entry reopens at its saved scroll position —
+ * the MutationObserver re-applies .content-active for that case.
  *
  * No-ops unless #app-container.lava-lamp-background exists, so it is inert
  * everywhere else even though it registers for pages: ['home'].
  */
 
 import { setLavaCeiling, setLavaRise } from './lavaLampBackground';
-import { fixHeaderSpacing, resetHeaderAlignment } from './homepageDisplayUnit';
+import { fixHeaderSpacing, resetHeaderAlignment, closeFeedContent } from './homepageDisplayUnit';
 import { setPerimeterButtonsHidden } from '../../utilities/operationState';
+import { isHistoryTraversal } from '../../SPA/navigation/historyTraversal';
 
 
 let clickHandler: ((e: Event) => void) | null = null;
@@ -98,8 +101,9 @@ function trackFadeFor(ms: number): void {
   fadeRaf = requestAnimationFrame(step);
 }
 
-function suppressTabRestore(): void {
+function suppressTabRestore({ keepEntryState = false } = {}): void {
   localStorage.removeItem('homepage_active_button');
+  if (keepEntryState) return;
   const state = history.state;
   if (state && typeof state === 'object' && 'userPageActiveTab' in state) {
     const cleaned = { ...state } as Record<string, unknown>;
@@ -115,7 +119,7 @@ function suppressTabRestore(): void {
 function syncHeroState(): void {
   const page = heroRoot();
   if (!page) return;
-  const hasContent = !!document.querySelector('.home-content-wrapper .main-content');
+  const hasContent = !!document.querySelector('.home-content-wrapper .main-content:not(.feed-closing)');
   const hasActiveTab = !!page.querySelector('.arranger-button.active');
   if ((hasContent || hasActiveTab) && !page.classList.contains('content-active')) {
     page.classList.add('content-active');
@@ -125,13 +129,21 @@ function syncHeroState(): void {
     // CENTERED card was and dissolves the top of the feed until a scroll.
     // (The tab-CLICK path already does this in its own handler.)
     trackFadeFor(750);
+    // ...and, like the click path, re-measure the wrapper padding once the
+    // card has landed in its smaller docked pose: homepageDisplayUnit padded
+    // for the BIG centered card at init, which leaves a restored feed sitting
+    // a hero's height too low.
+    window.setTimeout(fixHeaderSpacing, 680);
   }
 }
 
 function closeFeed(): void {
   const page = heroRoot();
   if (!page) return;
-  document.querySelectorAll('.home-content-wrapper .main-content').forEach(el => el.remove());
+  // Instant unless a feed is still loading — then the container is hidden now
+  // and removed once that load settles (closeFeedContent explains why), and
+  // the perimeter buttons get their re-measure when it is really gone.
+  closeFeedContent(() => window.dispatchEvent(new Event('resize')));
   // User page: the feed's shelf header (title/sort row, built by shelfHeader.ts)
   // is a SIBLING of .main-content — left behind, it floats over the hero as a
   // stray bar at the bottom of the card. Its module cleanup (timers/aborts)
@@ -213,8 +225,15 @@ export function initHomepageHero(): void {
   // .userPageActiveTab via shelfTabs/homepageDisplayUnit), and the hero is
   // the empty state when nothing restores. closeFeed() still suppresses on
   // every page — an explicit × means "boot to hero next time" everywhere.
+  //
+  // "Boots to the hero" means a FRESH visit or a reload. A back/forward
+  // return is different: the entry's own record of the feed that was open on
+  // it (history.state.userPageActiveTab) is kept, so homepageDisplayUnit
+  // reopens that feed and the scroll restore puts the reader back on the card
+  // they left from. The cross-session localStorage fallback is still dropped
+  // either way — it names the LAST feed opened anywhere, not this entry's.
   if (document.body.dataset.page !== 'user') {
-    suppressTabRestore();
+    suppressTabRestore({ keepEntryState: isHistoryTraversal() });
   }
 
   clickHandler = (e: Event) => {

@@ -20,6 +20,7 @@ import { SameTemplateTransition } from './pathways/SameTemplateTransition.js';
 import { DifferentTemplateTransition} from './pathways/DifferentTemplateTransition.js';
 import { getPageStructure, areStructuresCompatible, nonBookPrefixStructure } from './utils/structureDetection.js';
 import { RevealGate } from './RevealGate';
+import { noteSpaNavigation } from './historyTraversal';
 import { perfMarkOnce, perfMeasure } from '../../utilities/perfMarks';
 
 export class NavigationManager {
@@ -35,6 +36,7 @@ export class NavigationManager {
   static async navigate(pathway: any, options: any = {}) {
     this.navigationCount++;
     log.nav(`Routing to ${pathway} (transition #${this.navigationCount})`, '/navigation/NavigationManager.js');
+    if (pathway !== 'fresh-page-load') noteSpaNavigation();
 
     try {
       // Route to appropriate pathway
@@ -191,6 +193,7 @@ export class NavigationManager {
   static async navigateByStructure(options: any = {}) {
     this.navigationCount++;
     log.nav(`Structure-aware navigation (transition #${this.navigationCount})`, '/navigation/NavigationManager.js');
+    noteSpaNavigation();
 
     try {
       // Get current structure

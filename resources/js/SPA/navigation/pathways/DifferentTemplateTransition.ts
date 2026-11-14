@@ -12,6 +12,7 @@ import { cleanupFromStructure } from '../utils/cleanupHelpers.js';
 import { initializeToStructure } from '../utils/initHelpers.js';
 import { fetchHtml, replaceBodyContent, navigateToHash, updateUrl } from '../utils/contentSwapHelpers.js';
 import { verbose } from '../../../utilities/logger';
+import { resetUserScrollState } from '../../../scrolling/index';
 
 export class DifferentTemplateTransition {
   /**
@@ -72,6 +73,13 @@ export class DifferentTemplateTransition {
 
       // Step 3: Replace body content (using shared utility)
       await replaceBodyContent(html);
+
+      // The page that was being scrolled is gone. Its scroll activity must not
+      // read as "the user is scrolling" on the page we are about to build —
+      // restoreScrollPosition bails for 2s after ANY scroll event, so a quick
+      // feed → book → Back (or scroll-then-click into a book) silently skipped
+      // the position restore. BookToBookTransition clears it the same way.
+      resetUserScrollState();
 
       progress(70, 'Waiting for DOM stabilization...');
 

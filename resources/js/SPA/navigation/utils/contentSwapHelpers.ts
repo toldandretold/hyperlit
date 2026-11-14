@@ -301,6 +301,11 @@ export function updateUrl(url: any, options: any = {}) {
       if (options.isPopstate) {
         window.history.replaceState(newState, '', url);
       } else {
+        // userPageActiveTab is PER-ENTRY state ("which feed was open on this
+        // entry") — the spread above would copy it from the entry being left
+        // onto the entry being created, and a hero page restores whatever it
+        // finds there on a back/forward return.
+        delete (newState as Record<string, unknown>).userPageActiveTab;
         window.history.pushState(newState, '', url);
       }
       verbose.nav('Updated browser URL', '/navigation/utils/contentSwapHelpers.js');

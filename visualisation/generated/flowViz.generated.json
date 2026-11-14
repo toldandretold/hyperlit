@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2027,
-    "moduleCount": 427,
+    "fnCount": 2033,
+    "moduleCount": 428,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4234,
+    "edgeCount": 4245,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -621,6 +621,14 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/homepage/homepage",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:closeFeedContent",
+      "label": "closeFeedContent",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/homepageDisplayUnit",
       "leaf": false
     },
     {
@@ -16550,6 +16558,46 @@
       "leaf": true
     },
     {
+      "id": "SPA/navigation/historyTraversal:_resetHistoryTraversalForTests",
+      "label": "_resetHistoryTraversalForTests",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/historyTraversal",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/historyTraversal:beginPopstateTraversal",
+      "label": "beginPopstateTraversal",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/historyTraversal",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/historyTraversal:endPopstateTraversal",
+      "label": "endPopstateTraversal",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/historyTraversal",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/historyTraversal:isHistoryTraversal",
+      "label": "isHistoryTraversal",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/historyTraversal",
+      "leaf": true
+    },
+    {
+      "id": "SPA/navigation/historyTraversal:noteSpaNavigation",
+      "label": "noteSpaNavigation",
+      "kind": "fn",
+      "stage": "SPA",
+      "module": "SPA/navigation/historyTraversal",
+      "leaf": true
+    },
+    {
       "id": "SPA/navigation/index:initializeImportedBook",
       "label": "initializeImportedBook",
       "kind": "fn",
@@ -18343,6 +18391,7 @@
       "stage": "components",
       "band": "components",
       "fnIds": [
+        "components/homepage/homepageDisplayUnit:closeFeedContent",
         "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
         "components/homepage/homepageDisplayUnit:fixHeaderSpacing",
         "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
@@ -23234,6 +23283,19 @@
       ]
     },
     {
+      "id": "SPA/navigation/historyTraversal",
+      "label": "SPA/navigation/historyTraversal",
+      "stage": "SPA",
+      "band": "store",
+      "fnIds": [
+        "SPA/navigation/historyTraversal:_resetHistoryTraversalForTests",
+        "SPA/navigation/historyTraversal:beginPopstateTraversal",
+        "SPA/navigation/historyTraversal:endPopstateTraversal",
+        "SPA/navigation/historyTraversal:isHistoryTraversal",
+        "SPA/navigation/historyTraversal:noteSpaNavigation"
+      ]
+    },
+    {
       "id": "SPA/navigation/index",
       "label": "SPA/navigation/index",
       "stage": "SPA",
@@ -24104,6 +24166,12 @@
       "dataPath": true
     },
     {
+      "id": "components/homepage/homepageDisplayUnit:closeFeedContent__domwrite__dom",
+      "source": "components/homepage/homepageDisplayUnit:closeFeedContent",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "components/homepage/homepageDisplayUnit:destroyHomepageDisplayUnit",
@@ -24168,6 +24236,19 @@
       "dataPath": true
     },
     {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__scrolling/restore:restoreScrollPosition",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "scrolling/restore:restoreScrollPosition",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__call__SPA/navigation/historyTraversal:isHistoryTraversal",
+      "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
+      "target": "SPA/navigation/historyTraversal:isHistoryTraversal",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/homepageDisplayUnit:initializeHomepageButtons__domwrite__dom",
       "source": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "target": "dom",
@@ -24211,6 +24292,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/homepageDisplayUnit:closeFeedContent",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "components/homepage/homepageDisplayUnit:closeFeedContent",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/homepageDisplayUnit:resetHeaderAlignment",
       "source": "components/homepage/homepageHero:initHomepageHero",
       "target": "components/homepage/homepageDisplayUnit:resetHeaderAlignment",
@@ -24232,6 +24319,12 @@
       "id": "components/homepage/homepageHero:initHomepageHero__call__components/homepage/lavaLampBackground:setLavaRise",
       "source": "components/homepage/homepageHero:initHomepageHero",
       "target": "components/homepage/lavaLampBackground:setLavaRise",
+      "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageHero:initHomepageHero__call__SPA/navigation/historyTraversal:isHistoryTraversal",
+      "source": "components/homepage/homepageHero:initHomepageHero",
+      "target": "SPA/navigation/historyTraversal:isHistoryTraversal",
       "rel": "call"
     },
     {
@@ -30923,6 +31016,12 @@
       "id": "dom__domread__components/homepage/homepage:initializeHomepageBookActions",
       "source": "dom",
       "target": "components/homepage/homepage:initializeHomepageBookActions",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/homepageDisplayUnit:closeFeedContent",
+      "source": "dom",
+      "target": "components/homepage/homepageDisplayUnit:closeFeedContent",
       "rel": "domread"
     },
     {
@@ -47531,6 +47630,18 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate__call__SPA/navigation/historyTraversal:beginPopstateTraversal",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate",
+      "target": "SPA/navigation/historyTraversal:beginPopstateTraversal",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate__call__SPA/navigation/historyTraversal:endPopstateTraversal",
+      "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate",
+      "target": "SPA/navigation/historyTraversal:endPopstateTraversal",
+      "rel": "call"
+    },
+    {
       "id": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate__call__SPA/navigation/utils/structureDetection:getPageStructure",
       "source": "SPA/navigation/LinkNavigationHandler:LinkNavigationHandler.handlePopstate",
       "target": "SPA/navigation/utils/structureDetection:getPageStructure",
@@ -47615,6 +47726,18 @@
       "id": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
       "source": "SPA/navigation/NavigationManager:NavigationManager.detectStructureFromUrl",
       "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/NavigationManager:NavigationManager.navigate__call__SPA/navigation/historyTraversal:noteSpaNavigation",
+      "source": "SPA/navigation/NavigationManager:NavigationManager.navigate",
+      "target": "SPA/navigation/historyTraversal:noteSpaNavigation",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/NavigationManager:NavigationManager.navigateByStructure__call__SPA/navigation/historyTraversal:noteSpaNavigation",
+      "source": "SPA/navigation/NavigationManager:NavigationManager.navigateByStructure",
+      "target": "SPA/navigation/historyTraversal:noteSpaNavigation",
       "rel": "call"
     },
     {
@@ -47768,6 +47891,12 @@
       "id": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.detectTargetStructure__call__SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
       "source": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.detectTargetStructure",
       "target": "SPA/navigation/utils/structureDetection:nonBookPrefixStructure",
+      "rel": "call"
+    },
+    {
+      "id": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.execute__call__scrolling/userScrollDetection:resetUserScrollState",
+      "source": "SPA/navigation/pathways/DifferentTemplateTransition:DifferentTemplateTransition.execute",
+      "target": "scrolling/userScrollDetection:resetUserScrollState",
       "rel": "call"
     },
     {
@@ -49969,6 +50098,11 @@
     },
     {
       "source": "SPA/navigation/LinkNavigationHandler",
+      "target": "SPA/navigation/historyTraversal",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/LinkNavigationHandler",
       "target": "SPA/navigation/navigationRegistry",
       "kind": "static"
     },
@@ -50025,6 +50159,11 @@
     {
       "source": "SPA/navigation/NavigationManager",
       "target": "SPA/navigation/RevealGate",
+      "kind": "static"
+    },
+    {
+      "source": "SPA/navigation/NavigationManager",
+      "target": "SPA/navigation/historyTraversal",
       "kind": "static"
     },
     {
@@ -50914,6 +51053,11 @@
     },
     {
       "source": "components/homepage/homepageDisplayUnit",
+      "target": "SPA/navigation/historyTraversal",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
       "target": "components/homepage/shelfTabRouting",
       "kind": "static"
     },
@@ -50926,6 +51070,11 @@
       "source": "components/homepage/homepageDisplayUnit",
       "target": "components/shelves/shelfHeader",
       "kind": "breaker"
+    },
+    {
+      "source": "components/homepage/homepageHero",
+      "target": "SPA/navigation/historyTraversal",
+      "kind": "static"
     },
     {
       "source": "components/homepage/homepageHero",

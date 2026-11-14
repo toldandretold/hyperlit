@@ -23,6 +23,13 @@ use League\HTMLToMarkdown\HtmlConverter;
  *                                    ## References (deduped by source);
  *   - img src                     → absolutized (vault v1 links images, it
  *                                    does not bundle them).
+ *   - a hypercite arrow INSIDE a footnote body
+ *                                 → the same citation written inline in
+ *                                    the footnote (markdown has no nested
+ *                                    footnotes);
+ *   - root-relative a href        → absolutized (a relative link is a note
+ *                                    path to Obsidian, which mints a blank
+ *                                    note for it).
  *
  * Footnotes and hypercites share ONE [^n] sequence, mirroring the client.
  * The [^n] markers ride through league/html-to-markdown as sentinel tokens
@@ -143,6 +150,8 @@ class BookMarkdownExporter
             /** @var \DOMElement $img */
             $img->setAttribute('src', $this->absoluteUrl($img->getAttribute('src')));
         }
+
+        $this->absolutizeLinks($xpath);
 
         $body = $this->convert($this->innerHtml($doc));
         // Swap the sentinels for real footnote markers post-conversion.
@@ -280,7 +289,7 @@ class BookMarkdownExporter
             ->filter(fn ($c) => trim((string) $c) !== '');
 
         if ($subNodes->isNotEmpty()) {
-            return $subNodes->map(fn ($c) => trim($this->convert($c)))->filter()->values()->all();
+            return $subNodes->map(fn ($c) => $this->convertFragment((string) $c))->filter()->values()->all();
         }
 
         // Fallback: the footnotes row (preview_nodes snapshot, then raw content).
@@ -296,7 +305,7 @@ class BookMarkdownExporter
                 foreach ($preview as $node) {
                     $content = is_array($node) ? ($node['content'] ?? '') : '';
                     if (trim((string) $content) !== '') {
-                        $paragraphs[] = trim($this->convert($content));
+                        $paragraphs[] = $this->convertFragment((string) $content);
                     }
                 }
                 if ($paragraphs !== []) {
@@ -304,7 +313,7 @@ class BookMarkdownExporter
                 }
             }
             if (trim((string) $row->content) !== '') {
-                return [trim($this->convert($row->content))];
+                return [$this->convertFragment((string) $row->content)];
             }
         }
 
@@ -393,7 +402,7 @@ class BookMarkdownExporter
                 continue;
             }
             $seen[$dedupKey] = true;
-            $lines[] = trim($this->convert($row->content));
+            $lines[] = $this->convertFragment((string) $row->content);
             $lines[] = '';
         }
 
@@ -405,6 +414,69 @@ class BookMarkdownExporter
     private function convert(string $html): string
     {
         return trim($this->converter->convert($html));
+    }
+
+    /**
+     * Convert a fragment that is NOT the book body — a footnote's body, a
+     * bibliography entry. Markdown has no footnote-inside-a-footnote, so a
+     * hypercite arrow here cannot become another `[^n]`; it is written out
+     * inline as the cited book's citation, linking the hyperlit deep URL:
+     * `(Author, “[Title](https://…#hypercite_x)”, 1999)`. Left alone it came out
+     * as `[↗](/book_x#hypercite_y)` — a RELATIVE link, which Obsidian reads as
+     * a note in the vault and answers by creating a blank one.
+     */
+    private function convertFragment(string $html): string
+    {
+        if (trim($html) === '') {
+            return '';
+        }
+
+        $doc = $this->loadHtml($html);
+        $xpath = new \DOMXPath($doc);
+
+        $citations = [];
+        $arrows = $xpath->query(
+            '//a[@href and (contains(concat(" ", normalize-space(@class), " "), " open-icon ")'
+            . ' or .//sup[contains(concat(" ", normalize-space(@class), " "), " open-icon ")])]'
+        );
+        foreach (iterator_to_array($arrows) as $el) {
+            /** @var \DOMElement $el */
+            $target = $this->parseHyperciteHref($el->getAttribute('href'));
+            if ($target === null) {
+                continue;
+            }
+            $citations[] = rtrim($this->hyperciteCitation($target['targetBookId'], $target['sourceUrl']), '.');
+            $el->parentNode?->replaceChild($doc->createTextNode('@@HLHC' . count($citations) . '@@'), $el);
+        }
+
+        $this->absolutizeLinks($xpath);
+
+        $markdown = $this->convert($this->innerHtml($doc));
+        if ($citations === []) {
+            return $markdown;
+        }
+
+        return preg_replace_callback(
+            '/[ \t]*@@HLHC(\d+)@@/',
+            fn ($m) => isset($citations[(int) $m[1] - 1]) ? ' (' . $citations[(int) $m[1] - 1] . ')' : '',
+            $markdown
+        ) ?? $markdown;
+    }
+
+    /**
+     * Root-relative links (`/book_x#…`, `/u/name`) → absolute hyperlit URLs. A
+     * vault has no site root, so Obsidian resolves them as note paths. In-page
+     * `#fragment` links are left alone — the bibliography block links need them.
+     */
+    private function absolutizeLinks(\DOMXPath $xpath): void
+    {
+        foreach ($xpath->query('//a[@href]') as $a) {
+            /** @var \DOMElement $a */
+            $href = $a->getAttribute('href');
+            if (str_starts_with($href, '/') && !str_starts_with($href, '//')) {
+                $a->setAttribute('href', $this->absoluteUrl($href));
+            }
+        }
     }
 
     private function loadHtml(string $html): \DOMDocument

@@ -20,6 +20,7 @@ import { currentLazyLoader, openContainerChain, buildChainFromUrl } from '../../
 import { getLocalStorageKey } from '../../indexedDB/index';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index';
 import { registerLinkClickHandler } from '../../utilities/linkClickRegistry';
+import { beginPopstateTraversal, endPopstateTraversal } from './historyTraversal';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler: any = null;
@@ -538,6 +539,9 @@ export class LinkNavigationHandler {
       return;
     }
     this.isReloading = true;
+    // Page inits that run inside this handling are history TRAVERSALS — the
+    // hero pages restore the entry's feed instead of booting to the hero.
+    beginPopstateTraversal();
 
     try {
       let evt = event;
@@ -567,6 +571,7 @@ export class LinkNavigationHandler {
       } while (this.pendingPopstate);
     } finally {
       this.isReloading = false;
+      endPopstateTraversal();
     }
   }
 

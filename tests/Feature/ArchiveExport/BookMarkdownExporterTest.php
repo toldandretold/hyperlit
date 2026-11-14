@@ -112,6 +112,46 @@ test('footnote falls back to the footnotes row when no sub-book exists', functio
     expect($md)->toContain('[^1]: Preview footnote text.');
 });
 
+test('a hypercite inside a footnote is written inline as a citation linking hyperlit', function () {
+    $book = 'bmebook_' . Str::random(8);
+    $target = 'bmebook_' . Str::random(8);
+    $base = rtrim(config('app.url'), '/');
+
+    bmeNode($book, 100, '<p>Claim<sup class="footnote-ref" id="fn1">1</sup>.</p>');
+    bmeNode($book . '/fn1', 100, '<p>As argued elsewhere<a href="/' . $target . '#hypercite_abc" id="hypercite_zzz" class="open-icon">↗</a> and <a href="/u/someone">here</a>.</p>');
+
+    bmeDb()->table('library')->insert([
+        'book'       => $target,
+        'title'      => 'Bme Cited Title',
+        'author'     => 'Cited Author',
+        'year'       => '2001',
+        'creator'    => 'someone',
+        'visibility' => 'public',
+        'raw_json'   => '[]',
+        'timestamp'  => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book);
+
+    expect($md)
+        ->toContain("[^1]: As argued elsewhere (Cited Author, “[Bme Cited Title]({$base}/{$target}#hypercite_abc)”, 2001) and [here]({$base}/u/someone).")
+        // No relative link survives — Obsidian would open a blank note for it.
+        ->not->toContain('](/')
+        ->not->toContain('↗');
+});
+
+test('root-relative links in the body are absolutized, in-page fragments are not', function () {
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>See <a href="/some-book">that book</a> and <a href="#sec2">below</a>.</p>');
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book);
+
+    expect($md)->toContain('[that book](' . rtrim(config('app.url'), '/') . '/some-book)')
+        ->toContain('[below](#sec2)');
+});
+
 test('relative image sources are absolutized', function () {
     $book = 'bmebook_' . Str::random(8);
     bmeNode($book, 100, '<p><img src="/storage/book-images/x.png" alt="fig"></p>');

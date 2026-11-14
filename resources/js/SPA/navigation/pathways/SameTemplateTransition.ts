@@ -62,6 +62,25 @@ export class SameTemplateTransition {
   static async handleHomeToHome(options: any = {}) {
     const { toBook, hash = '', isPopstate = false, progressCallback } = options;
 
+    // No book to swap in: this is a move between two HISTORY ENTRIES of the
+    // home page itself ('/' names no book) — e.g. Back over the entry a
+    // citation container pushed. Swapping "content null" in left an empty
+    // `.main-content#null` where the feed / AI answer had been. Re-seat the
+    // page from the entry instead, exactly as journal→journal and user→user
+    // do: the hero components then restore what THIS entry was showing
+    // (history.state.userPageActiveTab / archivistAnswer).
+    if (!toBook) {
+      const { DifferentTemplateTransition } = await import('./DifferentTemplateTransition.js');
+      return await DifferentTemplateTransition.execute({
+        fromStructure: 'home',
+        toStructure: 'home',
+        targetUrl: options.targetUrl,
+        hash,
+        isPopstate,
+        progressCallback,
+      });
+    }
+
     console.log('🏠 SameTemplateTransition: Home→Home content swap', { toBook });
 
     try {

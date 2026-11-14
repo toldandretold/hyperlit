@@ -205,8 +205,11 @@ function stampAskScope(el: HTMLElement, shelf?: { id?: string | null; name?: str
 function storeAnswer(ctx: string, data: StoredAnswer): void {
     clearTombstone(ctx); // a fresh ask supersedes any earlier dismissal
     try {
+        // One occupant per entry: the answer REPLACES whatever feed this
+        // entry remembered (see forgetEntryFeedTab).
+        const { userPageActiveTab: _feedTab, ...rest } = (history.state || {}) as Record<string, unknown>;
         history.replaceState(
-            { ...(history.state || {}), archivistAnswer: { ...data, ctx } },
+            { ...rest, archivistAnswer: { ...data, ctx } },
             '',
             window.location.href,
         );
@@ -214,6 +217,25 @@ function storeAnswer(ctx: string, data: StoredAnswer): void {
         // replaceState can throw in rare sandboxed contexts — persistence is
         // a convenience, not a contract
     }
+}
+
+/**
+ * The feed slot has ONE occupant, so a history entry remembers ONE: the feed
+ * tab (history.state.userPageActiveTab, written by homepageDisplayUnit) or the
+ * answer (archivistAnswer). A question asked while a feed was open left BOTH on
+ * the entry, and since a back/forward return restores the entry's feed
+ * (homepageHero keeps that state on a traversal), the stale feed tab won:
+ * Back from a cited source landed on the feed that was open BEFORE the
+ * question, not on the answer. Taking the slot therefore forgets the feed tab.
+ * (The mirror — a feed opened over an answer — is the dismissal handler.)
+ */
+function forgetEntryFeedTab(): void {
+    try {
+        const state = history.state;
+        if (!state || typeof state !== 'object' || !('userPageActiveTab' in state)) return;
+        const { userPageActiveTab: _feedTab, ...rest } = state as Record<string, unknown>;
+        history.replaceState(rest, '', window.location.href);
+    } catch { /* ignore */ }
 }
 
 function readStoredAnswer(ctx: string): StoredAnswer | null {
@@ -461,6 +483,7 @@ function createPanel(): HTMLElement | null {
     }
     document.querySelectorAll('.main-content').forEach((el) => el.remove());
     document.querySelectorAll('.arranger-button.active').forEach((el) => el.classList.remove('active'));
+    forgetEntryFeedTab();
 
     const panel = document.createElement('div');
     // ⚠️ NO fake element id: `.main-content`'s id is read as a BOOK id by the

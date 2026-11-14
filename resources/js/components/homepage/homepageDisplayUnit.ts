@@ -1,5 +1,6 @@
 import { setCurrentBook } from '../../app';
-import { showNavigationLoading, hideNavigationLoading } from '../../scrolling/index';
+import { showNavigationLoading, hideNavigationLoading, restoreScrollPosition } from '../../scrolling/index';
+import { isHistoryTraversal } from '../../SPA/navigation/historyTraversal';
 import { log, verbose } from '../../utilities/logger';
 import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 import { formatAuthorsForReference } from '../../utilities/authorList';
@@ -14,17 +15,29 @@ const buttonHandlers = new Map();
 
 // Mirror the active arranger-button into history.state so the browser
 // back/forward restores the correct tab per history entry.
-function persistActiveTabToHistory(filter: any, content: any, shelfId = null) {
+// `sort` matters on journal/archive pages, whose three feed buttons all carry
+// the SAME shelf id — without it a restore can only ever pick the first one.
+function persistActiveTabToHistory(filter: any, content: any, shelfId: any = null, sort: any = null) {
   try {
     const currentState = history.state || {};
     history.replaceState(
-      { ...currentState, userPageActiveTab: { filter, content, shelfId } },
+      { ...currentState, userPageActiveTab: { filter, content, shelfId, sort } },
       '',
       window.location.href
     );
   } catch (e) {
     // replaceState can throw in rare cross-origin / sandboxed contexts; fail silently
   }
+}
+
+// "Is this still the feed the reader asked for?" — asked after every await on
+// the way to showing a feed. The hero's × (and a click on another tab) takes
+// `active` off the button, so a button that lost it mid-flight has been
+// abandoned: opening its feed anyway resurrects a feed the reader just closed
+// (× pressed while the shelf render was still being fetched), and stamping
+// its shelf header leaves a stray bar over the hero.
+function stillWanted(btn: any): boolean {
+  return !!btn?.classList?.contains('active');
 }
 
 // Resolve a shelf-filter arranger button (server-rendered visitor pill or
@@ -69,7 +82,9 @@ async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist
     return;
   }
 
+  if (!stillWanted(btn)) return;
   await transitionToBookContent(bookId, true);
+  if (!stillWanted(btn)) return;
 
   if ((window as any).isUserPage && document.body.dataset.page !== 'journal') {
     const { showShelfHeader } = await import('../shelves/shelfHeader') as any;
@@ -104,7 +119,7 @@ async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist
   }
 
   if (persist) {
-    persistActiveTabToHistory('shelf', bookId, shelfId);
+    persistActiveTabToHistory('shelf', bookId, shelfId, sort);
   }
 }
 
@@ -118,10 +133,18 @@ async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist
 // is stamped synchronously before this runs (the signal aiArchivist's restore
 // keys on — see archivistPanel.ts), and transitionToBookContent's internal
 // chain serializes any early tab click against this load (newest-wins).
-function runBootFeedLoad(work: () => Promise<void>): void {
+//
+// `restorePosition`: this boot is a back/forward RETURN, so once the feed is
+// rendered put the reader back on the card they left from. The page-level
+// restoreScrollPosition() that viewManager schedules cannot do it — it runs
+// before this deferred feed has a lazy loader and bails — so the feed asks
+// again here, when there is finally something to position. Fresh visits and
+// tab clicks never pass it: a feed you just opened starts at its top.
+function runBootFeedLoad(work: () => Promise<void>, restorePosition = false): void {
   void (async () => {
     try {
       await work();
+      if (restorePosition) await restoreScrollPosition();
       // lockedCardTitles inits in registry order, i.e. before this deferred
       // feed has rendered its cards — re-run its one-shot scan now that they
       // exist. Idempotent (WeakSet) and inert without encrypted cards.
@@ -225,6 +248,10 @@ export async function initializeHomepageButtons() {
   };
   window.addEventListener('resize', resizeHandler);
 
+  // Captured NOW, synchronously: the popstate bracket that answers this closes
+  // long before the deferred feed load below gets to use it.
+  const returningViaHistory = isHistoryTraversal();
+
   // Restore saved active tab — prefer history.state (per-entry, survives back/forward)
   // over localStorage (cross-session fallback).
   const histActiveTab = history.state?.userPageActiveTab || null;
@@ -270,7 +297,13 @@ export async function initializeHomepageButtons() {
   } else if (histActiveTab?.filter === 'shelf' && histActiveTab.shelfId) {
     // Visitor shelf tab — server-rendered, match by data-shelf-id
     document.querySelectorAll('.arranger-button').forEach((btn: any) => btn.classList.remove('active'));
-    const visitorShelf = document.querySelector(`.arranger-button[data-filter="shelf"][data-shelf-id="${histActiveTab.shelfId}"]`);
+    // Journal/archive feed buttons share one shelf id and differ by sort, so
+    // prefer the exact (shelf, sort) button; entries saved before `sort` was
+    // recorded, and user-page pills (one button per shelf), match by id alone.
+    const shelfSel = `.arranger-button[data-filter="shelf"][data-shelf-id="${CSS.escape(String(histActiveTab.shelfId))}"]`;
+    const visitorShelf = (histActiveTab.sort
+      && document.querySelector(`${shelfSel}[data-sort="${CSS.escape(String(histActiveTab.sort))}"]`))
+      || document.querySelector(shelfSel);
     if (visitorShelf) visitorShelf.classList.add('active');
   } else if (histActiveTab?.filter && histActiveTab.filter !== 'shelf') {
     // library / account — match by filter (more robust than data-content)
@@ -279,6 +312,11 @@ export async function initializeHomepageButtons() {
       if (btn.dataset.filter === histActiveTab.filter) {
         btn.classList.add('active');
       }
+    });
+  } else if (isPersistableContentId(histActiveTab?.content)) {
+    // Home feed buttons carry no data-filter — the entry names them by content
+    document.querySelectorAll('.arranger-button').forEach((btn: any) => {
+      btn.classList.toggle('active', btn.dataset.content === histActiveTab.content);
     });
   } else if (savedActiveButton) {
     // Legacy localStorage path: match by data-content
@@ -323,7 +361,7 @@ export async function initializeHomepageButtons() {
             await transitionToBookContent(mainContent.id, true);
           }
         }
-      });
+      }, returningViaHistory);
     } else {
       let initialTargetId = activeButton.dataset.content;
 
@@ -353,7 +391,9 @@ export async function initializeHomepageButtons() {
           if (sortedId) targetId = sortedId;
         }
 
+        if (!stillWanted(activeButton)) return;
         await transitionToBookContent(targetId, true);
+        if (!stillWanted(activeButton)) return;
 
         // Show shelf header for initial Library tab on user page
         if ((window as any).isUserPage) {
@@ -370,7 +410,7 @@ export async function initializeHomepageButtons() {
             });
           }
         }
-      });
+      }, returningViaHistory);
     }
   } else if (!deferToShelfTabs) {
     // No buttons exist (e.g., non-owner viewing user page with no public shelves)
@@ -395,7 +435,7 @@ export async function initializeHomepageButtons() {
             username: (window as any).username,
           });
         }
-      });
+      }, returningViaHistory);
     }
   }
   
@@ -469,7 +509,9 @@ export async function initializeHomepageButtons() {
         if (sortedId) targetId = sortedId;
       }
 
+      if (!stillWanted(this)) return;
       await transitionToBookContent(targetId, true);
+      if (!stillWanted(this)) return;
 
       // Show/hide shelf header on user page
       if ((window as any).isUserPage) {
@@ -524,6 +566,43 @@ export function destroyHomepageDisplayUnit() {
 //     clicks collapse to the newest target instead of replaying every stop.
 let transitionChain: Promise<void> = Promise.resolve();
 let transitionSeq = 0;
+// Feed loads currently inside runBookContentTransition (see closeFeedContent).
+let transitionsRunning = 0;
+
+/**
+ * Close the open feed (the hero's ×): drop every feed container.
+ *
+ * Returns true when the containers are already gone. When a feed load is still
+ * IN FLIGHT its container cannot simply be removed — the load would then look
+ * its container up, not find it, and log "Container element … not found"
+ * (the same race the serialization above exists for, reached by pressing a tab
+ * and then × before the feed lands; a back/forward return makes that easy,
+ * because the entry's feed starts loading on its own). So the containers are
+ * hidden and marked `.feed-closing` now, queued swaps are superseded, and the
+ * removal rides the chain behind the running load; `onRemoved` fires then.
+ * homepageHero ignores `.feed-closing` containers when deciding whether a
+ * feed is showing.
+ */
+export function closeFeedContent(onRemoved?: () => void): boolean {
+  const containers = Array.from(document.querySelectorAll<HTMLElement>('.home-content-wrapper .main-content'));
+  if (transitionsRunning === 0) {
+    containers.forEach(el => el.remove());
+    return true;
+  }
+  containers.forEach(el => {
+    el.classList.add('feed-closing');
+    el.style.display = 'none';
+  });
+  ++transitionSeq; // anything queued but not yet started is abandoned
+  const prev = transitionChain;
+  const run = (async () => {
+    await Promise.race([prev, new Promise((r) => setTimeout(r, 8000))]);
+    document.querySelectorAll('.main-content.feed-closing').forEach(el => el.remove());
+    onRemoved?.();
+  })();
+  transitionChain = run.catch(() => {});
+  return false;
+}
 
 export function transitionToBookContent(bookId: any, showLoader = true): Promise<void> {
   // A falsy bookId must never reach the loader: loadHyperText's `bookId || book`
@@ -546,6 +625,7 @@ export function transitionToBookContent(bookId: any, showLoader = true): Promise
 }
 
 async function runBookContentTransition(bookId: any, showLoader: boolean) {
+  transitionsRunning++;
   try {
     if (showLoader) {
       showNavigationLoading(`Loading ${bookId}...`);
@@ -604,6 +684,8 @@ async function runBookContentTransition(bookId: any, showLoader: boolean) {
       hideNavigationLoading();
     }
     // Could show an error state here
+  } finally {
+    transitionsRunning--;
   }
 }
 

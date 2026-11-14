@@ -131,9 +131,13 @@ async function heroSpaTour(page, spa, heroPath) {
   await awaitStructureSettled(page, spa, 'journal');
   expect(await sentinelSurvived(page)).toBe(true);
   await spa.assertRegistryHealthy(page, 'journal');
-  // the hero card actually renders (in-viewport, not the off-screen bug)
+  // the hero card actually renders (in-viewport, not the off-screen bug) —
+  // docked over the feed that was open on this entry, which Back restores
+  // (tab + scroll position: scroll-restore/hero-feed-back-restore.spec.js)
   await expect(page.locator('.fixed-header')).toBeVisible();
   await expect(page.locator('.journal-title')).toBeVisible();
+  await expect(page.locator('.arranger-button[data-sort="published"].active')).toBeAttached({ timeout: 15_000 });
+  await expect(page.locator('.libraryCard').first()).toBeVisible({ timeout: 15_000 });
 
   // ── browser FORWARD back to the reader ──
   await plantSentinel(page);
@@ -165,9 +169,11 @@ async function heroSpaTour(page, spa, heroPath) {
   await awaitStructureSettled(page, spa, 'journal');
 
   // the feed buttons still work after the user-page round trip
+  // (Back restores the feed that was open on this entry, so cards are already
+  // on screen — wait for the LIT feed's own container, not just any card.)
   await page.click('.arranger-button[data-sort="lit"]');
   await expect(page.locator('#app-container.content-active')).toBeAttached({ timeout: 15_000 });
-  await expect(page.locator('.libraryCard').first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.main-content[id*="_lit"] .libraryCard').first()).toBeVisible({ timeout: 15_000 });
   await page.click('#copy-feed-close');
   await expect(page.locator('#app-container.content-active')).toHaveCount(0);
 
