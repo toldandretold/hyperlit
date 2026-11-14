@@ -333,6 +333,7 @@ async function loadFootnotesToIndexedDB(db: any, footnotes: any) {
             footnoteId: footnoteId,
             content: isNewFormat ? (footnoteData.content ?? '') : footnoteData,
             preview_nodes: isNewFormat ? (footnoteData.preview_nodes ?? null) : null,
+            sources: isNewFormat ? (footnoteData.sources ?? null) : null,
         });
     }
 

@@ -245,7 +245,7 @@ export interface HyperciteRecord extends AnnotationRecordBase {
  * preview, loaded from DatabaseToIndexedDBController::getFootnotes (→ ServerFootnotesPayload, expanded
  * per footnoteId) and saved via DbFootnoteController. Traced by the `footnotes` type lens.
  * (The DB also has server-managed citation-matching columns — is_citation/source_id/match_* and the
- * server-set sub_book_id — which are NOT part of the client wire/store shape.)
+ * server-set sub_book_id — which are NOT part of the client wire/store shape; `sources` is derived from them.)
  */
 export interface FootnoteRecord {
   book: BookId;
@@ -253,6 +253,9 @@ export interface FootnoteRecord {
   content?: string;
   /** Rendered preview snippets — an opaque array forwarded to the preview renderer. */
   preview_nodes?: unknown[] | null;
+  /** READ-only, server-derived — canonical_source ids of the works this citation footnote was
+   *  matched to (absent when none). Rendered as source links under the footnote; never written back. */
+  sources?: string[] | null;
   /** ISO timestamps set client-side by the inserter / annotation save. */
   created_at?: string;
   updated_at?: string;

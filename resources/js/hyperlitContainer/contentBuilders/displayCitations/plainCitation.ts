@@ -221,6 +221,60 @@ async function buildOneSection(
     </div>`;
 }
 
+// ── Footnote sources: the same matched card, under a citation footnote ──────────────────────────
+
+/**
+ * Source cards for a citation FOOTNOTE — one per work the scan matched it to (`FootnoteRecord.sources`,
+ * canonical ids derived server-side). Same rendering as a matched bibliography reference: the title
+ * links to our readable version if we hold one, else the DOI, with the "Citation verified" pill.
+ * Read-only by design — no Check source (a footnote's match has no owner write path).
+ * Returns '' when nothing resolves, so an unreachable server leaves the footnote as it was.
+ */
+export async function buildFootnoteSourcesHtml(canonicalIds: string[], footnoteId: string, lookupBook: any): Promise<string> {
+  const ids = Array.from(new Set((canonicalIds || []).filter(Boolean)));
+  if (!ids.length) return '';
+
+  const cards = await Promise.all(ids.map(async (canonicalId) => {
+    try {
+      const resolved: any = await resolveBibliographyTarget({ canonical_source_id: canonicalId });
+      const meta = resolved?.metadata || null;
+      if (!meta) return '';
+      const held = resolved?.type === 'library' && resolved.book ? (resolved.slug || resolved.book) : null;
+      const titleUrl = held ? `/${encodeURIComponent(held)}` : citationExternalLink(null, meta);
+      const status = sourceStatusHtml({
+        refId: footnoteId, lookupBook, canonicalId, isOwner: false,
+        matched: true, method: null, provenance: provenanceLink(meta),
+      });
+      return `<div class="footnote-source" style="margin-top: 1em;"><blockquote style="margin: 0; padding: 0.5em 0; font-style: normal;">${metaToCitation(meta, titleUrl)}</blockquote>${status}</div>`;
+    } catch (e) {
+      log.error('footnote source resolve failed', 'displayCitations/plainCitation', e);
+      return '';
+    }
+  }));
+
+  const body = cards.join('');
+  if (!body) return '';
+  const heading = cards.filter(Boolean).length > 1 ? 'Sources' : 'Source';
+  // contenteditable=false + translate=no: app furniture beside the editable footnote text, never content.
+  return `<div class="footnote-sources" contenteditable="false" translate="no" data-footnote-id="${escapeHtml(footnoteId)}" style="margin-top: 1.5em;"><h3 style="margin-bottom: 0.5em;">${heading}</h3>${body}</div>`;
+}
+
+/**
+ * Mount the source cards into an open footnote section (before its closing rule) and wire the
+ * pill. Fire-and-forget from footnoteHandler.postOpen — the footnote text must not wait on it.
+ * Idempotent, and a no-op if the popup closed or re-rendered while the lookups were in flight.
+ */
+export async function mountFootnoteSources(section: HTMLElement | null, canonicalIds: string[] | null | undefined, footnoteId: string, lookupBook: any): Promise<void> {
+  if (!section || !canonicalIds?.length) return;
+  const html = await buildFootnoteSourcesHtml(canonicalIds, footnoteId, lookupBook);
+  if (!html || !section.isConnected || section.querySelector('.footnote-sources')) return;
+
+  const hr = section.querySelector('hr');
+  if (hr) hr.insertAdjacentHTML('beforebegin', html);
+  else section.insertAdjacentHTML('beforeend', html);
+  section.querySelectorAll('.footnote-sources .ref-source-status').forEach((el) => wireSourceStatus(el as HTMLElement));
+}
+
 // ── Source-status block (pill + owner Check source), mirroring the source panel ─────────────────
 
 /** The "Check source" button — an OWNER/creator-only action (readers never see it). */

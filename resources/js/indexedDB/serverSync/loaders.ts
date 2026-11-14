@@ -179,6 +179,7 @@ export async function loadFootnotesToIndexedDB(db: IDBDatabase, footnotes: Serve
       footnoteId:    footnoteId,
       content:       isNewFormat ? (footnoteData.content ?? '') : footnoteData,
       preview_nodes: isNewFormat ? (footnoteData.preview_nodes ?? null) : null,
+      sources:       isNewFormat ? (footnoteData.sources ?? null) : null,
     });
   }
 

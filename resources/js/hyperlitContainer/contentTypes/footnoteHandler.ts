@@ -67,6 +67,13 @@ export const footnoteHandler: ContentTypeHandler = {
             mode,
           });
 
+          // Matched sources for a citation footnote (server-derived, read-only). Not awaited:
+          // each card needs a network lookup and the footnote text must not wait on it.
+          if (fnRecord?.sources?.length) {
+            void import('../contentBuilders/displayCitations').then(({ mountFootnoteSources }) =>
+              mountFootnoteSources(footnotesSection as HTMLElement | null, fnRecord?.sources, footnoteId, parentBookId));
+          }
+
           // Mark footnote sub-book as user-editable
           const subBookEl = scroller.querySelector(`.sub-book-content[data-book-id="${subBookId}"]`);
           if (subBookEl) {

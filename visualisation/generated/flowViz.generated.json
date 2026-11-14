@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2025,
+    "fnCount": 2027,
     "moduleCount": 427,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4229,
+    "edgeCount": 4234,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -10682,6 +10682,22 @@
       ]
     },
     {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml",
+      "label": "buildFootnoteSourcesHtml",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayCitations/plainCitation",
+      "leaf": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "label": "mountFootnoteSources",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/contentBuilders/displayCitations/plainCitation",
+      "leaf": false
+    },
+    {
       "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
       "label": "resolveCitationButtonStatus",
       "kind": "fn",
@@ -21161,6 +21177,8 @@
       "band": "capture",
       "fnIds": [
         "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildCitationContent",
+        "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml",
+        "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
         "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
         "hyperlitContainer/contentBuilders/displayCitations/plainCitation:wireReferenceVerifyButtons"
       ]
@@ -33416,6 +33434,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "source": "dom",
+      "target": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
       "source": "dom",
       "target": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus",
@@ -38618,6 +38642,32 @@
       "target": "indexedDB/core/connection:openDatabase",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml__call__indexedDB/bibliography/index:resolveBibliographyTarget",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml",
+      "target": "indexedDB/bibliography/index:resolveBibliographyTarget",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources__call__components/sourceContainer/checkSource:wireSourceStatus",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "target": "components/sourceContainer/checkSource:wireSourceStatus",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources__call__hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "target": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:buildFootnoteSourcesHtml",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources__domwrite__dom",
+      "source": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:mountFootnoteSources",
+      "target": "dom",
+      "rel": "domwrite"
     },
     {
       "id": "hyperlitContainer/contentBuilders/displayCitations/plainCitation:resolveCitationButtonStatus__call__hyperlitContainer/contentBuilders/sourceAccessButton:deletedTrashIcon",
@@ -56493,6 +56543,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 319
+    "lazyCount": 320
   }
 }

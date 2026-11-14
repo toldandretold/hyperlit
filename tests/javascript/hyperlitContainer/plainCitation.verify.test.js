@@ -23,6 +23,7 @@ vi.mock('../../../resources/js/sourceVerify/referenceVerify', () => ({
 import {
   buildCitationContent,
   wireReferenceVerifyButtons,
+  mountFootnoteSources,
 } from '../../../resources/js/hyperlitContainer/contentBuilders/displayCitations';
 import { resolveBibliographyTarget } from '../../../resources/js/indexedDB/bibliography/index';
 import { canUserEditBook } from '../../../resources/js/utilities/auth/index';
@@ -208,5 +209,46 @@ describe('plainCitation — clean source-container-style card', () => {
     container.querySelector('.ref-check-source').click();
     await flush(() => container.querySelector('.source-match-select'));
     expect(container.querySelectorAll('.source-match-select').length).toBe(1);
+  });
+  describe('footnote sources — the matched card under a citation footnote', () => {
+    const section = () => {
+      document.body.innerHTML = '<div class="footnotes-section"><div class="footnote-content"></div><hr></div>';
+      return document.querySelector('.footnotes-section');
+    };
+
+    it('mounts one card per matched work before the rule: held → our version, else DOI; no Check source', async () => {
+      resolveBibliographyTarget.mockImplementation(async ({ canonical_source_id }) => canonical_source_id === 'c-held'
+        ? { type: 'library', book: 'uuid-1', slug: 'held-work-2019', has_nodes: true, metadata: COX_META }
+        : { type: 'citation-card', metadata: { ...COX_META, title: 'Other Work', doi: '10.1177/0305829819873030' } });
+      const el = section();
+
+      await mountFootnoteSources(el, ['c-held', 'c-doi', 'c-held'], 'Fn1', 'bookA');
+
+      const links = [...el.querySelectorAll('.footnote-sources blockquote a')].map((a) => a.getAttribute('href'));
+      expect(links).toEqual(['/held-work-2019', 'https://doi.org/10.1177/0305829819873030']); // deduped
+      expect(el.querySelector('.footnote-sources h3').textContent).toBe('Sources');
+      expect(el.querySelectorAll('.source-cat-pill').length).toBe(2);
+      expect(el.querySelector('.ref-check-source')).toBeNull();
+      expect(el.lastElementChild.tagName).toBe('HR'); // inserted BEFORE the closing rule
+      expect(el.querySelector('.footnote-sources').getAttribute('contenteditable')).toBe('false');
+
+      // The pill expands its explanation.
+      const pill = el.querySelector('.source-cat-pill');
+      pill.click();
+      expect(pill.getAttribute('aria-expanded')).toBe('true');
+
+      // Idempotent.
+      await mountFootnoteSources(el, ['c-held'], 'Fn1', 'bookA');
+      expect(el.querySelectorAll('.footnote-sources').length).toBe(1);
+    });
+
+    it('leaves the footnote untouched when nothing resolves or there are no sources', async () => {
+      resolveBibliographyTarget.mockResolvedValue(null);
+      const el = section();
+      await mountFootnoteSources(el, ['c-gone'], 'Fn1', 'bookA');
+      await mountFootnoteSources(el, [], 'Fn1', 'bookA');
+      await mountFootnoteSources(el, null, 'Fn1', 'bookA');
+      expect(el.querySelector('.footnote-sources')).toBeNull();
+    });
   });
 });

@@ -388,12 +388,16 @@ class BookCache
         if ($footnotes->isEmpty()) {
             return null;
         }
+        $sources = \App\Services\Footnotes\FootnoteSources::forBook($bookId);
         $data = [];
         foreach ($footnotes as $fn) {
             $data[$fn->footnoteId] = [
                 'content'       => $fn->content,
                 'preview_nodes' => $fn->preview_nodes ? json_decode($fn->preview_nodes, true) : null,
             ];
+            if (isset($sources[$fn->footnoteId])) {
+                $data[$fn->footnoteId]['sources'] = $sources[$fn->footnoteId];
+            }
         }
         return ['book' => $bookId, 'data' => $data];
     }

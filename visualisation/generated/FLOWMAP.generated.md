@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2025 functions in 427 modules · 10 object stores · 10 PG tables · 4229 edges
+**MarkdownDB** schema v28 · 2027 functions in 427 modules · 10 object stores · 10 PG tables · 4234 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1167,6 +1167,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `buildHyperciteCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | `library` | `library` | write | — |
 | `resolveButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/hyperciteCitation` | — | — | read/write | — |
 | `buildCitationContent` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | `bibliography` `library` | — | — | — |
+| `buildFootnoteSourcesHtml` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | — | — |
+| `mountFootnoteSources` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
 | `resolveCitationButtonStatus` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
 | `wireReferenceVerifyButtons` | `hyperlitContainer/contentBuilders/displayCitations/plainCitation` | — | — | read/write | — |
 | `buildFootnoteContent` | `hyperlitContainer/contentBuilders/displayFootnotes` | — | — | — | — |
@@ -2038,7 +2040,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 319
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 320
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
