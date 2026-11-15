@@ -92,8 +92,13 @@ async function hyperlightAs(page, spa, needle, anchorText) {
   const text = await page.locator(sel).textContent();
   const start = text.indexOf(needle);
   expect(start).toBeGreaterThanOrEqual(0);
-  await spa.selectTextInElement(page, sel, start, start + needle.length);
-  await spa.waitForHyperlightButtons(page);
+  // Retried: a container close still unwinding (see the Escape sites) clears
+  // the selection out from under a single attempt, and nothing re-shows the
+  // buttons afterwards.
+  await expect(async () => {
+    await spa.selectTextInElement(page, sel, start, start + needle.length);
+    await spa.waitForHyperlightButtons(page);
+  }).toPass({ timeout: 20000 });
   await page.click('#copy-hyperlight');
   await page.waitForFunction(() => {
     const marks = document.querySelectorAll('.main-content mark.user-highlight, .main-content mark.highlight');
@@ -402,6 +407,13 @@ test.describe('Notifications', () => {
     //    with no flip. Target highlight #2 specifically (the container lists #1
     //    too, which is also private), by its distinct id. ──
     await bPage.keyboard.press('Escape'); // close the container
+    // The close is ASYNC (popTopLayer awaits dynamic imports) and, partway
+    // through, clears the selection + hides #hyperlight-buttons, with
+    // handleSelection suppressed for its whole duration (isStackPopping). A
+    // selection made before it settles is silently wiped — so wait it out.
+    await bPage.waitForFunction(() =>
+      !document.querySelector('#hyperlit-container.open')
+      && !document.body.classList.contains('hyperlit-container-open'), null, { timeout: 8000 });
     await hyperlightAs(bPage, spa, 'quote', 'Notification source text');
     // The newly-created highlight's control is the one whose id differs from #1.
     const hlId2 = await bPage.evaluate((firstId) => {

@@ -13,7 +13,7 @@
  * harmless, which is why there's no client-side "already sent" persistence.
  */
 
-import { log } from '../utilities/logger';
+import { verbose } from '../utilities/logger';
 import { drainResponse } from '../utilities/drainResponse';
 
 /** SPA nav re-inits components; guard so one entry sends exactly one beacon. */
@@ -35,7 +35,13 @@ async function post(page: string): Promise<void> {
       keepalive: true,
     }));
   } catch (error) {
-    log.error('pageViewTelemetry: post failed', '/scrolling/pageViewTelemetry.ts', error);
+    // A rejected fetch here is a NETWORK outcome (offline, a dropped
+    // connection, Chrome refusing a keepalive request) — routine for a
+    // best-effort beacon, and the server dedupes so the next entry makes up
+    // for it. Not an app error: log.error emits console.error, which made an
+    // offline home visit look broken and failed the SPA grand tour on one
+    // dropped POST. Same contract as flushReadingTelemetry's silent catch.
+    verbose.debug('pageViewTelemetry: post failed (best-effort, ignored)', '/scrolling/pageViewTelemetry.ts', error);
   }
 }
 
