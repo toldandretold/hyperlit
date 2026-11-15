@@ -204,6 +204,24 @@
   line-height: 1.4;
 }
 
+/* A shelf (collection page) among the title results: glyph + small label. */
+.search-result-shelf .search-result-link {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.search-result-shelf-icon {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.search-result-shelf-meta {
+  font-size: 12px;
+  opacity: 0.65;
+}
+
 .search-result-headline mark {
   background: rgba(255, 200, 0, 0.4);
   color: inherit;

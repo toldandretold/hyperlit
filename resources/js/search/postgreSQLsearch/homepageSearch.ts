@@ -48,7 +48,10 @@ const homepageSearchBox = createSearchBox({
             fulltext: '/api/search/nodes',
             semantic: '/api/search/semantic',
         }[mode];
-        return `${endpoint}?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}`;
+        // Title search also finds public SHELVES by name (rendered with the
+        // shelf glyph, linking the shelf's page) — library mode only.
+        const shelves = mode === 'library' ? '&shelves=1' : '';
+        return `${endpoint}?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}${shelves}`;
     },
     logSource: 'homepageSearch.js',
 });

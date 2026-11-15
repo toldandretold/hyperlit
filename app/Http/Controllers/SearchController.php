@@ -43,6 +43,15 @@ class SearchController extends Controller
         try {
             $t = hrtime(true);
             $results = $this->runLibrarySearch($request, $query, $limit);
+            // Opt-in (`shelves=1`): public shelves whose name / owner matches
+            // lead the list, typed `type: 'shelf'` so a caller that never asked
+            // for them never has to know the shape (PublicShelfSearch).
+            if ($request->boolean('shelves')) {
+                $shelves = app(\App\Services\Shelves\PublicShelfSearch::class)->search($query);
+                if ($shelves !== []) {
+                    $results = collect($shelves)->concat($results ?? []);
+                }
+            }
             $dbMs = round((hrtime(true) - $t) / 1e6, 1);
 
             if ($results === null) {
@@ -297,7 +306,15 @@ class SearchController extends Controller
                 ) as headline
             ", [$tsQuery, $tsQuery])
             ->whereRaw("search_vector @@ to_tsquery('simple', ?)", [$tsQuery])
-            ->whereRaw("book NOT LIKE '%/%'"); // exclude footnote/highlight sub-books
+            ->whereRaw("book NOT LIKE '%/%'") // exclude footnote/highlight sub-books
+            // Synthetic RENDER books are app furniture, not texts: a shelf's
+            // feed is stored as `shelf_{id}_{sort}[_pub]` titled with the shelf
+            // name, and a user page as its user_home rows. They are unlisted,
+            // so strangers never matched them — but the OWNER did (the "own
+            // books" arm of the visibility filter), and got a link to the raw
+            // card-list book instead of the shelf's page. Shelves are found
+            // via PublicShelfSearch, which links the public page.
+            ->whereRaw("COALESCE(raw_json::jsonb->>'type', '') NOT IN ('shelf', 'user_home', 'user_home_sorted', 'user_account', 'user_about')");
 
         $this->applyVisibilityFilter($dbQuery, $request, null, $sourceScope, $shelfId);
 

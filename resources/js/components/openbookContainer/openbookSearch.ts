@@ -27,7 +27,8 @@ const openbookSearchBox = createSearchBox({
   },
   noResultsMessage: () => 'No matches in titles and authors',
   endpointFor: (_mode, query) =>
-    `/api/search/library?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}`,
+    // shelves=1: public shelves match by name too (glyph + page link).
+    `/api/search/library?q=${encodeURIComponent(query)}&limit=${RESULTS_LIMIT}&shelves=1`,
   logSource: '/components/openbookContainer/openbookSearch.ts',
 });
 

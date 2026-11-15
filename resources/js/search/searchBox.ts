@@ -135,6 +135,33 @@ function escapeHtml(text: any): string {
     return div.innerHTML;
 }
 
+// The My Library "books on a shelf" glyph (userContainer's ICON_LIBRARY, the
+// add-to-shelf button minus its plus) — what tells a shelf row from a text.
+const SHELF_GLYPH = '<svg class="search-result-shelf-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v16"/><path d="M8 8v12"/><path d="M12 6v14"/><path d="m16 6 4 14"/></svg>';
+
+const SHELF_KIND_LABEL: Record<string, string> = { archive: 'Archive', journal: 'Journal', shelf: 'Shelf' };
+
+/** A `type: 'shelf'` library-mode result: links the shelf's public page. */
+function shelfResultHtml(result: { url?: string; name?: string; creator?: string; count?: number; kind?: string }): string {
+    // Root-relative only — the url is server-built, but it lands in an href.
+    const url = typeof result.url === 'string' && /^\/(?!\/)/.test(result.url) ? result.url : '#';
+    const count = typeof result.count === 'number' ? result.count : 0;
+    const meta = [
+        SHELF_KIND_LABEL[result.kind ?? 'shelf'] ?? 'Shelf',
+        result.creator && result.kind === 'shelf' ? escapeHtml(result.creator) : '',
+        count > 0 ? `${count} text${count === 1 ? '' : 's'}` : '',
+    ].filter(Boolean).join(' · ');
+    return `
+                    <li class="search-result-item search-result-shelf">
+                        <a href="${escapeHtml(url)}" class="search-result-link">
+                            ${SHELF_GLYPH}
+                            <span class="search-result-headline">${escapeHtml(result.name ?? '')}</span>
+                            <span class="search-result-shelf-meta">${meta}</span>
+                        </a>
+                    </li>
+                `;
+}
+
 export function createSearchBox(config: SearchBoxConfig) {
     // ---- per-instance state (closure-scoped — nothing shared across pages)
     let searchInput: HTMLTextAreaElement | null = null;
@@ -429,8 +456,14 @@ export function createSearchBox(config: SearchBoxConfig) {
         let html = '<ul class="search-results-list">';
 
         if (mode === 'library') {
-            // Library results: simple list of books
+            // Library results: simple list of books — plus, where the endpoint
+            // was asked for them (`shelves=1`), public SHELVES, which lead to a
+            // collection page rather than a text and say so (glyph + label).
             results.forEach((result: any) => {
+                if (result.type === 'shelf') {
+                    html += shelfResultHtml(result);
+                    return;
+                }
                 html += `
                     <li class="search-result-item">
                         <a href="/${encodeURIComponent(result.book)}" class="search-result-link">
