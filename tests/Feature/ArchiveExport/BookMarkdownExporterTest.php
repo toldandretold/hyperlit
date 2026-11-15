@@ -181,6 +181,33 @@ test('obsidianLinks: in-text citations become block links to the bibliography en
         ->not->toContain('@@HLBLOCK');
 });
 
+test('obsidianLinks: a pasted article\'s references have no anchor, so they are placed by the bibliography row\'s text', function () {
+    // The paste lane writes bare reference paragraphs; `#seaton2016` resolves through the table alone.
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>(see also Seaton <a href="#seaton2016" class="in-text-citation">2016</a>; Moore <a href="#moore2017" class="in-text-citation">2017</a>; <a href="#twin2001" class="in-text-citation">2001</a>)</p>');
+    bmeNode($book, 200, '<p data-static-content="bibliography"><span>Seaton, J.</span> <span>2016</span> \'<span>Brexit and the Media</span>\', <i>The Political Quarterly</i>  <span>87</span>(<span>3</span>):  <span>333</span>–<span>7</span>.</p>');
+    bmeNode($book, 300, '<p data-static-content="bibliography">Twin, A. 2001 The Same Words.</p>');
+    bmeNode($book, 400, '<p data-static-content="bibliography">Twin, A. 2001 The Same Words.</p>');
+    foreach ([
+        'seaton2016' => '<span>Seaton, J.</span> <span>2016</span> \'<span>Brexit and the Media</span>\', <i>The Political Quarterly</i> <span>87</span>(<span>3</span>): <span>333</span>–<span>7</span>.',
+        'moore2017'  => 'Moore, M. 2017 A reference whose paragraph is not in the body.',
+        'twin2001'   => 'Twin, A. 2001 The Same Words.',
+    ] as $refId => $content) {
+        bmeDb()->table('bibliography')->insert(['book' => $book, 'referenceId' => $refId, 'content' => $content, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book, obsidianLinks: true);
+
+    expect($md)
+        ->toContain('Seaton [2016](#^seaton2016)')
+        ->toMatch('/^Seaton, J\. 2016 \'Brexit and the Media\', \*The Political Quarterly\* 87\(3\): 333–7\. \^seaton2016$/m')
+        // No paragraph carries it, or two do: left alone rather than pointed at a guess.
+        ->toContain('[2017](#moore2017)')
+        ->toContain('[2001](#twin2001)')
+        ->not->toContain('^twin2001')
+        ->not->toContain('@@HLBLOCK');
+});
+
 test('without obsidianLinks the export carries no block ids (MCP export, study re-import)', function () {
     $book = 'bmebook_' . Str::random(8);
     bmeNode($book, 100, '<p>(Harvey <a class="in-text-citation" href="#harvey2020">2020</a>)</p>');

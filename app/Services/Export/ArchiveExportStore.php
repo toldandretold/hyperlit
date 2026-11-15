@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\File;
 class ArchiveExportStore
 {
     /** Bump when any builder's output format changes — invalidates all caches. */
-    public const SCHEMA_VERSION = 9;
+    public const SCHEMA_VERSION = 10;
 
     /**
      * `markdown` is the Obsidian vault; `zettlr` is the same vault written for

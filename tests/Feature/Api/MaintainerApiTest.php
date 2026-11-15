@@ -325,6 +325,9 @@ test('export endpoint builds the bundle and stamps the flags with what was downl
         $resp->assertOk();
         expect($resp->headers->get('Content-Disposition'))->toContain("{$book}.tar.gz");
         expect(is_file($tarball))->toBeTrue();
+        // Each run stages in its own directory and removes it (App\Support\BundleStage).
+        expect(glob(storage_path("app/book-exports/.stage-{$book}*")))->toBe([]);
+        expect(glob(storage_path("app/book-exports/{$book}*.partial")))->toBe([]);
 
         // The queue renders the "⤓ harvest" downloaded-marker from this stamp.
         $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();

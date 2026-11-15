@@ -156,7 +156,7 @@ class BookMarkdownExporter
         // own block (where Obsidian requires a block id to sit). The empty
         // anchor itself would be dropped by the converter, which is why the
         // in-text `#id` links had nothing to land on.
-        $blockIds = $obsidianLinks ? $this->markBibEntries($xpath, $doc) : [];
+        $blockIds = $obsidianLinks ? $this->markBibEntries($xpath, $doc, $bookId) : [];
 
         // A citation of a work that is itself a note in the vault links that
         // note. Done before the two fragment treatments, which then see no `#`.
@@ -221,27 +221,39 @@ class BookMarkdownExporter
     }
 
     /**
-     * Tag each `a.bib-entry[id]` block with a sentinel carrying its block id.
+     * Tag each bibliography entry's block with a sentinel carrying its block id.
+     *
+     * An imported book marks an entry with `<a class="bib-entry" id="…">`. A
+     * PASTED article does not: its reference paragraphs are bare
+     * (`<p data-static-content="bibliography">`) and the reader resolves
+     * `#seaton2016` through the `bibliography` table alone. So a cited refId
+     * with no anchor is placed by its row's TEXT — the one block whose text is
+     * that reference's — or every citation of a pasted article is a dead link
+     * in the vault ("Unable to find seaton2016").
      *
      * @return array<string, string> refId => block id
      */
-    private function markBibEntries(\DOMXPath $xpath, \DOMDocument $doc): array
+    private function markBibEntries(\DOMXPath $xpath, \DOMDocument $doc, string $bookId): array
     {
         $blockIds = [];
         $taken = [];
-        $anchors = $xpath->query('//a[@id and contains(concat(" ", normalize-space(@class), " "), " bib-entry ")]');
-        foreach ($anchors as $anchor) {
-            /** @var \DOMElement $anchor */
-            $refId = $anchor->getAttribute('id');
+        $mark = function (string $refId, \DOMElement $block) use (&$blockIds, &$taken, $doc): void {
             $blockId = self::blockId($refId);
             if ($blockId === '' || isset($blockIds[$refId])) {
-                continue;
+                return;
             }
             // Two refIds that fold to one block id ("a_b" / "a-b") stay distinct.
             for ($base = $blockId, $n = 2; isset($taken[$blockId]); $n++) {
                 $blockId = "{$base}-{$n}";
             }
+            $taken[$blockId] = true;
+            $blockIds[$refId] = $blockId;
+            $block->appendChild($doc->createTextNode(' @@HLBLOCK' . count($blockIds) . '@@'));
+        };
 
+        $anchors = $xpath->query('//a[@id and contains(concat(" ", normalize-space(@class), " "), " bib-entry ")]');
+        foreach ($anchors as $anchor) {
+            /** @var \DOMElement $anchor */
             // The entry's own block: the nearest p / li / blockquote / div.
             $block = $anchor->parentNode;
             while ($block instanceof \DOMElement
@@ -251,13 +263,53 @@ class BookMarkdownExporter
             if (!$block instanceof \DOMElement || $block->getAttribute('id') === '__hl_export_root__') {
                 continue;
             }
+            $mark($anchor->getAttribute('id'), $block);
+        }
 
-            $taken[$blockId] = true;
-            $blockIds[$refId] = $blockId;
-            $block->appendChild($doc->createTextNode(' @@HLBLOCK' . count($blockIds) . '@@'));
+        // Cited, but no anchor in the body: place it by the reference's text.
+        $wanted = [];
+        foreach ($xpath->query('//a[starts-with(@href, "#")]') as $a) {
+            /** @var \DOMElement $a */
+            $refId = rawurldecode(substr($a->getAttribute('href'), 1));
+            if ($refId !== '' && !isset($blockIds[$refId])) {
+                $wanted[$refId] = true;
+            }
+        }
+        if ($wanted === []) {
+            return $blockIds;
+        }
+
+        $rows = DB::connection('pgsql_admin')->table('bibliography')
+            ->where('book', $bookId)
+            ->whereIn('referenceId', array_map('strval', array_keys($wanted)))
+            ->pluck('content', 'referenceId');
+        if ($rows->isEmpty()) {
+            return $blockIds;
+        }
+
+        // Text fingerprint → the ONE block carrying it (two blocks with the same text place nothing).
+        $blocks = [];
+        foreach ($xpath->query('//p | //li') as $block) {
+            /** @var \DOMElement $block */
+            $print = self::textFingerprint($block->textContent);
+            if ($print !== '') {
+                $blocks[$print] = isset($blocks[$print]) ? false : $block;
+            }
+        }
+        foreach ($rows as $refId => $content) {
+            $print = self::textFingerprint(html_entity_decode(strip_tags((string) $content), ENT_QUOTES | ENT_HTML5));
+            if ($print !== '' && ($blocks[$print] ?? false) instanceof \DOMElement) {
+                $mark((string) $refId, $blocks[$print]);
+            }
         }
 
         return $blockIds;
+    }
+
+    /** Letters and digits only, lower-cased: the same text however it was spaced or marked up. */
+    private static function textFingerprint(string $text): string
+    {
+        return mb_strtolower((string) preg_replace('/[^\p{L}\p{N}]+/u', '', $text));
     }
 
     /** Swap the sentinels for ` ^id`, and point `](#refId)` links at them. */

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\System\FailureDigest;
+use App\Support\BundleStage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -42,10 +43,31 @@ class FailureExport extends Command
         $out = $this->option('out') ?: storage_path("app/failure-exports/{$key}.tar.gz");
         File::ensureDirectoryExists(dirname($out));
 
-        $stage = storage_path('app/failure-exports/.stage-' . $key);
-        File::deleteDirectory($stage);
-        File::ensureDirectoryExists($stage);
+        // A stage of this run's OWN — see BundleStage for why it is not `.stage-{key}`.
+        $bundle = BundleStage::open(storage_path('app/failure-exports'), $key);
+        try {
+            $this->fillStage($bundle->dir, $group, $key);
+            $code = $bundle->seal($out);
+        } finally {
+            $bundle->discard();
+        }
+        if ($code !== 0) {
+            $this->error("tar failed (exit {$code}).");
 
+            return self::FAILURE;
+        }
+
+        $this->info("Exported failure group {$key} → {$out}");
+        $this->line("  job:        {$group['job_class']}");
+        $this->line("  failures:   {$group['count']} ({$group['first_seen']} → {$group['last_seen']})");
+        $this->line('  books:      ' . (count($group['books']) ?: 'none identified'));
+
+        return self::SUCCESS;
+    }
+
+    /** Write the bundle's files (rows, trace, context, worker log, books, README) into $stage. */
+    private function fillStage(string $stage, array $group, string $key): void
+    {
         $rows = $group['rows'];
         $latest = end($rows);
 
@@ -95,22 +117,6 @@ class FailureExport extends Command
             : "(no book ids found in the payloads)\n");
 
         file_put_contents("{$stage}/README.md", $this->readme($group, $key));
-
-        $cmd = sprintf('tar -czf %s -C %s .', escapeshellarg($out), escapeshellarg($stage));
-        exec($cmd, $o, $code);
-        File::deleteDirectory($stage);
-        if ($code !== 0) {
-            $this->error("tar failed (exit {$code}).");
-
-            return self::FAILURE;
-        }
-
-        $this->info("Exported failure group {$key} → {$out}");
-        $this->line("  job:        {$group['job_class']}");
-        $this->line("  failures:   {$group['count']} ({$group['first_seen']} → {$group['last_seen']})");
-        $this->line('  books:      ' . (count($group['books']) ?: 'none identified'));
-
-        return self::SUCCESS;
     }
 
     /**

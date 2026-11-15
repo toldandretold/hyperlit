@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\CanonicalVersions\AutoVersionResolver;
+use App\Support\BundleStage;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -87,8 +88,44 @@ class BookExport extends Command
             ?: storage_path("app/book-exports/{$book}.tar.gz");
         File::ensureDirectoryExists(dirname($out));
 
-        $stage = storage_path('app/book-exports/.stage-' . $book);
-        File::deleteDirectory($stage);
+        // A stage of this run's OWN — a fixed `.stage-{book}` let two overlapping
+        // exports of one book delete each other's files mid-write (BundleStage).
+        $bundle = BundleStage::open(storage_path('app/book-exports'), $book);
+        try {
+            [$counts, $lane, $journalContext] = $this->fillStage($bundle->dir, $book, $libraryRow, $kind, $db);
+            $code = $bundle->seal($out);
+        } finally {
+            $bundle->discard();
+        }
+        if ($code !== 0) {
+            $this->error("tar failed (exit {$code}).");
+            return self::FAILURE;
+        }
+
+        $this->info("Exported {$book} ({$kind} case) → {$out}");
+        foreach ($counts as $k => $v) {
+            $this->line("  {$k}: {$v}");
+        }
+        if ($kind === self::KIND_HARVEST) {
+            $this->line('  → acquisition case: fix ContentFetchService, not app/Python.');
+        }
+        if ($journalContext) {
+            $this->line("  → journal lane: {$journalContext['display_name']}"
+                . ' (' . ($lane['foundation_source'] ?: 'unknown lane') . ')'
+                . (count($lane['siblings']) ? ', ' . count($lane['siblings']) . ' sibling lane(s)' : ''));
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Write the whole bundle (DB rows, artifacts, optional logs, manifest) into
+     * $stage. Returns [counts, lane, journalContext] for the summary lines.
+     *
+     * @return array{0: array<string, int>, 1: array<string, mixed>, 2: ?array<string, mixed>}
+     */
+    private function fillStage(string $stage, string $book, object $libraryRow, string $kind, $db): array
+    {
         File::ensureDirectoryExists("{$stage}/db");
 
         $counts = [];
@@ -221,29 +258,7 @@ class BookExport extends Command
             'counts'         => $counts,
         ], JSON_PRETTY_PRINT));
 
-        // ── Tar it up ──
-        $cmd = sprintf('tar -czf %s -C %s .', escapeshellarg($out), escapeshellarg($stage));
-        exec($cmd, $o, $code);
-        File::deleteDirectory($stage);
-        if ($code !== 0) {
-            $this->error("tar failed (exit {$code}).");
-            return self::FAILURE;
-        }
-
-        $this->info("Exported {$book} ({$kind} case) → {$out}");
-        foreach ($counts as $k => $v) {
-            $this->line("  {$k}: {$v}");
-        }
-        if ($kind === self::KIND_HARVEST) {
-            $this->line('  → acquisition case: fix ContentFetchService, not app/Python.');
-        }
-        if ($journalContext) {
-            $this->line("  → journal lane: {$journalContext['display_name']}"
-                . ' (' . ($lane['foundation_source'] ?: 'unknown lane') . ')'
-                . (count($lane['siblings']) ? ', ' . count($lane['siblings']) . ' sibling lane(s)' : ''));
-        }
-
-        return self::SUCCESS;
+        return [$counts, $lane, $journalContext];
     }
 
     /**
