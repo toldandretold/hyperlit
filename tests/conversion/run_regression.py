@@ -251,7 +251,11 @@ def run_html_pipeline(fixture, tmp_dir):
 
 
 def run_md_pipeline(fixture, tmp_dir):
-    """input.md -> simple_md_to_html -> process_document."""
+    """input.md -> simple_md_to_html -> process_document --markdown-source.
+
+    The flag is what MarkdownProcessor passes for a Markdown file someone wrote: `[^n]:` definitions
+    and Obsidian block ids are markup and leave the body. (The pdf lane runs the same two scripts on
+    OCR output WITHOUT it — there the notes block is part of the printed page.)"""
     book_id = fixture['manifest'].get('book_id', fixture['name'])
     md_path = os.path.join(fixture['dir'], 'input.md')
     html_path = os.path.join(tmp_dir, 'intermediate.html')
@@ -262,7 +266,7 @@ def run_md_pipeline(fixture, tmp_dir):
     if not os.path.isfile(html_path):
         return {'stage': 'md_to_html', 'returncode': -1, 'stderr': 'intermediate.html not produced', 'stdout': ''}
 
-    r = _run([sys.executable, PROCESS_SCRIPT, html_path, tmp_dir, book_id])
+    r = _run([sys.executable, PROCESS_SCRIPT, html_path, tmp_dir, book_id, '--markdown-source'])
     if r.returncode != 0:
         return _err('process_document', r)
     return None

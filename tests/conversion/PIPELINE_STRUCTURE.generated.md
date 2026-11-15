@@ -58,6 +58,8 @@ footnoteLinking/
   footnote_link_rules.py — EPUB footnote LINKING as an ordered registry of LinkRule units (was the monolithic `Foot…  · registries: FOOTNOTE_LINK_RULES, MARKER_LINK_RULES
 load/
   load.py — Digestion — LOAD / input prep (the first DocPasses)
+markdownSource/
+  markdown_source_passes.py — Digestion — passes that run ONLY for a user's own Markdown file (`--markdown-source`)
 strategySelection/
   strategy.py — Footnote-strategy selection + the numbering-linkability guard + bibliography-heading det…  · registries: STRATEGY_RULES
   strategy_pass.py — Digestion — footnote-STRATEGY-selection DocPass (analyze structure -> STRATEGY_RULES; se…

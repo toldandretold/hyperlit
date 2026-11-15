@@ -20,19 +20,15 @@
       "type": "p"
     }
   ],
-  "node_count": 7,
+  "node_count": 3,
   "text_hashes": [
     "46b005909e",
     "8bd4a4c990",
-    "b0c95b65cc",
-    "ff5559d95d",
-    "b24f841830",
-    "fa0001bb76",
-    "cc6b6dbb5a"
+    "b0c95b65cc"
   ],
   "type_histogram": {
-    "a": 2,
+    "a": 1,
     "h1": 1,
-    "p": 4
+    "p": 1
   }
 }

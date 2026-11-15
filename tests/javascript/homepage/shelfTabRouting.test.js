@@ -46,6 +46,31 @@ describe('resolveShelfClickMode', () => {
     })).toBe('public-shelf');
   });
 
+  it('the archive OWNER gets the owner render — from the server-stamped seed, never window.isOwner', () => {
+    // The public render leaves out every non-public book; the owner must
+    // still see (padlocked) and open their own on /a/{slug}.
+    expect(resolveShelfClickMode({
+      filter: 'shelf', page: 'journal', isOwner: false, isUserPage: false,
+      shelfId: 'shelf-1', archiveOwnerShelfId: 'shelf-1',
+    })).toBe('owner-shelf');
+  });
+
+  it('an owner seed for a DIFFERENT shelf, or none, stays on the public endpoint', () => {
+    expect(resolveShelfClickMode({
+      filter: 'shelf', page: 'journal', isOwner: true, isUserPage: true,
+      shelfId: 'shelf-1', archiveOwnerShelfId: 'shelf-2',
+    })).toBe('public-shelf');
+    expect(resolveShelfClickMode({
+      filter: 'shelf', page: 'journal', isOwner: true, isUserPage: true,
+      shelfId: 'shelf-1', archiveOwnerShelfId: null,
+    })).toBe('public-shelf');
+    // A seed with no button shelf id proves nothing about THIS button.
+    expect(resolveShelfClickMode({
+      filter: 'shelf', page: 'journal', isOwner: true, isUserPage: true,
+      shelfId: undefined, archiveOwnerShelfId: 'shelf-1',
+    })).toBe('public-shelf');
+  });
+
   it('non-shelf filters take the generic data-content path', () => {
     expect(resolveShelfClickMode({
       filter: 'library', page: 'user', isOwner: true, isUserPage: true,

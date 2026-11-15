@@ -128,7 +128,7 @@ class ArchiveExportController extends Controller
     private const RUN_STALE_AFTER_SECONDS = 300;
 
     /**
-     * GET /api/archive-export/{scopeType}/{scopeId}/status?kind=markdown|sqlite
+     * GET /api/archive-export/{scopeType}/{scopeId}/status?kind=markdown|zettlr|sqlite
      * Mirrors the audiobook status contract so the client button state
      * machine ports cleanly: unavailable | buildable | building | ready.
      */
@@ -273,16 +273,18 @@ class ArchiveExportController extends Controller
         }
 
         $clean = trim(preg_replace('/[<>:"\/\\\\|?*\r\n]+/', ' ', $corpus->displayName) ?? '') ?: $scopeId;
-        $ext = $kind === 'markdown' ? 'zip' : 'sqlite';
+        $ext = ArchiveExportStore::extension($kind);
+        // Two vault zips can sit in one Downloads folder — name which is which.
+        $flavor = $kind === 'zettlr' ? ' (Zettlr)' : '';
 
-        return response()->download($path, "{$clean} — Hyperlit {$corpus->noun()}.{$ext}");
+        return response()->download($path, "{$clean} — Hyperlit {$corpus->noun()}{$flavor}.{$ext}");
     }
 
     private function kindOr422(Request $request)
     {
         $kind = (string) $request->input('kind', $request->query('kind', ''));
         if (!in_array($kind, ArchiveExportStore::KINDS, true)) {
-            return response()->json(['error' => 'kind must be markdown or sqlite'], 422);
+            return response()->json(['error' => 'kind must be one of: ' . implode(', ', ArchiveExportStore::KINDS)], 422);
         }
 
         return $kind;

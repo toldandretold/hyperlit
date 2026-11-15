@@ -296,6 +296,9 @@ test('vault notes open with citation front matter and a link back to hyperlit', 
         ->toContain('source: "https://doi.org/10.1234/aex.1"')
         ->toContain('license: "CC-BY-NC-ND"')
         ->toContain('hyperlit: "' . url('/' . $book) . '"')
+        // The book's stable id — what a re-import resolves the note back to
+        // (VaultBookResolver), even after the slug in `hyperlit` is renamed.
+        ->toContain('book: "' . $book . '"')
         ->toContain('archive: "')
         ->toContain("---\n\nBody of the meta book.");
 
@@ -305,6 +308,91 @@ test('vault notes open with citation front matter and a link back to hyperlit', 
         ->not->toContain('authors:')
         ->not->toContain('license:')
         ->not->toContain('doi:');
+});
+
+test('zettlr vault: same texts and bibliography, without the syntax only Obsidian reads', function () {
+    $owner = aexUser();
+    $book = aexBook($owner, 'zet', 'public', ['title' => 'Zettlr Reading', 'author' => 'Ann Author', 'year' => '2020']);
+    aexDb()->table('nodes')->where('book', $book)->update([
+        'content' => '<p>Networks (Harvey <a class="in-text-citation" href="#harvey2020">2020</a>).</p><p><a class="bib-entry" id="harvey2020"></a>Harvey, David. 2020. Anti-Capitalist Politics.</p>',
+    ]);
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $read = function (string $kind) use ($scope) {
+        $this->postJson("/api/archive-export/{$scope}/build", ['kind' => $kind])->assertStatus(202);
+        $res = $this->get("/exports/{$scope}/{$kind}")->assertOk();
+        $zip = new ZipArchive();
+        expect($zip->open($res->baseResponse->getFile()->getPathname()))->toBeTrue();
+        $files = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $files[basename($zip->getNameIndex($i))] = $zip->getFromIndex($i);
+        }
+        $zip->close();
+
+        return [$files, (string) $res->headers->get('content-disposition')];
+    };
+
+    [$zettlr, $zettlrName] = $read('zettlr');
+    $note = $zettlr['Ann Author - Zettlr Reading.md'];
+    expect($note)->toContain('citekey: "author2020zettlr"')
+        ->toContain('Networks (Harvey 2020).')
+        // A `#^id` block link is a FILE PATH to Zettlr; an alias means nothing there.
+        ->not->toContain('](#')
+        ->not->toContain('^harvey2020')
+        ->not->toContain('aliases:');
+    expect($zettlr['references.bib'])->toContain('@misc{author2020zettlr,');
+    expect($zettlr['README.md'])->toContain('Zettlr');
+    expect(rawurldecode($zettlrName))->toContain('(Zettlr).zip');
+
+    // The Obsidian vault of the same corpus is a separate artifact and keeps its links.
+    [$obsidian, $obsidianName] = $read('markdown');
+    expect($obsidian['Ann Author - Zettlr Reading.md'])->toContain('[2020](#^harvey2020)')->toContain('aliases:');
+    expect(rawurldecode($obsidianName))->not->toContain('Zettlr');
+});
+
+test('a citation of a text that is also in the vault links to that text\'s note, in both flavours', function () {
+    $owner = aexUser();
+    $citing = aexBook($owner, 'citing', 'public', ['title' => 'Citing Work', 'author' => 'Ann Author', 'year' => '2020']);
+    $cited = aexBook($owner, 'cited', 'public', ['title' => 'Anti-Capitalist Politics (Essays)', 'author' => 'David Harvey', 'year' => '2020']);
+    aexDb()->table('nodes')->where('book', $citing)->update([
+        'content' => '<p>Networks (Harvey <a class="in-text-citation" href="#harvey2020">2020</a>; Beck <a class="in-text-citation" href="#beck1992">1992</a>; Cox <a class="in-text-citation" href="#cox1981">1981</a>).</p>'
+            . '<p><a class="bib-entry" id="harvey2020"></a>Harvey, David. 2020. Anti-Capitalist Politics.</p>'
+            . '<p><a class="bib-entry" id="beck1992"></a>Beck, Ulrich. 1992. Risk Society.</p>',
+    ]);
+    aexDb()->table('bibliography')->insert([
+        'book' => $citing, 'referenceId' => 'harvey2020', 'content' => 'Harvey, David. 2020.',
+        'source_id' => $cited, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    aexDb()->table('bibliography')->insert([
+        'book' => $citing, 'referenceId' => 'cox1981', 'created_at' => now(), 'updated_at' => now(),
+        'content' => '<p>Cox, Robert W. 1981. Social Forces. Millennium 10(2). https://doi.org/10.1177/03058298810100020501.</p>',
+    ]);
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $note = function (string $kind) use ($scope) {
+        $this->postJson("/api/archive-export/{$scope}/build", ['kind' => $kind])->assertStatus(202);
+        $res = $this->get("/exports/{$scope}/{$kind}")->assertOk();
+        $zip = new ZipArchive();
+        expect($zip->open($res->baseResponse->getFile()->getPathname()))->toBeTrue();
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            if (basename($zip->getNameIndex($i)) === 'Ann Author - Citing Work.md') {
+                return $zip->getFromIndex($i);
+            }
+        }
+
+        return '';
+    };
+
+    // The link's title is the reference itself: the hover, and what a re-import matches on.
+    $link = '[2020](' . rawurlencode('David Harvey - Anti-Capitalist Politics (Essays).md') . ' "Harvey, David. 2020.")';
+
+    // Zettlr: the cited text's file is linked.
+    // A work outside the vault links its DOI; one with nothing to point at stays plain text.
+    expect($note('zettlr'))->toContain("(Harvey {$link}; Beck 1992; Cox [1981](https://doi.org/10.1177/03058298810100020501 \"Cox, Robert W. 1981. Social Forces. Millennium 10(2). https://doi.org/10.1177/03058298810100020501.\"))")->not->toContain('](#');
+    // Obsidian: the note wins over the bibliography block; the others keep their in-note link, never a DOI.
+    expect($note('markdown'))->toContain("(Harvey {$link}; Beck [1992](#^beck1992); Cox [1981](#cox1981))");
+
+    aexDb()->table('bibliography')->where('book', $citing)->delete();
 });
 
 test('the vault ships references.bib, keyed by the citekey each note carries', function () {
@@ -321,6 +409,10 @@ test('the vault ships references.bib, keyed by the citekey each note carries', f
     // Same author, year and first title word → the second key must differ.
     aexBook($owner, 'twin', 'public', ['title' => 'Idiomedia Again', 'author' => 'Belinda Barnet', 'year' => '2009']);
     aexBook($owner, 'anon', 'public', ['title' => 'A Report', 'author' => null, 'publisher' => 'Aex Press']);
+    // "&" separates authors (left in one name it is cited as "(& Priya Chacko 2026)"),
+    // and an organisation is braced so BibTeX does not split it into given/family names.
+    aexBook($owner, 'amp', 'public', ['title' => 'Joint Work', 'author' => 'Hyperlit & Priya Chacko', 'year' => '2026']);
+    aexBook($owner, 'org', 'public', ['title' => 'Poverty Report', 'author' => 'Australian Council of Social Service', 'year' => '2020']);
     $scope = 'user/' . rawurlencode($owner->name);
 
     $this->postJson("/api/archive-export/{$scope}/build", ['kind' => 'markdown'])->assertStatus(202);
@@ -346,6 +438,8 @@ test('the vault ships references.bib, keyed by the citekey each note carries', f
         ->toContain('url = {' . url('/' . $book) . '},')
         ->toContain('file = {Barnet, Belinda; Ann Author - The Idiomedia & Its Discontents.md},')
         ->toContain('@misc{barnet2009idiomediab,')
+        ->toContain("@misc{hyperlit2026joint,\n  author = {Hyperlit and Priya Chacko},")
+        ->toContain("@misc{australian2020poverty,\n  author = {{Australian Council of Social Service}},")
         ->toContain('@book{report,')
         ->toContain('publisher = {Aex Press},');
 

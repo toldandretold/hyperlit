@@ -64,9 +64,22 @@ class BookMarkdownExporter
      *   target in plain markdown either way, but the ` ^id` suffix is literal
      *   text to every reader that isn't Obsidian (the MCP export, the study's
      *   re-import), so only the vault asks for it.
+     * @param  bool  $plainFragmentLinks  unwrap in-page `#fragment` links to
+     *   their text. Markdown has no paragraph anchor, so outside Obsidian (whose
+     *   block ids $obsidianLinks writes) an in-text citation's link to its
+     *   bibliography entry has no target: Zettlr resolves `#harvey2020` as a
+     *   file path. The Zettlr vault asks for plain text instead of a dead link.
+     * @param  array<string, array{href: string, title: string}>  $noteLinks
+     *   refId => where that citation should lead, for the in-text citations
+     *   the caller can point somewhere real (the vault resolves them): the
+     *   cited work's OWN note beside this one, or failing that its DOI / URL.
+     *   `href` is written as given. `title` is the reference's text, written
+     *   as the link's title: it is what a reader sees on hover, and it is how
+     *   a re-import knows WHICH reference the link stood for (the href no
+     *   longer says). Those links are exempt from both options above.
      * @return string full markdown document for one book
      */
-    public function markdownFor(string $bookId, bool $obsidianLinks = false): string
+    public function markdownFor(string $bookId, bool $obsidianLinks = false, bool $plainFragmentLinks = false, array $noteLinks = []): string
     {
         $nodes = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
@@ -144,6 +157,31 @@ class BookMarkdownExporter
         // anchor itself would be dropped by the converter, which is why the
         // in-text `#id` links had nothing to land on.
         $blockIds = $obsidianLinks ? $this->markBibEntries($xpath, $doc) : [];
+
+        // A citation of a work that is itself a note in the vault links that
+        // note. Done before the two fragment treatments, which then see no `#`.
+        if ($noteLinks !== []) {
+            foreach ($xpath->query('//a[starts-with(@href, "#")]') as $a) {
+                /** @var \DOMElement $a */
+                $refId = rawurldecode(substr($a->getAttribute('href'), 1));
+                if (isset($noteLinks[$refId])) {
+                    $a->setAttribute('href', $noteLinks[$refId]['href']);
+                    if ($noteLinks[$refId]['title'] !== '') {
+                        $a->setAttribute('title', $noteLinks[$refId]['title']);
+                    }
+                }
+            }
+        }
+
+        if ($plainFragmentLinks) {
+            foreach (iterator_to_array($xpath->query('//a[starts-with(@href, "#")]')) as $a) {
+                /** @var \DOMElement $a */
+                while ($a->firstChild) {
+                    $a->parentNode?->insertBefore($a->firstChild, $a);
+                }
+                $a->parentNode?->removeChild($a);
+            }
+        }
 
         // Absolutize image sources (vault v1 links, doesn't bundle).
         foreach ($xpath->query('//img[@src]') as $img) {

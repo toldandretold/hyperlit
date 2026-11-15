@@ -42,7 +42,8 @@ class ReportSubBookImporter
         }
 
         // Convert markdown → HTML → nodes
-        $this->markdownProcessor->process("{$path}/original.md", $path, $subBookId);
+        // authoredMarkdown: false keeps the report's conversion exactly as it has always been.
+        $this->markdownProcessor->process("{$path}/original.md", $path, $subBookId, authoredMarkdown: false);
 
         // Wait for nodes.jsonl — the pipeline's streamed output format.
         // (nodes.json is a renumbered artifact WE write during the save below;

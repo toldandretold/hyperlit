@@ -21,6 +21,9 @@ from digestion.footnoteExtraction.footnote_passes import TraditionalFootnotes, S
 from digestion.citationLinking.citation_pass import LinkCitationsPass
 from digestion.footnoteLinking.footnote_link_pass import LinkFootnotesPass
 from digestion.finalAudit.audit_pass import AuditPass
+from digestion.markdownSource.markdown_source_passes import (
+    StripObsidianBlockIds, ResolveVaultCitationLinks, RemoveMarkdownFootnoteDefinitions,
+)
 from digestion.finalize.finalize import (
     StructuralCoverageAssessment, StripStylingSpans, GenerateNodeChunks, SanitizeAndWrite,
 )
@@ -40,10 +43,15 @@ class DocContext:
     carried. Everything is defaulted so the always-run passes (node-gen, sanitize/write) never hit an
     unset branch variable, regardless of which branch (STEM vs standard) ran upstream."""
 
-    def __init__(self, html_file_path, output_dir, book_id):
+    def __init__(self, html_file_path, output_dir, book_id, markdown_source=False):
         self.html_file_path = html_file_path
         self.output_dir = output_dir
         self.book_id = book_id
+        # The input was AUTHORED as Markdown (a user's .md), not generated from a printed page by
+        # the OCR lane: `[^n]:` definitions and ` ^block-id` suffixes are markup, not body text.
+        self.markdown_source = markdown_source
+        self.footnote_def_elements = {}   # footnote id → the body elements its content was read from
+        self.obsidian_blocks = []         # (element, block id) for each ` ^block-id` taken off a block
         self.soup = None
         # STEM / footnote-meta signals
         self.is_stem = False
@@ -102,9 +110,11 @@ class DocContext:
 DOC_PASSES = [
     LoadDocument(),
     SafariRtlFix(),
+    StripObsidianBlockIds(),
     SplitBibliographyParagraphs(),
     StemBibliography(),
     ExtractBibliography(),
+    ResolveVaultCitationLinks(),
     SelectFootnoteStrategy(),
     TraditionalFootnotes(),
     SectionedFootnotes(),
@@ -112,6 +122,7 @@ DOC_PASSES = [
     LinkCitationsPass(),
     LinkFootnotesPass(),
     AuditPass(),
+    RemoveMarkdownFootnoteDefinitions(),
     StructuralCoverageAssessment(),
     StripStylingSpans(),
     GenerateNodeChunks(),
@@ -121,11 +132,11 @@ DOC_PASSES = [
 
 # --- MAIN PROCESSING LOGIC ---
 
-def main(html_file_path, output_dir, book_id):
+def main(html_file_path, output_dir, book_id, markdown_source=False):
     """Thin shell — build a DocContext and run the ordered DOC_PASSES registry. The conversion logic
     lives in the DocPass units above; this preserves the CLI contract (same args, byte-identical
     output) the PHP jobs + vibe loop invoke."""
-    ctx = DocContext(html_file_path, output_dir, book_id)
+    ctx = DocContext(html_file_path, output_dir, book_id, markdown_source=markdown_source)
     run_passes(DOC_PASSES, ctx)
 
 
@@ -134,10 +145,13 @@ if __name__ == "__main__":
     parser.add_argument("html_file", help="Path to the input HTML file.")
     parser.add_argument("output_dir", help="Directory to save the output JSON files.")
     parser.add_argument("book_id", help="Book ID to use for generating unique footnote IDs.")
+    parser.add_argument("--markdown-source", action="store_true",
+                        help="The input was authored as Markdown: footnote definitions and Obsidian "
+                             "block ids are markup and leave the body.")
     args = parser.parse_args()
 
     if not os.path.isfile(args.html_file):
         print(f"Error: Input file not found at {args.html_file}")
         sys.exit(1)
 
-    main(args.html_file, args.output_dir, args.book_id)
+    main(args.html_file, args.output_dir, args.book_id, markdown_source=args.markdown_source)

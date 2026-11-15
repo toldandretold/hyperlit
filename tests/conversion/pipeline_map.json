@@ -363,6 +363,10 @@
       "band": "backend",
       "role": "footnote-extraction DocPasses (Traditional · Sectioned · FlattenFootnoteMap)"
     },
+    "digestion/markdownSource/markdown_source_passes.py": {
+      "band": "backend",
+      "role": "authored-Markdown DocPasses, --markdown-source only (StripObsidianBlockIds · ResolveVaultCitationLinks · RemoveMarkdownFootnoteDefinitions)"
+    },
     "digestion/citationLinking/citation_pass.py": {
       "band": "backend",
       "role": "citation-linking DocPass (LinkCitationsPass)"

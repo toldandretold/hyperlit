@@ -278,3 +278,48 @@ test('mode=semantic returns 503 when embeddings are unavailable', function () {
     $response = $this->getJson('/api/public/library/' . rawurlencode($owner->name) . '/search?q=meaningful+query&mode=semantic');
     $response->assertStatus(503);
 });
+
+test('un-narrowed search reaches books on the user\'s shelves that someone else owns', function () {
+    $owner = makeUlsUser('uls_shelved');
+    $other = makeUlsUser('uls_shelved_other');
+    $suffix = Str::random(6);
+
+    // Owned by someone else: only a shelf can bring these onto $owner's page.
+    $onPublic = 'ulsbook_onpub_' . $suffix;
+    $onPrivate = 'ulsbook_onpriv_' . $suffix;
+    $othersPrivate = 'ulsbook_secret_' . $suffix;
+    $unshelved = 'ulsbook_loose_' . $suffix;
+    makeUlsBook($other, $onPublic, 'Quokka On A Public Shelf', 'public', 'the quokka smiles at noon');
+    makeUlsBook($other, $onPrivate, 'Quokka On A Private Shelf', 'public', 'the quokka smiles at dusk');
+    makeUlsBook($other, $othersPrivate, 'Quokka Kept Secret', 'private', 'the quokka smiles in private');
+    makeUlsBook($other, $unshelved, 'Quokka Not Shelved', 'public', 'the quokka smiles elsewhere');
+
+    $publicShelf = makeUlsShelf($owner, 'public');
+    $privateShelf = makeUlsShelf($owner, 'private');
+    addUlsShelfItem($publicShelf, $onPublic);
+    addUlsShelfItem($publicShelf, $othersPrivate);
+    addUlsShelfItem($privateShelf, $onPrivate);
+
+    $base = '/api/public/library/' . rawurlencode($owner->name) . '/search';
+
+    // Visitor: public members of PUBLIC shelves only.
+    $visitor = array_column($this->getJson($base . '?q=Quokka&mode=library')->json('results'), 'book');
+    expect($visitor)->toContain($onPublic)
+        ->not->toContain($onPrivate)
+        ->not->toContain($othersPrivate)
+        ->not->toContain($unshelved);
+
+    // Owner: every one of their shelves — but never another user's private
+    // book, and never a book that is on no shelf of theirs.
+    $this->actingAs($owner, 'sanctum');
+    $mine = array_column($this->getJson($base . '?q=Quokka&mode=library')->json('results'), 'book');
+    expect($mine)->toContain($onPublic, $onPrivate)
+        ->not->toContain($othersPrivate)
+        ->not->toContain($unshelved);
+
+    // Same corpus for the default full-text mode.
+    $ft = array_column($this->getJson($base . '?q=quokka')->json('results'), 'book');
+    expect($ft)->toContain($onPublic, $onPrivate)
+        ->not->toContain($othersPrivate)
+        ->not->toContain($unshelved);
+});

@@ -58,14 +58,16 @@ class SelectFootnoteStrategy(DocPass):
 
         if ctx.strategy == 'sequential':
             # Use sequential footnote processing (ref/def sections restart numbering)
-            ctx.sequential_footnote_map, ctx.all_footnotes_data = process_sequential_footnotes(soup, book_id)
+            ctx.sequential_footnote_map, ctx.all_footnotes_data = process_sequential_footnotes(
+                soup, book_id, consumed=ctx.footnote_def_elements)
             ctx.sectioned_footnote_map = ctx.sequential_footnote_map
             ctx.footnotes_data = ctx.all_footnotes_data
             ctx.footnote_sections = []
             ctx.all_elements = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div', 'section', 'li', 'hr', 'table', 'blockquote', 'pre', 'ul', 'ol', 'figure', 'img', 'a'])
         elif ctx.strategy == 'whole_document':
             # Use simple whole-document footnote processing
-            ctx.global_footnote_map, ctx.footnotes_data = process_whole_document_footnotes(soup, book_id)
+            ctx.global_footnote_map, ctx.footnotes_data = process_whole_document_footnotes(
+                soup, book_id, consumed=ctx.footnote_def_elements)
             # CONFIDENCE GUARD (modus operandi: never a confident wrong link).
             # If the definition/marker numbering doesn't cleanly correspond, number
             # matching would drift and mislink — so keep the extracted note content

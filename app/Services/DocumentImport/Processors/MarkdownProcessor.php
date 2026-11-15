@@ -4,6 +4,7 @@ namespace App\Services\DocumentImport\Processors;
 
 use App\Services\DocumentImport\SanitizationService;
 use App\Services\DocumentImport\FileHelpers;
+use App\Services\DocumentImport\FrontMatter;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
@@ -37,10 +38,22 @@ class MarkdownProcessor implements ProcessorInterface
         return in_array(strtolower($extension), $this->supportedExtensions());
     }
 
-    public function process(string $inputPath, string $outputPath, string $bookId): void
+    /**
+     * @param  bool  $authoredMarkdown  the input is a Markdown file someone WROTE (an upload, a
+     *   vault note), as opposed to Markdown the OCR lane generated from a printed page. In an
+     *   authored file `[^1]: note` and a trailing ` ^block-id` are markup: the definition becomes
+     *   a footnote and leaves the body. In OCR output the notes block is part of the page and
+     *   stays where it was printed, so PdfProcessor passes false.
+     */
+    public function process(string $inputPath, string $outputPath, string $bookId, bool $authoredMarkdown = true): void
     {
         $processStart = microtime(true);
         $htmlOutputPath = "{$outputPath}/intermediate.html";
+        // The converter's input when the note opens with YAML front matter:
+        // the same markdown with that block removed. The ORIGINAL file is left
+        // untouched — MetadataExtractor reads the block from it afterwards,
+        // and a reconvert re-reads it and strips again.
+        $bodyOnlyPath = "{$outputPath}/conversion_input.md";
         $pythonScriptPath = base_path('app/Python/process_document.py');
 
         Log::info('MarkdownProcessor started', [
@@ -86,6 +99,19 @@ class MarkdownProcessor implements ProcessorInterface
                 'pre_conversion_duration_ms' => round((microtime(true) - $preConversionStart) * 1000, 2)
             ]);
 
+            // Step 2.6: front matter is METADATA, not content. Left in, every
+            // `key: "value"` line became a paragraph at the top of the book.
+            $conversionInput = $inputPath;
+            $frontMatter = FrontMatter::split(File::get($inputPath));
+            if ($frontMatter['hasBlock']) {
+                File::put($bodyOnlyPath, $frontMatter['body']);
+                $conversionInput = $bodyOnlyPath;
+                Log::info('Front matter stripped from markdown body', [
+                    'book' => $bookId,
+                    'keys' => array_keys($frontMatter['fields']),
+                ]);
+            }
+
             Log::info('Step 1: Converting Markdown to HTML...', [
                 'book' => $bookId,
                 'input' => basename($inputPath),
@@ -98,7 +124,7 @@ class MarkdownProcessor implements ProcessorInterface
             $markdownProcess = new Process([
                 $this->getPythonPath(),
                 $markdownConverterPath,
-                $inputPath,
+                $conversionInput,
                 $htmlOutputPath
             ]);
             $markdownProcess->setTimeout(900);
@@ -150,13 +176,13 @@ class MarkdownProcessor implements ProcessorInterface
                 'python_start_time' => $pythonScriptStart
             ]);
 
-            $pythonProcess = new Process([
+            $pythonProcess = new Process(array_merge([
                 $this->getPythonPath(),
                 $pythonScriptPath,
                 $htmlOutputPath,
                 $outputPath,
-                $bookId
-            ]);
+                $bookId,
+            ], $authoredMarkdown ? ['--markdown-source'] : []));
             $pythonProcess->setTimeout(900);
             $this->runWithProgress($pythonProcess, $this->onProgress);
 
@@ -203,6 +229,9 @@ class MarkdownProcessor implements ProcessorInterface
             $cleanupStart = microtime(true);
             if (File::exists($htmlOutputPath)) {
                 File::delete($htmlOutputPath);
+            }
+            if (File::exists($bodyOnlyPath)) {
+                File::delete($bodyOnlyPath);
             }
             $totalProcessDuration = round((microtime(true) - $processStart) * 1000, 2);
             Log::info("MarkdownProcessor completed", [

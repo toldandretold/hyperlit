@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2041,
-    "moduleCount": 429,
+    "fnCount": 2046,
+    "moduleCount": 431,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4266,
+    "edgeCount": 4287,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -2291,6 +2291,46 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/shelves/addToShelfMenu",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/bookVisibility:offerToPublishShelfBooks",
+      "label": "offerToPublishShelfBooks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/bookVisibility",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+      "label": "offerToUnpublishShelfBooks",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/bookVisibility",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/bookVisibility:refreshShelfTab",
+      "label": "refreshShelfTab",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/bookVisibility",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "label": "toggleBookVisibilityFromCard",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/bookVisibility",
+      "leaf": false
+    },
+    {
+      "id": "components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "label": "bookVisibilityMenuItem",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/shelves/bookVisibilityMenuItem",
       "leaf": false
     },
     {
@@ -19072,6 +19112,27 @@
       ]
     },
     {
+      "id": "components/shelves/bookVisibility",
+      "label": "components/shelves/bookVisibility",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/bookVisibility:offerToPublishShelfBooks",
+        "components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+        "components/shelves/bookVisibility:refreshShelfTab",
+        "components/shelves/bookVisibility:toggleBookVisibilityFromCard"
+      ]
+    },
+    {
+      "id": "components/shelves/bookVisibilityMenuItem",
+      "label": "components/shelves/bookVisibilityMenuItem",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem"
+      ]
+    },
+    {
       "id": "components/shelves/shelfArchiveButton",
       "label": "components/shelves/shelfArchiveButton",
       "stage": "components",
@@ -24232,6 +24293,19 @@
       "dataPath": true
     },
     {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "source": "components/homepage/homepage:initializeHomepageBookActions",
+      "target": "components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "rel": "call"
+    },
+    {
       "id": "components/homepage/homepage:initializeHomepageBookActions__call__components/shelves/shelfOverview:setShelfOverview",
       "source": "components/homepage/homepage:initializeHomepageBookActions",
       "target": "components/shelves/shelfOverview:setShelfOverview",
@@ -26321,6 +26395,50 @@
       "rel": "domwrite"
     },
     {
+      "id": "components/shelves/bookVisibility:refreshShelfTab__call__components/shelves/shelfTabs:invalidateShelfCache",
+      "source": "components/shelves/bookVisibility:refreshShelfTab",
+      "target": "components/shelves/shelfTabs:invalidateShelfCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/bookVisibility:refreshShelfTab__call__components/shelves/shelfTabs:openShelf",
+      "source": "components/shelves/bookVisibility:refreshShelfTab",
+      "target": "components/shelves/shelfTabs:openShelf",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/bookVisibility:refreshShelfTab__domwrite__dom",
+      "source": "components/shelves/bookVisibility:refreshShelfTab",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/bookVisibility:toggleBookVisibilityFromCard__call__components/shelves/shelfTabs:invalidateShelfCache",
+      "source": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "target": "components/shelves/shelfTabs:invalidateShelfCache",
+      "rel": "call"
+    },
+    {
+      "id": "components/shelves/bookVisibility:toggleBookVisibilityFromCard__call__indexedDB/core/connection:openDatabase",
+      "source": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/bookVisibility:toggleBookVisibilityFromCard__domwrite__dom",
+      "source": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/shelves/bookVisibility:toggleBookVisibilityFromCard__write__store:library",
+      "source": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "target": "store:library",
+      "rel": "write"
+    },
+    {
       "id": "components/shelves/shelfArchiveButton:createShelfArchiveButton__call__components/shelves/shelfArchiveButton:slugifyInput",
       "source": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
       "target": "components/shelves/shelfArchiveButton:slugifyInput",
@@ -26348,6 +26466,27 @@
       "id": "components/shelves/shelfHeader:showShelfHeader__call__components/homepage/homepageDisplayUnit:transitionToBookContent",
       "source": "components/shelves/shelfHeader:showShelfHeader",
       "target": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/bookVisibility:offerToPublishShelfBooks",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/bookVisibility:offerToPublishShelfBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/shelves/shelfHeader:showShelfHeader__call__components/shelves/bookVisibility:refreshShelfTab",
+      "source": "components/shelves/shelfHeader:showShelfHeader",
+      "target": "components/shelves/bookVisibility:refreshShelfTab",
       "rel": "call",
       "dataPath": true
     },
@@ -29465,6 +29604,19 @@
       "dataPath": true
     },
     {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
+      "target": "components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "rel": "call"
+    },
+    {
       "id": "components/userProfile/userProfilePage:initializeUserProfilePage__call__components/shelves/shelfOverview:setShelfOverview",
       "source": "components/userProfile/userProfilePage:initializeUserProfilePage",
       "target": "components/shelves/shelfOverview:setShelfOverview",
@@ -31576,6 +31728,24 @@
       "id": "dom__domread__components/shelves/addToShelfMenu:showLoginPromptMenu",
       "source": "dom",
       "target": "components/shelves/addToShelfMenu:showLoginPromptMenu",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/bookVisibility:refreshShelfTab",
+      "source": "dom",
+      "target": "components/shelves/bookVisibility:refreshShelfTab",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "source": "dom",
+      "target": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
+      "source": "dom",
+      "target": "components/shelves/bookVisibilityMenuItem:bookVisibilityMenuItem",
       "rel": "domread"
     },
     {
@@ -46530,6 +46700,20 @@
       "label": "/api/shelves/{}/items"
     },
     {
+      "id": "route:/api/shelves__pull__components/shelves/bookVisibility:offerToPublishShelfBooks",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/bookVisibility:offerToPublishShelfBooks",
+      "rel": "pull",
+      "label": "/api/shelves/{}/{}"
+    },
+    {
+      "id": "route:/api/shelves__pull__components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+      "source": "route:/api/shelves",
+      "target": "components/shelves/bookVisibility:offerToUnpublishShelfBooks",
+      "rel": "pull",
+      "label": "/api/shelves/{}/{}"
+    },
+    {
       "id": "route:/api/shelves__pull__components/shelves/shelfArchiveButton:createShelfArchiveButton",
       "source": "route:/api/shelves",
       "target": "components/shelves/shelfArchiveButton:createShelfArchiveButton",
@@ -49558,6 +49742,12 @@
       "rel": "read"
     },
     {
+      "id": "store:library__read__components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "source": "store:library",
+      "target": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "rel": "read"
+    },
+    {
       "id": "store:library__read__components/sourceContainer/editForm:syncLibraryRecordToBackend",
       "source": "store:library",
       "target": "components/sourceContainer/editForm:syncLibraryRecordToBackend",
@@ -49789,6 +49979,12 @@
       "id": "store:localStorage__read__components/settingsContainer/vibeCSS/storage:getVibePrompt",
       "source": "store:localStorage",
       "target": "components/settingsContainer/vibeCSS/storage:getVibePrompt",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/shelves/bookVisibility:toggleBookVisibilityFromCard",
+      "source": "store:localStorage",
+      "target": "components/shelves/bookVisibility:toggleBookVisibilityFromCard",
       "rel": "read"
     },
     {
@@ -51229,6 +51425,11 @@
     },
     {
       "source": "components/homepage/homepage",
+      "target": "components/shelves/bookVisibilityMenuItem",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepage",
       "target": "components/floatingActionMenu/floatingActionMenu",
       "kind": "lazy"
     },
@@ -51240,6 +51441,11 @@
     {
       "source": "components/homepage/homepage",
       "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/homepage",
+      "target": "components/shelves/bookVisibility",
       "kind": "lazy"
     },
     {
@@ -51858,6 +52064,16 @@
       "kind": "lazy"
     },
     {
+      "source": "components/shelves/bookVisibility",
+      "target": "components/shelves/shelfTabs",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/shelves/bookVisibility",
+      "target": "indexedDB/index",
+      "kind": "lazy"
+    },
+    {
       "source": "components/shelves/shelfHeader",
       "target": "components/homepage/homepageDisplayUnit",
       "kind": "static"
@@ -51871,6 +52087,11 @@
       "source": "components/shelves/shelfHeader",
       "target": "components/shelves/shelfLike",
       "kind": "static"
+    },
+    {
+      "source": "components/shelves/shelfHeader",
+      "target": "components/shelves/bookVisibility",
+      "kind": "lazy"
     },
     {
       "source": "components/shelves/shelfHeader",
@@ -52564,12 +52785,22 @@
     },
     {
       "source": "components/userProfile/userProfilePage",
+      "target": "components/shelves/bookVisibilityMenuItem",
+      "kind": "static"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
       "target": "components/floatingActionMenu/floatingActionMenu",
       "kind": "lazy"
     },
     {
       "source": "components/userProfile/userProfilePage",
       "target": "components/shelves/addToShelfMenu",
+      "kind": "lazy"
+    },
+    {
+      "source": "components/userProfile/userProfilePage",
+      "target": "components/shelves/bookVisibility",
       "kind": "lazy"
     },
     {
@@ -56903,6 +57134,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 320
+    "lazyCount": 325
   }
 }

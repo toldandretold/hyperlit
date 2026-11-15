@@ -1,4 +1,4 @@
-// One archive-export download button (markdown vault / SQLite) — a
+// One archive-export download button (Obsidian vault / Zettlr vault / SQLite) — a
 // parameterized port of the audiobook button's state machine
 // (sourceContainer/audiobookDownload.ts):
 //   busy   — dimmed with a % readout while the server packages the artifact
@@ -24,7 +24,8 @@ const MAX_POLLS = 900; // 30 minutes
  */
 const MAX_CONSECUTIVE_FAILURES = 30; // a minute of nothing but failures
 
-export type ExportKind = 'markdown' | 'sqlite';
+/** `markdown` is the Obsidian vault, `zettlr` the same vault written for Zettlr. */
+export type ExportKind = 'markdown' | 'zettlr' | 'sqlite';
 
 export interface ArchiveScope {
   scopeType: string;

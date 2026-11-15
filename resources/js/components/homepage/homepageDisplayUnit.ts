@@ -6,6 +6,7 @@ import { getAllOfflineAvailableBooks } from '../../indexedDB/index';
 import { formatAuthorsForReference } from '../../utilities/authorList';
 import { resolveShelfClickMode, shelfRenderUrl, isPersistableContentId } from './shelfTabRouting';
 import type { ShelfClickMode } from './shelfTabRouting';
+import { readArchiveEditSeed } from '../archivePage/archiveTitleEditor';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
@@ -69,8 +70,18 @@ async function resolveAndOpenShelfButton(btn: any, mode: ShelfClickMode, persist
           credentials: 'include',
         }
       : undefined;
-    const resp = await fetch(url, init);
-    const data = await resp.json();
+    let resp = await fetch(url, init);
+    let data = await resp.json().catch(() => ({}));
+    // The owner render needs a live session. If it is refused (the session
+    // lapsed under an open archive page), a public shelf still has a public
+    // render — show that rather than a dead feed.
+    if (mode === 'owner-shelf' && !resp.ok) {
+      const publicUrl = shelfRenderUrl('public-shelf', shelfId, sort);
+      if (publicUrl) {
+        resp = await fetch(publicUrl);
+        data = await resp.json().catch(() => ({}));
+      }
+    }
     if (data.bookId) {
       bookId = data.bookId;
       btn.dataset.content = bookId;
@@ -348,6 +359,8 @@ export async function initializeHomepageButtons() {
       page: document.body.dataset.page,
       isOwner: (window as any).isOwner === true,
       isUserPage: (window as any).isUserPage === true,
+      shelfId: activeButton.dataset.shelfId,
+      archiveOwnerShelfId: readArchiveEditSeed()?.shelfId,
     });
     if (bootShelfMode !== 'generic') {
       runBootFeedLoad(async () => {
@@ -459,6 +472,8 @@ export async function initializeHomepageButtons() {
         page: document.body.dataset.page,
         isOwner: (window as any).isOwner === true,
         isUserPage: (window as any).isUserPage === true,
+        shelfId: this.dataset.shelfId,
+        archiveOwnerShelfId: readArchiveEditSeed()?.shelfId,
       });
       if (shelfMode !== 'generic') {
         try {

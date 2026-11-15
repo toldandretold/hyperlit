@@ -433,6 +433,19 @@ class CanonicalSourceMatcher
     }
 
     /**
+     * Link a library row to a canonical that ALREADY exists, as another version
+     * of the same work. Link only: unlike verifyAndLink() the row's own citation
+     * columns are left exactly as they are, and unlike match() no identifier is
+     * searched for — the caller already knows which work this is (e.g. a user
+     * re-importing their own copy of a book they exported from Hyperlit;
+     * method `vault_reimport`).
+     */
+    public function linkToExistingCanonical(PgLibrary $library, CanonicalSource $canonical, string $method): void
+    {
+        $this->linkLibraryToCanonical($library, $canonical, 1.0, $method, false);
+    }
+
+    /**
      * Find-or-create a WEB canonical, identity-keyed on the URL, and link the
      * library row to it. This is the version-grouping canonical for a
      * non-academic source whose page content has been VERIFIED against the

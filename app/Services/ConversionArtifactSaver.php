@@ -193,16 +193,9 @@ class ConversionArtifactSaver
                     continue;
                 }
                 $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
-                $uuid = (string) Str::uuid();
-                $plainText = strip_tags($content);
-                $safeHtml = strip_tags($content, '<a><em><strong><i><b>');
-                $nodeHtml = '<p data-node-id="' . e($uuid) . '" '
-                          . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
-
-                $previewNodes = [[
-                    'book' => $subBookId, 'chunk_id' => 0, 'startLine' => 1.0, 'node_id' => $uuid,
-                    'content' => $nodeHtml, 'footnotes' => [], 'hyperlights' => [], 'hypercites' => [],
-                ]];
+                // One node per block of the footnote (paragraph / quotation / list) — FootnoteBlocks.
+                $blockNodes = \App\Services\DocumentImport\FootnoteBlocks::nodes($content);
+                $previewNodes = \App\Services\DocumentImport\FootnoteBlocks::previewNodes($subBookId, $blockNodes);
 
                 $existing = PgFootnote::where('book', $bookId)->where('footnoteId', $footnoteId)->first();
                 if ($existing) {
@@ -227,11 +220,13 @@ class ConversionArtifactSaver
                     ]
                 );
 
-                PgNode::updateOrCreate(
-                    ['book' => $subBookId, 'startLine' => 1],   // one node per sub-book — match the UNIQUE key,
-                    ['chunk_id' => 0, 'node_id' => $uuid,        // not a fresh uuid (which never matched → dup insert)
-                     'content' => $nodeHtml, 'plainText' => $plainText]
-                );
+                foreach ($blockNodes as $blockNode) {
+                    PgNode::updateOrCreate(
+                        ['book' => $subBookId, 'startLine' => $blockNode['startLine']],   // match the UNIQUE key,
+                        ['chunk_id' => 0, 'node_id' => $blockNode['node_id'],             // not a fresh uuid (which never matched → dup insert)
+                         'content' => $blockNode['content'], 'plainText' => $blockNode['plainText']]
+                    );
+                }
 
                 $enrichedForJson[] = [
                     'footnoteId' => $footnoteId, 'content' => $content, 'preview_nodes' => $previewNodes,

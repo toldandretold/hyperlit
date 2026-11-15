@@ -84,6 +84,9 @@ _DIGESTION_TAIL = [
 # a row here (and the node, if new). LOAD = input prep; STEMBIB = the alternate STEM (numeric-ref) branch.
 _DOC_PASS_NODE = {
     'LoadDocument': 'LOAD', 'SafariRtlFix': 'LOAD', 'SplitBibliographyParagraphs': 'LOAD',
+    # --markdown-source only (a user's own .md): input prep, citation re-linking, body cleanup.
+    'StripObsidianBlockIds': 'LOAD', 'ResolveVaultCitationLinks': 'LINK',
+    'RemoveMarkdownFootnoteDefinitions': 'EMIT',
     'StemBibliography': 'STEMBIB',
     'ExtractBibliography': 'BIB',
     'SelectFootnoteStrategy': 'STRAT',

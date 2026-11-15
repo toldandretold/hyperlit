@@ -314,7 +314,16 @@ class DbLibraryController extends Controller
                         'gate_defaults' => array_key_exists('gate_defaults', $data)
                             ? $data['gate_defaults']
                             : $libraryRecord->gate_defaults,
-                        'raw_json' => json_encode($this->cleanItemForStorage($data)),
+                        // MERGED over what is stored, like every column above
+                        // (`$data['x'] ?? stored`): a PARTIAL payload — a
+                        // visibility-only flip from the shelf bulk publish, a
+                        // card menu or MCP — used to REPLACE raw_json with the
+                        // three keys it sent, wiping `type`, `translation_model`
+                        // and everything else read back out of it.
+                        'raw_json' => json_encode(array_merge(
+                            is_array($libraryRecord->raw_json) ? $libraryRecord->raw_json : [],
+                            $this->cleanItemForStorage($data),
+                        )),
                     ];
 
                     if ($isStale) {

@@ -12,6 +12,7 @@ import { log, verbose } from '../../utilities/logger';
 import { generateBookIdFromMetadata, findAvailableBookId } from '../newbookContainer/citeForm/bookId';
 import { startImportQueuePolling } from './importQueuePoller';
 import { drainResponse } from '../../utilities/drainResponse';
+import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
 import type { ImportBundle, ManifestEntry } from './folderIngest';
 
 /**
@@ -22,6 +23,7 @@ import type { ImportBundle, ManifestEntry } from './folderIngest';
 const METADATA_KEYS: ReadonlyArray<keyof ManifestEntry> = [
   'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
   'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
+  'doi', 'license', 'license_url',
 ];
 
 /** Above this many items, later book ids skip the per-id server availability
@@ -33,6 +35,21 @@ export interface BatchUploadResult {
   batchId: string | null;
   uploaded: number;
   failed: number;
+  /** Books already in Hyperlit that went straight onto the shelf. */
+  existingAdded: number;
+  /** Where the shelf lives, when the batch has one. */
+  shelfUrl: string | null;
+}
+
+/**
+ * A stored BibTeX entry for a note whose folder gave it citation details but
+ * no .bib entry — library cards render `bibtex` in preference to the columns,
+ * so without one the author/year the vault supplied would never show.
+ */
+function bibtexFor(meta: ManifestEntry, book: string, title: string): string | null {
+  if (meta.bibtex) return meta.bibtex;
+  if (!meta.author && meta.year == null) return null;
+  return generateBibtexFromForm({ ...meta, year: meta.year != null ? String(meta.year) : '', book, title });
 }
 
 function csrfToken(): string {
@@ -85,9 +102,24 @@ export async function uploadBatch(
     manifest?: { schemaVersion: number; site?: string } | null;
     /** Fires once the batch is registered (before uploads) — e.g. close the form. */
     onCreated?: (batchId: string) => void;
+    /**
+     * Books ALREADY in Hyperlit to put straight on the shelf, no upload
+     * (vaultResolve.ts). The server re-checks that the caller can read each.
+     * With no bundles at all the call registers no batch — it only shelves.
+     */
+    existingBooks?: string[];
+    /**
+     * File the batch on the caller's private "Imported works" shelf (a single
+     * upload that is already a book in Hyperlit). Ignored when shelfId or
+     * autoShelf is set.
+     */
+    importsShelf?: boolean;
   },
 ): Promise<BatchUploadResult> {
-  if (!bundles.length) return { batchId: null, uploaded: 0, failed: 0 };
+  const existingBooks = opts.existingBooks ?? [];
+  if (!bundles.length && !existingBooks.length) {
+    return { batchId: null, uploaded: 0, failed: 0, existingAdded: 0, shelfUrl: null };
+  }
 
   const taken = new Set<string>();
   const withIds: Array<{ bundle: ImportBundle; book: string }> = [];
@@ -110,17 +142,29 @@ export async function uploadBatch(
       source: opts.source,
       auto_shelf: opts.autoShelf,
       ...(opts.shelfId ? { shelf_id: opts.shelfId } : {}),
+      ...(opts.importsShelf && !opts.shelfId ? { imports_shelf: true } : {}),
       items: withIds.map(({ bundle, book }) => ({
         book,
         title: bundle.title,
         filename: bundle.filename,
       })),
+      ...(existingBooks.length ? { existing_books: existingBooks } : {}),
     }),
   });
-  if (!createResp.ok) {
-    throw new Error(`Could not register the import batch (server returned ${createResp.status}).`);
+  const created = await createResp.json().catch(() => null) as
+    | { id?: string | null; shelf_url?: string | null; existing_added?: number; message?: string }
+    | null;
+  if (!createResp.ok || !created) {
+    throw new Error(created?.message || `Could not register the import batch (server returned ${createResp.status}).`);
   }
-  const created = await createResp.json();
+  const existingAdded = Number(created.existing_added ?? 0);
+  const shelfUrl = typeof created.shelf_url === 'string' ? created.shelf_url : null;
+
+  // Nothing to upload: the existing books are on the shelf and that is the
+  // whole job — no batch was registered, so there is nothing for the widget.
+  if (!withIds.length || !created.id) {
+    return { batchId: null, uploaded: 0, failed: 0, existingAdded, shelfUrl };
+  }
   const batchId = String(created.id);
 
   // The widget takes over as the progress UI from here.
@@ -138,14 +182,18 @@ export async function uploadBatch(
     formData.append('title', bundle.title);
     formData.append('import_batch_id', batchId);
     if (bundle.metadata) {
+      const bibtex = bibtexFor(bundle.metadata, book, bundle.title);
       for (const key of METADATA_KEYS) {
         if (key === 'title') continue; // already sent via bundle.title
-        const value = bundle.metadata[key];
+        const value = key === 'bibtex' ? bibtex : bundle.metadata[key];
         if (value != null && String(value).trim()) {
           formData.append(key, String(value).trim());
         }
       }
     }
+    // The user's own version of a book already in Hyperlit (vaultResolve.ts):
+    // the server copies its citation details and links the same canonical work.
+    if (bundle.versionOf) formData.append('version_of', bundle.versionOf);
     if (opts.manifest) {
       // Provenance breadcrumbs — land in library.raw_json server-side.
       formData.append('imported_via', 'scrape-folder');
@@ -189,5 +237,5 @@ export async function uploadBatch(
     }
   }
 
-  return { batchId, uploaded, failed };
+  return { batchId, uploaded, failed, existingAdded, shelfUrl };
 }

@@ -19,6 +19,26 @@ class MarkdownVaultBuilder
     /** Pending note bytes that trigger a zip flush — the build's memory ceiling. */
     public const FLUSH_BYTES = 8 * 1024 * 1024;
 
+    /**
+     * Which editor the vault is written for. The texts and references.bib are
+     * the same; what differs is the syntax only one of them understands:
+     *   - obsidian: in-text citations are block links (`#^id`) to their
+     *     bibliography entry, and each note carries an `@citekey` alias;
+     *   - zettlr: neither exists there (a `#^id` link resolves as a file path),
+     *     so in-text citations are plain text and there are no aliases.
+     */
+    public const FLAVOR_OBSIDIAN = 'obsidian';
+
+    public const FLAVOR_ZETTLR = 'zettlr';
+
+    private string $flavor = self::FLAVOR_OBSIDIAN;
+
+    /** @var array<string, string> book id => note filename, for the build in progress */
+    private array $names = [];
+
+    /** @var array<string, string> canonical_source_id => a vault book that is a version of it */
+    private array $byCanonical = [];
+
     /** The vault's bibliography, at its root beside the README. */
     public const BIB_FILE = 'references.bib';
 
@@ -33,8 +53,10 @@ class MarkdownVaultBuilder
      * @param  callable(float):void  $onProgress  fraction 0..1
      * @return string final artifact path
      */
-    public function build(ArchiveCorpus $corpus, string $workPath, string $finalPath, callable $onProgress): string
+    public function build(ArchiveCorpus $corpus, string $workPath, string $finalPath, callable $onProgress, string $flavor = self::FLAVOR_OBSIDIAN): string
     {
+        $this->flavor = $flavor;
+
         File::ensureDirectoryExists(dirname($workPath), 0755);
         @unlink($workPath);
 
@@ -52,6 +74,16 @@ class MarkdownVaultBuilder
             $names[$row->book] = $this->dedupe($this->exporter->filenameFor($row), $usedNames);
         }
 
+        $this->names = $names;
+        $this->byCanonical = [];
+        foreach (array_chunk(array_keys($names), 1000) as $ids) {
+            $rows = DB::connection('pgsql_admin')->table('library')->whereIn('book', $ids)
+                ->whereNotNull('canonical_source_id')->get(['book', 'canonical_source_id']);
+            foreach ($rows as $r) {
+                $this->byCanonical[$r->canonical_source_id] ??= $r->book;
+            }
+        }
+
         $zip->addFromString("{$root}/README.md", $this->hubOrReadme($corpus, $names));
 
         // ZipArchive keeps every addFromString() payload in memory until
@@ -62,7 +94,7 @@ class MarkdownVaultBuilder
         $total = max(1, count($corpus->books));
         $bibliography = new VaultBibliography();
         foreach ($corpus->books as $i => $row) {
-            $markdown = $this->exporter->markdownFor($row->book, obsidianLinks: true);
+            $markdown = $this->noteMarkdown($row->book);
             if (trim($markdown) !== '') {
                 $lib = $this->libraryRow($row->book);
                 $citekey = null;
@@ -128,7 +160,7 @@ class MarkdownVaultBuilder
         $fields = [
             'title' => $clean($lib->title),
             'citekey' => (string) $citekey,
-            'aliases' => $citekey ? ['@' . $citekey] : [],
+            'aliases' => $citekey && $this->flavor === self::FLAVOR_OBSIDIAN ? ['@' . $citekey] : [],
             'authors' => $authors,
             'year' => $clean($lib->year),
             'journal' => $clean($lib->journal),
@@ -143,6 +175,11 @@ class MarkdownVaultBuilder
             'license' => $license !== '' && $license !== \App\Support\Licenses::UNKNOWN ? $license : '',
             'license_url' => $clean($lib->license_url),
             'hyperlit' => $this->hyperlitUrl($lib),
+            // The book's ID, which never changes — `hyperlit` above is built
+            // from the slug when there is one, and a slug can be renamed. This
+            // is what lets a vault dropped back into Hyperlit find its books
+            // again (App\Services\DocumentImport\VaultBookResolver).
+            'book' => (string) $lib->book,
             'archive' => $corpus->pageUrl,
             'exported' => now()->toDateString(),
         ];
@@ -165,6 +202,102 @@ class MarkdownVaultBuilder
         $lines[] = '---';
 
         return implode("\n", $lines) . "\n\n";
+    }
+
+    private function noteMarkdown(string $bookId): string
+    {
+        $noteLinks = $this->citedNotes($bookId);
+
+        return $this->flavor === self::FLAVOR_ZETTLR
+            ? $this->exporter->markdownFor($bookId, plainFragmentLinks: true, noteLinks: $noteLinks)
+            : $this->exporter->markdownFor($bookId, obsidianLinks: true, noteLinks: $noteLinks);
+    }
+
+    /**
+     * Where each of one text's references can be FOLLOWED: refId => link target.
+     *
+     * First choice is the cited text's own note in this vault — the reference
+     * was resolved to a library book by citation matching (`source_id` /
+     * `foundation_source`), or shares a canonical work with a book here (the
+     * vault may hold another version of it).
+     *
+     * The Zettlr vault then falls back to the work's DOI, else a URL the
+     * reference itself carries: Zettlr has no paragraph anchor, so without
+     * this a citation of a work outside the vault is dead text. Obsidian keeps
+     * its block link to the bibliography entry for those (the hover shows the
+     * whole reference, link included). A reference with nothing to point at is
+     * left out and stays as it was.
+     *
+     * Each link carries the reference's own text as its title — the hover in
+     * any editor, and what lets a re-import recognise the link as a citation
+     * of that reference again (ResolveVaultCitationLinks in app/Python).
+     *
+     * @return array<string, array{href: string, title: string}>
+     */
+    private function citedNotes(string $bookId): array
+    {
+        $external = $this->flavor === self::FLAVOR_ZETTLR;
+        $rows = DB::connection('pgsql_admin')->table('bibliography as b')
+            ->leftJoin('canonical_source as c', 'c.id', '=', 'b.canonical_source_id')
+            ->where('b.book', $bookId)
+            ->get(['b.referenceId', 'b.source_id', 'b.foundation_source', 'b.canonical_source_id', 'b.content', 'b.llm_metadata', 'c.doi as canonical_doi']);
+
+        $links = [];
+        foreach ($rows as $r) {
+            foreach ([$r->source_id, $r->foundation_source, $this->byCanonical[$r->canonical_source_id ?? ''] ?? null] as $candidate) {
+                if ($candidate !== null && $candidate !== $bookId && isset($this->names[$candidate])) {
+                    $links[$r->referenceId] = ['href' => rawurlencode($this->names[$candidate]), 'title' => self::linkTitle($r)];
+
+                    continue 2;
+                }
+            }
+            if ($external && ($url = self::externalLink($r)) !== null) {
+                $links[$r->referenceId] = ['href' => $url, 'title' => self::linkTitle($r)];
+            }
+        }
+
+        return $links;
+    }
+
+    /**
+     * A reference's text as a Markdown link title. Quotes would end the title
+     * and emphasis marks or brackets are read as markup by simpler parsers;
+     * none of them matter to a reader or to the re-import, which compares
+     * letters and digits only.
+     */
+    private static function linkTitle(object $row): string
+    {
+        $text = html_entity_decode(strip_tags((string) $row->content), ENT_QUOTES | ENT_HTML5);
+        $text = str_replace(['"', '“', '”'], "'", $text);
+        $text = trim((string) preg_replace('/\s+/u', ' ', (string) preg_replace('/[*_`\[\]<>\\\\]/', '', $text)));
+
+        return mb_strlen($text) > 300 ? rtrim(mb_substr($text, 0, 300)) : $text;
+    }
+
+    /** A reference's DOI (matched work, extracted metadata, or printed in the entry), else its URL. */
+    private static function externalLink(object $row): ?string
+    {
+        $meta = json_decode((string) ($row->llm_metadata ?? ''), true) ?: [];
+        // Hrefs count as well as the printed text: a publisher's entry often links "[Crossref]".
+        $text = html_entity_decode(preg_replace('/<a\b[^>]*\bhref="([^"]*)"[^>]*>/i', ' $1 ', (string) $row->content) ?? '');
+        $text = strip_tags($text);
+
+        $doi = trim((string) ($row->canonical_doi ?? '')) ?: trim((string) ($meta['doi'] ?? ''));
+        if ($doi === '' && preg_match('~\b(10\.\d{4,9}/[^\s"<>]+)~', $text, $m)) {
+            $doi = $m[1];
+        }
+        $url = '';
+        if ($doi !== '') {
+            $doi = (string) preg_replace('~^(https?://(dx\.)?doi\.org/|doi:\s*)~i', '', $doi);
+            $url = 'https://doi.org/' . rtrim($doi, '.,;:)]');
+        } elseif (preg_match('~^https?://\S+$~i', trim((string) ($meta['url'] ?? '')))) {
+            $url = trim($meta['url']);
+        } elseif (preg_match('~https?://[^\s"<>]+~i', $text, $m)) {
+            $url = rtrim($m[0], '.,;:)]');
+        }
+
+        // Parentheses and spaces would end the markdown link target early.
+        return $url === '' ? null : str_replace(['(', ')', ' '], ['%28', '%29', '%20'], $url);
     }
 
     private function libraryRow(string $bookId): ?object
@@ -193,7 +326,7 @@ class MarkdownVaultBuilder
         if (!$corpus->hub) {
             return $readme;
         }
-        $body = trim($this->exporter->markdownFor($corpus->hub->book, obsidianLinks: true));
+        $body = trim($this->noteMarkdown($corpus->hub->book));
         if ($body === '') {
             return $readme;
         }
@@ -280,8 +413,12 @@ class MarkdownVaultBuilder
             '',
             '- ' . count($corpus->books) . ' text' . (count($corpus->books) === 1 ? '' : 's') . ' in this vault, one Markdown file each.',
             '- Each file opens with its citation details as properties (front matter), including `hyperlit` — the link back to the live text.',
-            '- `' . self::BIB_FILE . '` holds one BibTeX entry per text, keyed by the `citekey` in that text\'s properties. Point an Obsidian citation plugin at it, or import it into Zotero, to cite these texts as `[@citekey]`; `[[@citekey]]` links to the text\'s note in this vault.',
-            '- Footnotes and hypercite links are resolved into `[^n]` footnotes; in-text citations link to their bibliography entry.',
+            $this->flavor === self::FLAVOR_ZETTLR
+                ? '- `' . self::BIB_FILE . '` holds one BibTeX entry per text, keyed by the `citekey` in that text\'s properties. In Zettlr, set it as the citation database (Preferences → Citations) and type `@` to cite these texts as `[@citekey]`.'
+                : '- `' . self::BIB_FILE . '` holds one BibTeX entry per text, keyed by the `citekey` in that text\'s properties. Point an Obsidian citation plugin at it, or import it into Zotero, to cite these texts as `[@citekey]`; `[[@citekey]]` links to the text\'s note in this vault.',
+            $this->flavor === self::FLAVOR_ZETTLR
+                ? '- Footnotes and hypercite links are resolved into `[^n]` footnotes. An in-text citation of a text that is also in this vault links to that text\'s file; otherwise it links to the work\'s DOI or URL where the reference has one, and is plain text where it has none.'
+                : '- Footnotes and hypercite links are resolved into `[^n]` footnotes. An in-text citation of a text that is also in this vault links to that text\'s note; the others link to their bibliography entry.',
             '- Images are linked at their hyperlit URLs (not bundled in the zip).',
         ];
 

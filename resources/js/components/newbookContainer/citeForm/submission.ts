@@ -16,6 +16,8 @@ import { getImportEncryptIntent } from '../encryptIntent';
 import { log } from '../../../utilities/logger';
 import { buildIngestPlan, collectPickedFiles } from '../../importQueue/folderIngest';
 import { uploadBatch } from '../../importQueue/batchUploader';
+import { decideVaultDrop, decideSingleNote, openExistingBook } from '../../importQueue/vaultResolve';
+import { hasIdentityHint } from '../../importQueue/vaultMetadata';
 import { showImportQueuePreparing, failImportQueuePreparing } from '../../importQueue/importQueue';
 
 export function setupFormSubmission() {
@@ -80,6 +82,11 @@ export function setupFormSubmission() {
       if (plan.kind === 'batch') {
         form._submitting = false;
         const label = plan.folderName || `Import ${new Date().toISOString().slice(0, 10)}`;
+        // Notes already in Hyperlit: shelve the existing books or import own
+        // versions? Asked BEFORE the form closes — cancelling keeps the form.
+        const decision = await decideVaultDrop(plan.bundles, plan.skipped ?? []);
+        if (!decision) return false;
+        const { bundles, existingBooks } = decision;
         // The documents are on their way — this draft describes none of them, so
         // it must not come back the next time the form opens.
         clearSavedFormData();
@@ -87,12 +94,17 @@ export function setupFormSubmission() {
         // Close the form now and let the queue widget (already expanded, with
         // an indeterminate bar) be the progress UI from the first moment.
         (window as any).newBookManager?.closeContainer();
-        showImportQueuePreparing(plan.bundles.length);
-        void uploadBatch(plan.bundles, {
+        if (bundles.length) showImportQueuePreparing(bundles.length);
+        void uploadBatch(bundles, {
           label,
           source: plan.source,
           autoShelf: true,
           manifest: plan.manifest,
+          existingBooks,
+        }).then((result) => {
+          if (!result.batchId && result.existingAdded > 0 && result.shelfUrl) {
+            window.location.assign(result.shelfUrl);
+          }
         }).catch((err) => {
           const message = err instanceof Error ? err.message : String(err);
           log.error('Batch import failed to start', '/components/newbookContainer/citeForm/submission.ts', message);
@@ -100,6 +112,66 @@ export function setupFormSubmission() {
           failImportQueuePreparing(message);
         });
         return false;
+      }
+    }
+
+    // ONE markdown note that says which work it is (a Hyperlit export's
+    // `book:` / `hyperlit:` keys, or a DOI): if that book is already here, ask
+    // before importing a second copy of it.
+    if (pickedFiles.length >= 1) {
+      const { files: collected, rootDirName } = collectPickedFiles(pickedFiles);
+      const notePlan = await buildIngestPlan(collected, rootDirName, { forceBatch: true });
+      const note = notePlan.source === 'vault' && notePlan.bundles.length === 1 ? notePlan.bundles[0] : null;
+      if (note && hasIdentityHint(note.identity ?? null)) {
+        const outcome = await decideSingleNote(note, null);
+        if (outcome.action === 'cancel') {
+          form._submitting = false;
+          return false;
+        }
+        if (outcome.action === 'existing') {
+          try {
+            // Filed on "Imported works" FIRST, then opened — so a failure
+            // leaves the form (and the picked file) exactly as it was.
+            await openExistingBook(outcome.match, null);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            log.error('Could not add the existing book to a shelf', '/components/newbookContainer/citeForm/submission.ts', message);
+            const summary = $('form-validation-summary');
+            const list = $('validation-list');
+            if (summary && list) {
+              list.textContent = '';
+              const item = document.createElement('li');
+              item.textContent = `Could not add the existing book to your shelf: ${message}`;
+              list.appendChild(item);
+              summary.style.display = 'block';
+            }
+            form._submitting = false;
+            return false;
+          }
+          form._submitting = false;
+          // This upload is settled — the draft must not come back next time.
+          clearSavedFormData();
+          resetFileSelectionTracking();
+          return false;
+        }
+        if (outcome.action === 'own') {
+          form._submitting = false;
+          clearSavedFormData();
+          resetFileSelectionTracking();
+          (window as any).newBookManager?.closeContainer();
+          showImportQueuePreparing(1);
+          void uploadBatch([outcome.bundle], {
+            label: outcome.bundle.title,
+            source: 'files',
+            autoShelf: false,
+          }).catch((err) => {
+            const message = err instanceof Error ? err.message : String(err);
+            log.error('Own-version import failed to start', '/components/newbookContainer/citeForm/submission.ts', message);
+            failImportQueuePreparing(message);
+          });
+          return false;
+        }
+        // 'proceed': not a book we hold — import exactly as before.
       }
     }
 

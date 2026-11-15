@@ -1,6 +1,7 @@
 // resources/js/components/userProfile/userProfilePage.ts
 
 import { log, verbose } from '../../utilities/logger'
+import { bookVisibilityMenuItem } from '../shelves/bookVisibilityMenuItem';
 
 let userProfilePageInitialized = false;
 
@@ -179,6 +180,12 @@ export function initializeUserProfilePage() {
                 });
             }
 
+            // Your own book: flip it public / private right here. The Library
+            // lists only your books; a shelf mixes in other people's, so there
+            // the card must be marked as yours.
+            const visibilityItem = bookVisibilityMenuItem(target, isShelfTab);
+            if (visibilityItem) menuItems.push(visibilityItem);
+
             menuItems.push(
                 { id: 'share', label: 'Share', icon: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' },
                 { id: 'delete', label: deleteLabel, icon: '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' },
@@ -217,6 +224,13 @@ export function initializeUserProfilePage() {
                 case 'unset-overview': {
                     const { setShelfOverview } = await import('../shelves/shelfOverview');
                     await setShelfOverview(action === 'set-overview' ? bookId : null);
+                    break;
+                }
+
+                case 'make-public':
+                case 'make-private': {
+                    const { toggleBookVisibilityFromCard } = await import('../shelves/bookVisibility');
+                    await toggleBookVisibilityFromCard(bookId, action === 'make-public', target);
                     break;
                 }
             }

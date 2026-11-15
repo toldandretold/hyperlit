@@ -84,7 +84,7 @@ class VaultBibliography
         };
 
         $fields = [
-            'author' => implode(' and ', array_map(self::escape(...), self::authors($clean($lib->author ?? '')))),
+            'author' => implode(' and ', array_map(self::bibName(...), self::authors($clean($lib->author ?? '')))),
             'title' => self::escape($clean($lib->title ?? '')),
             'year' => self::escape($clean($lib->year ?? '')),
             'journal' => self::escape($journal),
@@ -121,7 +121,10 @@ class VaultBibliography
 
     /**
      * library.author → individual names. `;` separates authors where present;
-     * otherwise ` and `. Anonymous creators are stored as UUIDs — not a name.
+     * otherwise ` and ` / ` & `. Anonymous creators are stored as UUIDs — not a
+     * name. The `&` matters: left inside one name, BibTeX reads it as a
+     * lower-case particle and "Hyperlit & Priya Chacko" is cited as
+     * "(& Priya Chacko 2026)".
      *
      * @return string[]
      */
@@ -133,12 +136,28 @@ class VaultBibliography
         }
         $parts = str_contains($author, ';')
             ? preg_split('/\s*;\s*/', $author)
-            : preg_split('/\s+and\s+/i', $author);
+            : preg_split('/\s+(?:and|&)\s+/i', $author);
 
         return array_values(array_filter(array_map('trim', $parts ?: [])));
     }
 
-    /** "Barnet, Belinda" → Barnet; "Belinda Barnet" → Barnet. */
+    /** Words that mark a name as an organisation's, not a person's. */
+    private const ORG_NAME_RE = '/\b(of|for|the|council|university|institute|department|ministry|committee|commission|association|society|organi[sz]ation|foundation|centre|center|network|collective|government|agency|office|group|press|union|party|bank|service|services)\b/i';
+
+    /**
+     * One author as BibTeX wants it. A person's name goes through as written;
+     * an organisation's is wrapped in a second pair of braces, without which
+     * BibTeX splits it into given and family names and "Australian Council of
+     * Social Service" is cited as "Service".
+     */
+    private static function bibName(string $name): string
+    {
+        $escaped = self::escape($name);
+
+        return !str_contains($name, ',') && preg_match(self::ORG_NAME_RE, $name) ? '{' . $escaped . '}' : $escaped;
+    }
+
+    /** "Barnet, Belinda" → Barnet; "Belinda Barnet" → Barnet; an organisation → its first word. */
     private static function surname(string $name): string
     {
         if (str_contains($name, ',')) {
@@ -146,7 +165,8 @@ class VaultBibliography
         }
         $tokens = preg_split('/\s+/', trim($name)) ?: [];
 
-        return (string) end($tokens);
+        // An organisation has no surname — key it by how its name begins.
+        return (string) (preg_match(self::ORG_NAME_RE, $name) ? reset($tokens) : end($tokens));
     }
 
     private static function slug(string $s, string $keep = ''): string

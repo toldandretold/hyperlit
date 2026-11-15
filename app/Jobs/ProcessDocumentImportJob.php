@@ -186,7 +186,17 @@ class ProcessDocumentImportJob implements ShouldQueue
                     default => throw new \RuntimeException("Unsupported extension: {$this->extension}"),
                 };
 
-                $processor->process($inputPath, $path, $this->bookId);
+                if ($this->extension === 'md') {
+                    // A reconvert can arrive here as `md` for a book whose only surviving source is
+                    // the main-text.md the OCR lane wrote. That Markdown was generated from a
+                    // printed page, not authored — its notes block stays in the body.
+                    $markdownProcessor->process(
+                        $inputPath, $path, $this->bookId,
+                        authoredMarkdown: ! File::exists("{$path}/ocr_response.json"),
+                    );
+                } else {
+                    $processor->process($inputPath, $path, $this->bookId);
+                }
             }
 
             // Wait for nodes.jsonl if not yet present
@@ -226,6 +236,25 @@ class ProcessDocumentImportJob implements ShouldQueue
                 Log::warning('Citation resolution restore failed (import continues)', [
                     'book' => $this->bookId, 'error' => $e->getMessage(),
                 ]);
+            }
+
+            // "My own version" of a book Hyperlit already holds (a vault note dropped back in):
+            // the copy's references are that book's references, so it inherits what was matched
+            // and verified there. `inherit_citations_from` is set by ImportController only for an
+            // original the uploader could read. Best-effort, like the restore above.
+            $inheritFrom = (string) ($this->formData['inherit_citations_from'] ?? '');
+            if ($inheritFrom !== '' && $inheritFrom !== $this->bookId) {
+                try {
+                    $inherited = app(\App\Services\Citations\ResolutionSnapshotService::class)
+                        ->inheritFrom($inheritFrom, $this->bookId);
+                    Log::info('Citation resolution inherited from the original', [
+                        'book' => $this->bookId, 'from' => $inheritFrom,
+                    ] + $inherited);
+                } catch (\Throwable $e) {
+                    Log::warning('Citation resolution inherit failed (import continues)', [
+                        'book' => $this->bookId, 'from' => $inheritFrom, 'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             // AMBIGUOUS citation resolutions: re-apply the answers maintainers already gave
@@ -373,7 +402,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             $statsPath = "{$path}/conversion_stats.json";
             $conversionStats = File::exists($statsPath) ? json_decode(File::get($statsPath), true) : null;
 
-            $updatedLibrary = PgLibrary::where('book', $this->bookId)->first();
+            $updatedLibrary = PgLibrary::on('pgsql_admin')->where('book', $this->bookId)->first();
 
             $result = [
                 'success' => true,
@@ -810,22 +839,10 @@ class ProcessDocumentImportJob implements ShouldQueue
                 }
 
                 $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
-                $uuid = (string) Str::uuid();
-                $plainText = strip_tags($content);
-                $safeHtml = strip_tags($content, '<a><em><strong><i><b>');
-                $nodeHtml = '<p data-node-id="'.e($uuid).'" '
-                    .'style="min-height:1.5em;">'.$safeHtml.'</p>';
-
-                $previewNodes = [[
-                    'book' => $subBookId,
-                    'chunk_id' => 0,
-                    'startLine' => 1.0,
-                    'node_id' => $uuid,
-                    'content' => $nodeHtml,
-                    'footnotes' => [],
-                    'hyperlights' => [],
-                    'hypercites' => [],
-                ]];
+                // One node per block of the footnote — a paragraph, a quotation, a list — the
+                // shape a footnote written in the editor has (FootnoteBlocks).
+                $blockNodes = \App\Services\DocumentImport\FootnoteBlocks::nodes($content);
+                $previewNodes = \App\Services\DocumentImport\FootnoteBlocks::previewNodes($subBookId, $blockNodes);
 
                 $footnoteInserts[] = [
                     'book' => $bookId,
@@ -852,16 +869,18 @@ class ProcessDocumentImportJob implements ShouldQueue
                     'created_at' => $now,
                 ];
 
-                $nodeInserts[] = [
-                    'book' => $subBookId,
-                    'node_id' => $uuid,
-                    'chunk_id' => 0,
-                    'startLine' => 1,
-                    'content' => $nodeHtml,
-                    'plainText' => $plainText,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                foreach ($blockNodes as $blockNode) {
+                    $nodeInserts[] = [
+                        'book' => $subBookId,
+                        'node_id' => $blockNode['node_id'],
+                        'chunk_id' => 0,
+                        'startLine' => $blockNode['startLine'],
+                        'content' => $blockNode['content'],
+                        'plainText' => $blockNode['plainText'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
 
                 // Stream enriched entry to footnotes.json
                 $enrichedEntry = json_encode([
@@ -1000,7 +1019,12 @@ class ProcessDocumentImportJob implements ShouldQueue
 
     private function updateLibraryMetadata(string $path, MetadataExtractor $extractor): void
     {
-        $library = PgLibrary::where('book', $this->bookId)->first();
+        // pgsql_admin throughout: a queue worker carries no RLS session vars,
+        // and library_select_policy hides a PRIVATE row from a var-less
+        // default connection — every import is born private, so this method
+        // returned at the null check below and never filled a single field
+        // (a re-imported vault note kept its filename as the title).
+        $library = PgLibrary::on('pgsql_admin')->where('book', $this->bookId)->first();
         if (! $library) {
             return;
         }
@@ -1039,7 +1063,7 @@ class ProcessDocumentImportJob implements ShouldQueue
         }
 
         if (! empty($updates)) {
-            PgLibrary::where('book', $this->bookId)->update($updates);
+            PgLibrary::on('pgsql_admin')->where('book', $this->bookId)->update($updates);
             Log::info('Library metadata updated from file extraction', [
                 'book' => $this->bookId,
                 'fields' => array_keys($updates),
@@ -1050,7 +1074,7 @@ class ProcessDocumentImportJob implements ShouldQueue
             // doesn't show "Untitled" until the next freshness-guard regen.
             // Queue-worker context: syncHomepage's updateBookOnUserPage writes
             // via pgsql_admin, so RLS is not in play here.
-            $refreshed = PgLibrary::where('book', $this->bookId)->first();
+            $refreshed = PgLibrary::on('pgsql_admin')->where('book', $this->bookId)->first();
             if ($refreshed && $refreshed->creator) {
                 app(\App\Services\LibraryService::class)->syncHomepage($refreshed->creator, $refreshed);
             }

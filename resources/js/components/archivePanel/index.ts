@@ -18,6 +18,8 @@ import { log } from '../../utilities/logger';
 class ArchivePanelManager extends ContainerManager {
   private mdDownload: ExportDownloadHandle | null = null;
 
+  private zettlrDownload: ExportDownloadHandle | null = null;
+
   private sqliteDownload: ExportDownloadHandle | null = null;
 
   constructor() {
@@ -66,6 +68,7 @@ class ArchivePanelManager extends ContainerManager {
     if (data) await this.wireActions(data);
 
     this.mdDownload = initExportDownload(this.container, 'download-archive-md', scope, 'markdown');
+    this.zettlrDownload = initExportDownload(this.container, 'download-archive-zettlr', scope, 'zettlr');
     this.sqliteDownload = initExportDownload(this.container, 'download-archive-sqlite', scope, 'sqlite');
   }
 
@@ -155,6 +158,8 @@ class ArchivePanelManager extends ContainerManager {
   destroyDownloads(): void {
     this.mdDownload?.destroy();
     this.mdDownload = null;
+    this.zettlrDownload?.destroy();
+    this.zettlrDownload = null;
     this.sqliteDownload?.destroy();
     this.sqliteDownload = null;
   }

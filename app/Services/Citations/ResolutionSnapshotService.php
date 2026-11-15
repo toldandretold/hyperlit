@@ -132,6 +132,38 @@ class ResolutionSnapshotService
     }
 
     /**
+     * Carry ANOTHER book's resolution onto this one: the new book is a re-imported copy of
+     * $sourceBookId (a vault note dropped back in as "my own version"), so its references are the
+     * same references and what was matched and verified there is true here too. A fresh import
+     * otherwise comes back with every reference unmatched and every verification gone.
+     *
+     * Same matching and the same gap-fill rule as restore(): key first, then reference text, and
+     * never over a value the new rows already hold. Footnote ids are minted per conversion, so
+     * footnotes match on text alone. Nothing is written to disk and the source is not touched.
+     *
+     * The caller answers for access: pass only a source the importing user was allowed to read.
+     *
+     * @return array{bibliography:array<string,int>, footnotes:array<string,int>}
+     */
+    public function inheritFrom(string $sourceBookId, string $bookId): array
+    {
+        $db = DB::connection('pgsql_admin');
+
+        return [
+            'bibliography' => $this->restoreTable(
+                $db, $bookId, 'bibliography', 'referenceId',
+                $this->resolvedRows($db, $sourceBookId, 'bibliography', 'referenceId', self::BIB_COLUMNS),
+                self::BIB_COLUMNS
+            ),
+            'footnotes' => $this->restoreTable(
+                $db, $bookId, 'footnotes', 'footnoteId',
+                $this->resolvedRows($db, $sourceBookId, 'footnotes', 'footnoteId', self::FOOTNOTE_COLUMNS),
+                self::FOOTNOTE_COLUMNS
+            ),
+        ];
+    }
+
+    /**
      * Rows carrying at least one resolution column.
      *
      * An entry that was never attempted has nothing to carry, and this predicate is deliberately

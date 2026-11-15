@@ -63,6 +63,21 @@ class LibraryCardGenerator
     }
 
     /**
+     * Mark a finished card chunk as a book the VIEWER wrote (`libraryCard-own`).
+     * Only ever applied to an owner's shelf render, where a shelf mixes the
+     * owner's own books with other people's: the card menu reads it to decide
+     * whether "Make public / Make private" is on offer. It is a hint for the
+     * menu, never the authority — the library upsert checks ownership itself.
+     */
+    public function markAsOwn(array $chunk): array
+    {
+        $content = (string) ($chunk['content'] ?? '');
+        $chunk['content'] = preg_replace('/class="libraryCard\b/', 'class="libraryCard libraryCard-own', $content, 1) ?? $content;
+
+        return $chunk;
+    }
+
+    /**
      * Give a finished card chunk a visible pin (class + leading glyph) — the
      * shelf overview, the homepage's pinned welcome book. Done on the finished
      * chunk so the generator's nine-argument signature doesn't grow a tenth.

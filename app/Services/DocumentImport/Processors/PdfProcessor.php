@@ -160,7 +160,9 @@ class PdfProcessor implements ProcessorInterface
         }
 
         // Stage 3: Feed markdown through existing pipeline (md → html → nodes.json)
-        $this->markdownProcessor->process($mdPath, $outputPath, $bookId);
+        // authoredMarkdown: false — this Markdown is OCR of a printed page, whose notes block is
+        // part of the document and stays in the body.
+        $this->markdownProcessor->process($mdPath, $outputPath, $bookId, authoredMarkdown: false);
 
         $totalDuration = round((microtime(true) - $processStart) * 1000, 2);
         Log::info('PdfProcessor completed', [

@@ -194,6 +194,14 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // The folder-drop pre-flight (POST /api/import-batches/resolve): one
+        // call per dropped folder, up to 300 lookups each. Own bucket so it is
+        // neither starved by nor able to starve the SPA's shared one.
+        \Illuminate\Support\Facades\RateLimiter::for('import-resolve', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(20)
+                ->by('import-resolve|' . ($request->user()?->id ?: $request->ip()));
+        });
+
         // Reading-depth telemetry beacons (own bucket for the same reason):
         // a reader flushes at most every 15s per book, so 30/min is generous
         // while still bounding hostile clients.
@@ -226,6 +234,16 @@ class AppServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\RateLimiter::for('shelf-archive', function ($request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
                 ->by('shelf-archive|'.($request->user()?->id ?: $request->ip()));
+        });
+
+        // "Make all books within this shelf public / private" — one press
+        // changes many books, in calls of at most
+        // ShelfController::BULK_VISIBILITY_CHUNK that the client loops over
+        // (a big shelf is dozens of calls, hence 60 not 10). Its own bucket,
+        // so ordinary SPA traffic can't 429 the press mid-loop.
+        \Illuminate\Support\Facades\RateLimiter::for('shelf-publish-books', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by('shelf-publish-books|'.($request->user()?->id ?: $request->ip()));
         });
 
         // Shelf likes (like/unlike + the public count read) — own bucket, so

@@ -1,0 +1,38 @@
+{
+    "name": "synthetic",
+    "description": "A note in the shape Hyperlit's own vault export writes (MarkdownVaultBuilder): footnote definitions after a rule, one of them multi-paragraph with a quotation; Obsidian block ids closing each reference; and the three ways an in-text citation is exported — a block link, a link to the cited work's note, a DOI link — the last two carrying the reference as the link title. Re-importing it must give the book back: definitions become footnotes and leave the body, the quotation is stored once, block ids are not printed, and every citation links its reference again.",
+    "book_id": "md_vault_export",
+    "citation_style": "author-year-bracket",
+    "footnote_strategy": "sequential",
+    "pipeline": "md",
+    "expected": {
+        "references_count": 3,
+        "footnotes_count": 3,
+        "audit_gaps": 0,
+        "footnote_strategy": "sequential",
+        "footnote_links": [
+            {
+                "marker": "1",
+                "content_contains": "enclosure"
+            },
+            {
+                "marker": "2",
+                "content_contains": "work together"
+            },
+            {
+                "marker": "3",
+                "content_contains": "Pluto Press"
+            }
+        ],
+        "citation_links": [
+            {
+                "node_contains": "vast and open",
+                "anchors": [
+                    ["2020", "harvey2020"],
+                    ["1992", "beck1992"],
+                    ["1981", "cox1981"]
+                ]
+            }
+        ]
+    }
+}

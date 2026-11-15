@@ -1,0 +1,58 @@
+{
+  "linked_nodes": [
+    {
+      "footnotes": [
+        {
+          "id": "FN0001",
+          "marker": "1"
+        },
+        {
+          "id": "FN0002",
+          "marker": "2"
+        }
+      ],
+      "i": 3,
+      "references": [],
+      "type": "p"
+    },
+    {
+      "footnotes": [],
+      "i": 4,
+      "references": [
+        "harvey2020",
+        "beck1992",
+        "cox1981"
+      ],
+      "type": "p"
+    },
+    {
+      "footnotes": [
+        {
+          "id": "FN0003",
+          "marker": "3"
+        }
+      ],
+      "i": 5,
+      "references": [],
+      "type": "p"
+    }
+  ],
+  "node_count": 9,
+  "text_hashes": [
+    "8b56307c58",
+    "8bd4a4c990",
+    "e412e7ffd1",
+    "600aa24a62",
+    "78d2f843d0",
+    "5d20d0fee3",
+    "4067f5c77b",
+    "5b085fd027",
+    "ccdc7cd643"
+  ],
+  "type_histogram": {
+    "a": 1,
+    "h1": 1,
+    "h2": 1,
+    "p": 6
+  }
+}

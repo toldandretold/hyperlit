@@ -11,8 +11,13 @@
  * Invariants encoded here (do not weaken without reading both call sites):
  * - Journal/archive pages (`body[data-page="journal"]`) are isOwner-BLIND:
  *   `window.isOwner` is stamped by the user page and leaks across SPA body
- *   swaps, and a journal feed is a public shelf where owner-ness is
- *   irrelevant anyway. They always resolve via the public endpoint.
+ *   swaps. They resolve via the public endpoint — with ONE exception, which
+ *   still never consults that global: the archive page (`/a/{slug}`) renders
+ *   an owner seed into the DOM for the shelf's creator only
+ *   (`readArchiveEditSeed()`; the DOM is swapped on SPA nav, so it cannot
+ *   leak). When that seed names THIS button's shelf, the owner gets the owner
+ *   render — the public render leaves out every non-public book, and the
+ *   owner must still see (padlocked) and open their own.
  * - On the user page, the OWNER resolves via the authed owner endpoint
  *   (`/api/shelves/{id}/render`, same as shelfTabs.activateTab) so a
  *   server-rendered pill and a dynamic tab for the same shelf mint the SAME
@@ -36,11 +41,19 @@ export interface ShelfClickContext {
   isOwner: boolean;
   /** window.isUserPage */
   isUserPage: boolean;
+  /** the button's data-shelf-id */
+  shelfId?: string | null;
+  /** the shelf id in the archive page's server-stamped OWNER seed, if any */
+  archiveOwnerShelfId?: string | null;
 }
 
 export function resolveShelfClickMode(ctx: ShelfClickContext): ShelfClickMode {
   if (ctx.filter !== 'shelf') return 'generic';
-  if (ctx.page === 'journal') return 'public-shelf';
+  if (ctx.page === 'journal') {
+    return ctx.archiveOwnerShelfId && ctx.shelfId && ctx.archiveOwnerShelfId === ctx.shelfId
+      ? 'owner-shelf'
+      : 'public-shelf';
+  }
   if (!ctx.isUserPage) return 'generic';
   return ctx.isOwner ? 'owner-shelf' : 'public-shelf';
 }

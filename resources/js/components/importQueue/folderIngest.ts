@@ -22,6 +22,18 @@
 
 import { verbose } from '../../utilities/logger';
 import { isAcceptableImportExt } from '../utilities/fileImportHelpers';
+import {
+  bibEntryFor,
+  identityForNote,
+  indexBibEntries,
+  isExportHubNote,
+  metadataForNote,
+  parseBibFile,
+  parseFrontMatter,
+  type BibEntry,
+  type FrontMatter,
+  type VaultIdentity,
+} from './vaultMetadata';
 
 export interface CollectedFile {
   file: File;
@@ -54,6 +66,17 @@ export interface ManifestEntry {
   chapter?: string;
   editor?: string;
   school?: string;
+  /** Vault front matter / .bib only (not read from manifest.json). */
+  doi?: string;
+  license?: string;
+  license_url?: string;
+}
+
+/** A note left out of the plan on purpose — reported to the user, never silent. */
+export interface SkippedNote {
+  filename: string;
+  /** hub: a Hyperlit export's generated README. empty: nothing to import. */
+  reason: 'hub' | 'empty';
 }
 
 export interface ImportBundle {
@@ -65,8 +88,17 @@ export interface ImportBundle {
   rewrittenMain: File | null;
   title: string;
   filename: string;
-  /** Manifest metadata for this document, when the drop carried one. */
+  /**
+   * Metadata for this document: manifest.json entry > the note's own YAML
+   * front matter > the folder's .bib entry (per field, in that order).
+   */
   metadata: ManifestEntry | null;
+  /** What the note says about which work it is (vaultMetadata.ts) — drives the
+   * "already in Hyperlit" check. Null for files that carry no such hint. */
+  identity?: VaultIdentity | null;
+  /** Set by the resolve step when the user chose to import their OWN version
+   * of a book already in Hyperlit: that book's id (sent as `version_of`). */
+  versionOf?: string;
 }
 
 export interface IngestPlan {
@@ -86,6 +118,8 @@ export interface IngestPlan {
   unreferencedImages: number;
   /** Set when the drop carried a root-level manifest.json (a scrape folder). */
   manifest: { schemaVersion: number; site?: string } | null;
+  /** Notes deliberately left out (export hub README, empty notes). */
+  skipped?: SkippedNote[];
 }
 
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']);
@@ -397,6 +431,54 @@ function metaFor(manifest: ParsedManifest | null, relPath: string): ManifestEntr
   return manifest.entries.get(key) ?? manifest.entries.get(basenameOf(key)) ?? null;
 }
 
+/* ── Vault metadata (front matter + .bib) ───────────────────────────────── */
+
+type BibIndex = ReturnType<typeof indexBibEntries>;
+
+/** Every .bib file in the drop, at any depth, parsed into one index. */
+async function readBibIndex(collected: CollectedFile[]): Promise<BibIndex> {
+  const entries: BibEntry[] = [];
+  for (const c of collected) {
+    if (extOf(c.file.name) !== 'bib') continue;
+    try {
+      entries.push(...parseBibFile(await c.file.text()));
+    } catch (err) {
+      verbose.content(
+        `folderIngest: unreadable ${c.relPath} — skipped (${err instanceof Error ? err.message : String(err)})`,
+        '/components/importQueue/folderIngest.ts',
+      );
+    }
+  }
+  if (entries.length) {
+    verbose.content(`folderIngest: read ${entries.length} .bib entr${entries.length === 1 ? 'y' : 'ies'}`, '/components/importQueue/folderIngest.ts');
+  }
+  return indexBibEntries(entries);
+}
+
+const NO_FRONT_MATTER: FrontMatter = { fields: {}, body: '', hasBlock: false };
+
+/**
+ * Metadata + identity for one file. Per field: manifest.json > front matter >
+ * .bib. Returns nulls when the folder says nothing about the file.
+ */
+function describeFile(
+  manifestMeta: ManifestEntry | null,
+  bibIndex: BibIndex,
+  filename: string,
+  frontMatter: FrontMatter | null,
+  text: string,
+): { metadata: ManifestEntry | null; identity: VaultIdentity | null } {
+  const fm = frontMatter ?? NO_FRONT_MATTER;
+  const bib = bibEntryFor(bibIndex, filename, frontMatter);
+  const merged: ManifestEntry = { ...metadataForNote(fm, bib), ...(manifestMeta ?? {}) };
+  const identity = identityForNote(fm, bib, text);
+  const hasIdentity = !!(identity.book || identity.hyperlitUrl || identity.doi || identity.hyperciteTargets.length);
+  return {
+    metadata: Object.keys(merged).length ? merged : null,
+    identity: hasIdentity ? identity : null,
+  };
+}
+
 /* ── Plan building ──────────────────────────────────────────────────────── */
 
 /**
@@ -415,6 +497,16 @@ function metaFor(manifest: ParsedManifest | null, relPath: string): ManifestEntr
 export async function buildIngestPlan(
   collected: CollectedFile[],
   rootDirName: string | null,
+  opts: {
+    /**
+     * Plan a lone markdown note as a batch of ONE bundle instead of the
+     * one-book-folder form shortcut. That shortcut carries only the files, so
+     * the note's front matter / .bib metadata and identity never reach the
+     * caller — which is what the "is this single upload already in Hyperlit?"
+     * check (vaultResolve.ts decideSingleNote) needs.
+     */
+    forceBatch?: boolean;
+  } = {},
 ): Promise<IngestPlan> {
   const importable = collected.filter((c) => isAcceptableImportExt(c.file));
   const mds = importable.filter((c) => isMarkdownFile(c.file.name));
@@ -425,6 +517,10 @@ export async function buildIngestPlan(
   // acceptable import extension, so it is invisible to the filters above.
   const manifest = await readManifest(collected);
   const planManifest = manifest ? { schemaVersion: manifest.schemaVersion, site: manifest.site } : null;
+
+  // .bib files are metadata, never uploads — bib is not an acceptable import
+  // extension, so (like manifest.json) they are read here or not at all.
+  const bibIndex = await readBibIndex(collected);
 
   if (importable.length === 0) {
     return { kind: 'none', files: [], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: 0, manifest: planManifest };
@@ -442,7 +538,7 @@ export async function buildIngestPlan(
 
   // One markdown file, no other documents: the classic one-book folder.
   const onlyMd = mds[0];
-  if (!manifest && mds.length === 1 && onlyMd && docs.length === 0) {
+  if (!manifest && !opts.forceBatch && mds.length === 1 && onlyMd && docs.length === 0) {
     return {
       kind: 'one-book-folder',
       files: [onlyMd.file, ...images.map((i) => i.file)],
@@ -466,7 +562,7 @@ export async function buildIngestPlan(
       return { kind: 'single', files: [onlyImportable.file], bundles: [], folderName: rootDirName, source: 'files', unreferencedImages: images.length ? images.length - 1 : 0, manifest: null };
     }
     const bundles = docs.map((d) => {
-      const metadata = metaFor(manifest, d.relPath);
+      const { metadata, identity } = describeFile(metaFor(manifest, d.relPath), bibIndex, d.file.name, null, '');
       return {
         mainFile: d.file,
         images: [],
@@ -474,6 +570,7 @@ export async function buildIngestPlan(
         title: metadata?.title || titleFromFilename(d.file.name),
         filename: d.file.name,
         metadata,
+        identity,
       };
     });
     if (images.length) {
@@ -506,9 +603,25 @@ export async function buildIngestPlan(
 
   const referenced = new Set<string>();
   const bundles: ImportBundle[] = [];
+  const skipped: SkippedNote[] = [];
 
   for (const md of mds) {
     const text = await md.file.text();
+    const frontMatter = parseFrontMatter(text);
+
+    // A Hyperlit export's generated README describes the shelf, not a work —
+    // importing it would mint a "README" book on every re-import.
+    if (frontMatter.hasBlock && isExportHubNote(frontMatter)) {
+      skipped.push({ filename: md.file.name, reason: 'hub' });
+      continue;
+    }
+    // Nothing to convert (an empty note, or front matter with no body) — the
+    // server would 422 it as an invalid file.
+    if (frontMatter.body.trim() === '') {
+      skipped.push({ filename: md.file.name, reason: 'empty' });
+      continue;
+    }
+
     const refs = parseImageRefs(text);
     const bundleImages: File[] = [];
     for (const ref of refs) {
@@ -526,7 +639,7 @@ export async function buildIngestPlan(
       ? null
       : new File([rewritten], md.file.name, { type: md.file.type || 'text/markdown' });
 
-    const metadata = metaFor(manifest, md.relPath);
+    const { metadata, identity } = describeFile(metaFor(manifest, md.relPath), bibIndex, md.file.name, frontMatter, text);
     bundles.push({
       mainFile: md.file,
       images: bundleImages,
@@ -534,11 +647,12 @@ export async function buildIngestPlan(
       title: metadata?.title || titleFromFilename(md.file.name),
       filename: md.file.name,
       metadata,
+      identity,
     });
   }
 
   for (const doc of docs) {
-    const metadata = metaFor(manifest, doc.relPath);
+    const { metadata, identity } = describeFile(metaFor(manifest, doc.relPath), bibIndex, doc.file.name, null, '');
     bundles.push({
       mainFile: doc.file,
       images: [],
@@ -546,7 +660,15 @@ export async function buildIngestPlan(
       title: metadata?.title || titleFromFilename(doc.file.name),
       filename: doc.file.name,
       metadata,
+      identity,
     });
+  }
+
+  if (skipped.length) {
+    verbose.content(
+      `folderIngest: skipped ${skipped.length} note(s) — ${skipped.map((n) => `${n.filename} (${n.reason})`).join(', ')}`,
+      '/components/importQueue/folderIngest.ts',
+    );
   }
 
   const unreferenced = images.filter((i) => !referenced.has(basenameOf(i.file.name).toLowerCase())).length;
@@ -555,12 +677,13 @@ export async function buildIngestPlan(
   }
 
   return {
-    kind: 'batch',
+    kind: bundles.length ? 'batch' : 'none',
     files: [],
     bundles,
     folderName: rootDirName,
     source: 'vault',
     unreferencedImages: unreferenced,
     manifest: planManifest,
+    skipped,
   };
 }

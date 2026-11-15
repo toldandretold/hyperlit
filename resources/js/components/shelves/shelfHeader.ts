@@ -330,12 +330,19 @@ export function showShelfHeader(opts: any) {
                 if (!confirmed) return;
 
                 try {
-                    await drainResponse(await fetch(`/api/shelves/${shelfId}`, {
+                    const resp = await fetch(`/api/shelves/${shelfId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': getXsrf() },
                         credentials: 'include',
                         body: JSON.stringify({ visibility: newVis }),
-                    }));
+                    });
+                    const data = await resp.json().catch(() => ({})) as {
+                        error?: string;
+                        non_public_books?: { own: number; encrypted: number; others: number };
+                        public_books?: { own: number; others: number };
+                    };
+                    if (!resp.ok) throw new Error(data.error || `Save failed (${resp.status})`);
+
                     currentVisibility = newVis;
                     visIcon.innerHTML = newVis === 'public' ? GLOBE_SVG : LOCK_SVG;
                     visIcon.title = newVis === 'public' ? 'Public' : 'Private';
@@ -345,8 +352,36 @@ export function showShelfHeader(opts: any) {
                         shareBtn.style.display = newVis === 'public' ? '' : 'none';
                     }
                     archiveBtn?.setVisibility(newVis);
+
+                    // The owner's shelf list is read whenever this header is
+                    // rebuilt (tab re-activation) — without this it reverts.
+                    const listed = ((window as any).userShelves || []).find((s: any) => s.id == shelfId);
+                    if (listed) listed.visibility = newVis;
+
+                    // A public shelf shows visitors only its PUBLIC books. If
+                    // some of the owner's aren't, ask once whether to publish
+                    // them all; "no" leaves them on the shelf, padlocked.
+                    // The mirror: a private shelf hides the list, not the
+                    // books — ask once whether the owner's still-public ones
+                    // should go private with it.
+                    const { offerToPublishShelfBooks, offerToUnpublishShelfBooks, refreshShelfTab } = await import('./bookVisibility');
+                    let changed = 0;
+                    if (newVis === 'public' && data.non_public_books) {
+                        changed = await offerToPublishShelfBooks(String(shelfId), data.non_public_books);
+                    } else if (newVis === 'private' && data.public_books) {
+                        changed = await offerToUnpublishShelfBooks(String(shelfId), data.public_books);
+                    }
+                    // The visibility change flushed this shelf's cached
+                    // renders; re-render when cards changed, else just drop
+                    // the tab's remembered (flushed) render.
+                    await refreshShelfTab(String(shelfId), title.textContent.trim(), changed > 0);
                 } catch (err) {
-                    console.error('Failed to toggle visibility:', err);
+                    log.error('Failed to toggle shelf visibility', '/components/shelves/shelfHeader.ts', err as Error);
+                    const { alertDialog } = await import('../dialog/dialog');
+                    await alertDialog({
+                        title: "Couldn't change the shelf's visibility",
+                        message: err instanceof Error ? err.message : 'Try again.',
+                    });
                 }
             });
         }

@@ -448,3 +448,46 @@ export function alertDialog(opts: AlertOptions): Promise<void> {
     release = trapModalFocus(overlay, { onEscape: done });
   });
 }
+
+export interface ProgressDialogHandle {
+  /** Replace the message (e.g. "12 of 59"). Announced politely to screen readers. */
+  update(message: string): void;
+  /** Take the dialog down and hand focus back to the opener. Safe to call twice. */
+  close(): void;
+}
+
+/**
+ * A blocking "working…" dialog for an operation that takes seconds and must
+ * not be walked away from mid-way (a bulk change the page is driving in
+ * chunks). No buttons and Escape is swallowed — the caller closes it. Same
+ * trapped `app-dialog-overlay` shell as the others, so the page behind is
+ * inert to the keyboard and to clicks while it is up.
+ */
+export function progressDialog(opts: { title?: string; message: string }): ProgressDialogHandle {
+  const overlay = document.createElement('div');
+  overlay.className = 'app-dialog-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-busy', 'true');
+  overlay.style.cssText = OVERLAY_CSS;
+  overlay.innerHTML = `
+    <div class="app-dialog-card" style="${CARD_CSS}">
+      ${opts.title ? `<h3 style="${TITLE_CSS}">${escapeHtml(opts.title)}</h3>` : ''}
+      <p data-role="progress-message" role="status" aria-live="polite" style="${MSG_CSS} margin-bottom: 0;">${renderMessage(opts.message)}</p>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  let release: (() => void) | null = trapModalFocus(overlay, { onEscape: () => { /* not dismissible */ } });
+  const messageEl = overlay.querySelector<HTMLElement>('[data-role="progress-message"]');
+
+  return {
+    update(message: string) {
+      if (messageEl) messageEl.innerHTML = renderMessage(message);
+    },
+    close() {
+      release?.();
+      release = null;
+      overlay.remove();
+    },
+  };
+}

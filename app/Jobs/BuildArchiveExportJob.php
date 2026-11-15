@@ -79,9 +79,11 @@ class BuildArchiveExportJob implements ShouldQueue
         $onProgress = fn (float $fraction) => $this->progress($store, 'building', $fraction);
 
         try {
-            $path = $this->kind === 'markdown'
-                ? app(MarkdownVaultBuilder::class)->build($corpus, $workPath, $finalPath, $onProgress)
-                : app(SqliteArchiveBuilder::class)->build($corpus, $this->audience, $workPath, $finalPath, $onProgress);
+            $path = match ($this->kind) {
+                'markdown' => app(MarkdownVaultBuilder::class)->build($corpus, $workPath, $finalPath, $onProgress),
+                'zettlr' => app(MarkdownVaultBuilder::class)->build($corpus, $workPath, $finalPath, $onProgress, MarkdownVaultBuilder::FLAVOR_ZETTLR),
+                default => app(SqliteArchiveBuilder::class)->build($corpus, $this->audience, $workPath, $finalPath, $onProgress),
+            };
         } catch (\Throwable $e) {
             Log::error('BuildArchiveExportJob failed', [
                 'scope' => "{$this->scopeType}/{$this->scopeId}",

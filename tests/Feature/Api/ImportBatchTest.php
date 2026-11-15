@@ -489,3 +489,17 @@ test('my-imports links a batch\'s shelf to its archive page when it has one, els
         DB::connection('pgsql_admin')->table('archive_sources')->where('slug', $slug)->delete();
     }
 });
+
+test('a second drop with the same label gets its own shelf, not the first one', function () {
+    $user = $this->seedUser(['email' => 'batch_twice@test.local']);
+    $this->actingAs($user);
+
+    $payload = fn () => batchPayload(1, ['auto_shelf' => true, 'source' => 'folder', 'label' => 'batchtest same folder']);
+    $first = $this->postJson('/api/import-batches', $payload())->assertStatus(201);
+    $second = $this->postJson('/api/import-batches', $payload())->assertStatus(201);
+
+    expect($second->json('shelf.id'))->not->toBe($first->json('shelf.id'))
+        ->and($first->json('shelf.name'))->toBe('batchtest same folder')
+        ->and($second->json('shelf.name'))->toBe('batchtest same folder (2)')
+        ->and($second->json('shelf.slug'))->not->toBe($first->json('shelf.slug'));
+});

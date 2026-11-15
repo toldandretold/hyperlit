@@ -72,6 +72,14 @@ def _continuation_is_body(text, footnote_complete, has_later_def):
     return t[0].isupper() or t[0] in '"“‘\''
 
 
+def _inside_any(elem, taken):
+    """Is `elem` nested inside an element already collected for this footnote? `find_all` hands back a
+    <blockquote> (or <ul>, <table>) AND, separately, the <p>/<li> inside it; the container is taken
+    whole, so taking the child as well stored the same words twice ("As in:" + the quotation + the
+    quotation again)."""
+    return any(id(parent) in taken for parent in elem.parents)
+
+
 def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, excluded_in_bib,
                             body_boundaries=0):
     """Emit the footnote-extraction decision-trace fork (a SUSPICION signal, never a verdict — see
@@ -110,7 +118,7 @@ def _record_extraction_fork(strategy, code_ref, def_candidates, defs_extracted, 
         confidence=confidence, margin=margin)
 
 
-def process_whole_document_footnotes(soup, book_id):
+def process_whole_document_footnotes(soup, book_id, consumed=None):
     """Process footnotes when all definitions are at document end.
     Supports multi-paragraph footnotes by collecting all elements until the next footnote marker,
     heading, or horizontal rule.
@@ -172,6 +180,7 @@ def process_whole_document_footnotes(soup, book_id):
         # Collect content from all elements for this footnote
         content_parts = [first_content] if first_content else []
         has_later_def = j + 1 < len(footnote_starts)
+        taken = {id(first_element): first_element}   # every element this footnote's content came from
 
         # Add continuation elements (elements between this footnote and the next)
         # Stop at headings or horizontal rules
@@ -179,6 +188,8 @@ def process_whole_document_footnotes(soup, book_id):
             # Stop if we hit a heading or hr (section boundary)
             if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
                 break
+            if _inside_any(elem, taken):
+                continue
             # Stop before absorbing an interleaved BODY paragraph sandwiched between two definitions.
             if _continuation_is_body(elem.get_text(),
                                      bool(content_parts) and _footnote_reads_complete(content_parts[-1]),
@@ -188,6 +199,7 @@ def process_whole_document_footnotes(soup, book_id):
             elem_content = get_element_html_content(elem)
             if elem_content and elem_content.strip():
                 content_parts.append(elem_content.strip())
+                taken[id(elem)] = elem
 
         # Combine all content with HTML line breaks for multi-paragraph support
         full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
@@ -209,6 +221,8 @@ def process_whole_document_footnotes(soup, book_id):
         }
 
         footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
+        if consumed is not None:
+            consumed[unique_fn_id] = list(taken.values())
 
     print(f"Found {len(footnote_map)} footnote definitions in whole-document mode")
     _record_extraction_fork('whole_document', 'footnotes.py:process_whole_document_footnotes',
@@ -216,7 +230,7 @@ def process_whole_document_footnotes(soup, book_id):
     return footnote_map, footnotes_data
 
 
-def process_sequential_footnotes(soup, book_id):
+def process_sequential_footnotes(soup, book_id, consumed=None):
     """Process footnotes when ref/def sections restart numbering (sequential strategy).
     Uses markers emitted by simple_md_to_html: footnoteSectionStart and footnoteDefinitionsStart.
     """
@@ -276,10 +290,11 @@ def process_sequential_footnotes(soup, book_id):
 
             content_parts = [first_content] if first_content else []
             has_later_def = j + 1 < len(footnote_starts)
+            taken = {id(first_element): first_element}   # every element this footnote's content came from
             for elem in range_elements[start_idx + 1:end_idx]:
                 if elem.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr']:
                     break
-                if elem.name == 'a':
+                if elem.name == 'a' or _inside_any(elem, taken):
                     continue
                 # Stop before absorbing an interleaved BODY paragraph sandwiched between two definitions.
                 if _continuation_is_body(elem.get_text(),
@@ -290,6 +305,7 @@ def process_sequential_footnotes(soup, book_id):
                 elem_content = get_element_html_content(elem)
                 if elem_content and elem_content.strip():
                     content_parts.append(elem_content.strip())
+                    taken[id(elem)] = elem
 
             full_content = '<br><br>'.join(content_parts) if len(content_parts) > 1 else (content_parts[0] if content_parts else '')
 
@@ -306,6 +322,8 @@ def process_sequential_footnotes(soup, book_id):
                 'section_id': section_number
             }
             all_footnotes_data.append({"footnoteId": unique_fn_id, "content": full_content})
+            if consumed is not None:
+                consumed[unique_fn_id] = list(taken.values())
 
             print(f"Sequential fn [{section_number}][{identifier}]: {full_content[:50]}...")
 

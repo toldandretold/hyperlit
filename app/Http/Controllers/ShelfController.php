@@ -33,6 +33,25 @@ use Illuminate\Support\Str;
 class ShelfController extends Controller
 {
     /**
+     * The version of the card markup a shelf render produces. A render is a
+     * cached row set that only a shelf MUTATION flushes — a code change does
+     * not — so a render built before a markup change would otherwise be served
+     * forever (the owner render gained the padlock + "this one is yours" mark
+     * while already-cached renders kept showing none, on one page but not the
+     * other). Bump this whenever renderShelfFeed's output changes shape; a
+     * cached render of another version is rebuilt on its next request.
+     */
+    public const RENDER_VERSION = 2;
+
+    /**
+     * Books one bulk visibility call handles. Each is a full library upsert
+     * (~200ms: publish gate, home-book move, notifications, shelf flushes), so
+     * a whole vault-drop shelf in one request is a silent multi-second wait at
+     * best and a PHP timeout at worst. The client loops, showing progress.
+     */
+    public const BULK_VISIBILITY_CHUNK = 20;
+
+    /**
      * Generate a unique slug for a shelf, scoped to the creator.
      * Delegates to ShelfSlug — shared with HarvestShelf (the Source Network
      * Harvester's server-side shelf creation) so the algorithm can't drift.
@@ -227,13 +246,18 @@ class ShelfController extends Controller
         }
 
         $sortChanged = isset($updates['default_sort']) && $updates['default_sort'] !== $shelf->default_sort;
+        // The owner render's synthetic library row carries the SHELF's
+        // visibility, and a `_pub` render is a public book in its own right —
+        // so a cached render outlives a visibility flip (a shelf made private
+        // stays readable by id) unless it is dropped here.
+        $visibilityChanged = isset($updates['visibility']) && $updates['visibility'] !== $shelf->visibility;
 
         if (!empty($updates)) {
             $updates['updated_at'] = now();
             DB::connection('pgsql_admin')->table('shelves')->where('id', $id)->update($updates);
         }
 
-        if ($sortChanged || $overviewChanged) {
+        if ($sortChanged || $overviewChanged || $visibilityChanged) {
             (new ShelfCacheInvalidator())->flush($id);
         }
         if ($overviewChanged && ($archiveId = \App\Models\ArchiveSource::where('shelf_id', $id)->value('id'))) {
@@ -241,7 +265,270 @@ class ShelfController extends Controller
             Cache::forget(\App\Http\Controllers\ArchivePageController::mapCacheKey($archiveId));
         }
 
-        return response()->json(['success' => true]);
+        $response = ['success' => true];
+        // A shelf that just went public may hold books that did not: visitors
+        // are not shown those at all (renderShelfFeed), so the owner is told
+        // how many there are and offered the bulk publish (publishBooks).
+        if ($visibilityChanged && $updates['visibility'] === 'public') {
+            $nonPublic = $this->nonPublicMembers($id, $user->name);
+            $response['non_public_books'] = [
+                'own' => count($nonPublic['own']),
+                'encrypted' => $nonPublic['encrypted'],
+                'others' => $nonPublic['others'],
+            ];
+        }
+        // The mirror: a shelf made private does NOT make its books private —
+        // each is still public at its own link, in the owner's library and on
+        // any other shelf. Say how many, so the owner can be offered the bulk
+        // "make them private too" (unpublishBooks).
+        if ($visibilityChanged && $updates['visibility'] === 'private') {
+            $public = $this->publicMembers($id, $user->name);
+            $response['public_books'] = ['own' => count($public['own']), 'others' => $public['others']];
+        }
+
+        return response()->json($response);
+    }
+
+    /**
+     * A shelf's PUBLIC members, split by whether its owner may hide them:
+     * their own books, and other people's (not theirs to change).
+     *
+     * @return array{own: list<string>, others: int}
+     */
+    private function publicMembers(string $id, string $owner): array
+    {
+        $rows = DB::connection('pgsql_admin')->table('shelf_items')
+            ->join('library', 'shelf_items.book', '=', 'library.book')
+            ->where('shelf_items.shelf_id', $id)
+            ->where('library.visibility', 'public')
+            ->orderBy('shelf_items.added_at')
+            ->get(['library.book', 'library.creator']);
+
+        $out = ['own' => [], 'others' => 0];
+        foreach ($rows as $row) {
+            if ($row->creator !== $owner) {
+                $out['others']++;
+            } else {
+                $out['own'][] = $row->book;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * A shelf's members that are not public, split by what its OWNER can do
+     * about them: their own books (publishable), their own encrypted books
+     * (pinned private by the E2EE invariant) and other people's (not theirs to
+     * publish).
+     *
+     * @return array{own: list<string>, encrypted: int, others: int}
+     */
+    private function nonPublicMembers(string $id, string $owner): array
+    {
+        $rows = DB::connection('pgsql_admin')->table('shelf_items')
+            ->join('library', 'shelf_items.book', '=', 'library.book')
+            ->where('shelf_items.shelf_id', $id)
+            ->whereNotIn('library.visibility', ['public', 'deleted'])
+            ->orderBy('shelf_items.added_at')
+            ->get(['library.book', 'library.creator', 'library.encrypted']);
+
+        $out = ['own' => [], 'encrypted' => 0, 'others' => 0];
+        foreach ($rows as $row) {
+            if ($row->creator !== $owner) {
+                $out['others']++;
+            } elseif (! empty($row->encrypted)) {
+                $out['encrypted']++;
+            } else {
+                $out['own'][] = $row->book;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Publish every book on the shelf that is the caller's own — the "make all
+     * books within this shelf public" answer to making the shelf public.
+     *
+     * Each book goes through DbLibraryController::upsert, the ONE definition
+     * of what happens when a book becomes public (publish gate, the home-book
+     * move, notifications, licence-review reconcile, shelf-render flush), so
+     * this is deliberately a loop of ordinary visibility changes and NOT a
+     * bulk UPDATE — and is not wrapped in a transaction, because each upsert
+     * owns its own and its side effects run on commit.
+     *
+     * Never touched: other people's books (not the caller's to publish) and
+     * encrypted books (pinned private); both are counted back as skipped.
+     *
+     * One call handles at most BULK_VISIBILITY_CHUNK books (body: `after`, the
+     * previous call's `next`; `limit`, clamped to the chunk) and answers with
+     * `remaining` + `next` — see bulkVisibilitySlice. The client loops.
+     *
+     * @return array{success: bool, published: int, failed: int, skipped: array{not_owned: int, encrypted: int}, publish_denied: ?string, remaining: int, next: ?string}|array{error: string}
+     */
+    public function publishBooks(Request $request, string $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
+        if (!$shelf) {
+            return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        $nonPublic = $this->nonPublicMembers($id, $user->name);
+        $result = [
+            'success' => true,
+            'published' => 0,
+            'failed' => 0,
+            'skipped' => ['not_owned' => $nonPublic['others'], 'encrypted' => $nonPublic['encrypted']],
+            'publish_denied' => null,
+            'remaining' => 0,
+            'next' => null,
+        ];
+        if ($nonPublic['own'] === []) {
+            return response()->json($result);
+        }
+
+        // The gate would clamp every book identically — ask once, and say why.
+        $gate = \App\Services\Publishing\PublishGate::check($user);
+        if (! $gate['allowed']) {
+            $result['success'] = false;
+            $result['publish_denied'] = $gate['reason'];
+
+            return response()->json($result);
+        }
+
+        $slice = $this->bulkVisibilitySlice($request, $nonPublic['own']);
+        $counts = $this->setBooksVisibility($slice['books'], 'public', $user, $id);
+        $result['published'] = $counts['changed'];
+        $result['failed'] = $counts['failed'];
+        $result['remaining'] = $slice['remaining'];
+        $result['next'] = $slice['next'];
+
+        return response()->json($result);
+    }
+
+    /**
+     * Make every PUBLIC book on the shelf that is the caller's own private —
+     * the "make all books within this shelf private" answer to making the
+     * shelf private. The mirror of publishBooks: the same per-book upsert
+     * (home-book move, "citing book hidden" notifications, shelf-render
+     * flush), no publish gate (hiding your own book is always allowed), and
+     * other people's books are counted back as skipped, never touched.
+     *
+     * Chunked exactly like publishBooks (`after` / `limit` → `remaining` / `next`).
+     *
+     * @return array{success: bool, unpublished: int, failed: int, skipped: array{not_owned: int}, remaining: int, next: ?string}|array{error: string}
+     */
+    public function unpublishBooks(Request $request, string $id)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $shelf = DB::table('shelves')->where('id', $id)->where('creator', $user->name)->first();
+        if (!$shelf) {
+            return response()->json(['error' => 'Shelf not found'], 404);
+        }
+
+        $public = $this->publicMembers($id, $user->name);
+        $slice = $this->bulkVisibilitySlice($request, $public['own']);
+        $counts = $this->setBooksVisibility($slice['books'], 'private', $user, $id);
+
+        return response()->json([
+            'success' => true,
+            'unpublished' => $counts['changed'],
+            'failed' => $counts['failed'],
+            'skipped' => ['not_owned' => $public['others']],
+            'remaining' => $slice['remaining'],
+            'next' => $slice['next'],
+        ]);
+    }
+
+    /**
+     * The books ONE bulk visibility call handles, and where the next call
+     * resumes. Paged by KEY — the book id — never by offset: a book that
+     * changed leaves the candidate set, and a book that FAILED stays in it, so
+     * an offset would skip the first kind and a "take the first N" would retry
+     * the second kind forever. `after` is the last book the previous call
+     * attempted; `next` is this call's, or null once nothing is left.
+     *
+     * @param  list<string>  $candidates
+     * @return array{books: list<string>, remaining: int, next: ?string}
+     */
+    private function bulkVisibilitySlice(Request $request, array $candidates): array
+    {
+        sort($candidates, SORT_STRING);
+
+        $after = $request->input('after');
+        if (is_string($after) && $after !== '') {
+            $candidates = array_values(array_filter($candidates, fn (string $b) => strcmp($b, $after) > 0));
+        }
+
+        $limit = (int) $request->input('limit', self::BULK_VISIBILITY_CHUNK);
+        $limit = max(1, min(self::BULK_VISIBILITY_CHUNK, $limit));
+
+        $books = array_slice($candidates, 0, $limit);
+        $remaining = count($candidates) - count($books);
+
+        return [
+            'books' => $books,
+            'remaining' => $remaining,
+            'next' => $remaining > 0 ? $books[count($books) - 1] : null,
+        ];
+    }
+
+    /**
+     * Set each book's visibility through the ordinary library upsert, one at
+     * a time, counting only the ones whose STORED visibility ended up as
+     * asked — upsert answers 200 for a stale write or a clamped publish too.
+     *
+     * @param  list<string>  $books
+     * @return array{changed: int, failed: int}
+     */
+    private function setBooksVisibility(array $books, string $visibility, $user, string $shelfId): array
+    {
+        $counts = ['changed' => 0, 'failed' => 0];
+        foreach ($books as $book) {
+            try {
+                $call = \App\Mcp\Support\InternalCall::call(
+                    \App\Http\Controllers\DbLibraryController::class,
+                    'upsert',
+                    ['data' => [
+                        'book' => $book,
+                        'visibility' => $visibility,
+                        // A fresh clock, or upsert reads the write as stale and no-ops.
+                        'timestamp' => (int) round(microtime(true) * 1000),
+                    ]],
+                    $user,
+                );
+                $json = is_array($call['json']) ? $call['json'] : [];
+                $took = ($json['success'] ?? false) === true
+                    && empty($json['publish_denied'])
+                    && (($json['library']['visibility'] ?? null) === $visibility);
+            } catch (\Throwable $e) {
+                Log::warning('Shelf bulk visibility change: a book failed', [
+                    'shelf' => $shelfId, 'book' => $book, 'visibility' => $visibility, 'error' => $e->getMessage(),
+                ]);
+                $took = false;
+            }
+            $took ? $counts['changed']++ : $counts['failed']++;
+        }
+
+        // Each upsert flushed this shelf's renders as it committed, but a
+        // render REQUESTED mid-loop (a reload, another tab) reads a half-changed
+        // shelf and caches it. One flush after the last book, so the state the
+        // loop ended in is what the next request builds from.
+        if ($books !== []) {
+            (new ShelfCacheInvalidator())->flush($shelfId);
+        }
+
+        return $counts;
     }
 
     /**
@@ -630,6 +917,27 @@ class ShelfController extends Controller
         return 0;
     }
 
+    /**
+     * Was this cached render built by the CURRENT card markup? The version
+     * rides the synthetic library row's raw_json (`v`); a row without one
+     * predates versioning and counts as old. A rebuild rewrites that row with
+     * a fresh `timestamp`, which is what makes an open client refetch the
+     * cards instead of trusting its IndexedDB copy.
+     */
+    private function cachedRenderIsCurrentVersion(string $syntheticBookId): bool
+    {
+        $raw = DB::connection('pgsql_admin')->table('library')
+            ->where('book', $syntheticBookId)
+            ->value('raw_json');
+
+        $meta = is_string($raw) ? json_decode($raw, true) : $raw;
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true); // a JSON string holding JSON
+        }
+
+        return is_array($meta) && (int) ($meta['v'] ?? 1) === self::RENDER_VERSION;
+    }
+
     private function writeRenderNodes(string $syntheticBookId, array $chunks): void
     {
         $admin = DB::connection('pgsql_admin');
@@ -678,7 +986,9 @@ class ShelfController extends Controller
 
     /**
      * Public render of a shelf (no auth required).
-     * Mirrors render() but only works for public shelves, no pins, and marks private books as locked.
+     * Mirrors render() but only works for public shelves, no pins, and leaves
+     * out every member that is not public — a visitor is never shown a card
+     * they cannot open.
      */
     public function publicRender(Request $request, string $id)
     {
@@ -698,9 +1008,15 @@ class ShelfController extends Controller
 
     /**
      * The shared body of render()/publicRender(). Owner and public differ only
-     * in: synthetic id suffix (`_pub`), the pin overlay (owner only), locked
-     * cards for non-public members (public only), and the synthetic library
-     * row's visibility/raw_json.
+     * in: synthetic id suffix (`_pub`), the pin overlay (owner only), what
+     * happens to a non-public member (the owner sees it wearing the Library's
+     * padlock; the public render leaves it out entirely), the owner-only
+     * "this one is yours" mark, and the synthetic library row's
+     * visibility/raw_json.
+     *
+     * One cached row set per render id, so a render can never vary by viewer:
+     * the owner of an archive page gets the OWNER render (shelfTabRouting.ts),
+     * not a per-viewer variant of the public one.
      */
     private function renderShelfFeed(object $shelf, string $id, string $sort, bool $isOwner)
     {
@@ -713,7 +1029,11 @@ class ShelfController extends Controller
 
         // A ranking sort's order changes behind the render, so its cache expires;
         // every other sort stays cached until the shelf is mutated.
-        if ($existing && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
+        // And a render built by older card markup (RENDER_VERSION) is not a hit
+        // either: no shelf mutation flushed it, so nothing else ever would.
+        if ($existing
+            && $this->cachedRenderIsCurrentVersion($syntheticBookId)
+            && ! ConnectionRefresher::cachedRenderIsStale($syntheticBookId, $sort)) {
             return response()->json(['bookId' => $syntheticBookId]);
         }
         if ($existing) {
@@ -735,9 +1055,17 @@ class ShelfController extends Controller
                 'library.total_views', 'library.total_highlights',
                 'library.hypercite_connections', 'library.reference_connections',
                 'library.visibility as book_visibility',
+                'library.creator as book_creator', 'library.encrypted',
                 'shelf_items.added_at', 'shelf_items.manual_position',
             ])
             ->get();
+
+        // A visitor's render holds only what a visitor can open. Non-public
+        // members used to ride along as locked cards — a dead end for the
+        // reader, and for the shelf's own owner on their published page.
+        if (! $isOwner) {
+            $items = $items->filter(fn ($i) => ($i->book_visibility ?? 'public') === 'public');
+        }
 
         // Apply sort
         $items = match ($sort) {
@@ -804,8 +1132,15 @@ class ShelfController extends Controller
         $positionId = 100;
 
         foreach ($items as $i => $record) {
-            $locked = !$isOwner && ($record->book_visibility ?? 'public') !== 'public';
-            $chunk = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', $locked);
+            // Owner render: a non-public member wears the Library's padlock
+            // (the public render has already dropped it, so nothing is ever
+            // locked now), and a book the shelf's owner wrote is marked as
+            // theirs — the card menu offers "Make public / private" only there.
+            $isPrivate = $isOwner && ($record->book_visibility ?? 'public') !== 'public';
+            $chunk = $generator->generateLibraryCardChunk($record, $syntheticBookId, $positionId, $isOwner, false, $i, 'public', false, $isPrivate);
+            if ($isOwner && ($record->book_creator ?? null) === $shelf->creator) {
+                $chunk = $generator->markAsOwn($chunk);
+            }
             if ($overviewBook !== null && $record->book === $overviewBook) {
                 $chunk = $generator->markAsOverview($chunk);
             }
@@ -817,7 +1152,7 @@ class ShelfController extends Controller
             $chunks[] = $generator->generateLibraryCardChunk(null, $syntheticBookId, 1, $isOwner, true, 0);
         }
 
-        $rawJson = ['type' => 'shelf', 'shelf_id' => $id, 'sort' => $sort];
+        $rawJson = ['type' => 'shelf', 'shelf_id' => $id, 'sort' => $sort, 'v' => self::RENDER_VERSION];
         if (!$isOwner) {
             $rawJson['public'] = true;
         }
@@ -1186,6 +1521,49 @@ class ShelfController extends Controller
     }
 
     /**
+     * The corpus of the UN-NARROWED /u/{username} search: the user's own
+     * books PLUS every book on their shelves.
+     *
+     * A book someone else owns (a commons copy on "Imported works", a text
+     * added to a reading list) can only ever reach a user's page through a
+     * shelf — and with no shelf tab open the box used to search owned books
+     * alone, so that book was findable only by first guessing which shelf it
+     * sat on. Putting a book on a shelf is how a user says "this is part of my
+     * library"; the page's search honours that.
+     *
+     * Visibility is the same rule as a single shelf (shelfBooksForViewer),
+     * applied across all of them: a VISITOR reaches only public members of
+     * PUBLIC shelves; the OWNER reaches every one of their shelves, and their
+     * own private members. Nobody ever reaches another user's private book.
+     *
+     * SEARCH ONLY. "A user's books" for export and for the feed stays
+     * userLibraryBooks / ArchiveCorpusResolver::userLibraryQuery — downloading
+     * your library must not hand you other people's books.
+     */
+    private function userPageSearchBooks(string $ownerName, bool $isOwner): array
+    {
+        $shelved = DB::connection('pgsql_admin')->table('shelf_items')
+            ->join('shelves', 'shelves.id', '=', 'shelf_items.shelf_id')
+            ->join('library', 'shelf_items.book', '=', 'library.book')
+            ->where('shelves.creator', $ownerName)
+            ->when(!$isOwner, fn ($q) => $q->where('shelves.visibility', 'public'))
+            ->where(function ($q) use ($isOwner, $ownerName) {
+                $q->where('library.visibility', 'public');
+                if ($isOwner) {
+                    $q->orWhere(function ($inner) use ($ownerName) {
+                        $inner->where('library.visibility', 'private')
+                              ->where('library.creator', $ownerName);
+                    });
+                }
+            })
+            ->distinct()
+            ->pluck('library.book')
+            ->toArray();
+
+        return array_values(array_unique(array_merge($this->userLibraryBooks($ownerName, $isOwner), $shelved)));
+    }
+
+    /**
      * Search within a user's library — the /u/{username} hero search box.
      * GET /api/public/library/{username}/search?q=query[&mode=library|semantic][&shelf={uuid}]
      *
@@ -1232,10 +1610,10 @@ class ShelfController extends Controller
         }
 
         // The corpus for every mode below: the shelf's members when narrowed,
-        // the user's whole library otherwise.
+        // otherwise the user's own books plus everything on their shelves.
         $corpus = fn (): array => $shelf
             ? $this->shelfBooksForViewer((string) $shelf->id, $isOwner, $user->name)
-            : $this->userLibraryBooks($user->name, $isOwner);
+            : $this->userPageSearchBooks($user->name, $isOwner);
 
         $query = $request->input('q', '');
         $limit = min((int) $request->input('limit', 50), 50);

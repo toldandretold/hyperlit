@@ -82,15 +82,21 @@ class MetadataExtractor
         $text = fread($handle, 10 * 1024) ?: '';
         fclose($handle);
 
-        // YAML frontmatter
-        if (preg_match('/\A---\r?\n(.*?)\r?\n---/s', $text, $m)) {
-            $fm = $m[1];
-            $result['title'] = $this->yamlValue($fm, 'title');
-            $result['author'] = $this->yamlValue($fm, 'author');
-            $date = $this->yamlValue($fm, 'date') ?: $this->yamlValue($fm, 'year');
-            if (preg_match('/(\d{4})/', $date, $ym)) {
+        // YAML front matter. `authors:` as a LIST is what Hyperlit's own vault
+        // export (and Obsidian's property editor) writes — the old single-line
+        // `author: x` regex read none of it, so a re-imported note kept its
+        // filename as the title and no author at all.
+        $fm = FrontMatter::split($text);
+        if ($fm['hasBlock']) {
+            $fields = $fm['fields'];
+            $result['title'] = FrontMatter::scalar($fields, 'title');
+            $result['author'] = implode('; ', FrontMatter::listOf($fields, 'authors', 'author', 'creators'));
+            $result['publisher'] = FrontMatter::scalar($fields, 'publisher');
+            $date = FrontMatter::scalar($fields, 'year', 'date', 'issued', 'published');
+            if (preg_match('/\b(\d{4})\b/', $date, $ym)) {
                 $result['year'] = $ym[1];
             }
+            $text = $fm['body'];
         }
 
         // Fallback: first # heading
@@ -99,14 +105,6 @@ class MetadataExtractor
         }
 
         return $result;
-    }
-
-    private function yamlValue(string $yaml, string $key): string
-    {
-        if (preg_match('/^' . preg_quote($key, '/') . '\s*:\s*["\']?(.+?)["\']?\s*$/mi', $yaml, $m)) {
-            return trim($m[1]);
-        }
-        return '';
     }
 
     private function extractEpub(string $filePath): array

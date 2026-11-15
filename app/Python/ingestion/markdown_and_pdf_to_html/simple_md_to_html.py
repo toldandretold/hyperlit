@@ -192,6 +192,16 @@ def process_inline_formatting(text):
     # Process images ![alt](url) - must be before links
     text = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', r'<img src="\2" alt="\1" />', text)
 
+    # Process titled links [text](url "title") first: the plain pattern below stops at the first
+    # `)`, so a title used to be swallowed into the href (`url "title"` — a dead link), and a
+    # title holding a parenthesis cut the link short. The vault export writes a citation's full
+    # reference as its title, and references are full of parentheses.
+    # (The line is HTML-escaped by now, so the title's quotes arrive as &quot;.)
+    text = re.sub(r'\[([^\]]+)\]\(([^)\s]+)[ \t]+(?:"|&quot;)(.*?)(?:"|&quot;)\)',
+                  lambda m: '<a href="%s" title="%s">%s</a>' % (
+                      m.group(2), re.sub(r'<[^>]+>', '', m.group(3)).replace('<', '').replace('>', ''), m.group(1)),
+                  text)
+
     # Process links [text](url)
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', text)
 

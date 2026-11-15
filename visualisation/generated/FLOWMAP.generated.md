@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2041 functions in 429 modules · 10 object stores · 10 PG tables · 4266 edges
+**MarkdownDB** schema v28 · 2046 functions in 431 modules · 10 object stores · 10 PG tables · 4287 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -275,6 +275,11 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `handleVibeClick` | `components/settingsContainer/vibe` | — | — | — | — |
 | `showAddToShelfMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | `↓route:/api/shelves` |
 | `showLoginPromptMenu` | `components/shelves/addToShelfMenu` | — | — | read/write | — |
+| `bookVisibilityMenuItem` | `components/shelves/bookVisibilityMenuItem` | — | — | read | — |
+| `offerToPublishShelfBooks` | `components/shelves/bookVisibility` | — | — | — | `↓route:/api/shelves` |
+| `offerToUnpublishShelfBooks` | `components/shelves/bookVisibility` | — | — | — | `↓route:/api/shelves` |
+| `refreshShelfTab` | `components/shelves/bookVisibility` | — | — | read/write | — |
+| `toggleBookVisibilityFromCard` | `components/shelves/bookVisibility` | `library` `localStorage` | `library` | read/write | — |
 | `createShelfArchiveButton` | `components/shelves/shelfArchiveButton` | — | — | write | `↓route:/api/shelves` |
 | `slugifyInput` | `components/shelves/shelfArchiveButton` | — | — | — | — |
 | `removeShelfHeader` | `components/shelves/shelfHeader` | — | — | read/write | — |
@@ -2054,7 +2059,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 320
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 325
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2131,6 +2136,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/homepage/homepage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/homepage/homepage` → `components/newBookButton/newBookButton`
 - `components/homepage/homepage` → `components/shelves/addToShelfMenu`
+- `components/homepage/homepage` → `components/shelves/bookVisibility`
 - `components/homepage/homepage` → `components/shelves/shelfOverview`
 - `components/homepage/homepage` → `components/shelves/shelfPreview`
 - `components/homepage/homepage` → `components/userButton/userButton`
@@ -2151,6 +2157,9 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/shelves/addToShelfMenu` → `components/floatingActionMenu/floatingActionMenu`
 - `components/shelves/addToShelfMenu` → `components/shelves/shelfTabs`
 - `components/shelves/addToShelfMenu` → `components/userButton/userButton`
+- `components/shelves/bookVisibility` → `components/shelves/shelfTabs`
+- `components/shelves/bookVisibility` → `indexedDB/index`
+- `components/shelves/shelfHeader` → `components/shelves/bookVisibility`
 - `components/shelves/shelfHeader` → `components/shelves/shelfTabs`
 - `components/shelves/shelfLike` → `components/shelves/addToShelfMenu`
 - `components/shelves/shelfOverview` → `components/shelves/shelfTabs`
@@ -2182,6 +2191,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `components/userProfile/userPageEditor` → `components/userProfile/userAboutBook`
 - `components/userProfile/userProfilePage` → `components/floatingActionMenu/floatingActionMenu`
 - `components/userProfile/userProfilePage` → `components/shelves/addToShelfMenu`
+- `components/userProfile/userProfilePage` → `components/shelves/bookVisibility`
 - `components/userProfile/userProfilePage` → `components/shelves/shelfOverview`
 - `components/userProfile/userProfilePage` → `components/shelves/shelfPreview`
 - `components/userProfile/userProfilePage` → `indexedDB/index`

@@ -43,13 +43,49 @@ class ImportBatches
      * authorized by the caller (admin or shelf owner — see
      * ImportBatchController::store): the completion-time append runs on
      * pgsql_admin and BYPASSES shelf_items RLS.
-     * Returns ['id' => ..., 'shelf' => ['id','name','slug']|null].
+     * $existingBooks: ids of books ALREADY in Hyperlit to put straight on the
+     * shelf (a re-imported export — nothing to upload). The caller must have
+     * verified the requester can READ each one (VaultBookResolver::readableBook):
+     * the append runs on pgsql_admin. With no $items, no batch row is created
+     * at all — there is nothing for the queue widget to track — and `id` is null.
+     * Returns ['id' => ...|null, 'shelf' => ['id','name','slug']|null,
+     * 'shelf_url' => ?string, 'existing_added' => int].
      */
-    public function createBatch(array $items, string $label, string $source, bool $autoShelf, array $creatorInfo, ?int $userId, ?array $explicitShelf = null): array
+    public function createBatch(array $items, string $label, string $source, bool $autoShelf, array $creatorInfo, ?int $userId, ?array $explicitShelf = null, array $existingBooks = []): array
     {
         $shelf = $explicitShelf;
         if ($shelf === null && $autoShelf && !empty($creatorInfo['creator'])) {
             $shelf = $this->ensureShelf($label, $creatorInfo['creator']);
+        }
+
+        $existingAdded = 0;
+        $shelfUrl = null;
+        if ($shelf !== null) {
+            // Shelves RLS is owner-only, so the default connection SEES the
+            // shelf exactly when the caller owns it — then the caller's own
+            // RLS context does the append. Only an admin targeting a shelf
+            // they don't own (already authorized by the controller) needs the
+            // bypass connection.
+            $columns = ['id', 'name', 'slug', 'creator', 'visibility'];
+            $shelfRow = DB::table('shelves')->where('id', $shelf['id'])->first($columns);
+            $db = $shelfRow ? DB::connection() : DB::connection('pgsql_admin');
+            $shelfRow ??= $db->table('shelves')->where('id', $shelf['id'])->first($columns);
+
+            if ($existingBooks !== []) {
+                foreach (array_values(array_unique($existingBooks)) as $bookId) {
+                    $db->table('shelf_items')->updateOrInsert(
+                        ['shelf_id' => $shelf['id'], 'book' => $bookId],
+                        ['added_at' => now()]
+                    );
+                }
+                app(\App\Services\ShelfCacheInvalidator::class)->flush($shelf['id']);
+                $existingAdded = count(array_unique($existingBooks));
+            }
+            $shelfUrl = $shelfRow ? \App\Services\Shelves\ShelfHomeUrl::for($shelfRow) : null;
+        }
+
+        if ($items === []) {
+            return ['id' => null, 'shelf' => $shelf, 'shelf_url' => $shelfUrl, 'existing_added' => $existingAdded];
         }
 
         $batch = ImportBatch::create([
@@ -73,24 +109,24 @@ class ImportBatches
             ]);
         }
 
-        return ['id' => $batch->id, 'shelf' => $shelf];
+        return ['id' => $batch->id, 'shelf' => $shelf, 'shelf_url' => $shelfUrl, 'existing_added' => $existingAdded];
     }
 
     /**
-     * Find-or-create the auto-shelf for a batch, on the DEFAULT connection —
+     * Create the auto-shelf for a batch (always a new one), on the DEFAULT connection —
      * the HTTP request's RLS context proves ownership, so no admin bypass is
      * needed here (unlike HarvestShelf, which runs in workers).
      */
     private function ensureShelf(string $label, string $creator): array
     {
-        $name = Str::limit($label, 230, '…');
-
-        $existing = DB::table('shelves')
-            ->where('creator', $creator)
-            ->where('name', $name)
-            ->first(['id', 'name', 'slug']);
-        if ($existing) {
-            return ['id' => $existing->id, 'name' => $existing->name, 'slug' => $existing->slug];
+        // Every drop gets its OWN shelf. Reusing a same-named one piled three
+        // drops of one folder onto a single shelf (74 books, each work two or
+        // three times over). A taken name gets " (2)", " (3)", … — to add to an
+        // existing shelf the user drops onto it, which arrives as shelf_id.
+        $base = Str::limit($label, 230, '…');
+        $name = $base;
+        for ($n = 2; DB::table('shelves')->where('creator', $creator)->where('name', $name)->exists(); $n++) {
+            $name = "{$base} ({$n})";
         }
 
         $id = (string) Str::uuid();

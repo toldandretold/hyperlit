@@ -122,6 +122,14 @@ class ImportController extends Controller
             'chapter' => 'nullable|string|max:100',
             'note' => 'nullable|string|max:5000',
             'bibtex' => 'nullable|string|max:20000',
+            // Vault front matter / .bib (folder drops). `license` must name a
+            // code in App\Support\Licenses or it is filed as Unknown below.
+            'doi' => 'nullable|string|max:255',
+            'license' => 'nullable|string|max:100',
+            'license_url' => 'nullable|string|max:2048',
+            // "Import my own version" of a book already in Hyperlit — that
+            // book's id. Honoured only if the caller can read it (below).
+            'version_of' => 'nullable|string|max:255|regex:/^[a-zA-Z0-9_-]+$/',
             // Scrape-folder provenance breadcrumbs — land in raw_json only.
             'imported_via' => 'nullable|string|max:50',
             'manifest_schema_version' => 'nullable|integer',
@@ -401,31 +409,51 @@ class ImportController extends Controller
         // never born under the uploader's own CC BY-SA No-AI licence: a licence the import form
         // sends is honoured, otherwise "Licence unknown" until the owner picks one. Only on
         // CREATE — re-running an import over an existing row must not reset a chosen licence.
+        //
+        // "My own version" (version_of): the upload is the user's copy of a book already in
+        // Hyperlit, so it carries THAT work's citation details wherever the upload supplied
+        // none, and that work's licence — never the uploader's own-writing default.
+        $original = ($versionOf = $request->input('version_of'))
+            ? app(\App\Services\DocumentImport\VaultBookResolver::class)->readableBook($versionOf)
+            : null;
+        $field = fn (string $key) => $request->filled($key) ? $request->input($key) : ($original->{$key} ?? null);
+
+        $license = \App\Support\Licenses::canonicalCode($request->input('license'))
+            ?? \App\Support\Licenses::canonicalCode($original->license ?? null)
+            ?? \App\Support\Licenses::UNKNOWN;
         $licenseOnCreate = PgLibrary::where('book', $bookId)->exists()
             ? []
-            : ['license' => \App\Support\Licenses::canonicalCode($request->input('license')) ?? \App\Support\Licenses::UNKNOWN];
+            : array_filter([
+                'license' => $license,
+                'license_url' => $request->filled('license_url') ? $request->input('license_url') : ($original->license_url ?? null),
+                'custom_license_text' => $license === 'custom' ? ($original->custom_license_text ?? null) : null,
+            ], fn ($v) => $v !== null && $v !== '');
+
+        // A bare DOI (10.x/y) from the vault, else the original's.
+        $doi = preg_replace('#^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)#i', '', trim((string) $request->input('doi')));
+        $doi = preg_match('#^10\.\d{4,9}/\S+$#', (string) $doi) ? $doi : ($original->doi ?? null);
 
         // Create library record immediately so the book "exists" in the UI
         $createdRecord = PgLibrary::updateOrCreate(
             ['book' => $bookId],
-            $licenseOnCreate + [
+            $licenseOnCreate + array_filter(['doi' => $doi]) + [
                 'title' => $request->input('title'),
-                'author' => $request->input('author'),
-                'type' => $request->input('type') ?? 'book',
-                'year' => $request->input('year'),
-                'url' => $request->input('url'),
-                'pages' => $request->input('pages'),
-                'journal' => $request->input('journal'),
-                'publisher' => $request->input('publisher'),
-                'school' => $request->input('school'),
-                'note' => $request->input('note'),
-                'bibtex' => $request->input('bibtex'),
-                'volume' => $request->input('volume'),
-                'issue' => $request->input('issue'),
-                'booktitle' => $request->input('booktitle'),
-                'chapter' => $request->input('chapter'),
-                'editor' => $request->input('editor'),
-                'language' => $request->input('language'),
+                'author' => $field('author'),
+                'type' => $field('type') ?? 'book',
+                'year' => $field('year'),
+                'url' => $field('url'),
+                'pages' => $field('pages'),
+                'journal' => $field('journal'),
+                'publisher' => $field('publisher'),
+                'school' => $field('school'),
+                'note' => $field('note'),
+                'bibtex' => $field('bibtex'),
+                'volume' => $field('volume'),
+                'issue' => $field('issue'),
+                'booktitle' => $field('booktitle'),
+                'chapter' => $field('chapter'),
+                'editor' => $field('editor'),
+                'language' => $field('language'),
                 'timestamp' => round(microtime(true) * 1000),
                 'visibility' => 'private',
                 'creator' => $creatorInfo['creator'],
@@ -433,6 +461,24 @@ class ImportController extends Controller
                 'raw_json' => json_encode($request->all())
             ]
         );
+
+        // Same WORK as the original: link the upload to its canonical source so it is listed
+        // as another version of it (docs/canonical-sources.md). Link only — the citation
+        // columns were settled above and the matcher must not rewrite them. An original with
+        // no canonical record has nothing to link; the copied metadata is the whole relation.
+        if ($original && !empty($original->canonical_source_id)) {
+            try {
+                $canonical = \App\Models\CanonicalSource::find($original->canonical_source_id);
+                if ($canonical) {
+                    app(\App\Services\CanonicalSourceMatcher::class)
+                        ->linkToExistingCanonical($createdRecord, $canonical, 'vault_reimport');
+                }
+            } catch (\Throwable $e) {
+                Log::warning('version_of canonical link failed — import continues unlinked', [
+                    'book' => $bookId, 'version_of' => $original->book, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         // Put the new book's card on the owner's user page — see the no-file
         // branch above for why (bulkCreate is bypassed here).
@@ -455,6 +501,12 @@ class ImportController extends Controller
             'journal', 'publisher', 'school', 'note', 'bibtex',
             'volume', 'issue', 'booktitle', 'chapter', 'editor', 'language',
         ]);
+        // A version of a book the uploader can READ inherits that book's reference matches and
+        // verifications (ResolutionSnapshotService::inheritFrom). Only the resolved original is
+        // handed on — never the raw `version_of` input, which may name a book they cannot see.
+        if ($original) {
+            $formData['inherit_citations_from'] = $original->book;
+        }
 
         // Test-only artificial processing window: the e2e "queue grows while
         // adding" spec needs the first import to stay in 'processing' long
@@ -922,22 +974,9 @@ class ImportController extends Controller
                 if (!$footnoteId) continue;
 
                 $subBookId = SubBookIdHelper::build($bookId, $footnoteId);
-                $uuid      = (string) Str::uuid();
-                $plainText = strip_tags($content);
-                $safeHtml  = strip_tags($content, '<a><em><strong><i><b>');
-                $nodeHtml  = '<p data-node-id="' . e($uuid) . '" '
-                           . 'style="min-height:1.5em;">' . $safeHtml . '</p>';
-
-                $previewNodes = [[
-                    'book'        => $subBookId,
-                    'chunk_id'    => 0,
-                    'startLine'   => 1.0,
-                    'node_id'     => $uuid,
-                    'content'     => $nodeHtml,
-                    'footnotes'   => [],
-                    'hyperlights' => [],
-                    'hypercites'  => [],
-                ]];
+                // One node per block of the footnote (paragraph / quotation / list) — FootnoteBlocks.
+                $blockNodes   = \App\Services\DocumentImport\FootnoteBlocks::nodes($content);
+                $previewNodes = \App\Services\DocumentImport\FootnoteBlocks::previewNodes($subBookId, $blockNodes);
 
                 // 1. Upsert footnote record with preview_nodes
                 $existing = PgFootnote::where('book', $bookId)
@@ -980,16 +1019,18 @@ class ImportController extends Controller
                     ]
                 );
 
-                // 3. Upsert initial sub-book node
-                PgNode::updateOrCreate(
-                    ['book' => $subBookId, 'node_id' => $uuid],
-                    [
-                        'chunk_id'   => 0,
-                        'startLine'  => 1,
-                        'content'    => $nodeHtml,
-                        'plainText'  => $plainText,
-                    ]
-                );
+                // 3. Upsert the sub-book's nodes, by position — the key a re-run finds again
+                foreach ($blockNodes as $blockNode) {
+                    PgNode::updateOrCreate(
+                        ['book' => $subBookId, 'startLine' => $blockNode['startLine']],
+                        [
+                            'chunk_id'  => 0,
+                            'node_id'   => $blockNode['node_id'],
+                            'content'   => $blockNode['content'],
+                            'plainText' => $blockNode['plainText'],
+                        ]
+                    );
+                }
 
                 $upsertedCount++;
 

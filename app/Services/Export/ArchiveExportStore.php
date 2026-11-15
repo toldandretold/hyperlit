@@ -19,11 +19,21 @@ use Illuminate\Support\Facades\File;
 class ArchiveExportStore
 {
     /** Bump when any builder's output format changes — invalidates all caches. */
-    public const SCHEMA_VERSION = 6;
+    public const SCHEMA_VERSION = 9;
 
-    public const KINDS = ['markdown', 'sqlite'];
+    /**
+     * `markdown` is the Obsidian vault; `zettlr` is the same vault written for
+     * Zettlr (MarkdownVaultBuilder::FLAVOR_ZETTLR) — a separate kind so each
+     * has its own cache, lock and progress.
+     */
+    public const KINDS = ['markdown', 'zettlr', 'sqlite'];
 
-    private const EXT = ['markdown' => 'zip', 'sqlite' => 'sqlite'];
+    private const EXT = ['markdown' => 'zip', 'zettlr' => 'zip', 'sqlite' => 'sqlite'];
+
+    public static function extension(string $kind): string
+    {
+        return self::EXT[$kind];
+    }
 
     public function digest(ArchiveCorpus $corpus, string $audience, string $kind): string
     {

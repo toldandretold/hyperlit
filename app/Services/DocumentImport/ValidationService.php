@@ -168,7 +168,11 @@ class ValidationService
             // data: URIs in dangerous contexts only (not plain text like "https://data.europa.eu/")
             '/(src|href)\s*=\s*["\']?\s*data:/i',  // HTML attributes
             '/url\s*\(\s*["\']?\s*data:/i',        // CSS url()
-            '/\]\s*\(\s*data:/i',                  // Markdown links [text](data:...)
+            // Markdown links [text](data:...) — EXCEPT an inline raster image. Hyperlit's own
+            // vault export writes a book's embedded images as ![alt](data:image/png;base64,…),
+            // so refusing those made an exported note un-importable. A raster data URI cannot
+            // carry script; SVG, HTML and every other data: type are still refused.
+            '/\]\s*\(\s*data:(?!image\/(?:png|jpe?g|gif|webp);base64,)/i',
         ];
 
         foreach ($suspiciousPatterns as $pattern) {

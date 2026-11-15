@@ -26,7 +26,9 @@ import {
   type IngestPlan,
 } from '../importQueue/folderIngest';
 import { uploadBatch } from '../importQueue/batchUploader';
+import { decideVaultDrop, decideSingleNote, openExistingBook } from '../importQueue/vaultResolve';
 import { showImportQueuePreparing, clearImportQueuePreparing } from '../importQueue/importQueue';
+import { hasIdentityHint } from '../importQueue/vaultMetadata';
 import { readArchiveEditSeed } from '../archivePage/archiveTitleEditor';
 
 const OVERLAY_ID = 'page-drop-overlay';
@@ -325,7 +327,12 @@ async function handleAcceptedDrop(files: File[]) {
  * Multi-book drop (folder of PDFs / an Obsidian vault): register a batch and
  * upload sequentially — the corner import-queue widget is the progress UI.
  */
-async function handleBatchDrop(plan: IngestPlan, targetShelf: { id: string; name: string } | null = null) {
+async function handleBatchDrop(
+  plan: IngestPlan,
+  targetShelf: { id: string; name: string } | null = null,
+  /** The "already in Hyperlit?" question was asked and answered upstream. */
+  alreadyDecided = false,
+) {
   if (!(await checkLoggedInOrPrompt())) return;
 
   // Multi-book drops get an auto-shelf (folder name, or a dated label for
@@ -335,24 +342,41 @@ async function handleBatchDrop(plan: IngestPlan, targetShelf: { id: string; name
   const label = plan.folderName
     || (single ? single.title : `Import ${new Date().toISOString().slice(0, 10)}`);
 
+  // Notes that are ALREADY books in Hyperlit (a re-imported export, or a DOI
+  // we hold): ask once whether to shelve the existing books or import the
+  // user's own versions. Before any progress UI — it is a question, and
+  // cancelling it cancels the drop.
+  const decision = alreadyDecided
+    ? { bundles: plan.bundles, existingBooks: [] }
+    : await decideVaultDrop(plan.bundles, plan.skipped ?? []);
+  if (!decision) return;
+  const { bundles, existingBooks } = decision;
+
   // Show the queue widget IMMEDIATELY, panel expanded — the progress plays
   // out in place. Pages without the widget (journal) fall back to the
   // drop-overlay info card.
-  if (!showImportQueuePreparing(plan.bundles.length)) {
-    showBatchStartedOverlay(plan.bundles.length, targetShelf?.name);
+  if (bundles.length && !showImportQueuePreparing(bundles.length)) {
+    showBatchStartedOverlay(bundles.length, targetShelf?.name);
   }
 
   try {
-    const result = await uploadBatch(plan.bundles, {
+    const result = await uploadBatch(bundles, {
       label,
       source: plan.source,
       // Dropped onto the owner's open shelf → append THERE (even one book);
-      // otherwise multi-book drops get their own auto-shelf.
-      autoShelf: !targetShelf && plan.bundles.length > 1,
+      // otherwise multi-book drops get their own auto-shelf. Existing books
+      // only ever go onto a shelf, so they always get one.
+      autoShelf: !targetShelf && (bundles.length + existingBooks.length > 1 || existingBooks.length > 0),
       ...(targetShelf ? { shelfId: targetShelf.id } : {}),
       manifest: plan.manifest,
+      existingBooks,
     });
-    verbose.content(`fileDropTarget: batch ${result.batchId} — ${result.uploaded} uploaded, ${result.failed} failed`, '/components/fileDropTarget/fileDropTarget.ts');
+    verbose.content(`fileDropTarget: batch ${result.batchId} — ${result.uploaded} uploaded, ${result.failed} failed, ${result.existingAdded} existing shelved`, '/components/fileDropTarget/fileDropTarget.ts');
+    // Nothing was uploaded, so no queue widget will ever offer "View shelf" —
+    // take the user to the shelf the existing books just landed on.
+    if (!result.batchId && result.existingAdded > 0 && result.shelfUrl) {
+      window.location.assign(result.shelfUrl);
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log.error('fileDropTarget: batch import failed to start', '/components/fileDropTarget/fileDropTarget.ts', message);
@@ -392,6 +416,36 @@ async function routeDrop(entries: ReturnType<typeof captureDropEntries>, plainFi
     verbose.init('fileDropTarget: rejected drop — nothing importable', '/components/fileDropTarget/fileDropTarget.ts');
     showBatchMessageOverlay('Nothing importable in that drop', 'PDF, EPUB, DOCX, MD, HTML or image files.');
     return;
+  }
+
+  // ONE markdown note that says which work it is (a Hyperlit export's
+  // `book:` / `hyperlit:` keys, or a DOI): if that book is already here, ask
+  // before importing a second copy. With the form open the file is attached
+  // to it instead, and the same question is asked at submit (submission.ts).
+  if (plan.kind === 'one-book-folder' && !isImportFormOpen()) {
+    const notePlan = await buildIngestPlan(collected, rootDirName, { forceBatch: true });
+    const note = notePlan.bundles.length === 1 ? notePlan.bundles[0] : null;
+    if (note && hasIdentityHint(note.identity ?? null)) {
+      if (!(await checkLoggedInOrPrompt())) return;
+      const shelf = openOwnedShelf();
+      const outcome = await decideSingleNote(note, shelf?.name ?? null);
+      if (outcome.action === 'cancel') return;
+      if (outcome.action === 'existing') {
+        try {
+          await openExistingBook(outcome.match, shelf?.id ?? null);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.error('fileDropTarget: could not add the existing book to a shelf', '/components/fileDropTarget/fileDropTarget.ts', message);
+          showBatchMessageOverlay('Could not add the book to your shelf', message);
+        }
+        return;
+      }
+      if (outcome.action === 'own') {
+        await handleBatchDrop({ ...notePlan, bundles: [outcome.bundle] }, shelf, true);
+        return;
+      }
+      // 'proceed': not a book we hold — import exactly as before.
+    }
   }
 
   // Form already open: single-book shapes attach to the existing input (its

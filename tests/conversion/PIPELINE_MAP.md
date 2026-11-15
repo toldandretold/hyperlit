@@ -168,6 +168,11 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
    │             resolved to our entry ids THROUGH THE DOM (the href is the publisher's id, never
    │             one of our generated keys) — counted into citations_total/linked via `stats`
    │           [DocPasses: citation_pass.py · footnote_link_pass.py]
+   ├─ MD-SRC   digestion/markdownSource/markdown_source_passes.py — ONLY with --markdown-source (a
+   │           user's own .md; the OCR lane never passes it): StripObsidianBlockIds (before the
+   │           bibliography is read) · ResolveVaultCitationLinks (block links + titled links →
+   │           the entry's id, before LINK) · RemoveMarkdownFootnoteDefinitions (after AUDIT:
+   │           a linked `[^n]:` definition leaves the body — it is markup, not a printed note)
    ├─ AUDIT    audit.py(compute_footnote_audit → verdict)  [DocPass: audit_pass.py]
    └─ FINAL    finalize.py — structural_coverage (flag) · strip_styling_spans (no spans in DB) ·
                GenerateNodeChunks (flatten_grouping_wrappers FIRST: one node per direct child, so

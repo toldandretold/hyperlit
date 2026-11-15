@@ -1,6 +1,7 @@
 // resources/js/components/homepage/homepage.ts
 
 import { verbose } from '../../utilities/logger';
+import { bookVisibilityMenuItem } from '../shelves/bookVisibilityMenuItem';
 
 let homepageBookActionsHandler: any = null;
 
@@ -42,6 +43,12 @@ export function initializeHomepageBookActions() {
         label: isOverview ? 'Unpin as overview' : 'Pin as shelf overview',
         icon: '<svg viewBox="0 0 24 24"><path d="M16 9V4h1a1 1 0 0 0 0-2H7a1 1 0 0 0 0 2h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>',
       });
+
+      // Your own book on your own archive page: flip it public / private
+      // here. The feed mixes in other people's books, so only cards the
+      // owner render marked as yours get the item.
+      const visibilityItem = bookVisibilityMenuItem(target, true);
+      if (visibilityItem) menuItems.push(visibilityItem);
     }
 
     const { showFloatingMenu } = await import('../floatingActionMenu/floatingActionMenu');
@@ -51,6 +58,12 @@ export function initializeHomepageBookActions() {
         case 'unset-overview': {
           const { setShelfOverview } = await import('../shelves/shelfOverview');
           await setShelfOverview(action === 'set-overview' ? bookId : null);
+          break;
+        }
+        case 'make-public':
+        case 'make-private': {
+          const { toggleBookVisibilityFromCard } = await import('../shelves/bookVisibility');
+          await toggleBookVisibilityFromCard(bookId, action === 'make-public', target);
           break;
         }
         case 'preview':

@@ -251,6 +251,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{shelfKey}/pins/{book}', [ShelfController::class, 'unpin']);
         Route::get('/{id}/render', [ShelfController::class, 'render']);
         Route::get('/{id}/search', [ShelfController::class, 'search']);
+        // "Make all books within this shelf public" (the caller's own books only).
+        Route::post('/{id}/publish-books', [ShelfController::class, 'publishBooks'])->middleware('throttle:shelf-publish-books');
+        // …and its mirror, "make all books within this shelf private" (same bucket: both are the bulk press).
+        Route::post('/{id}/unpublish-books', [ShelfController::class, 'unpublishBooks'])->middleware('throttle:shelf-publish-books');
         // Own public shelf → global /a/{slug} archive page (slug set once).
         Route::get('/{id}/archive', [ShelfController::class, 'archiveStatus'])->middleware('throttle:shelf-archive');
         Route::post('/{id}/archive', [ShelfController::class, 'createArchive'])->middleware('throttle:shelf-archive');
@@ -403,6 +407,12 @@ Route::middleware(['author', 'throttle:120,1'])->group(function () {
         ->middleware('throttle:import-progress');
     // Mutations are rare clicks — the group's inline 120/min is fine.
     Route::post('/import-batches', [\App\Http\Controllers\ImportBatchController::class, 'store']);
+    // Folder-drop pre-flight ("which of these notes are already in Hyperlit?").
+    // Own named bucket: one drop = one call, but it must never 429 because the
+    // SPA's ordinary traffic filled the group's shared inline bucket.
+    Route::post('/import-batches/resolve', [\App\Http\Controllers\ImportBatchController::class, 'resolve'])
+        ->withoutMiddleware('throttle:120,1')
+        ->middleware('throttle:import-resolve');
     Route::post('/import-batches/{id}/notify', [\App\Http\Controllers\ImportBatchController::class, 'notify'])
         ->whereUuid('id');
     Route::post('/import-batches/{id}/dismiss', [\App\Http\Controllers\ImportBatchController::class, 'dismiss'])
