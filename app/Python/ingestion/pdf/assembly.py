@@ -1451,6 +1451,262 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
         return combined
 
 
+def _refs_restart_low(refs, run_max):
+    """True when a ref page RESTARTS the numbering low (a new chapter's notes begin) rather than
+    continuing the run that reached `run_max`."""
+    low = min(refs)
+    return low == 1 or low * 2 <= run_max
+
+
+def qualify_def_heavy_pages(page_summary):
+    """Which pages are NOTES pages — i.e. whose numbered lines are footnote DEFINITIONS.
+
+    The per-page def count cannot tell a note from any other numbered line: `collect_page_refs_and_defs`
+    counts "1. We want freedom." exactly like "1. Curtis J. Austin, Up Against the Wall". A run of
+    def-heavy, ref-free pages is therefore only a CANDIDATE. book_1794776136517 (The Black Panthers
+    Speak) prints the Ten-Point Program, the 26 Rules, a 13-point Pocket Lawyer and the Young Lords'
+    13-Point Program mid-book; all four became footnote definitions, and markers elsewhere in the
+    book were then wired to them ("…women's liberation groups.⁶" opened a list item).
+
+    A candidate run AFTER the last marker in the book is a back-of-book notes section and qualifies
+    as before. A run BEFORE it sits between marked passages, so it must earn its place twice over:
+
+      • it is CLAIMED — the run of markers leading up to it is not resolved at page-bottom (most of
+        its markers have no same-number definition on their own page), those markers are numbers
+        the block actually holds, and none of them runs past the block's last number;
+      • it CLOSES that run — the next marker after the block restarts low (a new chapter's
+        numbering), instead of carrying straight on as it does across a list inside a chapter.
+
+    Either test alone is passable by coincidence; a list failing both is the common case. A block
+    may also carry over onto one following page that holds fewer than three notes, provided its
+    numbers continue the block exactly (the Foreword's notes 1–5 on one page, 6 on the next) —
+    that page alone was never def-heavy, which left the Foreword's own notes unharvested and its
+    markers free to bind elsewhere. Anything undecidable stays plain text: an unlinked marker is
+    recoverable, a wrong link is not.
+    """
+    entries = sorted(page_summary or [], key=lambda e: e['index'])
+    by_index = {e['index']: e for e in entries}
+    candidates = {e['index'] for e in entries
+                  if len(e.get('defs', [])) >= 3 and not e.get('refs')}
+    ref_pages = [e for e in entries if e.get('refs')]
+    last_ref_page = ref_pages[-1]['index'] if ref_pages else -1
+
+    qualified = set()
+
+    # Back-of-book: unchanged — a def-heavy page with a def-heavy neighbour.
+    for p in candidates:
+        if p > last_ref_page and ((p - 1) in candidates or (p + 1) in candidates):
+            qualified.add(p)
+
+    # Mid-book: consecutive candidate pages (+ an exact numeric carry-over page) form a block.
+    seen = set()
+    run_floor = -1      # markers at or before this page belong to an already-settled notes block
+    for p in sorted(c for c in candidates if c <= last_ref_page):
+        if p in seen:
+            continue
+        block = [p]
+        while (block[-1] + 1) in candidates and (block[-1] + 1) <= last_ref_page:
+            block.append(block[-1] + 1)
+        seen.update(block)
+        tail = by_index.get(block[-1] + 1)
+        if tail and not tail.get('refs') and tail.get('defs'):
+            prev_max = max(by_index[block[-1]]['defs'])
+            if min(tail['defs']) == prev_max + 1 and tail['defs'] == sorted(set(tail['defs'])):
+                block.append(tail['index'])
+        if len(block) < 2:
+            continue
+
+        block_defs = set()
+        for b in block:
+            block_defs.update(by_index[b]['defs'])
+
+        # The run of markers this block would answer: back to the last low restart, or to the
+        # previous settled block, whichever is nearer.
+        unresolved, resolved, run_max = [], 0, 0
+        for e in ref_pages:
+            if e['index'] <= run_floor:
+                continue
+            if e['index'] >= block[0]:
+                break
+            refs = e['refs']
+            if run_max and _refs_restart_low(refs, run_max):
+                unresolved, resolved, run_max = [], 0, 0
+            own_defs = set(e.get('defs', []))
+            for n in refs:
+                if n in own_defs:
+                    resolved += 1
+                else:
+                    unresolved.append(n)
+            run_max = max(run_max, max(refs))
+
+        claimed = (len(unresolved) >= 2
+                   and len(unresolved) > resolved
+                   and max(unresolved) <= max(block_defs)
+                   and sum(1 for n in unresolved if n in block_defs) >= 0.8 * len(unresolved))
+        if not claimed:
+            continue
+
+        later = [e for e in ref_pages if e['index'] > block[-1]]
+        if later and not _refs_restart_low(later[0]['refs'], run_max):
+            continue
+
+        qualified.update(block)
+        run_floor = block[-1]
+
+    return qualified
+
+
+_PAGE_NOTE_SET_RE = re.compile(r'^\[\^(\d{1,3})\]: ')
+_PAGE_NOTE_LED_RE = re.compile(r'^\[\^(\d{1,3})\]\s+(?=[A-Za-z\d"\'(*\u201c\u2018])')
+_PAGE_NOTE_GLUED_RE = re.compile(r'^\[\^(\d{1,3})\](?=[A-Z"\'\u201c\u2018])')
+_PAGE_NOTE_BARE_RE = re.compile(r'^(\d{1,3}) (?=[A-Z"\'\u201c\u2018])')
+_PAGE_NOTE_MAX_PAGE_GAP = 10
+_PAGE_NOTE_MIN_LEN = 40
+
+
+def harvest_page_bottom_notes(md, page_idx, run):
+    """Definitions of PAGE-BOTTOM notes inside a book whose notes are otherwise endnotes.
+
+    A front-matter essay can carry its own page-bottom notes in a book that sends everything else
+    to the back (book_1794776136517: the Introduction's notes 1–7). The superscript-led ones
+    ("¹ In addition…") already become definitions in post_combine; two printed shapes did not, and
+    each left a marker with no note of its own for the linker to bind somewhere else:
+
+      • "⁶See Eldridge Cleaver's letter…" — the number glued to the first word;
+      • "7 The entire issue of The Black Panther…" — a plain digit, no period.
+
+    Neither shape is evidence on its own (a numbered point, a heading "7 The Road Ahead"), so both
+    are taken only as the NEXT note of a run of page-bottom notes already established nearby:
+    the glued form within two numbers of the last note, the bare form exactly one on, both within
+    a few pages of it, the bare form long enough to be a sentence, and never when the page shows
+    the list shape (the preceding number also standing bare at a line start, unclaimed).
+
+    `run` is the mutable [last_number, last_page_idx] carried across pages. A page of notes proper
+    ("[^N]: " already set by the notes-page rewrite) ends the run.
+    """
+    lines = md.split('\n')
+    unclaimed_bare = set()
+    for li, line in enumerate(lines):
+        if _PAGE_NOTE_SET_RE.match(line):
+            run[0], run[1] = 0, -1
+            continue
+        m = _PAGE_NOTE_LED_RE.match(line)
+        if m:
+            run[0], run[1] = int(m.group(1)), page_idx
+            continue
+        near = run[0] >= 1 and 0 <= page_idx - run[1] <= _PAGE_NOTE_MAX_PAGE_GAP
+        m = _PAGE_NOTE_GLUED_RE.match(line)
+        if m:
+            n = int(m.group(1))
+            if near and 1 <= n - run[0] <= 2:
+                lines[li] = '[^' + str(n) + ']: ' + line[m.end():]
+                run[0], run[1] = n, page_idx
+            continue
+        m = _PAGE_NOTE_BARE_RE.match(line)
+        if m:
+            n = int(m.group(1))
+            if (near and n == run[0] + 1 and len(line) >= _PAGE_NOTE_MIN_LEN
+                    and (n - 1) not in unclaimed_bare):
+                lines[li] = '[^' + str(n) + ']: ' + line[m.end():]
+                run[0], run[1] = n, page_idx
+            else:
+                unclaimed_bare.add(n)
+    return '\n'.join(lines)
+
+
+_PAGE_NOTE_DEF_LINE_RE = re.compile(r'^\[\^(\d{1,3})\](?:: |\s+(?=[A-Za-z\d"\'(*\u201c\u2018]))')
+_MD_HEADING_LINE_RE = re.compile(r'^#{1,6}\s')
+_PAGE_ANCHOR_RE = re.compile(r'\s*<a class="pageNumber"[^>]*></a>')
+
+
+def split_off_page_bottom_notes(md):
+    """(body, notes) for a BODY page that prints its notes at the foot.
+
+    Left inline, a page-bottom definition sits between the two halves of whatever sentence the
+    page turn cut, and footnote extraction reads a definition's content up to the NEXT definition
+    — so the note swallowed the body that followed it (the last note of the Black Panthers Speak
+    Introduction took the remaining eight pages of the essay) and the cut paragraph never rejoined.
+
+    The split is the print layout's own: everything from the first definition line to the foot of
+    the page is note material (a note may run to several paragraphs, or carry a figure). Refused —
+    returning (md, '') — unless the shape is unmistakable: the definition FOLLOWS body prose (a
+    definition under a heading is a notes section, not a page foot), no heading comes after it, and
+    the definitions on the page ascend. The page-number anchor stays with the body.
+    """
+    lines = md.split('\n')
+    first = None
+    for li, line in enumerate(lines):
+        if _PAGE_NOTE_DEF_LINE_RE.match(line):
+            first = li
+            break
+    if first is None:
+        return md, ''
+    above = [l for l in lines[:first] if l.strip()]
+    if not above or _MD_HEADING_LINE_RE.match(above[-1]):
+        return md, ''
+    last_n = 0
+    for line in lines[first:]:
+        if _MD_HEADING_LINE_RE.match(line):
+            return md, ''
+        m = _PAGE_NOTE_DEF_LINE_RE.match(line)
+        if m:
+            n = int(m.group(1))
+            if n <= last_n:
+                return md, ''
+            last_n = n
+    body = '\n'.join(lines[:first]).rstrip()
+    notes = '\n'.join(lines[first:]).strip()
+    anchor = _PAGE_ANCHOR_RE.search(notes)
+    if anchor:
+        body += anchor.group(0)
+        notes = (notes[:anchor.start()] + notes[anchor.end():]).strip()
+    return body, _fold_note_continuations(notes)
+
+
+# A continuation paragraph that is a block of its own (quotation, list, table, display math, code)
+# cannot ride inside the definition's line.
+_NOTE_BLOCK_PARA_RE = re.compile(r'^(?:>|\||#|[-*+] |\d+[.)] |\$\$|```)')
+
+
+def _fold_note_continuations(notes):
+    """Fold each later paragraph of a page-bottom note into its definition line, '<br><br>'-joined
+    (the separator footnote extraction itself uses between a note's paragraphs).
+
+    On a page foot the layout has already said these paragraphs are the note's. Left as separate
+    paragraphs they meet extraction's interleaved-body test — a long, capital-initial paragraph
+    after a complete-reading definition, with a later definition to follow — and are put back in
+    the body as if they were prose stranded between two notes. A figure folds in too; a block-level
+    continuation stays a paragraph and ends the folding for that note.
+    """
+    out = []
+    foldable = False
+    for para in re.split(r'\n\s*\n', notes):
+        para = para.strip()
+        if not para:
+            continue
+        if _PAGE_NOTE_DEF_LINE_RE.match(para.split('\n')[-1]) or _PAGE_NOTE_DEF_LINE_RE.match(para):
+            out.append(para)
+            foldable = True
+        elif foldable and not _NOTE_BLOCK_PARA_RE.match(para):
+            out[-1] += '<br><br>' + ' '.join(l.strip() for l in para.split('\n'))
+        else:
+            out.append(para)
+            foldable = False
+    return '\n\n'.join(out)
+
+
+def insert_before_first_heading(md, block):
+    """`md` with `block` set as its own paragraph(s) immediately above the first heading line, or
+    None when the page has no heading."""
+    lines = md.split('\n')
+    for li, line in enumerate(lines):
+        if _MD_HEADING_LINE_RE.match(line):
+            head = '\n'.join(lines[:li]).rstrip()
+            tail = '\n'.join(lines[li:])
+            return (head + '\n\n' if head else '') + block + '\n\n' + tail
+    return None
+
+
 class ChapterEndnotesAssembler(FootnoteAssembler):
     """chapter_endnotes: per-chapter footnote numbering restarts → setup precomputes per-page chapter
     offsets (incl. notes-section transition pages) for global uniqueness; per-page converts refs and
@@ -1463,18 +1719,13 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
     def setup(self, ctx):
         footnote_meta = ctx.footnote_meta
         pages = ctx.pages
-        # Build set of definition-heavy page indices from footnote_meta.
-        # Two filters to avoid false positives (e.g., numbered lists in body text):
-        # 1. Exclude pages that also have refs (body pages, not notes pages)
-        # 2. Require a neighboring page also be def-heavy (notes pages cluster together)
+        self._page_note_run = [0, -1]       # [last page-bottom note number, its page idx]
+        self._pending_page_notes = []       # page-bottom notes lifted out of the body, awaiting a heading
+        # Notes pages, from footnote_meta: def-heavy, ref-free pages that cluster — and, when the
+        # cluster sits mid-book, that the surrounding markers actually claim (a numbered LIST is
+        # def-heavy too). See qualify_def_heavy_pages.
         if footnote_meta:
-            candidates = set()
-            for entry in footnote_meta.get('page_summary', []):
-                if len(entry.get('defs', [])) >= 3 and not entry.get('refs'):
-                    candidates.add(entry['index'])
-            for p in candidates:
-                if (p - 1) in candidates or (p + 1) in candidates:
-                    ctx.def_heavy_pages.add(p)
+            ctx.def_heavy_pages.update(qualify_def_heavy_pages(footnote_meta.get('page_summary', [])))
 
         # Pre-compute chapter offsets for chapter_endnotes renumbering.
         # Each chapter restarts footnote numbering at 1; we offset them to be globally unique.
@@ -1615,6 +1866,9 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
         # Convert all footnote ref formats to [^N] (before offset) — shared per-page converter
         md = convert_inline_footnote_markers(md)
 
+        # Page-bottom notes of a front-matter essay, in the two shapes post_combine cannot see.
+        md = harvest_page_bottom_notes(md, i, self._page_note_run)
+
         # Apply chapter offset for global uniqueness
         if ctx.chapter_fn_offsets:
             if i in ctx.notes_transition_pages:
@@ -1634,10 +1888,31 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
                         md
                     )
 
-        if md_stripped:
+        # A body page's own page-bottom notes leave the flow here and come back as one block at the
+        # end of the section they annotate (above the next heading, or above the notes proper) — a
+        # heading is the one boundary footnote extraction never reads a definition across.
+        header = page.get("header") or ""
+        is_notes_page = ("Notes" in header or "NOTES" in header
+                         or i in ctx.def_heavy_pages or ctx.in_notes_section)
+        page_notes = ''
+        if not is_notes_page:
+            md, page_notes = split_off_page_bottom_notes(md)
+        if self._pending_page_notes:
+            block = "\n\n".join(self._pending_page_notes)
+            placed = (block + "\n\n" + md) if is_notes_page else insert_before_first_heading(md, block)
+            if placed is not None:
+                md = placed
+                self._pending_page_notes = []
+        if page_notes:
+            self._pending_page_notes.append(page_notes)
+
+        if md.strip():
             ctx.md_parts.append(md)
 
     def post_combine(self, ctx, combined):
+        if self._pending_page_notes:
+            combined = combined + "\n\n" + "\n\n".join(self._pending_page_notes)
+            self._pending_page_notes = []
         # Superscripts already converted per-page with chapter offsets applied.
         # Fix def formatting and rejoin page breaks.
         combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)

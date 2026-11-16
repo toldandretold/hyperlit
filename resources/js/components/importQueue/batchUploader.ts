@@ -214,7 +214,8 @@ export async function uploadBatch(
       });
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({} as Record<string, unknown>));
-        throw new Error(String((data as { message?: string }).message || `Upload failed (${resp.status})`));
+        const body = data as { message?: string; error?: string };
+        throw new Error(String(body.message || body.error || `Upload failed (${resp.status})`));
       }
       uploaded++;
       verbose.content(`batchUploader: uploaded "${bundle.filename}" as ${book}`, '/components/importQueue/batchUploader.ts');

@@ -1449,13 +1449,20 @@ _HEADER_CHROME_RE = re.compile(
     re.IGNORECASE)
 
 
+# A lower-case roman numeral standing alone: a front-matter folio. Lower case only — an upper-case
+# "II" / "IV" can be a real part or chapter divider.
+_ROMAN_FOLIO_RE = re.compile(r'^(?=[ivxlcdm])m{0,3}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})$')
+
+
 def extract_section_name(header_text):
     """Extract a clean section name from a header, stripping page numbers."""
     if not header_text:
         return None
     stripped = header_text.strip()
-    # Pure page number — not a section
-    if re.match(r'^\d+$', stripped):
+    # Pure page number — not a section. Front matter is foliated in lower-case roman numerals,
+    # and a verso header "xxxiv / The Black Panthers Speak" otherwise yields "xxxiv" as a section
+    # name that no other page repeats, injected as a heading in the middle of the Introduction.
+    if re.match(r'^\d+$', stripped) or _ROMAN_FOLIO_RE.match(stripped):
         return None
     # Journal CHROME is never a section name: the masthead citation line
     # ("tripleC 1(1): 1-52, 2003"), an ISSN/ISBN/DOI line, or a bare URL. This is not just

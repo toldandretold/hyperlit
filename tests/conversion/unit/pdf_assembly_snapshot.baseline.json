@@ -119,8 +119,8 @@
   "tests/conversion/corpus/production_power_and_world_order_social_forces_i/ocr_response.json": {
     "classification": "chapter_endnotes",
     "confidence": 1.0,
-    "md_len": 1234509,
-    "md_sha256": "0bbd9f61a1986f415784d2c5e4db9f5676a0afab0849fc2b17802fdc26ab60ff",
+    "md_len": 1234501,
+    "md_sha256": "a74736cd62d92944ededf3f8cc1512b1ca942305ae5d3a5611e35cf9fcfd099c",
     "segments": [],
     "signals": {
       "back_citation_count": 66,

@@ -34,6 +34,14 @@ class ImportBatches
     private const DONE_RETENTION_HOURS = 48;
 
     /**
+     * A `pending_upload` item whose file never reached /import-file after this
+     * long is dead (tab closed mid-upload, network died, a client that never
+     * reported the failure) — nothing else will ever move it, so it would sit
+     * on "Uploading…" forever. Generous: a big PDF on a slow link is minutes.
+     */
+    public const PENDING_UPLOAD_TIMEOUT_MINUTES = 120;
+
+    /**
      * Create a batch + its items (status pending_upload), optionally with an
      * auto-shelf the completed books will be added to. HTTP context only.
      *
@@ -156,6 +164,8 @@ class ImportBatches
      */
     public function aggregateFor(): array
     {
+        $this->expireAbandonedUploads();
+
         $batches = ImportBatch::with('items')
             ->whereNull('dismissed_at')
             ->where(function ($q) {
@@ -262,6 +272,28 @@ class ImportBatches
                 'jobs_ahead' => $jobsAhead ?? 0,
             ],
         ];
+    }
+
+    private function expireAbandonedUploads(): void
+    {
+        // Default connection — RLS limits this to the caller's own items.
+        // Timed from the batch's LAST activity, not item creation: a folder
+        // batch uploads its items one after another, so its tail can wait
+        // legitimately long while earlier siblings are still moving.
+        $cutoff = now()->subMinutes(self::PENDING_UPLOAD_TIMEOUT_MINUTES);
+        ImportItem::where('status', 'pending_upload')
+            ->where('created_at', '<', $cutoff)
+            ->whereNotExists(function ($q) use ($cutoff) {
+                $q->selectRaw('1')
+                    ->from('import_items as sibling')
+                    ->whereColumn('sibling.batch_id', 'import_items.batch_id')
+                    ->where('sibling.updated_at', '>=', $cutoff);
+            })
+            ->update([
+                'status' => 'upload_failed',
+                'error' => 'The upload never reached the server. Please try again.',
+                'updated_at' => now(),
+            ]);
     }
 
     private function readProgress(string $bookId): ?array

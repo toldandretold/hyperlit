@@ -380,6 +380,10 @@ def link_epub_footnotes(soup, all_footnotes, all_noterefs, book_id, log):
 # B. In-text MARKER linking (was conversion/footnotes.py:link_footnotes) — wiring
 #    <a href="#fnN">, <sup>N</sup>, and [^id] markers to their definitions, strategy-aware.
 # ===========================================================================
+_FN_HREF_RE = re.compile(r'^#fn(\d+)')
+_BRACKET_MARKER_RE = re.compile(r'\[\^?(\w+)\]')
+
+
 class MarkerLinkContext:
     def __init__(self, soup, all_elements, strategy, global_footnote_map,
                  sequential_footnote_map, sectioned_footnote_map, footnote_sections):
@@ -391,6 +395,7 @@ class MarkerLinkContext:
         self.sectioned_footnote_map = sectioned_footnote_map
         self.footnote_sections = footnote_sections
         self._element_pos = {id(elem): i for i, elem in enumerate(all_elements)}
+        self._ref_section_markers = None    # lazy — see _marker_numbers_by_ref_section
         self.ref_section_positions = []
         if strategy == 'sequential':
             for marker in soup.find_all('a', class_='footnoteSectionStart'):
@@ -422,22 +427,107 @@ class MarkerLinkContext:
             return self._find_in_sequential(identifier, current_element)
         return self._find_in_sections(identifier, current_element)
 
-    def _find_in_sequential(self, identifier, current_element):
-        current_pos = self._elem_position(current_element)
+    def _ref_section_at(self, pos):
         section_num = None
-        for pos, num in self.ref_section_positions:
-            if pos <= current_pos:
+        for section_pos, num in self.ref_section_positions:
+            if section_pos <= pos:
                 section_num = num
             else:
                 break
-        if section_num and section_num in self.sequential_footnote_map:
-            if identifier in self.sequential_footnote_map[section_num]:
-                print(f"Found footnote {identifier} in sequential section {section_num} (pos {current_pos})")
-                return self.sequential_footnote_map[section_num][identifier]
-        for sec_id, sec_map in self.sequential_footnote_map.items():
-            if identifier in sec_map:
-                print(f"Fallback: found footnote {identifier} in section {sec_id}")
-                return sec_map[identifier]
+        return section_num
+
+    def _marker_numbers_by_ref_section(self):
+        """{ref section -> set of the marker numbers cited in it}, built once, on first need.
+
+        Safe to build mid-linking: a marker already wired is a <sup> whose text is its number,
+        one not yet reached is still bracket text, and both are counted."""
+        if self._ref_section_markers is None:
+            index = {}
+
+            def note(identifier, element):
+                if identifier.isdigit():
+                    section = self._ref_section_at(self._elem_position(element))
+                    if section:
+                        index.setdefault(section, set()).add(int(identifier))
+
+            for a_tag in self.soup.find_all('a', href=_FN_HREF_RE):
+                note(_FN_HREF_RE.match(a_tag['href']).group(1), a_tag)
+            for sup_tag in self.soup.find_all('sup'):
+                note(sup_tag.get_text(strip=True), sup_tag)
+            for text_node in self.soup.find_all(string=True):
+                text = str(text_node)
+                if '[' not in text or text_node.parent.name in ('style', 'script', 'a'):
+                    continue
+                for match in _BRACKET_MARKER_RE.finditer(text):
+                    # A definition line ("[^N]: text") is not a marker — same test the linker uses.
+                    if (text[match.end():match.end() + 5].strip().startswith(':')
+                            and text[:match.start()].strip() == ''):
+                        continue
+                    note(match.group(1), text_node.parent)
+            self._ref_section_markers = index
+        return self._ref_section_markers
+
+    @staticmethod
+    def _continues(earlier, later, number):
+        """`later` carries ON from `earlier` and `number` sits in their overlap: a seam repeat
+        (… 86, 87 | 87, 88 …). A RESTART begins again at or below where `earlier` began, so a
+        chaptered book's "note 3 of every chapter" never reads as a seam."""
+        return (bool(earlier) and bool(later)
+                and min(later) > min(earlier) and max(later) > max(earlier)
+                and min(later) <= number <= max(earlier))
+
+    def _seam_repeat_holder(self, identifier, section_num, holders):
+        """The def section a marker belongs to when its number is REPEATED across a seam.
+
+        One continuously-numbered run of notes can be cut where a number repeats (the OCR emits
+        87 at the end of one chapter's block and again at the head of the next), in the markers
+        AND in the definitions, at the same number. Then there are exactly two markers' sections
+        and two definitions' sections, each pair continuing the other — and the earlier marker
+        is the earlier note. f07b7fff carried nine such numbers; first-match linked both markers
+        of each to the earlier note, a wrong link and an orphan apiece. Anything short of that
+        exact shape is not determinable and returns None."""
+        if len(holders) != 2 or not identifier.isdigit() or not section_num:
+            return None
+        number = int(identifier)
+        markers = self._marker_numbers_by_ref_section()
+        citing = [num for _, num in self.ref_section_positions if number in markers.get(num, ())]
+        if len(citing) != 2 or section_num not in citing:
+            return None
+        earlier, later = ([int(k) for k in self.sequential_footnote_map[h] if k.isdigit()]
+                          for h in holders)
+        if not self._continues(earlier, later, number):
+            return None
+        if not self._continues(markers[citing[0]], markers[citing[1]], number):
+            return None
+        return holders[citing.index(section_num)]
+
+    def _find_in_sequential(self, identifier, current_element):
+        current_pos = self._elem_position(current_element)
+        section_num = self._ref_section_at(current_pos)
+        if section_num and identifier in self.sequential_footnote_map.get(section_num, {}):
+            print(f"Found footnote {identifier} in sequential section {section_num} (pos {current_pos})")
+            return self.sequential_footnote_map[section_num][identifier]
+        # Cross-section fallback. Ref sections and def sections are cut independently (each on its
+        # OWN number restart), so they do not always pair by ordinal: an out-of-order definition
+        # ("[^3]:" printed before "[^1]:") splits one run of notes into two def sections while the
+        # markers stay one ref section (7fa30289). The fallback is what links those — but only
+        # when the number exists in exactly ONE section. With several holders, "the first one" is
+        # a guess, and it wired a Foreword marker to a numbered-list item 30 pages on
+        # (book_1794776136517). Ambiguous → no link.
+        holders = [sec_id for sec_id, sec_map in self.sequential_footnote_map.items()
+                   if identifier in sec_map]
+        if len(holders) == 1:
+            print(f"Fallback: found footnote {identifier} in section {holders[0]}")
+            return self.sequential_footnote_map[holders[0]][identifier]
+        if holders:
+            seam_holder = self._seam_repeat_holder(identifier, section_num, holders)
+            if seam_holder:
+                print(f"Seam repeat: footnote {identifier} of ref section {section_num} "
+                      f"pairs with def section {seam_holder}")
+                return self.sequential_footnote_map[seam_holder][identifier]
+            print(f"Ambiguous: footnote {identifier} exists in sections {holders}, none of them "
+                  f"this marker's own (section {section_num}) — left unlinked")
+            return None
         print(f"Could not find footnote {identifier} in sequential mode (section {section_num})")
         return None
 

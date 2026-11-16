@@ -95,7 +95,58 @@ class ImportController extends Controller
         ]);
     }
 
+    /**
+     * POST /import-file. Wraps the import so a batch item can never be left
+     * in `pending_upload` by a rejected upload: the success path flips it to
+     * `queued`, so anything still pending once the request is over (a 422 from
+     * validation, a refused file, a 402, an exception) is marked
+     * `upload_failed` with the reason. Before this, every early return left the
+     * corner widget on "Uploading…" forever — the single-form card never PATCHes.
+     */
     public function store(Request $request)
+    {
+        try {
+            $response = $this->storeImport($request);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->failPendingBatchItem($request, collect($e->errors())->flatten()->first() ?: $e->getMessage());
+            throw $e;
+        } catch (\Throwable $e) {
+            $this->failPendingBatchItem($request, 'The upload failed on the server.');
+            throw $e;
+        }
+
+        $reason = null;
+        if ($response instanceof \Illuminate\Http\JsonResponse && $response->getStatusCode() >= 400) {
+            $data = $response->getData(true);
+            $reason = is_array($data) ? ($data['error'] ?? $data['message'] ?? null) : null;
+        } elseif ($response instanceof \Illuminate\Http\RedirectResponse) {
+            $reason = session('error');
+        }
+        $this->failPendingBatchItem($request, $reason ?: 'The upload was refused.');
+
+        return $response;
+    }
+
+    private function failPendingBatchItem(Request $request, string $reason): void
+    {
+        $batchId = $request->input('import_batch_id');
+        $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $request->input('book'));
+        if (!$batchId || !is_string($batchId) || !Str::isUuid($batchId) || $bookId === '') {
+            return;
+        }
+
+        try {
+            // Default connection: RLS scopes the update to the caller's own batch.
+            \App\Models\ImportItem::where('batch_id', $batchId)
+                ->where('book', $bookId)
+                ->where('status', 'pending_upload')
+                ->update(['status' => 'upload_failed', 'error' => Str::limit($reason, 2000), 'updated_at' => now()]);
+        } catch (\Throwable $e) {
+            Log::warning('Could not mark batch item upload_failed', ['book' => $bookId, 'batch' => $batchId, 'error' => $e->getMessage()]);
+        }
+    }
+
+    private function storeImport(Request $request)
     {
         // Validation
         $request->validate([

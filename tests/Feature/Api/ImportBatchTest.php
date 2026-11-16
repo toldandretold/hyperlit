@@ -375,6 +375,81 @@ test('a forged import_batch_id is ignored and the import still succeeds', functi
     )->toBe('pending_upload');
 });
 
+/* ----------------  no item is left on "Uploading…" forever  ---------------- */
+
+test('a refused upload marks its batch item upload_failed with the reason', function () {
+    // Prod 2026-11-13: a saved web page (1511321.html) tripped the HTML <script>
+    // gate, /import-file 422'd, and the single-form card never reports failures
+    // — the widget sat on "Uploading…" for days.
+    Queue::fake();
+    $user = $this->seedUser(['email' => 'batch_refused@test.local']);
+    $this->actingAs($user);
+
+    $payload = batchPayload(1);
+    $book = $payload['items'][0]['book'];
+    $batchId = $this->postJson('/api/import-batches', $payload)->assertStatus(201)->json('id');
+
+    $this->post('/import-file', [
+        'book' => $book,
+        'title' => 'Saved page',
+        'import_batch_id' => $batchId,
+        'markdown_file' => [UploadedFile::fake()->createWithContent('page.html', '<html><body><script>x()</script><p>Hi</p></body></html>')],
+    ], ['Accept' => 'application/json'])->assertStatus(422);
+
+    $item = ImportItem::where('batch_id', $batchId)->where('book', $book)->first();
+    expect($item->status)->toBe('upload_failed')
+        ->and($item->error)->toContain('File validation failed');
+    Queue::assertNothingPushed();
+});
+
+test('a request-validation failure marks the batch item upload_failed', function () {
+    $user = $this->seedUser(['email' => 'batch_badreq@test.local']);
+    $this->actingAs($user);
+
+    $payload = batchPayload(1);
+    $book = $payload['items'][0]['book'];
+    $batchId = $this->postJson('/api/import-batches', $payload)->assertStatus(201)->json('id');
+
+    // No title → Laravel validation 422 before any import work.
+    $this->post('/import-file', [
+        'book' => $book,
+        'import_batch_id' => $batchId,
+        'markdown_file' => [UploadedFile::fake()->createWithContent('doc.md', "# Hi\n\nBody.")],
+    ], ['Accept' => 'application/json'])->assertStatus(422);
+
+    expect(ImportItem::where('batch_id', $batchId)->where('book', $book)->value('status'))->toBe('upload_failed');
+});
+
+test('my-imports expires a pending_upload whose upload never arrived, but not a batch still uploading', function () {
+    $user = $this->seedUser(['email' => 'batch_abandon@test.local']);
+    $this->actingAs($user);
+
+    $abandoned = batchPayload(1);
+    $abandonedId = $this->postJson('/api/import-batches', $abandoned)->assertStatus(201)->json('id');
+    $fresh = batchPayload(1);
+    $freshId = $this->postJson('/api/import-batches', $fresh)->assertStatus(201)->json('id');
+    $busy = batchPayload(2);
+    $busyId = $this->postJson('/api/import-batches', $busy)->assertStatus(201)->json('id');
+
+    // Rows live in the test transaction on the default connection → backdate
+    // them there under the owner's RLS context.
+    DB::statement("SELECT set_config('app.current_user', ?, false)", [$user->name]);
+    $old = now()->subMinutes(ImportBatches::PENDING_UPLOAD_TIMEOUT_MINUTES + 30);
+    DB::table('import_items')->whereIn('batch_id', [$abandonedId, $busyId])
+        ->update(['created_at' => $old, 'updated_at' => $old]);
+    // The busy batch's FIRST item just uploaded — its tail is legitimately waiting.
+    DB::table('import_items')->where('batch_id', $busyId)->where('book', $busy['items'][0]['book'])
+        ->update(['status' => 'queued', 'updated_at' => now()]);
+
+    $batches = collect($this->getJson('/api/my-imports')->assertStatus(200)->json('batches'))->keyBy('id');
+
+    expect($batches[$abandonedId]['items'][0]['status'])->toBe('upload_failed')
+        ->and($batches[$abandonedId]['items'][0]['error'])->toContain('never reached the server')
+        ->and($batches[$freshId]['items'][0]['status'])->toBe('pending_upload');
+    $busyStatuses = collect($batches[$busyId]['items'])->pluck('status', 'book');
+    expect($busyStatuses[$busy['items'][1]['book']])->toBe('pending_upload');
+});
+
 /* ----------------  worker terminal hook  ---------------- */
 
 /** Seed a committed (admin-connection) batch so the worker-context service can see it. */
