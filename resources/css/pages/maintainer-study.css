@@ -334,6 +334,9 @@ body {
 .st-badge.st-ante-verdict {
   cursor: pointer;
   background: color-mix(in srgb, currentColor 8%, transparent);
+  /* Rendered as a real <a> (new tab, place kept) — keep the chip look, not link blue. */
+  color: inherit;
+  text-decoration: none;
 }
 
 .st-ante-banner {

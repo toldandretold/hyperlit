@@ -417,6 +417,21 @@ function restoreSelectionFromUrl(): void {
  * LiveTraceJoiner), chaining through un-adjudicated short forms (an Ibid of an
  * Ibid) with a cycle guard. Returns the nearest adjudicated antecedent claim row.
  */
+/**
+ * A REAL link to another claim's workbench view, opening in a NEW TAB — never an
+ * in-place jump, which throws away the operator's place mid-adjudication (the
+ * selection, scroll and half-filled verdict form all die with it). The citation
+ * key rides the URL, so the new tab lands selected on the named claim.
+ */
+function claimLinkEl(target: ClaimRow, text: string, title: string): HTMLAnchorElement {
+  const a = el('a', 'st-badge st-ante-verdict', text);
+  a.href = studyUrl(state.slug, undefined, target.key);
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.title = `${title} (opens in a new tab — your place here is kept)`;
+  return a;
+}
+
 /** The refId this row's short form points at — read off itself, or (for a ::subN
  *  fan-out row) off its parent claim, same as LiveTraceJoiner. */
 function shortFormTargetOf(c: ClaimRow, claims: ClaimRow[]): string | null {
@@ -695,12 +710,10 @@ function renderDetail(claim: ClaimRow): void {
     const inh = inheritedSourceVerdict(claim);
     if (inh && !claim.adjudication) {
       const labelText = LABELS.find((l) => l.value === inh.adj.label)?.text ?? inh.adj.label;
-      const b = el('button', 'st-badge st-ante-verdict', `${inh.via} verdict: ${labelText} ↗`);
-      b.type = 'button';
-      b.title = inh.via === 'antecedent'
-        ? 'The source this Ibid inherits was already adjudicated — click to jump to that claim.'
-        : 'Another citation of this same work was already adjudicated — click to jump to that claim.';
-      b.addEventListener('click', () => selectClaim(inh.ante));
+      const b = claimLinkEl(inh.ante, `${inh.via} verdict: ${labelText} ↗`,
+        inh.via === 'antecedent'
+          ? 'The source this Ibid inherits was already adjudicated'
+          : 'Another citation of this same work was already adjudicated');
       const wrap = el('p');
       wrap.append(b);
       srcSec.append(wrap);
@@ -1726,10 +1739,17 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     const labelText = LABELS.find((l) => l.value === adj.label)?.text ?? adj.label;
     const anteId = ante.gt?.gt_id ?? ante.referenceId ?? 'antecedent';
     anteBanner = el('div', 'st-ante-banner');
-    anteBanner.append(el('p', undefined,
+    // The named verdict is one click away — inheriting is a judgement call, and the
+    // operator should be able to re-read what they decided there before taking it.
+    const intro = el('p');
+    intro.append(
       via === 'antecedent'
-        ? `This Ibid's source was already adjudicated on its antecedent (${anteId}): ${labelText}.`
-        : `Another citation of this same work was already adjudicated (${anteId}): ${labelText}.`));
+        ? "This Ibid's source was already adjudicated on its antecedent: "
+        : 'Another citation of this same work was already adjudicated: ',
+    );
+    intro.append(claimLinkEl(ante, `${anteId}: ${labelText} ↗`,
+      'Re-check that verdict before inheriting it'));
+    anteBanner.append(intro);
 
     if (adj.label === 'fabricated_reference' || adj.label === 'unverifiable') {
       const btn = el('button', 'st-choice st-ante-inherit', `inherit “${labelText}” — judge scope only`);
@@ -1883,11 +1903,8 @@ function evidenceBlock(claim: ClaimRow, adj: Adjudication, host: HTMLElement): H
     block.append(el('blockquote', 'st-evidence-quote', inherited.quote));
     const meta = el('p', 'st-muted');
     meta.append(inherited.locator ? `${inherited.locator} · ` : '');
-    const jump = el('button', 'st-badge st-ante-verdict', `inherited from ${inherited.anteId} ↗`);
-    jump.type = 'button';
-    jump.title = 'The verdict this evidence was recorded on — click to jump to it.';
-    jump.addEventListener('click', () => selectClaim(inherited.ante));
-    meta.append(jump);
+    meta.append(claimLinkEl(inherited.ante, `inherited from ${inherited.anteId} ↗`,
+      'The verdict this evidence was recorded on'));
     block.append(meta);
   } else if (labelExpectsEvidence(adj.label)) {
     // Only nag where a quotation is actually possible: the non-scored labels

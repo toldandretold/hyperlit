@@ -106,6 +106,24 @@ final class SourceWorkMismatch
             return null;
         }
 
+        // ESCAPE 0 — THE RECORD IS THE PAGE THE CITATION PRINTS. For a web source the printed
+        // URL is the author's own statement of the work's identity (same doctrine as
+        // printedDoiAgrees): when the record's URL IS the citation's URL, this is the right
+        // work whatever the page titling did to the overlap score. deloitte 000b::sub1: cited
+        // "Centrelink", stub titled "Administrative Review Tribunal, Centrelink" — the SAME
+        // art.gov.au page, 0.25 overlap, flagged as "a title-similarity match reached the
+        // wrong work" while Check-link opened the very address the author printed. Decisive,
+        // so it runs before the multi-work diagnosis: a sibling's overlapping title must not
+        // re-label a URL-identical match as "we verified the wrong member". EXCEPT when the
+        // page was READ and the screen said it is NOT the cited work (web_status 'rejected'):
+        // an author can print an address whose page hosts something else entirely, and there
+        // the content's verdict outranks the address.
+        if (($claim['web_status'] ?? null) !== 'rejected'
+            && self::urlsMatch($meta['url'] ?? null, $claim['source_url'] ?? null)
+        ) {
+            return null;
+        }
+
         // Which of the cited works IS the matched source? If one of the entry's other works
         // agrees, the identifier did its job and the failure is that we verified the wrong member
         // of a multi-work citation.
@@ -143,10 +161,14 @@ final class SourceWorkMismatch
         // against; flagging it sends the reader to fix a citation with nothing wrong in it.
         $bibText = html_entity_decode(strip_tags((string) ($claim['bib_citation'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $recordTokens = self::tokens((string) ($claim['source_title'] ?? ''));
+        // Year gate blocks only on positive DISAGREEMENT — this file's own doctrine is that
+        // silence is not disagreement, and requiring agreement made the escape unreachable for
+        // every UNDATED work (a web page citing no year can never "agree"), which is most of
+        // the grey literature this escape exists for.
         if (count($recordTokens) >= 3
             && $bibText !== ''
             && array_diff($recordTokens, self::tokens($bibText)) === []
-            && self::yearsAgree($flag['cited_year'], $flag['matched_year'], $meta)
+            && !self::yearsConflict($flag['cited_year'], $flag['matched_year'], $meta)
         ) {
             return null;
         }
@@ -195,6 +217,49 @@ final class SourceWorkMismatch
     }
 
     /** Years corroborate when the record has one and the cited year (or original_year) sits within ±1. */
+    /**
+     * Both sides DATED and more than a year apart (original_year consulted) — the hard form
+     * of disagreement. Absence on either side is silence, never a conflict.
+     */
+    private static function yearsConflict(?int $cited, ?int $matched, array $meta): bool
+    {
+        if ($matched === null) {
+            return false;
+        }
+        $original = isset($meta['original_year']) ? (int) $meta['original_year'] : null;
+        $candidates = array_values(array_filter([$cited, $original], fn ($c) => $c !== null));
+        if ($candidates === []) {
+            return false;
+        }
+        foreach ($candidates as $candidate) {
+            if (abs($candidate - $matched) <= 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** The citation's printed URL IS the record's URL — scheme/www/trailing-slash insensitive. */
+    private static function urlsMatch(mixed $cited, mixed $record): bool
+    {
+        $norm = function ($u): ?string {
+            if (!is_string($u)) {
+                return null;
+            }
+            $u = strtolower(trim($u));
+            $u = (string) preg_replace('#^https?://#', '', $u);
+            $u = (string) preg_replace('#^www\.#', '', $u);
+            $u = rtrim($u, '/');
+
+            return strlen($u) >= 8 ? $u : null;
+        };
+        $a = $norm($cited);
+        $b = $norm($record);
+
+        return $a !== null && $b !== null && $a === $b;
+    }
+
     private static function yearsAgree(?int $cited, ?int $matched, array $meta): bool
     {
         if ($matched === null) {
