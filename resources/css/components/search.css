@@ -316,10 +316,51 @@
 }
 
 .search-result-semantic-source {
+  /* Attribution row(s) then a badge row. As one baseline row the author
+     was squeezed to a few characters beside a long title. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+/* Author + title share a line only when both fit whole; otherwise the
+   title drops to its own line and wraps there. The title's flex-basis is
+   its full (auto) width, so a long one cannot fit beside the author and
+   wraps; the author never shrinks. */
+.search-result-semantic-attrib {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
+  max-width: 100%;
+}
+
+.search-result-semantic-attrib .search-result-book-author {
+  flex: none;
+}
+
+.search-result-semantic-attrib .search-result-book-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-result-semantic-meta {
   display: flex;
   gap: 6px;
-  align-items: baseline;
-  margin-top: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.search-result-semantic-meta:empty {
+  display: none;
+}
+
+.search-result-semantic-meta .search-result-cited-tag {
+  margin-left: 0;
 }
 
 .search-result-similarity {

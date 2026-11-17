@@ -67,7 +67,7 @@
                 {{-- The backlog sweep: verdicts whose label could be quoted but carries no
                      evidence. Composes with the boxes above, so it can come back empty while
                      "flagged only" hides matches — the empty state names that. --}}
-                <label><input type="checkbox" id="st-filter-needs-evidence"> needs evidence</label>
+                <label title="Rows with nothing quoted behind them yet: unquoted verdicts AND claims with no verdict at all."><input type="checkbox" id="st-filter-needs-evidence"> needs evidence</label>
             </div>
             <div id="st-list" role="list" aria-live="polite"><p class="st-empty">Loading…</p></div>
         </aside>

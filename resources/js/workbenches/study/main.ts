@@ -259,10 +259,20 @@ function bookRow(book: BookSummary): HTMLElement {
 
 // ---------------------------------------------------------------- claims list
 
+/**
+ * "Needs evidence" = NOTHING is quoted behind this row yet: an adjudicated
+ * verdict missing its quotes ('owed'), OR a row with no verdict at all — the
+ * evidence work there is still to come, verdict included. Excluded: quoted,
+ * inherited, and adjudicated non-scored labels (nothing to quote).
+ */
+function needsEvidence(c: ClaimRow): boolean {
+  return evidenceState(c) === 'owed' || !c.adjudication;
+}
+
 function matchesFilters(c: ClaimRow): boolean {
   if (state.filterFlagged && !FLAGGED.has(c.verdict)) return false;
   if (state.filterUnadjudicated && c.adjudication) return false;
-  if (state.filterNeedsEvidence && evidenceState(c) !== 'owed') return false;
+  if (state.filterNeedsEvidence && !needsEvidence(c)) return false;
   return true;
 }
 
@@ -323,11 +333,11 @@ function renderList(): void {
 function emptyListReason(): string {
   const all = state.payload?.claims ?? [];
   if (state.filterNeedsEvidence) {
-    const owed = all.filter((c) => evidenceState(c) === 'owed').length;
-    if (owed > 0) {
-      return `No claims match — ${owed} verdict(s) need evidence but are hidden by the other filters.`;
+    const bare = all.filter(needsEvidence).length;
+    if (bare > 0) {
+      return `No claims match — ${bare} row(s) need evidence but are hidden by the other filters.`;
     }
-    return 'Every adjudicated verdict that can be quoted has evidence. ✓';
+    return 'Every row is covered: quoted, evidenced by inheritance, or a non-scored label. ✓';
   }
   return 'No claims match the filter.';
 }

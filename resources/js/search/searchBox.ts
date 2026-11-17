@@ -506,8 +506,11 @@ export function createSearchBox(config: SearchBoxConfig) {
                            class="search-result-match-link">
                             <span class="search-result-snippet">${escapeHtml(result.excerpt)}</span>
                             <span class="search-result-semantic-source">
-                                <span class="search-result-book-title">${escapeHtml(result.title || 'Untitled')}</span>${matchPct}
-                                <span class="search-result-book-author">${escapeHtml(result.author || 'Unknown')}</span>${citedTagHtml(result)}
+                                <span class="search-result-semantic-attrib">
+                                    <span class="search-result-book-author">${escapeHtml(result.author || 'Unknown')}</span>
+                                    <span class="search-result-book-title">${escapeHtml(result.title || 'Untitled')}</span>
+                                </span>
+                                <span class="search-result-semantic-meta">${matchPct}${citedTagHtml(result)}</span>
                             </span>
                         </a>
                     </li>
