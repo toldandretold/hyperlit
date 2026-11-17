@@ -420,23 +420,48 @@ class AdjudicationStore
      */
     public function resolveInheritedEvidence(array $record, array $adjudications): ?array
     {
-        if (!preg_match('/source identity inherited from (?:antecedent )?(\S+)/',
-            (string) ($record['note'] ?? ''), $m)) {
-            return null;
+        // The proof can sit several hops away — deloitte c24's note names c23, whose note
+        // names c22, whose note names c131, where the quotes actually live. Each hop follows
+        // the inherit button's machine-shaped note; an unevidenced middle link never blocks
+        // resolution, and the label must agree at every hop (a different label is a different
+        // judgement — its proof does not transfer). Cycle-guarded, bounded.
+        $current = $record;
+        $visited = [];
+        for ($hop = 0; $hop < 10; $hop++) {
+            if (!preg_match('/source identity inherited from (?:antecedent )?(\S+)/',
+                (string) ($current['note'] ?? ''), $m)) {
+                return null;
+            }
+            $anteId = $m[1];
+            if (isset($visited[$anteId])) {
+                return null;
+            }
+            $visited[$anteId] = true;
+
+            $evidenced = null;
+            $link = null;
+            foreach ($adjudications as $donor) {
+                if (($donor['gt_id'] ?? null) !== $anteId && ($donor['referenceId'] ?? null) !== $anteId) {
+                    continue;
+                }
+                if (($donor['label'] ?? null) !== ($record['label'] ?? null)) {
+                    continue;
+                }
+                if (trim((string) ($donor['evidence'] ?? '')) !== '') {
+                    $evidenced = $donor;
+                    break;
+                }
+                $link ??= $donor;      // unevidenced, but its own note may lead onward
+            }
+            if ($evidenced !== null) {
+                return ['record' => $evidenced, 'from' => $anteId];
+            }
+            if ($link === null) {
+                return null;
+            }
+            $current = $link;
         }
-        $anteId = $m[1];
-        foreach ($adjudications as $donor) {
-            if (($donor['gt_id'] ?? null) !== $anteId && ($donor['referenceId'] ?? null) !== $anteId) {
-                continue;
-            }
-            if (($donor['label'] ?? null) !== ($record['label'] ?? null)) {
-                continue;
-            }
-            if (trim((string) ($donor['evidence'] ?? '')) === '') {
-                continue;
-            }
-            return ['record' => $donor, 'from' => $anteId];
-        }
+
         return null;
     }
 

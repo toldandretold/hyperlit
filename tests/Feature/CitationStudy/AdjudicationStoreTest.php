@@ -393,3 +393,38 @@ test('inherited evidence does NOT transfer across a different label, and resolve
         ->and($donor['from'])->toBe('ref_abc')
         ->and($donor['record']['evidence'])->toBe('The source says the opposite on p 12.');
 });
+
+test('inherited evidence resolves through a MULTI-HOP chain, and a cycle never loops', function () {
+    // deloitte c24 → c23 (same work, no quotes) → c22 (Ibid, no quotes) → c131, where the
+    // evidence actually lives. An unevidenced middle link must not block resolution.
+    $store = new AdjudicationStore();
+    $adjudications = [
+        'deloitte/c23' => ['gt_id' => 'deloitte/c23', 'label' => 'fabricated_reference',
+            'note' => 'source identity inherited from deloitte/c22 (same work, cited independently)'],
+        'deloitte/c22' => ['gt_id' => 'deloitte/c22', 'label' => 'fabricated_reference',
+            'note' => 'source identity inherited from antecedent deloitte/c131 (Ibid)'],
+        'deloitte/c131' => ['gt_id' => 'deloitte/c131', 'label' => 'fabricated_reference',
+            'evidence' => "Noted in Government's internal review as mistaken."],
+    ];
+    $record = ['label' => 'fabricated_reference',
+        'note' => 'source identity inherited from antecedent deloitte/c23 (Ibid)'];
+
+    $donor = $store->resolveInheritedEvidence($record, $adjudications);
+    expect($donor)->not->toBeNull()
+        ->and($donor['from'])->toBe('deloitte/c131')
+        ->and($donor['record']['evidence'])->toBe("Noted in Government's internal review as mistaken.");
+
+    // A label change mid-chain severs it: c22 adjudicated under a different label.
+    $broken = $adjudications;
+    $broken['deloitte/c22']['label'] = 'claim_distortion';
+    expect($store->resolveInheritedEvidence($record, $broken))->toBeNull();
+
+    // Two notes pointing at each other terminate instead of looping.
+    $cycle = [
+        'a' => ['gt_id' => 'a', 'label' => 'fabricated_reference',
+            'note' => 'source identity inherited from antecedent b (Ibid)'],
+        'b' => ['gt_id' => 'b', 'label' => 'fabricated_reference',
+            'note' => 'source identity inherited from antecedent a (Ibid)'],
+    ];
+    expect($store->resolveInheritedEvidence($cycle['a'], $cycle))->toBeNull();
+});

@@ -21,6 +21,7 @@ import { getLocalStorageKey } from '../../indexedDB/index';
 import { closeHyperlitContainer } from '../../hyperlitContainer/index';
 import { registerLinkClickHandler } from '../../utilities/linkClickRegistry';
 import { beginPopstateTraversal, endPopstateTraversal } from './historyTraversal';
+import { anchorUrlOf } from '../../utilities/anchorHref';
 
 export class LinkNavigationHandler {
   static globalLinkClickHandler: any = null;
@@ -123,9 +124,16 @@ export class LinkNavigationHandler {
    */
   static async handleLinkClick(event: any) {
     const link = event.target.closest('a');
-    if (!link || !link.href) return;
+    if (!link) return;
 
-    const linkUrl = new URL(link.href, window.location.origin);
+    // Resolved through anchorUrlOf, never `link.href`: on an SVG anchor (the
+    // hypercite-network map's dots, the harvest-network graphs, figureViewer's
+    // clone) `href` is an SVGAnimatedString object whose string form is
+    // "[object SVGAnimatedString]" — which this handler used to preventDefault
+    // and route to as a book id. Every later use of the destination in this
+    // method reads `linkUrl`, so the two can't disagree.
+    const linkUrl = anchorUrlOf(link);
+    if (!linkUrl) return;
     const currentUrl = new URL(window.location.href);
 
     // --- SYNCHRONOUS DECISION ---
@@ -136,7 +144,7 @@ export class LinkNavigationHandler {
     // If it's not external and not a special link handled elsewhere, it's for us.
     if (!isExternal && !shouldSkip) {
       event.preventDefault();
-      verbose.nav('Intercepted link for SPA routing', '/navigation/LinkNavigationHandler.js', link.href);
+      verbose.nav('Intercepted link for SPA routing', '/navigation/LinkNavigationHandler.js', linkUrl.href);
 
       // --- ASYNCHRONOUS PROCESSING ---
       // Now that the default navigation is stopped, we can perform async operations.
@@ -151,11 +159,11 @@ export class LinkNavigationHandler {
         } else {
           // This case should not be reached if logic is correct, but as a fallback:
           verbose.nav('Link was not routed, falling back to full navigation', '/navigation/LinkNavigationHandler.js');
-          window.location.href = link.href;
+          window.location.href = linkUrl.href;
         }
       } catch (error) {
         log.error('[LINK CLICK] SPA navigation failed, falling back to full navigation', '/navigation/LinkNavigationHandler.js', error);
-        window.location.href = link.href;
+        window.location.href = linkUrl.href;
       }
     }
   }
@@ -178,6 +186,16 @@ export class LinkNavigationHandler {
 
     // Skip blob URLs (downloads)
     const isBlobUrl = linkUrl.protocol === 'blob:';
+
+    // Skip download anchors. The archive panel (exportDownload.ts) and the
+    // audiobook button mint `<a download href="/exports/…">` and click it; that
+    // synthetic click bubbles to the document-level handler like any other.
+    // Routed as SPA navigation it was preventDefault-ed (no download), then
+    // run through BookToBookTransition as a book named "exports" — the vault
+    // button reloaded the page into a broken shell and froze it, and the zip
+    // only ever arrived via the error fallback's `window.location.href`.
+    // A `/exports/…` path is the same class whatever element carries it.
+    const isDownload = link.hasAttribute('download') || linkUrl.pathname.startsWith('/exports/');
 
     // Skip target="_blank" links — the author asked for a NEW TAB; SPA-routing
     // one in-place hijacks that. (The yield report's "Explore in 3D" link is
@@ -205,7 +223,7 @@ export class LinkNavigationHandler {
     // full page loads — replaceBodyContent never executes inline scripts.
     const isFullNav = link.hasAttribute('data-full-nav');
 
-    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isFootnoteLink || isSkipLink || isNewTab || isStandalonePage || isFullNav) {
+    if (isHypercite || isTocLink || isDeleteButton || isBookActions || isStripeTopup || isTierSelector || isTierOption || isBlobUrl || isDownload || isFootnoteLink || isSkipLink || isNewTab || isStandalonePage || isFullNav) {
       return true;
     }
 
@@ -260,10 +278,16 @@ export class LinkNavigationHandler {
     // 2. Both paths resolve to same book (handling hyperlight URLs)
     // 3. Target is book root and current is hyperlight of same book
     const isAIreviewLink = linkUrl.pathname.endsWith('/AIreview');
+    // Segment-bounded, not a bare prefix: on /a/{archive} the `book` global is
+    // the literal "a", and `startsWith('/a')` claimed EVERY a-initial slug with
+    // a hash (the hypercite map's `/abolition-as-method…#hypercite_…`) as the
+    // same book, pushing "/a#hypercite_…" and scrolling nowhere.
+    const underCurrentBook = linkUrl.pathname === currentBookPath
+      || linkUrl.pathname.startsWith(`${currentBookPath}/`);
     const isSameBookNavigation = !isAIreviewLink && (
       (currentBasePath === linkBasePath) ||
       (currentPathIsHyperlight && targetPathIsBook && currentBasePath === currentBookPath) ||
-      (linkUrl.pathname.startsWith(currentBookPath) && linkUrl.hash !== '')
+      (underCurrentBook && linkUrl.hash !== '')
     );
     
     return isSamePageAnchor || isSameBookNavigation;
@@ -279,14 +303,19 @@ export class LinkNavigationHandler {
       linkUrl.pathname;
       
     if (linkUrl.pathname.endsWith('/AIreview')) return true;
-    return linkBasePath && !linkBasePath.startsWith(currentBookPath);
+    // Segment-bounded like isSameBookNavigation: with `book` = "a" on an /a/
+    // archive page, a bare prefix test made every a-initial slug neither same
+    // nor different book, and the click fell to the full-reload fallback.
+    const underCurrentBook = linkBasePath === currentBookPath
+      || linkBasePath.startsWith(`${currentBookPath}/`);
+    return !!linkBasePath && !underCurrentBook;
   }
 
   /**
    * Handle same-book navigation (anchors, internal links)
    */
   static async handleSameBookNavigation(link: any, linkUrl: any) {
-    verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
+    verbose.nav('Same-book navigation', '/navigation/LinkNavigationHandler.js', linkUrl.href);
 
     try {
       // Close any open container when navigating from a link inside it
@@ -314,8 +343,7 @@ export class LinkNavigationHandler {
         verbose.nav(`Same-book multi-level cascade: ${chain.map((c: any) => c.itemId).join(' -> ')} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
-          const url = new URL(link.href);
-          const slugUrl = this.preserveSlugInUrl(url);
+          const slugUrl = this.preserveSlugInUrl(linkUrl);
           const currentUrl = window.location.pathname + window.location.hash;
           if (currentUrl !== slugUrl) {
             window.history.pushState(null, '', slugUrl);
@@ -328,8 +356,7 @@ export class LinkNavigationHandler {
         verbose.nav(`Same-book hyperlight navigation: ${hlSegment} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
-          const url = new URL(link.href);
-          const slugUrl = this.preserveSlugInUrl(url);
+          const slugUrl = this.preserveSlugInUrl(linkUrl);
           const currentUrl = window.location.pathname + window.location.hash;
           if (currentUrl !== slugUrl) {
             verbose.nav('Updating URL for same-book hyperlight', '/navigation/LinkNavigationHandler.js', slugUrl as any);
@@ -347,8 +374,7 @@ export class LinkNavigationHandler {
         verbose.nav(`Same-book footnote navigation: ${fnSegment} -> ${hyperciteId}`, '/navigation/LinkNavigationHandler.js');
 
         if (currentLazyLoader) {
-          const url = new URL(link.href);
-          const slugUrl = this.preserveSlugInUrl(url);
+          const slugUrl = this.preserveSlugInUrl(linkUrl);
           const currentUrl = window.location.pathname + window.location.hash;
           if (currentUrl !== slugUrl) {
             verbose.nav('Updating URL for same-book footnote', '/navigation/LinkNavigationHandler.js', slugUrl as any);
@@ -361,8 +387,7 @@ export class LinkNavigationHandler {
         const targetId = linkUrl.hash.substring(1);
 
         if (currentLazyLoader) {
-          const url = new URL(link.href);
-          const slugUrl = this.preserveSlugInUrl(url);
+          const slugUrl = this.preserveSlugInUrl(linkUrl);
 
           // Only update URL if we're not already there
           const currentUrl = window.location.pathname + window.location.hash;
@@ -387,7 +412,7 @@ export class LinkNavigationHandler {
    * Handle book-to-book navigation (now structure-aware using NEW SYSTEM)
    */
   static async handleBookToBookNavigation(link: any, linkUrl: any) {
-    verbose.nav('Book-to-book navigation', '/navigation/LinkNavigationHandler.js', link.href);
+    verbose.nav('Book-to-book navigation', '/navigation/LinkNavigationHandler.js', linkUrl.href);
 
     try {
       // Detect current and target structures
@@ -477,7 +502,7 @@ export class LinkNavigationHandler {
     } catch (error) {
       log.error('Navigation failed', '/navigation/LinkNavigationHandler.js', error);
       // Fallback to full page navigation
-      window.location.href = link.href;
+      window.location.href = linkUrl.href;
     }
   }
 

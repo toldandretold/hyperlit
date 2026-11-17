@@ -242,3 +242,58 @@ test('coerceLegislativeTypes repairs primary AND subs, drops the invented author
     expect(SourceTypeClassifier::coerceLegislativeTypes($out))->toBe($out);
     expect(SourceTypeClassifier::coerceLegislativeTypes(null))->toBeNull();
 });
+
+test('the printed honorific is stamped from the raw citation — the extraction drops the authority claim', function () {
+    // deloitte fn58: "Justice Natalie Cujes Perry, 'Administrative Decision-Making…'" extracted
+    // as authors ['Perry, Natalie Cujes'] — right for search, but the citation claims a JUDGE's
+    // authority, which is exactly what a fabrication borrows and what the reviewer must see.
+    $raw = "Administrative Review Council, Automated Assistance (Report No 46, November 2004); "
+        . "Justice Natalie Cujes Perry, 'Administrative Decision-Making in the 21st Century' "
+        . "(Speech, AIAL Forum, 15 September 2014).";
+    $meta = [
+        'authors' => ['Administrative Review Council'],
+        'title' => 'Automated Assistance',
+        'sub_citations' => [
+            ['authors' => ['Perry, Natalie Cujes'], 'title' => 'Administrative Decision-Making in the 21st Century'],
+        ],
+    ];
+
+    $out = SourceTypeClassifier::stampAuthorHonorifics($meta, $raw);
+
+    expect($out['sub_citations'][0]['author_honorific'])->toBe('Justice')
+        // The ARC is not preceded by any honorific — the primary stays unstamped.
+        ->and($out)->not->toHaveKey('author_honorific')
+        // Never folded into authors: resolution searches stay honorific-free.
+        ->and($out['sub_citations'][0]['authors'])->toBe(['Perry, Natalie Cujes']);
+});
+
+test('honorific matching survives the OCR renderings: glued, colon-repaired, and initials', function () {
+    $perry = ['authors' => ['Perry, Natalie Cujes'], 'title' => 'T'];
+
+    // The tiny-print text layer glues them: "JusticeNatalie Cujes Perry" (deloitte [^50]).
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, 'JusticeNatalie Cujes Perry, T (2014).')['author_honorific'])
+        ->toBe('Justice');
+    // A repair pass emitted "Justice: Natalie" (deloitte [^113]).
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, 'Justice: Natalie Cujes Perry, T (2014).')['author_honorific'])
+        ->toBe('Justice');
+    // Initials-only extraction anchors on the surname, crossing the initials.
+    expect(SourceTypeClassifier::stampAuthorHonorifics(['authors' => ['Perry, M.']], 'Justice M. Perry, T (2014).')['author_honorific'])
+        ->toBe('Justice');
+    // "Chief Justice" wins over its own substring.
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, 'Chief Justice Natalie Cujes Perry, T.')['author_honorific'])
+        ->toBe('Chief Justice');
+});
+
+test('an honorific elsewhere in the footnote, or before a DIFFERENT name, never stamps', function () {
+    $perry = ['authors' => ['Perry, Natalie Cujes'], 'title' => 'T'];
+
+    // The honorific belongs to another person in the same footnote.
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, 'Justice Melissa Smith said so; Natalie Cujes Perry, T (2014).'))
+        ->not->toHaveKey('author_honorific');
+    // Prose mention of justice-the-concept, nowhere near the name.
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, 'On administrative justice: Natalie Cujes Perry, T (2014).'))
+        ->not->toHaveKey('author_honorific');
+    // No raw text / no authors: untouched.
+    expect(SourceTypeClassifier::stampAuthorHonorifics($perry, null))->toBe($perry);
+    expect(SourceTypeClassifier::stampAuthorHonorifics(['title' => 'T'], 'Justice Natalie Perry, T.'))->toBe(['title' => 'T']);
+});

@@ -446,6 +446,19 @@ export function createSearchBox(config: SearchBoxConfig) {
         }
     }
 
+    /**
+     * A shelf-scoped endpoint marks a hit `cited: true` when the book is not a
+     * member of the collection but is hypercited by one (ShelfCitedTexts) —
+     * the search reaches those texts because the page's map draws them, and
+     * the label keeps a passage of Capital from reading as a shelf reading.
+     * Endpoints without the field (homepage, /u/) render nothing here.
+     */
+    function citedTagHtml(result: any): string {
+        return result && result.cited === true
+            ? '<span class="search-result-cited-tag">cited by this collection</span>'
+            : '';
+    }
+
     function renderResults(results: any, mode: any) {
         if (!resultsContainer) return;
         if (!results || results.length === 0) {
@@ -465,9 +478,9 @@ export function createSearchBox(config: SearchBoxConfig) {
                     return;
                 }
                 html += `
-                    <li class="search-result-item">
+                    <li class="search-result-item${result.cited === true ? ' search-result-cited' : ''}">
                         <a href="/${encodeURIComponent(result.book)}" class="search-result-link">
-                            <span class="search-result-headline">${DOMPurify.sanitize(result.headline, { ALLOWED_TAGS: ['b', 'mark'] })}</span>
+                            <span class="search-result-headline">${DOMPurify.sanitize(result.headline, { ALLOWED_TAGS: ['b', 'mark'] })}</span>${citedTagHtml(result)}
                         </a>
                     </li>
                 `;
@@ -488,13 +501,13 @@ export function createSearchBox(config: SearchBoxConfig) {
                     ? `<span class="search-result-similarity">${result.match}% match</span>`
                     : '';
                 html += `
-                    <li class="search-result-semantic">
+                    <li class="search-result-semantic${result.cited === true ? ' search-result-cited' : ''}">
                         <a href="/${encodeURIComponent(result.book)}${nodeAnchor}"
                            class="search-result-match-link">
                             <span class="search-result-snippet">${escapeHtml(result.excerpt)}</span>
                             <span class="search-result-semantic-source">
                                 <span class="search-result-book-title">${escapeHtml(result.title || 'Untitled')}</span>${matchPct}
-                                <span class="search-result-book-author">${escapeHtml(result.author || 'Unknown')}</span>
+                                <span class="search-result-book-author">${escapeHtml(result.author || 'Unknown')}</span>${citedTagHtml(result)}
                             </span>
                         </a>
                     </li>
@@ -517,12 +530,12 @@ export function createSearchBox(config: SearchBoxConfig) {
                     : '';
 
                 html += `
-                    <li class="search-result-book${isSubbook ? ' search-result-subbook' : ''}">
+                    <li class="search-result-book${isSubbook ? ' search-result-subbook' : ''}${bookResult.cited === true ? ' search-result-cited' : ''}">
                         <div class="search-result-book-header">
                             <a href="/${encodeURIComponent(bookResult.book)}" class="search-result-book-title">
                                 ${kindLabel ? `<span class="search-result-subbook-label">${kindLabel}</span>` : ''}${escapeHtml(displayTitle)}
                             </a>
-                            <span class="search-result-book-author">${escapeHtml(displayAuthor)}</span>
+                            <span class="search-result-book-author">${escapeHtml(displayAuthor)}</span>${citedTagHtml(bookResult)}
                         </div>
                         <ul class="search-result-matches">
                 `;

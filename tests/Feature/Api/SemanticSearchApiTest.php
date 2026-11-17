@@ -131,3 +131,36 @@ test('results beyond the max-distance cutoff are dropped', function () {
         ->assertStatus(200)
         ->assertJson(['success' => true, 'results' => [], 'count' => 0]);
 });
+
+test('one long book cannot fill the semantic page: the other book still appears within the limit', function () {
+    // The long book: 12 embedded paragraphs identical to the query vector; the
+    // short one: a single paragraph, equally close. Page of 10 → cap 2.
+    $long = seedSemanticBook(['title' => 'Semantic long book']);
+    $vector = '[' . implode(',', array_fill(0, 768, 0.1)) . ']';
+    for ($i = 2; $i <= 12; $i++) {
+        semanticAdminDb()->table('nodes')->insert([
+            'book' => $long, 'chunk_id' => 0, 'startLine' => $i, 'node_id' => $long . '_node_' . $i,
+            'content' => "<p>accumulation paragraph {$i}</p>", 'plainText' => "accumulation paragraph {$i}",
+            'embedding' => semanticAdminDb()->raw("'{$vector}'::halfvec"),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+    $short = seedSemanticBook(['title' => 'Semantic short book']);
+
+    $this->mock(EmbeddingService::class)
+        ->shouldReceive('embedSearchQuery')
+        ->once()
+        ->andReturn(array_fill(0, 768, 0.1));
+
+    $res = $this->getJson('/api/search/semantic?q=accumulation&limit=10')->assertOk();
+    $books = array_column($res->json('results'), 'book');
+
+    // The homepage corpus is EVERY visible book on this database, so real
+    // books may share the page; the contract is about the two seeded ones.
+    $longHits = count(array_filter($books, fn ($b) => $b === $long));
+    expect($res->json('count'))->toBe(10)
+        ->and($books)->toContain($short)->toContain($long)
+        // Backfill lets the long book keep most of the page — never all of it.
+        ->and($longHits)->toBeGreaterThanOrEqual(\App\Services\SearchService::perBookCap(10))
+        ->and($longHits)->toBeLessThanOrEqual(9);
+});

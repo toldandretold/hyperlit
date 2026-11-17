@@ -26,7 +26,31 @@ export interface ArchivePanelData {
     public_books: number;
     export_books: number;
     e2ee_skipped: number;
+    /** Texts the collection cites that a vault can bundle (0 = option not offered; always 0 for a user library). */
+    cited_books?: number;
   };
+}
+
+/** The vault option's checkbox id — exportDownload reads it, index.ts wires its change. */
+export const INCLUDE_CITED_CHECKBOX_ID = 'archive-include-cited';
+
+/**
+ * The vault's "Include texts cited by this collection" option. Shown only when
+ * the server counted cited texts (a shelf-backed collection whose members
+ * hypercite public books outside it). Default ON: the vault is more useful
+ * when a member's citations lead to a note than to a dead URL. The texts go
+ * in their own folder, so the archive and its context stay distinguishable.
+ */
+function citedOptionHtml(data: ArchivePanelData): string {
+  const n = data.counts?.cited_books ?? 0;
+  if (n <= 0) return '';
+
+  return `
+        <label class="archive-export-option" for="${INCLUDE_CITED_CHECKBOX_ID}">
+          <input type="checkbox" id="${INCLUDE_CITED_CHECKBOX_ID}" checked>
+          <span class="export-name">Include texts cited by this collection</span>
+          <span class="export-desc">${n} further text${n === 1 ? '' : 's'} the texts here cite — added to the vaults below in a “Cited texts” folder, so those citations resolve offline</span>
+        </label>`;
 }
 
 function escapeHtml(s: string): string {
@@ -188,6 +212,7 @@ export async function buildArchiveHtml(data: ArchivePanelData): Promise<string> 
 
       <div class="archive-downloads">
         <h3>Download</h3>
+        ${citedOptionHtml(data)}
 
         <button type="button" id="download-archive-md" class="download-btn archive-export-btn" hidden>
           <div class="icon-wrapper">

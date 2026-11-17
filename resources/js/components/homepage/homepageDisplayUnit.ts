@@ -7,6 +7,8 @@ import { formatAuthorsForReference } from '../../utilities/authorList';
 import { resolveShelfClickMode, shelfRenderUrl, isPersistableContentId } from './shelfTabRouting';
 import type { ShelfClickMode } from './shelfTabRouting';
 import { readArchiveEditSeed } from '../archivePage/archiveTitleEditor';
+// Zero-import leaf — a READ of the active loader (lazyLoaderRegistry stays its only writer).
+import { currentLazyLoader as activeLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 
 // Storage key for active button persistence
 const STORAGE_KEY_ACTIVE_BUTTON = 'homepage_active_button';
@@ -600,8 +602,10 @@ let transitionsRunning = 0;
  */
 export function closeFeedContent(onRemoved?: () => void): boolean {
   const containers = Array.from(document.querySelectorAll<HTMLElement>('.home-content-wrapper .main-content'));
+  const staleLoader = activeLazyLoader;
   if (transitionsRunning === 0) {
     containers.forEach(el => el.remove());
+    void releaseFeedLazyLoader(staleLoader);
     return true;
   }
   containers.forEach(el => {
@@ -613,10 +617,31 @@ export function closeFeedContent(onRemoved?: () => void): boolean {
   const run = (async () => {
     await Promise.race([prev, new Promise((r) => setTimeout(r, 8000))]);
     document.querySelectorAll('.main-content.feed-closing').forEach(el => el.remove());
+    void releaseFeedLazyLoader(staleLoader);
     onRemoved?.();
   })();
   transitionChain = run.catch(() => {});
   return false;
+}
+
+/**
+ * The feed's lazy loader outlived its DOM. createLazyLoader attaches a
+ * DOCUMENT-level click handler that routes every anchor on the page through
+ * LinkNavigationHandler; with the feed closed that handler kept hijacking the
+ * hero's own links (the hypercite-network map's SVG dots) long after the
+ * `.main-content` was gone. disconnect() removes it; the next feed open mints a
+ * fresh loader anyway (runBookContentTransition resets before loading).
+ */
+async function releaseFeedLazyLoader(stale: unknown): Promise<void> {
+  if (!stale) return;
+  try {
+    const { resetCurrentLazyLoader } = await import('../../pageLoad/index');
+    // Identity-guarded: if a NEW feed was opened while the import resolved,
+    // its loader is the active one now and must not be torn down.
+    if (activeLazyLoader === stale) resetCurrentLazyLoader();
+  } catch (e) {
+    verbose.content('feed close: could not release the lazy loader', '/components/homepage/homepageDisplayUnit', e as any);
+  }
 }
 
 export function transitionToBookContent(bookId: any, showLoader = true): Promise<void> {

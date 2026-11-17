@@ -26,6 +26,7 @@ import { scrollElementIntoMainContent } from "../scrolling/index";
 // Zero-import leaf (no cycle) — used to ensure only the ACTIVE reader loader saves its position.
 import { currentLazyLoader } from '../pageLoad/currentLazyLoaderState';
 import { handleContentLinkClick } from '../utilities/linkClickRegistry';
+import { anchorUrlOf } from '../utilities/anchorHref';
 import { isCacheDirty, clearCacheDirtyFlag } from './utilities/cacheState';
 import { selectNextChunkId, selectPrevChunkId } from './utilities/chunkSelection';
 import { trimWindow } from './utilities/windowChunks';
@@ -172,7 +173,12 @@ export function createLazyLoader(config: any) {
   const globalLinkHandler = async (event: any) => {
     if (event.defaultPrevented) return; // Already handled by another lazy loader's handler
     const link = event.target.closest('a');
-    if (!link || !link.href) return;
+    if (!link) return;
+    // anchorUrlOf, not `link.href`: an SVG anchor's href is an SVGAnimatedString
+    // OBJECT, and stringifying it routed hypercite-map dots to a book called
+    // "[object SVGAnimatedString]" (see utilities/anchorHref.ts).
+    const linkUrl = anchorUrlOf(link);
+    if (!linkUrl) return;
 
     // 🛑 PREVENT LINK CLICKS DURING ACTIVE SCROLLING (gesture-recent only —
     // see isActivelyScrollingForLinkBlock). Log it: this branch silently
@@ -190,7 +196,7 @@ export function createLazyLoader(config: any) {
     // 1. Inside the .hypercites-section ("Cited By" — should navigate directly)
     // 2. Have the "see-in-source-btn" class (action button from container)
     try {
-      const url = new URL(link.href, window.location.origin);
+      const url = linkUrl;
       const hash = url.hash;
 
       if (hash && hash.startsWith('#hypercite_') && !link.classList.contains('see-in-source-btn') && !link.closest('.hypercites-section')) {

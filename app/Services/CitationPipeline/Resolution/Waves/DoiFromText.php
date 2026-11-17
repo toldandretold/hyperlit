@@ -24,7 +24,14 @@ class DoiFromText implements ResolutionWave, PerItemGate
      */
     public function itemSkipReason(string $refId, array $item, ResolutionContext $ctx): ?string
     {
-        return empty($item['doi']) ? 'The citation prints no DOI.' : null;
+        if (!empty($item['doi'])) {
+            return null;
+        }
+        // A multi-work footnote can print a DOI that is another work's: say so, or the
+        // reader wonders why a DOI they can see on the page reads "prints no DOI".
+        return empty($item['doi_unattributable'])
+            ? 'The citation prints no DOI.'
+            : 'The footnote prints a DOI, but it could not be attributed to THIS work.';
     }
 
     public function id(): string
@@ -45,9 +52,12 @@ class DoiFromText implements ResolutionWave, PerItemGate
 
     public function dev(): string
     {
-        return 'openAlex.extractDoi(content) per pool item, then llmMetadata.doi as fallback '
-            . 'where the regex found nothing. Regex first: it reads the printed characters, the '
-            . 'LLM can normalise or invent. Routes only — the lookups are the next two waves.';
+        return 'CitedDoi::printed per pool item — multi-work aware: a ::subN item and a '
+            . 'multi-work parent use ONLY their own work\'s llmMetadata.doi (the footnote text '
+            . 'cannot say which printed DOI is whose); a single-work entry keeps '
+            . 'extractDoi(content) first (it reads the printed characters, the LLM can normalise '
+            . 'or invent) with llmMetadata.doi as fallback. Routes only — the lookups are the '
+            . 'next two waves.';
     }
 
     public function entryGate(): string
@@ -68,14 +78,17 @@ class DoiFromText implements ResolutionWave, PerItemGate
     public function run(ResolutionContext $ctx): void
     {
         foreach ($ctx->pool as $refId => &$item) {
-            $item['doi'] = $ctx->openAlex->extractDoi($item['content']);
-        }
-        unset($item);
-
-        // Merge LLM-extracted DOIs for entries where regex found nothing
-        foreach ($ctx->pool as $refId => &$item) {
-            if (!$item['doi'] && !empty($item['llmMetadata']['doi'])) {
-                $item['doi'] = $item['llmMetadata']['doi'];
+            // ONE derivation, multi-work aware (deloitte c58: the content regex stamped
+            // work 2's DOI on work 1, which then "resolved" to the wrong book) — a sub or
+            // multi-work parent takes only its OWN work's llm doi; single-work keeps the
+            // historical content-regex-first order. See CitedDoi.
+            $item['doi'] = \App\Services\CitationPipeline\Resolution\CitedDoi::printed($item, $ctx->openAlex);
+            if ($item['doi'] === null
+                && (!empty($item['parentRefId']) || !empty($item['llmMetadata']['sub_citations']))
+                && $ctx->openAlex->extractDoi($item['content'])
+            ) {
+                // The footnote prints a DOI we refused to attribute — the trace says why.
+                $item['doi_unattributable'] = true;
             }
         }
         unset($item);

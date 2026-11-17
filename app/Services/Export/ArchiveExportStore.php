@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\File;
 class ArchiveExportStore
 {
     /** Bump when any builder's output format changes — invalidates all caches. */
-    public const SCHEMA_VERSION = 10;
+    public const SCHEMA_VERSION = 12; // 12: hypercite footnotes link in-vault notes; cited-texts folder
 
     /**
      * `markdown` is the Obsidian vault; `zettlr` is the same vault written for
@@ -33,6 +33,21 @@ class ArchiveExportStore
     public static function extension(string $kind): string
     {
         return self::EXT[$kind];
+    }
+
+    /** The vault kinds — the only ones that can carry the collection's cited texts. */
+    public const VAULT_KINDS = ['markdown', 'zettlr'];
+
+    /**
+     * A kind's storage SLOT: which artifact file, progress record and build
+     * lock it uses. A vault with the cited texts and one without are two
+     * different artifacts of the same kind — sharing one lock would make the
+     * second requester "join" a build that will never produce its file — so
+     * the option is part of the slot, not only of the digest.
+     */
+    public static function slot(string $kind, bool $includeCited = false): string
+    {
+        return $includeCited && in_array($kind, self::VAULT_KINDS, true) ? "{$kind}-cited" : $kind;
     }
 
     public function digest(ArchiveCorpus $corpus, string $audience, string $kind): string
@@ -55,20 +70,20 @@ class ArchiveExportStore
         return storage_path("app/archive-exports/{$scopeType}-{$safe}/{$audience}");
     }
 
-    public function artifactPath(string $scopeType, string $scopeId, string $audience, string $kind, string $digest): string
+    public function artifactPath(string $scopeType, string $scopeId, string $audience, string $kind, string $digest, bool $includeCited = false): string
     {
-        return $this->dir($scopeType, $scopeId, $audience) . "/{$kind}-{$digest}." . self::EXT[$kind];
+        return $this->dir($scopeType, $scopeId, $audience) . '/' . self::slot($kind, $includeCited) . "-{$digest}." . self::EXT[$kind];
     }
 
     /** The work path a builder writes to before the atomic rename. */
-    public function workPath(string $scopeType, string $scopeId, string $audience, string $kind, string $digest): string
+    public function workPath(string $scopeType, string $scopeId, string $audience, string $kind, string $digest, bool $includeCited = false): string
     {
-        return $this->artifactPath($scopeType, $scopeId, $audience, $kind, $digest) . '.work';
+        return $this->artifactPath($scopeType, $scopeId, $audience, $kind, $digest, $includeCited) . '.work';
     }
 
-    public function progressPath(string $scopeType, string $scopeId, string $audience, string $kind): string
+    public function progressPath(string $scopeType, string $scopeId, string $audience, string $kind, bool $includeCited = false): string
     {
-        return $this->dir($scopeType, $scopeId, $audience) . "/{$kind}-progress.json";
+        return $this->dir($scopeType, $scopeId, $audience) . '/' . self::slot($kind, $includeCited) . '-progress.json';
     }
 
     public function writeProgress(
@@ -81,8 +96,9 @@ class ArchiveExportStore
         ?string $message = null,
         ?string $filename = null,
         int $bytes = 0,
+        bool $includeCited = false,
     ): void {
-        $path = $this->progressPath($scopeType, $scopeId, $audience, $kind);
+        $path = $this->progressPath($scopeType, $scopeId, $audience, $kind, $includeCited);
         File::ensureDirectoryExists(dirname($path), 0755);
         File::put($path, json_encode([
             'status' => $status, // building | ready | failed
@@ -94,9 +110,9 @@ class ArchiveExportStore
         ]));
     }
 
-    public function readProgress(string $scopeType, string $scopeId, string $audience, string $kind): ?array
+    public function readProgress(string $scopeType, string $scopeId, string $audience, string $kind, bool $includeCited = false): ?array
     {
-        $path = $this->progressPath($scopeType, $scopeId, $audience, $kind);
+        $path = $this->progressPath($scopeType, $scopeId, $audience, $kind, $includeCited);
         if (!is_file($path)) {
             return null;
         }
@@ -109,19 +125,26 @@ class ArchiveExportStore
      * Older digests are dead the moment a new one exists — the corpus they
      * packaged has changed. Keep at most one artifact per scope/audience/kind.
      */
-    public function cleanupStale(string $scopeType, string $scopeId, string $audience, string $kind, string $keepPath): void
+    public function cleanupStale(string $scopeType, string $scopeId, string $audience, string $kind, string $keepPath, bool $includeCited = false): void
     {
-        $pattern = $this->dir($scopeType, $scopeId, $audience) . "/{$kind}-*." . self::EXT[$kind];
+        // `markdown-*` would also match `markdown-cited-*`: a slot cleans up
+        // only its own artifacts, so the two vault variants coexist.
+        $slot = self::slot($kind, $includeCited);
+        $pattern = $this->dir($scopeType, $scopeId, $audience) . "/{$slot}-*." . self::EXT[$kind];
         foreach (glob($pattern) ?: [] as $old) {
-            if ($old !== $keepPath) {
-                @unlink($old);
+            if ($old === $keepPath) {
+                continue;
             }
+            if (!$includeCited && str_starts_with(basename($old), "{$kind}-cited-")) {
+                continue;
+            }
+            @unlink($old);
         }
     }
 
-    public static function lockKey(string $scopeType, string $scopeId, string $audience, string $kind): string
+    public static function lockKey(string $scopeType, string $scopeId, string $audience, string $kind, bool $includeCited = false): string
     {
-        return "archive-export:{$scopeType}:{$scopeId}:{$audience}:{$kind}";
+        return "archive-export:{$scopeType}:{$scopeId}:{$audience}:" . self::slot($kind, $includeCited);
     }
 
     /**

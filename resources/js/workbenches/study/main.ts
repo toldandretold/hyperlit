@@ -407,17 +407,21 @@ function restoreSelectionFromUrl(): void {
  * LiveTraceJoiner), chaining through un-adjudicated short forms (an Ibid of an
  * Ibid) with a cycle guard. Returns the nearest adjudicated antecedent claim row.
  */
+/** The refId this row's short form points at — read off itself, or (for a ::subN
+ *  fan-out row) off its parent claim, same as LiveTraceJoiner. */
+function shortFormTargetOf(c: ClaimRow, claims: ClaimRow[]): string | null {
+  const own = c.llm_metadata?.short_form_of;
+  if (typeof own === 'string' && own) return own;
+  const parentRef = c.referenceId?.includes('::') ? c.referenceId.split('::')[0] : null;
+  const parentVal = parentRef
+    ? claims.find((p) => p.referenceId === parentRef)?.llm_metadata?.short_form_of
+    : null;
+  return typeof parentVal === 'string' && parentVal ? parentVal : null;
+}
+
 function antecedentAdjudication(claim: ClaimRow): { ante: ClaimRow; adj: Adjudication } | null {
   const claims = state.payload?.claims ?? [];
-  const shortFormOf = (c: ClaimRow): string | null => {
-    const own = c.llm_metadata?.short_form_of;
-    if (typeof own === 'string' && own) return own;
-    const parentRef = c.referenceId?.includes('::') ? c.referenceId.split('::')[0] : null;
-    const parentVal = parentRef
-      ? claims.find((p) => p.referenceId === parentRef)?.llm_metadata?.short_form_of
-      : null;
-    return typeof parentVal === 'string' && parentVal ? parentVal : null;
-  };
+  const shortFormOf = (c: ClaimRow): string | null => shortFormTargetOf(c, claims);
 
   const subSuffix = claim.referenceId?.includes('::') ? `::${claim.referenceId.split('::')[1]}` : '';
   const visited = new Set<string>();
@@ -521,23 +525,58 @@ function evidenceState(claim: ClaimRow): 'quoted' | 'inherited' | 'owed' | null 
  * not an assertion, and the system can derive that itself (it already knows the
  * inheritance). Derived at read time so nothing has to be re-saved or copied:
  * requires the claim's own verdict to lack quotes, the labels to AGREE (a different
- * label is a different judgement — its proof does not transfer), and the antecedent
- * (via the Ibid chain or same-work identity) to carry evidence.
+ * label is a different judgement — its proof does not transfer), and SOME member of
+ * the work's whole inheritance family — however many hops away — to carry evidence.
  */
 function inheritedEvidence(
   claim: ClaimRow,
 ): { ante: ClaimRow; anteId: string; quote: string; locator: string | null } | null {
   const adj = claim.adjudication;
   if (!adj || adj.evidence || claim.gt?.evidence) return null;
-  const inh = inheritedSourceVerdict(claim);
-  if (!inh || inh.adj.label !== adj.label) return null;
-  const quote = inh.adj.evidence ?? inh.ante.gt?.evidence ?? null;
-  if (!quote) return null;
+  const claims = state.payload?.claims ?? [];
+
+  // The proof can sit ANY number of hops away — deloitte c24 inherits from c23
+  // (Ibid), c23 from c22 (same work), c22 from c131, where the quotes actually
+  // live — so this walks the whole FAMILY: the transitive closure over both
+  // inheritance edges (short-form chains, followed in either direction, and
+  // same-work identity). The donor is the latest same-label family member
+  // carrying evidence; an unevidenced middle link never blocks resolution.
+  const seen = new Set<string>([claim.key]);
+  const family: ClaimRow[] = [];
+  let frontier: ClaimRow[] = [claim];
+  while (frontier.length > 0 && seen.size < 80) {
+    const next: ClaimRow[] = [];
+    for (const c of frontier) {
+      const ref = shortFormTargetOf(c, claims);
+      const mine = workIdentity(c);
+      for (const t of claims) {
+        if (seen.has(t.key)) continue;
+        const tRef = shortFormTargetOf(t, claims);
+        const chainForward = !!ref
+          && (t.referenceId === ref || !!t.referenceId?.startsWith(`${ref}::`));
+        const chainBack = !!tRef
+          && (c.referenceId === tRef || !!c.referenceId?.startsWith(`${tRef}::`));
+        const theirs = mine ? workIdentity(t) : null;
+        if (!chainForward && !chainBack && !(mine && theirs && sameWork(mine, theirs))) continue;
+        seen.add(t.key);
+        family.push(t);
+        next.push(t);
+      }
+    }
+    frontier = next;
+  }
+
+  const donor = family
+    .filter((c) => c.adjudication?.label === adj.label
+      && (c.adjudication?.evidence || c.gt?.evidence))
+    .sort((a, b) =>
+      (b.adjudication?.adjudicated_at ?? '').localeCompare(a.adjudication?.adjudicated_at ?? ''))[0];
+  if (!donor) return null;
   return {
-    ante: inh.ante,
-    anteId: inh.ante.gt?.gt_id ?? inh.ante.referenceId ?? 'antecedent',
-    quote,
-    locator: inh.adj.evidence_locator ?? inh.ante.gt?.evidence_locator ?? null,
+    ante: donor,
+    anteId: donor.gt?.gt_id ?? donor.referenceId ?? 'antecedent',
+    quote: donor.adjudication?.evidence ?? donor.gt?.evidence ?? '',
+    locator: donor.adjudication?.evidence_locator ?? donor.gt?.evidence_locator ?? null,
   };
 }
 

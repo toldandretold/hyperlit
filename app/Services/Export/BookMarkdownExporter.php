@@ -77,10 +77,19 @@ class BookMarkdownExporter
      *   as the link's title: it is what a reader sees on hover, and it is how
      *   a re-import knows WHICH reference the link stood for (the href no
      *   longer says). Those links are exempt from both options above.
+     * @param  array<string, string>  $bookNotes  cited book id => href of that
+     *   book's OWN note in the vault (relative to this note, already
+     *   URL-encoded). A hypercite footnote whose target is here links the
+     *   note's title to it — and KEEPS the hyperlit deep link to the cited
+     *   passage beside it: the vault re-import recognises a note as
+     *   hypercite-involved by that `#hypercite_…` URL (docs/vault-reimport.md),
+     *   so it must never be replaced.
      * @return string full markdown document for one book
      */
-    public function markdownFor(string $bookId, bool $obsidianLinks = false, bool $plainFragmentLinks = false, array $noteLinks = []): string
+    public function markdownFor(string $bookId, bool $obsidianLinks = false, bool $plainFragmentLinks = false, array $noteLinks = [], array $bookNotes = []): string
     {
+        $this->bookNotes = $bookNotes;
+
         $nodes = DB::connection('pgsql_admin')->table('nodes')
             ->where('book', $bookId)
             ->orderBy('chunk_id')
@@ -156,7 +165,9 @@ class BookMarkdownExporter
         // own block (where Obsidian requires a block id to sit). The empty
         // anchor itself would be dropped by the converter, which is why the
         // in-text `#id` links had nothing to land on.
-        $blockIds = $obsidianLinks ? $this->markBibEntries($xpath, $doc, $bookId) : [];
+        $this->blockIds = [];
+        $this->blockIdsTaken = [];
+        ['blockIds' => $blockIds, 'orphans' => $orphanRefs] = $this->placeBibliography($xpath, $doc, $bookId, markBlocks: $obsidianLinks);
 
         // A citation of a work that is itself a note in the vault links that
         // note. Done before the two fragment treatments, which then see no `#`.
@@ -202,12 +213,13 @@ class BookMarkdownExporter
             $sections[] = "---\n\n" . implode("\n\n", $defs);
         }
 
-        $references = $this->referencesSection($bookId, $citationRefIds);
+        $references = $this->referencesSection($bookId, $citationRefIds, $orphanRefs, $obsidianLinks);
         if ($references !== '') {
             $sections[] = "---\n\n" . $references;
         }
 
         $markdown = implode("\n\n", $sections) . "\n";
+        $blockIds = $this->blockIds;
 
         return $blockIds === [] ? $markdown : $this->linkToBlockIds($markdown, $blockIds);
     }
@@ -220,8 +232,33 @@ class BookMarkdownExporter
         return trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $refId), '-');
     }
 
+    /** refId => block id, in sentinel order (the sentinel's number is its 1-based position). */
+    private array $blockIds = [];
+
+    /** block ids already handed out — two refIds that fold to one id ("a_b" / "a-b") stay distinct. */
+    private array $blockIdsTaken = [];
+
     /**
-     * Tag each bibliography entry's block with a sentinel carrying its block id.
+     * Give a cited refId its block id and return the sentinel to print where the id must sit.
+     * Returns '' when the refId already has one (or folds to nothing).
+     */
+    private function blockSentinel(string $refId): string
+    {
+        $blockId = self::blockId($refId);
+        if ($blockId === '' || isset($this->blockIds[$refId])) {
+            return '';
+        }
+        for ($base = $blockId, $n = 2; isset($this->blockIdsTaken[$blockId]); $n++) {
+            $blockId = "{$base}-{$n}";
+        }
+        $this->blockIdsTaken[$blockId] = true;
+        $this->blockIds[$refId] = $blockId;
+
+        return '@@HLBLOCK' . count($this->blockIds) . '@@';
+    }
+
+    /**
+     * Find where each cited reference lives, and tag it for Obsidian when asked.
      *
      * An imported book marks an entry with `<a class="bib-entry" id="…">`. A
      * PASTED article does not: its reference paragraphs are bare
@@ -231,24 +268,30 @@ class BookMarkdownExporter
      * that reference's — or every citation of a pasted article is a dead link
      * in the vault ("Unable to find seaton2016").
      *
-     * @return array<string, string> refId => block id
+     * Some pastes print NO reference list at all (ScienceDirect: 63 rows in the
+     * table, 93 in-text links, not one reference paragraph in the body). Those
+     * rows come back as ORPHANS for the caller to print in a References section
+     * — the only place the link can land.
+     *
+     * With $markBlocks the block carrying an entry gets a sentinel at the END of
+     * its own last text line (where Obsidian requires a block id to sit) — not
+     * after a trailing nested `<p>`/`<ul>` of publisher chrome, where it would be
+     * a line of its own and attach to nothing.
+     *
+     * @return array{blockIds: array<string, string>, orphans: array<string, string>} refId => block id; refId => row html
      */
-    private function markBibEntries(\DOMXPath $xpath, \DOMDocument $doc, string $bookId): array
+    private function placeBibliography(\DOMXPath $xpath, \DOMDocument $doc, string $bookId, bool $markBlocks): array
     {
-        $blockIds = [];
-        $taken = [];
-        $mark = function (string $refId, \DOMElement $block) use (&$blockIds, &$taken, $doc): void {
-            $blockId = self::blockId($refId);
-            if ($blockId === '' || isset($blockIds[$refId])) {
+        $placed = [];
+        $mark = function (string $refId, \DOMElement $block) use (&$placed, $doc, $markBlocks): void {
+            $placed[$refId] = true;
+            if (!$markBlocks) {
                 return;
             }
-            // Two refIds that fold to one block id ("a_b" / "a-b") stay distinct.
-            for ($base = $blockId, $n = 2; isset($taken[$blockId]); $n++) {
-                $blockId = "{$base}-{$n}";
+            $sentinel = $this->blockSentinel($refId);
+            if ($sentinel !== '') {
+                self::appendToLastTextLine($block, $doc->createTextNode(' ' . $sentinel));
             }
-            $taken[$blockId] = true;
-            $blockIds[$refId] = $blockId;
-            $block->appendChild($doc->createTextNode(' @@HLBLOCK' . count($blockIds) . '@@'));
         };
 
         $anchors = $xpath->query('//a[@id and contains(concat(" ", normalize-space(@class), " "), " bib-entry ")]');
@@ -271,12 +314,12 @@ class BookMarkdownExporter
         foreach ($xpath->query('//a[starts-with(@href, "#")]') as $a) {
             /** @var \DOMElement $a */
             $refId = rawurldecode(substr($a->getAttribute('href'), 1));
-            if ($refId !== '' && !isset($blockIds[$refId])) {
+            if ($refId !== '' && !isset($placed[$refId])) {
                 $wanted[$refId] = true;
             }
         }
         if ($wanted === []) {
-            return $blockIds;
+            return ['blockIds' => $this->blockIds, 'orphans' => []];
         }
 
         $rows = DB::connection('pgsql_admin')->table('bibliography')
@@ -284,7 +327,7 @@ class BookMarkdownExporter
             ->whereIn('referenceId', array_map('strval', array_keys($wanted)))
             ->pluck('content', 'referenceId');
         if ($rows->isEmpty()) {
-            return $blockIds;
+            return ['blockIds' => $this->blockIds, 'orphans' => []];
         }
 
         // Text fingerprint → the ONE block carrying it (two blocks with the same text place nothing).
@@ -296,14 +339,56 @@ class BookMarkdownExporter
                 $blocks[$print] = isset($blocks[$print]) ? false : $block;
             }
         }
-        foreach ($rows as $refId => $content) {
-            $print = self::textFingerprint(html_entity_decode(strip_tags((string) $content), ENT_QUOTES | ENT_HTML5));
-            if ($print !== '' && ($blocks[$print] ?? false) instanceof \DOMElement) {
-                $mark((string) $refId, $blocks[$print]);
+        $orphans = [];
+        foreach (array_keys($wanted) as $refId) {
+            // $wanted is in document order, so orphans print in first-citation order.
+            if (!$rows->has((string) $refId)) {
+                continue;
+            }
+            $content = (string) $rows->get((string) $refId);
+            $print = self::textFingerprint(html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5));
+            $found = $print !== '' ? ($blocks[$print] ?? null) : null;
+            if ($found instanceof \DOMElement) {
+                $mark((string) $refId, $found);
+            } elseif ($found === null && trim(strip_tags($content)) !== '') {
+                // Nowhere in the body → print it. (Two blocks carry it → leave the
+                // link alone rather than point it at a guess or print a third copy.)
+                $orphans[(string) $refId] = $content;
             }
         }
 
-        return $blockIds;
+        return ['blockIds' => $this->blockIds, 'orphans' => $orphans];
+    }
+
+    /**
+     * Append $node where the block's last line of TEXT ends. Trailing empty
+     * blocks (`<p></p>`) are dropped; a trailing non-empty block container is
+     * entered, so the sentinel joins its last line instead of following it.
+     */
+    private static function appendToLastTextLine(\DOMElement $block, \DOMNode $node): void
+    {
+        $containers = ['p', 'div', 'ul', 'ol', 'li', 'blockquote', 'dd', 'td'];
+        while (true) {
+            $last = $block->lastChild;
+            while ($last !== null && $last->nodeType === XML_TEXT_NODE && trim($last->textContent) === '') {
+                $prev = $last->previousSibling;
+                $block->removeChild($last);
+                $last = $prev;
+            }
+            if ($last instanceof \DOMElement && in_array($last->nodeName, $containers, true)) {
+                if (trim($last->textContent) === '') {
+                    $block->removeChild($last);
+
+                    continue;
+                }
+                $block = $last;
+
+                continue;
+            }
+
+            break;
+        }
+        $block->appendChild($node);
     }
 
     /** Letters and digits only, lower-cased: the same text however it was spaced or marked up. */
@@ -316,6 +401,7 @@ class BookMarkdownExporter
     private function linkToBlockIds(string $markdown, array $blockIds): string
     {
         $ordered = array_values($blockIds);
+        $markdown = self::hoistSentinelsOntoListItems($markdown);
         $markdown = preg_replace_callback(
             '/[ \t]*@@HLBLOCK(\d+)@@/',
             fn ($m) => isset($ordered[(int) $m[1] - 1]) ? ' ^' . $ordered[(int) $m[1] - 1] : '',
@@ -332,6 +418,42 @@ class BookMarkdownExporter
             },
             $markdown
         ) ?? $markdown;
+    }
+
+    /**
+     * A sentinel that the converter left on a list item's CONTINUATION line
+     * (publisher chrome after the citation — a nested "View" list, a Google
+     * Scholar paragraph) moves to the end of the item's own first line, which is
+     * where Obsidian reads a list item's block id. A sentinel alone on a line is
+     * the same case with nothing else on it, so that line goes.
+     */
+    private static function hoistSentinelsOntoListItems(string $markdown): string
+    {
+        $lines = explode("\n", $markdown);
+        foreach ($lines as $i => $line) {
+            if (!preg_match('/^(\s+)(.*?)[ \t]*(@@HLBLOCK\d+@@)\s*$/', $line, $m)) {
+                continue;
+            }
+            $indent = strlen($m[1]);
+            for ($j = $i - 1; $j >= 0; $j--) {
+                $prev = $lines[$j];
+                if (trim($prev) === '') {
+                    continue;
+                }
+                $prevIndent = strlen($prev) - strlen(ltrim($prev));
+                if ($prevIndent >= $indent) {
+                    continue;
+                }
+                if (!preg_match('/^\s*(?:[-*+]|\d+[.)])\s/', $prev)) {
+                    break; // not a list item's line — leave the sentinel where the converter put it
+                }
+                $lines[$j] = rtrim($prev) . ' ' . $m[3];
+                $lines[$i] = trim($m[2]) === '' ? null : $m[1] . $m[2];
+                break;
+            }
+        }
+
+        return implode("\n", array_filter($lines, fn ($l) => $l !== null));
     }
 
     /** Vault filename: "{Author} - {Title}.md" (client getBookDownloadName parity). */
@@ -412,6 +534,9 @@ class BookMarkdownExporter
 
     // ---------- hypercites ----------
 
+    /** @var array<string, string> cited book id => note href, for the markdownFor() in progress */
+    private array $bookNotes = [];
+
     /** @return ?array{targetBookId: string, sourceUrl: string} */
     private function parseHyperciteHref(string $href): ?array
     {
@@ -430,15 +555,26 @@ class BookMarkdownExporter
         return ['targetBookId' => rawurldecode($segments[0]), 'sourceUrl' => $sourceUrl];
     }
 
-    /** Compact markdown citation of the cited book, linking the hyperlit deep URL. */
+    /**
+     * Compact markdown citation of the cited book, linking the hyperlit deep
+     * URL. When the cited book has its own note in the vault ($bookNotes) the
+     * title links THAT note and the deep link follows as "the cited passage" —
+     * both, never one or the other: the note is where a reader offline can
+     * follow the citation, the `#hypercite_…` URL is how a re-import knows
+     * this note is hypercite-involved.
+     */
     private function hyperciteCitation(string $targetBookId, string $sourceUrl): string
     {
         $row = DB::connection('pgsql_admin')->table('library')
             ->where('book', $targetBookId)
             ->first(['title', 'author', 'creator', 'year', 'journal', 'publisher']);
 
+        $noteHref = $this->bookNotes[$targetBookId] ?? null;
+
         if (!$row) {
-            return "[{$targetBookId}]({$sourceUrl})";
+            return $noteHref !== null
+                ? "[{$targetBookId}]({$noteHref}) — [the cited passage]({$sourceUrl})"
+                : "[{$targetBookId}]({$sourceUrl})";
         }
 
         $title = trim((string) ($row->title ?? '')) ?: $targetBookId;
@@ -452,7 +588,7 @@ class BookMarkdownExporter
         if ($author !== '') {
             $parts[] = $author;
         }
-        $parts[] = "“[{$title}]({$sourceUrl})”";
+        $parts[] = '“[' . $title . '](' . ($noteHref ?? $sourceUrl) . ')”';
         foreach (['journal', 'publisher', 'year'] as $field) {
             $v = trim((string) ($row->$field ?? ''));
             if ($v !== '') {
@@ -460,20 +596,30 @@ class BookMarkdownExporter
             }
         }
 
-        return implode(', ', $parts) . '.';
+        $citation = implode(', ', $parts);
+
+        return $noteHref !== null
+            ? "{$citation} — [the cited passage]({$sourceUrl})."
+            : "{$citation}.";
     }
 
     // ---------- references ----------
 
-    private function referencesSection(string $bookId, array $citationRefIds): string
+    /**
+     * @param  string[]  $citationRefIds  `a.citation-ref` ids, unwrapped to plain text in the body
+     * @param  array<string, string>  $orphanRefs  refId => row html for cited references the body never prints
+     * @param  bool  $blockIds  end each orphan's line with its Obsidian block id (the vault export)
+     */
+    private function referencesSection(string $bookId, array $citationRefIds, array $orphanRefs = [], bool $blockIds = false): string
     {
-        if ($citationRefIds === []) {
+        if ($citationRefIds === [] && $orphanRefs === []) {
             return '';
         }
 
+        $ids = array_values(array_unique(array_merge($citationRefIds, array_keys($orphanRefs))));
         $rows = DB::connection('pgsql_admin')->table('bibliography')
             ->where('book', $bookId)
-            ->whereIn('referenceId', array_values(array_unique($citationRefIds)))
+            ->whereIn('referenceId', $ids)
             ->get(['referenceId', 'content', 'source_id']);
         if ($rows->isEmpty()) {
             return '';
@@ -496,7 +642,49 @@ class BookMarkdownExporter
             $lines[] = '';
         }
 
+        // References the body never prints (a paste whose reference list lives only in
+        // the table): ONE line each — a block id attaches only to the line it ends, and a
+        // publisher's multi-<div> entry would otherwise become three paragraphs.
+        foreach ($orphanRefs as $refId => $content) {
+            $row = $byId->get((string) $refId);
+            if (!$row) {
+                continue;
+            }
+            $dedupKey = $row->source_id ?: $row->referenceId;
+            if (isset($seen[$dedupKey])) {
+                continue;
+            }
+            $seen[$dedupKey] = true;
+            $line = self::oneLine($this->convertFragment((string) $content));
+            if ($line === '') {
+                continue;
+            }
+            if ($blockIds) {
+                $sentinel = $this->blockSentinel((string) $refId);
+                if ($sentinel !== '') {
+                    $line .= ' ' . $sentinel;
+                }
+            }
+            $lines[] = $line;
+            $lines[] = '';
+        }
+
         return count($lines) > 2 ? rtrim(implode("\n", $lines)) : '';
+    }
+
+    /** Collapse a multi-paragraph fragment to one line, joining with a comma where the break fell mid-sentence. */
+    private static function oneLine(string $markdown): string
+    {
+        $out = '';
+        foreach (preg_split('/\s*\n+\s*/', trim($markdown)) ?: [] as $part) {
+            $part = trim($part);
+            if ($part === '') {
+                continue;
+            }
+            $out .= $out === '' ? $part : ((preg_match('/[.,;:!?]$/u', $out) ? ' ' : ', ') . $part);
+        }
+
+        return $out;
     }
 
     // ---------- html plumbing ----------

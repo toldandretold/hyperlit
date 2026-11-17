@@ -41,15 +41,39 @@ interface ExportStatus {
 
 export interface ExportDownloadHandle {
   destroy(): void;
+  /**
+   * Re-read the server state — the panel calls it when the "include cited
+   * texts" option changes, because the two variants are two artifacts: one
+   * may be packaged and the other not. A wait in progress is left alone (its
+   * variant was frozen when the build was asked for).
+   */
+  refresh(): void;
+}
+
+export interface ExportDownloadOptions {
+  /**
+   * Whether the vault should bundle the texts the collection cites. Read at
+   * arm/refresh time and FROZEN for the length of a build-and-download, so a
+   * toggle mid-build cannot make the poll watch the other variant's status.
+   * Vault kinds only; ignored for sqlite. Default: undefined = server default.
+   */
+  includeCited?: () => boolean;
 }
 
 function apiBase(scope: ArchiveScope): string {
   return `/api/archive-export/${encodeURIComponent(scope.scopeType)}/${encodeURIComponent(scope.scopeId)}`;
 }
 
-async function fetchStatus(scope: ArchiveScope, kind: ExportKind): Promise<ExportStatus | null> {
+/** `&cited=0|1` for the vault kinds when the option is set; nothing otherwise (server default). */
+function citedParam(kind: ExportKind, cited: boolean | undefined): string {
+  if (kind === 'sqlite' || cited === undefined) return '';
+
+  return `&cited=${cited ? '1' : '0'}`;
+}
+
+async function fetchStatus(scope: ArchiveScope, kind: ExportKind, cited?: boolean): Promise<ExportStatus | null> {
   try {
-    const resp = await fetch(`${apiBase(scope)}/status?kind=${kind}`, { credentials: 'include' });
+    const resp = await fetch(`${apiBase(scope)}/status?kind=${kind}${citedParam(kind, cited)}`, { credentials: 'include' });
     if (!resp.ok) {
       await drainResponse(resp);
 
@@ -67,6 +91,7 @@ export function initExportDownload(
   buttonId: string,
   scope: ArchiveScope,
   kind: ExportKind,
+  options: ExportDownloadOptions = {},
 ): ExportDownloadHandle | null {
   const button = container.querySelector<HTMLButtonElement>(`#${buttonId}`);
   if (!button) return null;
@@ -79,6 +104,8 @@ export function initExportDownload(
   let latest: ExportStatus | null = null;
   let failures = 0;
   let sawBuilding = false;
+  /** The variant every request of the current arm/wait addresses. */
+  let cited: boolean | undefined = options.includeCited?.();
 
   const stopPolling = (): void => {
     if (timer !== null) window.clearTimeout(timer);
@@ -93,7 +120,8 @@ export function initExportDownload(
 
   const triggerDownload = (): void => {
     const a = document.createElement('a');
-    a.href = `/exports/${encodeURIComponent(scope.scopeType)}/${encodeURIComponent(scope.scopeId)}/${kind}`;
+    const query = citedParam(kind, cited).replace(/^&/, '?');
+    a.href = `/exports/${encodeURIComponent(scope.scopeType)}/${encodeURIComponent(scope.scopeId)}/${kind}${query}`;
     a.download = ''; // the server's Content-Disposition supplies the real name
     document.body.appendChild(a);
     a.click();
@@ -182,59 +210,85 @@ export function initExportDownload(
     }
     timer = window.setTimeout(() => {
       polls++;
-      void fetchStatus(scope, kind).then(apply);
+      void fetchStatus(scope, kind, cited).then(apply);
     }, POLL_MS);
   }
+
+  /**
+   * Kick off a build and download the artifact when it lands. Shared by a
+   * press on an unbuilt export and by a press whose `ready` reading turned out
+   * to be stale.
+   */
+  const buildThenDownload = async (): Promise<void> => {
+    downloadWhenReady = true;
+    sawBuilding = false;
+    failures = 0;
+    setBusy(true, '0%');
+    try {
+      const csrf = await ensureCsrfToken();
+      const resp = await fetch(`${apiBase(scope)}/build`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf ?? '' },
+        credentials: 'include',
+        body: JSON.stringify(kind === 'sqlite' || cited === undefined ? { kind } : { kind, cited: cited ? 1 : 0 }),
+      });
+      if (!resp.ok) {
+        const body = (await resp.json().catch(() => ({}))) as { message?: string };
+        downloadWhenReady = false;
+        setBusy(false);
+        const { alertDialog } = await import('../dialog/dialog');
+        await alertDialog({
+          title: 'Export unavailable',
+          message: body.message ?? 'The export could not be prepared.',
+        });
+
+        return;
+      }
+      polls = 0;
+      void fetchStatus(scope, kind, cited).then(apply);
+    } catch (e) {
+      downloadWhenReady = false;
+      setBusy(false);
+      log.error('archive export build request failed', '/components/archivePanel/exportDownload', e);
+    }
+  };
 
   const onClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
     if (button.disabled) return;
 
-    if (latest?.state === 'ready') {
-      triggerDownload();
-
-      return;
-    }
-
-    // Not packaged yet: kick off the build and download it when it lands.
-    downloadWhenReady = true;
-    sawBuilding = false;
-    failures = 0;
-    setBusy(true, '0%');
     void (async () => {
-      try {
-        const csrf = await ensureCsrfToken();
-        const resp = await fetch(`${apiBase(scope)}/build`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-XSRF-TOKEN': csrf ?? '' },
-          credentials: 'include',
-          body: JSON.stringify({ kind }),
-        });
-        if (!resp.ok) {
-          const body = (await resp.json().catch(() => ({}))) as { message?: string };
-          downloadWhenReady = false;
+      // The option as it stands at the press — frozen from here to the download.
+      cited = options.includeCited?.();
+      if (latest?.state === 'ready') {
+        // `latest` was read when the panel OPENED and is never refreshed while
+        // idle. A press minutes or hours later (the tab was backgrounded, the
+        // user came back) must not trust it: the artifact moves whenever the
+        // corpus, the page name, the audience (a login/logout) or the export
+        // schema changes, and `<a download>` to a 404 downloads NOTHING with
+        // no feedback. One status GET first; still ready → download, anything
+        // else → build it like a first press.
+        setBusy(true);
+        const fresh = await fetchStatus(scope, kind, cited);
+        if (destroyed) return;
+        if (fresh?.state === 'ready') {
+          latest = fresh;
           setBusy(false);
-          const { alertDialog } = await import('../dialog/dialog');
-          await alertDialog({
-            title: 'Export unavailable',
-            message: body.message ?? 'The export could not be prepared.',
-          });
+          triggerDownload();
 
           return;
         }
-        polls = 0;
-        void fetchStatus(scope, kind).then(apply);
-      } catch (e) {
-        downloadWhenReady = false;
-        setBusy(false);
-        log.error('archive export build request failed', '/components/archivePanel/exportDownload', e);
+        if (fresh) latest = fresh;
       }
+
+      // Not packaged (or no longer packaged): build it and download when it lands.
+      await buildThenDownload();
     })();
   };
 
   button.addEventListener('click', onClick);
-  void fetchStatus(scope, kind).then(apply);
+  void fetchStatus(scope, kind, cited).then(apply);
   verbose.init(`archive export button armed (${kind})`, '/components/archivePanel/exportDownload');
 
   return {
@@ -242,6 +296,12 @@ export function initExportDownload(
       destroyed = true;
       stopPolling();
       button.removeEventListener('click', onClick);
+    },
+    refresh(): void {
+      if (destroyed || downloadWhenReady || button.classList.contains(BUSY_CLASS)) return;
+      cited = options.includeCited?.();
+      latest = null;
+      void fetchStatus(scope, kind, cited).then(apply);
     },
   };
 }

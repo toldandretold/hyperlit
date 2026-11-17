@@ -32,6 +32,19 @@ class ArchiveCorpus
          * exports it as the top-level hub note.
          */
         public readonly ?object $hub = null,
+        /**
+         * The texts this collection CITES — public books a member hypercites
+         * that are not members (App\Services\Shelves\ShelfCitedTexts, outbound
+         * only). Present only when the export was asked to include them
+         * (ArchiveCorpusResolver::resolve(..., includeCited: true)); never a
+         * user library's. Same row shape as $books. The vault writes them
+         * under their own folder, so the archive and its context stay
+         * distinguishable, and a member's hypercite footnote can link the
+         * cited text's note instead of dead-ending at a URL.
+         *
+         * @var object[]
+         */
+        public readonly array $citedBooks = [],
     ) {
     }
 
@@ -52,10 +65,28 @@ class ArchiveCorpus
         return $this->displayName . ' — Hyperlit ' . $this->noun();
     }
 
-    /** @return string[] */
+    /** @return string[] the collection's OWN texts (never the cited ones) */
     public function bookIds(): array
     {
         return array_map(fn ($r) => $r->book, $this->books);
+    }
+
+    /**
+     * Every row a vault writes a note for: the collection's texts, then the
+     * texts it cites. Order matters — the builder names and numbers notes in
+     * this order, and the hub note lists the readings first.
+     *
+     * @return object[]
+     */
+    public function allBooks(): array
+    {
+        return array_merge($this->books, $this->citedBooks);
+    }
+
+    /** @return array<string, true> book id => true for the cited (non-member) rows */
+    public function citedSet(): array
+    {
+        return array_fill_keys(array_map(fn ($r) => $r->book, $this->citedBooks), true);
     }
 
     /**
@@ -76,7 +107,18 @@ class ArchiveCorpus
             // Editing (or swapping) the hub must rebuild the vault too.
             $rows[] = ['hub:' . $this->hub->book, (int) ($this->hub->timestamp ?? 0), 0, 'public'];
         }
+        // Cited texts are part of what the artifact holds: a new hypercite
+        // from a member (new cited row), a cited text's own edit, or its
+        // going private all move the digest. Prefixed so a book that is a
+        // member of one export and a cited text of another never collide.
+        $cited = array_map(fn ($r) => [
+            'cited:' . $r->book,
+            (int) $r->timestamp,
+            (int) $r->annotations_updated_at,
+            $r->visibility,
+        ], $this->citedBooks);
+        usort($cited, fn ($a, $b) => strcmp($a[0], $b[0]));
 
-        return $rows;
+        return array_merge($rows, $cited);
     }
 }

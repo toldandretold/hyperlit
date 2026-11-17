@@ -648,7 +648,11 @@ class SearchController extends Controller
 
         // Read-only search on the search connection (BYPASSRLS in prod); the
         // visibility clause inside the query enforces access, not RLS.
-        return collect(DB::connection(config('database.search_read_connection'))->select($sql, $params));
+        $pool = DB::connection(config('database.search_read_connection'))->select($sql, $params);
+
+        // The builder returns a POOL (poolSize × the page); the page is its
+        // diversified top — one long book may not take every slot.
+        return collect(SearchService::diversifyByBook($pool, $limit));
     }
 
     /**

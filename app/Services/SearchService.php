@@ -480,6 +480,94 @@ class SearchService
     }
 
     /**
+     * How many candidates a diversified node search fetches per result it
+     * will return. A result page is assembled by diversifyByBook from a pool
+     * this many times the limit; a dominant book must be able to fill its cap
+     * AND leave candidates from other books behind it, or there is nothing to
+     * diversify with.
+     */
+    public const DIVERSITY_POOL_FACTOR = 4;
+
+    /** Candidate pool size for a diversified search returning $limit rows. */
+    public static function poolSize(int $limit): int
+    {
+        return max(1, $limit) * self::DIVERSITY_POOL_FACTOR;
+    }
+
+    /**
+     * The most hits one book may hold on a page of $limit results — about a
+     * fifth, never fewer than one. 20 results: 4 per book; 50: 10; 10: 2.
+     */
+    public static function perBookCap(int $limit): int
+    {
+        return max(1, intdiv(max(1, $limit), 5));
+    }
+
+    /**
+     * THE one rule for "no single book may fill a node-search page" — every
+     * node search (homepage full-text + semantic, the shelf / journal /
+     * archive full-text + semantic, the /u/ page search) assembles its result
+     * page through this, so the rule cannot drift between them the way the
+     * connection count once did.
+     *
+     * Why it exists: every node mode returned a flat top-N by score, so a long
+     * canonical text (`capital`, 5,000+ nodes) took every slot on most queries
+     * and a shelf's own essays never appeared at all. The user still wants the
+     * TOP matches — not members first, not round-robin — so this keeps score
+     * order and only refuses a book its (cap+1)th hit while other books still
+     * have candidates:
+     *
+     *   1. walk the pool in its (score) order, accepting each hit unless its
+     *      book already holds perBookCap() of them;
+     *   2. if the page is still short, walk the skipped hits again in order
+     *      and admit them — a sparse query (two matching books) still returns
+     *      a full page rather than an artificially short one.
+     *
+     * The caller over-fetches a pool of poolSize($limit) rows; the capped page
+     * is the first $limit survivors. Rows may be arrays or objects with a
+     * `book` field (or pass $bookOf).
+     *
+     * @template T of array|object
+     * @param  iterable<T>  $rows  candidates in descending score order
+     * @param  callable(T):string|null  $bookOf
+     * @return list<T>
+     */
+    public static function diversifyByBook(iterable $rows, int $limit, ?callable $bookOf = null): array
+    {
+        $bookOf ??= fn ($r) => (string) (is_array($r) ? ($r['book'] ?? '') : ($r->book ?? ''));
+        $limit = max(1, $limit);
+        $cap = self::perBookCap($limit);
+
+        $page = [];
+        $skipped = [];
+        $perBook = [];
+        foreach ($rows as $row) {
+            if (count($page) >= $limit) {
+                break;
+            }
+            $book = $bookOf($row);
+            if (($perBook[$book] ?? 0) >= $cap) {
+                $skipped[] = $row;
+
+                continue;
+            }
+            $perBook[$book] = ($perBook[$book] ?? 0) + 1;
+            $page[] = $row;
+        }
+
+        // Backfill: the pool had fewer books than the cap allowed for, so the
+        // skipped hits are the next-best results there are.
+        foreach ($skipped as $row) {
+            if (count($page) >= $limit) {
+                break;
+            }
+            $page[] = $row;
+        }
+
+        return $page;
+    }
+
+    /**
      * Assemble the /api/search/nodes SQL + params for a pre-built tsquery.
      *
      * Extracted from SearchController::executeNodeSearch so the controller and
@@ -503,6 +591,12 @@ class SearchService
         $tsExpr = self::nodeTsExpression($config);
         [$visibilityClause, $visibilityParams] = $this->nodeVisibilityClause($creatorName, $anonToken);
 
+        // $limit is the PAGE the caller will show; the query returns a pool
+        // DIVERSITY_POOL_FACTOR times that, which the caller runs through
+        // diversifyByBook so one long book cannot hold every slot. The pool,
+        // not the page, is what the LIMITs below bound.
+        $pool = self::poolSize($limit);
+
         // Shape notes (each stage measured via `php artisan search:profile -v`):
         //
         // 1. This runs on the search connection (BYPASSRLS everywhere — GIN
@@ -518,12 +612,12 @@ class SearchService
         // 3. The candidate cap bounds the CTE. Candidates that fail the
         //    visibility clause below (private/unlisted books) consume cap
         //    slots, so pathological corpora could theoretically starve the
-        //    final page — 20× limit keeps that risk negligible.
+        //    final page — 5× the pool (= 20× the page) keeps that risk negligible.
         // 4. parent_lib joins on the MATERIALIZED sub.parent_book AFTER the
         //    LIMIT. Joining on split_part(...) inside the scan seq-scanned the
         //    whole RLS-filtered library per candidate row (~1.3s measured);
-        //    materialized it's ≤ $limit index lookups.
-        $candidateCap = max($limit * 20, 300);
+        //    materialized it's ≤ $pool index lookups.
+        $candidateCap = max($pool * 5, 300);
 
         $sql = "
             WITH hits AS MATERIALIZED (
@@ -579,7 +673,7 @@ class SearchService
         $params = array_merge(
             [$tsQuery, $tsQuery],
             $visibilityParams,
-            [$limit, $tsQuery]
+            [$pool, $tsQuery]
         );
 
         return [$sql, $params];
@@ -680,7 +774,12 @@ class SearchService
             fn (string $b) => '"' . str_replace(['\\', '"'], ['\\\\', '\\"'], $b) . '"',
             $visibleBooks,
         )) . '}';
-        $candidateCap = max($limit * 3, 60);
+        // $limit is the page; the scan returns a pool DIVERSITY_POOL_FACTOR
+        // times it for runSemanticNodeSearch's diversifyByBook pass (one long
+        // book must not fill the page). The cap is wider still because the
+        // distance cutoff is applied AFTER the fetch, in PHP.
+        $pool = self::poolSize($limit);
+        $candidateCap = max($pool * 2, 60);
 
         $sql = "
             WITH hits AS MATERIALIZED (
@@ -711,7 +810,7 @@ class SearchService
             LIMIT ?
         ";
 
-        $params = [$vectorStr, $booksArrayLiteral, $vectorStr, $limit];
+        $params = [$vectorStr, $booksArrayLiteral, $vectorStr, $pool];
 
         return [$sql, $params];
     }
@@ -751,7 +850,7 @@ class SearchService
         $maxDistance = (float) config('services.llm.semantic_max_distance');
         $matchFloor = min((float) config('services.llm.semantic_match_floor'), 0.99);
 
-        return collect($rows)
+        $shaped = collect($rows)
             ->filter(fn ($r) => (float) $r->distance <= $maxDistance)
             ->map(function ($r) use ($matchFloor) {
                 $sim = 1 - (float) $r->distance;
@@ -766,6 +865,12 @@ class SearchService
                     'match' => (int) round(max(0, ($sim - $matchFloor) / (1 - $matchFloor)) * 100),
                 ];
             })->values();
+
+        // The page is the diversified top of the pool: score order kept, but
+        // no one book beyond its cap while others still have candidates. The
+        // flat UI list is therefore no longer strictly descending in `match`
+        // once backfill admits a skipped hit — that is correct, not a sort bug.
+        return collect(self::diversifyByBook($shaped, $limit));
     }
 
     /**

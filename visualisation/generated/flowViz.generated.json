@@ -6,7 +6,7 @@
     "moduleCount": 431,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4287,
+    "edgeCount": 4291,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -23889,6 +23889,12 @@
       "dataPath": true
     },
     {
+      "id": "components/archivePanel/index:ArchivePanelManager.openContainer__write__store:localStorage",
+      "source": "components/archivePanel/index:ArchivePanelManager.openContainer",
+      "target": "store:localStorage",
+      "rel": "write"
+    },
+    {
       "id": "components/archivePanel/index:ArchivePanelManager.wireActions__call__components/shelves/shelfLike:wireShelfLikeButton",
       "source": "components/archivePanel/index:ArchivePanelManager.wireActions",
       "target": "components/shelves/shelfLike:wireShelfLikeButton",
@@ -24318,6 +24324,12 @@
       "target": "components/shelves/shelfPreview:showShelfPreview",
       "rel": "call",
       "dataPath": true
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:closeFeedContent__call__pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "source": "components/homepage/homepageDisplayUnit:closeFeedContent",
+      "target": "pageLoad/lazyLoaderRegistry:resetCurrentLazyLoader",
+      "rel": "call"
     },
     {
       "id": "components/homepage/homepageDisplayUnit:closeFeedContent__domwrite__dom",
@@ -31128,6 +31140,12 @@
       "id": "dom__domread__components/archivePanel/exportDownload:initExportDownload",
       "source": "dom",
       "target": "components/archivePanel/exportDownload:initExportDownload",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/archivePanel/index:ArchivePanelManager.openContainer",
+      "source": "dom",
+      "target": "components/archivePanel/index:ArchivePanelManager.openContainer",
       "rel": "domread"
     },
     {
@@ -49886,6 +49904,12 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/archivePanel/index:ArchivePanelManager.openContainer",
+      "source": "store:localStorage",
+      "target": "components/archivePanel/index:ArchivePanelManager.openContainer",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__components/homepage/homepageDisplayUnit:initializeHomepageButtons",
       "source": "store:localStorage",
       "target": "components/homepage/homepageDisplayUnit:initializeHomepageButtons",
@@ -51476,6 +51500,11 @@
     {
       "source": "components/homepage/homepageDisplayUnit",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "pageLoad/currentLazyLoaderState",
       "kind": "static"
     },
     {

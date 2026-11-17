@@ -142,3 +142,37 @@ body[data-page="journal"] #topRightContainer:has(#archiveRef)::after {
 #archive-container .archive-export-btn.is-busy .export-progress {
   display: flex;
 }
+
+/* The vault's "include texts cited by this collection" option: laid out like
+   an export row (checkbox where the icon sits, name beside it, description
+   underneath) so it reads as part of the Download list it qualifies. */
+#archive-container .archive-export-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.8em;
+  row-gap: 0.3em;
+  width: 100%;
+  margin: 0 0 0.9em;
+  cursor: pointer;
+  font-size: var(--sc-13);
+}
+
+#archive-container .archive-export-option input[type="checkbox"] {
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0 0.55em;
+  accent-color: var(--hyperlit-aqua, #4EACAE);
+  cursor: pointer;
+}
+
+#archive-container .archive-export-option .export-name {
+  font-weight: 600;
+  font-size: var(--sc-13);
+}
+
+#archive-container .archive-export-option .export-desc {
+  grid-column: 1 / -1;
+  font-size: var(--sc-11);
+  color: var(--color-label);
+}

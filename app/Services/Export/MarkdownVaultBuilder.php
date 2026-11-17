@@ -42,6 +42,14 @@ class MarkdownVaultBuilder
     /** The vault's bibliography, at its root beside the README. */
     public const BIB_FILE = 'references.bib';
 
+    /**
+     * Where the texts the collection CITES (ArchiveCorpus::$citedBooks) are
+     * written: their own folder, so the vault's shape says what is the
+     * collection and what is its context — the vault analogue of the hero
+     * map's second colour for "beyond this archive".
+     */
+    public const CITED_FOLDER = 'Cited texts';
+
     /** Overridable so a test can force a flush between every note. */
     public int $flushBytes = self::FLUSH_BYTES;
 
@@ -67,11 +75,16 @@ class MarkdownVaultBuilder
 
         $root = $this->rootFolder($corpus);
 
-        // Note names first: the hub note links to the readings BY NAME.
+        // Note names first: the hub note links to the readings BY NAME. A name
+        // is the note's path inside the vault root — the collection's texts at
+        // the top level, the texts it cites under CITED_FOLDER.
         $usedNames = ['readme.md' => true];
         $names = [];
-        foreach ($corpus->books as $row) {
-            $names[$row->book] = $this->dedupe($this->exporter->filenameFor($row), $usedNames);
+        $citedSet = $corpus->citedSet();
+        foreach ($corpus->allBooks() as $row) {
+            $filename = $this->exporter->filenameFor($row);
+            $path = isset($citedSet[$row->book]) ? self::CITED_FOLDER . '/' . $filename : $filename;
+            $names[$row->book] = $this->dedupe($path, $usedNames);
         }
 
         $this->names = $names;
@@ -91,9 +104,10 @@ class MarkdownVaultBuilder
         // Close + reopen (append) once the pending notes pass FLUSH_BYTES:
         // peak is then one flush window, whatever the corpus size.
         $pending = 0;
-        $total = max(1, count($corpus->books));
+        $all = $corpus->allBooks();
+        $total = max(1, count($all));
         $bibliography = new VaultBibliography();
-        foreach ($corpus->books as $i => $row) {
+        foreach ($all as $i => $row) {
             $markdown = $this->noteMarkdown($row->book);
             if (trim($markdown) !== '') {
                 $lib = $this->libraryRow($row->book);
@@ -207,10 +221,61 @@ class MarkdownVaultBuilder
     private function noteMarkdown(string $bookId): string
     {
         $noteLinks = $this->citedNotes($bookId);
+        $bookNotes = $this->bookNoteHrefs($bookId);
 
         return $this->flavor === self::FLAVOR_ZETTLR
-            ? $this->exporter->markdownFor($bookId, plainFragmentLinks: true, noteLinks: $noteLinks)
-            : $this->exporter->markdownFor($bookId, obsidianLinks: true, noteLinks: $noteLinks);
+            ? $this->exporter->markdownFor($bookId, plainFragmentLinks: true, noteLinks: $noteLinks, bookNotes: $bookNotes)
+            : $this->exporter->markdownFor($bookId, obsidianLinks: true, noteLinks: $noteLinks, bookNotes: $bookNotes);
+    }
+
+    /**
+     * Every OTHER note in the vault, as an href from this note — what lets a
+     * hypercite footnote in one text link the cited text's note (the payoff
+     * of bundling the cited texts: a member's citations resolve offline).
+     *
+     * @return array<string, string> book id => relative, URL-encoded href
+     */
+    private function bookNoteHrefs(string $fromBook): array
+    {
+        $hrefs = [];
+        foreach ($this->names as $book => $path) {
+            if ($book !== $fromBook) {
+                $hrefs[$book] = $this->relativeHref($fromBook, $book);
+            }
+        }
+
+        return $hrefs;
+    }
+
+    /**
+     * The href that reaches note $toBook from note $fromBook (or from the
+     * vault root when $fromBook has no note — the README). Notes may sit in a
+     * sub-folder (CITED_FOLDER), so a plain file name would only resolve in
+     * Obsidian, which falls back to a vault-wide name search; Zettlr resolves
+     * links against the note's own folder, so the path is made RELATIVE —
+     * `../Y.md` from a cited note up to a reading, `Cited texts/X.md` down.
+     * Both editors honour `../`.
+     */
+    private function relativeHref(string $fromBook, string $toBook): string
+    {
+        $to = $this->names[$toBook];
+        $from = $this->names[$fromBook] ?? '';
+        $fromDir = str_contains($from, '/') ? dirname($from) : '';
+        if ($fromDir === '') {
+            return self::encodePath($to);
+        }
+        $toDir = str_contains($to, '/') ? dirname($to) : '';
+        if ($toDir === $fromDir) {
+            return rawurlencode(basename($to));
+        }
+
+        return str_repeat('../', count(explode('/', $fromDir))) . self::encodePath($to);
+    }
+
+    /** URL-encode a vault path segment by segment — the `/` between folder and file must survive. */
+    private static function encodePath(string $path): string
+    {
+        return implode('/', array_map('rawurlencode', explode('/', $path)));
     }
 
     /**
@@ -246,7 +311,7 @@ class MarkdownVaultBuilder
         foreach ($rows as $r) {
             foreach ([$r->source_id, $r->foundation_source, $this->byCanonical[$r->canonical_source_id ?? ''] ?? null] as $candidate) {
                 if ($candidate !== null && $candidate !== $bookId && isset($this->names[$candidate])) {
-                    $links[$r->referenceId] = ['href' => rawurlencode($this->names[$candidate]), 'title' => self::linkTitle($r)];
+                    $links[$r->referenceId] = ['href' => $this->relativeHref($bookId, $candidate), 'title' => self::linkTitle($r)];
 
                     continue 2;
                 }
@@ -365,7 +430,7 @@ class MarkdownVaultBuilder
     private function linkReadings(string $markdown, ArchiveCorpus $corpus, array $names): string
     {
         $byKey = [];
-        foreach ($corpus->books as $row) {
+        foreach ($corpus->allBooks() as $row) {
             if (!isset($names[$row->book])) {
                 continue;
             }
@@ -390,8 +455,8 @@ class MarkdownVaultBuilder
                     return $m[0];
                 }
 
-                // Obsidian resolves a markdown link to a note by its (encoded) file name.
-                return '](' . rawurlencode($byKey[$key]) . ')';
+                // The README sits at the vault root: a note's path from there is its own.
+                return '](' . self::encodePath($byKey[$key]) . ')';
             },
             $markdown
         ) ?? $markdown;
@@ -421,6 +486,18 @@ class MarkdownVaultBuilder
                 : '- Footnotes and hypercite links are resolved into `[^n]` footnotes. An in-text citation of a text that is also in this vault links to that text\'s note; the others link to their bibliography entry.',
             '- Images are linked at their hyperlit URLs (not bundled in the zip).',
         ];
+
+        if ($corpus->citedBooks !== []) {
+            $n = count($corpus->citedBooks);
+            $lines[] = '';
+            $lines[] = '## Cited texts';
+            $lines[] = '';
+            $lines[] = "`" . self::CITED_FOLDER . "/` holds {$n} further text" . ($n === 1 ? '' : 's') . ' that the texts above cite (through hypercites) but that are not part of the collection itself — included so those citations lead somewhere in this vault. Each is a public text on Hyperlit under its own licence (see its properties); where a text above cites one, its footnote links the note here and the cited passage on Hyperlit.';
+            $lines[] = '';
+            foreach ($corpus->citedBooks as $row) {
+                $lines[] = '- ' . (trim((string) ($row->title ?? '')) ?: $row->book);
+            }
+        }
 
         if ($corpus->encryptedBooks !== []) {
             $lines[] = '';

@@ -39,7 +39,10 @@ class ArchiveExportController extends Controller
     {
         $scopeId = rawurldecode($scopeId);
         $audience = $this->audienceFor($scopeType, $scopeId);
-        $corpus = $this->resolver->resolve($scopeType, $scopeId, $audience === 'owner');
+        // Resolved WITH the cited texts so the panel can offer (and count) the
+        // vault's "include texts cited by this collection" option; the member
+        // counts below read $corpus->books, which never includes them.
+        $corpus = $this->resolver->resolve($scopeType, $scopeId, $audience === 'owner', $this->citedTextsOffered($scopeType));
 
         if (!$corpus) {
             return response()->json(['error' => 'Not found'], 404);
@@ -70,8 +73,37 @@ class ArchiveExportController extends Controller
                 'public_books' => $publicBooks,
                 'export_books' => count($corpus->books),
                 'e2ee_skipped' => count($corpus->encryptedBooks),
+                // Texts the collection cites that a vault can bundle (0 for a
+                // user library, which never offers the option).
+                'cited_books' => count($corpus->citedBooks),
             ],
         ]);
+    }
+
+    /**
+     * Whether this scope can bundle the texts it cites at all: shelf-backed
+     * collections (journal / archive) only. A user library never pulls in
+     * other people's books (ArchiveCorpusResolver::userLibraryQuery's rule).
+     */
+    private function citedTextsOffered(string $scopeType): bool
+    {
+        return $scopeType !== 'user';
+    }
+
+    /**
+     * The "Include texts cited by this collection" option as the client sent
+     * it. Default ON — the vault is more useful with its citations resolving
+     * to notes — and `cited=0` opts out. Only the vault kinds carry it (the
+     * SQLite data file is always the collection alone), and only shelf scopes.
+     */
+    private function includeCited(Request $request, string $scopeType, string $kind): bool
+    {
+        if (!$this->citedTextsOffered($scopeType) || !in_array($kind, ArchiveExportStore::VAULT_KINDS, true)) {
+            return false;
+        }
+        $flag = $request->input('cited', $request->query('cited', '1'));
+
+        return !in_array($flag, ['0', 0, false, 'false'], true);
     }
 
     private function curateUrlFor(string $scopeType, string $scopeId): ?string
@@ -141,7 +173,8 @@ class ArchiveExportController extends Controller
 
         $scopeId = rawurldecode($scopeId);
         $audience = $this->audienceFor($scopeType, $scopeId);
-        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner');
+        $cited = $this->includeCited($request, $scopeType, $kind);
+        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner', $cited);
         if (!$corpus) {
             return response()->json(['error' => 'Not found'], 404);
         }
@@ -151,7 +184,7 @@ class ArchiveExportController extends Controller
 
         $store = app(ArchiveExportStore::class);
         $digest = $store->digest($corpus, $audience, $kind);
-        $path = $store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest);
+        $path = $store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest, $cited);
 
         if (is_file($path)) {
             return response()->json([
@@ -167,8 +200,8 @@ class ArchiveExportController extends Controller
         // deletes stale progress before dispatching). And a stale 'building'
         // record from a killed worker must NOT read as building, or the
         // button spins on a corpse forever (BookAudioController parity).
-        $progress = $store->readProgress($scopeType, $scopeId, $audience, $kind);
-        $probe = Cache::lock(ArchiveExportStore::lockKey($scopeType, $scopeId, $audience, $kind), 1);
+        $progress = $store->readProgress($scopeType, $scopeId, $audience, $kind, $cited);
+        $probe = Cache::lock(ArchiveExportStore::lockKey($scopeType, $scopeId, $audience, $kind, $cited), 1);
         $free = $probe->get();
         if ($free) {
             $probe->release();
@@ -204,7 +237,8 @@ class ArchiveExportController extends Controller
 
         $scopeId = rawurldecode($scopeId);
         $audience = $this->audienceFor($scopeType, $scopeId);
-        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner');
+        $cited = $this->includeCited($request, $scopeType, $kind);
+        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner', $cited);
         if (!$corpus) {
             return response()->json(['error' => 'Not found'], 404);
         }
@@ -214,13 +248,13 @@ class ArchiveExportController extends Controller
 
         $store = app(ArchiveExportStore::class);
         $digest = $store->digest($corpus, $audience, $kind);
-        if (is_file($store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest))) {
+        if (is_file($store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest, $cited))) {
             return response()->json(['success' => true, 'state' => 'ready']);
         }
 
-        $lock = Cache::lock(ArchiveExportStore::lockKey($scopeType, $scopeId, $audience, $kind), 3900);
+        $lock = Cache::lock(ArchiveExportStore::lockKey($scopeType, $scopeId, $audience, $kind, $cited), 3900);
         if (!$lock->get()) {
-            if (!$this->runIsStale($store->readProgress($scopeType, $scopeId, $audience, $kind))) {
+            if (!$this->runIsStale($store->readProgress($scopeType, $scopeId, $audience, $kind, $cited))) {
                 return response()->json(['success' => true, 'state' => 'building']);
             }
             Log::warning('ArchiveExport: taking over a stale build lock', ['scope' => "{$scopeType}/{$scopeId}", 'kind' => $kind]);
@@ -237,8 +271,8 @@ class ArchiveExportController extends Controller
         // button back to buildable after RUN_STALE_AFTER_SECONDS, and a
         // re-press takes over the lock.
         try {
-            $store->writeProgress($scopeType, $scopeId, $audience, $kind, 'building', 0);
-            BuildArchiveExportJob::dispatch($scopeType, $scopeId, $audience, $kind);
+            $store->writeProgress($scopeType, $scopeId, $audience, $kind, 'building', 0, includeCited: $cited);
+            BuildArchiveExportJob::dispatch($scopeType, $scopeId, $audience, $kind, $cited);
         } catch (\Throwable $e) {
             $lock->forceRelease();
             throw $e;
@@ -252,7 +286,7 @@ class ArchiveExportController extends Controller
      * cached artifact. Audience and digest are recomputed HERE, so a visitor
      * can never be handed an owner artifact and a stale digest 404s cleanly.
      */
-    public function download(string $scopeType, string $scopeId, string $kind)
+    public function download(Request $request, string $scopeType, string $scopeId, string $kind)
     {
         if (!in_array($kind, ArchiveExportStore::KINDS, true)) {
             abort(404);
@@ -260,14 +294,15 @@ class ArchiveExportController extends Controller
 
         $scopeId = rawurldecode($scopeId);
         $audience = $this->audienceFor($scopeType, $scopeId);
-        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner');
+        $cited = $this->includeCited($request, $scopeType, $kind);
+        $corpus = app(ArchiveCorpusResolver::class)->resolve($scopeType, $scopeId, $audience === 'owner', $cited);
         if (!$corpus || $corpus->books === []) {
             abort(404);
         }
 
         $store = app(ArchiveExportStore::class);
         $digest = $store->digest($corpus, $audience, $kind);
-        $path = $store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest);
+        $path = $store->artifactPath($scopeType, $scopeId, $audience, $kind, $digest, $cited);
         if (!is_file($path)) {
             abort(404);
         }

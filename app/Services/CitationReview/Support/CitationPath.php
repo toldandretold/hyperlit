@@ -353,6 +353,13 @@ final class CitationPath
         if (is_array($authors) && count($authors) > 1) {
             $author .= ' et al.';
         }
+        // The printed honorific is the citation's AUTHORITY CLAIM ("Justice …" borrows a
+        // judge's standing) — extraction strips it from `authors` for search hygiene, so the
+        // heading restores it from the deterministic stamp. See SourceTypeClassifier.
+        $honorific = trim((string) ($meta['author_honorific'] ?? ''));
+        if ($author !== '' && $honorific !== '') {
+            $author = $honorific . ' ' . $author;
+        }
 
         $title = trim((string) ($meta['title'] ?? ''));
         $year  = $meta['year'] ?? null;

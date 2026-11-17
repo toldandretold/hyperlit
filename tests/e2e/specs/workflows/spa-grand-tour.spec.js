@@ -9,6 +9,12 @@
  * a book, hyperlights + hypercites text, navigates home, and runs one more
  * SPA cycle to verify the heavy-state didn't poison the next page.
  *
+ * One lap step enters a reader through the hero's hypercite-map SVG dot after
+ * a feed open + close (spaTour.js enterReaderViaMapDot) — an SVG anchor's
+ * `href` is an object, and a feed lazy loader left alive on the hero used to
+ * route it to "[object SVGAnimatedString]". The /j and /a variants of that
+ * lifecycle live in specs/journal/hypercite-map-links.spec.js.
+ *
  * Each phase is a separate `test()` under describe.serial so you can run any
  * piece alone via `--grep`.
  */

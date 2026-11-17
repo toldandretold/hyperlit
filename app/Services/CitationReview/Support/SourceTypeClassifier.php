@@ -265,6 +265,85 @@ final class SourceTypeClassifier
             }
         }
 
+        // Chained here deliberately: this method is THE deterministic post-extraction seam for
+        // facts recoverable from the raw citation text, and a future call site must not be able
+        // to get one repair without the other.
+        return self::stampAuthorHonorifics($meta, $rawText);
+    }
+
+    /**
+     * Honorifics the extraction normalises away, matched where they sit against the author's name.
+     * Longest-first so "Chief Justice" never half-matches as "Justice".
+     */
+    private const AUTHOR_HONORIFICS =
+        'Chief Justice|Justice|Judge|The Hon(?:ourable)?|Hon|Senator|Professor|Prof|Rev(?:erend)?|Sir|Dame|Lord|Lady|Dr';
+
+    /**
+     * Recover the honorific the author extraction dropped — deterministic, from the raw text.
+     *
+     * "Justice Natalie Cujes Perry, 'Administrative Decision-Making…'" extracts as authors
+     * ['Perry, Natalie Cujes']: right for SEARCHING (no index stores honorifics), but it
+     * silently deletes the citation's AUTHORITY CLAIM — the printed text asserts the author
+     * is a judge, which is exactly what a fabricated citation borrows and exactly what a
+     * reviewer weighing it needs to see (deloitte fn58/sub1). The honorific is stamped as its
+     * own field (`author_honorific`), never folded back into `authors`, so resolution searches
+     * stay clean while the workbench heading can carry it.
+     *
+     * Matching is anchored HARD against the author's own name: the honorific must be followed
+     * (allowing the glued "JusticeNatalie" and repaired "Justice: Natalie" renderings, plus
+     * up to three initials for "Justice M Perry") by the extracted author's first given name —
+     * or surname when only initials were extracted. An honorific elsewhere in the footnote,
+     * or before a DIFFERENT author's name, never stamps.
+     */
+    public static function stampAuthorHonorifics(?array $meta, ?string $rawText): ?array
+    {
+        if (!is_array($meta) || $meta === [] || !is_string($rawText) || trim($rawText) === '') {
+            return $meta;
+        }
+
+        $stamp = function (array $work) use ($rawText): array {
+            if (!empty($work['author_honorific'])) {
+                return $work;
+            }
+            $authors = $work['authors'] ?? null;
+            $first = is_array($authors) ? ($authors[0] ?? null) : (is_string($authors) ? $authors : null);
+            if (!is_string($first) || trim($first) === '') {
+                return $work;
+            }
+            if (str_contains($first, ',')) {
+                [$surname, $given] = array_map('trim', explode(',', $first, 2) + [1 => '']);
+            } else {
+                $parts = preg_split('/\s+/', trim($first)) ?: [];
+                $surname = (string) end($parts);
+                $given = implode(' ', array_slice($parts, 0, -1));
+            }
+            $anchor = preg_split('/\s+/', trim($given))[0] ?? '';
+            $anchor = trim($anchor, '.');
+            if (mb_strlen($anchor) < 3) {
+                $anchor = $surname; // initials-only extraction: anchor on the surname
+            }
+            if (mb_strlen($anchor) < 3) {
+                return $work; // nothing long enough to anchor on — never guess
+            }
+            // No \b after the honorific: the glued rendering ("JusticeNatalie") has none, and
+            // the hard anchor on the author's own name is what keeps the match tight.
+            $re = '/\b(' . self::AUTHOR_HONORIFICS . ')\.?[\s:]*(?:[A-Z]\.?\s+){0,3}'
+                . preg_quote($anchor, '/') . '\b/u';
+            if (preg_match($re, $rawText, $m)) {
+                $work['author_honorific'] = $m[1];
+            }
+            return $work;
+        };
+
+        $meta = $stamp($meta);
+        if (!empty($meta['sub_citations']) && is_array($meta['sub_citations'])) {
+            foreach ($meta['sub_citations'] as $i => $sub) {
+                if (is_array($sub)) {
+                    $meta['sub_citations'][$i] = $stamp($sub);
+                }
+            }
+        }
+
         return $meta;
     }
 

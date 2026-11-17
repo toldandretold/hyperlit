@@ -44,6 +44,8 @@ class BuildArchiveExportJob implements ShouldQueue
         private string $scopeId,
         private string $audience,
         private string $kind,
+        /** Vault kinds only: also package the texts the collection cites (its own slot). */
+        private bool $includeCited = false,
     ) {
         $this->onQueue('archive-export');
     }
@@ -59,7 +61,7 @@ class BuildArchiveExportJob implements ShouldQueue
 
     private function build(ArchiveCorpusResolver $resolver, ArchiveExportStore $store): void
     {
-        $corpus = $resolver->resolve($this->scopeType, $this->scopeId, $this->audience === 'owner');
+        $corpus = $resolver->resolve($this->scopeType, $this->scopeId, $this->audience === 'owner', $this->includeCited);
         if (!$corpus || $corpus->books === []) {
             $this->progress($store, 'failed', 0, 'Nothing to export.');
 
@@ -67,7 +69,7 @@ class BuildArchiveExportJob implements ShouldQueue
         }
 
         $digest = $store->digest($corpus, $this->audience, $this->kind);
-        $finalPath = $store->artifactPath($this->scopeType, $this->scopeId, $this->audience, $this->kind, $digest);
+        $finalPath = $store->artifactPath($this->scopeType, $this->scopeId, $this->audience, $this->kind, $digest, $this->includeCited);
         if (is_file($finalPath)) {
             $this->progress($store, 'ready', 1.0, null, basename($finalPath), (int) (filesize($finalPath) ?: 0));
 
@@ -75,7 +77,7 @@ class BuildArchiveExportJob implements ShouldQueue
         }
 
         $this->progress($store, 'building', 0);
-        $workPath = $store->workPath($this->scopeType, $this->scopeId, $this->audience, $this->kind, $digest);
+        $workPath = $store->workPath($this->scopeType, $this->scopeId, $this->audience, $this->kind, $digest, $this->includeCited);
         $onProgress = fn (float $fraction) => $this->progress($store, 'building', $fraction);
 
         try {
@@ -96,13 +98,13 @@ class BuildArchiveExportJob implements ShouldQueue
             return;
         }
 
-        $store->cleanupStale($this->scopeType, $this->scopeId, $this->audience, $this->kind, $path);
+        $store->cleanupStale($this->scopeType, $this->scopeId, $this->audience, $this->kind, $path, $this->includeCited);
         $this->progress($store, 'ready', 1.0, null, basename($path), (int) (filesize($path) ?: 0));
     }
 
     private function progress(ArchiveExportStore $store, string $status, float $fraction, ?string $message = null, ?string $filename = null, int $bytes = 0): void
     {
-        $store->writeProgress($this->scopeType, $this->scopeId, $this->audience, $this->kind, $status, $fraction, $message, $filename, $bytes);
+        $store->writeProgress($this->scopeType, $this->scopeId, $this->audience, $this->kind, $status, $fraction, $message, $filename, $bytes, $this->includeCited);
     }
 
     public function failed(\Throwable $e): void
@@ -120,6 +122,6 @@ class BuildArchiveExportJob implements ShouldQueue
 
     private function releaseLock(): void
     {
-        Cache::lock(ArchiveExportStore::lockKey($this->scopeType, $this->scopeId, $this->audience, $this->kind))->forceRelease();
+        Cache::lock(ArchiveExportStore::lockKey($this->scopeType, $this->scopeId, $this->audience, $this->kind, $this->includeCited))->forceRelease();
     }
 }

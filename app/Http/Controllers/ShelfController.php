@@ -1214,6 +1214,26 @@ class ShelfController extends Controller
     }
 
     /**
+     * The corpus of the archive / journal page's search box: the shelf's public
+     * members PLUS the texts they cite (ShelfCitedTexts — outbound hypercites
+     * only, public and content-bearing). The page's hero map draws those
+     * partners as "beyond this archive", so a search that could not reach them
+     * broke the map's promise; the same set feeds the vault export.
+     *
+     * @return array{0: string[], 1: array<string, true>} [corpus, cited-book set]
+     */
+    private function publicSearchCorpus(string $id): array
+    {
+        $members = $this->shelfPublicBooks($id);
+        $cited = app(\App\Services\Shelves\ShelfCitedTexts::class)->forShelf($id, $members);
+
+        return [
+            array_values(array_unique(array_merge($members, $cited))),
+            array_fill_keys($cited, true),
+        ];
+    }
+
+    /**
      * Public search within a public shelf's books (no auth required) —
      * mode=library (titles), mode=semantic (embeddings), default full-text.
      * Only ever searches public books in the shelf.
@@ -1246,7 +1266,7 @@ class ShelfController extends Controller
         // the journal page's default search mode (homepage parity: its toggle
         // switches titles↔full-text exactly like home's, just shelf-scoped).
         if ($request->input('mode') === 'library') {
-            $shelfBooks = $this->shelfPublicBooks($id);
+            [$shelfBooks, $citedSet] = $this->publicSearchCorpus($id);
 
             $results = $searchService->searchLibraryByKeyword($query, min($limit, 20), 'books', null, null, $shelfBooks);
 
@@ -1258,6 +1278,9 @@ class ShelfController extends Controller
                     'title'    => $r->title,
                     'author'   => $r->author,
                     'year'     => $r->year,
+                    // A cited text, not a member — the UI labels it so a hit
+                    // in Capital is not mistaken for a shelf reading.
+                    'cited'    => isset($citedSet[$r->book]),
                     'headline' => e(trim(($r->title ?? '') . ($r->author ? ' — ' . $r->author : ''))),
                 ], $results),
                 'query'   => $query,
@@ -1288,14 +1311,15 @@ class ShelfController extends Controller
 
             // Public shelf → identical results for every viewer, cache per shelf.
             $payload = Cache::remember(
-                'search:semantic:shelf:' . $id . ':' . md5($norm) . ':' . $limit,
+                'search:semantic:shelf:v2:' . $id . ':' . md5($norm) . ':' . $limit,
                 60,
                 function () use ($searchService, $queryEmbedding, $limit, $id) {
+                    [$corpus, $citedSet] = $this->publicSearchCorpus($id);
                     $results = $searchService->runSemanticNodeSearch(
                         $queryEmbedding,
                         $limit,
-                        $this->withoutShelfOverview($this->shelfPublicBooks($id), $id),
-                    );
+                        $this->withoutShelfOverview($corpus, $id),
+                    )->map(fn (array $r) => $r + ['cited' => isset($citedSet[$r['book']])]);
                     return ['results' => $results, 'count' => $results->count()];
                 }
             );
@@ -1319,8 +1343,8 @@ class ShelfController extends Controller
             ]);
         }
 
-        // Only search public books in the shelf
-        $books = $this->shelfPublicBooks($id);
+        // Only public books: the shelf's members and the texts they cite.
+        [$books, $citedSet] = $this->publicSearchCorpus($id);
 
         if (empty($books)) {
             return response()->json([
@@ -1339,12 +1363,13 @@ class ShelfController extends Controller
             $searchType = 'stemmed';
         }
 
-        $groupedResults = $results->groupBy('book')->map(function ($bookResults) {
+        $groupedResults = $results->groupBy('book')->map(function ($bookResults) use ($citedSet) {
             $first = $bookResults->first();
             return [
                 'book' => $first->book,
                 'title' => $first->title,
                 'author' => $first->author,
+                'cited' => isset($citedSet[$first->book]),
                 'matches' => $bookResults->map(fn($r) => [
                     'node_id' => $r->node_id,
                     'startLine' => $r->startLine,
@@ -1784,10 +1809,16 @@ class ShelfController extends Controller
      * Config whitelist (🔒 SQL-injection guard) is enforced by
      * SearchService::nodeTsExpression, which also builds the exact
      * expression the GIN expression indexes are defined on.
+     *
+     * $limit is the PAGE: the query fetches a pool poolSize() times it and the
+     * page is that pool's diversified top (SearchService::diversifyByBook), so
+     * one long member cannot hold every slot — shared by the public shelf
+     * search, the owner's shelf search and the /u/ page search.
      */
     protected function executeShelfNodeSearch(string $tsQuery, string $config, array $books, int $limit)
     {
         $tsExpr = SearchService::nodeTsExpression($config);
+        $pool = SearchService::poolSize($limit);
 
         $placeholders = implode(',', array_fill(0, count($books), '?'));
 
@@ -1823,9 +1854,9 @@ class ShelfController extends Controller
         $params = array_merge(
             [$tsQuery, $tsQuery],
             $books,
-            [$limit, $tsQuery]
+            [$pool, $tsQuery]
         );
 
-        return collect(DB::select($sql, $params));
+        return collect(SearchService::diversifyByBook(DB::select($sql, $params), $limit));
     }
 }

@@ -32,13 +32,20 @@ class ArchiveCorpusResolver
         'encrypted', 'annotations_updated_at', 'slug',
     ];
 
-    /** @return ArchiveCorpus|null null = unknown scope (caller 404s) */
-    public function resolve(string $scopeType, string $scopeId, bool $includePrivate): ?ArchiveCorpus
+    /**
+     * @param  bool  $includeCited  also resolve the texts the collection CITES
+     *   (ShelfCitedTexts) into ArchiveCorpus::$citedBooks — the vault's
+     *   "Include texts cited by this collection" option. Shelf scopes only:
+     *   a user library never pulls in other people's books (its own rule,
+     *   userLibraryQuery), and the SQLite data file is the collection alone.
+     * @return ArchiveCorpus|null null = unknown scope (caller 404s)
+     */
+    public function resolve(string $scopeType, string $scopeId, bool $includePrivate, bool $includeCited = false): ?ArchiveCorpus
     {
         return match ($scopeType) {
             'user' => $this->resolveUser($scopeId, $includePrivate),
-            'journal' => $this->resolveJournal($scopeId),
-            'archive' => $this->resolveArchive($scopeId),
+            'journal' => $this->resolveJournal($scopeId, $includeCited),
+            'archive' => $this->resolveArchive($scopeId, $includeCited),
             default => null,
         };
     }
@@ -75,7 +82,7 @@ class ArchiveCorpusResolver
         return $this->corpus('user', $user->name, $displayName, $user->name, url('/u/' . rawurlencode($user->name)), $rows);
     }
 
-    private function resolveJournal(string $slug): ?ArchiveCorpus
+    private function resolveJournal(string $slug, bool $includeCited = false): ?ArchiveCorpus
     {
         $journal = JournalSource::where('slug', $slug)->first();
         if (!$journal) {
@@ -86,11 +93,12 @@ class ArchiveCorpusResolver
         // A journal page has no "pinned book is the about text" choice, so a
         // pinned overview is an ordinary note here — listed first.
         $rows = $journal->shelf_id ? $this->leadWithOverview($rows, $journal->shelf_id) : $rows;
+        $cited = $includeCited && $journal->shelf_id ? $this->citedRows($journal->shelf_id, $rows) : [];
 
-        return $this->corpus('journal', $slug, $journal->display_name, $journal->publisher ?: $journal->display_name, url('/j/' . $slug), $rows);
+        return $this->corpus('journal', $slug, $journal->display_name, $journal->publisher ?: $journal->display_name, url('/j/' . $slug), $rows, null, $cited);
     }
 
-    private function resolveArchive(string $slug): ?ArchiveCorpus
+    private function resolveArchive(string $slug, bool $includeCited = false): ?ArchiveCorpus
     {
         $archive = ArchiveSource::where('slug', $slug)->first();
         if (!$archive) {
@@ -129,7 +137,36 @@ class ArchiveCorpusResolver
             }
         }
 
-        return $this->corpus('archive', $slug, $name, $author, url('/a/' . $slug), $rows, $hub);
+        $cited = $includeCited && $archive->shelf_id ? $this->citedRows($archive->shelf_id, $rows) : [];
+
+        return $this->corpus('archive', $slug, $name, $author, url('/a/' . $slug), $rows, $hub, $cited);
+    }
+
+    /**
+     * Library rows for the texts a shelf's members cite (ShelfCitedTexts —
+     * the SAME set the page's search reaches), in the export's row shape.
+     * The members passed are the resolved public rows, so a cited text that
+     * is also a member is never doubled.
+     *
+     * @param  object[]  $memberRows
+     * @return object[]
+     */
+    private function citedRows(string $shelfId, array $memberRows): array
+    {
+        $memberIds = array_map(fn ($r) => $r->book, $memberRows);
+        $ids = app(\App\Services\Shelves\ShelfCitedTexts::class)->forShelf($shelfId, $memberIds);
+        $ids = array_values(array_diff($ids, $memberIds));
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::connection('pgsql_admin')->table('library')
+            ->whereIn('book', $ids)
+            ->where('visibility', 'public')
+            ->select(self::BOOK_COLUMNS)
+            ->orderBy('book')
+            ->get()
+            ->all();
     }
 
     /**
@@ -203,14 +240,19 @@ class ArchiveCorpusResolver
         return array_merge($lead, array_values(array_filter($rows, fn ($r) => $r->book !== $overview->book)));
     }
 
-    private function corpus(string $scopeType, string $scopeId, string $displayName, string $citeAuthor, string $pageUrl, array $rows, ?object $hub = null): ArchiveCorpus
+    private function corpus(string $scopeType, string $scopeId, string $displayName, string $citeAuthor, string $pageUrl, array $rows, ?object $hub = null, array $citedRows = []): ArchiveCorpus
     {
         // The hub introduces the readings — it is not one of them.
         if ($hub) {
             $rows = array_values(array_filter($rows, fn ($r) => $r->book !== $hub->book));
+            $citedRows = array_values(array_filter($citedRows, fn ($r) => $r->book !== $hub->book));
         }
         $books = array_values(array_filter($rows, fn ($r) => !$r->encrypted));
         $encrypted = array_values(array_filter($rows, fn ($r) => (bool) $r->encrypted));
+        // A cited text is public by construction (ShelfCitedTexts' gate), and
+        // an encrypted book is forced private — but the server could never
+        // render one, so the gate is kept here too.
+        $cited = array_values(array_filter($citedRows, fn ($r) => !$r->encrypted));
 
         return new ArchiveCorpus(
             scopeType: $scopeType,
@@ -221,6 +263,7 @@ class ArchiveCorpusResolver
             books: $books,
             encryptedBooks: $encrypted,
             hub: $hub,
+            citedBooks: $cited,
         );
     }
 }

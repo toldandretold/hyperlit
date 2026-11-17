@@ -143,6 +143,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip export artifacts (the archive panel's vault zips / SQLite files,
+  // fetched via `<a download href="/exports/…">`). A multi-MB zip must never
+  // be cache.put into the dynamic cache, and on a network blip the offline
+  // HTML page must not be handed to the browser AS the download.
+  if (url.pathname.startsWith('/exports/')) {
+    return;
+  }
+
   // Skip book media + audio (`/{book}/media/…`, `/{book}/audio/…`) — never
   // proxy these through the worker:
   //  1. iOS Safari drops COOKIES on SW-proxied <img> fetches, so the RLS-gated

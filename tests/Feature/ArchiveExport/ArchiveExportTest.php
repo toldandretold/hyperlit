@@ -19,6 +19,7 @@ use App\Jobs\BuildArchiveExportJob;
 use App\Models\User;
 use App\Services\Export\ArchiveCorpusResolver;
 use App\Services\Export\ArchiveExportStore;
+use App\Services\Export\MarkdownVaultBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -390,7 +391,11 @@ test('a citation of a text that is also in the vault links to that text\'s note,
     // A work outside the vault links its DOI; one with nothing to point at stays plain text.
     expect($note('zettlr'))->toContain("(Harvey {$link}; Beck 1992; Cox [1981](https://doi.org/10.1177/03058298810100020501 \"Cox, Robert W. 1981. Social Forces. Millennium 10(2). https://doi.org/10.1177/03058298810100020501.\"))")->not->toContain('](#');
     // Obsidian: the note wins over the bibliography block; the others keep their in-note link, never a DOI.
-    expect($note('markdown'))->toContain("(Harvey {$link}; Beck [1992](#^beck1992); Cox [1981](#cox1981))");
+    // Cox's reference is in the table but the body never prints it, so it is appended under
+    // References with a block id — before 2026-11-16 `#cox1981` pointed at nothing in the note.
+    $obsidian = $note('markdown');
+    expect($obsidian)->toContain("(Harvey {$link}; Beck [1992](#^beck1992); Cox [1981](#^cox1981))")
+        ->toMatch('/^Cox, Robert W\. 1981\. Social Forces\. Millennium 10\(2\)\. https:\/\/doi\.org\/10\.1177\/03058298810100020501\. \^cox1981$/m');
 
     aexDb()->table('bibliography')->where('book', $citing)->delete();
 });
@@ -563,4 +568,100 @@ test('the vault zip is flushed mid-build without losing a note (bounded memory)'
     expect($joined)->toContain('README.md')
         ->toContain('Aex One Title')->toContain('Aex Two Title')
         ->toContain('Aex Three Title')->toContain('Aex Four Title');
+});
+
+test('a shelf vault bundles the texts the collection cites (toggle default on), in their own folder, linked from the citing footnote', function () {
+    $owner = aexUser();
+    $reading = aexBook($owner, 'reading', 'public', ['has_nodes' => true]);
+    $cited = aexBook($owner, 'cited', 'public', ['has_nodes' => true, 'year' => '1867']);
+    $inbound = aexBook($owner, 'inbound', 'public', ['has_nodes' => true]); // cites the reading — must NOT ride in
+    $host = rtrim(config('app.url'), '/');
+
+    // The reading hypercites a passage of the cited text.
+    aexDb()->table('nodes')->where('book', $reading)->update([
+        'content' => '<p>As Marx put it<a class="open-icon" id="hc1" href="/' . $cited . '#hypercite_pass"><sup class="open-icon">↗</sup></a>.</p>',
+    ]);
+    $cite = fn (string $citedBook, string $citingBook) => aexDb()->table('hypercites')->insert([
+        'book' => $citedBook, 'hyperciteId' => 'hypercite_' . Str::lower(Str::random(7)),
+        'citedIN' => json_encode(['/' . $citingBook . '#hc1']), 'raw_json' => '{}',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    $cite($cited, $reading);
+    $cite($reading, $inbound);
+
+    $shelfId = (string) Str::uuid();
+    aexDb()->table('shelves')->insert([
+        'id' => $shelfId, 'creator' => $owner->name, 'name' => 'Aex Cited Course', 'slug' => 'aex-cited-' . Str::lower(Str::random(5)),
+        'visibility' => 'public', 'default_sort' => 'recent', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    aexDb()->table('shelf_items')->insert(['shelf_id' => $shelfId, 'book' => $reading, 'added_at' => now()]);
+    $slug = 'aex-cited-arch-' . Str::lower(Str::random(5));
+    aexDb()->table('archive_sources')->insert([
+        'shelf_id' => $shelfId, 'slug' => $slug, 'display_name' => null, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $readVault = function (string $query, array $body) use ($slug) {
+        $this->postJson("/api/archive-export/archive/{$slug}/build", $body)->assertStatus(202);
+        $path = $this->get("/exports/archive/{$slug}/markdown{$query}")->assertOk()->baseResponse->getFile()->getPathname();
+        $zip = new ZipArchive();
+        expect($zip->open($path))->toBeTrue();
+        $notes = [];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            // Keyed by path INSIDE the vault root — the folder is the point.
+            $notes[substr($zip->getNameIndex($i), strpos($zip->getNameIndex($i), '/') + 1)] = $zip->getFromIndex($i);
+        }
+        $zip->close();
+
+        return $notes;
+    };
+
+    try {
+        // The panel offers the option with the count; the SQLite kind never carries it.
+        $this->getJson("/api/archive-export/archive/{$slug}/panel")->assertOk()
+            ->assertJsonPath('counts.export_books', 1)
+            ->assertJsonPath('counts.cited_books', 1);
+
+        $corpus = app(ArchiveCorpusResolver::class)->resolve('archive', $slug, false, includeCited: true);
+        expect($corpus->bookIds())->toBe([$reading])
+            ->and(array_map(fn ($r) => $r->book, $corpus->citedBooks))->toBe([$cited]);
+        // Not asked for → not resolved (the SQLite file and the plain vault).
+        expect(app(ArchiveCorpusResolver::class)->resolve('archive', $slug, false)->citedBooks)->toBe([]);
+
+        // DEFAULT: cited texts ride in, under their own folder.
+        $notes = $readVault('', ['kind' => 'markdown']);
+        $citedPath = MarkdownVaultBuilder::CITED_FOLDER . '/Aex Author - Aex Cited Title.md';
+        expect(array_keys($notes))->toContain('Aex Author - Aex Reading Title.md')->toContain($citedPath)
+            ->not->toContain('Aex Author - Aex Inbound Title.md')
+            ->not->toContain(MarkdownVaultBuilder::CITED_FOLDER . '/Aex Author - Aex Inbound Title.md');
+        expect($notes['README.md'])->toContain('1 text in this vault')
+            ->toContain('## Cited texts')->toContain('Aex Cited Title');
+        // The bibliography cites the cited text too, filed at its folder path.
+        expect($notes['references.bib'])->toContain('file = {' . $citedPath . '}');
+        // The reading's hypercite footnote links the cited text's NOTE — and
+        // keeps the hyperlit deep link (the re-import's hypercite signal).
+        expect($notes['Aex Author - Aex Reading Title.md'])
+            ->toContain('[^1]: Aex Author, “[Aex Cited Title](Cited%20texts/Aex%20Author%20-%20Aex%20Cited%20Title.md)”, 1867 — [the cited passage](' . $host . '/' . $cited . '#hypercite_pass).');
+
+        // OPTED OUT: a different artifact (own slot) with the collection alone.
+        $this->getJson("/api/archive-export/archive/{$slug}/status?kind=markdown")->assertOk()->assertJsonPath('state', 'ready');
+        $this->getJson("/api/archive-export/archive/{$slug}/status?kind=markdown&cited=0")->assertOk()->assertJsonPath('state', 'buildable');
+
+        $plain = $readVault('?cited=0', ['kind' => 'markdown', 'cited' => 0]);
+        expect(array_keys($plain))->toContain('Aex Author - Aex Reading Title.md')->not->toContain($citedPath);
+        expect($plain['README.md'])->not->toContain('## Cited texts');
+        expect($plain['Aex Author - Aex Reading Title.md'])
+            ->toContain('[^1]: Aex Author, “[Aex Cited Title](' . $host . '/' . $cited . '#hypercite_pass)”, 1867.');
+
+        // Both artifacts now exist side by side — neither build evicted the other.
+        $this->getJson("/api/archive-export/archive/{$slug}/status?kind=markdown")->assertOk()->assertJsonPath('state', 'ready');
+        $this->getJson("/api/archive-export/archive/{$slug}/status?kind=markdown&cited=0")->assertOk()->assertJsonPath('state', 'ready');
+    } finally {
+        aexDb()->table('hypercites')->whereIn('book', [$cited, $reading])->delete();
+        aexDb()->table('archive_sources')->where('shelf_id', $shelfId)->delete();
+        aexDb()->table('shelf_items')->where('shelf_id', $shelfId)->delete();
+        aexDb()->table('shelves')->where('id', $shelfId)->delete();
+        foreach (glob(storage_path('app/archive-exports/archive-' . $slug . '*')) ?: [] as $dir) {
+            File::deleteDirectory($dir);
+        }
+    }
 });

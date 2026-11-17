@@ -11,7 +11,7 @@
 // solely in archiveRefButton.ts (no double-handler).
 
 import { ContainerManager } from '../utilities/containerManager';
-import { buildArchiveHtml, type ArchivePanelData } from './buildArchiveHtml';
+import { buildArchiveHtml, INCLUDE_CITED_CHECKBOX_ID, type ArchivePanelData } from './buildArchiveHtml';
 import { initExportDownload, type ArchiveScope, type ExportDownloadHandle } from './exportDownload';
 import { log } from '../../utilities/logger';
 
@@ -67,8 +67,23 @@ class ArchivePanelManager extends ContainerManager {
 
     if (data) await this.wireActions(data);
 
-    this.mdDownload = initExportDownload(this.container, 'download-archive-md', scope, 'markdown');
-    this.zettlrDownload = initExportDownload(this.container, 'download-archive-zettlr', scope, 'zettlr');
+    // The vault option ("include texts cited by this collection"): read live
+    // by both vault buttons, remembered per browser, and a change re-reads the
+    // server state because the two variants are two artifacts.
+    const citedBox = (this.container as HTMLElement).querySelector<HTMLInputElement>(`#${INCLUDE_CITED_CHECKBOX_ID}`);
+    if (citedBox) {
+      citedBox.checked = readIncludeCitedPreference();
+      citedBox.addEventListener('change', () => {
+        writeIncludeCitedPreference(citedBox.checked);
+        this.mdDownload?.refresh();
+        this.zettlrDownload?.refresh();
+      });
+    }
+    // No checkbox (nothing cited / a user library) → undefined → the server default.
+    const includeCited = citedBox ? () => citedBox.checked : undefined;
+
+    this.mdDownload = initExportDownload(this.container, 'download-archive-md', scope, 'markdown', { includeCited });
+    this.zettlrDownload = initExportDownload(this.container, 'download-archive-zettlr', scope, 'zettlr', { includeCited });
     this.sqliteDownload = initExportDownload(this.container, 'download-archive-sqlite', scope, 'sqlite');
   }
 
@@ -162,6 +177,25 @@ class ArchivePanelManager extends ContainerManager {
     this.zettlrDownload = null;
     this.sqliteDownload?.destroy();
     this.sqliteDownload = null;
+  }
+}
+
+/** Per-browser memory of the vault option; absent or unreadable storage = the default (on). */
+const INCLUDE_CITED_PREF_KEY = 'archive_export_include_cited';
+
+function readIncludeCitedPreference(): boolean {
+  try {
+    return localStorage.getItem(INCLUDE_CITED_PREF_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function writeIncludeCitedPreference(on: boolean): void {
+  try {
+    localStorage.setItem(INCLUDE_CITED_PREF_KEY, on ? '1' : '0');
+  } catch {
+    // storage blocked — the checkbox itself still holds the choice for this open
   }
 }
 

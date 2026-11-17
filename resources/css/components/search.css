@@ -370,3 +370,18 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
+/* A hit in a text the collection CITES rather than holds (shelf-scoped
+   endpoints mark it `cited: true`): same pill shape as the match badge,
+   neutral ink so it reads as provenance, not as a score. */
+.search-result-cited-tag {
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: 6px;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+  vertical-align: middle;
+}

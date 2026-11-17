@@ -115,6 +115,73 @@ async function enterReaderViaCard(page) {
   }
 }
 
+/* ── Reader entry via a hypercite-map dot (SVG anchor, after a feed open+close) ── */
+
+/**
+ * Enter a reader by CLICKING a dot in the hero's hypercite-network map — an
+ * `<a>` INSIDE an `<svg>`, whose `href` is an SVGAnimatedString object rather
+ * than a string. Every other hero→reader hop in the lap goes through a library
+ * card (a plain HTML anchor), so the lap walked straight past the 2026-11-16
+ * bug: with a feed lazy loader alive on the hero, its document click handler
+ * built the URL from `link.href` and routed the dot to a book called
+ * "[object SVGAnimatedString]".
+ *
+ * The gesture is the one the user actually hit: open a feed (mints the lazy
+ * loader; the hero — map included — is hidden under `.content-active`), close
+ * it with ✕ (the hero returns), click a dot. Closing the feed must RELEASE the
+ * loader (homepageDisplayUnit.closeFeedContent → resetCurrentLazyLoader), so a
+ * hero with no feed has no SPA anchor router and the dot navigates NATIVELY —
+ * the step is therefore `spa: false` in TOUR_STEPS and asserts the reload
+ * itself: a surviving sentinel means the loader outlived the feed, which was
+ * the whole bug. (If dots are ever made to SPA-route on a bare hero by design,
+ * flip that assertion deliberately.) Either way it must land on the dot's own
+ * book, never on the stringified href object.
+ *
+ * FAILS LOUDLY when the hero renders no dot (the home map needs ≥2 public,
+ * hypercited-together books; the dev DB has them). A silent fallback to a card
+ * would quietly narrow coverage, which is the gap this step closes.
+ */
+async function enterReaderViaMapDot(page) {
+  await openHomeFeed(page); // mints the feed lazy loader
+  const closeFeed = page.locator('#copy-feed-close');
+  if (await closeFeed.count()) {
+    await closeFeed.click();
+    // closeFeed drops .content-active at once, then GLIDES the hero back to
+    // centre (.hero-return, 700ms). A click aimed during the glide lands on
+    // whatever has moved under the dot's old box (it hit "Most Connected" and
+    // reopened the feed) — wait the glide out before measuring anything.
+    await page.waitForFunction(
+      () => !document.querySelector('#app-container.content-active') && !document.querySelector('#app-container.hero-return'),
+      null,
+      { timeout: 10000 },
+    );
+  }
+  const dot = page.locator('a[data-map-node]').first();
+  if (!(await dot.count())) {
+    throw new Error(
+      'hero page renders no hypercite-map dot (a[data-map-node]); the map needs public books hypercited together — '
+      + 'seed two connected books (or wait out the 15-min home-map cache) rather than letting this step fall back to a card',
+    );
+  }
+  const dotPath = (await dot.getAttribute('href') || '').split('#')[0];
+  expect(dotPath, 'map dot href should be a book path').toMatch(/^\/[^/]+/);
+  await expect(dot).toBeVisible({ timeout: 10000 });
+  await page.evaluate(() => { window.__mapDotSentinel = 'live'; });
+  // A real click (actionability: stable + receives events); force only if the
+  // map's hover card sits over the small SVG target.
+  await dot.click({ timeout: 5000 }).catch(() => dot.click({ force: true }));
+  await page.waitForFunction(() => document.body.getAttribute('data-page') === 'reader', null, { timeout: 15000 });
+  // Pathname only — the map's own desktop capture handler may append a
+  // `#hypercite_…` intro hash before navigation.
+  await expect
+    .poll(() => page.evaluate(() => location.pathname), { timeout: 15000 })
+    .toBe(dotPath);
+  expect(page.url(), 'dot must route to its real book, never the stringified href object').not.toContain('SVGAnimatedString');
+  const loaderOutlivedFeed = await page.evaluate(() => window.__mapDotSentinel === 'live');
+  expect(loaderOutlivedFeed, 'closing the feed must release its lazy loader: a dot on a bare hero navigates natively (full load), '
+    + 'so the sentinel must NOT survive — a surviving one means a feed loader is still routing anchors on the hero').toBe(false);
+}
+
 /**
  * Same-template home content-swap (dedicated phase, NOT part of the replayed
  * lap — back-button over an arranger swap full-reloads, which would desync
@@ -239,7 +306,8 @@ export async function createNewBookFromReader(page) {
  *   - `label` — short identifier for error messages.
  *
  * Covers, in one lap: fresh-page-load, different-template (home↔user↔reader via
- * card), user-to-user, create-new-book, same-template (home content-swap).
+ * card, AND home→reader via a hypercite-map SVG dot with the feed loader alive),
+ * user-to-user, create-new-book, same-template (home content-swap).
  * book-to-book + import-book are exercised by dedicated phases/specs;
  * popstate-back/forward by the replay phases.
  */
@@ -249,7 +317,7 @@ export const TOUR_STEPS = [
   { label: 'user → reader (card)',  go: enterReaderViaCard,                  verify: verifyReaderPage, page: 'reader', pathway: 'different-template' },
   { label: 'reader → reader (+)',   go: createNewBookFromReader,             verify: verifyReaderPage, page: 'reader', pathway: 'create-new-book' },
   { label: 'reader → home',         go: navigateToHome,                      verify: verifyHomePage,   page: 'home',   pathway: 'different-template' },
-  { label: 'home → reader (card)',  go: enterReaderViaCard,                  verify: verifyReaderPage, page: 'reader', pathway: 'different-template' },
+  { label: 'home → reader (map dot)', go: enterReaderViaMapDot,              verify: verifyReaderPage, page: 'reader', pathway: 'different-template', spa: false }, // native by design — see enterReaderViaMapDot
   { label: 'reader → user',         go: navigateToUserPage,                  verify: verifyUserPage,   page: 'user',   pathway: 'different-template' },
   { label: 'user → reader (card 2)',go: enterReaderViaCard,                  verify: verifyReaderPage, page: 'reader', pathway: 'different-template' },
   { label: 'reader → home (end)',   go: navigateToHome,                      verify: verifyHomePage,   page: 'home',   pathway: 'different-template' },

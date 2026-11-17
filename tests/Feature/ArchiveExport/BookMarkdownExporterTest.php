@@ -201,11 +201,14 @@ test('obsidianLinks: a pasted article\'s references have no anchor, so they are 
     expect($md)
         ->toContain('Seaton [2016](#^seaton2016)')
         ->toMatch('/^Seaton, J\. 2016 \'Brexit and the Media\', \*The Political Quarterly\* 87\(3\): 333–7\. \^seaton2016$/m')
-        // No paragraph carries it, or two do: left alone rather than pointed at a guess.
-        ->toContain('[2017](#moore2017)')
+        // No paragraph carries it: the row is printed in a References section and linked.
+        ->toContain('Moore [2017](#^moore2017)')
+        ->toMatch('/^Moore, M\. 2017 A reference whose paragraph is not in the body\. \^moore2017$/m')
+        // Two paragraphs carry it: left alone rather than pointed at a guess or printed a third time.
         ->toContain('[2001](#twin2001)')
         ->not->toContain('^twin2001')
         ->not->toContain('@@HLBLOCK');
+    expect(substr_count($md, 'Twin, A. 2001 The Same Words.'))->toBe(2);
 });
 
 test('without obsidianLinks the export carries no block ids (MCP export, study re-import)', function () {
@@ -218,4 +221,79 @@ test('without obsidianLinks the export carries no block ids (MCP export, study r
     expect($md)->toContain('[2020](#harvey2020)')
         ->not->toContain('^harvey2020')
         ->not->toContain('@@HLBLOCK');
+});
+
+test('obsidianLinks: a reference entry whose block ends in nested markup still gets its id on the entry line', function () {
+    // Taylor & Francis paste (heynen2009bending): each <li> carries the citation text, then
+    // publisher chrome — a Google Scholar link wrapped in <p>, sometimes a nested <ul> of
+    // "View" links and empty <p></p>s. Appending the block id to the <li> put it on its own
+    // line after that trailing block, where Obsidian attaches it to nothing.
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>Benjamin (<a href="#benjamin1986" class="in-text-citation">1986</a>, 331) and Gandy (<a href="#gandy2002" class="in-text-citation">2002</a>).</p>');
+    bmeNode($book, 200, '<h2>References</h2>');
+    bmeNode($book, 300, '<ul>'
+        . '<li>Benjamin , W. 1986 . <i>On the mimetic faculty</i> , New York : Schocken Books . <p><a href="https://scholar.example/benjamin" data-real-link="true">(Open in a new window)Google Scholar</a></p></li>'
+        . '<li>Gandy , M. 2002 . <i>Concrete and clay</i> , Cambridge, MA : MIT Press . <p></p><ul><li><a href="https://crossref.example/gandy">View</a></li></ul><a href="https://scholar.example/gandy" data-real-link="true">(Open in a new window)Google Scholar</a><p></p></li>'
+        . '</ul>');
+    foreach ([
+        'benjamin1986' => 'Benjamin , W. 1986 . On the mimetic faculty , New York : Schocken Books . (Open in a new window)Google Scholar',
+        'gandy2002'    => 'Gandy , M. 2002 . Concrete and clay , Cambridge, MA : MIT Press . View(Open in a new window)Google Scholar',
+    ] as $refId => $content) {
+        bmeDb()->table('bibliography')->insert(['book' => $book, 'referenceId' => $refId, 'content' => $content, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book, obsidianLinks: true);
+
+    expect($md)
+        ->toContain('Benjamin ([1986](#^benjamin1986), 331)')
+        ->toContain('Gandy ([2002](#^gandy2002))')
+        ->not->toContain('@@HLBLOCK');
+
+    // The id sits at the end of a line that carries the entry's own text — never alone.
+    expect($md)->not->toMatch('/^\s*\^(benjamin1986|gandy2002)\s*$/m');
+    expect($md)->toMatch('/^- Benjamin , W\. 1986 \. \*On the mimetic faculty\* , New York : Schocken Books \..*\^benjamin1986$/m');
+    // Publisher chrome after the citation (nested "View" list, Google Scholar paragraph) is a
+    // continuation of the list item; the id belongs on the item's own line, above it.
+    expect($md)->toMatch('/^- Gandy , M\. 2002 \. \*Concrete and clay\* , Cambridge, MA : MIT Press \. \^gandy2002$/m');
+    expect($md)->toContain("^gandy2002\n    - [View](https://crossref.example/gandy)");
+});
+
+test('obsidianLinks: references the body never prints are appended from the bibliography table, with block ids', function () {
+    // ScienceDirect paste (rasillo2023digital): the in-text citations link `#refId`, the
+    // reference list lives ONLY in the bibliography table (the reader resolves the fragment
+    // through the table), so the note had 93 links to nothing.
+    $book = 'bmebook_' . Str::random(8);
+    bmeNode($book, 100, '<p>Platform work (<a href="#doorn2020" class="in-text-citation">van Doorn and Badger, 2020</a>; <a href="#zuboff2019" class="in-text-citation">Zuboff, 2019</a>) and again (<a href="#doorn2020" class="in-text-citation">van Doorn and Badger, 2020</a>; <a href="#norow1999" class="in-text-citation">Nobody, 1999</a>).</p>');
+    bmeNode($book, 200, '<h2>Acknowledgements</h2>');
+    bmeNode($book, 300, '<p>Thanks to everyone.</p>');
+    foreach ([
+        'zuboff2019' => '<div class="contribution"><div class="authors u-font-sans">S. Zuboff</div><div id="ref-id-b1" class="title text-m">The Age of Surveillance Capitalism</div></div><div class="host u-font-sans">Profile Books, London (2019)</div>',
+        'doorn2020'  => '<div class="contribution"><div class="authors u-font-sans">N. van Doorn, A. Badger</div><div id="ref-id-b2" class="title text-m">Platform Capitalism’s Hidden Abode: Producing Data Assets in the Gig Economy</div></div><div class="host u-font-sans">Antipode, 52 (5) (2020), pp. 1475-1495</div>',
+    ] as $refId => $content) {
+        bmeDb()->table('bibliography')->insert(['book' => $book, 'referenceId' => $refId, 'content' => $content, 'created_at' => now(), 'updated_at' => now()]);
+    }
+
+    $md = app(BookMarkdownExporter::class)->markdownFor($book, obsidianLinks: true);
+
+    expect($md)
+        ->toContain('([van Doorn and Badger, 2020](#^doorn2020); [Zuboff, 2019](#^zuboff2019))')
+        // A citation with no row anywhere is left alone.
+        ->toContain('[Nobody, 1999](#norow1999)')
+        ->toContain('## References')
+        ->not->toContain('@@HLBLOCK');
+
+    // One entry per row, ONE line each (a multi-<div> publisher entry is flattened — a block id
+    // only attaches to the line it ends), in first-citation order, each ending in its id.
+    $refs = Str::after($md, '## References');
+    expect($refs)->toMatch('/^N\. van Doorn, A\. Badger, Platform Capitalism’s Hidden Abode: Producing Data Assets in the Gig Economy, Antipode, 52 \(5\) \(2020\), pp\. 1475-1495 \^doorn2020$/m');
+    expect($refs)->toMatch('/^S\. Zuboff, The Age of Surveillance Capitalism, Profile Books, London \(2019\) \^zuboff2019$/m');
+    expect(strpos($refs, '^doorn2020'))->toBeLessThan(strpos($refs, '^zuboff2019'));
+    expect(substr_count($refs, '^doorn2020'))->toBe(1);
+
+    // Zettlr / plain exports (no obsidianLinks) still get the entries, without block ids.
+    $plain = app(BookMarkdownExporter::class)->markdownFor($book, plainFragmentLinks: true);
+    expect($plain)->toContain('## References')
+        ->toContain('S. Zuboff, The Age of Surveillance Capitalism, Profile Books, London (2019)')
+        ->not->toContain('^zuboff2019')
+        ->not->toContain('](#');
 });

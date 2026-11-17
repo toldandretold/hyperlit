@@ -201,3 +201,107 @@ test('mode=semantic short query returns empty; provider outage 503s', function (
     $this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone economics&mode=semantic")
         ->assertStatus(503);
 });
+
+// ── Cited texts: the search reaches what the page's map draws ────────────────
+
+/** A hypercite row on $cited naming $citing (the row lives on the CITED book). */
+function jsearchCite(string $cited, string $citing): void
+{
+    jsearchDb()->table('hypercites')->insert([
+        'book' => $cited,
+        'hyperciteId' => 'hypercite_' . Str::lower(Str::random(7)),
+        'citedIN' => json_encode(['/' . $citing . '#hypercite_' . Str::lower(Str::random(7))]),
+        'raw_json' => '{}',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
+function jsearchOutsideBook(string $title, string $visibility = 'public'): string
+{
+    $book = 'book_jsearch_' . Str::lower(Str::random(8));
+    jsearchDb()->table('library')->insert([
+        'book' => $book, 'title' => $title, 'author' => 'Marx, Karl',
+        'visibility' => $visibility, 'listed' => true, 'has_nodes' => true,
+        'type' => 'book', 'raw_json' => '[]', 'timestamp' => 0, 'created_at' => now(),
+    ]);
+
+    return $book;
+}
+
+function jsearchTextNode(string $book, int $n, string $text): void
+{
+    jsearchDb()->table('nodes')->insert([
+        'book' => $book, 'chunk_id' => 0, 'startLine' => $n,
+        'node_id' => $book . '_node_' . $n,
+        'content' => '<p>' . $text . '</p>',
+        'plainText' => $text,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+}
+
+test('every mode reaches a text the shelf CITES and labels it; a text that merely cites the shelf is not reached', function () {
+    Cache::flush();
+    $s = jsearchSeedShelfWithBooks();
+    jsearchDb()->table('nodes')->whereRaw("book LIKE 'book_jsearch_%'")->delete();
+    jsearchDb()->table('hypercites')->where('book', 'LIKE', 'book_jsearch_%')->delete();
+
+    $cited = jsearchOutsideBook('JSearch Xylophone Capital');          // a member cites it → in
+    $inbound = jsearchOutsideBook('JSearch Xylophone Delinquent');     // it cites a member → out
+    $citedPrivate = jsearchOutsideBook('JSearch Xylophone Secret', 'private');
+    jsearchCite($cited, $s['match']);
+    jsearchCite($citedPrivate, $s['match']);
+    jsearchCite($s['match'], $inbound);
+
+    foreach ([$s['match'], $cited, $inbound, $citedPrivate] as $b) {
+        jsearchTextNode($b, 1, 'the xylophone economy');
+    }
+
+    // Title search.
+    $hits = collect($this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone&mode=library")->assertOk()->json('results'));
+    expect($hits->pluck('book')->all())->toContain($s['match'])->toContain($cited)
+        ->not->toContain($inbound)->not->toContain($citedPrivate);
+    expect($hits->firstWhere('book', $cited)['cited'])->toBeTrue()
+        ->and($hits->firstWhere('book', $s['match'])['cited'])->toBeFalse();
+
+    // Full-text search.
+    $hits = collect($this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone")->assertOk()->json('results'));
+    expect($hits->pluck('book')->all())->toContain($s['match'])->toContain($cited)
+        ->not->toContain($inbound)->not->toContain($citedPrivate);
+    expect($hits->firstWhere('book', $cited)['cited'])->toBeTrue()
+        ->and($hits->firstWhere('book', $s['match'])['cited'])->toBeFalse();
+
+    // Semantic search.
+    jsearchDb()->table('nodes')->whereRaw("book LIKE 'book_jsearch_%'")->delete();
+    foreach ([$s['match'], $cited, $inbound, $citedPrivate] as $b) {
+        jsearchEmbedNode($b);
+    }
+    $this->mock(EmbeddingService::class)->shouldReceive('embedSearchQuery')->once()->andReturn(array_fill(0, 768, 0.1));
+    $hits = collect($this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone economics&mode=semantic")->assertOk()->json('results'));
+    expect($hits->pluck('book')->all())->toContain($s['match'])->toContain($cited)
+        ->not->toContain($inbound)->not->toContain($citedPrivate);
+    expect($hits->firstWhere('book', $cited)['cited'])->toBeTrue()
+        ->and($hits->firstWhere('book', $s['match'])['cited'])->toBeFalse();
+
+    jsearchDb()->table('hypercites')->where('book', 'LIKE', 'book_jsearch_%')->delete();
+});
+
+test('one long book cannot fill the full-text page: the other book still appears, in the limit', function () {
+    Cache::flush();
+    $s = jsearchSeedShelfWithBooks();
+    jsearchDb()->table('nodes')->whereRaw("book LIKE 'book_jsearch_%'")->delete();
+
+    // 'match' is the long book: 30 matching paragraphs. 'other' has one.
+    for ($i = 1; $i <= 30; $i++) {
+        jsearchTextNode($s['match'], $i, "xylophone paragraph number {$i}");
+    }
+    jsearchTextNode($s['other'], 1, 'a lone xylophone');
+
+    $res = $this->getJson("/api/public/shelves/{$s['shelfId']}/search?q=xylophone&limit=10")->assertOk();
+    $groups = collect($res->json('results'));
+
+    expect($groups->pluck('book')->all())->toContain($s['match'])->toContain($s['other']);
+    expect($res->json('count'))->toBe(10);
+    // The long book still gets the bulk of the page (backfill), just not all of it.
+    expect(count($groups->firstWhere('book', $s['match'])['matches']))->toBe(9)
+        ->and(count($groups->firstWhere('book', $s['other'])['matches']))->toBe(1);
+});

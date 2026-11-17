@@ -99,6 +99,66 @@ describe('archive export button: polling resilience', () => {
     expect(clicks).toEqual([]);
   });
 
+  it('a stale `ready` is re-checked on press: artifact gone → build, not a silent 404 download', async () => {
+    // The panel read `ready` when it opened; the user left the tab for twenty
+    // minutes, a book in the shelf was edited (digest moved) and the file is
+    // gone. The old press fired <a download> at a 404 — nothing arrived, no
+    // feedback. Now: one status GET first, then the normal build path.
+    const calls = scriptFetch([
+      { state: 'ready', bytes: 10 },             // initial arm
+      { state: 'buildable' },                    // the re-check on press
+      { state: 'building', progress: 0.2 },      // after the build POST
+      { state: 'building', progress: 0.5 },
+      { state: 'ready', bytes: 12 },
+    ]);
+    handle = initExportDownload(document.getElementById('c'), 'b', { scopeType: 'archive', scopeId: 'decolonising-security' }, 'markdown');
+    await flush();
+    expect(calls.status).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(20 * 60_000); // idle: no polling while not busy
+    expect(calls.status).toBe(1);
+
+    button.click();
+    await flush();
+    expect(clicks).toEqual([]);                  // did NOT download the vanished file
+    expect(calls.build).toBe(1);                 // asked for a fresh build instead
+    expect(button.disabled).toBe(true);
+
+    await tick(); // building 50%
+    expect(button.querySelector('.export-progress').textContent).toBe('50%');
+    await tick(); // ready
+    expect(clicks).toEqual(['/exports/archive/decolonising-security/markdown']);
+    expect(button.disabled).toBe(false);
+    expect(alertDialog).not.toHaveBeenCalled();
+  });
+
+  it('a still-valid `ready` downloads at once, after exactly one confirming status GET', async () => {
+    const calls = scriptFetch([{ state: 'ready', bytes: 10 }]);
+    handle = initExportDownload(document.getElementById('c'), 'b', { scopeType: 'archive', scopeId: 'decolonising-security' }, 'markdown');
+    await flush();
+    button.click();
+    await flush();
+    expect(calls.status).toBe(2);
+    expect(calls.build).toBe(0);
+    expect(clicks).toEqual(['/exports/archive/decolonising-security/markdown']);
+    expect(button.disabled).toBe(false);
+  });
+
+  it('an unreadable re-check (tab just woke, fetch killed) falls back to the build path, never a blind download', async () => {
+    const calls = scriptFetch([
+      { state: 'ready', bytes: 10 },
+      () => { throw new TypeError('Load failed'); },   // the re-check
+      { state: 'ready', bytes: 10 },                   // status after the build POST (file was there all along)
+    ]);
+    handle = initExportDownload(document.getElementById('c'), 'b', { scopeType: 'archive', scopeId: 'decolonising-security' }, 'markdown');
+    await flush();
+    button.click();
+    await flush();
+    expect(calls.build).toBe(1);
+    expect(clicks).toEqual(['/exports/archive/decolonising-security/markdown']);
+    expect(alertDialog).not.toHaveBeenCalled();
+  });
+
   it('gives up — visibly — after a sustained outage, not on the first failure', async () => {
     const calls = scriptFetch([
       { state: 'buildable' },

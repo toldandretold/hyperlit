@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2046 functions in 431 modules · 10 object stores · 10 PG tables · 4287 edges
+**MarkdownDB** schema v28 · 2046 functions in 431 modules · 10 object stores · 10 PG tables · 4291 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -20,7 +20,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `ArchivePanelManager.closeContainer` | `components/archivePanel/index` | — | — | — | — |
 | `ArchivePanelManager.constructor` | `components/archivePanel/index` | — | — | — | — |
 | `ArchivePanelManager.destroyDownloads` | `components/archivePanel/index` | — | — | — | — |
-| `ArchivePanelManager.openContainer` | `components/archivePanel/index` | — | — | — | — |
+| `ArchivePanelManager.openContainer` | `components/archivePanel/index` | `localStorage` | `localStorage` | read | — |
 | `ArchivePanelManager.readScope` | `components/archivePanel/index` | — | — | read | — |
 | `ArchivePanelManager.wireActions` | `components/archivePanel/index` | — | `sessionStorage` | read/write | — |
 | `destroySourceButtonListener` | `components/cloudRef/cloudRefButton` | — | — | write | — |
