@@ -85,12 +85,13 @@ Unban yourself or a user: `sudo cscli decisions delete --ip 1.2.3.4`. See why so
 ```bash
 sudo apt install aide aide-common
 sudo cp /var/www/hyperlit/deploy/security/aide/99_hyperlit /etc/aide/aide.conf.d/99_hyperlit
-sudo aide.wrapper --config-check                     # the rules parse
+sudo aide --config=/etc/aide/aide.conf --config-check       # the rules parse (Ubuntu: aide.wrapper --config-check)
 sudo /var/www/hyperlit/deploy/security/aide/rebaseline.sh   # first baseline (a few minutes; niced)
 sudo sed -i 's/^MAILTO=.*/MAILTO=sam@hyperlit.io/' /etc/default/aide   # where the daily report goes
+sudo systemctl enable --now dailyaidecheck.timer            # Debian 12 runs the daily check from a timer, off by default
 ```
 
-Ubuntu's package already runs `/etc/cron.daily/aide` and mails the diff; `99_hyperlit` adds the app tree and excludes the directories the app writes at runtime (`storage/`, `bootstrap/cache`, `public/build`, `resources/markdown`, logs, conversion scratch), so a running import never reads as tampering. `vendor/` IS watched: a backdoored Composer package is the current supply-chain shape.
+Debian 12 (the droplet) runs the daily check from `dailyaidecheck.timer` (enable it, above) and mails the diff to `MAILTO`; `99_hyperlit` adds the app tree and excludes the directories the app writes at runtime (`storage/`, `bootstrap/cache`, `public/build`, `resources/markdown`, logs, conversion scratch), so a running import never reads as tampering. `vendor/` IS watched: a backdoored Composer package is the current supply-chain shape.
 
 Deploys change files legitimately, so `deploy.sh` step "AIDE baseline" accepts the new state after every deploy that changed code. For unattended `--yes` deploys that needs passwordless sudo for exactly one script:
 
@@ -99,7 +100,7 @@ echo 'marx ALL=(root) NOPASSWD: /var/www/hyperlit/deploy/security/aide/rebaselin
 sudo chmod 0440 /etc/sudoers.d/hyperlit-aide && sudo visudo -c
 ```
 
-After an `apt upgrade` run `sudo ./deploy/security/aide/rebaseline.sh --report` by hand: it shows what changed, then accepts it. Reading a report: a change under `/var/www/hyperlit` with no deploy in the last 24 h, a new file under `public/` or `/usr/bin`, a changed `~/.ssh/authorized_keys` or `/etc/crontab`, or anything in `/etc/nginx` or `/etc/php` you did not edit, is an incident until explained. Mail delivery must actually work (`echo test | mail -s aide sam@hyperlit.io`); a report nobody receives is no report.
+After an `apt upgrade` run `sudo ./deploy/security/aide/rebaseline.sh --report` by hand: it shows what changed, then accepts it. (The script uses `aide.wrapper` where Ubuntu provides it and plain `aide --config=/etc/aide/aide.conf` on Debian; `deploy.sh`'s AIDE step keys on the same check.) Reading a report: a change under `/var/www/hyperlit` with no deploy in the last 24 h, a new file under `public/` or `/usr/bin`, a changed `~/.ssh/authorized_keys` or `/etc/crontab`, or anything in `/etc/nginx` or `/etc/php` you did not edit, is an incident until explained. Mail delivery must actually work (`echo test | mail -s aide sam@hyperlit.io`); a report nobody receives is no report.
 
 ## 6. Lynis
 

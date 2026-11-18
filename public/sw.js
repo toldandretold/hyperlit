@@ -255,96 +255,30 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
       fetch(request)
-        .then((networkResponse) => {
+        .then(async (networkResponse) => {
           // Cache successful HTML responses
           if (networkResponse.ok) {
             const responseClone = networkResponse.clone();
             caches.open(DYNAMIC_CACHE).then((cache) => {
               cache.put(request, responseClone);
             });
+            return networkResponse;
+          }
+          // An outage is usually NOT a failed fetch: Cloudflare answers a 521/522/
+          // 523/524 page when the origin is down (reboot, OOM-killed PHP-FPM), and
+          // nginx answers 502/503/504 during a deploy. Those are successful fetches
+          // carrying an error page, so the catch() below never ran and the reader
+          // saw "Web server is down" instead of the book it had cached (2026-11-18,
+          // kernel reboot). Treat any 5xx exactly like a dropped connection — but
+          // only if we have something cached: for a first-time visitor the real
+          // error page is more truthful than "You're offline".
+          if (networkResponse.status >= 500) {
+            const fallback = await serveHtmlFromCache(request, url, { onlyIfCached: true });
+            if (fallback) return fallback;
           }
           return networkResponse;
         })
-        .catch(async () => {
-          // Network failed - try cache
-          const cachedResponse = await caches.match(request);
-          if (cachedResponse) {
-            // Validate that required build assets are cached before serving
-            const html = await cachedResponse.clone().text();
-            const isValid = await validateCachedHtml(html);
-            if (isValid) {
-              console.log('[SW] Serving cached page:', url.pathname);
-              return cachedResponse;
-            }
-            console.log('[SW] Cached page has missing assets, skipping:', url.pathname);
-          }
-
-          // No exact cache match - check if this is a book page request
-          // Book pages match pattern: /bookId or /bookId/HL_xxx
-          const bookPagePattern = /^\/[A-Za-z0-9_-]+(\/(HL_[A-Za-z0-9_-]+|[A-Za-z0-9_-]*_Fn[A-Za-z0-9_-]+))?$/;
-          const isBookPage = bookPagePattern.test(url.pathname) &&
-                             url.pathname !== '/' &&
-                             url.pathname !== '/home' &&
-                             !url.pathname.startsWith('/u/');
-
-          if (isBookPage) {
-            // Try to find ANY cached reader page to use as app shell
-            // All book pages use the same reader.blade.php template
-            // We patch the <main id="..."> to have the correct book ID from the URL
-            console.log('[SW] Book page requested offline, looking for cached reader shell...');
-
-            const cache = await caches.open(DYNAMIC_CACHE);
-            const keys = await cache.keys();
-
-            for (const cachedRequest of keys) {
-              const cachedUrl = new URL(cachedRequest.url);
-              // Find a cached book page (not home, not user page, not API)
-              if (bookPagePattern.test(cachedUrl.pathname) &&
-                  cachedUrl.pathname !== '/' &&
-                  cachedUrl.pathname !== '/home' &&
-                  !cachedUrl.pathname.startsWith('/u/') &&
-                  !cachedUrl.pathname.startsWith('/api/')) {
-                const templateResponse = await cache.match(cachedRequest);
-                if (templateResponse) {
-                  // Get the requested book ID from the URL
-                  const requestedBookId = url.pathname.split('/').filter(Boolean)[0];
-
-                  // Patch the HTML to use the correct book ID
-                  const html = await templateResponse.text();
-
-                  // Validate that required build assets are cached
-                  const isValid = await validateCachedHtml(html);
-                  if (!isValid) {
-                    console.log('[SW] Cached reader shell has missing assets, skipping');
-                    continue; // Try next cached page
-                  }
-
-                  console.log('[SW] Patching cached reader for:', requestedBookId, '(shell from:', cachedUrl.pathname, ')');
-                  const patchedHtml = html.replace(
-                    /<main\s+id="[^"]*"\s+class="main-content"/,
-                    `<main id="${requestedBookId}" class="main-content"`
-                  );
-
-                  return new Response(patchedHtml, {
-                    status: 200,
-                    headers: {
-                      'Content-Type': 'text/html; charset=utf-8',
-                      'X-SW-Offline': 'patched-shell'
-                    }
-                  });
-                }
-              }
-            }
-          }
-
-          // No cached version - serve offline page
-          console.log('[SW] Serving offline page for:', url.pathname);
-          const offlinePage = await caches.match('/offline.html');
-          return offlinePage || new Response(
-            '<!DOCTYPE html><html><head><title>Offline</title></head><body style="font-family:system-ui;text-align:center;padding:50px;"><h1>You\'re Offline</h1><p>No cached content available. Please reconnect to the internet.</p></body></html>',
-            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-          );
-        })
+        .catch(() => serveHtmlFromCache(request, url, { onlyIfCached: false }))
     );
     return;
   }
@@ -374,3 +308,93 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
+
+/**
+ * Offline / outage fallback for an HTML navigation: the exact cached page if its
+ * build assets are still cached, else a cached reader shell patched to the requested
+ * book id, else the offline page. With `onlyIfCached` the offline page is NOT
+ * synthesised and null is returned, so a 5xx with nothing cached shows the server's
+ * own error page rather than claiming the user is offline.
+ */
+async function serveHtmlFromCache(request, url, { onlyIfCached }) {
+  // Network failed - try cache
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    // Validate that required build assets are cached before serving
+    const html = await cachedResponse.clone().text();
+    const isValid = await validateCachedHtml(html);
+    if (isValid) {
+      console.log('[SW] Serving cached page:', url.pathname);
+      return cachedResponse;
+    }
+    console.log('[SW] Cached page has missing assets, skipping:', url.pathname);
+  }
+
+  // No exact cache match - check if this is a book page request
+  // Book pages match pattern: /bookId or /bookId/HL_xxx
+  const bookPagePattern = /^\/[A-Za-z0-9_-]+(\/(HL_[A-Za-z0-9_-]+|[A-Za-z0-9_-]*_Fn[A-Za-z0-9_-]+))?$/;
+  const isBookPage = bookPagePattern.test(url.pathname) &&
+                     url.pathname !== '/' &&
+                     url.pathname !== '/home' &&
+                     !url.pathname.startsWith('/u/');
+
+  if (isBookPage) {
+    // Try to find ANY cached reader page to use as app shell
+    // All book pages use the same reader.blade.php template
+    // We patch the <main id="..."> to have the correct book ID from the URL
+    console.log('[SW] Book page requested offline, looking for cached reader shell...');
+
+    const cache = await caches.open(DYNAMIC_CACHE);
+    const keys = await cache.keys();
+
+    for (const cachedRequest of keys) {
+      const cachedUrl = new URL(cachedRequest.url);
+      // Find a cached book page (not home, not user page, not API)
+      if (bookPagePattern.test(cachedUrl.pathname) &&
+          cachedUrl.pathname !== '/' &&
+          cachedUrl.pathname !== '/home' &&
+          !cachedUrl.pathname.startsWith('/u/') &&
+          !cachedUrl.pathname.startsWith('/api/')) {
+        const templateResponse = await cache.match(cachedRequest);
+        if (templateResponse) {
+          // Get the requested book ID from the URL
+          const requestedBookId = url.pathname.split('/').filter(Boolean)[0];
+
+          // Patch the HTML to use the correct book ID
+          const html = await templateResponse.text();
+
+          // Validate that required build assets are cached
+          const isValid = await validateCachedHtml(html);
+          if (!isValid) {
+            console.log('[SW] Cached reader shell has missing assets, skipping');
+            continue; // Try next cached page
+          }
+
+          console.log('[SW] Patching cached reader for:', requestedBookId, '(shell from:', cachedUrl.pathname, ')');
+          const patchedHtml = html.replace(
+            /<main\s+id="[^"]*"\s+class="main-content"/,
+            `<main id="${requestedBookId}" class="main-content"`
+          );
+
+          return new Response(patchedHtml, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/html; charset=utf-8',
+              'X-SW-Offline': 'patched-shell'
+            }
+          });
+        }
+      }
+    }
+  }
+
+  // No cached version - serve offline page (unless the caller wants only real cache hits)
+  if (onlyIfCached) return null;
+  console.log('[SW] Serving offline page for:', url.pathname);
+  const offlinePage = await caches.match('/offline.html');
+  return offlinePage || new Response(
+    '<!DOCTYPE html><html><head><title>Offline</title></head><body style="font-family:system-ui;text-align:center;padding:50px;"><h1>You\'re Offline</h1><p>No cached content available. Please reconnect to the internet.</p></body></html>',
+    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}

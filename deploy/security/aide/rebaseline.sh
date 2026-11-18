@@ -16,13 +16,22 @@
 # the check, skip it when you just deployed and know what moved.
 #
 # Debian/Ubuntu layout: config /etc/aide/aide.conf (+ aide.conf.d/*), database
-# /var/lib/aide/aide.db, candidate /var/lib/aide/aide.db.new. `aide.wrapper`
-# assembles the conf.d fragments; call it, not /usr/bin/aide, or the fragments
-# are ignored and the app rules do nothing.
+# /var/lib/aide/aide.db, candidate /var/lib/aide/aide.db.new. Ubuntu wraps aide
+# as `aide.wrapper`; Debian 12 (the droplet) has only `aide` and needs
+# --config=/etc/aide/aide.conf, or the conf.d fragments (our app rules) are ignored.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run as root (sudo)" >&2; exit 1; }
-command -v aide.wrapper >/dev/null 2>&1 || { echo "aide not installed: apt install aide aide-common" >&2; exit 1; }
+# Ubuntu ships `aide.wrapper` (which knows the Debian config layout); Debian 12
+# ships only `aide` and the layout is passed explicitly. Same config either way:
+# /etc/aide/aide.conf pulls in /etc/aide/aide.conf.d/* (where 99_hyperlit lives).
+if command -v aide.wrapper >/dev/null 2>&1; then
+    run_aide() { aide.wrapper "$@"; }
+elif command -v aide >/dev/null 2>&1; then
+    run_aide() { aide --config=/etc/aide/aide.conf "$@"; }
+else
+    echo "aide not installed: apt install aide aide-common" >&2; exit 1
+fi
 
 DB=/var/lib/aide/aide.db
 NEW=/var/lib/aide/aide.db.new
@@ -42,11 +51,11 @@ if [ "${REPORT}" = 1 ] && [ -f "${DB}" ]; then
     echo "── changes since the last baseline ──────────────────────────────────"
     # --update checks AND writes the candidate db in one walk. Exit codes 1–7 are
     # "differences found" (bitmask: 1 added, 2 removed, 4 changed), not failure.
-    aide.wrapper --update || rc=$?
+    run_aide --update || rc=$?
     rc="${rc:-0}"
     if [ "${rc}" -gt 7 ]; then echo "aide --update failed (exit ${rc})" >&2; exit "${rc}"; fi
 else
-    aide.wrapper --init >/dev/null || rc=$?
+    run_aide --init >/dev/null || rc=$?
     rc="${rc:-0}"
     if [ "${rc}" -gt 7 ]; then echo "aide --init failed (exit ${rc})" >&2; exit "${rc}"; fi
 fi

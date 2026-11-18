@@ -81,3 +81,10 @@ HyperlitPermsOnly = p+u+g
 /home/marx/\.ssh HyperlitCode
 /root/\.ssh HyperlitCode
 /var/spool/cron HyperlitCode
+
+# ── always-changing runtime state outside the app (daily noise otherwise) ────
+# Seen on the first prod baseline (2026-11-18): CrowdSec's SQLite WAL, Docker's
+# image cache and CrowdSec's own log were being written DURING the scan.
+!/var/lib/crowdsec/data
+!/var/lib/docker
+!/var/log/crowdsec

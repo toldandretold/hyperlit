@@ -370,7 +370,7 @@ ok "queue:restart signalled (workers reload after their current job)"
 # the new state as the baseline; otherwise tomorrow's report is a wall of noise
 # with the one real change buried in it. Needs sudo: give marx a NOPASSWD line
 # for exactly this script (README) so --yes deploys stay unattended.
-if command -v aide.wrapper >/dev/null 2>&1 && [ -f /var/lib/aide/aide.db ]; then
+if { command -v aide.wrapper >/dev/null 2>&1 || command -v aide >/dev/null 2>&1; } && [ -f /var/lib/aide/aide.db ]; then
     step "AIDE baseline"
     if [ "${BEFORE}" = "${AFTER}" ] && [ "${DID_COMPOSER}" = no ] && [ "${DID_BUILD}" = no ] && [ "${FORCE_ALL}" != 1 ]; then
         skip "no code changed on disk (caches live in excluded dirs)"
