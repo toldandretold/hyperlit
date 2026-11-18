@@ -4,12 +4,13 @@ name: security-audit
 # Runs on every push to main and every PR so a new advisory affecting our
 # dependency tree surfaces immediately rather than being noticed months later.
 #
-# REPORT-ONLY MODE: both audit steps have `continue-on-error: true`, so a
-# vulnerability appears as an annotation in the run output but does NOT block
-# the PR. There are existing high/critical advisories in the dependency tree
-# (run `composer audit` / `npm audit` locally to see) that would otherwise
-# fail CI immediately. Once those are addressed, flip `continue-on-error` to
-# `false` on the audit steps below to make the workflow enforcing.
+# ENFORCING since 2026-11-18: the pre-existing advisories were cleared that day
+# (Laravel 11 → 12, katex 0.19, dompurify 3.4.18, symfony/yaml 7.4), so a red
+# run now means a NEW advisory. composer is audited with dev deps (they run on
+# every developer machine); npm is audited for RUNTIME deps only — the dev
+# tree (vitest, happy-dom, glob…) never ships to a browser and carries
+# advisories that only a vitest major clears. deploy/deploy.sh applies the
+# same two checks before every prod deploy (deploy/security/README.md §7).
 
 on:
   push:
@@ -40,7 +41,6 @@ jobs:
         run: composer install --prefer-dist --no-progress --no-scripts --no-interaction
 
       - name: Run composer audit
-        continue-on-error: true  # Report-only — flip to false to enforce.
         run: composer audit --locked
 
   npm-audit:
@@ -58,10 +58,7 @@ jobs:
       - name: Install npm dependencies
         run: npm ci --ignore-scripts
 
-      # --audit-level=high: only fail on high or critical advisories. Lower-
-      # severity findings still appear in the log but don't trigger non-zero
-      # exit. Combined with continue-on-error this is purely informational
-      # for now.
+      # --omit=dev: runtime (browser-bundle) deps only, see the header.
+      # --audit-level=high: lower-severity findings still print but do not fail.
       - name: Run npm audit
-        continue-on-error: true  # Report-only — flip to false to enforce.
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high

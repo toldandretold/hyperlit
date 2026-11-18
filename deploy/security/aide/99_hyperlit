@@ -1,0 +1,83 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AIDE rules for the Hyperlit app tree — /etc/aide/aide.conf.d/99_hyperlit
+#
+# Install:  sudo cp deploy/security/aide/99_hyperlit /etc/aide/aide.conf.d/99_hyperlit
+#           sudo ./deploy/security/aide/rebaseline.sh      # first baseline
+#
+# Ubuntu's `aide-common` package already watches the OS (/etc, /bin, /usr/bin,
+# /usr/sbin, /lib, cron dirs, …) through /etc/aide/aide.conf.d/*, and runs a
+# daily check from /etc/cron.daily/aide (mail to MAILTO in /etc/default/aide).
+# This file ADDS the app, and tells AIDE which parts of it churn by design.
+#
+# The point of watching /var/www/hyperlit: a PHP file that changes when no
+# deploy happened is the single clearest "we have been hacked" signal on a web
+# host (web shells, backdoored vendor/, a modified index.php). Everything else
+# here exists to keep that signal clean:
+#
+#   - deploy.sh re-baselines after a deploy (deploy/security/aide/rebaseline.sh),
+#     so the hundreds of files a deploy legitimately rewrites are not noise.
+#   - Directories the APP writes at runtime (uploads, caches, logs, builds,
+#     conversion scratch) are excluded or watched for ownership/permissions only.
+#     A running import or a cache rebuild must never read as an intrusion.
+#
+# Rule groups (`aide --config-check` lists the ones available on your version):
+#   Full    = content hash + perms + owner + mtime + inode   (code: must not move)
+#   PermsOnly = perms + owner only                           (data dirs: content churns)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Rule groups — defined here so this file is self-contained even if the distro
+# renames its own. (p=perms u=uid g=gid n=link count sha256 = content.)
+HyperlitCode = p+u+g+n+sha256
+HyperlitPermsOnly = p+u+g
+
+# ── exclusions: runtime-written, by design ───────────────────────────────────
+!/var/www/hyperlit/storage/app
+!/var/www/hyperlit/storage/framework
+!/var/www/hyperlit/storage/logs
+!/var/www/hyperlit/storage/clockwork
+!/var/www/hyperlit/storage/debugbar
+!/var/www/hyperlit/bootstrap/cache
+!/var/www/hyperlit/public/build
+!/var/www/hyperlit/public/build-next
+!/var/www/hyperlit/resources/markdown
+!/var/www/hyperlit/node_modules
+!/var/www/hyperlit/\.git
+!/var/www/hyperlit/tests/e2e/test-results
+!/var/www/hyperlit/tests/e2e/playwright-report
+!/var/www/hyperlit/ignore
+!/var/www/hyperlit/study/corpora
+!/var/www/hyperlit/.*\.(log|tmp|lock|pid)$
+
+# ── permissions-only: the directories themselves ─────────────────────────────
+# A chmod 777 on storage/ or a new SUID file under public/ is still worth knowing.
+/var/www/hyperlit/storage$ HyperlitPermsOnly
+/var/www/hyperlit/public/build$ HyperlitPermsOnly
+/var/www/hyperlit/resources/markdown$ HyperlitPermsOnly
+
+# ── full integrity: everything that is CODE ──────────────────────────────────
+# vendor/ IS code: a backdoored Composer package is the current supply-chain
+# shape (the 2026-05 Laravel-Lang tag republish). Deploy re-baselines it.
+/var/www/hyperlit/app HyperlitCode
+/var/www/hyperlit/bootstrap HyperlitCode
+/var/www/hyperlit/config HyperlitCode
+/var/www/hyperlit/database HyperlitCode
+/var/www/hyperlit/deploy HyperlitCode
+/var/www/hyperlit/public HyperlitCode
+/var/www/hyperlit/resources HyperlitCode
+/var/www/hyperlit/routes HyperlitCode
+/var/www/hyperlit/scripts HyperlitCode
+/var/www/hyperlit/vendor HyperlitCode
+/var/www/hyperlit/artisan HyperlitCode
+/var/www/hyperlit/composer\.(json|lock)$ HyperlitCode
+/var/www/hyperlit/package(-lock)?\.json$ HyperlitCode
+/var/www/hyperlit/\.env$ HyperlitCode
+
+# ── the things an intruder touches first, outside the app ────────────────────
+# (the distro rules cover /etc and the binaries; these are the web-stack extras)
+/etc/nginx HyperlitCode
+/etc/php HyperlitCode
+/etc/supervisor HyperlitCode
+/etc/crowdsec HyperlitCode
+/home/marx/\.ssh HyperlitCode
+/root/\.ssh HyperlitCode
+/var/spool/cron HyperlitCode

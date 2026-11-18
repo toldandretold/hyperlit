@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# CrowdSec acquisition — WHICH logs the agent reads on the hyperlit droplet.
+#
+# Install:  sudo cp deploy/security/crowdsec/acquis.yaml /etc/crowdsec/acquis.yaml
+#           sudo systemctl reload crowdsec     # then `sudo cscli metrics` should show
+#                                              # lines parsed for each source below
+#
+# Each block is one log source with the `type` label its parsers key on. The
+# collections installed by deploy/security/README.md (crowdsecurity/nginx,
+# crowdsecurity/sshd, crowdsecurity/linux, crowdsecurity/base-http-scenarios,
+# crowdsecurity/http-cve) provide the parsers for exactly these types.
+#
+# PREREQUISITE: nginx must already log the VISITOR's IP (snippets/cloudflare-realip.conf
+# included in nginx.conf). Until it does, every access.log line is a Cloudflare
+# edge IP, and the first "scanner" CrowdSec detects would be Cloudflare itself.
+# whitelists.yaml guards against exactly that, but it is a backstop, not the fix.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# nginx — the whole HTTP surface (brute force on /login, path scanners, bad
+# user agents, CVE probes, 4xx floods). Adjust paths if the vhost logs elsewhere
+# (`grep -R access_log /etc/nginx/`).
+filenames:
+  - /var/log/nginx/access.log
+  - /var/log/nginx/*access*.log
+labels:
+  type: nginx
+---
+filenames:
+  - /var/log/nginx/error.log
+  - /var/log/nginx/*error*.log
+labels:
+  type: nginx
+---
+# sshd — Ubuntu 22.04+ logs sshd to the journal, not /var/log/auth.log, unless
+# rsyslog is installed. Reading the journal directly works either way.
+source: journalctl
+journalctl_filter:
+  - "_SYSTEMD_UNIT=ssh.service"
+labels:
+  type: syslog
+---
+# Kept for a box that DOES have rsyslog (auth.log present). Harmless if the
+# file is absent — the agent logs one "no such file" line at start and moves on.
+filenames:
+  - /var/log/auth.log
+labels:
+  type: syslog

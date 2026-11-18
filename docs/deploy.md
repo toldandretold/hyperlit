@@ -37,6 +37,8 @@ One invariant this moves: the prune (below) deletes assets untouched for 7 days 
 
 - **ffmpeg** — `apt install ffmpeg`. Needed only by the audiobook download (`docs/audio.md` §Downloading the whole thing), which packages a book's per-node MP3s into one chaptered `.m4b`. Without it the feature degrades cleanly: the status endpoint reports `supported: false` and the download button never appears. Verify with `ffmpeg -version && ffprobe -version` as the web/queue user, not just your login shell — PHP-FPM does not inherit a login shell's PATH, and `FFMPEG_BINARY` / `FFPROBE_BINARY` can be set to absolute paths if the probe of PATH, `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin` misses it.
 
+- **Security layer** — `deploy/security/README.md`: Cloudflare-only origin (ufw), nginx real-IP from `CF-Connecting-IP`, CrowdSec, AIDE, Lynis, and the `composer audit` / `npm audit` gate in `deploy.sh`. Every log-reading tool on the box depends on nginx seeing the VISITOR's IP rather than Cloudflare's edge; the parity of the trusted ranges across Laravel / nginx / CrowdSec is a PHP-suite gate (`CloudflareRangesParityTest`).
+
 ## What users see after a deploy
 
 Nothing, ideally. A tab that was open across the deploy keeps working on the old chunks (still on disk) and keeps its old service worker — the new one installs silently and waits. At worst a tab reloads itself when a chunk fetch fails, retrying at 60s spacing until it comes back whole. The new worker takes over (and sweeps the old caches) at the next cold start of the origin; no more "tell users to hard-refresh twice".

@@ -18,6 +18,7 @@
 #   ./deploy/deploy.sh --all           # force every step even if nothing changed
 #   ./deploy/deploy.sh --skip-build    # don't rebuild front-end assets
 #   ./deploy/deploy.sh --skip-migrate  # don't run migrations
+#   ./deploy/deploy.sh --skip-audit    # don't gate on composer/npm security advisories
 # ─────────────────────────────────────────────────────────────────────────────
 # -E so the ERR trap fires from inside run()/artisan() too, not just top level.
 set -Eeuo pipefail
@@ -26,7 +27,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." >/dev/null 2>&1 && pwd)"
 cd "${REPO_ROOT}"
 
-ASSUME_YES=0 DRY_RUN=0 MAINTENANCE=0 FORCE_ALL=0 SKIP_BUILD=0 SKIP_MIGRATE=0
+ASSUME_YES=0 DRY_RUN=0 MAINTENANCE=0 FORCE_ALL=0 SKIP_BUILD=0 SKIP_MIGRATE=0 SKIP_AUDIT=0
 for arg in "$@"; do
     case "${arg}" in
         -y|--yes)        ASSUME_YES=1 ;;
@@ -35,7 +36,8 @@ for arg in "$@"; do
         --all|--force)   FORCE_ALL=1 ;;
         --skip-build)    SKIP_BUILD=1 ;;
         --skip-migrate)  SKIP_MIGRATE=1 ;;
-        -h|--help)       sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --skip-audit)    SKIP_AUDIT=1 ;;
+        -h|--help)       sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "✗ unknown flag: ${arg} (try --help)" >&2; exit 1 ;;
     esac
 done
@@ -192,7 +194,8 @@ fi
 echo "  composer install ....... $([ "${DO_COMPOSER}"   = 1 ] && echo yes || echo no)"
 echo "  npm build .............. $([ "${DO_BUILD}"      = 1 ] && echo yes || echo no)"
 echo "  migrations ............. $([ "${DO_MIGRATE}"    = 1 ] && echo yes || echo no)"
-echo "  supervisor confs ....... $([ "${DO_SUPERVISOR}" = 1 ] && echo 'CHANGED — see step 8' || echo no)"
+echo "  supervisor confs ....... $([ "${DO_SUPERVISOR}" = 1 ] && echo 'CHANGED — see the Supervisor step' || echo no)"
+echo "  dependency audit ....... $([ "${SKIP_AUDIT}" = 1 ] && echo 'skipped (--skip-audit)' || echo yes)"
 
 # ── 4. maintenance mode (opt-in) ─────────────────────────────────────────────
 LOWERED=0
@@ -204,7 +207,81 @@ if [ "${MAINTENANCE}" = 1 ]; then
     trap 'if [ "${LOWERED}" = 1 ]; then echo; echo "${YEL}bringing site back up…${OFF}"; "${ARTISAN[@]}" up || true; fi' EXIT
 fi
 
-# ── 5. PHP deps ──────────────────────────────────────────────────────────────
+# ── 5. dependency audit ──────────────────────────────────────────────────────
+# Known-vulnerable packages are the likeliest way this app gets owned (a Laravel
+# auth bypass shipped as a framework CVE in 2026; Packagist tags were hijacked
+# for Laravel-Lang in 2026-05). The lockfile we are about to install is checked
+# against the advisory databases BEFORE anything is installed or built.
+#
+#   composer: a CRITICAL advisory in a production dep stops the deploy
+#             (--skip-audit to override for a hotfix; then fix the lockfile).
+#             Anything lower is reported and the deploy continues.
+#   npm:      runtime (non-dev) deps at high+ are a WARNING — these ship in the
+#             browser bundle, so they matter, but a transitive advisory in a
+#             rendering lib must not block an unrelated server hotfix.
+#
+# Read-only, so it runs in --dry-run too. Runbook: deploy/security/README.md.
+step "Dependency audit"
+if [ "${SKIP_AUDIT}" = 1 ]; then
+    skip "--skip-audit"
+else
+    if ! command -v composer >/dev/null 2>&1; then
+        warn "composer not found — PHP dependency audit skipped"
+    else
+        AUDIT_JSON="$(composer audit --no-dev --locked --format=json --no-interaction 2>/dev/null || true)"
+        # One line per vulnerable package: "<pkg> <worst-severity> <n>"; the
+        # first line is the totals. PHP is on the box; jq is not guaranteed.
+        AUDIT_REPORT="$(printf '%s' "${AUDIT_JSON}" | php -r '
+            $j = json_decode(stream_get_contents(STDIN), true) ?: [];
+            $rank = ["critical" => 4, "high" => 3, "medium" => 2, "low" => 1];
+            $totals = ["critical" => 0, "high" => 0, "medium" => 0, "low" => 0, "unknown" => 0];
+            $rows = [];
+            foreach (($j["advisories"] ?? []) as $pkg => $advs) {
+                $worst = "unknown"; $n = 0;
+                foreach ($advs as $a) {
+                    $n++;
+                    $s = strtolower((string) ($a["severity"] ?? ""));
+                    $s = isset($rank[$s]) ? $s : "unknown";
+                    $totals[$s]++;
+                    if (($rank[$s] ?? 0) > ($rank[$worst] ?? 0)) { $worst = $s; }
+                }
+                $rows[] = sprintf("%-36s %-8s %d", $pkg, $worst, $n);
+            }
+            $abandoned = count($j["abandoned"] ?? []);
+            printf("critical=%d high=%d medium=%d low=%d unknown=%d packages=%d abandoned=%d\n",
+                $totals["critical"], $totals["high"], $totals["medium"], $totals["low"], $totals["unknown"], count($rows), $abandoned);
+            echo implode("\n", $rows);
+        ' 2>/dev/null || echo 'critical=0 high=0 medium=0 low=0 unknown=0 packages=0 abandoned=0')"
+        AUDIT_TOTALS="$(echo "${AUDIT_REPORT}" | head -n1)"
+        AUDIT_CRITICAL="$(echo "${AUDIT_TOTALS}" | sed -E 's/.*critical=([0-9]+).*/\1/')"
+        AUDIT_PACKAGES="$(echo "${AUDIT_TOTALS}" | sed -E 's/.*packages=([0-9]+).*/\1/')"
+        if [ -z "${AUDIT_JSON}" ]; then
+            warn "composer audit produced no output (old composer? offline?) — PHP deps NOT checked"
+        elif [ "${AUDIT_PACKAGES}" = "0" ]; then
+            ok "composer audit: no known advisories in production dependencies"
+        else
+            echo "${DIM}$(echo "${AUDIT_REPORT}" | tail -n +2 | sed 's/^/    /')${OFF}"
+            if [ "${AUDIT_CRITICAL}" != "0" ]; then
+                echo "  ${RED}${AUDIT_TOTALS}${OFF}"
+                die "composer audit: ${AUDIT_CRITICAL} CRITICAL advisory(ies) in production deps — fix the lockfile (composer audit --no-dev for details), or --skip-audit for an emergency hotfix"
+            fi
+            warn "composer audit: ${AUDIT_TOTALS} — composer audit --no-dev for details (deploy/security/README.md)"
+        fi
+    fi
+
+    if ! command -v npm >/dev/null 2>&1 || [ ! -f package-lock.json ]; then
+        skip "npm audit: npm or package-lock.json not present"
+    else
+        if NPM_AUDIT="$(npm audit --omit=dev --audit-level=high 2>&1)"; then
+            ok "npm audit: no high/critical advisories in runtime (browser) dependencies"
+        else
+            NPM_LINE="$(echo "${NPM_AUDIT}" | grep -E '^[0-9]+ vulnerabilit' | tail -n1)"
+            warn "npm audit: ${NPM_LINE:-high/critical advisories} in runtime deps — npm audit --omit=dev for details"
+        fi
+    fi
+fi
+
+# ── 6. PHP deps ──────────────────────────────────────────────────────────────
 step "PHP dependencies"
 if [ "${DO_COMPOSER}" = 1 ]; then
     command -v composer >/dev/null 2>&1 || die "composer not found but composer.lock changed"
@@ -215,7 +292,7 @@ else
     skip "composer.lock unchanged"
 fi
 
-# ── 6. front-end assets ──────────────────────────────────────────────────────
+# ── 7. front-end assets ──────────────────────────────────────────────────────
 step "Front-end assets"
 if [ "${DO_BUILD}" = 1 ]; then
     command -v npm >/dev/null 2>&1 || die "npm not found but front-end changed"
@@ -232,7 +309,7 @@ else
     skip "no front-end changes"
 fi
 
-# ── 7. migrations + caches ───────────────────────────────────────────────────
+# ── 8. migrations + caches ───────────────────────────────────────────────────
 step "Database migrations"
 if [ "${DO_MIGRATE}" = 1 ]; then
     echo "  ${DIM}pending:${OFF}"
@@ -260,7 +337,7 @@ run_soft "${ARTISAN[@]}" view:cache
 DID_CACHES=yes
 ok "config + route caches rebuilt"
 
-# ── 8. supervisor confs (only when they changed) ─────────────────────────────
+# ── 9. supervisor confs (only when they changed) ─────────────────────────────
 if [ "${DO_SUPERVISOR}" = 1 ]; then
     step "Supervisor confs changed"
     echo "  ${DIM}$(echo "${CHANGED}" | grep '^deploy/supervisor/.*\.conf$' | sed 's/^/    /')${OFF}"
@@ -276,7 +353,7 @@ if [ "${DO_SUPERVISOR}" = 1 ]; then
     fi
 fi
 
-# ── 9. workers ───────────────────────────────────────────────────────────────
+# ── 10. workers ───────────────────────────────────────────────────────────────
 step "Queue workers"
 # Graceful: each worker finishes its current job, exits, supervisor relaunches
 # it on the new code. A worker that isn't cycled keeps running PRE-DEPLOY code.
@@ -286,7 +363,28 @@ artisan queue:restart
 DID_WORKERS=yes
 ok "queue:restart signalled (workers reload after their current job)"
 
-# ── 10. maintenance off ──────────────────────────────────────────────────────
+# ── 11. AIDE baseline (only where AIDE is installed) ─────────────────────────
+# AIDE (deploy/security/README.md) reports any file under /var/www/hyperlit that
+# changed since its baseline — the "web shell / backdoored vendor" alarm. A
+# deploy legitimately rewrites hundreds of those files, so the deploy accepts
+# the new state as the baseline; otherwise tomorrow's report is a wall of noise
+# with the one real change buried in it. Needs sudo: give marx a NOPASSWD line
+# for exactly this script (README) so --yes deploys stay unattended.
+if command -v aide.wrapper >/dev/null 2>&1 && [ -f /var/lib/aide/aide.db ]; then
+    step "AIDE baseline"
+    if [ "${BEFORE}" = "${AFTER}" ] && [ "${DID_COMPOSER}" = no ] && [ "${DID_BUILD}" = no ] && [ "${FORCE_ALL}" != 1 ]; then
+        skip "no code changed on disk (caches live in excluded dirs)"
+    elif [ "${ASSUME_YES}" = 1 ]; then
+        run_soft sudo -n "${REPO_ROOT}/deploy/security/aide/rebaseline.sh"
+    else
+        run_soft sudo "${REPO_ROOT}/deploy/security/aide/rebaseline.sh"
+    fi
+    if printf '%s\n' "${WARNINGS[@]:-}" | grep -q 'rebaseline.sh'; then
+        warn "AIDE baseline NOT refreshed — run: sudo ./deploy/security/aide/rebaseline.sh, or the next daily report lists every deployed file"
+    fi
+fi
+
+# ── 12. maintenance off ──────────────────────────────────────────────────────
 if [ "${MAINTENANCE}" = 1 ]; then
     step "Maintenance mode OFF"
     artisan up
@@ -294,7 +392,7 @@ if [ "${MAINTENANCE}" = 1 ]; then
     trap - EXIT
 fi
 
-# ── 11. verify ───────────────────────────────────────────────────────────────
+# ── 13. verify ───────────────────────────────────────────────────────────────
 step "Verify"
 if [ "${DRY_RUN}" = 1 ]; then
     echo "  ${DIM}would run: workers.sh status / backlog + HTTP check${OFF}"

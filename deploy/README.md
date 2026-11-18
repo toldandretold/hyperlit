@@ -23,9 +23,11 @@ Then a deploy is `hd`, and worker chores are `hw status` / `hw logs citation -f`
 - **Preflight** — checks you're in the app root, warns about local modifications, and works out which user artisan must run as (bootstrap/cache's owner, so php-fpm can still rewrite the caches afterwards).
 - **Pull** — `git fetch` + `git pull --ff-only`, printing the incoming commits.
 - **Decides the plan from the diff** — `composer install` only if `composer.lock` moved; `npm run build` only if `resources/` / `vite.config.js` / `package*.json` / `public/sw.js` / `scripts/` moved; `php artisan migrate` only if a migration is new or `migrate:status` reports pending; supervisor-conf install only if a `.conf` changed. It prints this plan before doing any of it.
+- **Audits the lockfiles** before installing anything — `composer audit` on production deps (a CRITICAL advisory stops the deploy; lower severities are listed and warned) and `npm audit --omit=dev` at high+ (warning). `--skip-audit` for an emergency hotfix; the fix is the lockfile, see `security/README.md` §7.
 - **Migrations pause for a y/N** (skip the prompt with `--yes`), showing you the pending list first. Everything else is unattended.
 - **Rebuilds config / route / view caches.**
 - **Restarts the queue workers gracefully** via `deploy/supervisor/workers.sh restart` — each worker finishes its current job, exits, and Supervisor relaunches it on the new code. This is the step that used to get forgotten and cost days (see `docs/deploy.md` and the stale-worker audio incident).
+- **Re-baselines AIDE** (only where AIDE is installed, only when code on disk changed) so the file-integrity report stays silent about the files the deploy itself rewrote. A failure here is a warning with the manual command, never a failed deploy.
 - **Verifies** — worker status, queue backlog, and an HTTP check on `https://hyperlit.io`, then a one-line pass/fail summary with every warning repeated at the bottom.
 
 ## Flags
@@ -35,6 +37,7 @@ Then a deploy is `hd`, and worker chores are `hw status` / `hw logs citation -f`
 - `--maintenance` — wrap the whole thing in `artisan down` / `artisan up`. Use for a **breaking, non-rolling migration** (a column drop or a NOT NULL add, where neither old-code-new-schema nor new-code-old-schema is safe). `deploy/nodes-rawjson-removal.md` is the worked example of that kind of deploy, backup included.
 - `--all` — run every step even when nothing changed. Use after a manual `git pull`, or to force a rebuild.
 - `--skip-build` / `--skip-migrate` — opt out of one step.
+- `--skip-audit` — don't gate on `composer audit` / `npm audit`. The deploy STOPS on a CRITICAL advisory in a production Composer package (and warns on anything lower, and on high+ npm runtime deps). Use this only for an emergency hotfix, then fix the lockfile — see `security/README.md` §7.
 - `HYPERLIT_URL=... ` overrides the URL the verify step curls; `HYPERLIT_WEB_USER=...` overrides the artisan user if the ownership guess is wrong.
 
 ## When it warns you
@@ -62,6 +65,7 @@ It stops at the failing step and prints exactly what already happened to prod �
 ## The rest of this folder
 
 - **`supervisor/`** — queue-worker topology: which job class runs on which queue and worker, the RAM budget for the droplet, and `workers.sh` (the `hw` alias). Read it when you add a job class or a queue, not on a routine deploy.
+- **`security/`** — the droplet's security layer: Cloudflare origin lock (ufw) + nginx real-IP, CrowdSec, AIDE file integrity, Lynis, and the dependency-audit gate `deploy.sh` runs. One-off `sudo` install steps live in its README, plus the 10-minute triage for when an alert fires.
 - **`content/README.md`** — the artisan data-repair toolbox (backfills, reconverts, canonical/library fixes) you run on the droplet by hand.
 - **`nodes-rawjson-removal.md`** — the template for a breaking-migration deploy: backup, maintenance window, migrate, reclaim, workers, back up.
 - **`oa-fetch-hardening.md`**, **`search-performance.md`** — one-time prod setup for the open-access fetch ladder and the search stack (host deps, `.env` keys, the `search-supplement` worker). Their steps are one-off; routine deploys are just `hd`.
@@ -72,3 +76,4 @@ It stops at the failing step and prints exactly what already happened to prod �
 - **ffmpeg** — `apt install ffmpeg`, needed by the whole-book `.m4b` audiobook download only. Without it the button simply never appears. Verify as the web/queue user, not your login shell.
 - **Node + npm** — the droplet builds assets in-place, so `npm ci` / `npm run build` must work there.
 - **`.env` must NOT set `DB_QUEUE_RETRY_AFTER`** — it would override the 7500s config default and let long jobs be re-reserved and run twice.
+- **Security layer** (ufw origin lock, nginx real-IP, CrowdSec, AIDE) — `security/README.md`. The deploy's "AIDE baseline" step only runs where AIDE is installed, and needs the one-line sudoers rule in that README for unattended `--yes` deploys.
