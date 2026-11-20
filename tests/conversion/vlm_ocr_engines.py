@@ -122,9 +122,35 @@ def parse_generic(text):
     return _strip_fences(text)
 
 
+_OLMOCR_FM_KEY = re.compile(
+    r"^(primary_language|is_rotation_valid|rotation_correction|is_table|is_diagram)\s*:")
+
+
+def _strip_olmocr_fenced_front_matter(t):
+    """olmOCR-2 on DeepInfra wraps its front matter in a ```yaml fence and puts
+    the page text AFTER the closing fence. `_strip_fences` drops only the opening
+    line (the text doesn't END with ```), leaving the bare YAML keys plus a stray
+    closing fence glued onto every page — the 109 "stray code-fence" lines the
+    2026-08-20 full run stripped. Idempotent, so it also cleans cached pages that
+    were saved through the old parser."""
+    lines = t.split("\n")
+    i = 0
+    if i < len(lines) and lines[i].strip() == "---":
+        i += 1
+    j = i
+    while j < len(lines) and _OLMOCR_FM_KEY.match(lines[j].strip()):
+        j += 1
+    if j == i:
+        return t
+    while j < len(lines) and lines[j].strip() in ("---", "```", ""):
+        j += 1
+    return "\n".join(lines[j:])
+
+
 def parse_olmocr(text):
     """Strip olmOCR's YAML front matter (or the older JSON-object form)."""
     t = _strip_fences(text)
+    t = _strip_olmocr_fenced_front_matter(t)
     if t.startswith("---"):
         end = t.find("\n---", 3)
         if end != -1:
@@ -157,7 +183,141 @@ def parse_deepseek(text):
     return re.sub(r"\n{3,}", "\n\n", t).strip()
 
 
-PARSERS = {"generic": parse_generic, "olmocr": parse_olmocr, "deepseek": parse_deepseek}
+# ------------------------------------------------------------------ dots.ocr
+#
+# dots.ocr / dots.mocr answer prompt_layout_all_en with a JSON LIST of cells
+# {"bbox": [x1,y1,x2,y2], "category": ..., "text": ...} in reading order, with
+# categories Caption / Footnote / Formula / List-item / Page-footer /
+# Page-header / Picture / Section-header / Table / Text / Title (Formula text
+# is LaTeX, Table text is HTML, the rest Markdown). That is the closest any
+# open engine comes to Mistral's own shape, so instead of flattening it to
+# prose we MAP it: Page-header/Page-footer → the page's header/footer fields
+# (assembly.py's footer rescue reads `footer`), Footnote cells → `[^N]:`
+# definition lines, Section-header/Title → markdown headings.
+#
+# The page cache stores the RAW model response for this parser (EngineSpec.
+# raw_page_cache) and parsing happens at assembly, so improving this mapping
+# never needs a re-fetch from a paid GPU.
+
+_DOTS_LEADING_NUM = re.compile(
+    r"^\s*(?:\[\^?(\d{1,4})\]:?|\$\^\{?(\d{1,4})\}?\$|<sup>(\d{1,4})</sup>|"
+    r"([¹²³⁴⁵⁶⁷⁸⁹⁰]+)|(\d{1,4})(?=[\s.)]))[\s.):]*")
+_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
+_SUP_MARKER = re.compile(r"<sup>(\d{1,4})</sup>")
+
+
+def _dots_cells(raw):
+    """Decode the cell list; salvage complete cells from truncated JSON (a page
+    that hit max_tokens). Returns None when the answer is not cell JSON."""
+    t = _strip_fences(raw)
+    try:
+        cells = json.loads(t)
+        if isinstance(cells, dict):
+            cells = cells.get("cells") or cells.get("layout") or [cells]
+        return [c for c in cells if isinstance(c, dict)] if isinstance(cells, list) else None
+    except ValueError:
+        pass
+    if not t.lstrip().startswith(("[", "{")):
+        return None
+    dec, cells, i = json.JSONDecoder(), [], 0
+    while True:
+        i = t.find("{", i)
+        if i == -1:
+            break
+        try:
+            obj, end = dec.raw_decode(t, i)
+        except ValueError:
+            i += 1
+            continue
+        if isinstance(obj, dict) and "category" in obj:
+            cells.append(obj)
+        i = end
+    return cells
+
+
+def _dots_footnote_lines(text):
+    """'1 Smith, A. (2010)…\\n2 Ibid.' → ['[^1]: Smith…', '[^2]: Ibid.'].
+    Lines without a leading number continue the previous definition; a cell
+    with no number at all is returned unchanged (the pipeline's own def
+    recovery still gets a go at it)."""
+    out = []
+    for line in (text or "").split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        m = _DOTS_LEADING_NUM.match(line)
+        num = next((g for g in m.groups() if g), None) if m else None
+        if num:
+            num = num.translate(_SUPERSCRIPT_DIGITS)
+            out.append(f"[^{int(num)}]: {line[m.end():].strip()}")
+        elif out and out[-1].startswith("[^"):
+            out[-1] += " " + line
+        else:
+            out.append(line)
+    return out
+
+
+def parse_dots_page(raw):
+    """Raw dots answer → {"markdown", "header", "footer"} (Mistral page shape)."""
+    cells = _dots_cells(raw)
+    if cells is None:  # prose answer (e.g. prompt_ocr) — treat as plain markdown
+        return {"markdown": _strip_fences(raw), "header": "", "footer": ""}
+    body, header, footer = [], [], []
+    for c in cells:
+        cat = c.get("category", "Text")
+        text = (c.get("text") or "").strip()
+        if cat == "Picture" or not text:
+            continue  # images are not extracted in the eval (images: [])
+        if cat == "Page-header":
+            header.append(text)
+        elif cat == "Page-footer":
+            footer.append(text)
+        elif cat == "Footnote":
+            body.extend(_dots_footnote_lines(text))
+        elif cat in ("Title", "Section-header"):
+            body.append(text if text.startswith("#") else ("# " if cat == "Title" else "## ") + text)
+        elif cat == "Formula":
+            body.append(text if text.startswith("$$") else f"$$\n{text.strip('$').strip()}\n$$")
+        elif cat == "Table":
+            # simple_md_to_html passes block HTML through only as `<table ` (with
+            # attributes); a bare `<table>` would be escaped as a paragraph.
+            body.append(re.sub(r"^<table>", '<table class="ocr-table">', text))
+        else:
+            body.append(_SUP_MARKER.sub(r"[^\1]", text))
+    return {"markdown": "\n\n".join(body), "header": "\n".join(header),
+            "footer": "\n".join(footer)}
+
+
+def parse_dots(raw):
+    return parse_dots_page(raw)["markdown"]
+
+
+# dots' own prompt_layout_all_en, verbatim from rednote-hilab/dots.ocr
+# dots_ocr/utils/prompts.py. The <|img|><|imgpad|><|endofimg|> prefix is what
+# their inference_with_vllm sends (without it vLLM v1 inserts a "\n"), and the
+# image goes FIRST in the content list.
+DOTS_PROMPT = "<|img|><|imgpad|><|endofimg|>" + """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+
+3. Text Extraction & Formatting Rules:
+    - Picture: For the 'Picture' category, the text field should be omitted.
+    - Formula: Format its text as LaTeX.
+    - Table: Format its text as HTML.
+    - All Others (Text, Title, etc.): Format their text as Markdown.
+
+4. Constraints:
+    - The output text must be the original text from the image, with no translation.
+    - All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object.
+"""
+
+
+PARSERS = {"generic": parse_generic, "olmocr": parse_olmocr, "deepseek": parse_deepseek,
+           "dots": parse_dots}
 
 
 # -------------------------------------------------------------------- engines
@@ -182,9 +342,38 @@ class EngineSpec:
     # is how a corpus run silently eats hours. Local servers legitimately take
     # minutes per page, so they keep the long leash.
     request_timeout: int = 120
+    temperature: float = 0.0
+    top_p: float | None = None
+    image_first: bool = False      # put the image before the prompt text (dots)
+    raw_page_cache: bool = False   # cache the raw answer; parse at assembly
+
+
+# Rented GPU running vLLM (see pod_ocr_eval.sh). base_url is a placeholder —
+# the wrapper passes the pod's URL with --base-url. Settings follow dots' own
+# parser: 200-dpi-ish render (≈2200px long side), temperature 0.1 / top_p 0.9,
+# and a generous output budget — bbox JSON is verbose, and the 4096 cap the
+# DeepInfra presets use truncated ~1% of pages on every engine (2026-11-19).
+_POD_DOTS = dict(
+    base_url="http://localhost:8000/v1",
+    model="model",          # vllm serve ... --served-model-name model
+    api_key_env="OCR_POD_KEY",
+    prompt=DOTS_PROMPT,
+    parser="dots",
+    price_in_per_mtok=0.0,  # billed by the hour; cost/page = $/hr ÷ pages/hr
+    price_out_per_mtok=0.0,
+    max_long_side_px=2200,
+    concurrency=8,          # vLLM batches concurrent requests on one GPU
+    max_tokens=16384,
+    request_timeout=600,
+    temperature=0.1,
+    top_p=0.9,
+    image_first=True,
+    raw_page_cache=True,
+)
 
 
 PRESETS = {
+    "pod-dots": EngineSpec(name="pod-dots", **_POD_DOTS),
     "deepinfra-olmocr2": EngineSpec(
         name="deepinfra-olmocr2",
         base_url="https://api.deepinfra.com/v1/openai",
@@ -318,20 +507,21 @@ def transcribe_page(jpeg_bytes, spec, api_key):
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+    text_part = {"type": "text", "text": spec.prompt}
+    image_part = {"type": "image_url", "image_url": {
+        "url": "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode(),
+    }}
     body = {
         "model": spec.model,
-        "temperature": 0,
+        "temperature": spec.temperature,
         "max_tokens": spec.max_tokens,
         "messages": [{
             "role": "user",
-            "content": [
-                {"type": "text", "text": spec.prompt},
-                {"type": "image_url", "image_url": {
-                    "url": "data:image/jpeg;base64," + base64.b64encode(jpeg_bytes).decode(),
-                }},
-            ],
+            "content": [image_part, text_part] if spec.image_first else [text_part, image_part],
         }],
     }
+    if spec.top_p is not None:
+        body["top_p"] = spec.top_p
     r = httpx.post(spec.base_url.rstrip("/") + "/chat/completions",
                    headers=headers, json=body, timeout=spec.request_timeout)
     r.raise_for_status()
@@ -341,7 +531,7 @@ def transcribe_page(jpeg_bytes, spec, api_key):
     except (KeyError, IndexError, TypeError):
         raise ValueError(f"no choices[0].message.content in response: {str(data)[:200]}")
     usage = data.get("usage") or {}
-    return PARSERS[spec.parser](content), {
+    return (content if spec.raw_page_cache else PARSERS[spec.parser](content)), {
         "prompt_tokens": usage.get("prompt_tokens", 0),
         "completion_tokens": usage.get("completion_tokens", 0),
     }
@@ -440,6 +630,13 @@ def fetch_engine_ocr(pdf_path, spec, cache_dir, api_key=None, refresh=False):
         md_file = pages_dir / f"page_{i:04d}.md"
         meta_file = pages_dir / f"page_{i:04d}.meta.json"
         md = md_file.read_text(encoding="utf-8") if md_file.exists() else ""
+        header = footer = ""
+        if md and spec.parser == "olmocr":
+            # Re-clean pages cached through an older parser (parse is idempotent).
+            md = parse_olmocr(md)
+        elif md and spec.parser == "dots":
+            parsed = parse_dots_page(md)  # cache holds the raw cell JSON
+            md, header, footer = parsed["markdown"], parsed["header"], parsed["footer"]
         if not md_file.exists():
             failed.append(i)
         if meta_file.exists():
@@ -457,8 +654,8 @@ def fetch_engine_ocr(pdf_path, spec, cache_dir, api_key=None, refresh=False):
             "dimensions": {"dpi": 72, "height": int(rect.height), "width": int(rect.width)},
             "tables": [],
             "hyperlinks": [],
-            "header": "",
-            "footer": "",
+            "header": header,
+            "footer": footer,
         })
     doc.close()
 
