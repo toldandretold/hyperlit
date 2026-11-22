@@ -231,7 +231,12 @@ export class EnterKeyHandler {
         return;
       }
 
-      // SECTION 2: Handle blockquote and pre (code blocks)
+      // SECTION 2a: code blocks — newlines are TEXT, never <br> + zero-width spaces.
+      if (blockElement.tagName === "PRE" && this._handlePreEnter(ctx)) {
+        return;
+      }
+
+      // SECTION 2: Handle blockquote and pre (code blocks — mid-block triple-Enter split)
       if (
         blockElement.tagName === "BLOCKQUOTE" ||
         blockElement.tagName === "PRE"
@@ -411,6 +416,51 @@ export class EnterKeyHandler {
 
         this.enterCount = 0;
         return;
+  }
+
+  /**
+   * Enter inside a code block. Code holds its line breaks as "\n" TEXT: the
+   * old shared blockquote path inserted `<br>` + a zero-width space per Enter,
+   * so typed code carried invisible characters into every copy (and Python
+   * pasted elsewhere broke). Returns false to defer to the shared path (only
+   * the triple-Enter split from the MIDDLE of a block, which that path owns).
+   */
+  _handlePreEnter(ctx: PreEnterContext): boolean {
+    const { event, selection, range, blockElement, chunkContainer } = ctx;
+    const code: Element = blockElement.querySelector(":scope > code") ?? blockElement;
+    if (!code.contains(range.startContainer) && range.startContainer !== code) return false;
+
+    const tail = document.createRange();
+    tail.setStart(range.endContainer, range.endOffset);
+    tail.setEnd(code, code.childNodes.length);
+    const after = tail.toString();
+    const atEnd = after.replace(/[\s\u200B]/g, "") === "";
+
+    // Triple Enter at the end leaves the block (shift never does).
+    if (!event.shiftKey && this.enterCount >= 3) {
+      if (!atEnd) return false;
+      event.preventDefault();
+      stripTrailingWhitespace(code);
+      if (blockElement.id) queueNodeForSave(blockElement.id, "update");
+      createAndInsertParagraph(blockElement, chunkContainer, null, selection);
+      this.enterCount = 0;
+      return true;
+    }
+
+    event.preventDefault();
+    range.deleteContents();
+    // A lone trailing "\n" renders no new line, so at the very end a second
+    // newline holds the caret's line open.
+    const nl = document.createTextNode(after === "" ? "\n\n" : "\n");
+    range.insertNode(nl);
+    const caret = document.createRange();
+    caret.setStart(nl, 1);
+    caret.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(caret);
+    if (blockElement.id) queueNodeForSave(blockElement.id, "update");
+    if (event.shiftKey) this.enterCount = 0;
+    return true;
   }
 
   _handleBlockquotePreEnter(ctx: any): void {
@@ -874,5 +924,27 @@ export class EnterKeyHandler {
   destroy() {
     document.removeEventListener("keydown", this.handleKeyDown);
     verbose.content("EnterKeyHandler destroyed", 'divEditor/enterKeyHandler.js');
+  }
+}
+
+interface PreEnterContext {
+  event: KeyboardEvent;
+  selection: Selection;
+  range: Range;
+  blockElement: HTMLElement;
+  chunkContainer: Element;
+}
+
+/** Remove trailing newlines / whitespace / zero-width spaces / <br>s from a code element. */
+function stripTrailingWhitespace(code: Element): void {
+  while (code.lastChild) {
+    const last = code.lastChild;
+    if (last.nodeName === "BR") { last.remove(); continue; }
+    if (last.nodeType === Node.TEXT_NODE) {
+      const trimmed = (last.textContent ?? "").replace(/[\s\u200B]+$/, "");
+      if (trimmed === "") { last.remove(); continue; }
+      last.textContent = trimmed;
+    }
+    break;
   }
 }

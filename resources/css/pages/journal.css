@@ -72,3 +72,4 @@
 @import url('../components/journalHome.css');
 /* — the owner-minted archive page's customization (userPageEditor) — */
 @import url('../components/userPageHero.css');
+@import url('../components/codeBlocks.css');

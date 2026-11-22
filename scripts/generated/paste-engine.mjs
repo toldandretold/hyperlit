@@ -153,11 +153,21 @@ function normalizeSpaces(html) {
 }
 function normalizeContent(text, isHtml = false) {
   if (!text) return text;
-  let normalized = normalizeQuotes(text);
   if (isHtml) {
-    normalized = normalizeSpaces(normalized);
+    return mapOutsideCode(text, (prose) => normalizeSpaces(normalizeQuotes(prose)));
   }
-  return normalized;
+  return normalizeQuotes(text);
+}
+var CODE_REGION_RE = /<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>/gi;
+function mapOutsideCode(html, fn) {
+  if (!/<(pre|code)[\s>]/i.test(html)) return fn(html);
+  let out = "";
+  let last = 0;
+  for (const m of html.matchAll(CODE_REGION_RE)) {
+    out += fn(html.slice(last, m.index)) + m[0];
+    last = m.index + m[0].length;
+  }
+  return out + fn(html.slice(last));
 }
 
 // resources/js/utilities/blockElements.ts
@@ -198,6 +208,41 @@ var STRUCTURAL_BLOCK_TAGS = /* @__PURE__ */ new Set([
 function isStructuralBlockTag(tagName) {
   return STRUCTURAL_BLOCK_TAGS.has(tagName.toUpperCase());
 }
+
+// resources/js/codeBlocks/language.ts
+var LANGUAGE_CLASS_RE = /^language-[a-z0-9+#-]{1,30}$/;
+var CODE_LANGUAGES = [
+  { id: "python", label: "Python", aliases: ["py", "python3", "gyp"] },
+  { id: "javascript", label: "JavaScript", aliases: ["js", "jsx", "mjs", "cjs", "node"] },
+  { id: "typescript", label: "TypeScript", aliases: ["ts", "tsx", "mts", "cts"] },
+  { id: "r", label: "R", aliases: ["rlang", "rscript"] },
+  { id: "bash", label: "Bash", aliases: ["sh", "zsh", "shell-script"] },
+  { id: "shell", label: "Shell session", aliases: ["console", "shellsession", "terminal"] },
+  { id: "sql", label: "SQL", aliases: ["postgres", "postgresql", "mysql", "sqlite", "plsql"] },
+  { id: "json", label: "JSON", aliases: ["jsonc", "json5"] },
+  { id: "yaml", label: "YAML", aliases: ["yml"] },
+  { id: "xml", label: "HTML / XML", aliases: ["html", "xhtml", "svg", "rss", "atom", "xsl", "plist", "vue"] },
+  { id: "css", label: "CSS", aliases: ["scss", "less"] },
+  { id: "php", label: "PHP", aliases: ["php3", "php4", "php5", "php7", "php8", "blade"] },
+  { id: "java", label: "Java", aliases: ["jsp"] },
+  { id: "c", label: "C", aliases: ["h"] },
+  { id: "cpp", label: "C++", aliases: ["c++", "cc", "cxx", "hpp", "hh", "hxx"] },
+  { id: "go", label: "Go", aliases: ["golang"] },
+  { id: "rust", label: "Rust", aliases: ["rs"] },
+  { id: "ruby", label: "Ruby", aliases: ["rb", "gemspec", "podspec"] },
+  { id: "latex", label: "LaTeX", aliases: ["tex"] },
+  { id: "markdown", label: "Markdown", aliases: ["md", "mkdown", "mkd"] },
+  { id: "diff", label: "Diff", aliases: ["patch"] },
+  { id: "plaintext", label: "Plain text", aliases: ["text", "txt", "plain"] }
+];
+var BY_NAME = (() => {
+  const m = /* @__PURE__ */ new Map();
+  for (const lang of CODE_LANGUAGES) {
+    m.set(lang.id, lang);
+    for (const a of lang.aliases) m.set(a, lang);
+  }
+  return m;
+})();
 
 // resources/js/paste/utils/dom-utils.ts
 function isBlockElement(tagName) {
@@ -254,7 +299,9 @@ function removeEmptyBlocks(container) {
 function stripAttributes(container, idPrefix = "") {
   container.querySelectorAll("*").forEach((el) => {
     el.removeAttribute("style");
+    const lang = el.tagName === "CODE" && el.parentElement?.tagName === "PRE" ? Array.from(el.classList).find((c) => LANGUAGE_CLASS_RE.test(c)) : void 0;
     el.removeAttribute("class");
+    if (lang) el.className = lang;
     if (el.id && !el.id.startsWith(idPrefix)) {
       el.removeAttribute("id");
     }

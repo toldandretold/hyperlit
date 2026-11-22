@@ -12,6 +12,7 @@ import { applyDynamicFootnoteNumbers, queueRenderHeal } from './footnoteSelfHeal
 import { stripTransientNodeClasses } from '../utilities/transientClasses';
 import { handleBrokenImages } from './imageState';
 import { applyImageDims } from './imageDims';
+import { decorateCodeBlocks } from '../codeBlocks/highlight';
 // E2EE (docs/e2ee.md): registry is a zero-import leaf — a cheap SYNC check so
 // plaintext renders (the overwhelming majority) skip the hydration import entirely.
 import { isBookEncrypted, rootBookId } from '../e2ee/registry';
@@ -296,6 +297,12 @@ export function createChunkElement(nodes: NodeRecord[], instance: any) {
     renderHarvestNetworks(temp);
     renderCitationPaths(temp);
     renderReviewMethod(temp);
+    // 🎨 CODE BLOCKS: header bar (language / copy / expand) + syntax colours.
+    // Render-time only — contentProcessor strips it all via stripCodeDecoration.
+    // Runs after hyperlights/hypercites so their <mark>/<u> are preserved (token
+    // spans only split text nodes; the text itself never changes). Offscreen
+    // measurement renders get the header (it has height) but skip colouring.
+    decorateCodeBlocks(temp, { colour: !instance.offscreen });
     // Dims BEFORE handleBrokenImages: its settle-compensation belt skips imgs
     // that already carry width/height attrs — a sized img needs no chasing.
     applyImageDims(temp);

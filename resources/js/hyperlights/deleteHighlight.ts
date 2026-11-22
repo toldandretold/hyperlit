@@ -7,6 +7,7 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  * Split out of the old selection.js monster (2026-06).
  */
 
+import { HIGHLIGHTABLE_BLOCK_WITH_ID } from './calculations';
 import { queueForSync, updateBookTimestamp } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodesWithDeletion } from './database';
 import { unwrapMark, unwrapElement, isContentLink } from './deletion';
@@ -99,7 +100,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
     const anchorRoot = (selectionRange.commonAncestorContainer.nodeType === Node.TEXT_NODE
       ? selectionRange.commonAncestorContainer.parentElement
       : selectionRange.commonAncestorContainer) as HTMLElement | null;
-    const linkSearchRoot = anchorRoot?.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id], .main-content, [data-book-id]') || anchorRoot;
+    const linkSearchRoot = anchorRoot?.closest(`${HIGHLIGHTABLE_BLOCK_WITH_ID}, .main-content, [data-book-id]`) || anchorRoot;
     if (linkSearchRoot && linkSearchRoot.querySelectorAll) {
       const anchors = linkSearchRoot.querySelectorAll('a[href]');
       anchors.forEach(anchor => {
@@ -133,7 +134,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
       allMarksWithClass.forEach(markEl => {
         const mark = markEl as HTMLElement;
         const container = mark.closest(
-          "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+          HIGHLIGHTABLE_BLOCK_WITH_ID
         );
         if (container && container.id) {
           affectedNodes.add(container.id);
@@ -145,7 +146,7 @@ export async function deleteHighlightHandler(event: Event, bookId: BookId): Prom
     // Unwrap content links
     linksToUnwrap.forEach(anchor => {
       const container = anchor.closest(
-        "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+        HIGHLIGHTABLE_BLOCK_WITH_ID
       );
       if (container && container.id) {
         affectedNodes.add(container.id);

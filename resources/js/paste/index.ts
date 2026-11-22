@@ -37,6 +37,7 @@ import {
 
 // Import handlers
 import { handleCodeBlockPaste } from './handlers/codeBlockHandler';
+import { VSCODE_MIME, editorClipboardAsCode, rawHtmlSourceAsCode, plainTextAsCode, normalizePastedCodeBlocks } from './codePaste';
 import { handleSmallPaste } from './handlers/smallPasteHandler';
 import { handleLargePaste, undoLastLargePaste } from './handlers/largePasteHandler';
 import { handleHypercitePaste, extractQuotedText } from './handlers/hyperciteHandler';
@@ -425,26 +426,24 @@ async function handlePaste(event: any) {
     // 2) Grab and process clipboard data
     let plainText = event.clipboardData.getData("text/plain");
     let rawHtml = event.clipboardData.getData("text/html") || "";
+    const vscodeMeta = event.clipboardData.getData(VSCODE_MIME) || null;
+
+    // 🧾 PASTE INTO A CODE BLOCK: plain text, verbatim, decided NOW — before any
+    // await (Firefox empties clipboardData once the handler yields) and before
+    // the prose normalisation below touches the text.
+    if (handleCodeBlockPaste(event, null, targetBookId, plainText)) return;
 
     // Pristine clipboard HTML captured SYNCHRONOUSLY (before the smart-quote/mark/dl
     // mutations below). handleHypercitePaste runs after an `await`, by which point
     // Firefox has emptied event.clipboardData — so it must receive this captured copy.
     const pristineClipboardHtml = rawHtml;
 
-    // Strip all smart quotes and backticks immediately to prevent any issues
-    plainText = plainText
-      .replace(/'/g, "'")  // Replace smart single quotes with regular ones
-      .replace(/'/g, "'")  // Replace other smart single quotes
-      .replace(/"/g, '"')  // Replace smart double quotes
-      .replace(/"/g, '"')  // Replace other smart double quotes
-      .replace(/`/g, "'"); // Replace backticks with regular single quotes
-
-    rawHtml = rawHtml
-      .replace(/'/g, "'")  // Replace smart single quotes with regular ones
-      .replace(/'/g, "'")  // Replace other smart single quotes
-      .replace(/"/g, '"')  // Replace smart double quotes
-      .replace(/"/g, '"')  // Replace other smart double quotes
-      .replace(/`/g, "'"); // Replace backticks with regular single quotes
+    // NOTE: a "strip smart quotes and backticks" pass used to run here. Its
+    // smart-quote replacements had decayed into ASCII→ASCII no-ops, and the one
+    // replacement that still worked turned EVERY backtick into "'": a markdown
+    // fence (```) could never become a code block, inline `code` never parsed,
+    // and backticks inside code (JS template literals, shell `…`) were
+    // silently corrupted. Removed; text is pasted as copied.
 
     // 🚨 Strip <mark> tags to prevent them from becoming rogue top-level nodes
     // Mark tags are inline highlights - they should NEVER become their own paragraph/node
@@ -468,28 +467,25 @@ async function handlePaste(event: any) {
     let htmlContent = "";
     let formatType = 'general'; // Default format
 
-    // 🔍 DETECT RAW HTML SOURCE CODE (not rendered content)
-    // If someone pastes HTML source code, wrap it in a code block instead of rendering
-    // NOTE: Only check &lt;/&gt; entities if plainText itself has HTML tag patterns.
-    // This prevents false positives from &lt;/&gt; in DOIs, math, URLs in angle brackets, etc.
-    // (e.g. doi:10.1002/(SICI)1097-0266(199708)18:7<509::AID-SMJ882>3.0.CO;2-Z)
-    // (e.g. <www.example.com>, <http://example.com/path>)
-    // The regex requires tag name followed by whitespace, >, or / — ruling out URLs (which have . or :)
-    const plainTextHasHTMLTags = /<\/?[a-z]+[\s>\/]/i.test(plainText);
-    const looksLikeRawHTMLCode = plainTextHasHTMLTags && (
-      (rawHtml.includes('&lt;') || rawHtml.includes('&gt;')) || // Escaped tags in HTML
-      (rawHtml && !rawHtml.match(/<[a-z]+[^>]*>/i)) // No real tags in HTML
-    );
-
-    if (looksLikeRawHTMLCode) {
-      // Use plainText (which has the actual code) and wrap it in a code block
-      const escapedCode = plainText
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      rawHtml = `<pre><code>${escapedCode}</code></pre>`;
-      plainText = ''; // Clear plainText to force HTML path
+    // 🧾 CODE FROM AN EDITOR: VS Code (its clipboard metadata names the
+    // language) or any editor copying one monospace `white-space: pre`
+    // container → one code block of the exact copied text.
+    // 🔍 RAW HTML SOURCE (clipboard text is markup, its HTML side escaped or
+    // tagless) → a code block of that source rather than rendered content.
+    // 🧾 PLAIN-TEXT CODE with no fence (terminal, chat window, plain editor)
+    // → a code block, BEFORE the markdown path turns `# comments` into headings.
+    const editorCode = editorClipboardAsCode(plainText, rawHtml, vscodeMeta)
+      ?? rawHtmlSourceAsCode(plainText, rawHtml)
+      ?? plainTextAsCode(plainText, rawHtml);
+    if (editorCode) {
+      rawHtml = editorCode;
+      plainText = ''; // force the HTML path
     }
+
+    // 🧾 Canonicalise any <pre> in the clipboard HTML (GitHub, docs sites,
+    // Stack Overflow) to <pre><code class="language-x">TEXT</code></pre> before
+    // the prose-shaping format processors see it.
+    rawHtml = normalizePastedCodeBlocks(rawHtml);
 
     // ✅ CHECK FOR YOUTUBE TRANSCRIPT - format for readability
     const youtubeDetection = detectYouTubeTranscript(plainText, rawHtml);
@@ -617,6 +613,11 @@ async function handlePaste(event: any) {
       }
     }
 
+    // 🧾 …and again on the processed output (idempotent): whatever the
+    // processors / marked / the sanitizer did, a code block leaves this stage as
+    // exactly its text with at most a validated language class.
+    htmlContent = normalizePastedCodeBlocks(htmlContent);
+
     // Definition lists are not an editor node type. Converting them HERE — after
     // the format processors have read whatever publisher meaning the <dl> carried
     // — keeps them out of the book without hiding them from the engine.
@@ -629,7 +630,6 @@ async function handlePaste(event: any) {
       ? document.querySelector(`[data-chunk-id="${chunk}"],[id="${chunk}"]`)
       : null;
     
-    if (handleCodeBlockPaste(event, chunkElement, targetBookId)) return;
 
     // 5) Route to the correct handler (small vs. large paste).
     if (handleSmallPaste(event, htmlContent, plainText, estimatedNodes, targetBookId)) {

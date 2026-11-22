@@ -75,7 +75,7 @@
   /* Typography */
   --font-family-base: 'InterVariable', 'Inter', arial, sans-serif;
   --font-family-display: 'InterVariable', 'Inter', arial, sans-serif;
-  --font-family-mono: "Courier New", Courier, monospace;
+  --font-family-mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
 
   --font-size-base: 22px;
   --font-size-mobile: 17px;
@@ -85,6 +85,24 @@
   --font-size-h4: 1.2em;
   --font-size-h5: 1em;
   --font-size-code: 0.75em;
+
+  /* Code blocks (base/codeBlocks.css). Dark: a lifted grey block on the page.
+     Every token colour clears 4.5:1 against --code-bg. */
+  --code-bg: #2E2B2C;
+  --code-border: rgba(203, 204, 204, 0.12);
+  --code-text: #DCDCDC;
+  --code-label: #A6A1A3;
+  --code-btn-hover: rgba(203, 204, 204, 0.12);
+  --code-keyword: #F06AA8;
+  --code-string: #6CC4C6;
+  --code-number: #F4A259;
+  --code-function: #C3A6FF;
+  --code-type: #E8C468;
+  --code-attr: #82B8EC;
+  --code-comment: #9A9496;
+  --code-meta: #B0AAAC;
+  --code-radius: 12px;
+  --code-font-size: 0.74em;
   --font-size-sup: 0.6em;
 
   --line-height-base: 1.4;

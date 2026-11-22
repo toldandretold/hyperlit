@@ -113,17 +113,19 @@ code {
     padding: 0;
 }
 
-    /* Base styles for code blocks */
+/* Base code block: themed via the --code-* palette (theme/*.css). The
+   decorated reader block (header, syntax colours) is components/codeBlocks.css. */
 pre code {
     display: block;
     padding: 16px;
     margin: 0 0 16px;
     overflow-x: auto;
-    background-color: #f5f5f5;
-    border-radius: 4px;
-    font-size: 90%;
-    color: #333;
-    line-height: 1.5;
+    background-color: var(--code-bg);
+    color: var(--code-text);
+    border-radius: var(--code-radius);
+    font-size: var(--code-font-size);
+    line-height: 1.55;
+    tab-size: 4;
 }
 
 hr {

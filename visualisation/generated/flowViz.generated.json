@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2046,
-    "moduleCount": 431,
+    "fnCount": 2060,
+    "moduleCount": 433,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4291,
+    "edgeCount": 4323,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -7305,6 +7305,14 @@
       "leaf": false
     },
     {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "label": "EnterKeyHandler._handlePreEnter",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/enterKeyHandler/index",
+      "leaf": false
+    },
+    {
       "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.constructor",
       "label": "EnterKeyHandler.constructor",
       "kind": "fn",
@@ -7438,6 +7446,14 @@
       "kind": "fn",
       "stage": "divEditor",
       "module": "divEditor/insertBlockNode",
+      "leaf": false
+    },
+    {
+      "id": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete",
+      "label": "handleCodeBlockDelete",
+      "kind": "fn",
+      "stage": "divEditor",
+      "module": "divEditor/keydownGuards/codeBlockDelete",
       "leaf": false
     },
     {
@@ -7912,6 +7928,22 @@
     {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
       "label": "_mergeBlocksIntoBlockquote",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "label": "_mergeBlocksIntoCode",
+      "kind": "fn",
+      "stage": "editToolbar",
+      "module": "editToolbar/blockFormat/blockquoteCodeFormat",
+      "leaf": false
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "label": "codeLinesToParagraphs",
       "kind": "fn",
       "stage": "editToolbar",
       "module": "editToolbar/blockFormat/blockquoteCodeFormat",
@@ -13623,6 +13655,78 @@
       "leaf": false
     },
     {
+      "id": "paste/codePaste:codeBlockHtml",
+      "label": "codeBlockHtml",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
+      "id": "paste/codePaste:codeTextOf",
+      "label": "codeTextOf",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": false
+    },
+    {
+      "id": "paste/codePaste:editorClipboardAsCode",
+      "label": "editorClipboardAsCode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": false
+    },
+    {
+      "id": "paste/codePaste:normaliseNewlines",
+      "label": "normaliseNewlines",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
+      "id": "paste/codePaste:normalizePastedCodeBlocks",
+      "label": "normalizePastedCodeBlocks",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": false
+    },
+    {
+      "id": "paste/codePaste:plainTextAsCode",
+      "label": "plainTextAsCode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
+      "id": "paste/codePaste:rawHtmlSourceAsCode",
+      "label": "rawHtmlSourceAsCode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
+      "id": "paste/codePaste:toLanguageClass",
+      "label": "toLanguageClass",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
+      "id": "paste/codePaste:vscodeLanguage",
+      "label": "vscodeLanguage",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/codePaste",
+      "leaf": true
+    },
+    {
       "id": "paste/fallback-processor:processContentForFootnotesAndReferences",
       "label": "processContentForFootnotesAndReferences",
       "kind": "fn",
@@ -14957,6 +15061,14 @@
       "stage": "infra",
       "module": "paste/utils/normalizer",
       "leaf": false
+    },
+    {
+      "id": "paste/utils/normalizer:mapOutsideCode",
+      "label": "mapOutsideCode",
+      "kind": "fn",
+      "stage": "infra",
+      "module": "paste/utils/normalizer",
+      "leaf": true
     },
     {
       "id": "paste/utils/normalizer:normalizeContent",
@@ -20274,6 +20386,7 @@
         "divEditor/enterKeyHandler/index:EnterKeyHandler._handleNonSplittableEnter",
         "divEditor/enterKeyHandler/index:EnterKeyHandler._handleOtherEnter",
         "divEditor/enterKeyHandler/index:EnterKeyHandler._handleParagraphEnter",
+        "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
         "divEditor/enterKeyHandler/index:EnterKeyHandler.constructor",
         "divEditor/enterKeyHandler/index:EnterKeyHandler.destroy",
         "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown"
@@ -20339,6 +20452,15 @@
       "fnIds": [
         "divEditor/insertBlockNode:insertBlockNodeAfter",
         "divEditor/insertBlockNode:insertBlockNodeBefore"
+      ]
+    },
+    {
+      "id": "divEditor/keydownGuards/codeBlockDelete",
+      "label": "divEditor/keydownGuards/codeBlockDelete",
+      "stage": "divEditor",
+      "band": "capture",
+      "fnIds": [
+        "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete"
       ]
     },
     {
@@ -20518,6 +20640,8 @@
         "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingUnwrap",
         "editToolbar/blockFormat/blockquoteCodeFormat:_contentPreservingWrap",
         "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+        "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+        "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
         "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
         "editToolbar/blockFormat/blockquoteCodeFormat:unwrapBlock",
         "editToolbar/blockFormat/blockquoteCodeFormat:wrapBlock"
@@ -22481,6 +22605,23 @@
       ]
     },
     {
+      "id": "paste/codePaste",
+      "label": "paste/codePaste",
+      "stage": "infra",
+      "band": "capture",
+      "fnIds": [
+        "paste/codePaste:codeBlockHtml",
+        "paste/codePaste:codeTextOf",
+        "paste/codePaste:editorClipboardAsCode",
+        "paste/codePaste:normaliseNewlines",
+        "paste/codePaste:normalizePastedCodeBlocks",
+        "paste/codePaste:plainTextAsCode",
+        "paste/codePaste:rawHtmlSourceAsCode",
+        "paste/codePaste:toLanguageClass",
+        "paste/codePaste:vscodeLanguage"
+      ]
+    },
+    {
       "id": "paste/fallback-processor",
       "label": "paste/fallback-processor",
       "stage": "infra",
@@ -22965,6 +23106,7 @@
       "fnIds": [
         "paste/utils/normalizer:convertDefinitionListTags",
         "paste/utils/normalizer:escapeHtml",
+        "paste/utils/normalizer:mapOutsideCode",
         "paste/utils/normalizer:normalizeContent",
         "paste/utils/normalizer:normalizeListItems",
         "paste/utils/normalizer:normalizeQuotes",
@@ -30638,6 +30780,24 @@
       "rel": "domwrite"
     },
     {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter__call__divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "target": "divEditor/enterKeyHandler/caretHelpers:createAndInsertParagraph",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter__domwrite__dom",
+      "source": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
       "id": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown__call__divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
       "source": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
       "target": "divEditor/enterKeyHandler/caretHelpers:moveCaretTo",
@@ -30834,6 +30994,18 @@
     {
       "id": "divEditor/insertBlockNode:insertBlockNodeBefore__domwrite__dom",
       "source": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete__call__divEditor/editorState:queueNodeForSave",
+      "source": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete",
+      "target": "divEditor/editorState:queueNodeForSave",
+      "rel": "call"
+    },
+    {
+      "id": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete__domwrite__dom",
+      "source": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete",
       "target": "dom",
       "rel": "domwrite"
     },
@@ -32829,6 +33001,12 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "source": "dom",
+      "target": "divEditor/enterKeyHandler/index:EnterKeyHandler._handlePreEnter",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
       "source": "dom",
       "target": "divEditor/enterKeyHandler/index:EnterKeyHandler.handleKeyDown",
@@ -32874,6 +33052,12 @@
       "id": "dom__domread__divEditor/insertBlockNode:insertBlockNodeBefore",
       "source": "dom",
       "target": "divEditor/insertBlockNode:insertBlockNodeBefore",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete",
+      "source": "dom",
+      "target": "divEditor/keydownGuards/codeBlockDelete:handleCodeBlockDelete",
       "rel": "domread"
     },
     {
@@ -33042,6 +33226,18 @@
       "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
       "source": "dom",
       "target": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "source": "dom",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
       "rel": "domread"
     },
     {
@@ -34563,6 +34759,24 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__paste/codePaste:codeTextOf",
+      "source": "dom",
+      "target": "paste/codePaste:codeTextOf",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/codePaste:editorClipboardAsCode",
+      "source": "dom",
+      "target": "paste/codePaste:editorClipboardAsCode",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__paste/codePaste:normalizePastedCodeBlocks",
+      "source": "dom",
+      "target": "paste/codePaste:normalizePastedCodeBlocks",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__paste/format-detection/format-detector:scoreFormats",
       "source": "dom",
       "target": "paste/format-detection/format-detector:scoreFormats",
@@ -35701,6 +35915,42 @@
       "source": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoBlockquote",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs__call__editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "target": "editToolbar/toolbarDOMUtils:setCursorAtTextOffset",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs__domwrite__dom",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:_mergeBlocksIntoCode",
+      "rel": "call"
+    },
+    {
+      "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "source": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat",
+      "target": "editToolbar/blockFormat/blockquoteCodeFormat:codeLinesToParagraphs",
+      "rel": "call"
     },
     {
       "id": "editToolbar/blockFormat/blockquoteCodeFormat:handleBlockquoteCodeFormat__call__editToolbar/toolbarDOMUtils:findClosestBlockParent",
@@ -44380,6 +44630,78 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/codePaste:codeBlockHtml__call__paste/codePaste:toLanguageClass",
+      "source": "paste/codePaste:codeBlockHtml",
+      "target": "paste/codePaste:toLanguageClass",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:codeTextOf__call__paste/codePaste:normaliseNewlines",
+      "source": "paste/codePaste:codeTextOf",
+      "target": "paste/codePaste:normaliseNewlines",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:editorClipboardAsCode__call__paste/codePaste:codeBlockHtml",
+      "source": "paste/codePaste:editorClipboardAsCode",
+      "target": "paste/codePaste:codeBlockHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:editorClipboardAsCode__call__paste/codePaste:normaliseNewlines",
+      "source": "paste/codePaste:editorClipboardAsCode",
+      "target": "paste/codePaste:normaliseNewlines",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:editorClipboardAsCode__call__paste/codePaste:vscodeLanguage",
+      "source": "paste/codePaste:editorClipboardAsCode",
+      "target": "paste/codePaste:vscodeLanguage",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:normalizePastedCodeBlocks__call__paste/codePaste:codeTextOf",
+      "source": "paste/codePaste:normalizePastedCodeBlocks",
+      "target": "paste/codePaste:codeTextOf",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:normalizePastedCodeBlocks__call__paste/codePaste:toLanguageClass",
+      "source": "paste/codePaste:normalizePastedCodeBlocks",
+      "target": "paste/codePaste:toLanguageClass",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:normalizePastedCodeBlocks__domwrite__dom",
+      "source": "paste/codePaste:normalizePastedCodeBlocks",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "paste/codePaste:plainTextAsCode__call__paste/codePaste:codeBlockHtml",
+      "source": "paste/codePaste:plainTextAsCode",
+      "target": "paste/codePaste:codeBlockHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:plainTextAsCode__call__paste/codePaste:normaliseNewlines",
+      "source": "paste/codePaste:plainTextAsCode",
+      "target": "paste/codePaste:normaliseNewlines",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:rawHtmlSourceAsCode__call__paste/codePaste:codeBlockHtml",
+      "source": "paste/codePaste:rawHtmlSourceAsCode",
+      "target": "paste/codePaste:codeBlockHtml",
+      "rel": "call"
+    },
+    {
+      "id": "paste/codePaste:rawHtmlSourceAsCode__call__paste/codePaste:normaliseNewlines",
+      "source": "paste/codePaste:rawHtmlSourceAsCode",
+      "target": "paste/codePaste:normaliseNewlines",
+      "rel": "call"
+    },
+    {
       "id": "paste/format-detection/format-detector:detectFormat__call__paste/format-detection/format-detector:scoreFormats",
       "source": "paste/format-detection/format-detector:detectFormat",
       "target": "paste/format-detection/format-detector:scoreFormats",
@@ -45340,6 +45662,12 @@
       "rel": "domwrite"
     },
     {
+      "id": "paste/handlers/codeBlockHandler:handleCodeBlockPaste__call__paste/codePaste:normaliseNewlines",
+      "source": "paste/handlers/codeBlockHandler:handleCodeBlockPaste",
+      "target": "paste/codePaste:normaliseNewlines",
+      "rel": "call"
+    },
+    {
       "id": "paste/handlers/hyperciteHandler:handleHypercitePaste__call__editToolbar/index:getEditToolbar",
       "source": "paste/handlers/hyperciteHandler:handleHypercitePaste",
       "target": "editToolbar/index:getEditToolbar",
@@ -46011,6 +46339,12 @@
       "source": "paste/utils/normalizer:escapeHtml",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "paste/utils/normalizer:normalizeContent__call__paste/utils/normalizer:mapOutsideCode",
+      "source": "paste/utils/normalizer:normalizeContent",
+      "target": "paste/utils/normalizer:mapOutsideCode",
+      "rel": "call"
     },
     {
       "id": "paste/utils/normalizer:normalizeContent__call__paste/utils/normalizer:normalizeQuotes",
@@ -53313,6 +53647,11 @@
       "kind": "static"
     },
     {
+      "source": "divEditor/keydownGuards/codeBlockDelete",
+      "target": "divEditor/editorState",
+      "kind": "static"
+    },
+    {
       "source": "divEditor/keydownGuards/listItemBackspace",
       "target": "divEditor/editorState",
       "kind": "static"
@@ -53974,6 +54313,11 @@
     },
     {
       "source": "hyperlights/deleteHighlight",
+      "target": "hyperlights/calculations",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/deleteHighlight",
       "target": "hyperlights/database",
       "kind": "static"
     },
@@ -54001,6 +54345,11 @@
       "source": "hyperlights/deleteHighlight",
       "target": "divEditor/index",
       "kind": "lazy"
+    },
+    {
+      "source": "hyperlights/deletion",
+      "target": "hyperlights/calculations",
+      "kind": "static"
     },
     {
       "source": "hyperlights/deletion",
@@ -54150,6 +54499,11 @@
     {
       "source": "hyperlights/myHighlights/list",
       "target": "indexedDB/core/connection",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlights/selectionToolbar",
+      "target": "hyperlights/calculations",
       "kind": "static"
     },
     {
@@ -56518,6 +56872,11 @@
       "kind": "static"
     },
     {
+      "source": "paste/handlers/codeBlockHandler",
+      "target": "paste/codePaste",
+      "kind": "static"
+    },
+    {
       "source": "paste/handlers/hyperciteHandler",
       "target": "divEditor/index",
       "kind": "static"
@@ -56690,6 +57049,11 @@
     {
       "source": "paste/index",
       "target": "indexedDB/serverSync/countReconcile",
+      "kind": "static"
+    },
+    {
+      "source": "paste/index",
+      "target": "paste/codePaste",
       "kind": "static"
     },
     {

@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2046 functions in 431 modules · 10 object stores · 10 PG tables · 4291 edges
+**MarkdownDB** schema v28 · 2060 functions in 433 modules · 10 object stores · 10 PG tables · 4323 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -752,6 +752,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `EnterKeyHandler._handleNonSplittableEnter` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler._handleOtherEnter` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
 | `EnterKeyHandler._handleParagraphEnter` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
+| `EnterKeyHandler._handlePreEnter` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
 | `EnterKeyHandler.constructor` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.destroy` | `divEditor/enterKeyHandler/index` | — | — | — | — |
 | `EnterKeyHandler.handleKeyDown` | `divEditor/enterKeyHandler/index` | — | — | read/write | — |
@@ -769,6 +770,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `createInputHandler` | `divEditor/inputHandler` | — | — | read | — |
 | `insertBlockNodeAfter` | `divEditor/insertBlockNode` | — | — | read/write | — |
 | `insertBlockNodeBefore` | `divEditor/insertBlockNode` | — | — | read/write | — |
+| `handleCodeBlockDelete` | `divEditor/keydownGuards/codeBlockDelete` | — | — | read/write | — |
 | `handleLastNodeGuard` | `divEditor/keydownGuards/lastNodeGuard` | — | — | read/write | — |
 | `handleListItemBackspace` | `divEditor/keydownGuards/listItemBackspace` | — | — | read/write | — |
 | `MutationProcessor.cancel` | `divEditor/mutationProcessor` | — | — | — | — |
@@ -828,6 +830,8 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `_contentPreservingUnwrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_contentPreservingWrap` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `_mergeBlocksIntoBlockquote` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
+| `_mergeBlocksIntoCode` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
+| `codeLinesToParagraphs` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `handleBlockquoteCodeFormat` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | read/write | — |
 | `unwrapBlock` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | — | — |
 | `wrapBlock` | `editToolbar/blockFormat/blockquoteCodeFormat` | — | — | — | — |
@@ -1508,6 +1512,15 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `hidePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
 | `updatePageLoadProgress` | `pageLoad/progress` | — | — | — | — |
 | `initializeTimeMachine` | `pageLoad/timeMachine` | — | — | read/write | — |
+| `codeBlockHtml` | `paste/codePaste` | — | — | — | — |
+| `codeTextOf` | `paste/codePaste` | — | — | read | — |
+| `editorClipboardAsCode` | `paste/codePaste` | — | — | read | — |
+| `normaliseNewlines` | `paste/codePaste` | — | — | — | — |
+| `normalizePastedCodeBlocks` | `paste/codePaste` | — | — | read/write | — |
+| `plainTextAsCode` | `paste/codePaste` | — | — | — | — |
+| `rawHtmlSourceAsCode` | `paste/codePaste` | — | — | — | — |
+| `toLanguageClass` | `paste/codePaste` | — | — | — | — |
+| `vscodeLanguage` | `paste/codePaste` | — | — | — | — |
 | `processContentForFootnotesAndReferences` | `paste/fallback-processor` | — | — | — | — |
 | `detectFormat` | `paste/format-detection/format-detector` | — | — | — | — |
 | `detectFormatVerbose` | `paste/format-detection/format-detector` | — | — | — | — |
@@ -1675,6 +1688,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `processMarkdownInChunks` | `paste/utils/markdown-processor` | — | — | — | — |
 | `convertDefinitionListTags` | `paste/utils/normalizer` | — | — | — | — |
 | `escapeHtml` | `paste/utils/normalizer` | — | — | write | — |
+| `mapOutsideCode` | `paste/utils/normalizer` | — | — | — | — |
 | `normalizeContent` | `paste/utils/normalizer` | — | — | — | — |
 | `normalizeListItems` | `paste/utils/normalizer` | — | — | read/write | — |
 | `normalizeQuotes` | `paste/utils/normalizer` | — | — | — | — |

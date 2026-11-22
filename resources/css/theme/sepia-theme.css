@@ -38,6 +38,21 @@ body.theme-sepia {
      weight, so nudge reading text heavier for a more solid feel. */
   --reading-font-weight: 385;
 
+  /* Code blocks: a soft cream card on the tan page (near-white glared). */
+  --code-bg: #F3EAD6;
+  --code-border: rgba(58, 47, 31, 0.16);
+  --code-text: #3A2F1F;
+  --code-label: #6E604C;
+  --code-btn-hover: rgba(58, 47, 31, 0.08);
+  --code-keyword: #B0245F;
+  --code-string: #1F6365;
+  --code-number: #A84E0A;
+  --code-function: #5E3FA0;
+  --code-type: #7F5A00;
+  --code-attr: #2A5C8A;
+  --code-comment: #76664E;
+  --code-meta: #665A48;
+
   /* Higher opacity needed on light backgrounds */
   --hypercite-single-opacity: 0.25;
   --hypercite-multi-opacity: 0.7;

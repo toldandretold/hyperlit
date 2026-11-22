@@ -63,6 +63,7 @@
   "dependencies": {
     "@types/three": "^0.185.1",
     "dompurify": "^3.2.6",
+    "highlight.js": "^11.11.1",
     "katex": "^0.19.1",
     "marked": "^15.0.12",
     "patchright": "^1.61.1",

@@ -19,6 +19,7 @@ import {
 import { extractFootnoteIdsFromElement } from '../../paste/utils/extractFootnoteIds';
 import { stripInlineStylePreservingIntensity } from '../../utilities/stripInlineStyle';
 import { stripTransientNodeClasses } from '../../utilities/transientClasses';
+import { stripCodeDecoration } from '../../codeBlocks/stripDecoration';
 import type { CitationRef, FootnoteRef, ChunkId } from '../types';
 import { asChunkId, parseChunkId } from '../types';
 
@@ -106,6 +107,14 @@ export function processNodeContentHighlightsAndCites(
 
   // Create a clone to remove the mark and u tags
   const contentClone = node.cloneNode(true) as HTMLElement;
+
+  // 🧹 STRIP code-block decoration — syntax-colour token spans, the header bar
+  // (copy / expand / language picker) and their render-time state attributes
+  // are all painted by codeBlocks/highlight.ts at render time. Spans must never
+  // reach the DB, and the header is UI, not content. Also unwraps hljs spans
+  // that arrived pre-highlighted in pasted HTML. The `language-x` class on
+  // <code> IS content and survives.
+  stripCodeDecoration(contentClone);
 
   // Remove all <mark> tags from the cloned content while preserving their inner HTML
   const clonedMarkTags = contentClone.getElementsByTagName("mark");

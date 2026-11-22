@@ -34,7 +34,15 @@ const loggedIn = { value: true };
 vi.mock('../../../resources/js/utilities/auth/session', () => ({
   isLoggedIn: vi.fn(async () => loggedIn.value),
 }));
-const dialogs = { confirm: true, alerts: [], confirms: [], messages: [] };
+const dialogs = { confirm: true, alerts: [], confirms: [], messages: [], alertWaiters: [] };
+/**
+ * Resolves when the component raises its next alert. Await the EVENT rather
+ * than polling with vi.waitFor: the click → confirm → POST → alert chain runs
+ * through a dynamic import and several awaits, and under a loaded full-suite
+ * run that chain outlived waitFor's 1s deadline (the test failed only in
+ * `npm run test:run`, never alone).
+ */
+const nextAlert = () => new Promise((resolve) => dialogs.alertWaiters.push(resolve));
 vi.mock('../../../resources/js/components/dialog/dialog', () => ({
   confirmDialog: vi.fn(async (opts) => {
     dialogs.confirms.push(opts.title);
@@ -42,7 +50,10 @@ vi.mock('../../../resources/js/components/dialog/dialog', () => ({
 
     return dialogs.confirm;
   }),
-  alertDialog: vi.fn(async (opts) => { dialogs.alerts.push(opts.message); }),
+  alertDialog: vi.fn(async (opts) => {
+    dialogs.alerts.push(opts.message);
+    dialogs.alertWaiters.splice(0).forEach((resolve) => resolve(opts.message));
+  }),
 }));
 
 const showLoginPromptMenu = vi.fn();
@@ -164,6 +175,7 @@ beforeEach(() => {
   loggedIn.value = true;
   dialogs.confirm = true;
   dialogs.alerts = [];
+  dialogs.alertWaiters = [];
   dialogs.confirms = [];
   dialogs.messages = [];
 });
@@ -392,9 +404,11 @@ describe('initBookTranslation', () => {
     handle = initBookTranslation(container, 'book_1');
     await vi.waitFor(() => expect(button().textContent).toBe('Translate into English'));
 
+    const alerted = nextAlert();
     button().click();
 
-    await vi.waitFor(() => expect(dialogs.alerts).toHaveLength(1));
+    await alerted;
+    expect(dialogs.alerts).toHaveLength(1);
     expect(dialogs.alerts[0]).toContain('Not enough credit');
     expect(button().disabled).toBe(false);
   });

@@ -3,6 +3,7 @@ import { asBookId, LATEST, type BookId } from "../indexedDB/types";
  * Deletion module - Handles highlight deletion, hiding, and reprocessing
  */
 
+import { HIGHLIGHTABLE_BLOCK_WITH_ID } from './calculations';
 import { openDatabase, updateBookTimestamp, updateAnnotationsTimestamp, queueForSync, getNodesFromIndexedDB } from '../indexedDB/index';
 import { removeHighlightFromHyperlights, removeHighlightFromNodes, removeHighlightFromNodesWithDeletion } from './database';
 import { attachMarkListeners } from './listeners';
@@ -113,7 +114,7 @@ export async function deleteHighlightById(highlightId: string): Promise<Highligh
         }
 
         // Track which nodes were affected for re-applying highlights
-        const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
+        const container = mark.closest(HIGHLIGHTABLE_BLOCK_WITH_ID);
         if (container && container.id) {
           affectedIDnumericals.add(container.id);
         }
@@ -250,7 +251,7 @@ export async function hideHighlightById(highlightId: string): Promise<HighlightA
         }
 
         // Track which nodes were affected for re-applying highlights
-        const container = mark.closest('p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]');
+        const container = mark.closest(HIGHLIGHTABLE_BLOCK_WITH_ID);
         if (container && container.id) {
           affectedIDnumericals.add(container.id);
         }

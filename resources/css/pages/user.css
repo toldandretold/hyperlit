@@ -75,3 +75,4 @@
 /* Custom scrollbar engages once an arranger collection loads a lazy loader into
    the user feed wrapper (native scrollbar in the bare feed). */
 @import url('../components/customScrollbar.css');
+@import url('../components/codeBlocks.css');

@@ -77,6 +77,16 @@ export function getRelativeOffsetTop(element: HTMLElement | null, container: HTM
 /**
  * Check if an ID is numerical (including decimals like "1.1")
  */
+/**
+ * The block elements a highlight anchors to (the node whose id + char offsets
+ * it is stored against). ONE definition: this list used to be copied into
+ * create/delete/deletion/selectionToolbar, none of them had `pre`, and so
+ * highlighting inside a code block showed the button and silently failed.
+ */
+export const HIGHLIGHTABLE_BLOCK_TAGS = "p, blockquote, pre, table, h1, h2, h3, h4, h5, h6, li, ol, ul";
+/** The same blocks, only when they carry an id. */
+export const HIGHLIGHTABLE_BLOCK_WITH_ID = HIGHLIGHTABLE_BLOCK_TAGS.split(", ").map((t) => `${t}[id]`).join(", ");
+
 export function isNumericalId(id: string | null | undefined): boolean {
   if (!id) return false;
   return /^\d+(\.\d+)?$/.test(id);
@@ -93,8 +103,10 @@ export function findContainerWithNumericalId(startElement: Node | null): HTMLEle
 
   // Walk up the DOM tree looking for a container with numerical ID
   while (current && current !== document.body && current !== document.documentElement) {
-    // Check if current element is one of our target types
-    if (current.matches && current.matches("p, blockquote, table, h1, h2, h3, h4, h5, h6, li, ol, ul")) {
+    // Check if current element is one of our target types. `pre` (code
+    // blocks) was missing, so selecting text in code showed the highlight
+    // button but creating the highlight failed with no message to the user.
+    if (current.matches && current.matches(HIGHLIGHTABLE_BLOCK_TAGS)) {
       // Check if it has a numerical ID
       if (isNumericalId(current.id)) {
         return current;

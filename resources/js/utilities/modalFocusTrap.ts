@@ -31,7 +31,17 @@ const FOCUSABLE_SELECTOR =
 
 export function trapModalFocus(
   root: HTMLElement,
-  { onEscape }: { onEscape?: () => void } = {}
+  { onEscape, suspendWhen }: {
+    onEscape?: () => void;
+    /**
+     * While this returns true the trap stands down (Tab and Escape pass
+     * through). For a surface that can open something NOT on the modal
+     * stack above itself — the code expand sheet opens #hyperlit-container,
+     * whose Escape is a bubble-phase handler — so the upper surface gets the
+     * keys instead of this trap closing underneath it.
+     */
+    suspendWhen?: () => boolean;
+  } = {}
 ): () => void {
   const returnEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const token = pushModal();
@@ -60,6 +70,7 @@ export function trapModalFocus(
 
   const onKeydown = (e: KeyboardEvent) => {
     if (!isTopModal(token)) return; // a modal stacked above us owns the keys
+    if (suspendWhen?.()) return; // something non-stacked is open above us
 
     if (e.key === 'Escape') {
       // stopImmediatePropagation: other document-capture listeners (incl. a

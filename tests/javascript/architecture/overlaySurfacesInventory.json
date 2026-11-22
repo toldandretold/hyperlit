@@ -31,6 +31,8 @@
     "ai-review-viz-overlay": { "module": "resources/js/components/sourceContainer/aiReview/pipelineViz.ts", "wiring": "deferred:AI-review viz — wire trapModalFocus when next touched" },
     "harvest-viz-overlay": { "module": "resources/js/components/sourceContainer/creatorTools/harvestViz.ts", "wiring": "trapModalFocus" },
     "translation-viz-overlay": { "module": "resources/js/components/sourceContainer/translationViz.ts", "wiring": "trapModalFocus" },
+    "code-expand-sheet": { "module": "resources/js/codeBlocks/codeBlockControls.ts (code block full-screen view; Escape/Close/backdrop click)", "wiring": "trapModalFocus" },
+    "code-lang-menu": { "module": "resources/js/codeBlocks/codeBlockControls.ts (edit-mode code language picker; Escape/outside click)", "wiring": "trapModalFocus" },
     "figure-viewer-overlay": { "module": "resources/js/utilities/figureViewer.ts (generic expand-any-figure viewer; first customer: lazyLoader/graphRenderer.ts)", "wiring": "trapModalFocus" },
     "conversion-modal": { "module": "resources/js/paste/ui/modalManager.ts", "wiring": "deferred:paste conversion progress — wire when next touched" },
     "import-failure-modal": { "module": "resources/js/conversion/bugReportModal.js", "wiring": "deferred:import failure report — wire when next touched (also still .js)" },

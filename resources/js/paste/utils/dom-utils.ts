@@ -4,6 +4,7 @@
  */
 
 import { isStructuralBlockTag, STRUCTURAL_BLOCK_TAGS } from '../../utilities/blockElements';
+import { LANGUAGE_CLASS_RE } from '../../codeBlocks/language';
 
 /**
  * Check if an element is a block-level element
@@ -158,7 +159,13 @@ export function removeEmptyBlocks(container: any) {
 export function stripAttributes(container: any, idPrefix = '') {
   container.querySelectorAll("*").forEach((el: any) => {
     el.removeAttribute("style");
+    // A code block's validated `language-x` class is CONTENT (it decides how
+    // the block is labelled and coloured) — keep that one token, drop the rest.
+    const lang = el.tagName === 'CODE' && el.parentElement?.tagName === 'PRE'
+      ? Array.from<string>(el.classList).find((c) => LANGUAGE_CLASS_RE.test(c))
+      : undefined;
     el.removeAttribute("class");
+    if (lang) el.className = lang;
 
     if (el.id && !el.id.startsWith(idPrefix)) {
       el.removeAttribute("id");

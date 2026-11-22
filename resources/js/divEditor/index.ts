@@ -50,7 +50,7 @@ import {
   cleanupAfterImport,
   cleanupAfterPaste
 } from './domUtilities';
-import { handleLastNodeGuard, handleListItemBackspace } from './keydownGuards/index';
+import { handleLastNodeGuard, handleListItemBackspace, handleCodeBlockDelete } from './keydownGuards/index';
 
 // Re-export for backward compatibility
 export {
@@ -543,6 +543,10 @@ document.addEventListener("keydown", function handleTypingActivity(event) {
 
       // 🆕 LI HANDLING: Backspace at start of LI converts it to paragraph
       if (handleListItemBackspace(event, range, selection, targetElement)) return;
+
+      // CODE BLOCKS: Backspace at the start / Delete at the end joins adjacent
+      // code blocks (native Backspace deleted the block's header instead).
+      if (handleCodeBlockDelete(event, range)) return;
 
       // 🛡️ LAST-NODE guard: a book must never end up with zero nodes. When a
       // full-clear Backspace/Delete lands on the last content node of its

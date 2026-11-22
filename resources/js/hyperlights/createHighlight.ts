@@ -12,7 +12,7 @@ import { asBookId, type BookId } from "../indexedDB/types";
  */
 
 import { updateAnnotationsTimestamp, queueForSync, rebuildNodeArrays, getNodesByDataNodeIDs } from '../indexedDB/index';
-import { calculateCleanTextOffset, findContainerWithNumericalId } from './calculations';
+import { calculateCleanTextOffset, findContainerWithNumericalId, HIGHLIGHTABLE_BLOCK_WITH_ID } from './calculations';
 import { modifyNewMarks } from './marks';
 import { attachMarkListeners } from './listeners';
 import { handleUnifiedContentClick } from '../hyperlitContainer/containerActions';
@@ -370,7 +370,7 @@ export async function createHighlightHandler(event: Event, bookId: BookId, optio
   affectedMarks.forEach((markEl, idx) => {
     const mark = markEl as HTMLElement;
     const container = mark.closest(
-      "p[id], h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], blockquote[id], table[id], li[id], ol[id], ul[id]"
+      HIGHLIGHTABLE_BLOCK_WITH_ID
     ) as HTMLElement | null;
     if (container && container.id) {
       const dataNodeId = container.getAttribute('data-node-id') || 'NO data-node-id';

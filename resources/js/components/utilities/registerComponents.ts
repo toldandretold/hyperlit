@@ -215,6 +215,11 @@ import {
 } from '../../scrolling/wheelScrollForwarder';
 
 import {
+  initCodeBlockControls,
+  destroyCodeBlockControls
+} from '../../codeBlocks/codeBlockControls';
+
+import {
   initLockedCardTitles,
   destroyLockedCardTitles
 } from '../../e2ee/ui/lockedCardTitles';
@@ -755,6 +760,17 @@ export function registerAllComponents() {
   // Forwards the mouse wheel to the content wrapper when the pointer sits in a
   // dead zone (over the fixed header, or the margins beside the centered column),
   // which otherwise have no scroll target on desktop. Document-delegated singleton.
+  // Code-block header buttons (copy / expand / edit-mode language picker) —
+  // document-delegated, since code blocks render wherever chunk content does.
+  buttonRegistry.register({
+    name: 'codeBlockControls',
+    initFn: initCodeBlockControls,
+    destroyFn: destroyCodeBlockControls,
+    pages: ['home', 'user', 'reader', 'journal'],
+    dependencies: [],
+    required: false
+  });
+
   buttonRegistry.register({
     name: 'wheelScrollForwarder',
     initFn: initWheelScrollForwarder,

@@ -3,3 +3,4 @@
 // and returns whether it consumed the key, so the listener stays a thin dispatcher.
 export { handleLastNodeGuard } from './lastNodeGuard';
 export { handleListItemBackspace } from './listItemBackspace';
+export { handleCodeBlockDelete } from './codeBlockDelete';

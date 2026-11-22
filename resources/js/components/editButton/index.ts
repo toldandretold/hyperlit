@@ -19,6 +19,7 @@ import { isExternallyTranslated } from '../../utilities/externalTranslation';
 // (contenteditable inside CSS columns is a browser-bug minefield), so the edit
 // button suspends pagination at the current anchor and exiting edit re-engages.
 import { suspendForEdit, resumeAfterEdit } from '../../scrolling/paginator';
+import { enterEditModeCodeBlocks, exitEditModeCodeBlocks } from '../../codeBlocks/highlight';
 
 // Re-export the lock/permission API so external importers keep one entry point.
 export { updateEditButtonVisibility, checkEditPermissionsAndUpdateUI } from './lock';
@@ -210,6 +211,11 @@ export async function enableEditMode(targetElementId: string | null = null, isNe
 
         enforceEditableState();
 
+        // Code blocks: drop syntax-colour token spans (they fight the caret) and
+        // switch headers to their language-picker form. Done BEFORE the editor's
+        // MutationObserver starts so these render-only changes queue no saves.
+        enterEditModeCodeBlocks(editableDiv);
+
         editableDiv.contentEditable = "true";
         // Declarative preventative: ask the browser not to translate the book
         // while it is editable. The real protections are the entry gate above
@@ -364,6 +370,10 @@ export function disableEditMode({ skipPersistence = false }: DisableEditModeOpti
     removeImageDropListener();
 
     await stopObserving();
+
+    // Code blocks: re-colour + read-mode headers. AFTER stopObserving so the
+    // render-only mutations aren't ingested as edits.
+    exitEditModeCodeBlocks(editableDiv);
 
     // On logout (skipPersistence) the local IDB is being wiped and the content
     // is already on the server, so flushing pending saves into a fresh anonymous

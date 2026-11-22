@@ -48,13 +48,32 @@ export function normalizeSpaces(html: any) {
 export function normalizeContent(text: any, isHtml = false) {
   if (!text) return text;
 
-  let normalized = normalizeQuotes(text);
-
   if (isHtml) {
-    normalized = normalizeSpaces(normalized);
+    // Code is its exact characters: quote/backtick/nbsp normalisation is for
+    // PROSE. Applied to a code block it rewrote every backtick (JS template
+    // literals, shell `…`) to "'" and every curly quote a snippet carried.
+    return mapOutsideCode(text, (prose) => normalizeSpaces(normalizeQuotes(prose)));
   }
 
-  return normalized;
+  return normalizeQuotes(text);
+}
+
+/** `<pre>…</pre>` and inline `<code>…</code>` regions of an HTML string. */
+const CODE_REGION_RE = /<pre[\s>][\s\S]*?<\/pre>|<code[\s>][\s\S]*?<\/code>/gi;
+
+/**
+ * Apply `fn` to the parts of an HTML string OUTSIDE code regions, leaving every
+ * `<pre>` block and inline `<code>` span byte-for-byte untouched.
+ */
+export function mapOutsideCode(html: string, fn: (prose: string) => string): string {
+  if (!/<(pre|code)[\s>]/i.test(html)) return fn(html);
+  let out = '';
+  let last = 0;
+  for (const m of html.matchAll(CODE_REGION_RE)) {
+    out += fn(html.slice(last, m.index)) + m[0];
+    last = m.index! + m[0].length;
+  }
+  return out + fn(html.slice(last));
 }
 
 /**
