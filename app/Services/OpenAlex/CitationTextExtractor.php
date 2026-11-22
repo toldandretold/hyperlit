@@ -90,16 +90,21 @@ class CitationTextExtractor
                     $yearPos = $ym[0][1] + strlen($ym[0][0]);
                 }
 
-                // Find italic marker position in plain text by locating the italic text
-                $italicPos = $italicText ? mb_strpos($plain, $italicText) : false;
+                // Find italic marker position in plain text by locating the italic text.
+                // BYTE offset, like $yearPos (preg's PREG_OFFSET_CAPTURE is bytes) — this used
+                // to be mb_strpos (CHARACTERS), so every multibyte char before the italic (the
+                // ‘curly quotes’ of a Harvard article title, 3 bytes each) cut the substr short
+                // and split a UTF-8 sequence: "‘…Asian Women\xE2" reached Postgres as invalid
+                // UTF-8 and killed the whole bibliography scan (book_1795304853799, 2026-11-21).
+                $italicPos = $italicText ? strpos($plain, $italicText) : false;
 
                 // If there's text between year and italic → that's an article title
                 if ($yearPos !== null && $italicPos !== false && $italicPos > $yearPos) {
                     $between = trim(substr($plain, $yearPos, $italicPos - $yearPos));
-                    // Strip leading punctuation/whitespace
-                    $between = preg_replace('/^[\s.,;:)\]]+/', '', $between);
-                    // Strip trailing punctuation
-                    $between = preg_replace('/[\s.,;:]+$/', '', $between);
+                    // Strip leading punctuation/whitespace and the title's own opening quote
+                    $between = preg_replace('/^[\s.,;:)\]\x{2018}\x{201C}"\']+/u', '', $between);
+                    // Strip trailing punctuation and the title's own closing quote
+                    $between = preg_replace('/[\s.,;:\x{2019}\x{201D}"\']+$/u', '', $between);
                     if (strlen($between) >= 10) {
                         return $between;
                     }
@@ -123,7 +128,7 @@ class CitationTextExtractor
             }
             // If no sentence boundary, take up to 150 chars
             if (strlen($afterYear) >= 10) {
-                return trim(substr($afterYear, 0, 150));
+                return trim(mb_substr($afterYear, 0, 150));
             }
         }
 
@@ -139,6 +144,6 @@ class CitationTextExtractor
             }
         }
 
-        return trim(substr($cleaned, 0, 150));
+        return trim(mb_substr($cleaned, 0, 150));
     }
 }

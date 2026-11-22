@@ -280,6 +280,23 @@ test('import_document says an ordinary web page is not an identifier, instead of
     Queue::assertNothingPushed();
 });
 
+test('a Gutenberg catalogue failure names Gutenberg, not OpenAlex', function () {
+    // A Gutenberg URL resolves against gutenberg.org's RDF, never OpenAlex — an
+    // outage there used to come back as "OpenAlex has no record", which sent the
+    // agent chasing the wrong registry.
+    Queue::fake();
+    \Illuminate\Support\Facades\Http::fake(['www.gutenberg.org/*' => \Illuminate\Support\Facades\Http::response('', 503)]);
+    $user = $this->seedUser();
+    $token = ieToken($user, [TokenAbilities::IMPORT]);
+
+    $response = ieCall($this, $token, 'import_document', ['url' => 'https://www.gutenberg.org/ebooks/61']);
+
+    expect($response->json('result.isError'))->toBeTrue();
+    $text = (string) $response->json('result.content.0.text');
+    expect($text)->toContain('Project Gutenberg catalogue')->not->toContain('OpenAlex');
+    Queue::assertNothingPushed();
+});
+
 test('a closed work with no open copy anywhere is refused with the reason and the source link', function () {
     Queue::fake();
     $user = $this->seedUser();

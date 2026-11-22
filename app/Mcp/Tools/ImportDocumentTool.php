@@ -231,7 +231,13 @@ class ImportDocumentTool extends HyperlitTool
 
         return match ($error) {
             'unrecognised_identifier' => 'That is not a recognised work identifier. `url` takes a DOI, an OpenAlex work id (W…), an arXiv link or a Project Gutenberg book URL — not an ordinary web page. For a web page, fetch the text yourself and pass it as `content`.',
-            'metadata_unavailable', 'metadata_unavailable_but_canonical_exists' => 'OpenAlex has no record for that identifier, so the work could not be resolved. Check the DOI / id (search_sources returns valid ones), or import the text via `content`.',
+            'metadata_unavailable', 'metadata_unavailable_but_canonical_exists' => match ($json['identifier_kind'] ?? null) {
+                // Each identifier kind resolves against its OWN registry — blaming
+                // OpenAlex for a Gutenberg catalogue outage sent agents chasing the wrong cause.
+                'gutenberg' => 'The Project Gutenberg catalogue did not return this book\'s metadata (gutenberg.org/ebooks/<id>.rdf failed — the site may be rate-limiting or down, or the ebook number is wrong). Retry later, or import the text via `content`.',
+                'arxiv' => 'arXiv did not return metadata for that id (the id may be wrong, or arXiv is unavailable). Retry later, or import the text via `content`.',
+                default => 'OpenAlex has no record for that identifier, so the work could not be resolved. Check the DOI / id (search_sources returns valid ones), or import the text via `content`.',
+            },
             'closed_access_requires_upload' => 'No open-access copy of this work is listed by OpenAlex, Unpaywall, CORE or Semantic Scholar, so it cannot be fetched automatically. If the user has the PDF, import it with file_base64.'.$source,
             'content_fetch_failed' => 'The file for this work could not be downloaded ('.($json['reason'] ?? 'unknown reason').').'.$source,
             'book_id_taken' => 'A book id collision occurred; retry.',

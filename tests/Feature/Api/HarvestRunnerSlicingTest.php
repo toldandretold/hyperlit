@@ -227,3 +227,23 @@ test('a crashed job still finalizes the shelf + yield report, marked partial', f
     expect($row->report_book)->toBe('apitest_hslc_report');
     expect($row->shelf_id)->toBe($shelfId);
 });
+
+// book_1795304853799 (2026-11-21): the scan died on invalid UTF-8, Postgres quoted the bad bytes
+// back INTO the exception message, and writing that message re-threw — the row sat 'running'
+// until the 3h watchdog. The failure must land as 'failed' at once, message scrubbed.
+test('a job that died on invalid UTF-8 is still stamped failed with a scrubbed message', function () {
+    $user = $this->loginUser(['status' => 'budget']);
+    $book = $this->makeBook($user);
+    $id = hslcSeedHarvest($book, $user->id);
+
+    $this->mock(HarvestRunner::class, fn ($m) => $m->shouldReceive('finalize')->once());
+
+    (new SourceNetworkHarvestJob($id))->failed(
+        new RuntimeException("invalid byte sequence: title ILIKE %‘The New Trophy Wives: Asian Women\xE2%")
+    );
+
+    $row = hslcDb()->table('source_network_harvests')->where('id', $id)->first();
+    expect($row->status)->toBe('failed')
+        ->and(mb_check_encoding($row->error, 'UTF-8'))->toBeTrue()
+        ->and($row->error)->toContain('Asian Women');
+});

@@ -98,9 +98,14 @@ class SourceNetworkHarvestJob implements ShouldQueue
 
     public function failed(\Throwable $e): void
     {
+        // Scrub BEFORE anything persists it: an invalid-UTF-8 DB failure carries the bad bytes in
+        // its own message, so the status write below used to re-throw and strand the row at
+        // 'running' until the 3h watchdog (book_1795304853799, 2026-11-21).
+        $message = mb_scrub($e->getMessage(), 'UTF-8');
+
         Log::error('SourceNetworkHarvestJob failed', [
             'harvest' => $this->harvestId,
-            'error'   => $e->getMessage(),
+            'error'   => $message,
         ]);
 
         // Ship the report for whatever the run DID gather before dying:
@@ -111,7 +116,7 @@ class SourceNetworkHarvestJob implements ShouldQueue
         try {
             app(HarvestRunner::class)->finalize(
                 $this->harvestId,
-                'This harvest run died partway (' . $e->getMessage() . ').',
+                'This harvest run died partway (' . $message . ').',
             );
         } catch (\Throwable $finalizeErr) {
             Log::warning('Harvest crash-finalize failed', [
@@ -125,11 +130,11 @@ class SourceNetworkHarvestJob implements ShouldQueue
             ->where('id', $this->harvestId)
             ->update([
                 'status'     => 'failed',
-                'error'      => $e->getMessage(),
+                'error'      => $message,
                 'updated_at' => now(),
             ]);
 
-        $this->sendNotificationEmail(completed: false, error: $e->getMessage());
+        $this->sendNotificationEmail(completed: false, error: $message);
     }
 
     /**

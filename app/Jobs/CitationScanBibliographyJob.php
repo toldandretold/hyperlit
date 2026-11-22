@@ -504,6 +504,11 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
                     }
                 }
 
+                // One malformed title must not kill the whole scan at its first SQL bind.
+                if ($searchedTitle !== null) {
+                    $searchedTitle = mb_scrub($searchedTitle, 'UTF-8');
+                }
+
                 $pool[$refId] = [
                     'entry'         => $entry,
                     'referenceId'   => $refId,
@@ -688,11 +693,14 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
             // A scan that dies part-way has still rewritten the rows it reached.
             $this->dropStaleBookCache();
 
+            // mb_scrub: Postgres quotes an offending parameter back INTO its error message, so an
+            // invalid-UTF-8 failure's message is itself invalid UTF-8 — writing it unscrubbed
+            // re-throws the same error and leaves this row (and the harvest above it) "running".
             $db->table('citation_scans')
                 ->where('id', $this->scanId)
                 ->update([
                     'status'     => 'failed',
-                    'error'      => $e->getMessage(),
+                    'error'      => mb_scrub($e->getMessage(), 'UTF-8'),
                     'updated_at' => now(),
                 ]);
 

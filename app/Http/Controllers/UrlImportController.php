@@ -168,7 +168,13 @@ class UrlImportController extends Controller
         // Re-resolve from scratch — never trust client-passed metadata.
         $result = $this->orchestrator->inspect($request->input('url'));
         if (!$result->ok) {
-            return response()->json(['ok' => false, 'error' => $result->error], 422);
+            // identifier_kind lets a caller name the registry that failed (the
+            // Gutenberg catalogue, arXiv, OpenAlex) rather than guessing.
+            return response()->json([
+                'ok' => false,
+                'error' => $result->error,
+                'identifier_kind' => $result->identifier?->kind(),
+            ], 422);
         }
 
         // A DOI / OpenAlex id rides the open-access acquisition ladder, asynchronously.

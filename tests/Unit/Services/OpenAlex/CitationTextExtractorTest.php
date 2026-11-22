@@ -103,3 +103,29 @@ test('extractTitle strips a leading author pattern as a last resort', function (
     expect($title)->toContain('Caliban and the Witch');
     expect($title)->not->toContain('Federici');
 });
+
+// ------------------------------------------- extractTitle: multibyte offsets
+// book_1795304853799 / chu2009 (2026-11-21): the year offset was BYTES and the italic offset
+// CHARACTERS, so the two 3-byte curly quotes before <em> cut the substr 4 bytes short and split
+// the closing ’ — "…Asian Women\xE2" — which Postgres refused as invalid UTF-8, killing the scan.
+
+test('extractTitle returns valid UTF-8 for a curly-quoted article title before an italic venue', function () use ($svc) {
+    $raw = '<p><a class="bib-entry" id="chu2009"></a>Chu, Y. (2009) ‘The New Trophy Wives: Asian Women’. '
+         . '<em>Marie Claire</em>. Available at: http://www.marieclaire.com/sex-love/advice/asian-trophy-wife. '
+         . 'Accessed 16 December 2015.</p>';
+    $title = $svc()->extractTitle($raw);
+    expect(mb_check_encoding($title, 'UTF-8'))->toBeTrue()
+        ->and($title)->toBe('The New Trophy Wives: Asian Women');
+});
+
+test('extractTitle keeps an internal apostrophe when stripping the title quotes', function () use ($svc) {
+    $raw = 'Zheng, R. (2016) ‘Why Yellow Fever Isn’t Flattering’. <em>Journal of the American Philosophical Association</em>, 2(3).';
+    expect($svc()->extractTitle($raw))->toBe('Why Yellow Fever Isn’t Flattering');
+});
+
+test('extractTitle truncation never splits a multibyte character', function () use ($svc) {
+    $raw = 'Author, A. (2001) ' . str_repeat('é', 200);
+    $title = $svc()->extractTitle($raw);
+    expect(mb_check_encoding($title, 'UTF-8'))->toBeTrue()
+        ->and(mb_strlen($title))->toBe(150);
+});
