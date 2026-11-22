@@ -95,6 +95,7 @@ class StudyConsoleController extends Controller
             'reference' => ['nullable', 'string', Rule::in(AdjudicationStore::REFERENCE_STATUSES)],
             'reference_errors' => ['nullable', 'array'],
             'reference_errors.*' => ['string', Rule::in(AdjudicationStore::REFERENCE_ERRORS)],
+            'reference_correction' => ['nullable', 'string', 'max:' . AdjudicationStore::REFERENCE_CORRECTION_MAX_CHARS],
             'from_other_work' => ['nullable', 'boolean'],
             'label' => ['required_without:reference', 'nullable', 'string', Rule::in(CorpusManifest::LABELS)],
             'cause' => ['nullable', 'string', Rule::in(AdjudicationStore::CAUSES)],
@@ -139,6 +140,7 @@ class StudyConsoleController extends Controller
                 reference: $data['reference'] ?? null,
                 referenceErrors: $data['reference_errors'] ?? [],
                 fromOtherWork: (bool) ($data['from_other_work'] ?? false),
+                referenceCorrection: $data['reference_correction'] ?? null,
             );
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);

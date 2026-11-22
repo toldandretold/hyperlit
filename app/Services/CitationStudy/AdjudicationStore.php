@@ -60,6 +60,9 @@ class AdjudicationStore
         'not_a_citation',  // the reviewed pairing is not in the author's text (not scored)
     ];
 
+    /** Cap on `reference_correction`, in characters. Mirrored by the request validation and the form. */
+    public const REFERENCE_CORRECTION_MAX_CHARS = 500;
+
     /** What a `details_wrong` citation gets wrong. At least one is required. */
     public const REFERENCE_ERRORS = ['author', 'title', 'year', 'venue'];
 
@@ -339,7 +342,9 @@ class AdjudicationStore
         ?string $reference = null,
         array $referenceErrors = [],
         bool $fromOtherWork = false,
+        ?string $referenceCorrection = null,
     ): array {
+        $referenceCorrection = $reference === 'details_wrong' ? trim((string) $referenceCorrection) : '';
         if ($reference !== null) {
             // The workbench path: two answers in, label derived. Whatever $label
             // carried is ignored — there is one definition of the label.
@@ -399,6 +404,11 @@ class AdjudicationStore
             // Question 1 — is the work real / cited correctly. See REFERENCE_STATUSES.
             'reference' => $reference,
             'reference_errors' => $referenceErrors,
+            // For details_wrong: what the citation SHOULD have said, and how the
+            // reviewer knows ("Report is by the Standing Committee on Education and
+            // Employment — title page"). Its own field, beside the error it backs,
+            // so the correction is not lost among general reasoning in `note`.
+            'reference_correction' => $referenceCorrection !== '' ? $referenceCorrection : null,
             // Question 2 — what the work supports. See SUPPORTED_SCOPES. `from_other_work`
             // refines `none`: the claim is real but belongs to a different work.
             'supported_scope' => $supportedScope,

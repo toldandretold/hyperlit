@@ -506,9 +506,11 @@ test('a real work cited with the wrong author is recordable, and scores by claim
     $record = $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
         note: 'Cited as the References Committee; the report is by the Standing Committee.',
         referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
-        supportedScope: 'whole_claim', reference: 'details_wrong', referenceErrors: ['author']);
+        supportedScope: 'whole_claim', reference: 'details_wrong', referenceErrors: ['author'],
+        referenceCorrection: ' Standing Committee on Education and Employment (title page) ');
     expect($record['reference'])->toBe('details_wrong')
         ->and($record['reference_errors'])->toBe(['author'])
+        ->and($record['reference_correction'])->toBe('Standing Committee on Education and Employment (title page)')
         ->and($record['label'])->toBe('verified_intact')
         ->and($record['reference_exists'])->toBeTrue();
 
@@ -530,8 +532,10 @@ test('a work that is not real carries no claim-support answer', function () {
     $book = $manifest->book('fixture');
     $record = (new AdjudicationStore())->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null,
         cause: null, note: null, referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
-        supportedScope: 'whole_claim', reference: 'fabricated', referenceErrors: ['author'], fromOtherWork: true);
+        supportedScope: 'whole_claim', reference: 'fabricated', referenceErrors: ['author'], fromOtherWork: true,
+        referenceCorrection: 'left over from a changed answer');
     expect($record['label'])->toBe('fabricated_reference')
+        ->and($record['reference_correction'])->toBeNull()
         ->and($record['supported_scope'])->toBeNull()
         ->and($record['reference_errors'])->toBe([])
         ->and($record['from_other_work'])->toBeFalse()

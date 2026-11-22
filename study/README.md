@@ -77,7 +77,7 @@ Writes `study/results/dev/report/dataset.csv` (one row per citation occurrence),
 
 The workbench (`/maintainer/study`) asks the reviewer two separate questions about each citation, and stores each answer in its own field of `adjudications/{slug}.json`.
 
-- **1 · Is the reference real?** (`reference`) — `verified` (the work exists and is cited correctly), `details_wrong` (the work exists but the citation gets its author / title / year / venue wrong; `reference_errors` says which, the note says what is right), `fabricated` (no such work), `unverifiable` (could not establish whether it exists), `suspect`, `not_a_citation`.
+- **1 · Is the reference real?** (`reference`) — `verified` (the work exists and is cited correctly), `details_wrong` (the work exists but the citation gets its author / title / year / venue wrong; `reference_errors` says which, `reference_correction` says what it should have said and how the reviewer knows), `fabricated` (no such work), `unverifiable` (could not establish whether it exists), `suspect`, `not_a_citation`.
 - **2 · Does it support the claim?** (`supported_scope`) — `whole_claim`, `fragment_only`, `none`, `undetermined`. Asked only when the work is real. `from_other_work` refines `none`: the claim is real but belongs to a different work.
 
 The `label` — the one value `ground_truth.json` and every metric score on — is **derived** from those two answers by `AdjudicationStore::deriveLabel` and is never picked by hand. The form shows it as "Scored as: …" before saving.
@@ -88,7 +88,7 @@ The `label` — the one value `ground_truth.json` and every metric score on — 
 - A real work whose support could not be judged → `unverifiable` (not scored).
 - `unverifiable`, `suspect`, `not_a_citation` → the same label (not scored).
 
-A `details_wrong` citation scores exactly like a correctly cited one — by claim support — because the AI review judges support, not bibliographic accuracy. The error is recorded so it can be counted (`human_reference`, `human_reference_errors` in `dataset.csv`), not scored.
+A `details_wrong` citation scores exactly like a correctly cited one — by claim support — because the AI review judges support, not bibliographic accuracy. The error is recorded so it can be counted (`human_reference`, `human_reference_errors`, `human_reference_correction` in `dataset.csv`), not scored.
 
 **Why it is built this way.** Until 2026-11-22 the label was picked from one row of chips that mixed both questions (`verified intact` was defined as "real and supports the claim"), with the scope chips asking the second question again underneath. A reviewer answering the two as separate questions recorded "verified intact · supports none of it", which scored as a citation the AI should pass. Eight deloitte verdicts had that shape. Older records are given their two answers on load (`AdjudicationStore::normaliseRecord`; `php artisan citation:study:adjudications {corpus} --normalise [--dry-run]` rewrites the files) — the reviewer's answers are never changed, only the label derived from them.
 

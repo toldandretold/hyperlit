@@ -22,7 +22,7 @@ export const REFERENCES: Choice[] = [
   { value: 'verified', text: 'real — cited correctly',
     desc: 'The cited work exists, and the citation describes it correctly (author, title, year, venue). Says nothing about whether it supports the claim — that is question 2.' },
   { value: 'details_wrong', text: 'real — but cited wrongly',
-    desc: 'The work exists, but the citation gets something about it wrong: the wrong author, title, year or venue. Tick what is wrong and put the correct value in the note.' },
+    desc: 'The work exists, but the citation gets something about it wrong: the wrong author, title, year or venue. Tick what is wrong and say what it should have been.' },
   { value: 'fabricated', text: 'fabricated — no such work',
     desc: 'The cited work does not exist.' },
   { value: 'unverifiable', text: "can't confirm it exists",

@@ -37,6 +37,8 @@ export interface Adjudication {
   reference: string;
   /** What a `details_wrong` citation gets wrong (author / title / year / venue). */
   reference_errors?: string[];
+  /** For `details_wrong`: what the citation should have said, and how the reviewer knows. */
+  reference_correction?: string | null;
   /** With scope `none`: the claim is real but belongs to a different work. */
   from_other_work?: boolean;
   /** DERIVED by the server from `reference` + `supported_scope` — what scoring reads. */
@@ -273,6 +275,7 @@ export const api = {
       /** Question 1. The label is derived server-side from this and supported_scope. */
       reference: string;
       reference_errors?: string[];
+      reference_correction?: string | null;
       /** Question 2 — see AdjudicationStore::SUPPORTED_SCOPES. */
       supported_scope?: string | null;
       from_other_work?: boolean;

@@ -1785,6 +1785,12 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     return b;
   });
   errorsRow.append(...errorButtons);
+  // What it SHOULD have said, and how the reviewer knows — right under the thing it corrects.
+  const correction = el('textarea', 'st-note st-reference-correction') as HTMLTextAreaElement;
+  correction.rows = 2;
+  correction.maxLength = 500;
+  correction.placeholder = 'What should it say, and how do you know? — e.g. "Report is by the Standing '
+    + 'Committee on Education and Employment (title page)"';
   const pickErrors = (values: string[]): void => {
     REFERENCE_ERRORS.forEach((e, i) => {
       if (values.includes(e.value) !== chosenErrors.has(e.value)) errorButtons[i]?.click();
@@ -1890,12 +1896,10 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     const real = isRealReference(chosenReference);
     const wrongDetails = chosenReference === 'details_wrong';
     errorsRow.hidden = !wrongDetails;
+    correction.hidden = !wrongDetails;
     scopeRow.classList.toggle('st-disabled', !real);
     otherWorkWrap.hidden = !(real && chosenScope === 'none');
     causeRow.classList.toggle('st-disabled', !chosenReference);
-    note.placeholder = wrongDetails
-      ? 'Note — say what the citation gets wrong and what the correct value is'
-      : 'Optional note — your reasoning; saved with the verdict, lands in dataset.csv';
     applyReferenceCopy(chosenReference === 'fabricated');
 
     const owed = !chosenReference ? 'Answer question 1.'
@@ -1979,6 +1983,7 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
       key: claim.key,
       reference: chosenReference,
       reference_errors: chosenReference === 'details_wrong' ? [...chosenErrors] : [],
+      reference_correction: chosenReference === 'details_wrong' ? (correction.value.trim() || null) : null,
       supported_scope: real ? chosenScope : null,
       from_other_work: real && chosenScope === 'none' && otherWork.checked,
       cause: chosenCause,
@@ -2015,6 +2020,7 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
   if (draft) {
     pickReference(draft.reference);
     pickErrors(draft.reference_errors ?? []);
+    correction.value = draft.reference_correction ?? '';
     if (draft.supported_scope && isRealReference(draft.reference)) {
       scopeButtons[SUPPORTED_SCOPES.findIndex((sc) => sc.value === draft.supported_scope)]?.click();
     }
@@ -2046,6 +2052,7 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     el('p', 'st-axis-label', '1 · Is the reference real? — does the cited work exist, and is it cited correctly?'),
     referenceRow,
     errorsRow,
+    correction,
     el('p', 'st-axis-label', '2 · Does it support the claim? — only asked when the work is real:'),
     scopeRow,
     otherWorkWrap,
@@ -2087,6 +2094,9 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
   wrap.append(el('p', 'st-badge st-done', `✓ ${line}`));
   wrap.append(el('p', 'st-muted',
     `Scored as: ${SCORING[adj.label] ?? adj.label}${adj.cause ? ` · cause: ${adj.cause.replace(/_/g, ' ')}` : ''}`));
+  if (adj.reference_correction) {
+    wrap.append(el('p', 'st-muted', `Should say: ${adj.reference_correction}`));
+  }
   if (isRealReference(adj.reference) && !adj.supported_scope) {
     // Recorded before question 2 existed (or by a caller that skipped it). It scores as
     // "supports the claim" — say so, rather than let an unanswered question read as a yes.

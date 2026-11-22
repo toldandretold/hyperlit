@@ -560,6 +560,14 @@ body {
   margin-top: 0.4rem;
 }
 
+.st-reference-correction[hidden] {
+  display: none;
+}
+
+.st-reference-correction {
+  margin-top: 0.4rem;
+}
+
 /* The label the two answers produce, or what is still owed before saving. */
 .st-scored-line {
   margin: 0.6rem 0 0.4rem;

@@ -234,6 +234,7 @@ class ClaimsJoiner
             // and — further down, human_supported_scope — does it support the claim.
             'human_reference' => $adjudication['reference'] ?? null,
             'human_reference_errors' => implode(';', $adjudication['reference_errors'] ?? []) ?: null,
+            'human_reference_correction' => $adjudication['reference_correction'] ?? null,
             'human_from_other_work' => $adjudication['from_other_work'] ?? null,
             'human_label' => $adjudication['label'] ?? null,
             'human_cause' => $adjudication['cause'] ?? null,
