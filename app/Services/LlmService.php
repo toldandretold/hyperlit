@@ -342,7 +342,12 @@ class LlmService
                 } else {
                     $this->failedRequests++;
                     if ($response instanceof \Illuminate\Http\Client\Response) {
-                        Log::warning('LLM batch: request ' . $key . ' returned ' . $response->status());
+                        // Body included: a retired model answers 404 "Model not found…", and a bare
+                        // status hid gpt-oss-120b's retirement for two weeks (2026-11).
+                        Log::warning('LLM batch: request ' . $key . ' returned ' . $response->status(), [
+                            'model' => $requests[$key]['model'] ?? $defaultModel,
+                            'body'  => mb_substr($response->body(), 0, 300),
+                        ]);
                     } elseif ($response instanceof \Throwable) {
                         Log::warning('LLM batch: request ' . $key . ' connection failed: ' . $response->getMessage());
                     }

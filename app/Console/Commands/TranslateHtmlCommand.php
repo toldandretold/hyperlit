@@ -37,7 +37,7 @@ class TranslateHtmlCommand extends Command
                             {--about= : What the text is, e.g. "a Chinese xianxia/historical romance novel"}
                             {--cache= : Progress cache so a rerun resumes (default: beside the output)}
                             {--workers= : Sections translated at the same time (default 6)}
-                            {--model= : Fireworks model, e.g. kimi-k3, kimi-k2p6, glm-5p1 (default kimi-k3)}
+                            {--model= : Fireworks model, e.g. kimi-k3, kimi-k3p1-pro (default kimi-k3)}
                             {--effort= : Reasoning effort: low, medium, high or max (default low for kimi-k3)}';
 
     protected $description = 'Translate an HTML book between languages (e.g. Chinese ↔ English) on Fireworks, preserving its markup';

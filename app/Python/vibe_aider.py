@@ -28,8 +28,10 @@ DEFAULT_MODEL = 'accounts/fireworks/models/deepseek-v4p1-flash'
 # aider wants a FAST model, NOT a heavy reasoning one. deepseek-v4-pro emits ~34k of reasoning per turn —
 # it overflows its own 32k output limit (truncating the edit) AND accumulates across aider's reflect loop
 # until it blows the 131k context (measured: gpt-oss = 53k flat, deepseek = 156k on the same input). So
-# aider defaults to gpt-oss-120b. (The NATIVE engine is where deepseek belongs — see run_loop.)
-DEFAULT_AIDER_MODEL = 'accounts/fireworks/models/gpt-oss-120b'
+# aider defaulted to gpt-oss-120b — until Fireworks retired it 2026-11-07. V4.1 Flash is the stopgap and
+# its aider context growth is UNMEASURED: re-run vibe_eval --engine aider before trusting it here.
+# (The NATIVE engine is where deepseek belongs — see run_loop.)
+DEFAULT_AIDER_MODEL = 'accounts/fireworks/models/deepseek-v4p1-flash'  # gpt-oss-120b retired on Fireworks 2026-11-07
 _META = os.path.join(vc.PY_DIR, 'aider_model_metadata.json')
 
 
@@ -230,7 +232,7 @@ def _run_aider_streaming(cmd, cwd, env, timeout):
 def run_aider_loop(book_dir, max_attempts=3, model=None, user_note=None, file_issue=False, issue_types=None):
     vc.reset_usage()
     # Model precedence: an explicit `--model` wins (so you can A/B the SAME model on both engines),
-    # then VIBE_AIDER_MODEL, then aider's fast default (gpt-oss-120b — aider runs its own retry loop).
+    # then VIBE_AIDER_MODEL, then aider's default (DEFAULT_AIDER_MODEL — aider runs its own retry loop).
     model = model or os.environ.get('VIBE_AIDER_MODEL') or DEFAULT_AIDER_MODEL
     art = vc.load_artifacts(book_dir)
     flagged = vc.flagged_forks(art['assessment'])

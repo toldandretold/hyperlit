@@ -28,7 +28,8 @@ use App\Services\Translation\TranslationResult;
  * provider-agnostic (any OpenAI-compatible host), so moving translation to
  * DeepInfra's cheaper Gemma 4 is two env vars, not a code change. Note
  * Fireworks serves gemma-4-31b-it on DEDICATED GPUs only, not serverless —
- * hence the Fireworks default here is the general gpt-oss-120b.
+ * hence the Fireworks default here is a general model (deepseek-v4p1-flash; gpt-oss-120b until
+ * Fireworks retired it 2026-11-07).
  */
 class HostedProvider implements TranslationProviderInterface
 {

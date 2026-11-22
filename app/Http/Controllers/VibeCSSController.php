@@ -222,7 +222,7 @@ class VibeCSSController extends Controller
                 $userMessage,
                 0.7,      // temperature — creative task
                 2000,     // max tokens — complex gradients need room
-                'accounts/fireworks/models/gpt-oss-120b', // llama-v3p3 retired on Fireworks (LlmModelConfigTest)
+                'accounts/fireworks/models/deepseek-v4p1-flash', // gpt-oss-120b retired 2026-11-07 (LlmModelConfigTest)
                 30,       // timeout
                 'low'     // reasoning_effort — bounded thinking, keep tokens for the CSS
             );

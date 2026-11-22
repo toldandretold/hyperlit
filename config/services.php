@@ -50,8 +50,13 @@ return [
         // metadata + truth-claim extraction failed quietly until swapped).
         // tests/Feature/CitationPipeline/LlmModelConfigTest.php fails if a
         // role model lands in retired_models or loses its pricing entry.
-        'model'              => 'accounts/fireworks/models/gpt-oss-120b',
-        'extraction_model'   => 'accounts/fireworks/models/gpt-oss-120b',
+        // gpt-oss-120b was deprecated from Fireworks serverless 2026-11-07 — it stayed LISTED in
+        // /v1/models but 404'd "not deployed", so citation metadata extraction silently returned
+        // nothing for two weeks (book_1795304853799: 26/77 resolved, most via web search). Flash
+        // won a live 6-reference extraction bake-off 2026-11-22 (6/6 correct, fastest; minimax
+        // invented an author's first name, glm-5p3-flash refuses reasoning_effort=none).
+        'model'              => 'accounts/fireworks/models/deepseek-v4p1-flash',
+        'extraction_model'   => 'accounts/fireworks/models/deepseek-v4p1-flash',
         'verification_model' => 'accounts/fireworks/models/deepseek-v4p1-flash',
         'embedding_model'    => 'nomic-ai/nomic-embed-text-v1.5',
 
@@ -126,11 +131,11 @@ return [
             // Book/HTML translation default (services.translation.html). Serverless;
             // cached input is $0.30. Verified on fireworks.ai/models 2026-10-01.
             'accounts/fireworks/models/kimi-k3'                 => ['input' => 3.00, 'output' => 15.00],
+            // Retired on Fireworks — kept for cost lookup on historical ledger rows
             'accounts/fireworks/models/kimi-k2p6'               => ['input' => 0.95, 'output' => 4.00],
             'accounts/fireworks/models/kimi-k2p5'               => ['input' => 0.60, 'output' => 3.00],
             'accounts/fireworks/models/glm-5p1'                 => ['input' => 1.40, 'output' => 4.40],
             'accounts/fireworks/models/gpt-oss-120b'            => ['input' => 0.15, 'output' => 0.60],
-            // Retired on Fireworks — kept for cost lookup on historical ledger rows
             'accounts/fireworks/models/qwen3-8b'                => ['input' => 0.20, 'output' => 0.20],
             'accounts/fireworks/models/deepseek-v3p2'           => ['input' => 0.56, 'output' => 1.68],
             'accounts/fireworks/models/deepseek-v3p1'           => ['input' => 0.56, 'output' => 1.68],
@@ -165,6 +170,12 @@ return [
             'accounts/fireworks/models/minimax-m2p5',
             'accounts/fireworks/models/deepseek-v4-pro-0813', // decommissioned 2026-09-25, 7PM PST
             'accounts/fireworks/models/deepseek-v4-pro',      // preview id, decommissioned 2026-08-27
+            // Deprecated from serverless 2026-11-07. NOTE gpt-oss-120b is still LISTED in
+            // /v1/models (deployedModelRefs: []) — "listed" is not "served"; probe chat/completions.
+            'accounts/fireworks/models/gpt-oss-120b',
+            'accounts/fireworks/models/kimi-k2p6',            // 404 on chat/completions, found 2026-11-22
+            'accounts/fireworks/models/kimi-k2p5',            // 404, found 2026-11-22
+            'accounts/fireworks/models/glm-5p1',              // 404, found 2026-11-22
         ],
     ],
 
@@ -287,7 +298,7 @@ return [
             // citation/brain roles on the same endpoint.
             // ⚠ If you repoint LLM_BASE_URL at DeepInfra, set TRANSLATION_MODEL too —
             // this default is a Fireworks id and would 404 there.
-            'model' => env('TRANSLATION_MODEL', 'accounts/fireworks/models/gpt-oss-120b'),
+            'model' => env('TRANSLATION_MODEL', 'accounts/fireworks/models/deepseek-v4p1-flash'), // gpt-oss-120b retired 2026-11-07
             'temperature' => 0.0,           // translation is not a creative task
         ],
 

@@ -2159,14 +2159,12 @@ PROMPT;
     {
         $fallbackChain = [
             'accounts/fireworks/models/deepseek-v4p1-flash',  // primary — DeepSeek V4.1 Flash (0813 serverless-decommissioned 2026-09-25)
-            'accounts/fireworks/models/kimi-k2p6',             // fallback 1 — different family
-            'accounts/fireworks/models/gpt-oss-120b',          // fallback 2 — cheap safety net
+            'accounts/fireworks/models/kimi-k3',               // fallback — different family (kimi-k2p6 + gpt-oss-120b both 404 since 2026-11)
         ];
 
         $modelLabels = [
             'accounts/fireworks/models/deepseek-v4p1-flash' => 'DeepSeek V4.1 Flash',
-            'accounts/fireworks/models/kimi-k2p6'            => 'Kimi K2.6',
-            'accounts/fireworks/models/gpt-oss-120b'         => 'GPT-OSS 120B',
+            'accounts/fireworks/models/kimi-k3'              => 'Kimi K3',
         ];
 
         // Place user-selected model first in the chain (if valid)
