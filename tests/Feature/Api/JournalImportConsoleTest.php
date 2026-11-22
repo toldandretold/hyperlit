@@ -32,6 +32,7 @@ function jconCleanup(): void
     jconDb()->table('conversion_flags')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('nodes')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('conversion_lint_results')->where('book', 'LIKE', 'book_jcon%')->delete();
+    jconDb()->table('conversion_lint_reviews')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('conversion_lint_snapshots')->whereIn(
         'journal_source_id',
         jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->pluck('id')
@@ -1198,6 +1199,8 @@ test('lint is admin-gated like the rest of the console API', function () {
     $this->getJson('/api/maintainer/journal-import/anything/lint')->assertStatus(403);
     $this->postJson('/api/maintainer/journal-import/anything/lint/snapshot')->assertStatus(403);
     $this->deleteJson('/api/maintainer/journal-import/anything/lint/snapshot')->assertStatus(403);
+    $this->postJson('/api/maintainer/journal-import/anything/lint/review')->assertStatus(403);
+    $this->getJson('/api/maintainer/journal-import/anything/lint/cases')->assertStatus(403);
 });
 
 test('lint ranks every lane with content by the problems in its stored nodes', function () {
@@ -1329,4 +1332,102 @@ test('a snapshot is refused while conversions are still queued for the journal',
 
     $this->postJson("/api/maintainer/journal-import/{$journal->slug}/lint/snapshot")->assertStatus(409);
     expect(jconDb()->table('conversion_lint_snapshots')->where('journal_source_id', $journal->id)->exists())->toBeFalse();
+});
+
+// ── Conversion lint: a human's verdict on a finding ──
+
+test('a finding dismissed as a false alarm stops counting, survives a reconvert, and can be undone', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $finding = $this->getJson($base)->json("books.{$book}.findings.0");
+    expect($finding['detector'])->toBe('fragment_blockquote');
+    $this->postJson("{$base}/snapshot")->assertOk();
+
+    $this->postJson("{$base}/review", [
+        'book' => $book, 'detector' => $finding['detector'], 'excerpt' => $finding['excerpt'],
+        'startLine' => $finding['startLine'], 'verdict' => 'false_alarm',
+    ])->assertOk()->assertJsonPath('key', $finding['key']);
+
+    $body = $this->getJson($base)->json();
+    expect($body['books'][$book]['findings_total'])->toBe(0);
+    expect($body['books'][$book]['score'])->toBe(0);
+    expect($body['books'][$book]['dismissed'][0]['key'])->toBe($finding['key']);
+    expect($body['reviewed'])->toBe(1);
+    // Dismissed AFTER the snapshot: it must not read as a problem the reconvert fixed.
+    expect($body['compare']['gone'])->toBe(0);
+    expect($body['compare']['detectors'])->toBe([]);
+
+    // A reconvert brings the same text back under new node ids — still dismissed.
+    jconDb()->table('nodes')->where('book', $book)->update(['startLine' => DB::raw('"startLine" + 5000')]);
+    jconDb()->table('library')->where('book', $book)->update(['timestamp' => 2000]);
+    expect($this->getJson($base)->json("books.{$book}.findings_total"))->toBe(0);
+
+    $this->postJson("{$base}/review", [
+        'book' => $book, 'detector' => $finding['detector'], 'excerpt' => $finding['excerpt'], 'verdict' => null,
+    ])->assertOk();
+    expect($this->getJson($base)->json("books.{$book}.findings_total"))->toBe(1);
+});
+
+test('confirming a finding writes it into the lane note and opens a case; withdrawing takes both back', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $finding = $this->getJson($base)->json("books.{$book}.findings.0");
+    $payload = ['book' => $book, 'detector' => $finding['detector'], 'excerpt' => $finding['excerpt'],
+                'startLine' => $finding['startLine']];
+
+    $this->postJson("{$base}/review", $payload + ['verdict' => 'real'])->assertOk();
+
+    $body = $this->getJson($base)->json("books.{$book}");
+    expect($body['findings_total'])->toBe(1);          // still a problem — confirmed, not hidden
+    expect($body['confirmed'])->toBe(1);
+    expect($body['findings'][0]['confirmed'])->toBeTrue();
+
+    $flag = \App\Models\ConversionFlag::where('book', $book)->where('status', 'open')->first();
+    expect($flag)->not->toBeNull();
+    expect($flag->details['maintainer_note'])->toContain("[{$finding['key']}]")->toContain('domain names');
+
+    // Confirming twice does not duplicate the line.
+    $this->postJson("{$base}/review", $payload + ['verdict' => 'real'])->assertOk();
+    expect(substr_count($flag->fresh()->details['maintainer_note'], "[{$finding['key']}]"))->toBe(1);
+
+    $this->postJson("{$base}/review", $payload + ['verdict' => null])->assertOk();
+    expect(\App\Models\ConversionFlag::where('book', $book)->exists())->toBeFalse();
+    expect($this->getJson($base)->json("books.{$book}.confirmed"))->toBe(0);
+});
+
+test('confirming keeps a note the maintainer wrote, and a verdict on another journal\'s book is refused', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+    $this->postJson("/api/maintainer/conversion/flags/{$book}/note", ['note' => 'Footnotes look off too.'])->assertOk();
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $finding = $this->getJson($base)->json("books.{$book}.findings.0");
+    $payload = ['book' => $book, 'detector' => $finding['detector'], 'excerpt' => $finding['excerpt']];
+    $this->postJson("{$base}/review", $payload + ['verdict' => 'real'])->assertOk();
+    $this->postJson("{$base}/review", $payload + ['verdict' => null])->assertOk();
+
+    $flag = \App\Models\ConversionFlag::where('book', $book)->where('status', 'open')->first();
+    expect($flag->details['maintainer_note'])->toBe('Footnotes look off too.');
+
+    $this->postJson("{$base}/review", ['book' => 'book_not_in_this_journal', 'verdict' => 'real'] + $payload)
+        ->assertStatus(404);
+});
+
+test('the cases download refuses until something has been reviewed', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/lint/cases")->assertStatus(422);
 });

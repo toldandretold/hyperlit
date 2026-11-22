@@ -108,3 +108,13 @@ it('keys findings by excerpt so a reconvert (new node ids) compares cleanly', fu
     $g = ['detector' => 'split_sentence', 'startLine' => '9900', 'excerpt' => 'some text'];
     expect(ConversionLint::key($f))->toBe(ConversionLint::key($g));
 });
+
+it('does not read a lettered list as a sentence cut in two (27e44104)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>a) an abstraction from the physical properties of goods (their use-values),</p>'),
+        lintNode('200', '<p>b) an abstraction from single labour activities so that social relations between commodities in exchange are established,</p>'),
+        lintNode('300', '<p>(c) an abstraction from simple labour activities to more complex tasks, which is the third,</p>'),
+        lintNode('400', '<p>iv. an abstraction from concrete labour altogether, and that is where the list ends.</p>'),
+    ]);
+    expect(detectors($r))->toBe([]);
+});

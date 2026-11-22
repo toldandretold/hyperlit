@@ -46,12 +46,20 @@ class ImportCasesCommand extends Command
             $this->option('from') ?: null,
         ]) as $sweepDir) {
             foreach (File::glob(rtrim($sweepDir, '/') . '/*.{tar.gz,tgz,tar}', GLOB_BRACE) as $candidate) {
+                if ($this->unpackLintCases($candidate, $casesDir)) {
+                    continue;
+                }
                 if ($this->bundleBook($candidate) !== null) {
                     $dest = "{$casesDir}/" . basename($candidate);
                     File::move($candidate, $dest);
                     $this->line('Swept in: ' . basename($candidate));
                 }
             }
+        }
+
+        // A lint-cases archive dragged straight into the drop-folder, rather than swept from Downloads.
+        foreach (File::glob("{$casesDir}/*.{tar.gz,tgz,tar}", GLOB_BRACE) as $candidate) {
+            $this->unpackLintCases($candidate, $casesDir);
         }
 
         $bundles = File::glob("{$casesDir}/*.{tar.gz,tgz,tar}", GLOB_BRACE);
@@ -269,6 +277,52 @@ class ImportCasesCommand extends Command
         } catch (\Throwable $e) {
             $this->warn('review shelf failed (imports are fine): ' . $e->getMessage());
         }
+    }
+
+    /**
+     * The journal console's "⤓ confirmed cases" download: ONE outer tar holding an ordinary
+     * book:export bundle per kind of confirmed problem, plus `lint-review.json` — every verdict
+     * the maintainer gave (confirmed findings the fix should clear; false alarms, which are
+     * evidence for tightening a ConversionLint detector). Unpack the bundles into the drop-folder
+     * so the normal loop ingests them, keep the review beside them, and say what it holds.
+     *
+     * @return bool true when $tarball was such an archive (and has been dealt with)
+     */
+    private function unpackLintCases(string $tarball, string $casesDir): bool
+    {
+        $probe = new Process(['tar', '-xOf', $tarball, 'lint-review.json']);
+        $probe->run();
+        $review = $probe->isSuccessful() ? json_decode($probe->getOutput(), true) : null;
+        if (! is_array($review) || ! isset($review['confirmed'], $review['false_alarms'])) {
+            return false;
+        }
+
+        $extract = new Process(['tar', '-xf', $tarball, '-C', $casesDir]);
+        $extract->run();
+        if (! $extract->isSuccessful()) {
+            $this->warn(basename($tarball) . ': lint-cases archive would not unpack — ' . trim($extract->getErrorOutput()));
+
+            return true;
+        }
+        $slug = preg_replace('/[^a-z0-9-]+/', '', (string) ($review['slug'] ?? 'journal')) ?: 'journal';
+        $kept = "{$casesDir}/lint-review-{$slug}.json";
+        File::move("{$casesDir}/lint-review.json", $kept);
+        File::move($tarball, "{$casesDir}/ingested/" . basename($tarball));
+
+        $byKind = fn (array $rows) => collect($rows)->countBy('detector')
+            ->map(fn ($n, $d) => "{$d} ×{$n}")->implode(', ') ?: 'none';
+        $this->info('Lint cases from ' . ($review['journal'] ?? $slug) . ' → ' . basename($kept));
+        $this->line('  confirmed real:  ' . $byKind($review['confirmed']));
+        $this->line('  false alarms:    ' . $byKind($review['false_alarms'])
+            . ($review['false_alarms'] ? '   ← tighten these detectors in ConversionLint (bump VERSION)' : ''));
+        foreach ($review['examples'] ?? [] as $book => $kinds) {
+            $this->line("  example bundle:  {$book}  (" . implode(', ', (array) $kinds) . ')');
+        }
+        foreach ($review['export_failed'] ?? [] as $book) {
+            $this->warn("  no bundle for {$book} — its export failed on the server");
+        }
+
+        return true;
     }
 
     /** The bundle's book id, or null if it isn't a book:export bundle. */

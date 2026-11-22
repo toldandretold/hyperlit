@@ -83,7 +83,7 @@ test.describe('journal-import conversion lint', () => {
     await expect(reader.locator('[id="100"]')).toBeVisible({ timeout: 60000 });
 
     // ── Click the problem: the pane reloads AT the node and rings it ──
-    await finding.click();
+    await finding.locator('.ji-finding-main').click();
     await expect(page.locator('#ji-converted')).toHaveAttribute('src', `/${BROKEN}#${FRAGMENT_LINE}`);
     const target = reader.locator(`[id="${FRAGMENT_LINE}"]`);
     await expect(target).toBeInViewport({ timeout: 60000 });
@@ -92,6 +92,29 @@ test.describe('journal-import conversion lint', () => {
     await expect(reader.locator('#ji-finding-ring')).toHaveCount(1);
     await expect(target).not.toHaveAttribute('style', /outline/);
     await expect(target).toHaveCSS('outline-style', 'solid');
+
+    // ── A verdict: "false alarm" takes it out of the count, and can be undone ──
+    await finding.locator('.ji-finding-verdict-false').click();
+    await expect(page.locator('#ji-findings .ji-finding-fold')).toContainText('1 dismissed as false alarm');
+    await expect(page.locator('#ji-findings-toggle')).toHaveText('problems (0)');
+    await expect(brokenArticle.locator('.ji-badge-lint')).toHaveCount(0);
+    await page.locator('#ji-findings .ji-finding-fold').click();
+    await page.locator('#ji-findings .ji-finding-dismissed .ji-finding-verdict-undo').click();
+    await expect(page.locator('#ji-findings-toggle')).toHaveText('problems (1)');
+
+    // ── "Real": it lands in the lane's note (which rides the case bundle) ──
+    await finding.locator('.ji-finding-verdict-real').click();
+    await expect(finding).toHaveClass(/ji-finding-confirmed/);
+    await expect(page.locator('#ji-note')).toHaveValue(/✓ \[fragment_blockquote:[0-9a-f]{12}\] \(node 4200\).*domain names/);
+
+    // ── …and the reviewed-cases download is one archive: the review + an example bundle ──
+    const casesButton = page.locator('#ji-lint-cases');
+    await expect(casesButton).toBeVisible();
+    const [download] = await Promise.all([page.waitForEvent('download'), casesButton.click()]);
+    expect(download.suggestedFilename()).toBe(`lint-cases-${SLUG}.tar`);
+    const members = execSync(`tar -tf "${await download.path()}"`).toString();
+    expect(members).toContain('lint-review.json');
+    expect(members).toContain(`${BROKEN}.tar.gz`);
 
     // ── Snapshot: a comparison exists and says nothing has happened yet ──
     await page.locator('#ji-lint-snapshot').click();

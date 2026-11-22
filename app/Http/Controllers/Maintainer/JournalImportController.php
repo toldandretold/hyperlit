@@ -38,6 +38,9 @@ use Illuminate\Support\Str;
  */
 class JournalImportController extends Controller
 {
+    /** The reason on a flag opened by confirming a lint finding (and nothing else). */
+    private const LINT_FLAG_REASON = 'Confirmed conversion-lint finding';
+
     use BuildsImportLanes;
 
     /** Everything the console can fire; see JournalImportActionJob for what each one means. */
@@ -271,6 +274,9 @@ class JournalImportController extends Controller
                 'findings'       => array_slice($findings, 0, ConversionLintReport::FINDINGS_CAP),
                 'findings_total' => count($findings),
                 'new'            => count($newKeys),
+                'confirmed'      => count(array_filter($findings, fn ($f) => $f['confirmed'])),
+                // Judged false alarms: out of every count above, kept so the verdict can be undone.
+                'dismissed'      => array_slice($b['dismissed'], 0, ConversionLintReport::FINDINGS_CAP),
             ];
         }
 
@@ -285,7 +291,183 @@ class JournalImportController extends Controller
             'total'   => count($books),
             'books'   => (object) $payload,
             'compare' => $compare,
+            // Any verdict at all makes the cases download worth offering.
+            'reviewed' => count($report->reviewRows(array_keys($books))),
         ]);
+    }
+
+    /**
+     * POST /api/maintainer/journal-import/{slug}/lint/review — a human's verdict on one finding.
+     *
+     * `false_alarm` takes it out of the lane's count for good (keyed by detector + excerpt, so it
+     * stays dismissed across reconverts). `real` confirms it AND writes it into the lane's
+     * maintainer note — the note already opens a case and already rides the case bundle, so a
+     * confirmed finding reaches whoever fixes the converter by the road that exists. A null
+     * verdict withdraws either.
+     */
+    public function lintReview(Request $request, string $slug, ConversionLintReport $report)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+        $data = $request->validate([
+            'book'      => 'required|string|max:255',
+            'detector'  => 'required|string|max:40|regex:/^[a-z_]+$/',
+            'excerpt'   => 'required|string|max:400',
+            'startLine' => 'nullable|string|max:40',
+            'verdict'   => 'present|nullable|in:' . ConversionLintReport::VERDICT_REAL . ',' . ConversionLintReport::VERDICT_FALSE_ALARM,
+        ]);
+        if (! array_key_exists($data['book'], $this->lintableBooks($journal->id))) {
+            return response()->json(['message' => 'That book is not a lane of this journal.'], 404);
+        }
+
+        $finding = ['detector' => $data['detector'], 'excerpt' => $data['excerpt'],
+                    'startLine' => (string) ($data['startLine'] ?? '')];
+        $report->review($data['book'], $finding, $data['verdict'], $request->user()?->name);
+        $this->syncConfirmedFindingNote(
+            $data['book'], $finding, $data['verdict'] === ConversionLintReport::VERDICT_REAL, $request->user()?->name);
+
+        return response()->json(['ok' => true, 'key' => \App\Services\Conversion\ConversionLint::key($finding)]);
+    }
+
+    /**
+     * GET /api/maintainer/journal-import/{slug}/lint/cases — the cases worth taking to a dev machine.
+     *
+     * NOT every lane with a confirmed problem: a converter fix is per KIND of defect, and a bundle
+     * is the whole PDF plus its OCR, so a journal's worth would be hundreds of megabytes of the
+     * same bug. One example lane per confirmed kind — the lane with the most confirmed findings of
+     * that kind — plus `lint-review.json`, which lists EVERY verdict (the confirmed ones the fix
+     * should clear, and the false alarms, which are evidence for tightening a detector).
+     * One outer tar of ordinary book:export bundles; `book:import-cases --downloads` unpacks it.
+     */
+    public function lintCases(Request $request, string $slug, ConversionLintReport $report)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        $books = $this->lintableBooks($journal->id);
+        $rows = $report->reviewRows(array_keys($books));
+        if ($rows === []) {
+            return response()->json(['message' => 'Nothing reviewed yet — confirm or dismiss a problem first.'], 422);
+        }
+
+        // detector => book => confirmed count; the busiest lane is that kind's example.
+        $tally = [];
+        foreach ($rows as $row) {
+            if ($row['verdict'] === ConversionLintReport::VERDICT_REAL) {
+                $tally[$row['detector']][$row['book']] = ($tally[$row['detector']][$row['book']] ?? 0) + 1;
+            }
+        }
+        $examples = [];   // book => kinds it stands for
+        foreach ($tally as $detector => $perBook) {
+            arsort($perBook);
+            // Prefer a lane already chosen for another kind when it ties for the lead — fewer bundles.
+            $best = array_key_first($perBook);
+            foreach ($perBook as $book => $n) {
+                if ($n === $perBook[$best] && isset($examples[$book])) {
+                    $best = $book;
+                    break;
+                }
+            }
+            $examples[$best][] = $detector;
+        }
+
+        $dir = storage_path('app/book-exports/lint-cases-' . Str::random(12));
+        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
+        $members = ['lint-review.json'];
+        $failed = [];
+        foreach (array_keys($examples) as $book) {
+            $out = "{$dir}/{$book}.tar.gz";
+            $exit = \Illuminate\Support\Facades\Artisan::call('book:export', [
+                'book' => $book, '--out' => $out, '--origin' => 'journal-import',
+            ]);
+            if ($exit === 0 && is_file($out)) {
+                $members[] = "{$book}.tar.gz";
+            } else {
+                $failed[] = $book;
+            }
+        }
+
+        $verdict = fn (string $v) => array_values(array_map(
+            fn ($r) => ['book' => $r['book'], 'detector' => $r['detector'], 'startLine' => $r['start_line'], 'excerpt' => $r['excerpt']],
+            array_filter($rows, fn ($r) => $r['verdict'] === $v)));
+        file_put_contents("{$dir}/lint-review.json", json_encode([
+            'journal'       => $journal->display_name,
+            'slug'          => $journal->slug,
+            'exported_at'   => now()->toIso8601String(),
+            'lint_version'  => \App\Services\Conversion\ConversionLint::VERSION,
+            'examples'      => $examples,
+            'export_failed' => $failed,
+            'confirmed'     => $verdict(ConversionLintReport::VERDICT_REAL),
+            'false_alarms'  => $verdict(ConversionLintReport::VERDICT_FALSE_ALARM),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
+
+        $outer = "{$dir}.tar";
+        $tar = new \Symfony\Component\Process\Process(array_merge(['tar', '-cf', $outer, '-C', $dir], $members));
+        $tar->run();
+        \Illuminate\Support\Facades\File::deleteDirectory($dir);
+        if (! $tar->isSuccessful() || ! is_file($outer)) {
+            return response()->json(['message' => 'Could not build the cases archive — see logs.'], 500);
+        }
+
+        return response()->download($outer, "lint-cases-{$journal->slug}.tar")->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Keep the lane's maintainer note in step with its confirmed findings: one line per finding,
+     * tagged with the finding's key so the same line can be found and removed again. Opens a
+     * `manual` flag when the lane has none (as MaintainerController::note does — a confirmed
+     * problem with no case is a problem nobody will pick up), and closes that flag again if
+     * un-confirming leaves it with nothing to say.
+     */
+    private function syncConfirmedFindingNote(string $book, array $finding, bool $confirmed, ?string $by): void
+    {
+        $key = \App\Services\Conversion\ConversionLint::key($finding);
+        $flags = \App\Models\ConversionFlag::where('book', $book)->where('status', 'open')->get();
+        if ($flags->isEmpty()) {
+            if (! $confirmed) {
+                return;
+            }
+            $flags = collect([\App\Models\ConversionFlag::create([
+                'book'    => $book,
+                'source'  => \App\Models\ConversionFlag::SOURCE_MANUAL,
+                'reason'  => self::LINT_FLAG_REASON,
+                'status'  => 'open',
+                'details' => [],
+            ])]);
+        }
+
+        $where = $finding['startLine'] !== '' ? " (node {$finding['startLine']})" : '';
+        $line = "✓ [{$key}]{$where} " . Str::limit(preg_replace('/\s+/u', ' ', $finding['excerpt']), 170);
+
+        foreach ($flags as $flag) {
+            $details = $flag->details ?? [];
+            $lines = array_values(array_filter(
+                preg_split('/\R/u', (string) ($details['maintainer_note'] ?? '')),
+                fn ($l) => ! str_contains($l, "[{$key}]"),
+            ));
+            if ($confirmed) {
+                $lines[] = $line;
+            }
+            $note = trim(implode("\n", $lines));
+
+            if ($note === '') {
+                if ($flag->reason === self::LINT_FLAG_REASON && $flag->source === \App\Models\ConversionFlag::SOURCE_MANUAL) {
+                    $flag->delete();     // we opened it for this, and nothing is left of it
+                    continue;
+                }
+                unset($details['maintainer_note'], $details['noted_by'], $details['noted_at']);
+            } else {
+                $details['maintainer_note'] = Str::limit($note, 3990, '');
+                $details['noted_by'] = $by;
+                $details['noted_at'] = now()->toIso8601String();
+            }
+            $flag->details = $details;
+            $flag->save();
+        }
     }
 
     /**

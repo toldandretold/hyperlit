@@ -25,7 +25,7 @@ import { drainResponse } from '../../utilities/drainResponse';
 import { csrfHeaders, postJson } from '../shared/http';
 import {
   DETECTOR_LABELS, detectorDeltas, detectorLabel, lintTotals, summarize,
-  type BookLint, type LintCompare, type LintFinding,
+  type BookLint, type LintCompare, type LintFinding, type LintVerdict,
 } from './lintView';
 
 interface LintPayload {
@@ -33,6 +33,8 @@ interface LintPayload {
   total: number;
   books: Record<string, BookLint>;
   compare: LintCompare | null;
+  /** How many verdicts this journal holds — any at all makes the cases download worth offering. */
+  reviewed: number;
 }
 
 export interface LintPanelOptions {
@@ -40,6 +42,10 @@ export interface LintPanelOptions {
   apiBase: () => string;
   /** The lint changed: redraw the article list and the selected lane's strip. */
   onChange: () => void;
+  /** A finding was confirmed or un-confirmed: the lane's note (and case flag) changed server-side. */
+  onNoteChanged: () => void;
+  /** One line of feedback in the detail strip's status area. */
+  setStatus: (text: string) => void;
 }
 
 const SOURCE = 'maintainer-journal-import';
@@ -55,6 +61,8 @@ let generation = 0;
 let retryTimer: number | undefined;
 /** The findings list stays open or shut across lanes — it is the operator's preference, not the lane's. */
 let findingsOpen = true;
+let dismissedOpen = false;
+let reviewed = 0;
 
 const node = <T extends HTMLElement>(id: string): T | null => document.getElementById(id) as T | null;
 
@@ -90,6 +98,13 @@ export function initLintPanel(opts: LintPanelOptions): void {
       + 'The current before/after comparison is discarded.',
     )) return;
     void takeSnapshot();
+  });
+  node<HTMLButtonElement>('ji-lint-cases')?.addEventListener('click', () => {
+    if (!options) return;
+    options.setStatus('building the cases archive…');
+    // A plain navigation: the response is an attachment, so the page stays where it is.
+    window.location.href = `${options.apiBase()}/lint/cases`;
+    window.setTimeout(() => options?.setStatus(''), 6000);
   });
   node<HTMLButtonElement>('ji-lint-clear')?.addEventListener('click', () => { void clearSnapshot(); });
   node<HTMLButtonElement>('ji-findings-toggle')?.addEventListener('click', () => {
@@ -129,6 +144,7 @@ export async function refreshLint(): Promise<void> {
   compare = payload.compare ?? null;
   pending = payload.pending ?? 0;
   total = payload.total ?? lint.size;
+  reviewed = payload.reviewed ?? 0;
   loaded = true;
 
   paintBar();
@@ -221,7 +237,42 @@ function paintBar(): void {
       : 'Record today\'s problems, so that after a reconvert you can see what it fixed and what it broke';
   }
 
+  const cases = node<HTMLButtonElement>('ji-lint-cases');
+  if (cases) {
+    cases.hidden = reviewed === 0;
+    cases.textContent = `⤓ reviewed cases (${reviewed})`;
+  }
+
   paintCompare();
+}
+
+/**
+ * Record a verdict on one finding, then reload: a false alarm leaves every count, and a confirmed
+ * one has just been written into the lane's note server-side.
+ */
+async function review(book: string, finding: Pick<LintFinding, 'detector' | 'excerpt' | 'startLine'>, verdict: LintVerdict): Promise<void> {
+  if (!options) return;
+  try {
+    const { status, data } = await postJson<{ message?: string }>(`${options.apiBase()}/lint/review`, {
+      book, detector: finding.detector, excerpt: finding.excerpt, startLine: finding.startLine, verdict,
+    });
+    if (status !== 200) {
+      options.setStatus(data.message ?? `could not save that (${status})`);
+      options.onChange();   // re-enable the button that was pressed
+      return;
+    }
+    options.setStatus(
+      verdict === 'real' ? 'confirmed — added to this lane\'s note, it rides the case bundle'
+        : verdict === 'false_alarm' ? 'dismissed as a false alarm — it stays dismissed after a reconvert'
+          : 'verdict withdrawn',
+    );
+    await refreshLint();
+    options.onNoteChanged();
+  } catch (e) {
+    log.error('Lint review failed', SOURCE, e);
+    options.setStatus('could not save that — refresh and retry');
+    options.onChange();
+  }
 }
 
 function paintCompare(): void {
@@ -283,15 +334,17 @@ export function lintBadges(book: string): Array<[string, string, string]> {
     badges.push(['flag', `▲ ${found.new} new`,
       'Problems that were not in the snapshot — this reconvert introduced them']);
   }
-  badges.push(['lint', `${found.findings_total} problem${found.findings_total === 1 ? '' : 's'}`,
-    summarize(found.counts)]);
+  badges.push(['lint', `${found.findings_total} problem${found.findings_total === 1 ? '' : 's'}`
+    + (found.confirmed > 0 ? ` · ${found.confirmed} ✓` : ''),
+    summarize(found.counts) + (found.confirmed > 0 ? `\n${found.confirmed} confirmed real` : '')]);
   return badges;
 }
 
 /**
  * Paint the selected lane's findings into the detail strip. `onJump` scrolls the reader pane to
  * a node; findings with no single node (a journal-wide page-furniture string) are listed but not
- * clickable.
+ * clickable. Each finding carries the two verdicts a human can give it; the ones already judged
+ * false alarms sit folded underneath, where the verdict can be undone.
  */
 export function renderFindings(book: string | null, onJump: (finding: LintFinding) => void): void {
   const toggle = node<HTMLButtonElement>('ji-findings-toggle');
@@ -299,7 +352,8 @@ export function renderFindings(book: string | null, onJump: (finding: LintFindin
   if (!toggle || !list) return;
 
   const found = book ? lint.get(book) : null;
-  if (!found || found.findings_total === 0) {
+  const dismissed = found?.dismissed ?? [];
+  if (!book || !found || (found.findings_total === 0 && dismissed.length === 0)) {
     toggle.hidden = true;
     list.hidden = true;
     list.textContent = '';
@@ -317,7 +371,7 @@ export function renderFindings(book: string | null, onJump: (finding: LintFindin
   if (!findingsOpen) return;
 
   for (const finding of found.findings) {
-    list.appendChild(buildFinding(finding, onJump));
+    list.appendChild(buildFinding(book, finding, onJump));
   }
   if (found.findings_total > found.findings.length) {
     const more = document.createElement('div');
@@ -325,41 +379,95 @@ export function renderFindings(book: string | null, onJump: (finding: LintFindin
     more.textContent = `…and ${found.findings_total - found.findings.length} more of the same kinds`;
     list.appendChild(more);
   }
+
+  if (dismissed.length > 0) {
+    const fold = document.createElement('button');
+    fold.type = 'button';
+    fold.className = 'ji-finding-more ji-finding-fold';
+    fold.textContent = `${dismissedOpen ? '▾' : '▸'} ${dismissed.length} dismissed as false alarm${dismissed.length === 1 ? '' : 's'}`;
+    fold.setAttribute('aria-expanded', dismissedOpen ? 'true' : 'false');
+    fold.addEventListener('click', () => {
+      dismissedOpen = !dismissedOpen;
+      options?.onChange();
+    });
+    list.appendChild(fold);
+    if (dismissedOpen) {
+      for (const finding of dismissed) list.appendChild(buildDismissed(book, finding));
+    }
+  }
 }
 
-function buildFinding(finding: LintFinding, onJump: (finding: LintFinding) => void): HTMLElement {
+function span(className: string, text: string): HTMLSpanElement {
+  const el = document.createElement('span');
+  el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+function verdictButton(text: string, title: string, className: string, act: () => void): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `ji-finding-verdict ${className}`;
+  button.textContent = text;
+  button.title = title;
+  button.setAttribute('aria-label', title);
+  button.addEventListener('click', () => {
+    button.disabled = true;
+    act();
+  });
+  return button;
+}
+
+function buildFinding(book: string, finding: LintFinding, onJump: (finding: LintFinding) => void): HTMLElement {
   const jumpable = finding.startLine !== '';
-  const row = document.createElement(jumpable ? 'button' : 'div');
+  const row = document.createElement('div');
   row.className = 'ji-finding';
   if (finding.is_new) row.classList.add('ji-finding-new');
+  if (finding.confirmed) row.classList.add('ji-finding-confirmed');
+
+  // The jump target is its own button: the verdict buttons sit beside it, and a button cannot
+  // hold another button.
+  const main = document.createElement(jumpable ? 'button' : 'div');
+  main.className = 'ji-finding-main';
   if (jumpable) {
-    (row as HTMLButtonElement).type = 'button';
-    row.title = `${DETECTOR_LABELS[finding.detector]?.hint ?? ''}\n\nClick to jump to it in the converted output.`.trim();
-    row.addEventListener('click', () => {
+    (main as HTMLButtonElement).type = 'button';
+    main.title = `${DETECTOR_LABELS[finding.detector]?.hint ?? ''}\n\nClick to jump to it in the converted output.`.trim();
+    main.addEventListener('click', () => {
       row.parentElement?.querySelector('.ji-finding-active')?.classList.remove('ji-finding-active');
       row.classList.add('ji-finding-active');
       onJump(finding);
     });
   } else {
     row.classList.add('ji-finding-static');
-    row.title = DETECTOR_LABELS[finding.detector]?.hint ?? '';
+    main.title = DETECTOR_LABELS[finding.detector]?.hint ?? '';
   }
+  if (finding.is_new) main.appendChild(span('ji-finding-tag', 'new'));
+  main.appendChild(span('ji-finding-kind', detectorLabel(finding.detector)));
+  main.appendChild(span('ji-finding-excerpt', finding.excerpt));
+  row.appendChild(main);
 
-  if (finding.is_new) {
-    const tag = document.createElement('span');
-    tag.className = 'ji-finding-tag';
-    tag.textContent = 'new';
-    row.appendChild(tag);
+  if (finding.confirmed) {
+    row.appendChild(verdictButton('✓ real', 'Confirmed real — click to withdraw (removes it from the note)',
+      'ji-finding-verdict-on', () => { void review(book, finding, null); }));
+  } else {
+    row.appendChild(verdictButton('✓', 'This is a real problem — add it to this lane\'s note for the case bundle',
+      'ji-finding-verdict-real', () => { void review(book, finding, 'real'); }));
   }
-  const kind = document.createElement('span');
-  kind.className = 'ji-finding-kind';
-  kind.textContent = detectorLabel(finding.detector);
-  row.appendChild(kind);
+  row.appendChild(verdictButton('✗', 'False alarm — not a problem; hide it and stop counting it',
+    'ji-finding-verdict-false', () => { void review(book, finding, 'false_alarm'); }));
 
-  const excerpt = document.createElement('span');
-  excerpt.className = 'ji-finding-excerpt';
-  excerpt.textContent = finding.excerpt;
-  row.appendChild(excerpt);
+  return row;
+}
 
+function buildDismissed(book: string, finding: BookLint['dismissed'][number]): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'ji-finding ji-finding-static ji-finding-dismissed';
+  const main = document.createElement('div');
+  main.className = 'ji-finding-main';
+  main.appendChild(span('ji-finding-kind', detectorLabel(finding.detector)));
+  main.appendChild(span('ji-finding-excerpt', finding.excerpt));
+  row.appendChild(main);
+  row.appendChild(verdictButton('undo', 'Not a false alarm after all — count it again',
+    'ji-finding-verdict-undo', () => { void review(book, finding, null); }));
   return row;
 }

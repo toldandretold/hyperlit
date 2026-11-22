@@ -2241,6 +2241,8 @@ wireHelp();
 if (isDetail) {
   initLintPanel({
     apiBase,
+    setStatus,
+    onNoteChanged: () => { void loadDetail(); },
     onChange: () => {
       renderArticles();
       if (selected) {

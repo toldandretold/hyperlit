@@ -37,7 +37,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 1;
+    public const VERSION = 2;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -59,6 +59,13 @@ class ConversionLint
 
     /** Leading body nodes never read as page furniture: a prolific author's byline repeats across a journal. */
     private const FRONT_MATTER_NODES = 10;
+
+    /**
+     * A paragraph that opens with a list enumerator — "b) an abstraction from…", "(ii) …",
+     * "c. …". Lower-case by design, and the item before it routinely ends on a comma, which is
+     * exactly the split-sentence shape (27e44104's a)/b)/c)/d) list was four false alarms).
+     */
+    private const ENUMERATOR = '/^\\(?(?:[a-z]|[ivx]{1,5})[).]\\s/u';
 
     private const TERMINAL = '/[.!?:;)\]"”’\'…]$/u';
     private const PROSE_TAGS = ['p', 'blockquote', 'ul', 'ol'];
@@ -159,7 +166,8 @@ class ConversionLint
             if (in_array($tag, ['p', 'blockquote'], true) && preg_match('/^\p{Ll}/u', $text)) {
                 $prev = $this->previousProse($body, $i);
                 if ($prev !== null && $this->leavesSentenceOpen($prev['text'])
-                        && mb_strlen($text) >= 40 && !preg_match('#^(?:https?:|www\.)#i', $text)) {
+                        && mb_strlen($text) >= 40 && !preg_match('#^(?:https?:|www\.)#i', $text)
+                        && !preg_match(self::ENUMERATOR, $text)) {
                     $add($tag === 'blockquote' ? 'fragment_blockquote' : 'split_sentence', $node,
                         '…' . mb_substr($prev['text'], -70) . ' ‖ ' . mb_substr($text, 0, 120));
                 }

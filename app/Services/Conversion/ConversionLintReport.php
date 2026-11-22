@@ -32,14 +32,22 @@ class ConversionLintReport
     /** Findings sent to the page per book; the counts always describe all of them. */
     public const FINDINGS_CAP = 60;
 
+    public const VERDICT_REAL = 'real';
+    public const VERDICT_FALSE_ALARM = 'false_alarm';
+
     public function __construct(private ConversionLint $lint)
     {
     }
 
     /**
      * @param array<string, int> $books book => library.timestamp, for every book with content
+     * Reviewed findings are applied here, so every consumer (the page, a snapshot, a comparison)
+     * sees the same thing: a finding judged a FALSE ALARM is moved out of `findings` into
+     * `dismissed` and no longer counts; one judged REAL stays and carries `confirmed`.
+     *
      * @return array{pending: int, books: array<string, array{score: int, counts: array<string, int>,
-     *               findings: list<array{detector: string, startLine: string, excerpt: string, key: string}>}>}
+     *               findings: list<array{detector: string, startLine: string, excerpt: string, key: string, confirmed: bool}>,
+     *               dismissed: list<array{detector: string, startLine: string, excerpt: string, key: string}>}>}
      */
     public function forBooks(array $books, float $budgetSeconds = 6.0): array
     {
@@ -72,17 +80,28 @@ class ConversionLintReport
 
         $leaks = $pending === 0 ? $this->chromeLeaks($db, $books) : [];
 
+        $reviews = $this->reviews(array_keys($stored));
+
         $out = [];
         foreach ($stored as $book => $findings) {
             foreach ($leaks[$book] ?? [] as $leak) {
                 $findings[] = ['detector' => 'chrome_leak', 'startLine' => '', 'excerpt' => $leak];
             }
-            foreach ($findings as &$f) {
+            $kept = [];
+            $dismissed = [];
+            foreach ($findings as $f) {
                 $f['key'] = ConversionLint::key($f);
+                $verdict = $reviews[$book][$f['key']] ?? null;
+                if ($verdict === self::VERDICT_FALSE_ALARM) {
+                    $dismissed[] = $f;
+                    continue;
+                }
+                $f['confirmed'] = $verdict === self::VERDICT_REAL;
+                $kept[] = $f;
             }
-            unset($f);
-            $counts = array_count_values(array_column($findings, 'detector'));
-            $out[$book] = ['score' => ConversionLint::score($counts), 'counts' => $counts, 'findings' => $findings];
+            $counts = array_count_values(array_column($kept, 'detector'));
+            $out[$book] = ['score' => ConversionLint::score($counts), 'counts' => $counts,
+                           'findings' => $kept, 'dismissed' => $dismissed];
         }
 
         return ['pending' => $pending, 'books' => $out];
@@ -133,6 +152,20 @@ class ConversionLintReport
         }
         $before = json_decode((string) $row->books, true) ?: [];
 
+        // A finding dismissed AFTER the snapshot was taken is still in the snapshot. Left there it
+        // would read as "gone" — a problem the reconvert fixed — when all that happened is that a
+        // human called it a false alarm. Take it out of the "before" side as well.
+        foreach ($this->reviews(array_keys($before), self::VERDICT_FALSE_ALARM) as $book => $keys) {
+            foreach (array_intersect($before[$book]['keys'] ?? [], array_keys($keys)) as $key) {
+                $detector = explode(':', $key, 2)[0];
+                if (($before[$book]['counts'][$detector] ?? 0) > 0) {
+                    $before[$book]['counts'][$detector]--;
+                }
+            }
+            $before[$book]['keys'] = array_values(array_diff($before[$book]['keys'] ?? [], array_keys($keys)));
+            $before[$book]['counts'] = array_filter($before[$book]['counts'] ?? []);
+        }
+
         $waiting = 0;
         $changed = 0;
         foreach ($before as $book => $b) {
@@ -161,6 +194,63 @@ class ConversionLintReport
             'new'       => $diff['new'],
             'new_total' => array_sum(array_map('count', $diff['new'])),
         ];
+    }
+
+    /**
+     * Record (or, with a null verdict, withdraw) a human's verdict on one finding.
+     *
+     * @param array{detector: string, startLine?: string, excerpt: string} $finding
+     */
+    public function review(string $book, array $finding, ?string $verdict, ?string $by): void
+    {
+        $table = DB::connection('pgsql_admin')->table('conversion_lint_reviews');
+        $key = ConversionLint::key($finding);
+        if ($verdict === null) {
+            $table->where('book', $book)->where('key', $key)->delete();
+
+            return;
+        }
+        $table->updateOrInsert(['book' => $book, 'key' => $key], [
+            'verdict'     => $verdict,
+            'detector'    => $finding['detector'],
+            'excerpt'     => $finding['excerpt'],
+            'start_line'  => ($finding['startLine'] ?? '') !== '' ? (string) $finding['startLine'] : null,
+            'reviewed_by' => $by,
+            'reviewed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Every verdict recorded for these books, whether or not the finding still exists — the
+     * dismissed ones are evidence about a DETECTOR, and stay useful after the text has moved on.
+     *
+     * @return list<array{book: string, key: string, verdict: string, detector: string, excerpt: string, start_line: ?string}>
+     */
+    public function reviewRows(array $books): array
+    {
+        $out = [];
+        foreach (array_chunk($books, 500) as $chunk) {
+            $rows = DB::connection('pgsql_admin')->table('conversion_lint_reviews')->whereIn('book', $chunk)
+                ->orderBy('reviewed_at')->get(['book', 'key', 'verdict', 'detector', 'excerpt', 'start_line']);
+            foreach ($rows as $row) {
+                $out[] = (array) $row;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, array<string, string>> book => key => verdict */
+    private function reviews(array $books, ?string $verdict = null): array
+    {
+        $out = [];
+        foreach ($this->reviewRows($books) as $row) {
+            if ($verdict === null || $row['verdict'] === $verdict) {
+                $out[$row['book']][$row['key']] = $row['verdict'];
+            }
+        }
+
+        return $out;
     }
 
     private function compute($db, string $book, int $timestamp): array

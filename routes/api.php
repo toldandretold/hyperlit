@@ -815,6 +815,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('slug', '[a-z0-9-]+');
     Route::delete('/maintainer/journal-import/{slug}/lint/snapshot', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lintSnapshotDelete'])
         ->where('slug', '[a-z0-9-]+');
+    // A human's verdict on a finding (real / false alarm / withdrawn), and the download that
+    // carries the confirmed ones to a dev machine: one example bundle per kind of problem.
+    Route::post('/maintainer/journal-import/{slug}/lint/review', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lintReview'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::get('/maintainer/journal-import/{slug}/lint/cases', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lintCases'])
+        ->where('slug', '[a-z0-9-]+')
+        ->middleware('throttle:6,1,maintainer-lint-cases');
     // Choose which imported lane is THE version (pointer + listing + shelf membership).
     // Article-scoped actions (import a lane / reconvert it from the stored page / re-fetch it) +
     // their status poll. Queued: see JournalImportActionJob.

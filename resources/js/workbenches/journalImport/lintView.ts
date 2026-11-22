@@ -15,7 +15,12 @@ export interface LintFinding {
   key: string;
   /** Not in the snapshot: this reconvert introduced it. */
   is_new: boolean;
+  /** A human looked and said it is real — it is in the lane's note and rides the case bundle. */
+  confirmed: boolean;
 }
+
+/** What a human can say about a finding; null withdraws the verdict. */
+export type LintVerdict = 'real' | 'false_alarm' | null;
 
 export interface BookLint {
   score: number;
@@ -24,6 +29,9 @@ export interface BookLint {
   findings: LintFinding[];
   findings_total: number;
   new: number;
+  confirmed: number;
+  /** Judged false alarms: counted nowhere above, listed so the verdict can be undone. */
+  dismissed: Array<Omit<LintFinding, 'is_new' | 'confirmed'>>;
 }
 
 export interface LintCompare {
