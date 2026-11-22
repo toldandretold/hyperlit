@@ -73,6 +73,31 @@ php artisan citation:study:report dev
 
 Writes `study/results/dev/report/dataset.csv` (one row per citation occurrence), `summary.json`, and `summary.md`: confusion matrices at every verdict cutoff with Wilson 95% CIs, detection-channel split (source-not-found vs verdict), pre/post rejection-upgrade comparison, per-arm/evidence-type/match-method breakdowns, and timing/cost stats.
 
+## Adjudicating: two questions, one derived label
+
+The workbench (`/maintainer/study`) asks the reviewer two separate questions about each citation, and stores each answer in its own field of `adjudications/{slug}.json`.
+
+- **1 · Is the reference real?** (`reference`) — `verified` (the work exists and is cited correctly), `details_wrong` (the work exists but the citation gets its author / title / year / venue wrong; `reference_errors` says which, the note says what is right), `fabricated` (no such work), `unverifiable` (could not establish whether it exists), `suspect`, `not_a_citation`.
+- **2 · Does it support the claim?** (`supported_scope`) — `whole_claim`, `fragment_only`, `none`, `undetermined`. Asked only when the work is real. `from_other_work` refines `none`: the claim is real but belongs to a different work.
+
+The `label` — the one value `ground_truth.json` and every metric score on — is **derived** from those two answers by `AdjudicationStore::deriveLabel` and is never picked by hand. The form shows it as "Scored as: …" before saving.
+
+- `fabricated` → `fabricated_reference` (the AI should flag it).
+- A real work that supports the whole claim or part of it → `verified_intact` (the AI should pass it).
+- A real work that supports none of it → `claim_distortion`, or `source_swap` when the claim comes from a different work (the AI should flag it).
+- A real work whose support could not be judged → `unverifiable` (not scored).
+- `unverifiable`, `suspect`, `not_a_citation` → the same label (not scored).
+
+A `details_wrong` citation scores exactly like a correctly cited one — by claim support — because the AI review judges support, not bibliographic accuracy. The error is recorded so it can be counted (`human_reference`, `human_reference_errors` in `dataset.csv`), not scored.
+
+**Why it is built this way.** Until 2026-11-22 the label was picked from one row of chips that mixed both questions (`verified intact` was defined as "real and supports the claim"), with the scope chips asking the second question again underneath. A reviewer answering the two as separate questions recorded "verified intact · supports none of it", which scored as a citation the AI should pass. Eight deloitte verdicts had that shape. Older records are given their two answers on load (`AdjudicationStore::normaliseRecord`; `php artisan citation:study:adjudications {corpus} --normalise [--dry-run]` rewrites the files) — the reviewer's answers are never changed, only the label derived from them.
+
+**Records with question 2 unanswered.** A verdict saved before the scope question existed has a real reference and no support answer. It keeps scoring as `verified_intact`, the workbench marks it "support unanswered", and the form no longer allows a new verdict to be saved that way.
+
+**Changing a verdict.** "Change verdict" on a saved verdict reopens the form filled in and overwrites on save. "Undo" deletes the record; the form keeps what it held until the page is reloaded.
+
+The vocabulary is mirrored for the form in `resources/js/workbenches/study/verdictAxes.ts`; both sides are pinned to `tests/fixtures/study/verdictDerivation.json`.
+
 ## Evidencing human labels
 
 A label a person assigned is an assertion until it carries the source text that person read — and "we verified this citation by hand" is the first claim a reader of the paper will probe. So every human adjudication recorded in `/maintainer/study` has an **evidence** field: verbatim quotes from the source, plus an optional locator (`p. 412`, `0:01–1:51, auto-captions`). Quotes are capped at 1500 characters with a live counter, because the point is selective quotation — enough to show what was judged, never a copy of a closed-access source.

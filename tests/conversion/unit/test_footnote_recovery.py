@@ -661,3 +661,38 @@ def test_a_date_is_not_a_marker_seam():
 def test_the_ordinary_glued_seam_still_fires():
     seams = [(w, n, f) for w, n, _a, f in M._marker_seams('mitigate risk.9 This ensures that\n')]
     assert ('risk', 9, 'This') in seams
+
+
+# ── A recovered note whose OCR copy stayed in the BODY (7fa30289 note 7) ────────────────────
+def test_body_twin_of_a_recovered_note_is_absorbed_and_completes_a_truncated_def():
+    from ingestion.pdf.assembly import _absorb_numbered_body_twins
+    full = ('Marx formulated the general law of capitalistic accumulation in the following words: '
+            '"The greater the social wealth, the greater is the mass of a consolidated surplus-'
+            'population, whose misery is in inverse ratio to its torment of labour."')
+    truncated = ('Marx formulated the general law of capitalistic accumulation in the following '
+                 'words: "The greater the social wealth, the greater is the mass of a '
+                 'consolidated surplus-')
+    md = ('The positioning of actors within certain social frameworks and in respect to rules\n\n'
+          f'7 {full}\n\n'
+          'allows the routinisation of actions.\n\n'
+          f'[^7]: {truncated}')
+    out = _absorb_numbered_body_twins(md, [(7, truncated)])
+    assert '\n7 Marx' not in out
+    assert 'in respect to rules allows the routinisation' in out        # sentence re-glued
+    assert f'[^7]: {full}' in out                                       # complete OCR copy wins
+
+
+def test_numbered_paragraph_with_different_text_is_left_alone():
+    from ingestion.pdf.assembly import _absorb_numbered_body_twins
+    md = ('7 Reasons dominate the discussion of this question in the literature today.\n\n'
+          '[^7]: Marx formulated the general law of capitalistic accumulation in these words.')
+    assert _absorb_numbered_body_twins(
+        md, [(7, 'Marx formulated the general law of capitalistic accumulation in these words.')]) == md
+
+
+def test_declared_page_footer_is_stripped_from_recovered_defs():
+    from ingestion.pdf.assembly import _strip_declared_page_chrome
+    resp = {'pages': [{'footer': '© Vienna University of Technology 2003.', 'header': 'Fuchs, C.\n20'}]}
+    got = _strip_declared_page_chrome(
+        [(6, 'cf. Fuchs/Hofkirchner/Klauninger (2001) © Vienna University of Technology 2003.')], resp)
+    assert got == [(6, 'cf. Fuchs/Hofkirchner/Klauninger (2001)')]

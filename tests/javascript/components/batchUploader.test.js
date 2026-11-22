@@ -62,6 +62,7 @@ describe('uploadBatch wire format', () => {
       title: 'Belgrade Declaration',
       metadata: {
         author: 'NAM', year: 1961, url: 'https://ris.org.in/x.pdf', language: 'en',
+        license: 'PDM', license_url: 'https://creativecommons.org/publicdomain/mark/1.0/',
         // A rogue key on the object (bypassing folderIngest's parse-time
         // strip) must still never reach the server.
         evil_key: 'nope',
@@ -76,6 +77,8 @@ describe('uploadBatch wire format', () => {
     expect(fd.get('year')).toBe('1961');
     expect(fd.get('url')).toBe('https://ris.org.in/x.pdf');
     expect(fd.get('language')).toBe('en');
+    expect(fd.get('license')).toBe('PDM');
+    expect(fd.get('license_url')).toBe('https://creativecommons.org/publicdomain/mark/1.0/');
     expect(fd.get('imported_via')).toBe('scrape-folder');
     expect(fd.get('manifest_schema_version')).toBe('1');
     expect(fd.get('scrape_site')).toBe('ris.org.in');

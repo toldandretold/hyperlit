@@ -91,6 +91,17 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     private array $subResolutions = [];
 
     /**
+     * How each sub-citation resolved — match_method / match_score — keyed "<parent>::subN".
+     * A sub has no row of its own, so the waves' updateSourceEntry() write of these columns
+     * lands on nothing; captured there and carried into the sub's `resolution` record by
+     * removeRelatedPoolEntries(). Without it every multi-work sub-claim reached the review with
+     * match_method NULL, so a web-search hit was indistinguishable from an identifier match and
+     * the study could not measure web search's precision on exactly the rows that need it
+     * (deloitte-2025-pdf, 2026-11-22).
+     */
+    private array $subMatchMeta = [];
+
+    /**
      * Short-form footnotes that ALSO name fully-cited works after a semicolon —
      * "Pratt, 'Reconceptualizing gender'; Chamindra Weerawardhana, 'Profoundly decolonizing?…',
      * Meridians, 16:1 (2017); Parashar, 'The WPS agenda'" (prod 2026-11-14). The row's primary is a
@@ -1715,6 +1726,12 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
     // Public to satisfy ResolutionHost — see the note on resolveWithNormalised.
     public function updateSourceEntry($db, string $refId, array $data): void
     {
+        if (str_contains($refId, '::sub') && array_key_exists('match_method', $data)) {
+            $this->subMatchMeta[$refId] = [
+                'match_method' => $data['match_method'],
+                'match_score'  => $data['match_score'] ?? null,
+            ];
+        }
         $idColumn = $this->sourceTable === 'footnotes' ? 'footnoteId' : 'referenceId';
         $db->table($this->sourceTable)
             ->where('book', $this->bookId)
@@ -2148,9 +2165,11 @@ class CitationScanBibliographyJob implements ShouldQueue, \App\Services\Citation
         // Record the sub-citation's own outcome for the parent's llm_metadata
         if ($parentRefId) {
             $this->subResolutions[$parentRefId][$resolvedRefId] = array_filter([
-                'status' => 'matched',
-                'book'   => $stubBookId,
-            ]);
+                'status'       => 'matched',
+                'book'         => $stubBookId,
+                'match_method' => $this->subMatchMeta[$resolvedRefId]['match_method'] ?? null,
+                'match_score'  => $this->subMatchMeta[$resolvedRefId]['match_score'] ?? null,
+            ], fn ($v) => $v !== null);
         }
 
         // If a sub-citation resolved, write foundation_source to the parent

@@ -1602,6 +1602,28 @@ def _glues_into_one_word(frag, cont, vocabulary):
     return vocabulary.get(joined, 0) >= 1 and vocabulary.get(piece.lower(), 0) <= 1
 
 
+def continues_across_break(prev, nxt):
+    """Is `nxt` the second half of the sentence `prev` leaves open? `prev` stops without
+    sentence punctuation (a trailing [^N] marker is not a closing ']') and `nxt` opens
+    lower-case. This is the ONE definition: rejoin_page_breaks glues on it, and the geometry
+    blockquote pass (which runs BEFORE the rejoin) refuses to wrap such a fragment, because a
+    hanging-indent list item carried over a page break is an indented run too, and once wrapped
+    as '> …' the rejoin can no longer see it (7fa30289: "…The assignment of" / "domain names
+    (such as microsoft.com) has been commodified…")."""
+    prev = (prev or '').rstrip()
+    nxt = (nxt or '').strip()
+    if not nxt or len(prev) <= 20:
+        return False
+    tail = re.sub(r'\[\^\d+\]\s*$', '', prev).rstrip()
+    quote_final = (tail.endswith(('"', "'", '”', '’'))
+                   and _QUOTED_SENTENCE_END_RE.search(tail))
+    return bool(not tail.endswith(('.', '!', '?', ':', ';', ')', ']', '---'))
+                and (not tail.endswith(('"', "'", '”', '’')) or not quote_final)
+                and nxt[0].islower()
+                and not nxt.startswith('#')
+                and not _DEF_OPENER_LINE_RE.match(nxt))
+
+
 def rejoin_page_breaks(text):
     """Rejoin paragraphs that were split across page boundaries."""
     lines = text.split('\n')
@@ -1667,16 +1689,7 @@ def rejoin_page_breaks(text):
 
             # Case 2: Paragraph continues — line doesn't end with sentence punct,
             # next starts lowercase
-            # Strip trailing footnote refs so [^N] isn't mistaken for sentence-ending ']'
-            stripped_for_check = re.sub(r'\[\^\d+\]\s*$', '', stripped).rstrip()
-            _quote_final = (stripped_for_check.endswith(('"', "'", '”', '’'))
-                            and _QUOTED_SENTENCE_END_RE.search(stripped_for_check))
-            if ((not stripped_for_check.endswith(('.', '!', '?', ':', ';', ')', ']', '---'))
-                    and (not stripped_for_check.endswith(('"', "'", '”', '’')) or not _quote_final))
-                    and next_nonempty[0].islower()
-                    and not next_nonempty.startswith('#')
-                    and not _DEF_OPENER_LINE_RE.match(next_nonempty)
-                    and len(stripped) > 20):
+            if continues_across_break(stripped, next_nonempty):
                 # Case 1b: the hyphen itself was lost in OCR — glue the halves of the word.
                 sep = '' if _glues_into_one_word(stripped, next_nonempty, vocabulary) else ' '
                 result.append(stripped + sep + next_nonempty)

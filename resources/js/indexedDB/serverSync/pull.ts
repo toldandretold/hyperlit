@@ -9,6 +9,7 @@
 import { openDatabase } from '../index';
 import { log, verbose } from '../../utilities/logger';
 import { flushAllPendingEdits } from './flush';
+import { markLocalCopyComplete } from '../../utilities/localCopyCompleteness';
 import {
   clearBookDataFromIndexedDB,
   clearAnnotationsFromIndexedDB,
@@ -132,6 +133,9 @@ export async function syncBookDataFromDatabase(bookId: string): Promise<PullResu
       console.error(`❌ ${failures.length} data types failed to load`, failures);
       throw new Error(`Failed to load ${failures.length} data types into IndexedDB`);
     }
+
+    // A full pull replaced the whole book locally — it is no longer a first-chunk fragment.
+    markLocalCopyComplete(bookId);
 
     verbose.content('Database sync completed', 'serverSync/pull');
 

@@ -2,6 +2,9 @@ import { book, bookSlug, OpenHyperlightID, OpenFootnoteID } from '../app';
 import { asBookId, type BookId } from '../indexedDB/types';
 import { log, verbose } from '../utilities/logger';
 import { isPendingNewBook } from '../utilities/pendingNewBook';
+// Zero-import leaf — "IndexedDB holds only a fragment of this book" (see that file).
+import { isLocalCopyPartial } from '../utilities/localCopyCompleteness';
+import { shouldRepairShortLocalCopy } from '../indexedDB/serverSync/countReconcile';
 import type { ReadingPosition } from '../scrolling/readingPosition';
 import { maybePaginatorReveal } from '../scrolling/paginator';
 import { NavigationCompletionBarrier, NavigationProcess } from '../SPA/navigation/NavigationCompletionBarrier';
@@ -162,7 +165,46 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
     updatePageLoadProgress(10, "Checking local cache...");
     const cached: any = await getNodesFromIndexedDB(currentBook);
     perfMark('feed:idb-read-done');
-    if (cached && cached.length) {
+
+    // Read before anything below can consume the SPA target (fetchInitialChunk does).
+    const { target: bootstrapTarget, fallbackTarget: bootstrapFallback } = resolveBootstrapTarget();
+
+    // 1a. A NON-EMPTY local copy is not necessarily the WHOLE book. The first-chunk load
+    //     stores ~100 nodes and the background download brings the rest; if that download
+    //     never finished (tab closed, batch failed, IDB connection died under the write)
+    //     the cache branch below would render the fragment as the book — no manifest, no
+    //     backfill, ToC/search/export built from a fraction — and nothing would ever
+    //     notice, because the owner's own saves keep the timestamps level
+    //     (prod 2026-11-22: 400 of 3,062 nodes). So a copy marked partial goes back to
+    //     the server path, which carries the manifest and restarts the download.
+    //     Offline, or if the server can't be reached, the fragment still beats nothing.
+    let initialResult: any = null;
+    if (
+      cached && cached.length
+      && isLocalCopyPartial(currentBook)
+      && navigator.onLine
+      && !isPendingNewBook(currentBook)
+      && !currentBook.endsWith('/timemachine')
+    ) {
+      log.content(
+        `Local copy of ${currentBook} is partial (${cached.length} nodes) — loading from the server to complete it`,
+        '/pageLoad/loadHyperText.ts'
+      );
+      const pendingTarget = (window as any)._pendingChunkTarget;
+      const pendingFallback = (window as any)._pendingChunkFallbackTarget;
+      const repair: any = await fetchInitialChunk(currentBook);
+      const serverUnavailable = !repair?.success
+        && (repair?.reason === 'sync_error' || repair?.reason === 'book_not_found');
+      if (serverUnavailable) {
+        // The fetch consumed the SPA target on its way out — hand it back to the cache branch.
+        (window as any)._pendingChunkTarget = pendingTarget ?? null;
+        (window as any)._pendingChunkFallbackTarget = pendingFallback ?? null;
+      } else {
+        initialResult = repair; // success, or a terminal answer (deleted / private / locked)
+      }
+    }
+
+    if (cached && cached.length && !initialResult) {
       updatePageLoadProgress(30, "Loading from cache...");
       verbose.content(`Found ${cached.length} nodes in IndexedDB`, 'initializePage.js');
 
@@ -277,10 +319,11 @@ export async function loadHyperText(bookId: BookId, progressCallback: any = null
     // 2. Try chunked initial load (fast: fetches only one chunk first)
     //    Routes between local IndexedDB cache and server based on freshness
     updatePageLoadProgress(20, "Connecting to database...");
-    const { target: bootstrapTarget, fallbackTarget: bootstrapFallback } = resolveBootstrapTarget();
-    const initialResult: any = await loadChunkForTarget(currentBook, bootstrapTarget, {
-      fallbackTarget: bootstrapFallback,
-    });
+    if (!initialResult) {
+      initialResult = await loadChunkForTarget(currentBook, bootstrapTarget, {
+        fallbackTarget: bootstrapFallback,
+      });
+    }
     if (initialResult?.success) {
       updatePageLoadProgress(50, "Loading initial content...");
       verbose.content(
@@ -545,10 +588,11 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     verbose.content(`Async timestamp check for: ${bookId}`, '/pageLoad/loadHyperText.ts');
 
     // Get both records in parallel
-    const [serverRecord, localRecord] = await Promise.all([
+    const [serverAnswer, localRecord] = await Promise.all([
       getLibraryRecordFromServer(bookId),
       getLibraryRecordFromIndexedDB(bookId),
     ]);
+    const serverRecord = serverAnswer.record;
 
     // Handle case where server request failed
     if (!serverRecord) {
@@ -578,9 +622,19 @@ async function checkAndUpdateIfNeeded(bookId: BookId, lazyLoader: any) {
     const localAnnotationsTs = localRecord.annotations_updated_at || 0;
 
 
+    // Timestamps level, but is the cache the WHOLE book? This load rendered from IndexedDB
+    // on the assumption that it is. A copy holding fewer nodes than the server (a first-chunk
+    // fragment whose download never finished, from before the partial marker existed or
+    // lost some other way) looks perfectly fresh to the timestamp compare — so ask the
+    // count too, and take the same refresh path: it re-fetches with a manifest and
+    // backfills. Gated on a quiet sync pipeline and tried once per server count
+    // (see shouldRepairShortLocalCopy).
+    const localCopyShort = serverTimestamp <= localTimestamp
+      && await shouldRepairShortLocalCopy(bookId, serverAnswer.nodeCount);
+
     // Check if book content changed (nodes)
-    if (serverTimestamp > localTimestamp) {
-      verbose.content(`🔥 Book content changed for ${bookId}. Surgical refresh for current target...`, '/pageLoad/loadHyperText.ts');
+    if (serverTimestamp > localTimestamp || localCopyShort) {
+      verbose.content(`🔥 Book content ${localCopyShort ? 'incomplete locally' : 'changed'} for ${bookId}. Surgical refresh for current target...`, '/pageLoad/loadHyperText.ts');
 
       // A download of this book still streaming carries data as of ITS start —
       // older than what we're about to fetch. Retire it first, so it can't
@@ -863,10 +917,14 @@ function findRenderedContentChange(
   return null;
 }
 
-// Helper function to get library record from server
-async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
+// Helper function to get library record from server — plus the book's server-side node
+// count (`?node_count=1`, opt-in so other /library callers don't pay for the count), which
+// the freshness check uses to spot a local copy that is level on timestamps but short on nodes.
+async function getLibraryRecordFromServer(
+  bookId: BookId,
+): Promise<{ record: any; nodeCount: number | null }> {
   try {
-    const response = await fetch(buildLibraryUrl(bookId), {
+    const response = await fetch(`${buildLibraryUrl(bookId)}?node_count=1`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         'Content-Type': 'application/json'
@@ -879,7 +937,10 @@ async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
 
     const data = await response.json();
 
-    return data.success ? data.library : null;
+    return {
+      record: data.success ? data.library : null,
+      nodeCount: typeof data.node_count === 'number' ? data.node_count : null,
+    };
   } catch (err) {
     // Best-effort freshness check only — the caller handles a null return by
     // skipping the timestamp comparison and using cached IndexedDB data, so a
@@ -887,7 +948,7 @@ async function getLibraryRecordFromServer(bookId: BookId): Promise<any> {
     // "TypeError: Failed to fetch" when SPA navigation cancels it mid-flight
     // (e.g. rapid back/forward), which is benign. Warn, don't error.
     console.warn("⚠️ Could not fetch library record from server (using cached data):", err);
-    return null;
+    return { record: null, nodeCount: null };
   }
 }
 

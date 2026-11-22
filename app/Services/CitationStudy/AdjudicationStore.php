@@ -7,11 +7,28 @@ use RuntimeException;
 /**
  * Human adjudications of the AI citation review, per corpus book.
  *
- * The workbench (/maintainer/study) records a TWO-AXIS verdict per citation:
- * the ground-truth LABEL the human assigns (feeds the study baseline) and,
- * when the AI flagged the citation, WHOSE failure it was (feeds system
- * improvement — a resolver gap and an OCR-mangled citation demand different
- * fixes but look identical in the AI's output).
+ * The workbench (/maintainer/study) asks the reviewer TWO separate questions per
+ * citation, and stores each answer in its own field:
+ *
+ *   1. `reference` — is the cited work REAL, and cited correctly? (REFERENCE_STATUSES;
+ *      `reference_errors` names what is wrong when the work is real but mis-cited.)
+ *   2. `supported_scope` — does that work SUPPORT the claim? (SUPPORTED_SCOPES;
+ *      asked only when the work is real.)
+ *
+ * `label` — the single value ground truth and every metric score on — is DERIVED
+ * from those two answers by deriveLabel() and by nothing else. The reviewer never
+ * picks it. It used to be picked directly from one row of chips that mixed both
+ * questions ("verified intact" was defined as real AND supporting), while the
+ * scope chips asked the second question again underneath — so a reviewer
+ * answering the two questions separately recorded "verified intact · supports
+ * none of it", which scored as a citation the AI should pass (deloitte, eight
+ * rows, found 2026-11-22). Records written before the split carry no `reference`;
+ * normaliseRecord() gives them one on load.
+ *
+ * A third, independent field, `cause`, records WHOSE failure it was when the AI
+ * flagged the citation (feeds system improvement — a resolver gap and an
+ * OCR-mangled citation demand different fixes but look identical in the AI's
+ * output). It never affects the label.
  *
  * Storage is a committed file per book at
  * study/corpora/{corpus}/adjudications/{slug}.json — deliberately NOT under
@@ -25,7 +42,32 @@ use RuntimeException;
 class AdjudicationStore
 {
     /**
-     * WHAT the citation actually supports — the ground truth's third axis.
+     * Question 1 — is the cited work real, and is it cited correctly?
+     *
+     * `verified` and `details_wrong` both mean the WORK EXISTS; only they go on to
+     * question 2. `details_wrong` is a real work the citation describes wrongly
+     * (deloitte c02: the right report, credited to the wrong committee) — neither
+     * a fabrication nor a typo, and until this field existed there was nowhere to
+     * record it. What is wrong goes in `reference_errors`; the right value goes in
+     * the note. It does not change the label: scoring follows claim support.
+     */
+    public const REFERENCE_STATUSES = [
+        'verified',        // the work exists and the citation describes it correctly
+        'details_wrong',   // the work exists; the citation gets author/title/year/venue wrong
+        'fabricated',      // the work does not exist
+        'unverifiable',    // could not establish whether the work exists
+        'suspect',         // something is off, cannot pin it down (not scored)
+        'not_a_citation',  // the reviewed pairing is not in the author's text (not scored)
+    ];
+
+    /** What a `details_wrong` citation gets wrong. At least one is required. */
+    public const REFERENCE_ERRORS = ['author', 'title', 'year', 'venue'];
+
+    /** The reference answers that mean "the work exists" — the only ones question 2 applies to. */
+    public const REAL_REFERENCES = ['verified', 'details_wrong'];
+
+    /**
+     * Question 2 — WHAT does the cited work actually support?
      *
      * Added 2026-09-19 because the support scale has no fixed DENOMINATOR, and a verdict is
      * meaningless without one. "Unlikely" conflated two opposite findings: the source supports none
@@ -52,6 +94,20 @@ class AdjudicationStore
         'none',
         // Cannot tell without the source (blocked, dead, not retrieved).
         'undetermined',
+    ];
+
+    /**
+     * Is the URL OUR SYSTEM supplied the right one for the citation? Asked (workbench:
+     * systemSuppliedUrl) only when we found a URL the citation did not print — a printed URL is
+     * the author's pointer, not our call. Orthogonal to the label and the verdict: web search can
+     * land on a topically adjacent page that still earns a `likely` — the right answer read off
+     * the wrong source (deloitte-2025-pdf, 2026-11-22) — and nothing else could count that.
+     * Stored as same_work / different_work (right URL / wrong URL in the UI).
+     * null = not assessed.
+     */
+    public const SOURCE_MATCHES = [
+        'same_work',       // right URL: it IS the cited work (any edition/copy)
+        'different_work',  // wrong URL: some other page — the right one goes in found_url
     ];
 
     /**
@@ -137,7 +193,124 @@ class AdjudicationStore
         if (!is_array($data) || !isset($data['adjudications']) || !is_array($data['adjudications'])) {
             throw new RuntimeException("Adjudications file invalid for '{$book['slug']}': {$path}");
         }
+        $data['adjudications'] = array_map([self::class, 'normaliseRecord'], $data['adjudications']);
         return $data;
+    }
+
+    /**
+     * THE definition of the scored label: the two answers in, one label out.
+     *
+     *   reference                 scope            → label
+     *   fabricated                —                → fabricated_reference
+     *   unverifiable              —                → unverifiable
+     *   suspect / not_a_citation  —                → the same
+     *   verified / details_wrong  whole / part     → verified_intact
+     *   verified / details_wrong  none             → claim_distortion (source_swap when the
+     *                                                claim belongs to a different work)
+     *   verified / details_wrong  can't tell       → unverifiable
+     *   verified / details_wrong  (not answered)   → verified_intact
+     *
+     * The last row is the pre-split behaviour, kept so records made before the
+     * scope question existed do not silently leave the confusion matrix; the
+     * workbench no longer lets a new verdict be saved that way. Mirrored for the
+     * form's live "scored as" line by resources/js/workbenches/study/verdictAxes.ts;
+     * both are pinned to tests/fixtures/study/verdictDerivation.json.
+     */
+    public static function deriveLabel(string $reference, ?string $scope, bool $fromOtherWork = false): string
+    {
+        if (!in_array($reference, self::REAL_REFERENCES, true)) {
+            return $reference === 'fabricated' ? 'fabricated_reference' : $reference;
+        }
+
+        return match ($scope) {
+            'none' => $fromOtherWork ? 'source_swap' : 'claim_distortion',
+            'undetermined' => 'unverifiable',
+            default => 'verified_intact',
+        };
+    }
+
+    /**
+     * Read the two answers back out of a bare label (a record from before the
+     * split, or a caller that still sends one).
+     *
+     * @return array{0: string, 1: ?string, 2: bool} [reference, scope the label implies, from_other_work]
+     */
+    public static function axesFromLegacyLabel(string $label, ?bool $referenceExists): array
+    {
+        return match ($label) {
+            'fabricated_reference' => ['fabricated', null, false],
+            'claim_distortion' => ['verified', 'none', false],
+            'source_swap' => ['verified', 'none', true],
+            // "Unverifiable" covered both "cannot confirm the work" and "the work is
+            // real but I could not read it"; only the work-exists tick told them apart.
+            'unverifiable' => $referenceExists === true ? ['verified', 'undetermined', false] : ['unverifiable', null, false],
+            'suspect', 'not_a_citation' => [$label, null, false],
+            default => ['verified', null, false],   // intact, verified_intact
+        };
+    }
+
+    /**
+     * Give a pre-split record its two answers, and re-derive its label from them.
+     * A record that already has `reference` is returned untouched, so this is
+     * idempotent and costs nothing once a file has been rewritten.
+     *
+     * The reviewer's ANSWERS never change here — only the label derived from
+     * them. A record saved as "verified intact" with scope "supports none of it"
+     * keeps both answers and now scores as claim_distortion, which is what those
+     * two answers say.
+     */
+    public static function normaliseRecord(array $record): array
+    {
+        if (isset($record['reference'])) {
+            return $record;
+        }
+        $label = (string) ($record['label'] ?? '');
+        [$reference, $impliedScope, $fromOtherWork] = self::axesFromLegacyLabel($label, $record['reference_exists'] ?? null);
+        $record['reference'] = $reference;
+        $record['reference_errors'] = [];
+        $record['supported_scope'] = ($record['supported_scope'] ?? null) ?? $impliedScope;
+        $record['from_other_work'] = $fromOtherWork;
+        $derived = self::deriveLabel($reference, $record['supported_scope'], $fromOtherWork);
+        // `intact` is the machine default ("nobody has said otherwise"), not a human
+        // verdict; it scores identically to verified_intact and is left as it is.
+        if (!($label === 'intact' && $derived === 'verified_intact')) {
+            $record['label'] = $derived;
+        }
+
+        return $record;
+    }
+
+    /**
+     * Rewrite a book's file with every record normalised (normaliseRecord), and
+     * report which labels moved. load() already normalises in memory, so this
+     * changes no behaviour — it makes the committed file say what the code reads.
+     *
+     * @return array{rewritten: int, relabelled: array<string, array{from: string, to: string}>}
+     */
+    public function normaliseStored(CorpusManifest $manifest, array $book, bool $write = true): array
+    {
+        $path = $this->path($manifest, $book);
+        if (!is_file($path)) {
+            return ['rewritten' => 0, 'relabelled' => []];
+        }
+        $raw = json_decode((string) file_get_contents($path), true)['adjudications'] ?? [];
+        $data = $this->load($manifest, $book);
+        $rewritten = 0;
+        $relabelled = [];
+        foreach ($data['adjudications'] as $key => $record) {
+            if ($record === ($raw[$key] ?? null)) {
+                continue;
+            }
+            $rewritten++;
+            if (($raw[$key]['label'] ?? null) !== $record['label']) {
+                $relabelled[$key] = ['from' => (string) ($raw[$key]['label'] ?? ''), 'to' => $record['label']];
+            }
+        }
+        if ($write && $rewritten > 0) {
+            $this->save($manifest, $book, $data);
+        }
+
+        return ['rewritten' => $rewritten, 'relabelled' => $relabelled];
     }
 
     /**
@@ -151,7 +324,7 @@ class AdjudicationStore
         CorpusManifest $manifest,
         array $book,
         string $key,
-        string $label,
+        ?string $label,
         ?string $cause,
         ?string $note,
         ?string $referenceId,
@@ -162,9 +335,48 @@ class AdjudicationStore
         ?string $supportedScope = null,
         ?string $evidence = null,
         ?string $evidenceLocator = null,
+        ?string $sourceMatch = null,
+        ?string $reference = null,
+        array $referenceErrors = [],
+        bool $fromOtherWork = false,
     ): array {
-        if (!in_array($label, CorpusManifest::LABELS, true)) {
-            throw new RuntimeException("Invalid label '{$label}'.");
+        if ($reference !== null) {
+            // The workbench path: two answers in, label derived. Whatever $label
+            // carried is ignored — there is one definition of the label.
+            if (!in_array($reference, self::REFERENCE_STATUSES, true)) {
+                throw new RuntimeException("Invalid reference '{$reference}'.");
+            }
+            $referenceErrors = array_values(array_unique($referenceErrors));
+            if (array_diff($referenceErrors, self::REFERENCE_ERRORS) !== []) {
+                throw new RuntimeException('Invalid reference_errors.');
+            }
+            if ($reference === 'details_wrong' && $referenceErrors === []) {
+                throw new RuntimeException('details_wrong needs at least one of: ' . implode(', ', self::REFERENCE_ERRORS) . '.');
+            }
+            if ($reference !== 'details_wrong') {
+                $referenceErrors = [];
+            }
+            if (!in_array($reference, self::REAL_REFERENCES, true)) {
+                // No real work, so nothing for it to support.
+                $supportedScope = null;
+            }
+            $fromOtherWork = $fromOtherWork && $supportedScope === 'none';
+            $label = self::deriveLabel($reference, $supportedScope, $fromOtherWork);
+            $referenceExists = match (true) {
+                in_array($reference, self::REAL_REFERENCES, true) => true,
+                in_array($reference, ['fabricated', 'unverifiable'], true) => false,
+                default => null,
+            };
+        } else {
+            // A caller that still sends a bare label (tests, scripts). The label is
+            // kept as sent and the two answers are read back out of it, so every
+            // stored record carries both.
+            if ($label === null || !in_array($label, CorpusManifest::LABELS, true)) {
+                throw new RuntimeException("Invalid label '{$label}'.");
+            }
+            [$reference, $impliedScope, $fromOtherWork] = self::axesFromLegacyLabel($label, $referenceExists);
+            $supportedScope ??= $impliedScope;
+            $referenceErrors = [];
         }
         if ($cause !== null && !in_array($cause, self::CAUSES, true)) {
             throw new RuntimeException("Invalid cause '{$cause}'.");
@@ -175,17 +387,25 @@ class AdjudicationStore
         if ($supportedScope !== null && !in_array($supportedScope, self::SUPPORTED_SCOPES, true)) {
             throw new RuntimeException("Invalid supported_scope '{$supportedScope}'.");
         }
+        if ($sourceMatch !== null && !in_array($sourceMatch, self::SOURCE_MATCHES, true)) {
+            throw new RuntimeException("Invalid source_match '{$sourceMatch}'.");
+        }
 
         $data = $this->load($manifest, $book);
         $record = [
             'gt_id' => str_starts_with($key, 'ref:') ? null : $key,
             'referenceId' => $referenceId,
             'run_id' => $runId,
+            // Question 1 — is the work real / cited correctly. See REFERENCE_STATUSES.
+            'reference' => $reference,
+            'reference_errors' => $referenceErrors,
+            // Question 2 — what the work supports. See SUPPORTED_SCOPES. `from_other_work`
+            // refines `none`: the claim is real but belongs to a different work.
+            'supported_scope' => $supportedScope,
+            'from_other_work' => $fromOtherWork,
+            // DERIVED from the two answers above (deriveLabel) — what scoring reads.
             'label' => $label,
             'cause' => $cause,
-            // Denominator-independent ground truth: what the citation actually supports, so the
-            // same label can score either verify-prompt variant. See SUPPORTED_SCOPES.
-            'supported_scope' => $supportedScope,
             'note' => $note !== null && $note !== '' ? $note : null,
             // Where the HUMAN found the source (a resolver_gap adjudication
             // with a found_url is a ready-made resolver test case: "a human
@@ -193,17 +413,19 @@ class AdjudicationStore
             // on a fabricated_reference row there is no source, so this URL is
             // COUNTER-EVIDENCE (the TOC/index/review the human checked) and
             // must never be read as "where the cited work lives" — only
-            // resolver_gap-shaped rows qualify as resolver test cases.
+            // resolver_gap-shaped rows (and source_match = different_work
+            // rows: "we resolved the wrong work; the right one is here")
+            // qualify as resolver test cases.
             'found_url' => $foundUrl !== null && $foundUrl !== '' ? $foundUrl : null,
-            // Verification is TWO-LEVEL and a paywall splits them: the WORK's
-            // existence (title/author/outlet match — visible behind most
-            // paywalls) vs whether it SUPPORTS the claim (needs the body).
-            // The label carries the claim level; this flag carries the
-            // reference level, so an `unverifiable` row with
-            // reference_exists=true still counts as a fabrication-NEGATIVE in
-            // analysis. true = confirmed real, false = could not even confirm
-            // the work, null = not assessed.
+            // A yes/no shadow of `reference`, kept because dataset.csv has always
+            // carried it: true = the work exists, false = fabricated or could not
+            // be confirmed, null = not assessed. A paywalled source whose title
+            // and author check out is reference=verified, scope=undetermined —
+            // label `unverifiable`, but reference_exists=true, so it still counts
+            // as a fabrication-NEGATIVE in analysis.
             'reference_exists' => $referenceExists,
+            // Resolution correctness — see SOURCE_MATCHES.
+            'source_match' => $sourceMatch,
             // THE QUOTES THE REVIEWER READ. A human label is otherwise an
             // assertion with no artifact behind it — and "we manually verified
             // this citation is fine" is exactly the claim a reader of the paper
@@ -238,10 +460,9 @@ class AdjudicationStore
      * Separate from put() on purpose, twice over. (1) put() replaces the record
      * wholesale, and that is a property worth keeping — it is what guarantees a
      * re-adjudication cannot leave a stale cause or scope behind from the
-     * previous verdict. (2) The workbench has no edit path for a saved verdict:
-     * its only mutation is Undo, which DELETES the record. Backfilling evidence
-     * onto verdicts recorded before this field existed must not mean destroying
-     * and re-entering them, so evidence gets its own seam.
+     * previous verdict. (2) Evidence is routinely added in a later sitting than
+     * the verdict it backs, so it has its own seam and its own stamps rather
+     * than going through a whole re-adjudication.
      *
      * @return array the updated record
      */
@@ -271,6 +492,30 @@ class AdjudicationStore
         $this->save($manifest, $book, $data);
 
         return $record;
+    }
+
+    /**
+     * Set (or clear) source_match on an adjudication that already exists, merging like
+     * putEvidence: the question sits in the Resolved Source panel, next to the URL it asks about,
+     * so it is answered on its own click — not by re-making the verdict. With no verdict yet, the
+     * workbench holds the answer and sends it with the verdict instead (a label-less record would
+     * break the consumers that read ['label']).
+     *
+     * @return array the updated record
+     */
+    public function putSourceMatch(CorpusManifest $manifest, array $book, string $key, ?string $sourceMatch): array
+    {
+        if ($sourceMatch !== null && !in_array($sourceMatch, self::SOURCE_MATCHES, true)) {
+            throw new RuntimeException("Invalid source_match '{$sourceMatch}'.");
+        }
+        $data = $this->load($manifest, $book);
+        if (!isset($data['adjudications'][$key])) {
+            throw new RuntimeException("No adjudication to attach source_match to for '{$key}'.");
+        }
+        $data['adjudications'][$key]['source_match'] = $sourceMatch;
+        $this->save($manifest, $book, $data);
+
+        return $data['adjudications'][$key];
     }
 
     /**

@@ -49,6 +49,10 @@ import {
   isBackgroundDownloadInProgress,
   supersedeBackgroundDownload,
 } from '../../../resources/js/pageLoad/backgroundDownload';
+import {
+  markLocalCopyPartial,
+  isLocalCopyPartial,
+} from '../../../resources/js/utilities/localCopyCompleteness';
 
 /** A lazyLoader stub with a one-chunk manifest (one batch request). */
 function fakeLoader() {
@@ -217,5 +221,86 @@ describe('background download is book-scoped', () => {
     it('is a no-op when nothing is downloading', () => {
       expect(supersedeBackgroundDownload('book_none')).toBe(false);
     });
+  });
+});
+
+/*
+ * Prod 2026-11-22 (`john2005restorative`): the first-chunk load leaves IndexedDB holding
+ * a FRAGMENT, and the background download is what makes it whole. When the download
+ * never finished, the next visit rendered 400 of 3,062 nodes as the whole book. The
+ * first-chunk load now marks the copy partial; ONLY a download that fetched every batch
+ * and wrote it may clear that mark.
+ */
+describe('only a COMPLETED download makes the local copy whole', () => {
+  let fetchStub;
+
+  beforeEach(() => {
+    renderedBook = 'book_A';
+    localStorage.clear();
+    loadNodesToIndexedDB.mockReset().mockResolvedValue(undefined);
+    rebuildAndRenumber.mockClear();
+    fetchStub = heldFetch();
+    global.fetch = fetchStub.fn;
+  });
+
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('a download that completes clears the partial marker', async () => {
+    markLocalCopyPartial('book_A');
+    const a = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+    await tick();
+    expect(isLocalCopyPartial('book_A'), 'still a fragment while the download streams').toBe(true);
+
+    fetchStub.release('book_A');
+    await a;
+    expect(isLocalCopyPartial('book_A')).toBe(false);
+  });
+
+  it('a download whose batch fails leaves the copy marked partial', async () => {
+    markLocalCopyPartial('book_A');
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    const a = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+    await vi.advanceTimersByTimeAsync(1500); // the one retry pause
+    await a;
+
+    expect(loadNodesToIndexedDB).not.toHaveBeenCalled();
+    expect(isLocalCopyPartial('book_A')).toBe(true);
+  });
+
+  it('a download whose IndexedDB write fails leaves the copy marked partial', async () => {
+    // The Safari shape: every batch arrived, the write did not land.
+    markLocalCopyPartial('book_A');
+    loadNodesToIndexedDB.mockRejectedValueOnce(new Error('connection is closing'));
+
+    const a = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+    await tick();
+    fetchStub.release('book_A');
+    await a;
+
+    expect(isLocalCopyPartial('book_A')).toBe(true);
+  });
+
+  it('a superseded download does not clear the marker', async () => {
+    markLocalCopyPartial('book_A');
+    const a = backgroundDownloadRemainingChunks('book_A', fakeLoader());
+    await tick();
+    supersedeBackgroundDownload('book_A');
+    fetchStub.release('book_A');
+    await a;
+
+    expect(isLocalCopyPartial('book_A')).toBe(true);
+  });
+
+  it("another book's completed download says nothing about this one", async () => {
+    markLocalCopyPartial('book_A');
+    renderedBook = 'book_B';
+    const b = backgroundDownloadRemainingChunks('book_B', fakeLoader());
+    await tick();
+    fetchStub.release('book_B');
+    await b;
+
+    expect(isLocalCopyPartial('book_A')).toBe(true);
   });
 });

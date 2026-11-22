@@ -264,6 +264,35 @@ describe('scrape-folder manifest.json (docs/web-scrape-import.md)', () => {
     expect(plan.bundles[0].metadata).toEqual({ title: 'Clean' });
   });
 
+  test('a stitched EPUB is a document: it imports with its manifest metadata and licence', async () => {
+    // The marxists.org shape: one work crawled from many pages, packed as ONE epub, crediting the
+    // work's contents page and carrying the work's own licence (not Hyperlit's own-writing default).
+    const epubFile = (name) => new File(['fakeepub'], name, { type: 'application/epub+zip' });
+    const plan = await buildIngestPlan([
+      collected(epubFile('lenin-imperialism.epub')),
+      collected(epubFile('theses-feuerbach.epub')),
+      collected(manifest({
+        'lenin-imperialism.epub': {
+          title: 'Imperialism, the Highest Stage of Capitalism', author: 'V. I. Lenin', year: 1916,
+          url: 'https://www.marxists.org/archive/lenin/works/1916/imp-hsc/index.htm',
+          publisher: 'Marxists Internet Archive', license: 'PDM',
+        },
+        'theses-feuerbach.epub': {
+          title: 'Theses On Feuerbach', license: 'CC-BY-SA-2.0',
+          license_url: 'https://www.marxists.org/admin/legal/cc/by-sa.htm',
+        },
+      }, { source: { site: 'marxists.org', scraper: 'scrape:marxists' } })),
+    ], 'marxists.org');
+
+    expect(plan.kind).toBe('batch');
+    expect(plan.bundles).toHaveLength(2);
+    const lenin = plan.bundles.find((b) => b.filename === 'lenin-imperialism.epub');
+    expect(lenin.title).toBe('Imperialism, the Highest Stage of Capitalism');
+    expect(lenin.metadata).toMatchObject({ license: 'PDM', url: 'https://www.marxists.org/archive/lenin/works/1916/imp-hsc/index.htm' });
+    const theses = plan.bundles.find((b) => b.filename === 'theses-feuerbach.epub');
+    expect(theses.metadata).toMatchObject({ license: 'CC-BY-SA-2.0', license_url: 'https://www.marxists.org/admin/legal/cc/by-sa.htm' });
+  });
+
   test('a manifest in a subfolder is ignored (root-only rule)', async () => {
     const nested = new File([JSON.stringify({ schema_version: 1, documents: { 'a.pdf': { title: 'X' } } })],
       'manifest.json', { type: 'application/json' });

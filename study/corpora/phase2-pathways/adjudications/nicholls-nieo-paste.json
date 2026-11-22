@@ -12,7 +12,10 @@
             "found_url": null,
             "reference_exists": true,
             "adjudicated_at": "2026-09-19T22:30:57+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "nicholls-nieo-paste/c18": {
             "gt_id": "nicholls-nieo-paste/c18",
@@ -25,7 +28,10 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-20T23:11:04+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "nicholls-nieo-paste/c10": {
             "gt_id": "nicholls-nieo-paste/c10",
@@ -38,7 +44,10 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-20T23:20:23+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "nicholls-nieo-paste/c03": {
             "gt_id": "nicholls-nieo-paste/c03",
@@ -51,7 +60,10 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-20T23:24:56+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "nicholls-nieo-paste/c58": {
             "gt_id": "nicholls-nieo-paste/c58",
@@ -64,7 +76,10 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-21T10:08:16+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "nicholls-nieo-paste/c33": {
             "gt_id": "nicholls-nieo-paste/c33",
@@ -72,12 +87,15 @@
             "run_id": "20260920_015210_1a7e9767",
             "label": "claim_distortion",
             "cause": "correct_flag",
-            "supported_scope": null,
+            "supported_scope": "none",
             "note": "Source says something related to the claim, but does not support the claim.",
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-21T11:50:59+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         }
     }
 }

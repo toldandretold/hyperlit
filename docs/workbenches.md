@@ -14,7 +14,7 @@ The live index is `/maintainer` (admin-only), rendered from `config/workbenches.
 
 ### Corpus building
 
-- **Journal import** — `/maintainer/journal-import`, `/maintainer/journal-import/{slug}`. Per journal: enumerate, import, compare the pdf / html / ar5iv lanes, promote a version, certify. Code: `workbenches/journalImport/`, `Maintainer\JournalImportController`. Detail: `docs/journal-harvest.md`.
+- **Journal import** — `/maintainer/journal-import`, `/maintainer/journal-import/{slug}`. Per journal: enumerate, import, compare the pdf / html / ar5iv lanes, promote a version, certify, and search the journal for conversion problems (lint badges, problems-first ranking, snapshot before/after — `docs/maintainer-loop.md`). Code: `workbenches/journalImport/`, `Maintainer\JournalImportController`. Detail: `docs/journal-harvest.md`.
 - **Shelf import** — `/maintainer/shelf-import`, `/maintainer/shelf-import/{id}`. The journal-import workflow over any public shelf, above all the system "Cited by:" shelves. Shares journal import's script and stylesheet (`window.__journalImport.mode = 'shelf'`). `Maintainer\ShelfImportController`.
 - **Hypercites** — `/maintainer/hypercites`, `/maintainer/hypercites/{slug}`, `/maintainer/hypercites/shelf/{id}`. Detect citations between held works in a journal or a public shelf, review citing and cited side by side, approve to mint the hypercite, import the most-cited external sources. Code: `workbenches/hypercites/`, `Maintainer\HyperciteConsoleController`, `app/Services/Hypercites/`. **Also open to shelf owners** — see below.
 

@@ -157,7 +157,8 @@
             "method": "getBookLibrary",
             "tables": [
                 "canonical_source",
-                "library"
+                "library",
+                "nodes"
             ],
             "shape": [
                 "annotations_updated_at",
@@ -392,7 +393,8 @@
             "method": "getSubBookLibrary",
             "tables": [
                 "canonical_source",
-                "library"
+                "library",
+                "nodes"
             ],
             "shape": [
                 "annotations_updated_at",
@@ -1605,6 +1607,11 @@
         },
         {
             "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
             "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
             "rel": "read"
         },
@@ -1621,6 +1628,11 @@
         {
             "source": "pg:nodes",
             "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+            "rel": "read"
+        },
+        {
+            "source": "pg:nodes",
+            "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
             "rel": "read"
         },
         {

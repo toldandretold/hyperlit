@@ -243,3 +243,16 @@ def test_pypdf_run_rejects_a_stacked_numbered_bibliography():
     assert A._pypdf_footnote_run({7: [(n, f'Author {n}, A. (2001).') for n in range(1, 21)]}) == 0
     # …nor one that does not start at the first note
     assert A._pypdf_footnote_run({0: [(4, 'x')], 3: [(5, 'y')], 6: [(6, 'z')]}) == 0
+
+
+def test_marker_after_a_closing_quote_then_period(monkeypatch):
+    """d7322ddc: the text layer prints '…adequately”.1 Presumably' (quote BEFORE the period, the
+    American order) while the OCR wrote a straight quote and dropped the digit. The marker goes
+    after the punctuation, where the print has it."""
+    pypdf = 'changed the world only by interpreting it adequately”.1 Presumably, Marx wrote Capital'
+    _with_stub(monkeypatch, {0: pypdf})
+    combined = ('changed the world only by interpreting it adequately". Presumably, Marx wrote '
+                'Capital\n\n[^1]: See: www.youtube.com/watch?v=OxmzGT1w_kk (February 15, 2017).')
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
+    assert n == 1
+    assert 'adequately".[^1] Presumably' in out

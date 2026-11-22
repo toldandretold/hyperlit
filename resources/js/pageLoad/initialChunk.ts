@@ -11,6 +11,8 @@ import { log, verbose } from '../utilities/logger';
 import { OpenHyperlightID, OpenFootnoteID } from '../app';
 import { gateQueryParam, getPinnedHyperciteIds, getPinnedHyperlightIds, pinHypercite, pinHyperlight } from '../components/utilities/gateFilter';
 import type { ReadingPosition } from '../scrolling/readingPosition';
+// Zero-import leaf — see utilities/localCopyCompleteness for why the marker says PARTIAL.
+import { markLocalCopyPartial, markLocalCopyComplete } from '../utilities/localCopyCompleteness';
 
 /**
  * Fetch the initial chunk from the server for fast first-render loading.
@@ -73,6 +75,11 @@ export async function fetchInitialChunk(bookId: string, explicitTarget?: string 
         const db = await openDatabase();
         // Clear stale data for this book to prevent duplicate node_ids
         // (server may have renumbered startLines since last cache)
+        //
+        // From this line the local copy is a FRAGMENT until a full download lands: mark it
+        // BEFORE the clear, so a tab that dies anywhere after it is still known-partial on
+        // the next visit (loadHyperText then refuses to treat the fragment as the book).
+        markLocalCopyPartial(bookId);
         await clearBookDataFromIndexedDB(db, bookId);
         const [nodesResult] = await Promise.allSettled([
             loadNodesToIndexedDB(db, data.initial_chunk),
@@ -92,6 +99,11 @@ export async function fetchInitialChunk(bookId: string, explicitTarget?: string 
         const decryptedNodes = nodesResult.status === 'fulfilled' && nodesResult.value?.length
             ? nodesResult.value
             : (data.initial_chunk || []);
+
+        // A book small enough to arrive whole in this one response needs no backfill.
+        if (nodesResult.status === 'fulfilled' && initialChunkIsWholeBook(data.chunk_manifest, data.initial_chunk)) {
+            markLocalCopyComplete(bookId);
+        }
 
         verbose.content(
             `Initial chunk loaded: chunk ${data.target_chunk_id}, ` +
@@ -118,6 +130,22 @@ export async function fetchInitialChunk(bookId: string, explicitTarget?: string 
         log.error(`Initial chunk fetch failed: ${error.message}`, 'initialChunkLoader.js', error);
         return { success: false, error: error.message, reason: 'sync_error' };
     }
+}
+
+/**
+ * Did the initial response carry every node the manifest describes? Decided on node
+ * COUNTS (the server may bundle an adjacent chunk into a short first one), and only when
+ * every manifest row states its count — an unknown count is never assumed to be covered.
+ */
+export function initialChunkIsWholeBook(manifest: unknown, initialChunk: unknown): boolean {
+    if (!Array.isArray(manifest) || manifest.length === 0 || !Array.isArray(initialChunk)) return false;
+    let total = 0;
+    for (const row of manifest) {
+        const count = (row as { node_count?: unknown })?.node_count;
+        if (typeof count !== 'number' || !Number.isFinite(count)) return false;
+        total += count;
+    }
+    return initialChunk.length >= total;
 }
 
 /**

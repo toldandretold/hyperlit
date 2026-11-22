@@ -753,6 +753,90 @@ def _drop_substituted_marker_duplicates(combined, recovered):
     return '\n\n'.join(kept)
 
 
+def _norm_note_text(text):
+    return re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).strip()
+
+
+def _strip_declared_page_chrome(recovered, response_dict):
+    """Drop a trailing page header/footer from text-layer-recovered defs. pypdf reads the page
+    foot straight through, so the last note on a page arrives with the running footer glued on
+    ("…cf. Fuchs/Hofkirchner/Klauninger (2001) © Vienna University of Technology 2003.",
+    7fa30289 — on every one of its nine notes). Only strings the OCR itself DECLARED as that
+    document's header/footer are removed, and only at the very end of a def."""
+    chrome = set()
+    for page in (response_dict or {}).get('pages') or []:
+        for key in ('footer', 'header'):
+            for line in str(page.get(key) or '').split('\n'):
+                line = line.strip()
+                if len(line) >= 10 and not line.isdigit():
+                    chrome.add(line)
+    if not chrome:
+        return recovered
+    out = []
+    for num, text in recovered:
+        t = (text or '').rstrip()
+        changed = True
+        while changed:
+            changed = False
+            for c in chrome:
+                if t.endswith(c) and len(t) > len(c) + 20:
+                    t = t[:-len(c)].rstrip()
+                    changed = True
+        out.append((num, t))
+    return out
+
+
+def _absorb_numbered_body_twins(combined, recovered):
+    """A recovered note whose OCR copy was left in the BODY as a plain paragraph
+    ("7 Marx formulated the general law…") — the layout classifier said `unknown`, so the OCR's
+    own page-foot note was never harvested, and the text-layer recovery then minted the same
+    note again under [^7]. The reader got it twice: once linked, once as stray body prose.
+
+    Evidence for "same note": the paragraph opens with the note's NUMBER followed by the same
+    40 normalised characters, and exactly one body paragraph does. The twin leaves the body; if
+    the recovered text is a truncated PREFIX of the OCR copy (pypdf stopped at the page end —
+    "…a consolidated surplus-"), the complete OCR copy becomes the definition. The body sentence
+    the note interrupted is re-glued when the two halves read as one sentence."""
+    from ingestion.pdf.pdf_shared import continues_across_break
+    paras = re.split(r'\n\s*\n', combined)
+    replacements = {}
+    drop = set()
+    for num, text in recovered:
+        head = _norm_note_text(text)[:40]
+        if len(head) < 25:
+            continue
+        opener = re.compile(r'^\s*' + str(num) + r'\s+(?=\S)')
+        hits = [i for i, p in enumerate(paras)
+                if not p.lstrip().startswith(('[^', '#', '>', '|'))
+                and opener.match(p)
+                and _norm_note_text(opener.sub('', p, count=1))[:40] == head]
+        if len(hits) != 1:
+            continue
+        i = hits[0]
+        body = opener.sub('', paras[i].strip(), count=1).strip()
+        rec = _norm_note_text(re.sub(r'[-‐‑]\s*$', '', text or ''))
+        if len(_norm_note_text(body)) > len(rec) and _norm_note_text(body).startswith(rec):
+            replacements[num] = body
+        drop.add(i)
+    if not drop:
+        return combined
+    kept = []
+    for i, p in enumerate(paras):
+        if i in drop:
+            continue
+        if (i - 1 in drop and kept and kept[-1].strip()
+                and not kept[-1].lstrip().startswith(('[^', '#', '>', '|'))
+                and continues_across_break(kept[-1].split('\n')[-1], p)):
+            kept[-1] = kept[-1].rstrip() + ' ' + p.lstrip()
+            continue
+        kept.append(p)
+    out = '\n\n'.join(kept)
+    for num, body in replacements.items():
+        out = re.sub(r'(?m)^\[\^' + str(num) + r'\]:[^\n]*',
+                     lambda _m, n=num, b=body: f'[^{n}]: {b}', out, count=1)
+    return out
+
+
 def _pypdf_footnote_run(pypdf_defs_by_page, page_offsets=None):
     """Top number of a continuous PAGE-BOTTOM footnote run in the PDF's own text layer, else 0.
 
@@ -820,6 +904,12 @@ def _marker_seam_witnesses(ptext, num):
         # "(see figure 4)6: dispositions…", "(see also Oberquelle 19919). This…" — up to two
         # punctuation marks, because a marker inside a parenthetical closes both at once (").").
         (rf'([A-Za-z0-9)\]]{{2,}}){num}([.,;:!?)\]]{{1,2}})\s+([A-Za-z]{{2,}})', 3),
+        # a closing QUOTE then the sentence period, marker after both (the American
+        # quote-then-period order): "…interpreting it adequately”.1 Presumably" (d7322ddc). The
+        # OCR renders the quote glyph its own way, so the caller matches quotes as a class.
+        # The quote+period ride in the WORD group so the marker is inserted after them, where the
+        # print has it.
+        (rf'([A-Za-z]{{3,}}["\'’”][.,;:!?]){num}\s+([A-Z][a-z]+)', 2),
     )
     for pattern, groups in shapes:
         m = re.search(pattern, ptext)
@@ -1007,7 +1097,11 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         # validate and hands over to the next candidate rather than planting a marker.
         placed = None
         for seam, follow_tail in seams:
-            word, punct, follow = (re.escape(s) for s in seam)
+            # Quote glyphs disagree between OCR and text layer ('adequately".' vs 'adequately”.'),
+            # so a closing quote in the seam matches as a class.
+            word, punct = (''.join('["\'’”]' if c in '"\'’”' else re.escape(c) for c in part)
+                           for part in seam[:2])
+            follow = re.escape(seam[2])
             # `(…)?` = the marker's own corpse: where the text layer has the digit, the markdown
             # may carry a superscript LETTER Mistral substituted for it. Matching it optionally
             # lets the seam line up, and the insertion REPLACES it rather than leaving junk
@@ -2950,12 +3044,17 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # blockquote.
     try:
         from ingestion.pdf.quote_geometry import (
-            detect_indented_quote_blocks, wrap_geometry_blockquotes)
+            detect_indented_quote_blocks, wrap_geometry_blockquotes, _norm as _quote_norm)
         geo_blocks = geometry_blocks
         if geo_blocks is None and pdf_path:
             geo_blocks = detect_indented_quote_blocks(pdf_path)
         if geo_blocks:
-            combined, geo_wrapped = wrap_geometry_blockquotes(combined, geo_blocks)
+            page_openers = set()
+            for part in ctx.md_parts:
+                first = next((x for x in re.split(r'\n\s*\n', part) if x.strip()), '')
+                page_openers.add(_quote_norm(re.sub(r'(?m)^>\s?', '', first.strip()))[:40])
+            combined, geo_wrapped = wrap_geometry_blockquotes(
+                combined, geo_blocks, page_openers=page_openers)
             if geo_wrapped:
                 print(f"  Geometry blockquotes: wrapped {geo_wrapped} paragraph(s) from "
                       f"{len(geo_blocks)} indented block(s) in the source PDF")
@@ -3129,6 +3228,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 page_offsets=page_offsets_map,
             )
             if recovered:
+                recovered = _strip_declared_page_chrome(recovered, response_dict)
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]
                 combined = combined.rstrip() + "\n\n" + "\n\n".join(recovered_lines)
                 print(f"  pypdf fallback: recovered {len(recovered)} missing footnote definitions")
@@ -3137,6 +3237,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 # kooperativer…"'), split out of the body as an unnumbered def paragraph. pypdf's
                 # copy carries the real number, so it wins and the unnumbered twin goes.
                 combined = _drop_substituted_marker_duplicates(combined, recovered)
+                combined = _absorb_numbered_body_twins(combined, recovered)
             if pypdf_rejected_mojibake:
                 # These are "candidate" defs pypdf pattern-matched (^N + Uppercase)
                 # on the source PDF — but the text payload was unreadable glyphs.

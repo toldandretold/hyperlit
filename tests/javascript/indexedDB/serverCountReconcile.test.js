@@ -24,9 +24,10 @@ vi.mock('../../../resources/js/pageLoad/backgroundDownload', () => ({
 }));
 vi.mock('../../../resources/js/integrity/reporter', () => ({
   reportServerCountMismatch: vi.fn().mockResolvedValue(undefined),
+  reportLocalCopyIncomplete: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock('../../../resources/js/utilities/logger', () => ({
-  log: { error: vi.fn(), init: vi.fn(), nav: vi.fn(), content: vi.fn(), user: vi.fn() },
+  log: { error: vi.fn(), warn: vi.fn(), init: vi.fn(), nav: vi.fn(), content: vi.fn(), user: vi.fn() },
   verbose: { content: vi.fn(), init: vi.fn(), nav: vi.fn(), user: vi.fn() },
 }));
 
@@ -37,10 +38,12 @@ import {
   beginFullBookReplace,
   endFullBookReplace,
   whenServerCountReconcilesSettle,
+  shouldRepairShortLocalCopy,
 } from '../../../resources/js/indexedDB/serverSync/countReconcile';
+import { markLocalCopyPartial } from '../../../resources/js/utilities/localCopyCompleteness';
 import { getMasterSyncInFlight } from '../../../resources/js/indexedDB/syncQueue/master';
 import { isBackgroundDownloadInProgress } from '../../../resources/js/pageLoad/backgroundDownload';
-import { reportServerCountMismatch } from '../../../resources/js/integrity/reporter';
+import { reportServerCountMismatch, reportLocalCopyIncomplete } from '../../../resources/js/integrity/reporter';
 import { log } from '../../../resources/js/utilities/logger';
 import { pendingSyncs } from '../../../resources/js/indexedDB/syncQueue/queue';
 
@@ -60,6 +63,7 @@ async function seedBook(book, count) {
 beforeEach(() => {
   installFreshIndexedDB();
   pendingSyncs.clear();
+  localStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -245,3 +249,124 @@ describe('full-book replace bracketing (paste nuclear upsert)', () => {
     }
   });
 });
+
+/*
+ * Prod 2026-11-22 (`john2005restorative`): "IndexedDB has 400 nodes, the server reports
+ * 3062 … the server acknowledged syncs it did not fully persist" — while the server log
+ * for that very sync read before 3062 / after 3062 / deleted 0. The browser's background
+ * download had never finished; the cache was a fragment and the watchdog blamed the
+ * server for it. A short LOCAL copy is not a divergence.
+ */
+describe('a short local copy is not a server divergence', () => {
+  it('a copy marked partial is reported as local-copy-incomplete, not as a mismatch', async () => {
+    await seedBook('book_rc_partial', 4);
+    markLocalCopyPartial('book_rc_partial');
+
+    const outcome = await reconcileServerNodeCount('book_rc_partial', 30);
+
+    expect(outcome).toMatchObject({ checked: true, mismatch: false, incomplete: true, localCount: 4, serverCount: 30 });
+    expect(reportLocalCopyIncomplete).toHaveBeenCalledWith({
+      bookId: 'book_rc_partial', localCount: 4, serverCount: 30,
+    });
+    expect(reportServerCountMismatch).not.toHaveBeenCalled();
+    expect(log.error, 'an incomplete cache is a warning, not an error').not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('POSITIVE CONTROL: an UNMARKED short copy is still a divergence (a refused delete looks like this)', async () => {
+    await seedBook('book_rc_unmarked', 4);
+
+    const outcome = await reconcileServerNodeCount('book_rc_unmarked', 30);
+
+    expect(outcome).toMatchObject({ checked: true, mismatch: true });
+    expect(reportServerCountMismatch).toHaveBeenCalledTimes(1);
+    expect(reportLocalCopyIncomplete).not.toHaveBeenCalled();
+  });
+
+  it('POSITIVE CONTROL: the partial marker never excuses a server that holds FEWER rows', async () => {
+    // The 2026-11-01 shape (server ate pasted nodes) must flare whatever the marker says.
+    await seedBook('book_rc_partial_more', 28);
+    markLocalCopyPartial('book_rc_partial_more');
+
+    const outcome = await reconcileServerNodeCount('book_rc_partial_more', 5);
+
+    expect(outcome).toMatchObject({ checked: true, mismatch: true });
+    expect(reportServerCountMismatch).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('the divergence message names the side the numbers point at', async () => {
+    await seedBook('book_rc_dir_more', 9);
+    await reconcileServerNodeCount('book_rc_dir_more', 2);
+    expect(log.error.mock.calls[0][0]).toMatch(/server holds FEWER rows/);
+
+    log.error.mockClear();
+    await seedBook('book_rc_dir_less', 2);
+    await reconcileServerNodeCount('book_rc_dir_less', 9);
+    expect(log.error.mock.calls[0][0]).toMatch(/server holds MORE rows/);
+  });
+});
+
+describe('shouldRepairShortLocalCopy (the page-load check for an UNMARKED fragment)', () => {
+  it('local below server → repair, once', async () => {
+    await seedBook('book_sr_short', 4);
+
+    expect(await shouldRepairShortLocalCopy('book_sr_short', 30)).toBe(true);
+    // The repair ran and the copy is STILL short at the same server count: that is a real
+    // divergence for the reconciler, not something another download fixes. No loop.
+    expect(await shouldRepairShortLocalCopy('book_sr_short', 30)).toBe(false);
+  });
+
+  it('a different server count earns a fresh attempt', async () => {
+    await seedBook('book_sr_moved', 4);
+
+    expect(await shouldRepairShortLocalCopy('book_sr_moved', 30)).toBe(true);
+    expect(await shouldRepairShortLocalCopy('book_sr_moved', 31)).toBe(true);
+  });
+
+  it('a repaired copy clears the attempt, so a LATER shortfall is repaired again', async () => {
+    await seedBook('book_sr_healed', 4);
+    expect(await shouldRepairShortLocalCopy('book_sr_healed', 6)).toBe(true);
+
+    await seedBook('book_sr_healed', 6); // the download landed
+    expect(await shouldRepairShortLocalCopy('book_sr_healed', 6)).toBe(false);
+
+    installFreshIndexedDB();
+    await seedBook('book_sr_healed', 4); // lost again
+    expect(await shouldRepairShortLocalCopy('book_sr_healed', 6)).toBe(true);
+  });
+
+  it('a whole copy, a LONGER copy, an empty copy and an unknown count are all left alone', async () => {
+    await seedBook('book_sr_whole', 5);
+
+    expect(await shouldRepairShortLocalCopy('book_sr_whole', 5)).toBe(false);
+    expect(await shouldRepairShortLocalCopy('book_sr_whole', 3)).toBe(false); // the reconciler's business
+    expect(await shouldRepairShortLocalCopy('book_sr_nothing_cached', 5)).toBe(false);
+    expect(await shouldRepairShortLocalCopy('book_sr_whole', null)).toBe(false);
+    expect(await shouldRepairShortLocalCopy('book_sr_whole', 0)).toBe(false); // a viewer RLS hides the nodes from
+  });
+
+  it('refuses while local edits are unsent — a short copy may be the user\'s own deletions', async () => {
+    await seedBook('book_sr_queued', 4);
+    pendingSyncs.set('nodes_book_sr_queued_100', {
+      store: 'nodes', id: 'book_sr_queued_100', type: 'delete',
+      data: { book: 'book_sr_queued', startLine: 100 },
+    });
+    expect(await shouldRepairShortLocalCopy('book_sr_queued', 30)).toBe(false);
+
+    pendingSyncs.clear();
+    await seedStore('historyLog', [{
+      id: 951, timestamp: Date.now(), bookId: 'book_sr_queued', status: 'failed',
+      payload: { book: 'book_sr_queued', updates: { nodes: [] }, deletions: { nodes: [] } },
+    }]);
+    expect(await shouldRepairShortLocalCopy('book_sr_queued', 30)).toBe(false);
+  });
+
+  it('refuses while a download for the book is already running', async () => {
+    await seedBook('book_sr_dl', 4);
+    isBackgroundDownloadInProgress.mockReturnValueOnce(true);
+
+    expect(await shouldRepairShortLocalCopy('book_sr_dl', 30)).toBe(false);
+  });
+});
+

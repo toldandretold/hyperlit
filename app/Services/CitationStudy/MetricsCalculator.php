@@ -40,6 +40,7 @@ class MetricsCalculator
                 'match_method' => $this->breakdown($rows, 'match_method'),
                 'citation_row' => $this->breakdown($rows, 'citation_row'),
             ],
+            'resolution_accuracy' => $this->resolutionAccuracy($rows),
             'descriptive_labels' => $this->descriptive($rows),
             'timing_cost' => $this->timingCost($rows),
             'join_diagnostics' => $diagnostics,
@@ -183,6 +184,51 @@ class MetricsCalculator
                     ? $this->round($metrics['fp'] / ($metrics['fp'] + $metrics['tn']))
                     : null,
             ];
+        }
+        return $out;
+    }
+
+    /**
+     * How often each resolution method lands on the RIGHT WORK, from the human's
+     * `source_match` judgement. Only judged rows count — an unjudged row says nothing about
+     * precision either way, so `judged` is the denominator, not `n`.
+     *
+     * `wrong_work_positive_verdict` is the dangerous cell: the AI said likely/confirmed after
+     * reading a DIFFERENT work. A citation printed with no URL is resolved by web search, and a
+     * topically adjacent page can carry a true claim — so the verdict looks right and nothing
+     * downstream notices. Those are lucky passes, and a fabricated citation would pass the same way.
+     *
+     * @return array<string, array{n:int, judged:int, same_work:int, different_work:int, precision:?float, precision_ci95:?array, wrong_work_positive_verdict:int}>
+     */
+    public function resolutionAccuracy(array $rows): array
+    {
+        $out = [];
+        foreach ($rows as $row) {
+            if (empty($row['source_found'])) {
+                continue; // nothing resolved, nothing to be right or wrong about
+            }
+            $method = (string) (($row['match_method'] ?? null) ?: 'null');
+            $out[$method] ??= ['n' => 0, 'judged' => 0, 'same_work' => 0, 'different_work' => 0,
+                'precision' => null, 'precision_ci95' => null, 'wrong_work_positive_verdict' => 0];
+            $out[$method]['n']++;
+            $match = $row['human_source_match'] ?? null;
+            if ($match === 'same_work') {
+                $out[$method]['judged']++;
+                $out[$method]['same_work']++;
+            } elseif ($match === 'different_work') {
+                $out[$method]['judged']++;
+                $out[$method]['different_work']++;
+                if (in_array($row['verdict'] ?? null, ['likely', 'confirmed'], true)) {
+                    $out[$method]['wrong_work_positive_verdict']++;
+                }
+            }
+        }
+        ksort($out);
+        foreach ($out as $method => $c) {
+            if ($c['judged'] > 0) {
+                $out[$method]['precision'] = $this->round($c['same_work'] / $c['judged']);
+                $out[$method]['precision_ci95'] = $this->wilson($c['same_work'], $c['judged']);
+            }
         }
         return $out;
     }

@@ -255,12 +255,16 @@ def detect_indented_quote_blocks(pdf_path):
     return blocks
 
 
-def wrap_geometry_blockquotes(md, blocks):
+def wrap_geometry_blockquotes(md, blocks, page_openers=None):
     """Wrap the markdown paragraphs matching each indented block as ONE '>' blockquote.
     A block paragraph matches a markdown paragraph iff the block's normalised prefix is the
     paragraph's normalised prefix and that prefix is UNIQUE among paragraphs. Only whole,
     consecutive matches merge into a single connected blockquote; partial matches wrap
-    individually; ambiguity wraps nothing. Returns (md, wrapped_paragraph_count)."""
+    individually; ambiguity wraps nothing. Returns (md, wrapped_paragraph_count).
+
+    `page_openers` (optional): normalised openings of each OCR page's first paragraph. A
+    paragraph that opens a page AND completes the sentence the previous page left open is a
+    page-break fragment, not a quotation (see continues_previous)."""
     paras = re.split(r'\n\s*\n', md)
 
     def unmark(p):
@@ -335,6 +339,33 @@ def wrap_geometry_blockquotes(md, blocks):
     # Ending on a bare URL is the same apparatus (da18ab4f: '…" https://mindthegap.pubpub.org/.').
     _DOI_RE = re.compile(r'(?i)\bdoi[.:]|\b10\.\d{4,9}/|https?://\S+\.?\s*$')
 
+    try:
+        from ingestion.pdf.pdf_shared import continues_across_break
+    except Exception:                                    # pragma: no cover — import-light callers
+        continues_across_break = None
+
+    def continues_previous(i):
+        """The paragraph is the second half of the sentence the previous paragraph leaves open —
+        a page-break fragment (a hanging-indent bullet carried onto the next page measures as an
+        indented run). This pass runs before rejoin_page_breaks, so wrapping it would make the
+        split permanent.
+
+        Only at a PAGE OPENING. Mid-page, the same text shape is a genuine indented quotation
+        that carries the author's sentence on ("Razack … tells us that appropriating the other"
+        / "to the point of being able to dance their dances…", 244ae673) — position is the
+        evidence the text cannot give."""
+        if continues_across_break is None:
+            return False
+        if page_openers is not None and norm_paras[i][:40] not in page_openers:
+            return False
+        j = i - 1
+        while j >= 0 and (paras[j] is None or not paras[j].strip()):
+            j -= 1
+        if j < 0:
+            return False
+        prev_lines = [l for l in unmark(paras[j]).split('\n') if l.strip()]
+        return bool(prev_lines) and continues_across_break(prev_lines[-1], unmark(paras[i]))
+
     def find_unique(prefix):
         hits = [i for i, np in enumerate(norm_paras)
                 if np.startswith(prefix)
@@ -348,6 +379,10 @@ def wrap_geometry_blockquotes(md, blocks):
                 and not is_listy(paras[i])
                 and not is_affiliationish(paras[i])
                 and FRONT_MATTER_PARAS <= i < refs_start]
+        # Checked AFTER uniqueness so a fragment still claims its prefix (and blocks a
+        # look-alike elsewhere from being wrapped in its place).
+        if len(hits) == 1 and continues_previous(hits[0]):
+            return None
         if len(hits) != 1 or is_abstractish(hits[0]):
             return None
         return hits[0]

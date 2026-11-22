@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2060,
+    "fnCount": 2062,
     "moduleCount": 433,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4323,
+    "edgeCount": 4332,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -5929,7 +5929,8 @@
       "group": "content",
       "tables": [
         "canonical_source",
-        "library"
+        "library",
+        "nodes"
       ],
       "shape": [
         "annotations_updated_at",
@@ -5981,6 +5982,13 @@
         "work_license",
         "wrapped_dek",
         "year"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicNode",
+        "ServerNodeRow"
       ]
     },
     {
@@ -6181,7 +6189,8 @@
       "group": "content",
       "tables": [
         "canonical_source",
-        "library"
+        "library",
+        "nodes"
       ],
       "shape": [
         "annotations_updated_at",
@@ -6233,6 +6242,13 @@
         "work_license",
         "wrapped_dek",
         "year"
+      ],
+      "types": [
+        "NodeHyperciteView",
+        "NodeHyperlightView",
+        "NodeRecord",
+        "PublicNode",
+        "ServerNodeRow"
       ]
     },
     {
@@ -12725,6 +12741,14 @@
       "leaf": true
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "label": "shouldRepairShortLocalCopy",
+      "kind": "fn",
+      "stage": "serverSync",
+      "module": "indexedDB/serverSync/countReconcile",
+      "leaf": false
+    },
+    {
       "id": "indexedDB/serverSync/countReconcile:whenServerCountReconcilesSettle",
       "label": "whenServerCountReconcilesSettle",
       "kind": "fn",
@@ -13546,6 +13570,14 @@
       "types": [
         "ReadingPosition"
       ]
+    },
+    {
+      "id": "pageLoad/initialChunk:initialChunkIsWholeBook",
+      "label": "initialChunkIsWholeBook",
+      "kind": "fn",
+      "stage": "pageLoad",
+      "module": "pageLoad/initialChunk",
+      "leaf": true
     },
     {
       "id": "pageLoad/initialChunk:resolveBootstrapTarget",
@@ -22165,6 +22197,7 @@
         "indexedDB/serverSync/countReconcile:endFullBookReplace",
         "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
         "indexedDB/serverSync/countReconcile:scheduleServerCountReconcile",
+        "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
         "indexedDB/serverSync/countReconcile:whenServerCountReconcilesSettle"
       ]
     },
@@ -22541,6 +22574,7 @@
       "band": "sync",
       "fnIds": [
         "pageLoad/initialChunk:fetchInitialChunk",
+        "pageLoad/initialChunk:initialChunkIsWholeBook",
         "pageLoad/initialChunk:resolveBootstrapTarget"
       ]
     },
@@ -42858,6 +42892,25 @@
       "dataPath": true
     },
     {
+      "id": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy__call__indexedDB/core/connection:openDatabase",
+      "source": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "target": "indexedDB/core/connection:openDatabase",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy__call__indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "source": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "target": "indexedDB/syncQueue/master:getMasterSyncInFlight",
+      "rel": "call"
+    },
+    {
+      "id": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy__call__pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "source": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "target": "pageLoad/backgroundDownload:isBackgroundDownloadInProgress",
+      "rel": "call"
+    },
+    {
       "id": "indexedDB/serverSync/flush:flushAllPendingEdits__call__components/cloudRef/editIndicator:glowCloudSyncSuccess",
       "source": "indexedDB/serverSync/flush:flushAllPendingEdits",
       "target": "components/cloudRef/editIndicator:glowCloudSyncSuccess",
@@ -44237,6 +44290,12 @@
       "rel": "call"
     },
     {
+      "id": "pageLoad/initialChunk:fetchInitialChunk__call__pageLoad/initialChunk:initialChunkIsWholeBook",
+      "source": "pageLoad/initialChunk:fetchInitialChunk",
+      "target": "pageLoad/initialChunk:initialChunkIsWholeBook",
+      "rel": "call"
+    },
+    {
       "id": "pageLoad/initialChunk:fetchInitialChunk__write__store:footnotes",
       "source": "pageLoad/initialChunk:fetchInitialChunk",
       "target": "store:footnotes",
@@ -44438,6 +44497,13 @@
       "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/nodes/write:saveAllNodesToIndexedDB",
       "source": "pageLoad/loadHyperText:loadHyperText",
       "target": "indexedDB/nodes/write:saveAllNodesToIndexedDB",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
+      "id": "pageLoad/loadHyperText:loadHyperText__call__indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "source": "pageLoad/loadHyperText:loadHyperText",
+      "target": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
       "rel": "call",
       "dataPath": true
     },
@@ -46816,6 +46882,12 @@
       "rel": "pull"
     },
     {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getBookLibrary",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getBookLibrary",
+      "rel": "pull"
+    },
+    {
       "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getInitialChunk",
       "source": "pg:nodes",
       "target": "controller:DatabaseToIndexedDBController@getInitialChunk",
@@ -46837,6 +46909,12 @@
       "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
       "source": "pg:nodes",
       "target": "controller:DatabaseToIndexedDBController@getSubBookInitialChunk",
+      "rel": "pull"
+    },
+    {
+      "id": "pg:nodes__pull__controller:DatabaseToIndexedDBController@getSubBookLibrary",
+      "source": "pg:nodes",
+      "target": "controller:DatabaseToIndexedDBController@getSubBookLibrary",
       "rel": "pull"
     },
     {
@@ -49830,6 +49908,12 @@
       "rel": "read"
     },
     {
+      "id": "store:historyLog__read__indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "source": "store:historyLog",
+      "target": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "rel": "read"
+    },
+    {
       "id": "store:historyLog__read__indexedDB/serverSync/flush:flushAllPendingEdits",
       "source": "store:historyLog",
       "target": "indexedDB/serverSync/flush:flushAllPendingEdits",
@@ -50685,6 +50769,12 @@
       "id": "store:nodes__read__indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
       "source": "store:nodes",
       "target": "indexedDB/serverSync/countReconcile:reconcileServerNodeCount",
+      "rel": "read"
+    },
+    {
+      "id": "store:nodes__read__indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
+      "source": "store:nodes",
+      "target": "indexedDB/serverSync/countReconcile:shouldRepairShortLocalCopy",
       "rel": "read"
     },
     {
@@ -56399,6 +56489,11 @@
     {
       "source": "pageLoad/loadHyperText",
       "target": "indexedDB/index",
+      "kind": "static"
+    },
+    {
+      "source": "pageLoad/loadHyperText",
+      "target": "indexedDB/serverSync/countReconcile",
       "kind": "static"
     },
     {

@@ -1,0 +1,18 @@
+[
+    {"reference": "verified", "scope": "whole_claim", "from_other_work": false, "label": "verified_intact"},
+    {"reference": "verified", "scope": "fragment_only", "from_other_work": false, "label": "verified_intact"},
+    {"reference": "verified", "scope": "none", "from_other_work": false, "label": "claim_distortion"},
+    {"reference": "verified", "scope": "none", "from_other_work": true, "label": "source_swap"},
+    {"reference": "verified", "scope": "undetermined", "from_other_work": false, "label": "unverifiable"},
+    {"reference": "verified", "scope": null, "from_other_work": false, "label": "verified_intact"},
+    {"reference": "details_wrong", "scope": "whole_claim", "from_other_work": false, "label": "verified_intact"},
+    {"reference": "details_wrong", "scope": "fragment_only", "from_other_work": false, "label": "verified_intact"},
+    {"reference": "details_wrong", "scope": "none", "from_other_work": false, "label": "claim_distortion"},
+    {"reference": "details_wrong", "scope": "none", "from_other_work": true, "label": "source_swap"},
+    {"reference": "details_wrong", "scope": "undetermined", "from_other_work": false, "label": "unverifiable"},
+    {"reference": "fabricated", "scope": null, "from_other_work": false, "label": "fabricated_reference"},
+    {"reference": "fabricated", "scope": "none", "from_other_work": true, "label": "fabricated_reference"},
+    {"reference": "unverifiable", "scope": null, "from_other_work": false, "label": "unverifiable"},
+    {"reference": "suspect", "scope": null, "from_other_work": false, "label": "suspect"},
+    {"reference": "not_a_citation", "scope": null, "from_other_work": false, "label": "not_a_citation"}
+]

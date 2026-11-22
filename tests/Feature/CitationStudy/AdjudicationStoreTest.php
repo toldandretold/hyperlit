@@ -428,3 +428,174 @@ test('inherited evidence resolves through a MULTI-HOP chain, and a cycle never l
     ];
     expect($store->resolveInheritedEvidence($cycle['a'], $cycle))->toBeNull();
 });
+
+test('source_match is stored, and an unknown value is refused', function () {
+    // Resolution correctness is its own axis: the AI can say "likely" after reading a
+    // DIFFERENT work (web search found a topically adjacent page), so the label and
+    // verdict cannot carry it.
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $record = $store->put(
+        $manifest, $book, 'fixture/c01', 'verified_intact', 'other',
+        'web search hit a related page', 'ref_abc', 'run1', 'sam',
+        foundUrl: 'https://example.com/the-real-one', sourceMatch: 'different_work',
+    );
+    expect($record['source_match'])->toBe('different_work');
+
+    $plain = $store->put($manifest, $book, 'fixture/c01', 'verified_intact', null, null, 'ref_abc', 'run1', 'sam');
+    expect($plain['source_match'])->toBeNull();
+
+    expect(fn () => $store->put(
+        $manifest, $book, 'fixture/c01', 'verified_intact', null, null, 'ref_abc', 'run1', 'sam',
+        sourceMatch: 'kinda',
+    ))->toThrow(RuntimeException::class);
+});
+
+
+/**
+ * Two questions, one derived label.
+ *
+ * The reviewer answers (1) is the cited work real / cited correctly and (2) does it support
+ * the claim. The label used to be picked from one row of chips that mixed both, with the
+ * second question asked again underneath — so "verified intact · supports none of it" was
+ * recordable and scored as a citation the AI should pass. Now the label is derived.
+ */
+test('the label is derived from the two answers, per the shared table', function () {
+    $table = json_decode(file_get_contents(base_path('tests/fixtures/study/verdictDerivation.json')), true);
+    expect($table)->not->toBeEmpty();
+    foreach ($table as $row) {
+        expect(AdjudicationStore::deriveLabel($row['reference'], $row['scope'], $row['from_other_work']))
+            ->toBe($row['label'], json_encode($row));
+    }
+    // Every derivable label is one ground truth knows how to score.
+    expect(array_diff(array_column($table, 'label'), CorpusManifest::LABELS))->toBe([]);
+});
+
+test('put with the two answers stores both and derives the label', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $none = $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
+        note: null, referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
+        supportedScope: 'none', reference: 'verified');
+    expect($none['reference'])->toBe('verified')
+        ->and($none['supported_scope'])->toBe('none')
+        ->and($none['label'])->toBe('claim_distortion')
+        ->and($none['reference_exists'])->toBeTrue();
+
+    // A label sent alongside the answers is ignored — there is one definition.
+    $ignored = $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: 'verified_intact',
+        cause: null, note: null, referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
+        supportedScope: 'undetermined', reference: 'verified');
+    expect($ignored['label'])->toBe('unverifiable');
+
+    $swap = $store->put(manifest: $manifest, book: $book, key: 'fixture/c02', label: null, cause: null,
+        note: null, referenceId: 'ref_def', runId: 'run1', adjudicatedBy: 'sam',
+        supportedScope: 'none', reference: 'verified', fromOtherWork: true);
+    expect($swap['label'])->toBe('source_swap')->and($swap['from_other_work'])->toBeTrue();
+});
+
+test('a real work cited with the wrong author is recordable, and scores by claim support', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+
+    $record = $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
+        note: 'Cited as the References Committee; the report is by the Standing Committee.',
+        referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
+        supportedScope: 'whole_claim', reference: 'details_wrong', referenceErrors: ['author']);
+    expect($record['reference'])->toBe('details_wrong')
+        ->and($record['reference_errors'])->toBe(['author'])
+        ->and($record['label'])->toBe('verified_intact')
+        ->and($record['reference_exists'])->toBeTrue();
+
+    // "Cited wrongly" with nothing named wrong is just "cited correctly" — refused.
+    expect(fn () => $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
+        note: null, referenceId: null, runId: null, adjudicatedBy: 'sam', reference: 'details_wrong'))
+        ->toThrow(RuntimeException::class, 'details_wrong needs');
+    expect(fn () => $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
+        note: null, referenceId: null, runId: null, adjudicatedBy: 'sam',
+        reference: 'details_wrong', referenceErrors: ['vibes']))
+        ->toThrow(RuntimeException::class, 'Invalid reference_errors');
+    expect(fn () => $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null,
+        note: null, referenceId: null, runId: null, adjudicatedBy: 'sam', reference: 'sort_of'))
+        ->toThrow(RuntimeException::class, 'Invalid reference');
+});
+
+test('a work that is not real carries no claim-support answer', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $record = (new AdjudicationStore())->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null,
+        cause: null, note: null, referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam',
+        supportedScope: 'whole_claim', reference: 'fabricated', referenceErrors: ['author'], fromOtherWork: true);
+    expect($record['label'])->toBe('fabricated_reference')
+        ->and($record['supported_scope'])->toBeNull()
+        ->and($record['reference_errors'])->toBe([])
+        ->and($record['from_other_work'])->toBeFalse()
+        ->and($record['reference_exists'])->toBeFalse();
+});
+
+test('a record from before the split gains its two answers on load, and a contradictory one is re-scored', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+    $legacy = fn (string $label, ?string $scope, ?bool $exists = null) => [
+        'gt_id' => null, 'referenceId' => null, 'run_id' => null, 'label' => $label, 'cause' => null,
+        'supported_scope' => $scope, 'note' => null, 'reference_exists' => $exists,
+    ];
+    @mkdir(dirname($store->path($manifest, $book)), 0775, true);
+    file_put_contents($store->path($manifest, $book), json_encode(['book' => 'fixture', 'adjudications' => [
+        'a' => $legacy('verified_intact', 'none'),          // the deloitte shape: real, supports nothing
+        'b' => $legacy('verified_intact', 'undetermined'),
+        'c' => $legacy('verified_intact', 'fragment_only'),
+        'd' => $legacy('verified_intact', null),            // question 2 never asked
+        'e' => $legacy('claim_distortion', null),
+        'f' => $legacy('fabricated_reference', null),
+        'g' => $legacy('unverifiable', null, true),         // work confirmed, body unreadable
+        'h' => $legacy('unverifiable', null),
+        'i' => $legacy('intact', null),
+    ]]));
+
+    $loaded = $store->load($manifest, $book)['adjudications'];
+    $got = fn (string $k) => [$loaded[$k]['reference'], $loaded[$k]['supported_scope'], $loaded[$k]['label']];
+    expect($got('a'))->toBe(['verified', 'none', 'claim_distortion'])
+        ->and($got('b'))->toBe(['verified', 'undetermined', 'unverifiable'])
+        ->and($got('c'))->toBe(['verified', 'fragment_only', 'verified_intact'])
+        ->and($got('d'))->toBe(['verified', null, 'verified_intact'])
+        ->and($got('e'))->toBe(['verified', 'none', 'claim_distortion'])
+        ->and($got('f'))->toBe(['fabricated', null, 'fabricated_reference'])
+        ->and($got('g'))->toBe(['verified', 'undetermined', 'unverifiable'])
+        ->and($got('h'))->toBe(['unverifiable', null, 'unverifiable'])
+        ->and($got('i'))->toBe(['verified', null, 'intact']);
+
+    // The reviewer's ANSWERS are never rewritten — only the label derived from them.
+    expect($loaded['a']['supported_scope'])->toBe('none')
+        ->and($loaded['g']['reference_exists'])->toBeTrue();
+
+    // A dry run reports and writes nothing; the real one rewrites the file once.
+    $dry = $store->normaliseStored($manifest, $book, write: false);
+    expect($dry['rewritten'])->toBe(9)
+        ->and(array_keys($dry['relabelled']))->toBe(['a', 'b'])
+        ->and($dry['relabelled']['a'])->toBe(['from' => 'verified_intact', 'to' => 'claim_distortion']);
+    expect(json_decode(file_get_contents($store->path($manifest, $book)), true)['adjudications']['a'])
+        ->not->toHaveKey('reference');
+
+    expect($store->normaliseStored($manifest, $book)['rewritten'])->toBe(9);
+    expect($store->normaliseStored($manifest, $book)['rewritten'])->toBe(0);
+});
+
+test('apply scores a real-but-unsupporting citation as one the AI should flag', function () {
+    $manifest = adjCorpus();
+    $book = $manifest->book('fixture');
+    $store = new AdjudicationStore();
+    $store->put(manifest: $manifest, book: $book, key: 'fixture/c01', label: null, cause: null, note: null,
+        referenceId: 'ref_abc', runId: 'run1', adjudicatedBy: 'sam', supportedScope: 'none', reference: 'verified');
+    $store->applyToGroundTruth($manifest, $book);
+
+    $entry = collect($manifest->loadGroundTruth($book)['entries'])->firstWhere('gt_id', 'fixture/c01');
+    expect($entry['label'])->toBe('claim_distortion')
+        ->and($entry['expected_detection'])->toBe('flag');
+});

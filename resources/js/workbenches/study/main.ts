@@ -22,36 +22,20 @@ import {
   type PathStep,
   type PathWork,
 } from './api';
+import { REFERENCES, REFERENCE_ERRORS, SCORING, deriveLabel, isRealReference } from './verdictAxes';
 
 const FLAGGED = new Set(['rejected', 'unlikely', 'source_not_found', 'insufficient']);
 
 /** Evidence = what the REVIEWER read that settles THEIR verdict — "from the source" is only
  *  the common case; a fabricated-reference verdict quotes counter-evidence instead (the form
- *  swaps this wording per label, see applyLabelCopy in adjudicationForm). */
+ *  swaps this wording when question 1 is answered "fabricated", see applyReferenceCopy). */
 const EVIDENCE_PLACEHOLDER_DEFAULT =
   'Quotes from the source that back this verdict — one per paragraph. Select text in the pane and press "use selection", or paste.';
 
-// Axis 1 — your verdict on the CITATION ITSELF. Applied, it becomes the
-// entry's label in ground_truth.json: the baseline the AI is scored against.
-const LABELS: Array<{ value: string; text: string; desc: string }> = [
-  { value: 'verified_intact', text: 'verified intact',
-    desc: 'The citation is genuine and supports the claim — you checked. If the AI flagged it, that becomes a false positive against the AI.' },
-  { value: 'fabricated_reference', text: 'fabricated reference',
-    desc: 'The cited work does not exist.' },
-  { value: 'source_swap', text: 'source swap',
-    desc: 'The work exists, but the claim actually comes from a different work.' },
-  { value: 'claim_distortion', text: 'claim distortion',
-    desc: 'The source exists but does not say what the author claims.' },
-  { value: 'suspect', text: 'suspect',
-    desc: "Something is off but you can't pin it down. NOT scored — excluded from the confusion matrix." },
-  { value: 'unverifiable', text: 'unverifiable',
-    desc: 'Cannot be checked either way (grey literature, "copy on file with author"). NOT scored.' },
-  { value: 'not_a_citation', text: 'not a citation',
-    desc: "The reviewed pairing doesn't exist in the author's text — a phantom/mislinked anchor or a non-citation footnote. Nothing to verify, so nothing to score. NOT scored; pairs with the citation-mislink cause." },
-];
-
-// Axis 2 — your verdict on the AI'S FLAG: whose failure was it? Feeds system
-// improvement (dataset.csv human_cause), never the baseline.
+// The reviewer's two questions (is the work real / does it support the claim) and the label
+// derived from them live in ./verdictAxes. What follows is the separate, optional CAUSE:
+// when the AI flagged this citation, whose failure was it? Feeds system
+// improvement (dataset.csv human_cause), never the label.
 const CAUSES: Array<{ value: string; text: string; desc: string }> = [
   { value: 'correct_flag', text: 'correct flag — citation genuinely bad',
     desc: 'The AI was right to flag this citation.' },
@@ -60,17 +44,17 @@ const CAUSES: Array<{ value: string; text: string; desc: string }> = [
   { value: 'conversion_mangled', text: 'conversion mangled — our OCR',
     desc: 'Our PDF conversion corrupted the citation text before the AI ever saw it. Check the Conversion check block.' },
   { value: 'claim_scoping', text: 'claim scoping — wrong sentence/slice attributed',
-    desc: 'Our extractor attributed text this citation was never meant to support: a slice of a grouped citation (A; B; C), or an adjacent UNCITED sentence grabbed instead of the cited one. The citation is fine; the verifier honestly reported the mismatch. Usually pairs with verified intact.' },
+    desc: 'Our extractor attributed text this citation was never meant to support: a slice of a grouped citation (A; B; C), or an adjacent UNCITED sentence grabbed instead of the cited one. The citation is fine; the verifier honestly reported the mismatch.' },
   { value: 'citation_mislink', text: 'citation mislink — our linker minted/misdirected the anchor',
-    desc: "The author never made this claim-source pairing: our in-text linker turned a bare year (or year range) into a citation, or pointed a real citation at the wrong entry. The AI honestly reviewed a pairing that doesn't exist. Usually pairs with verified intact." },
+    desc: "The author never made this claim-source pairing: our in-text linker turned a bare year (or year range) into a citation, or pointed a real citation at the wrong entry. The AI honestly reviewed a pairing that doesn't exist." },
   { value: 'evidence_truncated', text: 'evidence truncated — our snapshot clipped it',
-    desc: 'The source was correctly resolved, but the supporting text lies beyond what we stored (e.g. the web-fetch character cap). You found the evidence in the full source; the AI never saw it. Usually pairs with verified intact.' },
+    desc: 'The source was correctly resolved, but the supporting text lies beyond what we stored (e.g. the web-fetch character cap). You found the evidence in the full source; the AI never saw it.' },
   { value: 'grey_literature', text: 'grey literature — legitimately unindexed',
     desc: "A real source that no index carries (internal reports, Hansard, legislation). Nobody's failure." },
   { value: 'citation_typo', text: 'citation typo — minor error defeated matching',
-    desc: 'The citation is real and supports the claim, but a small error (missing/wrong word in the title, off-by-one year or page) likely broke exact matching. Pair with verified intact — the typo is not an integrity issue; put the exact discrepancy in the note.' },
+    desc: 'A small slip in the citation (a missing or wrong word in the title, an off-by-one year or page) likely broke OUR exact matching. This is about why our resolver missed it. A citation that names the wrong author, title, year or venue is recorded in question 1 as "real — but cited wrongly".' },
   { value: 'access_blocked', text: 'access blocked — paywall / bot wall',
-    desc: 'The cited URL exists but refused our fetcher (401/403/429, or a subscribe-wall). NOT a dead link — verify the article in your browser; if it checks out, the label is about the content, this cause records why our system could not see it.' },
+    desc: 'The cited URL exists but refused our fetcher (401/403/429, or a subscribe-wall). NOT a dead link — verify the article in your browser; this cause records why our system could not see it.' },
   { value: 'dead_link', text: 'dead link — cited URL rotted',
     desc: 'The URL the author printed is genuinely gone (404/410, or a soft-404 page served as 200) — use Check link to confirm. The work may exist elsewhere; if you find a live copy, put it in the found-URL field.' },
   { value: 'other', text: 'other (note)',
@@ -126,12 +110,13 @@ function relevantCauses(claim: ClaimRow): Set<string> {
 }
 
 /**
- * WHAT the citation actually supports — the third ground-truth axis.
+ * Question 2 — WHAT does the cited work actually support? Asked only when question 1 says the
+ * work is real.
  *
  * The support scale has no fixed DENOMINATOR, so a verdict alone is ambiguous: "unlikely" means
  * both "supports none of this" and "supports exactly the part it was cited for, and nothing else".
  * Recording which makes the ground truth independent of the verify prompt a run used, so the SAME
- * labels score both variants (services.citation_review.verify_scope). A fragment_only claim SHOULD
+ * answers score both variants (services.citation_review.verify_scope). A fragment_only claim SHOULD
  * read unsupported under the strict prompt and supported under the fragment prompt — both correct.
  *
  * Distinct from the claim_scoping CAUSE: that is OUR extractor grabbing the wrong text; this is the
@@ -143,10 +128,108 @@ const SUPPORTED_SCOPES: Array<{ value: string; text: string; desc: string }> = [
   { value: 'fragment_only', text: 'supports PART of the claim',
     desc: 'The source supports one component of the sentence but not the rest, and was cited for that component. Say WHICH part in the note — that is the ground truth. Example: "…a Special Issue commemorating the fiftieth anniversary of the campaign for a NIEO (UN 1974a)" — the 1974 Declaration evidences the campaign, not the Special Issue.' },
   { value: 'none', text: 'supports none of it',
-    desc: 'The source supports no part of the claim.' },
+    desc: 'The work is real but supports no part of the claim.' },
   { value: 'undetermined', text: "can't tell without the source",
-    desc: 'Blocked, dead or not retrieved — you could not read enough to judge scope.' },
+    desc: 'The work is real, but it was blocked, dead or not retrieved — you could not read enough to judge. Not scored.' },
 ];
+
+/**
+ * Did the resolver land on the RIGHT WORK? Mirrors AdjudicationStore::SOURCE_MATCHES.
+ * Separate from the reviewer's two answers and from the AI verdict, because the AI can say "likely" after reading the WRONG
+ * source: a citation with no printed URL is resolved by web search, and a page on the same topic can
+ * carry a true claim. Recorded per row and tallied per match_method, it gives each resolution
+ * method a precision (MetricsCalculator::resolutionAccuracy). Offered only when something resolved.
+ */
+const SOURCE_MATCHES: Array<{ value: string; text: string; desc: string }> = [
+  { value: 'same_work', text: 'right URL',
+    desc: 'The URL/source we found IS the cited work (any edition or copy).' },
+  { value: 'different_work', text: 'wrong URL',
+    desc: 'The URL we found is some other page — even a related one, and even if the AI verdict came out right. '
+      + 'Put the right URL in the verdict form’s found-URL field.' },
+];
+
+/** A URL reduced to host + path, so http/https, www. and a trailing slash don't read as different. */
+function urlKey(u: string): string {
+  return u.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[#?].*$/, '').replace(/\/+$/, '');
+}
+
+/**
+ * Did OUR SYSTEM supply the source URL? True when we have a URL and the citation did not print
+ * that one. That is the whole rule for asking "is this the right URL?": a printed URL is the
+ * author's pointer, so if it leads elsewhere that is the citation's problem (the label) or our
+ * fetch's (the extraction flag's "A different article"); a URL we found ourselves is our call.
+ */
+function systemSuppliedUrl(claim: ClaimRow): string | null {
+  const found = claim.source?.url ?? null;
+  if (!claim.source?.found || !found) return null;
+  const printed = claim.llm_metadata?.['url'];
+  if (typeof printed === 'string' && printed.trim() !== '' && urlKey(printed) === urlKey(found)) return null;
+  return found;
+}
+
+/**
+ * "Is the URL we found the right one?" answered BEFORE a verdict exists, keyed by claim key.
+ * A label-less adjudication would break the consumers that read ['label'], so the answer waits
+ * here and rides along with the verdict's save.
+ */
+const pendingSourceMatch = new Map<string, string | null>();
+
+/**
+ * The right URL / wrong URL buttons, under the URL in the Resolved Source panel — beside the
+ * thing they ask about. Only when OUR SYSTEM supplied the URL (systemSuppliedUrl). With a saved
+ * verdict a click saves straight onto it; without one it is held for the verdict.
+ */
+function sourceMatchWidget(claim: ClaimRow): HTMLElement | null {
+  if (!systemSuppliedUrl(claim)) return null;
+  // Loud until answered: a verdict reasoned from a URL nobody confirmed is the cited work is
+  // the failure this question exists for, and it went unnoticed while the question was quiet.
+  const row = el('div', 'st-flag-row st-urlcheck');
+  row.append(el('span', 'st-urlcheck-q', 'We found this URL — is it right?'));
+  const status = el('span', 'st-flag-status');
+  const current = (): string | null =>
+    claim.adjudication ? (claim.adjudication.source_match ?? null) : (pendingSourceMatch.get(claim.key) ?? null);
+
+  const buttons = SOURCE_MATCHES.map((sm) => {
+    const b = el('button', 'st-undo', sm.text) as HTMLButtonElement;
+    b.type = 'button';
+    b.title = sm.desc;
+    b.addEventListener('click', () => {
+      void (async () => {
+        const next = current() === sm.value ? null : sm.value;
+        if (!claim.adjudication) {
+          pendingSourceMatch.set(claim.key, next);
+          paint();
+          status.textContent = next ? 'saved with your verdict' : '';
+          return;
+        }
+        if (!state.slug) return;
+        buttons.forEach((x) => { x.disabled = true; });
+        const { status: code, data } = await api.putSourceMatch(state.corpus, state.slug, { key: claim.key, source_match: next });
+        buttons.forEach((x) => { x.disabled = false; });
+        if (code !== 200 || !data.ok || !data.adjudication) {
+          status.textContent = data.error ?? `Save failed (${code})`;
+          log.error(`source-match save failed: ${data.error ?? code}`, '/workbenches/study/main.ts');
+          return;
+        }
+        claim.adjudication = data.adjudication;
+        paint();
+        status.textContent = 'saved';
+        renderList(); // the row's "URL unchecked" badge (and the filter) follow the answer
+      })();
+    });
+    return b;
+  });
+  const paint = (): void => {
+    const cur = current();
+    buttons.forEach((b, i) => b.classList.toggle('st-choice-on', SOURCE_MATCHES[i]?.value === cur));
+    row.classList.toggle('st-urlcheck-pending', cur === null);
+    row.classList.toggle('st-urlcheck-wrong', cur === 'different_work');
+  };
+  paint();
+  row.append(...buttons, status);
+  return row;
+}
+
 
 /** A workbench URL that SURVIVES a refresh — the corpus must ride in the query string. */
 function studyUrl(slug: string | null, corpus?: string, citationKey?: string | null): string {
@@ -166,6 +249,7 @@ interface State {
   filterFlagged: boolean;
   filterUnadjudicated: boolean;
   filterNeedsEvidence: boolean;
+  filterUrlUnchecked: boolean;
 }
 
 const boot = (window as unknown as { __study?: { corpus?: string; slug?: string | null } })
@@ -178,6 +262,7 @@ const state: State = {
   filterFlagged: true,
   filterUnadjudicated: false,
   filterNeedsEvidence: false,
+  filterUrlUnchecked: false,
 };
 
 // ---------------------------------------------------------------- helpers
@@ -269,10 +354,20 @@ function needsEvidence(c: ClaimRow): boolean {
   return evidenceState(c) === 'owed' || !c.adjudication;
 }
 
+/**
+ * "URL unchecked" = a saved verdict on a row whose URL OUR SYSTEM supplied, with the
+ * right-URL/wrong-URL question never answered. The backlog from before the question existed:
+ * every such verdict was reasoned from a URL nobody confirmed was the cited work.
+ */
+function urlUnchecked(c: ClaimRow): boolean {
+  return !!c.adjudication && systemSuppliedUrl(c) !== null && !c.adjudication.source_match;
+}
+
 function matchesFilters(c: ClaimRow): boolean {
   if (state.filterFlagged && !FLAGGED.has(c.verdict)) return false;
   if (state.filterUnadjudicated && c.adjudication) return false;
   if (state.filterNeedsEvidence && !needsEvidence(c)) return false;
+  if (state.filterUrlUnchecked && !urlUnchecked(c)) return false;
   return true;
 }
 
@@ -332,6 +427,11 @@ function renderList(): void {
  */
 function emptyListReason(): string {
   const all = state.payload?.claims ?? [];
+  if (state.filterUrlUnchecked) {
+    const n = all.filter(urlUnchecked).length;
+    if (n > 0) return `No claims match — ${n} verdict(s) with an unchecked URL are hidden by the other filters.`;
+    if (!state.filterNeedsEvidence) return 'Every verdict on a URL we found has had the URL checked. ✓';
+  }
   if (state.filterNeedsEvidence) {
     const bare = all.filter(needsEvidence).length;
     if (bare > 0) {
@@ -359,7 +459,21 @@ function claimRow(claim: ClaimRow): HTMLElement {
     head.append(el('span', `st-badge st-triage-${triage}`, triage.replace(/_/g, ' ')));
   }
   if (claim.anchor_warning) head.append(el('span', 'st-badge st-triage-ocr_garbled', 'anchor ⚠'));
-  if (claim.adjudication) head.append(el('span', 'st-badge st-done', '✓ ' + claim.adjudication.label));
+  if (claim.adjudication) {
+    const adj = claim.adjudication;
+    const done = el('span', 'st-badge st-done', '✓ ' + adj.label.replace(/_/g, ' '));
+    done.title = `${answersText(adj)} — scored as ${SCORING[adj.label] ?? adj.label}`;
+    head.append(done);
+    if (adj.reference === 'details_wrong') {
+      head.append(el('span', 'st-badge st-url-unchecked', `cited wrongly: ${(adj.reference_errors ?? []).join(', ')}`));
+    }
+    if (isRealReference(adj.reference) && !adj.supported_scope) {
+      const owed = el('span', 'st-badge st-url-unchecked', 'support unanswered');
+      owed.title = 'Question 2 was never answered — scored as if the work supports the claim.';
+      head.append(owed);
+    }
+  }
+  if (urlUnchecked(claim)) head.append(el('span', 'st-badge st-url-unchecked', 'URL unchecked'));
   const evidenceBadge = evidenceStateBadge(claim);
   if (evidenceBadge) head.append(evidenceBadge);
   // The one row shown DESPITE the filters (the claim under review) says so,
@@ -709,8 +823,7 @@ function renderDetail(claim: ClaimRow): void {
   {
     const inh = inheritedSourceVerdict(claim);
     if (inh && !claim.adjudication) {
-      const labelText = LABELS.find((l) => l.value === inh.adj.label)?.text ?? inh.adj.label;
-      const b = claimLinkEl(inh.ante, `${inh.via} verdict: ${labelText} ↗`,
+      const b = claimLinkEl(inh.ante, `${inh.via} verdict: ${answersText(inh.adj)} ↗`,
         inh.via === 'antecedent'
           ? 'The source this Ibid inherits was already adjudicated'
           : 'Another citation of this same work was already adjudicated');
@@ -787,6 +900,8 @@ function renderDetail(claim: ClaimRow): void {
       p.append(a);
       srcSec.append(p);
     }
+    const urlCheck = sourceMatchWidget(claim);
+    if (urlCheck) srcSec.append(urlCheck);
     // What we actually READ, as distinct from what we found. An
     // `article_extract` is not the work — page furniture was stripped and some
     // article text may have gone with it, so a claim missing from it is
@@ -1189,38 +1304,34 @@ function checkLinkButton(url: string, claim: ClaimRow): HTMLElement {
 
     if (deadSummary) {
       wrap.append(quickSaveButton(claim, wrap, {
-        text: 'Save verdict: unverifiable · dead link',
-        label: 'unverifiable',
+        text: "Save verdict: can't confirm it exists · dead link",
+        reference: 'unverifiable',
         cause: 'dead_link',
         note: `Check link: ${deadSummary} — ${url}`,
       }));
     } else if (data.ok && data.reachable && data.category === 'blocked') {
-      // The three outcomes of the browser check, each one click. Verification
-      // is TWO-LEVEL and a paywall splits them: the work's EXISTENCE (title/
-      // author visible behind most paywalls) vs claim SUPPORT (needs the
-      // body). reference_exists carries the first; the label carries the
-      // second — an unverifiable row with reference_exists=true still counts
-      // as a fabrication-negative in analysis.
+      // The three outcomes of the browser check, each one click. A paywall splits the two
+      // questions: the work's EXISTENCE (title/author visible behind most paywalls) is
+      // question 1; claim SUPPORT (needs the body) is question 2.
       wrap.append(
         quickSaveButton(claim, wrap, {
-          text: 'Read the body, supports the claim → verified intact',
-          label: 'verified_intact',
+          text: 'Read the body, it supports the claim → real · supports the whole claim',
+          reference: 'verified',
+          scope: 'whole_claim',
           cause: 'access_blocked',
-          referenceExists: true,
           note: `Check link: HTTP ${data.status} blocked our fetcher; read in browser, claim supported — ${url}`,
         }),
         quickSaveButton(claim, wrap, {
-          text: "Title/author match through the paywall, body unreadable → unverifiable (work exists)",
-          label: 'unverifiable',
+          text: "Title/author match through the paywall, body unreadable → real · can't tell",
+          reference: 'verified',
+          scope: 'undetermined',
           cause: 'access_blocked',
-          referenceExists: true,
           note: `Check link: HTTP ${data.status} blocked our fetcher; work confirmed real through paywall, claim support unverifiable — ${url}`,
         }),
         quickSaveButton(claim, wrap, {
-          text: "Couldn't even confirm the work → unverifiable",
-          label: 'unverifiable',
+          text: "Couldn't even confirm the work → can't confirm it exists",
+          reference: 'unverifiable',
           cause: 'access_blocked',
-          referenceExists: false,
           note: `Check link: HTTP ${data.status} blocked our fetcher; could not confirm the work exists — ${url}`,
         }),
       );
@@ -1234,21 +1345,21 @@ function checkLinkButton(url: string, claim: ClaimRow): HTMLElement {
 function quickSaveButton(
   claim: ClaimRow,
   wrap: HTMLElement,
-  opts: { text: string; label: string; cause: string; note: string; referenceExists?: boolean },
+  opts: { text: string; reference: string; scope?: string; cause: string; note: string },
 ): HTMLButtonElement {
   const save = el('button', 'st-save', opts.text);
   save.type = 'button';
-  save.title = 'One-click adjudication — Undo on the saved verdict if you change your mind.';
+  save.title = 'One-click adjudication — Change verdict on the saved verdict if you change your mind.';
   save.addEventListener('click', async () => {
     if (!state.slug) return;
     save.disabled = true;
     const { status: st, data: res } = await api.adjudicate(state.corpus, state.slug, {
       key: claim.key,
-      label: opts.label,
+      reference: opts.reference,
+      supported_scope: opts.scope ?? null,
       cause: opts.cause,
       note: opts.note.slice(0, 1900),
       found_url: null,
-      reference_exists: opts.referenceExists ?? null,
       referenceId: claim.referenceId,
       run_id: state.payload?.run_id ?? null,
     });
@@ -1257,11 +1368,11 @@ function quickSaveButton(
       flash(wrap, res.error ?? `Save failed (${st})`);
       return;
     }
+    if (!claim.adjudication) bumpAdjudicatedCount(1);
     claim.adjudication = res.adjudication;
-    bumpAdjudicatedCount(1);
     renderList();
     renderApplyBar();
-    renderDetail(claim); // re-render: shows the ✓ verdict + Undo
+    renderDetail(claim); // re-render: shows the saved verdict
   });
   return save;
 }
@@ -1436,8 +1547,7 @@ function section(title: string, body: string): HTMLElement {
  * evidencing a closed-access source stays selective quotation.
  *
  * Built as one shared unit because it appears in TWO places that must behave
- * identically: the first-verdict form, and the saved verdict (where it is the
- * only way to backfill, since the other mutation there is a destructive Undo).
+ * identically: the verdict form, and the saved verdict's "Add / Edit evidence".
  */
 function evidenceFields(existing: Adjudication | null): {
   wrap: HTMLElement;
@@ -1581,7 +1691,23 @@ function labelExpectsEvidence(label: string | null | undefined): boolean {
 
 // ------------------------------------------------------------- adjudication
 
-function adjudicationForm(claim: ClaimRow): HTMLElement {
+/**
+ * A verdict the reviewer just took back with Undo, keyed by claim key.
+ *
+ * Undo deletes the stored record, and it used to take the reviewer's work with it — the quotes,
+ * the found URL, the note — when all they wanted was a different label. The retracted record is
+ * kept here so the form reopens holding everything it held. In memory only: a reload is the
+ * point at which an Undo becomes final.
+ */
+const retractedDrafts = new Map<string, Adjudication>();
+
+/**
+ * The verdict section. With a saved verdict it shows that verdict; otherwise the form.
+ * `editing` reopens the form OVER a saved verdict, prefilled from it — nothing is written until
+ * Save, which replaces the record wholesale (AdjudicationStore::put), so a changed label cannot
+ * leave the old cause or scope behind.
+ */
+function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
   const form = el('section', 'st-section st-adjudicate');
   const heading = el('h3', undefined, 'Your verdict ');
   const helpBtn = el('button', 'st-verdict-help-toggle', '?');
@@ -1592,16 +1718,18 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
 
   const help = el('div', 'st-verdict-help');
   help.hidden = true;
-  const helpIntro = el('p', undefined,
-    'Two separate judgements. LABEL = is the CITATION good? — it becomes the ground-truth '
-    + 'baseline the AI is scored against on Apply. CAUSE = was the AI\'s FLAG right, and if '
-    + 'not, whose failure was it? — it feeds system improvement, never the baseline. The note '
-    + 'saves with both to the corpus adjudications file and lands in dataset.csv as human_note.');
-  help.append(helpIntro);
+  help.append(el('p', undefined,
+    'Two separate questions. 1 — is the cited work REAL, and cited correctly? 2 — does that work '
+    + 'SUPPORT the claim? Your two answers are stored as given. The scored label (what the AI is '
+    + 'measured against on Apply) is worked out from them and shown above the Save button — you '
+    + 'never pick it. CAUSE is separate and optional: when the AI got this one wrong, whose '
+    + 'failure was it? It feeds system improvement, never the score.'));
   const dl = el('dl');
-  for (const l of LABELS) {
-    dl.append(el('dt', undefined, l.text), el('dd', undefined, l.desc));
-  }
+  dl.append(el('dt', 'st-help-group', '1 · Is the reference real?'));
+  for (const r of REFERENCES) dl.append(el('dt', undefined, r.text), el('dd', undefined, r.desc));
+  dl.append(el('dt', 'st-help-group', '2 · Does it support the claim?'));
+  for (const sc of SUPPORTED_SCOPES) dl.append(el('dt', undefined, sc.text), el('dd', undefined, sc.desc));
+  dl.append(el('dt', 'st-help-group', 'Cause'));
   for (const c of CAUSES) {
     dl.append(el('dt', undefined, c.text.split(' — ')[0]), el('dd', undefined, c.desc));
   }
@@ -1612,32 +1740,80 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
   });
   form.append(help);
 
-  if (claim.adjudication) {
+  if (claim.adjudication && !editing) {
     form.append(currentAdjudication(claim, claim.adjudication));
     return form;
   }
+  // What the form opens holding: the saved verdict being changed, else one just undone.
+  const draft: Adjudication | null = claim.adjudication ?? retractedDrafts.get(claim.key) ?? null;
 
-  let chosenLabel: string | null = null;
-  let chosenCause: string | null = null;
+  let chosenReference: string | null = null;
+  const chosenErrors = new Set<string>();
   let chosenScope: string | null = null;
+  let chosenCause: string | null = null;
 
-  const labelRow = el('div', 'st-btnrow');
-  const labelButtons = LABELS.map((l) => {
-    const b = el('button', 'st-choice', l.text);
+  // ---- Question 1: is the cited work real, and cited correctly?
+  const referenceRow = el('div', 'st-btnrow');
+  const referenceButtons = REFERENCES.map((r) => {
+    const b = el('button', 'st-choice', r.text);
     b.type = 'button';
-    b.title = l.desc; // hover tooltip; full list under the ? button
+    b.title = r.desc; // hover tooltip; full list under the ? button
     b.addEventListener('click', () => {
-      chosenLabel = l.value;
-      labelButtons.forEach((x) => x.classList.toggle('st-choice-on', x === b));
-      causeRow.classList.remove('st-disabled');
-      scopeRow.classList.remove('st-disabled');
-      saveBtn.disabled = false;
-      applyLabelCopy(l.value);
+      chosenReference = r.value;
+      referenceButtons.forEach((x) => x.classList.toggle('st-choice-on', x === b));
+      refresh();
     });
     return b;
   });
-  labelRow.append(...labelButtons);
+  referenceRow.append(...referenceButtons);
+  const pickReference = (value: string): void => {
+    referenceButtons[REFERENCES.findIndex((r) => r.value === value)]?.click();
+  };
 
+  // What is wrong, for "real — but cited wrongly". Shown only then.
+  const errorsRow = el('div', 'st-btnrow st-reference-errors');
+  errorsRow.append(el('span', 'st-muted', 'What does the citation get wrong?'));
+  const errorButtons = REFERENCE_ERRORS.map((e) => {
+    const b = el('button', 'st-choice', e.text);
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      if (chosenErrors.has(e.value)) chosenErrors.delete(e.value);
+      else chosenErrors.add(e.value);
+      b.classList.toggle('st-choice-on', chosenErrors.has(e.value));
+      refresh();
+    });
+    return b;
+  });
+  errorsRow.append(...errorButtons);
+  const pickErrors = (values: string[]): void => {
+    REFERENCE_ERRORS.forEach((e, i) => {
+      if (values.includes(e.value) !== chosenErrors.has(e.value)) errorButtons[i]?.click();
+    });
+  };
+
+  // ---- Question 2: does the work support the claim? Only meaningful for a real work.
+  const scopeRow = el('div', 'st-btnrow st-disabled');
+  const scopeButtons = SUPPORTED_SCOPES.map((sc) => {
+    const b = el('button', 'st-choice st-choice-scope', sc.text);
+    b.type = 'button';
+    b.title = sc.desc;
+    b.addEventListener('click', () => {
+      chosenScope = chosenScope === sc.value ? null : sc.value;
+      scopeButtons.forEach((x) => x.classList.toggle('st-choice-on', x === b && chosenScope === sc.value));
+      refresh();
+    });
+    return b;
+  });
+  scopeRow.append(...scopeButtons);
+
+  // Refines "supports none of it": the claim is real, but it belongs to another work.
+  const otherWorkWrap = el('label', 'st-refexists');
+  const otherWork = el('input') as HTMLInputElement;
+  otherWork.type = 'checkbox';
+  otherWork.addEventListener('change', () => refresh());
+  otherWorkWrap.append(otherWork, ' the claim actually comes from a DIFFERENT work (source swap)');
+
+  // ---- Cause (optional, never scored).
   const causeRow = el('div', 'st-btnrow st-disabled');
   // Only the causes that can actually apply to THIS claim — see relevantCauses.
   const relevant = relevantCauses(claim);
@@ -1651,7 +1827,7 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     }
     b.addEventListener('click', () => {
       chosenCause = chosenCause === c.value ? null : c.value;
-      causeButtons.forEach((x) => x.classList.toggle('st-choice-on', x.textContent === c.text && chosenCause === c.value));
+      causeButtons.forEach((x) => x.classList.toggle('st-choice-on', x === b && chosenCause === c.value));
     });
     return b;
   });
@@ -1674,29 +1850,6 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
     causeRow.append(more);
   }
 
-  // Third axis: WHAT the citation supports. Enabled with the cause row, optional like the cause —
-  // but it is the axis that lets one set of labels score BOTH verify-prompt denominators, so it is
-  // worth filling on every scope-sensitive claim.
-  const scopeRow = el('div', 'st-btnrow st-disabled');
-  const scopeButtons = SUPPORTED_SCOPES.map((sc) => {
-    const b = el('button', 'st-choice st-choice-scope', sc.text);
-    b.type = 'button';
-    b.title = sc.desc;
-    b.addEventListener('click', () => {
-      chosenScope = chosenScope === sc.value ? null : sc.value;
-      scopeButtons.forEach((x) => x.classList.toggle('st-choice-on', x.textContent === sc.text && chosenScope === sc.value));
-    });
-    return b;
-  });
-  scopeRow.append(...scopeButtons);
-
-  // Reference-level fact, orthogonal to the (claim-level) label: a paywall
-  // lets you confirm the WORK is real without reading the body.
-  const refExistsWrap = el('label', 'st-refexists');
-  const refExists = el('input') as HTMLInputElement;
-  refExists.type = 'checkbox';
-  refExistsWrap.append(refExists, ' work exists — title/author verified (even if claim support is not)');
-
   const foundUrl = el('input', 'st-note st-found-url') as HTMLInputElement;
   foundUrl.type = 'url';
   const URL_PLACEHOLDER_DEFAULT =
@@ -1704,15 +1857,13 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
   foundUrl.placeholder = URL_PLACEHOLDER_DEFAULT;
 
   /**
-   * The form's wording assumes a REAL source, which reads wrong the moment the verdict is
-   * "fabricated reference" — there is no source, so the URL and quotes are COUNTER-EVIDENCE:
+   * The form's wording assumes a REAL source, which reads wrong the moment question 1 is
+   * answered "fabricated" — there is no source, so the URL and quotes are COUNTER-EVIDENCE:
    * the TOC/index/other review the operator checked, backing their claim ABOUT the source.
-   * The stored fields already mean exactly that (evidence = what the REVIEWER read; found_url
-   * rides next to the label in dataset.csv, and only resolver_gap rows feed resolver test
-   * cases) — this just makes the form say so, per selected label.
+   * The stored fields already mean exactly that (evidence = what the REVIEWER read) — this
+   * just makes the form say so.
    */
-  const applyLabelCopy = (label: string): void => {
-    const noSource = label === 'fabricated_reference';
+  const applyReferenceCopy = (noSource: boolean): void => {
     foundUrl.placeholder = noSource
       ? 'URL of what YOU checked (optional) — the TOC / index / review showing the work does not exist, NOT the cited work'
       : URL_PLACEHOLDER_DEFAULT;
@@ -1726,17 +1877,48 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
   note.placeholder = 'Optional note — your reasoning; saved with the verdict, lands in dataset.csv';
   note.rows = 2;
 
-  const evidence = evidenceFields(null);
+  const evidence = evidenceFields(draft);
+
+  // The label the two answers produce, in the open — nothing about scoring is implicit.
+  const scoredLine = el('p', 'st-scored-line');
+  const saveBtn = el('button', 'st-save', 'Save verdict') as HTMLButtonElement;
+  saveBtn.type = 'button';
+  saveBtn.disabled = true;
+
+  /** One place decides what is enabled, what is still owed, and what the answers score as. */
+  const refresh = (): void => {
+    const real = isRealReference(chosenReference);
+    const wrongDetails = chosenReference === 'details_wrong';
+    errorsRow.hidden = !wrongDetails;
+    scopeRow.classList.toggle('st-disabled', !real);
+    otherWorkWrap.hidden = !(real && chosenScope === 'none');
+    causeRow.classList.toggle('st-disabled', !chosenReference);
+    note.placeholder = wrongDetails
+      ? 'Note — say what the citation gets wrong and what the correct value is'
+      : 'Optional note — your reasoning; saved with the verdict, lands in dataset.csv';
+    applyReferenceCopy(chosenReference === 'fabricated');
+
+    const owed = !chosenReference ? 'Answer question 1.'
+      : wrongDetails && chosenErrors.size === 0 ? 'Tick what the citation gets wrong.'
+        : real && !chosenScope ? 'Answer question 2.'
+          : null;
+    saveBtn.disabled = owed !== null;
+    if (owed || !chosenReference) {
+      scoredLine.textContent = owed;
+      return;
+    }
+    const label = deriveLabel(chosenReference, real ? chosenScope : null, otherWork.checked);
+    scoredLine.textContent = `Scored as: ${SCORING[label] ?? label}`;
+  };
 
   // An Ibid cites the same WORK as its antecedent, so a verdict already saved there
-  // settles this row's source identity — only claim applicability is fresh judging.
-  // Source-level labels (fabricated, unverifiable) inherit on one click; work-exists
-  // labels pre-tick the checkbox. Nothing saves until the operator hits Save verdict.
+  // settles question 1 for this row — only question 2 is fresh judging. The antecedent's
+  // answer is pre-selected (one click for a no-such-work verdict, which also carries its
+  // cause); nothing saves until the operator hits Save verdict.
   let anteBanner: HTMLElement | null = null;
   const inherited = inheritedSourceVerdict(claim);
   if (inherited) {
     const { ante, adj, via } = inherited;
-    const labelText = LABELS.find((l) => l.value === adj.label)?.text ?? adj.label;
     const anteId = ante.gt?.gt_id ?? ante.referenceId ?? 'antecedent';
     anteBanner = el('div', 'st-ante-banner');
     // The named verdict is one click away — inheriting is a judgement call, and the
@@ -1747,19 +1929,19 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
         ? "This Ibid's source was already adjudicated on its antecedent: "
         : 'Another citation of this same work was already adjudicated: ',
     );
-    intro.append(claimLinkEl(ante, `${anteId}: ${labelText} ↗`,
+    intro.append(claimLinkEl(ante, `${anteId}: ${answersText(adj)} ↗`,
       'Re-check that verdict before inheriting it'));
     anteBanner.append(intro);
 
-    if (adj.label === 'fabricated_reference' || adj.label === 'unverifiable') {
-      const btn = el('button', 'st-choice st-ante-inherit', `inherit “${labelText}” — judge scope only`);
+    if (adj.reference === 'fabricated' || adj.reference === 'unverifiable') {
+      const refText = REFERENCES.find((r) => r.value === adj.reference)?.text ?? adj.reference;
+      const btn = el('button', 'st-choice st-ante-inherit', `inherit “${refText}”`);
       btn.type = 'button';
-      btn.title = 'Pre-selects that verdict’s label and cause. The antecedent’s evidence counts for '
-        + 'this row automatically — a fabrication verdict is about the WORK, so its proof holds for '
-        + 'every citation of it. Scope and note stay yours; nothing saves until you click Save verdict.';
+      btn.title = 'Pre-selects that verdict’s answer to question 1 and its cause. The antecedent’s '
+        + 'evidence counts for this row automatically — a fabrication verdict is about the WORK, so '
+        + 'its proof holds for every citation of it. Nothing saves until you click Save verdict.';
       btn.addEventListener('click', () => {
-        const li = LABELS.findIndex((l) => l.value === adj.label);
-        labelButtons[li]?.click();
+        pickReference(adj.reference);
         if (adj.cause && chosenCause !== adj.cause) {
           const cb = causeButtons[CAUSES.findIndex((c) => c.value === adj.cause)];
           if (cb) {
@@ -1778,28 +1960,36 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
         // established it, and this row still counts as evidenced for the research.
       });
       anteBanner.append(btn);
-    } else if (['verified_intact', 'claim_distortion', 'source_swap'].includes(adj.label)) {
-      refExists.checked = true;
+    } else if (isRealReference(adj.reference) && !draft) {
+      // Whether the work is real — and whether it is cited correctly — is a fact about the
+      // WORK, so it carries. What THIS claim is supported by does not.
+      pickReference(adj.reference);
+      pickErrors(adj.reference_errors ?? []);
       anteBanner.append(el('p', 'st-muted',
-        'The work’s existence is settled by that verdict — “work exists” is pre-ticked; '
-        + 'judge only what THIS claim is supported by.'));
+        'Whether the work is real is settled by that verdict — question 1 is pre-filled (change '
+        + 'it if this citation differs); judge what THIS claim is supported by.'));
     }
   }
 
-  const saveBtn = el('button', 'st-save', 'Save verdict') as HTMLButtonElement;
-  saveBtn.type = 'button';
-  saveBtn.disabled = true;
   saveBtn.addEventListener('click', async () => {
-    if (!chosenLabel || !state.slug) return;
+    if (!chosenReference || !state.slug) return;
+    const real = isRealReference(chosenReference);
     form.classList.add('st-busy');
     const { status, data } = await api.adjudicate(state.corpus, state.slug, {
       key: claim.key,
-      label: chosenLabel,
+      reference: chosenReference,
+      reference_errors: chosenReference === 'details_wrong' ? [...chosenErrors] : [],
+      supported_scope: real ? chosenScope : null,
+      from_other_work: real && chosenScope === 'none' && otherWork.checked,
       cause: chosenCause,
-      supported_scope: chosenScope,
       note: note.value.trim() || null,
       found_url: foundUrl.value.trim() || null,
-      reference_exists: refExists.checked ? true : null,
+      // Answered in the Resolved Source panel; held there until a verdict exists to carry it.
+      // Changing a saved verdict keeps the answer already on it (read at save time — the panel
+      // writes straight onto the saved record, so it may have changed since the form opened).
+      source_match: !systemSuppliedUrl(claim) ? null
+        : claim.adjudication ? (claim.adjudication.source_match ?? null)
+          : (pendingSourceMatch.get(claim.key) ?? null),
       evidence: evidence.value(),
       evidence_locator: evidence.locatorValue(),
       referenceId: claim.referenceId,
@@ -1811,44 +2001,98 @@ function adjudicationForm(claim: ClaimRow): HTMLElement {
       log.error(`adjudicate failed: ${data.error ?? status}`, '/workbenches/study/main.ts');
       return;
     }
+    // A changed verdict replaces one already counted.
+    if (!claim.adjudication) bumpAdjudicatedCount(1);
     claim.adjudication = data.adjudication;
-    bumpAdjudicatedCount(1);
+    retractedDrafts.delete(claim.key);
     renderList();
     renderApplyBar();
     form.replaceChildren(el('h3', undefined, 'Your verdict'), currentAdjudication(claim, data.adjudication));
   });
 
+  // Reopen holding what the verdict held. AFTER the inherit banner, so the draft's own
+  // answers win over anything the banner pre-selected.
+  if (draft) {
+    pickReference(draft.reference);
+    pickErrors(draft.reference_errors ?? []);
+    if (draft.supported_scope && isRealReference(draft.reference)) {
+      scopeButtons[SUPPORTED_SCOPES.findIndex((sc) => sc.value === draft.supported_scope)]?.click();
+    }
+    otherWork.checked = draft.from_other_work === true;
+    const cb = draft.cause ? causeButtons[CAUSES.findIndex((c) => c.value === draft.cause)] : undefined;
+    if (cb) {
+      cb.hidden = false; // it may be outside the narrowed set — it was chosen, so show it
+      cb.click();
+    }
+    foundUrl.value = draft.found_url ?? '';
+    note.value = draft.note ?? '';
+    form.append(el('p', 'st-muted', claim.adjudication
+      ? 'Changing your saved verdict — it stays as it is until you save.'
+      : 'You undid this verdict. Its answers, evidence, URL and note are still here — save to record it again.'));
+  }
+  refresh();
+
+  const actions = el('div', 'st-btnrow');
+  actions.append(saveBtn);
+  if (claim.adjudication) {
+    const cancel = el('button', 'st-undo', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => form.replaceWith(adjudicationForm(claim)));
+    actions.append(cancel);
+  }
+
   if (anteBanner) form.append(anteBanner);
   form.append(
-    el('p', 'st-axis-label', 'Label — is the CITATION good? (becomes ground truth on Apply):'),
-    labelRow,
-    el('p', 'st-axis-label', "Cause — was the AI's flag right? If not, whose failure? (optional):"),
-    causeRow,
-    el('p', 'st-axis-label', 'Scope — WHAT does the citation support? (scores both verify prompts):'),
+    el('p', 'st-axis-label', '1 · Is the reference real? — does the cited work exist, and is it cited correctly?'),
+    referenceRow,
+    errorsRow,
+    el('p', 'st-axis-label', '2 · Does it support the claim? — only asked when the work is real:'),
     scopeRow,
-    refExistsWrap,
+    otherWorkWrap,
+    el('p', 'st-axis-label', "Cause — if the AI got this one wrong, whose failure was it? (optional, not scored):"),
+    causeRow,
     foundUrl,
     note,
     evidence.wrap,
-    saveBtn,
+    scoredLine,
+    actions,
   );
   return form;
 }
 
+/** A saved verdict's two answers, in the reviewer's words: "real — cited correctly · supports PART of the claim". */
+function answersText(adj: Adjudication): string {
+  const ref = REFERENCES.find((r) => r.value === adj.reference)?.text ?? adj.reference;
+  const wrong = adj.reference === 'details_wrong' && adj.reference_errors?.length
+    ? ` (${adj.reference_errors.join(', ')})` : '';
+  if (!isRealReference(adj.reference)) return ref;
+  const scope = adj.supported_scope
+    ? (SUPPORTED_SCOPES.find((s) => s.value === adj.supported_scope)?.text ?? adj.supported_scope)
+      + (adj.from_other_work ? ' — claim is from a different work' : '')
+    : 'support NOT answered';
+  return `${ref}${wrong} · ${scope}`;
+}
+
 function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
   const wrap = el('div', 'st-current');
-  const refBit = adj.reference_exists === true ? ' · work exists ✓' : adj.reference_exists === false ? ' · work unconfirmed ✗' : '';
-  // Surface the scope axis on the saved verdict — an invisible field does not get filled in.
-  const scopeBit = adj.supported_scope
-    ? ' · scope: ' + (SUPPORTED_SCOPES.find((s) => s.value === adj.supported_scope)?.text ?? adj.supported_scope)
-    : '';
   // A verdict recorded against an OLDER run than the book's current one —
   // fine for citation-truth verdicts, but a stale citation_mislink describes
   // anchors that a reimport likely fixed.
+  const srcBit = adj.source_match === 'same_work' ? ' · right URL ✓'
+    : adj.source_match === 'different_work' ? ' · wrong URL ✗' : '';
   const stale = adj.run_id && state.payload?.run_id && adj.run_id !== state.payload.run_id;
   const staleBit = stale ? (adj.cause === 'citation_mislink' ? ' · ⚠ OLDER RUN — re-check' : ' · (older run)') : '';
-  const line = `${adj.label}${adj.cause ? ` · ${adj.cause.replace(/_/g, ' ')}` : ''}${refBit}${scopeBit}${staleBit} — ${adj.adjudicated_by}`;
+  // The two answers first, as given; then what they score as; then the optional cause.
+  const line = `${answersText(adj)}${srcBit}${staleBit} — ${adj.adjudicated_by}`;
   wrap.append(el('p', 'st-badge st-done', `✓ ${line}`));
+  wrap.append(el('p', 'st-muted',
+    `Scored as: ${SCORING[adj.label] ?? adj.label}${adj.cause ? ` · cause: ${adj.cause.replace(/_/g, ' ')}` : ''}`));
+  if (isRealReference(adj.reference) && !adj.supported_scope) {
+    // Recorded before question 2 existed (or by a caller that skipped it). It scores as
+    // "supports the claim" — say so, rather than let an unanswered question read as a yes.
+    wrap.append(el('p', 'st-conv-warn',
+      '⚠ Question 2 was never answered for this verdict — it is being scored as if the work supports the claim. Change verdict to answer it.'));
+  }
   if (adj.found_url) {
     const p = el('p', 'st-muted');
     const a = el('a', undefined, adj.found_url);
@@ -1860,8 +2104,18 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
   }
   if (adj.note) wrap.append(el('p', 'st-muted', adj.note));
   wrap.append(evidenceBlock(claim, adj, wrap));
+  // The way to fix a verdict: reopen the form over it. Nothing is deleted on the way.
+  const change = el('button', 'st-undo', 'Change verdict');
+  change.type = 'button';
+  change.title = 'Reopen the form with this verdict filled in — evidence, URL and note are kept.';
+  change.addEventListener('click', () => {
+    wrap.closest('.st-adjudicate')?.replaceWith(adjudicationForm(claim, true));
+  });
+  wrap.append(change);
+
   const undo = el('button', 'st-undo', 'Undo');
   undo.type = 'button';
+  undo.title = 'Remove this verdict. The form reopens with what it held, until you reload.';
   undo.addEventListener('click', async () => {
     if (!state.slug) return;
     const { status, data } = await api.retract(state.corpus, state.slug, claim.key);
@@ -1869,6 +2123,11 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
       flash(wrap, data.error ?? `Undo failed (${status})`);
       return;
     }
+    // Keep what was retracted: read from the claim, which the evidence and URL-check saves
+    // keep current (`adj` is the record this block was first drawn from).
+    const retracted = claim.adjudication ?? adj;
+    retractedDrafts.set(claim.key, retracted);
+    pendingSourceMatch.set(claim.key, retracted.source_match ?? null);
     claim.adjudication = null;
     bumpAdjudicatedCount(-1);
     renderList();
@@ -1881,9 +2140,8 @@ function currentAdjudication(claim: ClaimRow, adj: Adjudication): HTMLElement {
 
 /**
  * The evidence on an ALREADY-SAVED verdict: shown when present, promptable when
- * missing, editable either way — WITHOUT going through Undo, which deletes the
- * record. This is the only path that can backfill the verdicts recorded before
- * the field existed, and there are ~50 of those.
+ * missing, editable either way, without reopening the whole verdict. It is how
+ * the verdicts recorded before the field existed get backfilled, and there are ~50 of those.
  */
 function evidenceBlock(claim: ClaimRow, adj: Adjudication, host: HTMLElement): HTMLElement {
   const block = el('div', 'st-evidence-block');
@@ -2343,6 +2601,7 @@ interface SavedFilters {
   flagged?: boolean;
   unadjudicated?: boolean;
   needsEvidence?: boolean;
+  urlUnchecked?: boolean;
 }
 
 function saveFilters(): void {
@@ -2351,6 +2610,7 @@ function saveFilters(): void {
       flagged: state.filterFlagged,
       unadjudicated: state.filterUnadjudicated,
       needsEvidence: state.filterNeedsEvidence,
+      urlUnchecked: state.filterUrlUnchecked,
     }));
   } catch {
     // private mode / quota — the session still works, just without persistence
@@ -2369,9 +2629,11 @@ function loadSavedFilters(): void {
   state.filterFlagged = !!saved.flagged;
   state.filterUnadjudicated = !!saved.unadjudicated;
   state.filterNeedsEvidence = !!saved.needsEvidence;
+  state.filterUrlUnchecked = !!saved.urlUnchecked;
   byId<HTMLInputElement>('st-filter-flagged').checked = state.filterFlagged;
   byId<HTMLInputElement>('st-filter-unadjudicated').checked = state.filterUnadjudicated;
   byId<HTMLInputElement>('st-filter-needs-evidence').checked = state.filterNeedsEvidence;
+  byId<HTMLInputElement>('st-filter-url-unchecked').checked = state.filterUrlUnchecked;
 }
 
 function wireFilters(): void {
@@ -2387,6 +2649,11 @@ function wireFilters(): void {
   });
   byId<HTMLInputElement>('st-filter-needs-evidence').addEventListener('change', (e) => {
     state.filterNeedsEvidence = (e.target as HTMLInputElement).checked;
+    saveFilters();
+    renderList();
+  });
+  byId<HTMLInputElement>('st-filter-url-unchecked').addEventListener('change', (e) => {
+    state.filterUrlUnchecked = (e.target as HTMLInputElement).checked;
     saveFilters();
     renderList();
   });

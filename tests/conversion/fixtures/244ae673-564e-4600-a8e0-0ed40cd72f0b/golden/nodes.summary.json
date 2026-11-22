@@ -200,7 +200,7 @@
     },
     {
       "footnotes": [],
-      "i": 61,
+      "i": 60,
       "references": [
         "razack2002"
       ],
@@ -213,17 +213,26 @@
           "marker": "11"
         }
       ],
-      "i": 62,
+      "i": 61,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 64,
+      "i": 63,
       "references": [
         "latour2012"
       ],
       "type": "blockquote"
+    },
+    {
+      "footnotes": [],
+      "i": 66,
+      "references": [
+        "ahmed2000",
+        "razack2007"
+      ],
+      "type": "p"
     },
     {
       "footnotes": [],
@@ -232,20 +241,11 @@
         "ahmed2000",
         "razack2007"
       ],
-      "type": "p"
-    },
-    {
-      "footnotes": [],
-      "i": 68,
-      "references": [
-        "ahmed2000",
-        "razack2007"
-      ],
       "type": "blockquote"
     },
     {
       "footnotes": [],
-      "i": 71,
+      "i": 70,
       "references": [
         "butterfield1954",
         "anderson1991"
@@ -263,13 +263,13 @@
           "marker": "13"
         }
       ],
-      "i": 72,
+      "i": 71,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 73,
+      "i": 72,
       "references": [
         "cooper2000"
       ],
@@ -282,7 +282,7 @@
           "marker": "14"
         }
       ],
-      "i": 77,
+      "i": 76,
       "references": [],
       "type": "p"
     },
@@ -293,7 +293,7 @@
           "marker": "15"
         }
       ],
-      "i": 86,
+      "i": 85,
       "references": [],
       "type": "p"
     },
@@ -304,13 +304,13 @@
           "marker": "16"
         }
       ],
-      "i": 87,
+      "i": 86,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 88,
+      "i": 87,
       "references": [
         "spivak1985"
       ],
@@ -318,7 +318,7 @@
     },
     {
       "footnotes": [],
-      "i": 94,
+      "i": 93,
       "references": [
         "freire2000"
       ],
@@ -326,7 +326,7 @@
     },
     {
       "footnotes": [],
-      "i": 97,
+      "i": 96,
       "references": [
         "lorde1984"
       ],
@@ -334,7 +334,7 @@
     },
     {
       "footnotes": [],
-      "i": 100,
+      "i": 99,
       "references": [
         "cesaire2000"
       ],
@@ -342,7 +342,7 @@
     },
     {
       "footnotes": [],
-      "i": 102,
+      "i": 101,
       "references": [
         "cesaire2000"
       ],
@@ -350,7 +350,7 @@
     },
     {
       "footnotes": [],
-      "i": 108,
+      "i": 107,
       "references": [
         "lomawaima2006",
         "lee2011"
@@ -359,7 +359,7 @@
     },
     {
       "footnotes": [],
-      "i": 109,
+      "i": 108,
       "references": [
         "villegas2012"
       ],
@@ -367,7 +367,7 @@
     },
     {
       "footnotes": [],
-      "i": 123,
+      "i": 122,
       "references": [
         "barker2011"
       ],
@@ -375,7 +375,7 @@
     },
     {
       "footnotes": [],
-      "i": 124,
+      "i": 123,
       "references": [
         "barker2011"
       ],
@@ -392,7 +392,7 @@
           "marker": "20"
         }
       ],
-      "i": 127,
+      "i": 126,
       "references": [
         "may2012",
         "schuller2007",
@@ -407,7 +407,7 @@
           "marker": "21"
         }
       ],
-      "i": 129,
+      "i": 128,
       "references": [],
       "type": "table"
     },
@@ -418,13 +418,13 @@
           "marker": "22"
         }
       ],
-      "i": 132,
+      "i": 131,
       "references": [],
       "type": "table"
     },
     {
       "footnotes": [],
-      "i": 135,
+      "i": 134,
       "references": [
         "moten2004"
       ],
@@ -432,7 +432,7 @@
     },
     {
       "footnotes": [],
-      "i": 142,
+      "i": 141,
       "references": [
         "berger2004",
         "marez2007",
@@ -453,7 +453,7 @@
     },
     {
       "footnotes": [],
-      "i": 146,
+      "i": 145,
       "references": [
         "gallay2009",
         "gallay2009",
@@ -469,7 +469,7 @@
     },
     {
       "footnotes": [],
-      "i": 148,
+      "i": 147,
       "references": [
         "alexander2002",
         "goeman2008"
@@ -478,7 +478,7 @@
     },
     {
       "footnotes": [],
-      "i": 149,
+      "i": 148,
       "references": [
         "bang2009",
         "belin1999",
@@ -494,7 +494,7 @@
     },
     {
       "footnotes": [],
-      "i": 151,
+      "i": 150,
       "references": [
         "fanon1963",
         "memmi1991"
@@ -503,7 +503,7 @@
     },
     {
       "footnotes": [],
-      "i": 153,
+      "i": 152,
       "references": [
         "silko1982"
       ],
@@ -511,7 +511,7 @@
     },
     {
       "footnotes": [],
-      "i": 154,
+      "i": 153,
       "references": [
         "harjo2004"
       ],
@@ -524,13 +524,13 @@
           "marker": "25"
         }
       ],
-      "i": 163,
+      "i": 162,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 165,
+      "i": 164,
       "references": [
         "cobb1992"
       ],
@@ -538,7 +538,7 @@
     },
     {
       "footnotes": [],
-      "i": 166,
+      "i": 165,
       "references": [
         "aiken1990"
       ],
@@ -546,7 +546,7 @@
     },
     {
       "footnotes": [],
-      "i": 171,
+      "i": 170,
       "references": [
         "childs2009"
       ],
@@ -559,13 +559,13 @@
           "marker": "26"
         }
       ],
-      "i": 172,
+      "i": 171,
       "references": [],
       "type": "p"
     },
     {
       "footnotes": [],
-      "i": 176,
+      "i": 175,
       "references": [
         "fanon1963"
       ],
@@ -573,7 +573,7 @@
     },
     {
       "footnotes": [],
-      "i": 180,
+      "i": 179,
       "references": [
         "voeltz2012"
       ],
@@ -581,7 +581,7 @@
     },
     {
       "footnotes": [],
-      "i": 266,
+      "i": 265,
       "references": [
         "grande2004",
         "silva2007"
@@ -590,7 +590,7 @@
     },
     {
       "footnotes": [],
-      "i": 275,
+      "i": 274,
       "references": [
         "fiske2004"
       ],
@@ -598,7 +598,7 @@
     },
     {
       "footnotes": [],
-      "i": 280,
+      "i": 279,
       "references": [
         "said1978"
       ],
@@ -606,7 +606,7 @@
     },
     {
       "footnotes": [],
-      "i": 281,
+      "i": 280,
       "references": [
         "schuller2007"
       ],
@@ -614,14 +614,14 @@
     },
     {
       "footnotes": [],
-      "i": 285,
+      "i": 284,
       "references": [
         "chang2012"
       ],
       "type": "p"
     }
   ],
-  "node_count": 286,
+  "node_count": 285,
   "text_hashes": [
     "d340b20532",
     "f454fbad00",
@@ -682,8 +682,7 @@
     "3c05b33298",
     "be06b8703b",
     "5544a0f6d1",
-    "122478b9b7",
-    "f6946993b1",
+    "958e61c1b0",
     "62334e3638",
     "498725abbb",
     "6cad51080f",
@@ -738,10 +737,10 @@
     "9cf5b29b72",
     "b7b0bea1a4",
     "7ac886cba3",
-    "c01a7ccaaa",
+    "60dcc1499c",
     "043f7b3768",
     "f34ef3aae3",
-    "8416e6c49e",
+    "3beb06e2f7",
     "b82bec3d5e",
     "6e2f0ae8fa",
     "e59e277b89",
@@ -780,7 +779,7 @@
     "6dff3b8fad",
     "c0ecd269d3",
     "6fed7141db",
-    "ac5f7d08fd",
+    "318f1ab187",
     "4c089f03eb",
     "8664d8f4a6",
     "989d1858ed",
@@ -791,7 +790,7 @@
     "1db48662b2",
     "7fb394069b",
     "e8ce380c30",
-    "4a7eeeff23",
+    "219fe8d696",
     "e97c484cd8",
     "1edbe17508",
     "982845a1b9",
@@ -886,7 +885,7 @@
     "01d2b3d669",
     "83497cd1fd",
     "ec0c3b7663",
-    "f39408fa3a",
+    "9973439fca",
     "7d72c1f244",
     "eeb77aa932",
     "1fbc20a752",
@@ -912,7 +911,7 @@
   ],
   "type_histogram": {
     "a": 2,
-    "blockquote": 16,
+    "blockquote": 15,
     "h1": 4,
     "h2": 19,
     "img": 4,

@@ -88,7 +88,15 @@ class StudyConsoleController extends Controller
     {
         $data = $request->validate([
             'key' => ['required', 'string', 'max:200'],
-            'label' => ['required', 'string', Rule::in(CorpusManifest::LABELS)],
+            // The reviewer answers two questions — `reference` (is the work real / cited
+            // correctly) and `supported_scope` (does it support the claim) — and the label is
+            // derived from them (AdjudicationStore::deriveLabel). A bare `label` is still
+            // accepted from callers that predate the split.
+            'reference' => ['nullable', 'string', Rule::in(AdjudicationStore::REFERENCE_STATUSES)],
+            'reference_errors' => ['nullable', 'array'],
+            'reference_errors.*' => ['string', Rule::in(AdjudicationStore::REFERENCE_ERRORS)],
+            'from_other_work' => ['nullable', 'boolean'],
+            'label' => ['required_without:reference', 'nullable', 'string', Rule::in(CorpusManifest::LABELS)],
             'cause' => ['nullable', 'string', Rule::in(AdjudicationStore::CAUSES)],
             'note' => ['nullable', 'string', 'max:2000'],
             'found_url' => ['nullable', 'url:http,https', 'max:1000'],
@@ -100,6 +108,8 @@ class StudyConsoleController extends Controller
             // evidencing a closed-access source stays selective quotation.
             'evidence' => ['nullable', 'string', 'max:' . AdjudicationStore::EVIDENCE_MAX_CHARS],
             'evidence_locator' => ['nullable', 'string', 'max:200'],
+            // Did we resolve the RIGHT WORK? See AdjudicationStore::SOURCE_MATCHES.
+            'source_match' => ['nullable', 'string', Rule::in(AdjudicationStore::SOURCE_MATCHES)],
             'referenceId' => ['nullable', 'string', 'max:200'],
             'run_id' => ['nullable', 'string', 'max:100'],
         ]);
@@ -114,7 +124,7 @@ class StudyConsoleController extends Controller
                 manifest: $manifest,
                 book: $book,
                 key: $data['key'],
-                label: $data['label'],
+                label: $data['label'] ?? null,
                 cause: $data['cause'] ?? null,
                 note: $data['note'] ?? null,
                 referenceId: $data['referenceId'] ?? null,
@@ -125,6 +135,10 @@ class StudyConsoleController extends Controller
                 supportedScope: $data['supported_scope'] ?? null,
                 evidence: $data['evidence'] ?? null,
                 evidenceLocator: $data['evidence_locator'] ?? null,
+                sourceMatch: $data['source_match'] ?? null,
+                reference: $data['reference'] ?? null,
+                referenceErrors: $data['reference_errors'] ?? [],
+                fromOtherWork: (bool) ($data['from_other_work'] ?? false),
             );
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
@@ -136,10 +150,8 @@ class StudyConsoleController extends Controller
      * POST /api/maintainer/study/books/{slug}/evidence
      *
      * Attach (or clear) the quotes backing an EXISTING verdict, without
-     * disturbing the verdict itself. Its own endpoint because the workbench has
-     * no edit path for a saved adjudication — its only mutation is Undo, which
-     * deletes the record — and backfilling evidence onto verdicts recorded
-     * before this field existed must not mean re-entering them.
+     * disturbing the verdict itself. Its own endpoint because evidence is
+     * routinely added in a later sitting than the verdict it backs.
      */
     public function evidence(Request $request, string $slug)
     {
@@ -158,6 +170,30 @@ class StudyConsoleController extends Controller
                 $data['evidence'] ?? null,
                 $data['evidence_locator'] ?? null,
                 (string) ($request->user()->name ?? 'admin'),
+            );
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['ok' => true, 'adjudication' => $record]);
+    }
+
+    /**
+     * POST /api/maintainer/study/books/{slug}/source-match — "is the URL we found the right
+     * one?", answered from the Resolved Source panel onto an EXISTING verdict without re-making
+     * it. See AdjudicationStore::putSourceMatch.
+     */
+    public function sourceMatch(Request $request, string $slug)
+    {
+        $data = $request->validate([
+            'key' => ['required', 'string', 'max:200'],
+            'source_match' => ['nullable', 'string', Rule::in(AdjudicationStore::SOURCE_MATCHES)],
+        ]);
+
+        $manifest = $this->manifest($request);
+        try {
+            $record = $this->adjudications->putSourceMatch(
+                $manifest, $manifest->book($slug), $data['key'], $data['source_match'] ?? null,
             );
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);

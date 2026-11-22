@@ -1447,11 +1447,25 @@ class DatabaseToIndexedDBController extends Controller
                 'full_library_array' => $library
             ]);
 
-            return response()->json([
+            $payload = [
                 'success' => true,
                 'library' => $library,
                 'book_id' => $bookId
-            ]);
+            ];
+
+            // Opt-in (`?node_count=1`): the reader's per-load freshness check compares this
+            // against its IndexedDB count. Timestamps alone cannot see a local copy that is
+            // CURRENT but INCOMPLETE — a first-chunk fragment whose background download never
+            // finished reads as perfectly fresh, and the reader then treats 400 nodes as a
+            // 3,062-node book (prod 2026-11-22). Counted on the DEFAULT (RLS) connection,
+            // unlike the library row above: bibliographic metadata is public, but how much
+            // content a private book holds is not — a viewer who can't read the nodes gets 0,
+            // which the client reads as "nothing to repair".
+            if ($request->boolean('node_count')) {
+                $payload['node_count'] = \App\Models\PgNode::where('book', $bookId)->count();
+            }
+
+            return response()->json($payload);
 
         } catch (\Exception $e) {
             Log::error('Error fetching library data', [

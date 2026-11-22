@@ -1056,3 +1056,165 @@ body.ji-detail {
   opacity: 0.4;
   font-style: italic;
 }
+
+/* ── Conversion lint: "search the journal for problems" ─────────────────── */
+
+/* a lane's problem count — a third kind of badge: not evidence about the fetch (dim/warn) and not
+   a human's flag (pink), but what reading the stored nodes turned up */
+.ji-badge-lint {
+  background: color-mix(in srgb, var(--hyperlit-orange, #ff8700) 16%, transparent);
+  color: var(--color-text);
+  border: 1px solid color-mix(in srgb, var(--hyperlit-orange, #ff8700) 45%, transparent);
+}
+
+/* The filter row now carries four checkboxes — let them wrap rather than squeeze the count. */
+.ji-articles-head {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.ji-lint-bar {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 0.74rem;
+  color: var(--color-text-faint, #888);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+.ji-lint-bar[hidden],
+.ji-lint-compare[hidden] {
+  display: none;
+}
+.ji-lint-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ji-lint-bar button {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 25%, transparent);
+  background: transparent;
+  color: var(--color-text-faint, #888);
+  cursor: pointer;
+}
+.ji-lint-bar button:hover:not(:disabled) {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+.ji-lint-bar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.ji-lint-compare {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+/* one phrase per fact, wrapping freely: the strip is as wide as the article list, no wider */
+.ji-lint-compare-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-bottom: 5px;
+  line-height: 1.45;
+}
+.ji-lint-compare-when {
+  flex-basis: 100%;
+}
+.ji-lint-down {
+  color: var(--hyperlit-green, #3fae5c);
+}
+/* a count that went UP after a reconvert is the reason this strip exists */
+.ji-lint-up {
+  color: var(--hyperlit-pink, #ee4b96);
+  font-weight: 600;
+}
+.ji-lint-waiting {
+  font-style: italic;
+}
+
+/* A lane's findings, in the detail strip above the converted output. Capped and scrolling: the
+   strip must not take the pane it is there to help you read. */
+.ji-findings {
+  margin-top: 6px;
+  max-height: 9.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ji-findings[hidden] {
+  display: none;
+}
+.ji-finding {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.74rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ji-finding:hover,
+.ji-finding:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  outline: none;
+}
+.ji-finding-active {
+  border-left-color: var(--hyperlit-orange, #ff8700);
+  background: color-mix(in srgb, var(--hyperlit-orange, #ff8700) 12%, transparent);
+}
+/* no single node to jump to (a journal-wide page-furniture string) */
+.ji-finding-static {
+  cursor: default;
+}
+.ji-finding-kind {
+  flex: 0 0 auto;
+  color: var(--color-text-faint, #888);
+  white-space: nowrap;
+}
+/* Two lines, not one: a split-sentence excerpt is "…end of one paragraph ‖ start of the next",
+   and on a single line the pane cuts it off before the half that names the problem. */
+.ji-finding-excerpt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.ji-finding-new {
+  border-left-color: var(--hyperlit-pink, #ee4b96);
+}
+.ji-finding-tag {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--hyperlit-pink, #ee4b96) 30%, transparent);
+}
+.ji-finding-more {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  color: var(--color-text-faint, #888);
+}
+/* `.ji-only-imported` sets display:flex, which beats the UA's [hidden] rule — without this the
+   "new only" filter shows while there is nothing new to filter to. */
+.ji-only-imported[hidden] {
+  display: none;
+}

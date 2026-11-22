@@ -12,6 +12,8 @@ import { rebuildAndRenumber } from '../footnotes/FootnoteNumberingService';
 import { appendGateParam } from '../components/utilities/gateFilter';
 import { reconvertSyncActive } from '../utilities/reconvertHandoff';
 import { perfMark } from '../utilities/perfMarks';
+// Zero-import leaf — the "local copy is only a fragment" marker (see that file).
+import { markLocalCopyComplete } from '../utilities/localCopyCompleteness';
 
 /**
  * How many chunks to fetch per batch request.
@@ -216,6 +218,11 @@ export async function backgroundDownloadRemainingChunks(bookId: string, lazyLoad
         // and always worth doing, even if the reader moved on meanwhile.
         const db = await openDatabase();
         await loadNodesToIndexedDB(db, allNodes);
+        // Every batch fetched AND the write resolved: the local copy is the whole book.
+        // This is the ONLY place a batched download clears the partial marker — a run that
+        // throws, is superseded, or dies with the tab leaves it set, and the next visit
+        // re-fetches instead of rendering the fragment as if it were complete.
+        markLocalCopyComplete(bookId);
 
         // Update lazy loader with full dataset
         if (lazyLoader) {
@@ -385,6 +392,7 @@ async function fullDownloadFallback(bookId: string, lazyLoader: any, superseded:
     // Upsert all data to IndexedDB
     const db = await openDatabase();
     await loadNodesToIndexedDB(db, data.nodes);
+    markLocalCopyComplete(bookId); // whole book written — see the batched path
 
     await Promise.allSettled([
         loadBibliographyToIndexedDB(db, data.bibliography),

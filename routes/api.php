@@ -806,6 +806,15 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // (a reconvert_all fan-out) are still waiting on the import worker.
     Route::get('/maintainer/journal-import/{slug}/reconvert-backlog', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'reconvertBacklog'])
         ->where('slug', '[a-z0-9-]+');
+    // Conversion lint: every lane ranked by structural defects in its stored nodes, plus the
+    // before/after against a snapshot taken ahead of a reconvert. Computed across several
+    // requests when cold (see ConversionLintReport), so the page polls it.
+    Route::get('/maintainer/journal-import/{slug}/lint', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lint'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::post('/maintainer/journal-import/{slug}/lint/snapshot', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lintSnapshot'])
+        ->where('slug', '[a-z0-9-]+');
+    Route::delete('/maintainer/journal-import/{slug}/lint/snapshot', [\App\Http\Controllers\Maintainer\JournalImportController::class, 'lintSnapshotDelete'])
+        ->where('slug', '[a-z0-9-]+');
     // Choose which imported lane is THE version (pointer + listing + shelf membership).
     // Article-scoped actions (import a lane / reconvert it from the stored page / re-fetch it) +
     // their status poll. Queued: see JournalImportActionJob.
@@ -870,6 +879,9 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // the only way to backfill evidence onto adjudications recorded before the
     // field existed, since the workbench's other mutation is a destructive Undo.
     Route::post('/maintainer/study/books/{slug}/evidence', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'evidence'])
+        ->where('slug', '[a-zA-Z0-9_-]+');
+    // "Is the URL we found the right one?" — answered beside the URL, onto an existing verdict.
+    Route::post('/maintainer/study/books/{slug}/source-match', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'sourceMatch'])
         ->where('slug', '[a-zA-Z0-9_-]+');
     Route::post('/maintainer/study/books/{slug}/apply', [\App\Http\Controllers\Maintainer\StudyConsoleController::class, 'apply'])
         ->where('slug', '[a-zA-Z0-9_-]+');

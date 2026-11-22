@@ -4,13 +4,13 @@ Per-site scrapers are custom — a link-list of PDFs (ris.org.in), a publisher's
 
 ## The drop-folder contract
 
-One folder per scrape run. Documents in `md`, `html` or `pdf` (plus images referenced by md files, which ride along Obsidian-style — `resources/js/components/importQueue/folderIngest.ts` routes them by reference). A `manifest.json` at the folder ROOT — a manifest in a subfolder is ignored, and the manifest itself can never become a book (`json` is not an importable extension). Files the manifest doesn't mention still import, with filename-derived titles; manifest entries with no matching file are logged (verbose) as the scraper-bug signal. Caps: the drop traversal reads at most 300 files (depth 12) and a batch registers at most 100 items — split bigger scrapes into multiple drops. Gotcha: name HTML files `.html`, not `.htm` — the upload allowlist (`ImportController.php`) accepts only the long form.
+One folder per scrape run. Documents in `md`, `html`, `epub` or `pdf` (plus images referenced by md files, which ride along Obsidian-style — `resources/js/components/importQueue/folderIngest.ts` routes them by reference). A `manifest.json` at the folder ROOT — a manifest in a subfolder is ignored, and the manifest itself can never become a book (`json` is not an importable extension). Files the manifest doesn't mention still import, with filename-derived titles; manifest entries with no matching file are logged (verbose) as the scraper-bug signal. Caps: the drop traversal reads at most 300 files (depth 12) and a batch registers at most 100 items — split bigger scrapes into multiple drops. Gotcha: name HTML files `.html`, not `.htm` — the upload allowlist (`ImportController.php`) accepts only the long form.
 
 ## manifest.json reference
 
 Top level: `schema_version` (currently `1`), a `source` block (`site`, `scraper`, `page`, `scraped_at` — provenance breadcrumbs, recorded in each book's `raw_json`), and `documents` — a map keyed by each file's path relative to the folder root (a bare basename also matches, but an exact relPath entry wins).
 
-Per-document fields, each mapping 1:1 onto a `POST /import-file` request field that is written to the `library` row: `title`, `author`, `year`, `url`, `publisher`, `journal`, `type`, `language`, `note`, `bibtex`, `volume`, `issue`, `pages`, `booktitle`, `chapter`, `editor`, `school`. Unknown keys are stripped client-side at parse time and whitelisted again in `batchUploader.ts` — they never reach the server. `doi` is deliberately reserved (canonical-source matching has side effects; it can ride `bibtex` or `note` for now).
+Per-document fields, each mapping 1:1 onto a `POST /import-file` request field that is written to the `library` row: `title`, `author`, `year`, `url`, `publisher`, `journal`, `type`, `language`, `note`, `bibtex`, `volume`, `issue`, `pages`, `booktitle`, `chapter`, `editor`, `school`, `license`, `license_url`. Unknown keys are stripped client-side at parse time and whitelisted again in `batchUploader.ts` — they never reach the server. `doi` is deliberately reserved (canonical-source matching has side effects; it can ride `bibtex` or `note` for now).
 
 These fields are AUTHORITATIVE: request fields land on `library` before the conversion job runs, and the pipeline's own metadata extraction (`updateLibraryMetadata`) only fills blanks. That is the whole point of the manifest — it sidesteps the empty PDF extractor, the weak HTML `<meta>` reader, and the frontmatter-beaten-by-filename problem in one move.
 
@@ -28,7 +28,12 @@ These fields are AUTHORITATIVE: request fields land on `library` before the conv
 
 - **`md`** — the cleanest conversion path (`simple_md_to_html.py` → the full pipeline). One hard rule: do NOT emit YAML frontmatter — it is never stripped and renders as book content (the `---` fence becomes an `<hr>` and the fields become paragraphs). All metadata goes in the manifest.
 - **`html`** — goes through HTMLPurifier sanitization and the conversion pipeline; good for publisher article pages. Strip site chrome (nav, footers, sidebars) in the scraper — the pipeline converts what you give it.
+- **`epub`** — for a text that lives across MANY pages (marxists.org): the scraper stitches the pages into one EPUB so the whole work is one book, and the EPUB pipeline links notes across its files. Images ride inside the EPUB (the pipeline moves them to the book's media). Emit a real zip with `mimetype` first and uncompressed.
 - **`pdf`** — the fallback when no text source exists; costs OCR (Mistral, billed) and archival scans will stress it, so expect the reconvert loop to be where the time goes.
+
+## Licence
+
+A scraped document is someone else's work, so say what licence it carries: `license` is a code from `App\Support\Licenses` (`PDM`, `CC-BY-SA-2.0`, `CC-BY-SA` for a version-less claim, `All-Rights-Reserved`, `Unknown`…) and `license_url` the terms page. The server validates the code — an unrecognised one is stored as `Unknown`, never as Hyperlit's own-writing default — so never invent a version the source didn't state. Omitting it leaves the book "Licence unknown".
 
 ## Provenance
 
@@ -53,7 +58,7 @@ Scrapers live in `app/Console/Commands/Scrape/` as artisan commands, one per sit
 
 ## Follow-ups (deliberately not in v1)
 
-`doi` as a manifest field (needs a decision about canonical-source linking for archive documents). A shelf-scoped hypercite network SVG on `/a/{slug}` (`JournalHyperciteMap` is journal-scoped; archives start with zero hypercites). Multi-page HTML stitching for marxists.org-shaped sources — a different scraper pipeline whose output should still be this same drop-folder contract. Sitemap entries for `/a` pages (the `/j` pages share this gap).
+`doi` as a manifest field (needs a decision about canonical-source linking for archive documents). A shelf-scoped hypercite network SVG on `/a/{slug}` (`JournalHyperciteMap` is journal-scoped; archives start with zero hypercites). Multi-page HTML stitching for marxists.org-shaped sources is prototyped in `ignore/marxists-recon/` (crawl → stitched EPUB → this contract via `make_drop.py`; findings in its `FINDINGS.md`), not yet an artisan scraper. Sitemap entries for `/a` pages (the `/j` pages share this gap).
 
 ## Tests
 

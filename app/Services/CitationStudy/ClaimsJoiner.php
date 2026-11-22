@@ -229,11 +229,20 @@ class ClaimsJoiner
             'source_material_chars' => isset($claim['source_material_sent']) ? mb_strlen((string) $claim['source_material_sent']) : null,
             'has_highlight' => $claim['has_highlight'] ?? null,
             'verdict_summary' => $claim['llm_verdict']['summary'] ?? null,
+            // The reviewer's two answers, and the label derived from them
+            // (AdjudicationStore::deriveLabel): is the work real / cited correctly,
+            // and — further down, human_supported_scope — does it support the claim.
+            'human_reference' => $adjudication['reference'] ?? null,
+            'human_reference_errors' => implode(';', $adjudication['reference_errors'] ?? []) ?: null,
+            'human_from_other_work' => $adjudication['from_other_work'] ?? null,
             'human_label' => $adjudication['label'] ?? null,
             'human_cause' => $adjudication['cause'] ?? null,
             'human_note' => $adjudication['note'] ?? null,
             'human_found_url' => $adjudication['found_url'] ?? null,
             'human_reference_exists' => $adjudication['reference_exists'] ?? null,
+            // Was the resolved source the cited WORK? Pairs with match_method to give
+            // each resolution method a precision (MetricsCalculator::resolutionAccuracy).
+            'human_source_match' => $adjudication['source_match'] ?? null,
             // Stored, validated, typed and shown in the workbench since 2026-09-19,
             // but never emitted — so the denominator-independence axis could not be
             // analysed from the dataset at all.

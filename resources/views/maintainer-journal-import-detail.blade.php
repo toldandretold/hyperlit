@@ -116,6 +116,33 @@
                 <label class="ji-only-imported">
                     <input type="checkbox" id="ji-only-metadata"> metadata drift
                 </label>
+                {{-- Ranks by what the stored conversions LOOK wrong in (conversion lint), worst
+                     first, and drops the clean ones. The point of the whole strip below: find
+                     the next converter bug by searching the journal, not by reading it. --}}
+                <label class="ji-only-imported" title="Worst first, clean articles hidden — ranked by problems found in the stored conversion">
+                    <input type="checkbox" id="ji-only-problems"> problems first
+                </label>
+            </div>
+            {{-- Conversion lint, journal-wide. One line of totals, a snapshot button, and — once
+                 a snapshot exists — the before/after: which kinds of problem a reconvert removed
+                 and, in the warning colour, any it INTRODUCED. Hidden until the first payload
+                 lands (and for good on the shelf console, which has no lint). Not a live region:
+                 it repaints on every poll during a drain. --}}
+            <div class="ji-lint-bar" id="ji-lint-bar" hidden>
+                <div class="ji-lint-line">
+                    <span id="ji-lint-summary">checking for problems…</span>
+                    <button type="button" id="ji-lint-snapshot" disabled>snapshot</button>
+                </div>
+                <div class="ji-lint-compare" id="ji-lint-compare" hidden>
+                    <div class="ji-lint-compare-body" id="ji-lint-compare-body"></div>
+                    <div class="ji-lint-line">
+                        <label class="ji-only-imported" id="ji-only-new-label" hidden
+                               title="Only articles with a problem that was not in the snapshot">
+                            <input type="checkbox" id="ji-only-new"> new only
+                        </label>
+                        <button type="button" id="ji-lint-clear" title="Discard the snapshot and stop comparing">clear snapshot</button>
+                    </div>
+                </div>
             </div>
             {{-- 107 rows is past the point where scrolling finds anything. Title/DOI, live. --}}
             <input type="search" id="ji-article-search" class="ji-article-search"
@@ -142,8 +169,15 @@
                     <button type="button" class="ji-note-toggle" id="ji-note-toggle"
                             aria-expanded="false" aria-controls="ji-note-row">note<span
                             class="ji-note-dot" id="ji-note-dot" hidden aria-hidden="true"></span></button>
+                    {{-- What the lint found in THIS lane. Open by default — it is why you
+                         selected the lane — and collapsible, because the list sits on top of the
+                         conversion you then want to read. --}}
+                    <button type="button" class="ji-note-toggle" id="ji-findings-toggle"
+                            aria-expanded="true" aria-controls="ji-findings" hidden>problems</button>
                     <span class="ji-bookid-meta" id="ji-bookid-meta"></span>
                 </div>
+                {{-- Each row jumps the pane below to its node. --}}
+                <div class="ji-findings" id="ji-findings" hidden></div>
                 <div class="ji-note-row" id="ji-note-row" hidden>
                     <textarea id="ji-note" rows="2" placeholder="What's wrong with this lane? Rides the bundle into dev — opens a case if nothing has flagged it yet."></textarea>
                     <div class="ji-note-buttons">
@@ -249,6 +283,8 @@
             <li><strong>Each imported lane is a sub-row</strong>: <code>pdf</code> (vacuumed PDF + OCR), <code>html</code> (publisher page via the paste engine), <code>ar5iv</code> — plus <code>jats</code> / <code>web</code> when the vacuum ladder won with publisher XML or a browser-fetched page instead of a PDF. Lanes are sibling library rows on one canonical, each with its own book id and artifacts.</li>
             <li><strong>★ marks the promoted lane</strong> — the one <code>/j/&lt;slug&gt;</code>, the shelf and readers resolve to. The others stay imported but unlisted.</li>
             <li><strong>Click a lane</strong> to load what we produced (left) beside what we produced it from (right): the PDF for the PDF lane, the fetched publisher page for the HTML lane.</li>
+            <li><strong>Search the journal for problems instead of reading it.</strong> Every imported lane is checked for the shapes conversion bugs leave behind — a paragraph or blockquote that starts mid-sentence, a footnote sitting in the body, a footnote nothing points to, a suspicious heading, a page header repeated across articles — and gets a <code>N problems</code> badge. Tick <strong>problems first</strong> to rank the list worst first; select a lane and each problem is a row that jumps the converted output to it. These are places to look, not verdicts.</li>
+            <li><strong>Snapshot before a reconvert, compare after.</strong> <code>snapshot</code> records today's problems; <code>⟲ reconvert all</code> takes one for you if there is none. From then on the strip above the list shows what each kind of problem did (<code>▼</code> fewer, <code>▲</code> more) and how many are <em>new</em> — problems the reconvert introduced, flagged <code>▲ new</code> on their lane. Lanes still waiting to convert are left out until they are back, so the numbers are safe to read mid-drain.</li>
             <li><strong>The badges are the evidence</strong>: completeness, the body-presence verdict, which host the copy won from, and any open conversion flags.</li>
             <li><strong>☆ certify when the journal is ready to show people.</strong> That is what puts it in the homepage copy, linked to its <code>/j/&lt;slug&gt;</code> page. It is your judgement, not a gate — <code>◆ diamond</code> is DOAJ's fact about APCs, this is you saying the conversions are worth reading. A certified journal with no readable article is silently left off the homepage, so you never have to un-certify one to fix it.</li>
             <li><strong>An article with no lanes</strong> selects too — the bar offers <code>PDF</code>, <code>HTML</code> or <code>both</code>. HTML is free; PDF runs OCR and is charged to you.</li>

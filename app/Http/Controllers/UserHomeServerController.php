@@ -914,7 +914,7 @@ class UserHomeServerController extends Controller
         }
     }
 
-    public function generateUserHomeBook(string $username, bool $currentUserIsOwner = null, string $visibility = 'public'): array
+    public function generateUserHomeBook(string $username, ?bool $currentUserIsOwner = null, string $visibility = 'public'): array
     {
         // Sanitize username for book IDs (removes spaces)
         $sanitizedUsername = $this->sanitizeUsername($username);

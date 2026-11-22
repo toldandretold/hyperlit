@@ -68,6 +68,9 @@
                      evidence. Composes with the boxes above, so it can come back empty while
                      "flagged only" hides matches — the empty state names that. --}}
                 <label title="Rows with nothing quoted behind them yet: unquoted verdicts AND claims with no verdict at all."><input type="checkbox" id="st-filter-needs-evidence"> needs evidence</label>
+                {{-- Verdicts on a URL WE found (the citation printed none) whose "is it right?"
+                     question was never answered — the backlog from before it was asked. --}}
+                <label title="Saved verdicts on a URL our system found, where you have not yet said whether it is the right URL."><input type="checkbox" id="st-filter-url-unchecked"> URL unchecked</label>
             </div>
             <div id="st-list" role="list" aria-live="polite"><p class="st-empty">Loading…</p></div>
         </aside>

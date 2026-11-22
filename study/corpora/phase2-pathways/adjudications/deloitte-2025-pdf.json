@@ -16,7 +16,10 @@
             "adjudicated_at": "2026-09-25T22:29:35+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-09-25T22:29:39+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c02": {
             "gt_id": "deloitte-2025-pdf/c02",
@@ -24,7 +27,7 @@
             "run_id": "20260925_220803_b55ce8dd",
             "label": "claim_distortion",
             "cause": "resolver_gap",
-            "supported_scope": null,
+            "supported_scope": "none",
             "note": null,
             "found_url": null,
             "reference_exists": null,
@@ -33,7 +36,10 @@
             "adjudicated_at": "2026-09-25T23:03:56+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-09-25T23:03:56+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c03": {
             "gt_id": "deloitte-2025-pdf/c03",
@@ -50,7 +56,10 @@
             "adjudicated_at": "2026-09-25T23:16:25+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-09-25T23:16:25+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c04": {
             "gt_id": "deloitte-2025-pdf/c04",
@@ -67,7 +76,10 @@
             "adjudicated_at": "2026-09-25T23:29:03+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "unverifiable",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1790373419932_0004::sub1": {
             "gt_id": null,
@@ -84,7 +96,10 @@
             "adjudicated_at": "2026-09-25T23:29:19+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "unverifiable",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1790378634221_0003::sub1": {
             "gt_id": null,
@@ -101,7 +116,10 @@
             "adjudicated_at": "2026-09-29T03:00:14+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-09-29T03:00:14+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1791856531483_0003::sub1": {
             "gt_id": null,
@@ -118,7 +136,10 @@
             "adjudicated_at": "2026-10-13T22:07:04+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-13T22:07:04+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c06": {
             "gt_id": "deloitte-2025-pdf/c06",
@@ -135,7 +156,10 @@
             "adjudicated_at": "2026-10-13T22:13:51+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-13T22:13:51+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1791856531483_0006::sub1": {
             "gt_id": null,
@@ -152,7 +176,10 @@
             "adjudicated_at": "2026-10-13T22:14:38+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-13T22:15:23+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c11": {
             "gt_id": "deloitte-2025-pdf/c11",
@@ -169,7 +196,10 @@
             "adjudicated_at": "2026-10-14T21:42:06+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-14T21:42:34+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c12": {
             "gt_id": "deloitte-2025-pdf/c12",
@@ -186,7 +216,10 @@
             "adjudicated_at": "2026-10-14T23:15:54+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-14T23:15:54+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c14": {
             "gt_id": "deloitte-2025-pdf/c14",
@@ -203,7 +236,10 @@
             "adjudicated_at": "2026-10-14T23:30:32+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-14T23:30:32+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c20": {
             "gt_id": "deloitte-2025-pdf/c20",
@@ -220,7 +256,10 @@
             "adjudicated_at": "2026-10-15T00:12:25+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-15T00:12:25+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c131": {
             "gt_id": "deloitte-2025-pdf/c131",
@@ -237,7 +276,10 @@
             "adjudicated_at": "2026-10-15T01:43:12+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-15T01:43:12+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c21": {
             "gt_id": "deloitte-2025-pdf/c21",
@@ -254,7 +296,10 @@
             "adjudicated_at": "2026-10-18T23:07:12+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c22": {
             "gt_id": "deloitte-2025-pdf/c22",
@@ -271,7 +316,10 @@
             "adjudicated_at": "2026-10-18T23:47:47+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c23": {
             "gt_id": "deloitte-2025-pdf/c23",
@@ -288,7 +336,10 @@
             "adjudicated_at": "2026-10-18T23:58:36+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c25": {
             "gt_id": "deloitte-2025-pdf/c25",
@@ -305,7 +356,10 @@
             "adjudicated_at": "2026-10-20T09:32:29+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c26": {
             "gt_id": "deloitte-2025-pdf/c26",
@@ -322,7 +376,10 @@
             "adjudicated_at": "2026-10-20T09:32:38+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c27": {
             "gt_id": "deloitte-2025-pdf/c27",
@@ -339,7 +396,10 @@
             "adjudicated_at": "2026-10-20T09:32:48+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq2_Fn1792492071065_003o": {
             "gt_id": null,
@@ -356,7 +416,10 @@
             "adjudicated_at": "2026-10-20T11:47:37+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c29": {
             "gt_id": "deloitte-2025-pdf/c29",
@@ -373,7 +436,10 @@
             "adjudicated_at": "2026-10-20T11:49:09+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c30": {
             "gt_id": "deloitte-2025-pdf/c30",
@@ -390,7 +456,10 @@
             "adjudicated_at": "2026-10-20T11:53:59+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-20T11:53:59+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c31": {
             "gt_id": "deloitte-2025-pdf/c31",
@@ -407,7 +476,10 @@
             "adjudicated_at": "2026-10-20T12:02:53+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-20T12:02:53+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c32": {
             "gt_id": "deloitte-2025-pdf/c32",
@@ -424,7 +496,10 @@
             "adjudicated_at": "2026-10-20T12:05:26+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-20T12:05:26+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c33": {
             "gt_id": "deloitte-2025-pdf/c33",
@@ -441,7 +516,10 @@
             "adjudicated_at": "2026-10-20T12:07:11+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-20T12:07:11+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c34": {
             "gt_id": "deloitte-2025-pdf/c34",
@@ -458,7 +536,10 @@
             "adjudicated_at": "2026-10-20T12:09:42+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-10-20T12:09:42+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c37": {
             "gt_id": "deloitte-2025-pdf/c37",
@@ -475,7 +556,10 @@
             "adjudicated_at": "2026-11-12T23:52:35+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-12T23:52:35+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c45": {
             "gt_id": "deloitte-2025-pdf/c45",
@@ -492,7 +576,10 @@
             "adjudicated_at": "2026-11-12T23:54:21+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-12T23:54:21+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c47": {
             "gt_id": "deloitte-2025-pdf/c47",
@@ -509,7 +596,10 @@
             "adjudicated_at": "2026-11-13T00:14:59+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-13T00:14:59+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_001c::sub1": {
             "gt_id": null,
@@ -526,7 +616,10 @@
             "adjudicated_at": "2026-11-13T00:18:24+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-13T00:18:24+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq2_Fn1792492071065_003p": {
             "gt_id": null,
@@ -543,7 +636,10 @@
             "adjudicated_at": "2026-11-17T05:40:36+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T05:40:36+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c53": {
             "gt_id": "deloitte-2025-pdf/c53",
@@ -560,7 +656,10 @@
             "adjudicated_at": "2026-11-17T05:51:01+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T05:51:01+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_001i::sub1": {
             "gt_id": null,
@@ -577,7 +676,10 @@
             "adjudicated_at": "2026-11-17T06:02:27+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c55": {
             "gt_id": "deloitte-2025-pdf/c55",
@@ -594,7 +696,10 @@
             "adjudicated_at": "2026-11-17T06:04:32+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c24": {
             "gt_id": "deloitte-2025-pdf/c24",
@@ -611,13 +716,16 @@
             "adjudicated_at": "2026-11-17T06:06:28+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c58": {
             "gt_id": "deloitte-2025-pdf/c58",
             "referenceId": "seq1_Fn1792492071064_001m",
             "run_id": "20261020_102844_cf4bd589.1",
-            "label": "verified_intact",
+            "label": "claim_distortion",
             "cause": null,
             "supported_scope": "none",
             "note": "The claim is specific. It is that human error rates fall within specific ranges. This source does not mention the claimed ranges.",
@@ -628,13 +736,16 @@
             "adjudicated_at": "2026-11-17T06:34:46+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T06:34:46+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_001m::sub1": {
             "gt_id": null,
             "referenceId": "seq1_Fn1792492071064_001m::sub1",
             "run_id": "20261020_102844_cf4bd589.1",
-            "label": "verified_intact",
+            "label": "claim_distortion",
             "cause": null,
             "supported_scope": "none",
             "note": "its not about errors in data entry..",
@@ -645,7 +756,10 @@
             "adjudicated_at": "2026-11-17T06:38:13+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T06:38:13+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_0003::sub1": {
             "gt_id": null,
@@ -662,7 +776,10 @@
             "adjudicated_at": "2026-11-17T07:46:48+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T07:46:48+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_0006::sub1": {
             "gt_id": null,
@@ -679,7 +796,10 @@
             "adjudicated_at": "2026-11-17T07:48:26+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T07:49:15+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_000a::sub1": {
             "gt_id": null,
@@ -696,7 +816,10 @@
             "adjudicated_at": "2026-11-17T08:06:49+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T08:06:49+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_000b::sub1": {
             "gt_id": null,
@@ -713,7 +836,10 @@
             "adjudicated_at": "2026-11-17T08:34:03+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T08:34:03+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c60": {
             "gt_id": "deloitte-2025-pdf/c60",
@@ -730,7 +856,10 @@
             "adjudicated_at": "2026-11-17T08:37:18+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T08:37:18+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c61": {
             "gt_id": "deloitte-2025-pdf/c61",
@@ -747,7 +876,10 @@
             "adjudicated_at": "2026-11-17T08:42:53+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T08:42:53+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c62": {
             "gt_id": "deloitte-2025-pdf/c62",
@@ -764,7 +896,10 @@
             "adjudicated_at": "2026-11-17T08:45:07+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T08:45:07+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c64": {
             "gt_id": "deloitte-2025-pdf/c64",
@@ -781,7 +916,10 @@
             "adjudicated_at": "2026-11-17T09:20:41+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:20:41+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071064_001t::sub1": {
             "gt_id": null,
@@ -798,7 +936,10 @@
             "adjudicated_at": "2026-11-17T09:23:05+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:23:05+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c73": {
             "gt_id": "deloitte-2025-pdf/c73",
@@ -815,7 +956,10 @@
             "adjudicated_at": "2026-11-17T09:25:16+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:25:16+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c78": {
             "gt_id": "deloitte-2025-pdf/c78",
@@ -832,7 +976,10 @@
             "adjudicated_at": "2026-11-17T09:25:30+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c85": {
             "gt_id": "deloitte-2025-pdf/c85",
@@ -849,7 +996,10 @@
             "adjudicated_at": "2026-11-17T09:25:44+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c94": {
             "gt_id": "deloitte-2025-pdf/c94",
@@ -866,7 +1016,10 @@
             "adjudicated_at": "2026-11-17T09:26:03+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071065_002y::sub1": {
             "gt_id": null,
@@ -883,7 +1036,10 @@
             "adjudicated_at": "2026-11-17T09:26:40+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c108": {
             "gt_id": "deloitte-2025-pdf/c108",
@@ -900,7 +1056,10 @@
             "adjudicated_at": "2026-11-17T09:26:54+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c124": {
             "gt_id": "deloitte-2025-pdf/c124",
@@ -917,13 +1076,16 @@
             "adjudicated_at": "2026-11-17T09:39:01+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c87": {
             "gt_id": "deloitte-2025-pdf/c87",
             "referenceId": "seq1_Fn1792492071065_002f",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "claim_distortion",
             "cause": null,
             "supported_scope": "none",
             "note": "nothing about inconsistencies in the page ranges in the pdf. Rather, it discusses anti discrimination and the marriage act",
@@ -934,13 +1096,16 @@
             "adjudicated_at": "2026-11-17T09:45:35+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:45:35+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c95": {
             "gt_id": "deloitte-2025-pdf/c95",
             "referenceId": "seq1_Fn1792492071065_002n",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "claim_distortion",
             "cause": null,
             "supported_scope": "none",
             "note": "Does not support the truth claim.",
@@ -951,7 +1116,10 @@
             "adjudicated_at": "2026-11-17T09:49:59+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:49:59+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "ref:seq1_Fn1792492071065_002n::sub1": {
             "gt_id": null,
@@ -968,13 +1136,16 @@
             "adjudicated_at": "2026-11-17T09:56:42+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T09:56:42+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c98": {
             "gt_id": "deloitte-2025-pdf/c98",
             "referenceId": "seq1_Fn1792492071065_002q",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "claim_distortion",
             "cause": null,
             "supported_scope": "none",
             "note": "Does not mention TCF... Articel was published 5 years before TCF....",
@@ -985,7 +1156,10 @@
             "adjudicated_at": "2026-11-17T10:03:37+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:03:56+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c99": {
             "gt_id": "deloitte-2025-pdf/c99",
@@ -1002,7 +1176,10 @@
             "adjudicated_at": "2026-11-17T10:06:42+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:06:42+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c100": {
             "gt_id": "deloitte-2025-pdf/c100",
@@ -1019,7 +1196,10 @@
             "adjudicated_at": "2026-11-17T10:12:29+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:12:29+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c102": {
             "gt_id": "deloitte-2025-pdf/c102",
@@ -1036,13 +1216,16 @@
             "adjudicated_at": "2026-11-17T10:39:07+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:39:07+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c105": {
             "gt_id": "deloitte-2025-pdf/c105",
             "referenceId": "seq1_Fn1792492071065_002x",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "unverifiable",
             "cause": null,
             "supported_scope": "undetermined",
             "note": "Not available online. Highly doubt Deloitte read this conference paper from 2000 lol",
@@ -1053,7 +1236,10 @@
             "adjudicated_at": "2026-11-17T10:46:09+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c115": {
             "gt_id": "deloitte-2025-pdf/c115",
@@ -1070,13 +1256,16 @@
             "adjudicated_at": "2026-11-17T10:50:15+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "unverifiable",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c116": {
             "gt_id": "deloitte-2025-pdf/c116",
             "referenceId": "seq1_Fn1792492071065_0038",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "unverifiable",
             "cause": null,
             "supported_scope": "undetermined",
             "note": "as before, 2000 conference paper not available online",
@@ -1087,13 +1276,16 @@
             "adjudicated_at": "2026-11-17T10:51:23+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c117": {
             "gt_id": "deloitte-2025-pdf/c117",
             "referenceId": "seq1_Fn1792492071065_0039",
             "run_id": "20261020_102844_cf4bd589.2",
-            "label": "verified_intact",
+            "label": "unverifiable",
             "cause": null,
             "supported_scope": "undetermined",
             "note": "a real document as per freedom of information (FOI) request. I can't find access though.",
@@ -1104,7 +1296,10 @@
             "adjudicated_at": "2026-11-17T10:55:58+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": null,
-            "evidenced_by": null
+            "evidenced_by": null,
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c120": {
             "gt_id": "deloitte-2025-pdf/c120",
@@ -1121,7 +1316,10 @@
             "adjudicated_at": "2026-11-17T10:57:31+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:57:31+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c127": {
             "gt_id": "deloitte-2025-pdf/c127",
@@ -1138,7 +1336,10 @@
             "adjudicated_at": "2026-11-17T10:59:18+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T10:59:18+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c129": {
             "gt_id": "deloitte-2025-pdf/c129",
@@ -1155,7 +1356,10 @@
             "adjudicated_at": "2026-11-17T11:04:48+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T11:04:48+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         },
         "deloitte-2025-pdf/c130": {
             "gt_id": "deloitte-2025-pdf/c130",
@@ -1172,7 +1376,272 @@
             "adjudicated_at": "2026-11-17T11:06:00+00:00",
             "adjudicated_by": "encryptER",
             "evidenced_at": "2026-11-17T11:06:00+00:00",
-            "evidenced_by": "encryptER"
+            "evidenced_by": "encryptER",
+            "reference": "fabricated",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c05": {
+            "gt_id": "deloitte-2025-pdf/c05",
+            "referenceId": "seq1_Fn1792492071064_0005",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": null,
+            "note": null,
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "“This systematic review is important especially in light of lessons from Robodebt. We are looking closely at the decisions that impact on participants’ payments, that is, suspensions, payment reductions and cancellations, as well as related processes, to ensure they are lawful. We are also ensuring we fully understand what automation is occurring in the system and what impact this is having on people.”",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T08:44:15+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T08:44:15+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c08": {
+            "gt_id": "deloitte-2025-pdf/c08",
+            "referenceId": "seq1_Fn1792492071064_0008",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": null,
+            "note": null,
+            "found_url": null,
+            "reference_exists": true,
+            "evidence": "“We subsequently identified 2 further system failures, both of which resulted in a person incorrectly remaining in the penalty zone when a previous demerit has been removed. These failures were identified in February and May 2024. Across these three incidents, 1,326 jobseekers were impacted and approximately 1,280 jobseekers were repaid – I will table a document which outlines each IT incidence, the mitigation and fix for each instance and the number of jobseekers impacted.”",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T08:46:48+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T08:46:48+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c09": {
+            "gt_id": "deloitte-2025-pdf/c09",
+            "referenceId": "seq1_Fn1792492071064_0009",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "“A common model for applying and embedding risk management within an organisation is referred to as the ‘Three Lines Model’. Working together, these three lines can be embedded within the operations of an entity as well as being aligned to the objectives of an entity. In doing so, audit and risk committees will be able to receive a comprehensive and holistic view of governance, risk and controls to make informed decisions.”",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T08:47:36+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T08:47:36+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "ref:seq1_Fn1792492071064_0009::sub1": {
+            "gt_id": null,
+            "referenceId": "seq1_Fn1792492071064_0009::sub1",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "fragment_only",
+            "note": "Mentions three lines of defence, but not mention of claim that this is ordinarily used by government.",
+            "found_url": null,
+            "reference_exists": true,
+            "evidence": "“A defining characteristic of third line roles is independence from management. The Principles of the Three Lines Model describe the importance and nature of internal audit independence, setting the internal audit function apart from other functions and enabling the distinctive value of its assurance and advisory services. The internal audit function's independence is safeguarded by not making decisions or taking actions that are part of management's responsibilities (including risk management) and by declining to provide assurance on activities for which the function has current, or has had recent, responsibility. For example, in some organizations, the CAE is asked to assume additional decision-making responsibilities over activities utilizing similar competencies, such as aspects of statutory compliance or ERM. In such circumstances, the internal audit function is not independent of these activities or of their results, and therefore, when the governing body seeks independent and objective assurance and advice relating to those areas, it is necessary for its provision to be undertaken by a qualified third party.”",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T08:50:37+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T08:50:37+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c10": {
+            "gt_id": "deloitte-2025-pdf/c10",
+            "referenceId": "seq1_Fn1792492071064_000a",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": null,
+            "reference_exists": true,
+            "evidence": "\"A common model for applying and embedding risk management within an organisation is referred to as the ‘Three Lines Model’. Working together, these three lines can be embedded within the operations of an entity as well as being aligned to the objectives of an entity. In doing so, audit and risk committees will be able to receive a comprehensive and holistic view of governance, risk and controls to make informed decisions.\n\nThe first step in successfully embedding risk management into an organisation is to develop and implement a high quality fit-for-purpose risk management framework. This will be most effective where it provides clear guidance on how risk should be managed through:\n\"",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T08:55:56+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T08:55:56+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c13": {
+            "gt_id": "deloitte-2025-pdf/c13",
+            "referenceId": "seq1_Fn1792492071064_000d",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "fragment_only",
+            "note": "Does not mention anything about welfare conditionality... more about business regulation and justice",
+            "found_url": "https://johnbraithwaite.com/wp-content/uploads/2019/02/Restorative-Justice-and-Responsive-regulation-book.pdf",
+            "reference_exists": null,
+            "evidence": "\"THE BASIC IDEA OF RESPONSIVE REGULATION IS THAT GOVERNMENTS SHOULD BE RESPONSIVE to the conduct of those they seek to regulate in deciding whether a more or less interventionist response is needed (Ayres and Braithwaite 1992). In particular, law enforcers should be responsive to how effectively citizens or corporations are regulating themselves before deciding whether to escalate intervention.\" \n\n\"The pyramidal presumption of persuasion first gives the cheaper and more respectful option a chance to work first, and there is empirical experience in some areas of business regulation that it does work in the majority of cases. The more costly punitive attempts at control are thus held in reserve for the minority of cases where persuasion fails.\"",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:22:27+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:22:27+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c15": {
+            "gt_id": "deloitte-2025-pdf/c15",
+            "referenceId": "seq1_Fn1792492071064_000f",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": null,
+            "reference_exists": true,
+            "evidence": "“Two system defects were incorrectly extending the period of time a participant remained in the penalty zone. As a result, participants may have incurred an additional financial penalty when they shouldn’t have.”\n\n“We subsequently identified 2 further system failures, both of which resulted in a person incorrectly remaining in the penalty zone when a previous demerit has been removed. These failures were identified in February and May 2024. Across these three incidents, 1,326 jobseekers were impacted and approximately 1,280 jobseekers were repaid – I will table a document which outlines each IT incidence, the mitigation and fix for each instance and the number of jobseekers impacted.”",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:24:02+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:24:02+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c16": {
+            "gt_id": "deloitte-2025-pdf/c16",
+            "referenceId": "seq1_Fn1792492071064_000g",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "fragment_only",
+            "note": "Source is useful in defining responsive regulation but can say nothing about the government's 'initial intent' to be an example of responsive regulation",
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "\"Regulatory formalism is the important contrast to responsive regulation. The formalist says to define in advance which problems require which response and write rules to mandate those responses. The formalist might say, for example, that armed robbery is a very serious evil. Therefore it should always be dealt with by taking it to court, and if guilt is proven, the offender must go to jail. Responsive regulation requires us to challenge such a presumption; if the offender is responding to the detection of her wrongdoing by turning around her life, kicking a heroin habit, helping victims, and voluntarily working for a community group \"to make up for the harm she has done to the community,\" then the responsive regulator of armed robbery will say no to the jail option.\"",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:29:27+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:29:27+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c18": {
+            "gt_id": "deloitte-2025-pdf/c18",
+            "referenceId": "seq1_Fn1792492071064_000i",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": "seems accurate, potentially figure even higher, so definitely not over stated.",
+            "found_url": "https://www.dewr.gov.au/employment-services-data/resources/workforce-australia-caseload-time-series",
+            "reference_exists": null,
+            "evidence": "Caseload Date\tTotal Caseload\n31-Oct-22\t650,620 \n30-Nov-22\t641,445 \n31-Dec-22\t637,655 \n31-Jan-23\t641,000 \n28-Feb-23\t642,575 \n31-Mar-23\t645,575 \n30-Apr-23\t635,775 \n31-May-23\t638,155 \n30-Jun-23\t634,565 \n31-Jul-23\t630,180 \n31-Aug-23\t628,595 \n30-Sep-23\t624,655 \n31-Oct-23\t626,845 \n30-Nov-23\t638,125 \n31-Dec-23\t646,780 \n31-Jan-24\t660,240 \n29-Feb-24\t663,090 \n31-Mar-24\t664,235 \n30-Apr-24\t668,930 \n31-May-24\t680,855 \n30-Jun-24\t637,545 \n31-Jul-24\t640,230 \n31-Aug-24\t638,770 \n30-Sep-24\t635,595 \n31-Oct-24\t634,170 \n30-Nov-24\t635,375 \n31-Dec-24\t641,035 \n31-Jan-25\t660,650 \n28-Feb-25\t675,530 \n31-Mar-25\t684,565 \n30-Apr-25\t689,350 \n31-May-25\t699,105 \n30-Jun-25\t697,900 \n31-Jul-25\t699,080 \n31-Aug-25\t694,240 \n30-Sep-25\t697,255 \n31-Oct-25\t700,390 \n30-Nov-25\t698,380 \n31-Dec-25\t699,980 \n31-Jan-26\t715,660 \n28-Feb-26\t724,740 \n31-Mar-26\t726,335 \n30-Apr-26\t724,840 \n31-May-26\t726,240 \n30-Jun-26\t724,740 \n31-Jul-26\t721,670 \n31-Aug-26\t715,180 \n30-Sep-26\t709,335",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:34:52+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:34:52+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c19": {
+            "gt_id": "deloitte-2025-pdf/c19",
+            "referenceId": "seq1_Fn1792492071064_000j",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": "https://www.dewr.gov.au/assuring-integrity-targeted-compliance-framework/announcements/secretarys-opening-statement",
+            "reference_exists": null,
+            "evidence": "We subsequently identified 2 further system failures, both of which resulted in a person incorrectly remaining in the penalty zone when a previous demerit has been removed. These failures were identified in February and May 2024. Across these three incidents, 1,326 jobseekers were impacted and approximately 1,280 jobseekers were repaid – I will table a document which outlines each IT incidence, the mitigation and fix for each instance and the number of jobseekers impacted.",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:36:42+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:36:42+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c28": {
+            "gt_id": "deloitte-2025-pdf/c28",
+            "referenceId": "seq1_Fn1792492071064_000s",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": null,
+            "reference_exists": null,
+            "evidence": "\"In 2012, Centrelink introduced a new customer compliance strategy known as Prevention and Early Intervention (see Carr, 2012). This strategy comprised a suite of measures to assist and ‘nudge’ Centrelink recipients to comply with their social security obligations. Whilst the focus of the approach centres on modifying individual customer behaviour, this new regime also provided conceptual and practical space for administrators to consider and (partially) address the social and individual causes of non-compliance. This arguably reflects a reinstatement of preventative logics by welfare bureaucrats engaged in welfare compliance activities. This regime sits alongside rather than replaces the pre-emptive welfare technologies examined above, which means that the general experience of being on welfare is a punitive one for most recipients. It is nonetheless a significant development in the context of an otherwise punitive regime that deserves critical attention.\"",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T09:49:58+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T09:49:58+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "ref:seq1_Fn1792492071064_000w::sub1": {
+            "gt_id": null,
+            "referenceId": "seq1_Fn1792492071064_000w::sub1",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": "https://guides.dss.gov.au/social-security-guide/3/11",
+            "reference_exists": null,
+            "source_match": "different_work",
+            "evidence": "Mutual obligation requirements are designed to ensure that people receiving participation payments are actively looking for work and are participating in activities that will help them into employment.",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T10:16:42+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T10:16:42+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
+        },
+        "deloitte-2025-pdf/c35": {
+            "gt_id": "deloitte-2025-pdf/c35",
+            "referenceId": "seq1_Fn1792492071064_000z",
+            "run_id": "20261020_102844_cf4bd589.2",
+            "label": "verified_intact",
+            "cause": null,
+            "supported_scope": "whole_claim",
+            "note": null,
+            "found_url": "https://johnbraithwaite.com/wp-content/uploads/2016/06/Regulatory-Capitalism-How-it.pdf",
+            "reference_exists": null,
+            "source_match": null,
+            "evidence": "\"The more clear it is that business, NGOs and government all have quite a range of escalatory options to deploy against the other two, the more sense it makes for the three to sit down together and see if they can discover a path to a win-win-win solution. Ayres and Braithwaite (1992: especially ch. 3) argued that the logic of tripartite responsive regulation is that it creates incentives for dialogic problem-solving, as opposed to punitive regulation. The paradox of the pyramid is that capability to escalate to really severe sanctions is necessary to motivate restorative justice at the base of the pyramid.\"\n\n\"The basic idea of responsive regulation is that regulators should be responsive to the conduct of those they seek to regulate in deciding whether a more or less interventionist response is needed. Rule enforcers should be responsive to how effectively citizens or corporations are regulating themselves before deciding whether to escalate intervention.\"",
+            "evidence_locator": null,
+            "adjudicated_at": "2026-11-22T11:02:57+00:00",
+            "adjudicated_by": "encryptER",
+            "evidenced_at": "2026-11-22T11:02:57+00:00",
+            "evidenced_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         }
     }
 }

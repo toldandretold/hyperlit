@@ -33,10 +33,27 @@
  * pasted IDB and reported "local 36, server 1" while Postgres already held all 36
  * (prod 2026-11-07, /privacy). Begin cancels the stale timer and holds the gate
  * shut; end reschedules with the replace's own post-write count.
+ *
+ * A SHORT LOCAL COPY IS NOT A DIVERGENCE. The first render stores one chunk and the
+ * background download brings the rest; when that download never completed, "local 400,
+ * server 3062" is a fact about this browser's cache, not about the server — yet it was
+ * reported as "the server acknowledged syncs it did not fully persist" (prod 2026-11-22,
+ * while the server log read before 3062 / after 3062 / deleted 0). Two things now keep
+ * the alarm honest: a copy `utilities/localCopyCompleteness` knows to be partial is
+ * reported as `local-copy-incomplete` (a warning, its own trigger), and
+ * `shouldRepairShortLocalCopy` lets the page-load freshness check catch an UNMARKED short
+ * copy and re-download it before anyone edits. What still reaches the divergence report
+ * is a shortfall that arose with a copy believed whole — which is news.
  */
 
 import type { BookId } from '../types';
 import { log, verbose } from '../../utilities/logger';
+import {
+  isLocalCopyPartial,
+  shortRepairAlreadyTried,
+  noteShortRepairAttempt,
+  clearShortRepairAttempt,
+} from '../../utilities/localCopyCompleteness';
 
 const RECONCILE_DELAY_MS = 2_000;
 /** Per-book report cooldown so a persistent divergence doesn't spam the sink. */
@@ -82,6 +99,8 @@ export interface ReconcileOutcome {
   localCount?: number;
   serverCount?: number;
   skippedReason?: string;
+  /** True when the shortfall is a known-partial local download, not a divergence. */
+  incomplete?: boolean;
 }
 
 /** Schedule a reconcile for the book (latest-wins; runs after a short quiet delay). */
@@ -130,14 +149,39 @@ export async function reconcileServerNodeCount(
       return { checked: true, mismatch: false, localCount, serverCount };
     }
 
+    const now = Date.now();
+    const reportDue = now - (_lastReportTs.get(bookId) ?? 0) >= REPORT_COOLDOWN_MS;
+
+    // Known-partial local copy: the first-chunk load marked it and no full download ever
+    // cleared the mark. The server is not the suspect — say so, and don't cry divergence.
+    if (localCount < serverCount && isLocalCopyPartial(bookId)) {
+      log.warn(
+        `Local copy of ${bookId} is incomplete: ${localCount} of ${serverCount} nodes ` +
+          `(the background download never finished) — it is re-downloaded on the next load`,
+        '/indexedDB/serverSync/countReconcile.ts',
+      );
+      if (reportDue) {
+        _lastReportTs.set(bookId, now);
+        try {
+          const { reportLocalCopyIncomplete } = await import('../../integrity/reporter');
+          await reportLocalCopyIncomplete({ bookId, localCount, serverCount });
+        } catch {
+          /* reporter unavailable — the warning above still surfaces it */
+        }
+      }
+      return { checked: true, mismatch: false, incomplete: true, localCount, serverCount };
+    }
+
+    // Name the side the numbers point at: the two directions are different bugs.
+    const reading = localCount > serverCount
+      ? 'the server holds FEWER rows than this client — it acknowledged a write it did not fully persist, or deleted rows it should not have'
+      : 'the server holds MORE rows than this client — it refused or skipped a delete, or this client lost rows it once had';
     log.error(
-      `Server/IDB node-count divergence for ${bookId}: local ${localCount}, server ${serverCount} ` +
-        `— the server acknowledged syncs it did not fully persist (or holds rows this client lost)`,
+      `Server/IDB node-count divergence for ${bookId}: local ${localCount}, server ${serverCount} — ${reading}`,
       '/indexedDB/serverSync/countReconcile.ts',
     );
 
-    const now = Date.now();
-    if (now - (_lastReportTs.get(bookId) ?? 0) >= REPORT_COOLDOWN_MS) {
+    if (reportDue) {
       _lastReportTs.set(bookId, now);
       try {
         const { reportServerCountMismatch } = await import('../../integrity/reporter');
@@ -155,6 +199,47 @@ export async function reconcileServerNodeCount(
       'serverSync/countReconcile',
     );
     return { checked: false, mismatch: false, skippedReason: 'error' };
+  }
+}
+
+/**
+ * Page-load question: this book rendered from the local cache with timestamps level with
+ * the server's — but does the cache hold FEWER nodes than the server? If so the copy is a
+ * fragment nothing else will ever notice (see the header), and the caller re-downloads.
+ *
+ * True at most once per observed server count (`shortRepairAlreadyTried`): a repair that
+ * completes and still leaves the copy short is a real divergence, and re-downloading on
+ * every load would never fix it. Refuses under the same quiet gates as the reconciler —
+ * unsent local deletions legitimately make the local copy shorter, and re-downloading
+ * over them would resurrect what the user just removed.
+ */
+export async function shouldRepairShortLocalCopy(bookId: BookId, serverCount: unknown): Promise<boolean> {
+  try {
+    if (typeof serverCount !== 'number' || !(serverCount > 0)) return false;
+    if (await quietGateFailure(bookId)) return false;
+
+    const localCount = await countLocalNodes(bookId);
+    if (localCount >= serverCount) {
+      clearShortRepairAttempt(bookId);
+      return false;
+    }
+    if (localCount === 0) return false; // nothing cached — the normal load path owns this
+    if (shortRepairAlreadyTried(bookId, serverCount)) {
+      verbose.content(
+        `Local copy of ${bookId} still short (${localCount}/${serverCount}) after a repair — leaving it to the reconciler`,
+        'serverSync/countReconcile',
+      );
+      return false;
+    }
+
+    noteShortRepairAttempt(bookId, serverCount);
+    log.warn(
+      `Local copy of ${bookId} is incomplete: ${localCount} of ${serverCount} nodes — re-downloading the book`,
+      '/indexedDB/serverSync/countReconcile.ts',
+    );
+    return true;
+  } catch {
+    return false; // a watchdog never breaks the load it observes
   }
 }
 

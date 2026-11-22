@@ -262,9 +262,17 @@ describe('IndexedDB flow viz', () => {
     expect(annTables.has('hyperlights')).toBe(true);
     expect(annTables.has('hypercites')).toBe(true);
     for (const content of ['nodes', 'footnotes', 'bibliography']) expect(annTables.has(content)).toBe(false);
-    // the library fetch carries library, never the author's nodes
+    // the library fetch carries library, never the author's nodes. It does READ the `nodes`
+    // table — an opt-in, RLS-counted `node_count` the reader's freshness check compares with
+    // its IndexedDB count to spot a local copy that is current but incomplete (2026-11-22) —
+    // so "never touches nodes" is no longer the invariant. What must hold is that no node
+    // ROW rides this response: its controller's payload shape carries no node-row field.
     expect(tablesOf(route('/library').id).has('library')).toBe(true);
-    expect(tablesOf(route('/library').id).has('nodes')).toBe(false);
+    const libraryController = viz.nodes.find(n => n.id === 'controller:DatabaseToIndexedDBController@getBookLibrary');
+    expect(libraryController, 'the /library controller is on the map').toBeTruthy();
+    for (const nodeField of ['content', 'plainText', 'startLine', 'chunk_id', 'node_id']) {
+      expect(libraryController.shape, `/library must not carry node field "${nodeField}"`).not.toContain(nodeField);
+    }
     // the full-book load is content + carries nodes
     const data = route('/data');
     expect(data.group).toBe('content');

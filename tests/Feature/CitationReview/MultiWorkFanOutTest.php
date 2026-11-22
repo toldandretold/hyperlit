@@ -256,3 +256,22 @@ test('an Ibid parent passes its inheritance onto fan-out rows — the sub path s
     $out = app(TruthClaimExtractor::class)->expandMultiWorkClaims($claims, $meta);
     expect($out[1]['match_method'] ?? null)->not->toBe('web_fetch');
 });
+
+test('a sub entry carries the match_method its resolution recorded', function () {
+    // Was hardcoded null — a web-search sub looked identical to an identifier match, so the
+    // study could not measure web search's precision on multi-work footnotes.
+    $book = 'mw_' . Str::random(8);
+    [$scikit, $ggplot] = mwSeed($book);
+    mwFootnote($book, $scikit, $scikit, $ggplot);
+    $meta = json_decode(mwDb()->table('footnotes')->where('book', $book)->value('llm_metadata'), true);
+    $meta['sub_citations'][0]['resolution'] += ['match_method' => 'brave_search', 'match_score' => 0.8];
+    mwDb()->table('footnotes')->where('book', $book)->update(['llm_metadata' => json_encode($meta)]);
+    try {
+        $enriched = app(MetadataEnricher::class)->enrichCitationMetadata(mwNodes(), $book);
+
+        expect($enriched['fn1::sub1']['match_method'])->toBe('brave_search')
+            ->and((float) $enriched['fn1::sub1']['match_score'])->toBe(0.8);
+    } finally {
+        mwCleanup($book, [$scikit, $ggplot]);
+    }
+});

@@ -74,6 +74,23 @@ ssh alternative (no browser download at all): `tests/conversion/pull_case.sh <bo
 
 Fixture auto-capture needs `ocr_response.json` or `debug_converted.html` in the artifacts; EPUB/MD-input cases get a warning and are captured manually per `tests/conversion/README`.
 
+## Search a journal for problems (instead of reading it)
+
+Finding converter bugs one human read at a time does not scale to a 900-article journal. The conversion lint reads every stored lane of a journal and ranks it by structural defects that leave a recognisable shape in the nodes: a paragraph or blockquote that starts mid-sentence (a page-break split), a footnote left in the body, a footnote nothing points to or a marker with no footnote, an unconverted marker, a suspicious heading, a page header repeated across articles. It reads nodes only — offline, free, seconds. A finding is a place to look, not a verdict.
+
+**In the console** (`/maintainer/journal-import/{slug}`):
+
+- **Each lane carries a `N problems` badge**; hover for the breakdown. **problems first** ranks the article list worst first and hides the clean ones. An article is judged by its PROMOTED lane (a losing sibling's problems are why it lost).
+- **Select a lane** and its problems are listed above the converted output. Clicking one reloads the pane at that node and rings it.
+- **snapshot** records today's problems. `⟲ reconvert all` takes one automatically when the journal has none. From then on the strip above the list is a before/after: each kind of problem with `▼` or `▲`, how many are gone, and how many are **new** — problems the reconvert introduced, badged `▲ N new` on their lane, with a **new only** filter. That is how a fix that broke an article nobody opened gets caught.
+- **The comparison is safe to read mid-drain.** A reconvert_all clears each book when it is queued, so a queued book has no problems to count; those lanes are reported as "still converting" and left out, never counted as fixed. The strip updates as the drain proceeds. A snapshot is refused while conversions are still queued, for the same reason.
+
+**How it is stored.** `App\Services\Conversion\ConversionLint` is the pure detector; `ConversionLintReport` stores each book's result in `conversion_lint_results` against `library.timestamp`, so only reconverted books are re-read, and a cold journal is computed across several requests (the page polls `GET /api/maintainer/journal-import/{slug}/lint` until `pending` is 0). Page-furniture leaks are decided per journal at read time. The snapshot is one row per journal in `conversion_lint_snapshots`. **Changing a detector means bumping `ConversionLint::VERSION`** — stored results and the cached furniture verdict are keyed on it.
+
+**From the terminal**, the same thing: `php artisan conversion:lint --journal=<slug>`, with `--save=<file>` / `--compare=<file>` for the before/after, `--out=review.md` for every finding with reader links, and `--flag --min-score=N` to queue the worst books into `/maintainer/conversion` (`--unflag` undoes). Also works on `--shelf=` / `--book=` / the whole library, which the console does not.
+
+Tests: `tests/Unit/Services/ConversionLintTest.php` (one per detector, each with a near-miss it must not fire on), the lint cases in `tests/Feature/Api/JournalImportConsoleTest.php`, `tests/javascript/journal/lintView.test.js`, and live `tests/e2e/specs/maintainer/journal-import-lint.spec.js` (manual, `npm run test:e2e`; fixture `php artisan e2e:seed-journal-lint`).
+
 ## Close the loop (on prod)
 
 Deploy the fix (`migrate` if needed, `queue:restart` always), then back on `/maintainer/conversion`: press **↻ reconvert** on the book, watch it complete, check the annotations survived, press **✓ resolve**. Or from the terminal: `php artisan library:reconvert-system-version <book>` and `php artisan library:reconvert-queue --resolve=<book> --resolution=reconverted`.

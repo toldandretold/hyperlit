@@ -548,6 +548,31 @@ body {
   gap: 0.35rem;
 }
 
+/* display:flex would otherwise override the hidden attribute on these two. */
+.st-btnrow[hidden],
+.st-refexists[hidden] {
+  display: none;
+}
+
+/* "What does the citation get wrong?" — the follow-up under question 1. */
+.st-reference-errors {
+  align-items: center;
+  margin-top: 0.4rem;
+}
+
+/* The label the two answers produce, or what is still owed before saving. */
+.st-scored-line {
+  margin: 0.6rem 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.st-verdict-help dt.st-help-group {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+  opacity: 0.65;
+}
+
 .st-btnrow.st-disabled {
   opacity: 0.35;
   pointer-events: none;
@@ -988,3 +1013,25 @@ body {
 .st-path-retired .st-path-dot { background: #b07ad6; }
 .st-path-excluded .st-path-dot { background: #e06a9a; }
 .st-path-excluded .st-path-outcome { color: #e06a9a; opacity: 1; }
+
+/* "We found this URL — is it right?" — loud until answered (see sourceMatchWidget). */
+.st-urlcheck {
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+.st-urlcheck-q {
+  font-weight: 600;
+}
+.st-urlcheck-pending {
+  background: color-mix(in srgb, #e8590c 22%, transparent);
+  border-color: color-mix(in srgb, #d9480f 60%, transparent);
+}
+.st-urlcheck-wrong {
+  background: color-mix(in srgb, #e03131 16%, transparent);
+  border-color: color-mix(in srgb, #e03131 45%, transparent);
+}
+.st-badge.st-url-unchecked {
+  background: color-mix(in srgb, #e8590c 25%, transparent);
+  border-color: color-mix(in srgb, #d9480f 60%, transparent);
+}

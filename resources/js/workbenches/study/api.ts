@@ -33,14 +33,24 @@ export interface Adjudication {
   gt_id: string | null;
   referenceId: string | null;
   run_id: string | null;
+  /** Question 1 — is the cited work real / cited correctly. See verdictAxes.ts REFERENCES. */
+  reference: string;
+  /** What a `details_wrong` citation gets wrong (author / title / year / venue). */
+  reference_errors?: string[];
+  /** With scope `none`: the claim is real but belongs to a different work. */
+  from_other_work?: boolean;
+  /** DERIVED by the server from `reference` + `supported_scope` — what scoring reads. */
   label: string;
   cause: string | null;
   note: string | null;
   found_url?: string | null;
+  /** Yes/no shadow of `reference`, kept for dataset.csv. */
   reference_exists?: boolean | null;
+  /** Did the resolver land on the cited WORK? Mirrors AdjudicationStore::SOURCE_MATCHES. */
+  source_match?: 'same_work' | 'different_work' | null;
   adjudicated_at: string;
   adjudicated_by: string;
-  /** What the citation actually supports — makes ground truth denominator-independent. */
+  /** Question 2 — what the cited work actually supports. */
   supported_scope?: string | null;
   /**
    * Verbatim quotes from the source backing this verdict — what turns a human
@@ -260,13 +270,17 @@ export const api = {
     slug: string,
     body: {
       key: string;
-      label: string;
-      cause: string | null;
-      /** What the citation actually supports — see AdjudicationStore::SUPPORTED_SCOPES. */
+      /** Question 1. The label is derived server-side from this and supported_scope. */
+      reference: string;
+      reference_errors?: string[];
+      /** Question 2 — see AdjudicationStore::SUPPORTED_SCOPES. */
       supported_scope?: string | null;
+      from_other_work?: boolean;
+      cause: string | null;
       note: string | null;
       found_url: string | null;
-      reference_exists?: boolean | null;
+      /** Did the resolver land on the cited WORK? See AdjudicationStore::SOURCE_MATCHES. */
+      source_match?: string | null;
       /** Quotes from the source backing this verdict. */
       evidence?: string | null;
       evidence_locator?: string | null;
@@ -280,9 +294,8 @@ export const api = {
     ),
 
   /**
-   * Attach or clear the evidence on an EXISTING verdict, without re-making it.
-   * The backfill path: the workbench's only other mutation is a destructive
-   * Undo, so evidencing an already-recorded label needs its own seam.
+   * Attach or clear the evidence on an EXISTING verdict, without re-making it —
+   * evidence is routinely added in a later sitting than the verdict it backs.
    */
   putEvidence: (
     corpus: string,
@@ -291,6 +304,13 @@ export const api = {
   ) =>
     postJson<{ ok?: boolean; adjudication?: Adjudication; error?: string }>(
       `/api/maintainer/study/books/${encodeURIComponent(slug)}/evidence${corpusQs(corpus)}`,
+      body,
+    ),
+
+  /** "Is the URL we found the right one?" onto an EXISTING verdict — see AdjudicationStore::putSourceMatch. */
+  putSourceMatch: (corpus: string, slug: string, body: { key: string; source_match: string | null }) =>
+    postJson<{ ok?: boolean; adjudication?: Adjudication; error?: string }>(
+      `/api/maintainer/study/books/${encodeURIComponent(slug)}/source-match${corpusQs(corpus)}`,
       body,
     ),
 

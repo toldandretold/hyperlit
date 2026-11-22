@@ -106,6 +106,51 @@ test('the sub-book /library route exists and answers 200 library:null when missi
         ->assertJson(['success' => false, 'library' => null]);
 });
 
+test('GET …/library?node_count=1 carries the book\'s node count; without the flag it does not', function () {
+    // The reader's per-load freshness check compares this against its IndexedDB count:
+    // timestamps cannot see a local copy that is CURRENT but INCOMPLETE (a first-chunk
+    // fragment whose background download never finished — prod 2026-11-22, 400 of 3,062
+    // nodes rendered as the whole book). Opt-in, so other /library callers don't pay.
+    $admin = \Illuminate\Support\Facades\DB::connection('pgsql_admin');
+    $book = 'apitest_' . \Illuminate\Support\Str::random(12);
+    $admin->table('library')->insert([
+        'book' => $book, 'title' => 'Counted', 'visibility' => 'public', 'timestamp' => 1000,
+        'raw_json' => json_encode(['book' => $book]), 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    foreach ([100, 200, 300] as $line) {
+        $admin->table('nodes')->insert([
+            'book' => $book, 'startLine' => $line, 'chunk_id' => 0, 'node_id' => "{$book}_n{$line}",
+            'content' => '<p>Body</p>', 'plainText' => 'Body', 'type' => 'p',
+            'footnotes' => '[]', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+
+    $this->getJson("/api/database-to-indexeddb/books/{$book}/library?node_count=1")
+        ->assertOk()
+        ->assertJson(['success' => true, 'node_count' => 3]);
+
+    $this->getJson("/api/database-to-indexeddb/books/{$book}/library")
+        ->assertOk()
+        ->assertJsonMissingPath('node_count');
+});
+
+test('the node count of a PRIVATE book is not disclosed to a reader who cannot see its nodes', function () {
+    // The library row is deliberately public (a private book can be cited); how much
+    // content it holds is not. Counted under RLS, so a guest gets 0 — which the client
+    // reads as "nothing to repair".
+    $owner = $this->apiUser();
+    $book = $this->makeBook($owner, ['visibility' => 'private']);
+    \Illuminate\Support\Facades\DB::connection('pgsql_admin')->table('nodes')->insert([
+        'book' => $book, 'startLine' => 100, 'chunk_id' => 0, 'node_id' => "{$book}_n100",
+        'content' => '<p>Secret</p>', 'plainText' => 'Secret', 'type' => 'p',
+        'footnotes' => '[]', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->getJson("/api/database-to-indexeddb/books/{$book}/library?node_count=1")
+        ->assertOk()
+        ->assertJson(['success' => true, 'node_count' => 0]);
+});
+
 // Clean node/bibliography fixtures this file seeds via pgsql_admin (cleanupApiFixtures only does library).
 afterEach(function () {
     $admin = \Illuminate\Support\Facades\DB::connection('pgsql_admin');

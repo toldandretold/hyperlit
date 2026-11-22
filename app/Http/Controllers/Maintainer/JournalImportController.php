@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Maintainer\Concerns\BuildsImportLanes;
 use App\Jobs\JournalImportActionJob;
 use App\Models\JournalSource;
+use App\Services\Conversion\ConversionLintReport;
 use App\Services\Conversion\ReconvertQueue;
 use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\JournalHarvest\JournalVersionPromoter;
@@ -230,6 +231,128 @@ class JournalImportController extends Controller
         }
 
         return response()->json(['pending' => $this->pendingConversionJobs($journal->id)]);
+    }
+
+    /**
+     * GET /api/maintainer/journal-import/{slug}/lint — "search this journal for problems".
+     *
+     * Every lane with content, ranked by the structural defects its stored nodes show
+     * (ConversionLint), plus the before/after against the journal's snapshot when one was taken.
+     * Separate from /articles on purpose: that payload is what the page needs to draw at all,
+     * and this one can be slow the first time (a cold journal is computed across several
+     * requests — `pending` says how many lanes are still to do, and the page asks again).
+     */
+    public function lint(Request $request, string $slug, ConversionLintReport $report)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        $books = $this->lintableBooks($journal->id);
+        $result = $report->forBooks($books);
+        $compare = $result['pending'] === 0
+            ? $report->compareWithSnapshot($journal->id, $books, $result)
+            : null;
+
+        $payload = [];
+        foreach ($result['books'] as $book => $b) {
+            $newKeys = array_flip($compare['new'][$book] ?? []);
+            $findings = array_map(
+                fn ($f) => $f + ['is_new' => isset($newKeys[$f['key']])],
+                $b['findings'],
+            );
+            // New findings first: with the list capped, the ones a reconvert INTRODUCED are the
+            // ones that must never be cut off.
+            usort($findings, fn ($x, $y) => $y['is_new'] <=> $x['is_new']);
+            $payload[$book] = [
+                'score'          => $b['score'],
+                'counts'         => $b['counts'],
+                'findings'       => array_slice($findings, 0, ConversionLintReport::FINDINGS_CAP),
+                'findings_total' => count($findings),
+                'new'            => count($newKeys),
+            ];
+        }
+
+        if ($compare) {
+            // Per-book keys were only needed to mark the findings above.
+            $compare['new_books'] = count($compare['new']);
+            unset($compare['new']);
+        }
+
+        return response()->json([
+            'pending' => $result['pending'],
+            'total'   => count($books),
+            'books'   => (object) $payload,
+            'compare' => $compare,
+        ]);
+    }
+
+    /**
+     * POST /api/maintainer/journal-import/{slug}/lint/snapshot — freeze "before".
+     *
+     * Refused while the journal is not in a state worth freezing: lanes still to lint (the
+     * snapshot would be partial), or conversions still queued (a reconvert_all clears each book at
+     * enqueue, so a mid-drain snapshot records gutted books as clean and every later comparison
+     * reads as a regression).
+     */
+    public function lintSnapshot(Request $request, string $slug, ConversionLintReport $report)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+
+        if (($queued = $this->pendingConversionJobs($journal->id)) > 0) {
+            return response()->json([
+                'message' => "{$queued} conversion(s) are still queued for this journal — snapshot once they have run.",
+            ], 409);
+        }
+
+        $books = $this->lintableBooks($journal->id);
+        $result = $report->forBooks($books);
+        if ($result['pending'] > 0) {
+            return response()->json([
+                'message' => "{$result['pending']} lane(s) are still being checked — try again in a moment.",
+                'pending' => $result['pending'],
+            ], 409);
+        }
+
+        return response()->json([
+            'snapshot' => $report->saveSnapshot($journal->id, $books, $result, $request->user()?->name),
+        ]);
+    }
+
+    /** DELETE /api/maintainer/journal-import/{slug}/lint/snapshot — stop comparing. */
+    public function lintSnapshotDelete(Request $request, string $slug, ConversionLintReport $report)
+    {
+        $journal = JournalSource::where('slug', $slug)->first();
+        if (! $journal) {
+            return response()->json(['message' => 'Journal not found'], 404);
+        }
+        $report->deleteSnapshot($journal->id);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * The journal's lanes that have something to lint: book => content clock. Every lane, not
+     * just the promoted one — comparing a PDF lane's problems with its HTML sibling's is half of
+     * what this console is for.
+     *
+     * @return array<string, int>
+     */
+    private function lintableBooks(string $journalId): array
+    {
+        return DB::connection('pgsql_admin')->table('library as l')
+            ->join('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
+            ->where('cs.journal_source_id', $journalId)
+            ->where('l.has_nodes', true)
+            ->where('l.book', 'not like', '%/%')
+            ->where(fn ($q) => $q->whereNull('l.visibility')->orWhere('l.visibility', '!=', 'deleted'))
+            ->pluck('l.timestamp', 'l.book')
+            ->map(fn ($t) => (int) $t)
+            ->all();
     }
 
     /**

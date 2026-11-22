@@ -17,7 +17,9 @@ class StudyAdjudicationsCommand extends Command
     protected $signature = 'citation:study:adjudications
         {corpus : Corpus name (study/corpora/{corpus})}
         {--book= : Only this slug}
-        {--apply : Fold adjudicated labels into ground_truth.json (refused on a frozen corpus)}';
+        {--apply : Fold adjudicated labels into ground_truth.json (refused on a frozen corpus)}
+        {--normalise : Rewrite records from before the reference/support split so each carries both answers and a label derived from them}
+        {--dry-run : With --normalise, report what would change and write nothing}';
 
     protected $description = 'List (and optionally apply) the human adjudications recorded by the /maintainer/study workbench';
 
@@ -31,6 +33,15 @@ class StudyAdjudicationsCommand extends Command
         $anyApplied = false;
         foreach ($books as $book) {
             $slug = $book['slug'];
+            if ($this->option('normalise')) {
+                $result = $store->normaliseStored($manifest, $book, !$this->option('dry-run'));
+                $verb = $this->option('dry-run') ? 'would rewrite' : 'rewrote';
+                $this->info("{$slug}: {$verb} {$result['rewritten']} record(s), "
+                    . count($result['relabelled']) . ' label(s) re-derived');
+                foreach ($result['relabelled'] as $key => $change) {
+                    $this->line("  {$key}: {$change['from']} → {$change['to']}");
+                }
+            }
             $data = $store->load($manifest, $book);
             $n = count($data['adjudications']);
             if ($n === 0) {

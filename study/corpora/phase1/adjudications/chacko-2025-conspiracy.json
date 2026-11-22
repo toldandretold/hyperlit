@@ -10,7 +10,11 @@
             "note": null,
             "found_url": "https://doi.org/10.1146/annurev-soc-092820-094345",
             "adjudicated_at": "2026-09-16T10:48:01+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c219": {
             "gt_id": "chacko-2025-conspiracy/c219",
@@ -21,7 +25,11 @@
             "note": "the more explicit parts of the truth claim are mentioned in the source 2019a, which is part one of this being part 2... that's why hard to prove this one.. the keywords not there.. that said, it says source not found... i think the site is full of junk so hard to extract good text from it maybe",
             "found_url": "https://thewire.in/politics/india-democracy-modi-government",
             "adjudicated_at": "2026-09-16T10:53:26+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c195": {
             "gt_id": "chacko-2025-conspiracy/c195",
@@ -32,7 +40,11 @@
             "note": null,
             "found_url": "https://pucl.org/wp-content/uploads/2023/05/PUCL-28.09.2022.pdf",
             "adjudicated_at": "2026-09-16T10:54:53+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c176": {
             "gt_id": "chacko-2025-conspiracy/c176",
@@ -43,7 +55,11 @@
             "note": "the url is to an archive type site that has a link to the pdf on it... that links to the pdf: https://library.bjp.org/jspui/bitstream/123456789/292/1/The%20Story%20of%20My%20Transportation%20for%20Life.pdf",
             "found_url": "http://library.bjp.org/jspui/handle/123456789/292",
             "adjudicated_at": "2026-09-16T11:00:30+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c60": {
             "gt_id": "chacko-2025-conspiracy/c60",
@@ -54,7 +70,11 @@
             "note": null,
             "found_url": "https://www.latimes.com/archives/la-xpm-1991-06-11-wr-628-story.html",
             "adjudicated_at": "2026-09-16T11:07:04+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c51": {
             "gt_id": "chacko-2025-conspiracy/c51",
@@ -65,7 +85,11 @@
             "note": null,
             "found_url": null,
             "adjudicated_at": "2026-09-16T22:20:13+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c128": {
             "gt_id": "chacko-2025-conspiracy/c128",
@@ -76,7 +100,11 @@
             "note": null,
             "found_url": null,
             "adjudicated_at": "2026-09-16T23:29:58+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c156": {
             "gt_id": "chacko-2025-conspiracy/c156",
@@ -87,7 +115,11 @@
             "note": "very hard one to verify even with source, a good edge case. as it never explicitly mentions muslims but \"anti national\" speech...",
             "found_url": "http://www.deccanchronicle.com/nation/politics/220816/isolate-those-making-anti-national-rants-amit-shah.html",
             "adjudicated_at": "2026-09-16T23:33:25+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c133": {
             "gt_id": "chacko-2025-conspiracy/c133",
@@ -98,7 +130,11 @@
             "note": "we have ability to extract transcript from youtube links, but this one is in hindi and not sure we have translation yet...",
             "found_url": "https://www.youtube.com/watch?v=f-G-MzKbiUw",
             "adjudicated_at": "2026-09-17T00:28:24+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c134": {
             "gt_id": "chacko-2025-conspiracy/c134",
@@ -109,7 +145,11 @@
             "note": "we can extract youtube transcript i believe... we had it as a paste option once, but not sure if we have a translation service yet...",
             "found_url": "https://www.youtube.com/watch?v=7LWA-rP5TKw",
             "adjudicated_at": "2026-09-17T00:29:38+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c179": {
             "gt_id": "chacko-2025-conspiracy/c179",
@@ -120,7 +160,11 @@
             "note": "this citaiton is not in document as supporting this truth claim... maybe mismatch as the year 2024",
             "found_url": null,
             "adjudicated_at": "2026-09-17T00:31:31+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c148": {
             "gt_id": "chacko-2025-conspiracy/c148",
@@ -131,7 +175,11 @@
             "note": "the citation is News18 24, but we have an aljazeera one... from 2023... so not sure what situation is... should be this one: News18 (2024) Whatever I’m doing is inspired by a divine power, god has sent me to do this work: PM Modi, 29 April. Available at: https://www.news18.com/elections/whatever-im-doing-is-inspired-by-a-divine-power-god-has-sent-me-to-do-this-work-pm-modi-8870459.html (accessed 20 June 2024).\nGoogle Scholar\n ... so we fucked up...",
             "found_url": null,
             "adjudicated_at": "2026-09-17T00:35:38+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c130": {
             "gt_id": "chacko-2025-conspiracy/c130",
@@ -142,7 +190,11 @@
             "note": null,
             "found_url": null,
             "adjudicated_at": "2026-09-17T00:35:44+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "not_a_citation",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c08": {
             "gt_id": "chacko-2025-conspiracy/c08",
@@ -153,7 +205,11 @@
             "note": null,
             "found_url": "https://theprint.in/india/love-jihad-to-land-jihad-how-a-small-uttarakhand-town-became-epicentre-of-polarisation-politics/1627696/",
             "adjudicated_at": "2026-09-17T00:37:26+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c15": {
             "gt_id": "chacko-2025-conspiracy/c15",
@@ -164,7 +220,11 @@
             "note": "the article mentions this which, in cojunction with broader article about inequality, i feel supports claim, espeically as its a multi-citation situation: \"By examining the growth\nincidence curve for incomes and wealth between 2014-2022, we find that the real beneficiaries in the\nrecent years appear to be the super-rich, the top 1% and beyond (Figure 17b). This is particularly so\nfor wealth concentration at the very top. This lends some support to political economy assessments\nthat have characterized the economic system in India in recent years as “conglomerate capitalism”\n(Damodaran, 2020) and a “conclave economy” (Bardhan, 2022).\" maybe vector search would have found this one",
             "found_url": null,
             "adjudicated_at": "2026-09-17T00:47:27+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c169": {
             "gt_id": "chacko-2025-conspiracy/c169",
@@ -175,7 +235,11 @@
             "note": "link comes as securiyt issue and then 404",
             "found_url": null,
             "adjudicated_at": "2026-09-17T00:50:22+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "unverifiable",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c69": {
             "gt_id": "chacko-2025-conspiracy/c69",
@@ -186,7 +250,11 @@
             "note": null,
             "found_url": "https://indiankanoon.org/doc/20690064/",
             "adjudicated_at": "2026-09-17T00:52:05+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c127": {
             "gt_id": "chacko-2025-conspiracy/c127",
@@ -197,7 +265,11 @@
             "note": "page did take a long time to load",
             "found_url": "https://www.narendramodi.in/suraj-sankalp-national-convention-keynote-address-by-hon'ble-cm-2679",
             "adjudicated_at": "2026-09-17T00:58:26+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c88": {
             "gt_id": "chacko-2025-conspiracy/c88",
@@ -208,7 +280,11 @@
             "note": "Check link: HTTP 404 — http://www.pratirodh.com/wp-content/uploads/2014/06/IB-Report-NGO.pdf",
             "found_url": null,
             "adjudicated_at": "2026-09-17T01:49:42+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "unverifiable",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c02": {
             "gt_id": "chacko-2025-conspiracy/c02",
@@ -219,7 +295,11 @@
             "note": null,
             "found_url": "https://www.thequint.com/news/india/the-quint-exclusive-indian-embassy-websites-publicised-pm-cares-fund-yet-no-audit",
             "adjudicated_at": "2026-09-17T01:51:47+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c200": {
             "gt_id": "chacko-2025-conspiracy/c200",
@@ -230,7 +310,11 @@
             "note": null,
             "found_url": "https://article-14.com/post/modi-govt-warns-2-ngos-seeking-donations-from-citizens-letters-show-63acfab0a50be",
             "adjudicated_at": "2026-09-17T01:53:00+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c38": {
             "gt_id": "chacko-2025-conspiracy/c38",
@@ -241,7 +325,11 @@
             "note": null,
             "found_url": "https://thewire.in/government/anti-development-acts-protests-forced-conversions-govt-lists-reasons-of-fcra-cancellations",
             "adjudicated_at": "2026-09-17T01:54:13+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c180": {
             "gt_id": "chacko-2025-conspiracy/c180",
@@ -252,7 +340,11 @@
             "note": null,
             "found_url": "https://indiankanoon.org/doc/64486862/?type=print",
             "adjudicated_at": "2026-09-17T01:55:10+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c72": {
             "gt_id": "chacko-2025-conspiracy/c72",
@@ -263,7 +355,11 @@
             "note": "Should be able to find via brave search... but this is a tricky case",
             "found_url": "https://freedomhouse.org/sites/default/files/2022-05/Complete_TransnationalRepressionReport2022_NEW_0.pdf",
             "adjudicated_at": "2026-09-17T01:56:50+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c53": {
             "gt_id": "chacko-2025-conspiracy/c53",
@@ -274,7 +370,11 @@
             "note": "these UN pages link to multiple pdfs, which are clicked to downlaod not open in browser, so might be a hard one to verify... but should still have been able to get title nad stuff verified.. like verify source exists at very least... we could potentially teach playwright how to click buttons on UN sites as used a lot by researchers",
             "found_url": null,
             "adjudicated_at": "2026-09-17T01:59:52+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c217": {
             "gt_id": "chacko-2025-conspiracy/c217",
@@ -285,7 +385,11 @@
             "note": "should be able to find via brave search, or perhaps we need to use pipeline more intelligently... why this one not get found on open alex or otehr repository it is on semantic scholar.... its also in open alex... so why we could not find... just because did not have DOI?",
             "found_url": null,
             "adjudicated_at": "2026-09-17T02:03:11+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c04": {
             "gt_id": "chacko-2025-conspiracy/c04",
@@ -296,7 +400,11 @@
             "note": "Check link: HTTP 401 blocked our fetcher; verified in browser — https://www.reuters.com/world/india/world-beating-growth-not-indias-rural-majority-2024-01-31/",
             "found_url": null,
             "adjudicated_at": "2026-09-17T02:17:01+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c09": {
             "gt_id": "chacko-2025-conspiracy/c09",
@@ -308,7 +416,11 @@
             "found_url": "https://azimpremjiuniversity.edu.in/the-indian-economy/state-of-working-india-2023",
             "reference_exists": null,
             "adjudicated_at": "2026-09-17T02:27:28+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c166": {
             "gt_id": "chacko-2025-conspiracy/c166",
@@ -320,7 +432,11 @@
             "found_url": "https://www.article-14.com/post/how-india-s-govt-is-setting-in-place-a-new-structure-for-a-dysfunctional-parliament-619c5af27c1d2",
             "reference_exists": null,
             "adjudicated_at": "2026-09-17T02:31:35+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c119": {
             "gt_id": "chacko-2025-conspiracy/c119",
@@ -332,7 +448,11 @@
             "found_url": "https://www.outlookindia.com/national/panth-and-a-foreign-hand-news-299751",
             "reference_exists": null,
             "adjudicated_at": "2026-09-17T02:32:25+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         },
         "chacko-2025-conspiracy/c187": {
             "gt_id": "chacko-2025-conspiracy/c187",
@@ -344,7 +464,11 @@
             "found_url": null,
             "reference_exists": null,
             "adjudicated_at": "2026-09-17T02:39:01+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "not_a_citation",
+            "reference_errors": [],
+            "supported_scope": null,
+            "from_other_work": false
         }
     }
 }

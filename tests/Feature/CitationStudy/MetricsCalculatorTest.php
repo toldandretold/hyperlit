@@ -144,3 +144,28 @@ test('the upgrade marker constant matches the literal in ClaimVerifier', functio
         . 'pre-upgrade verdict recovery in the study dataset would silently break.'
     );
 });
+
+test('resolution accuracy: precision per match_method over JUDGED rows, and the lucky-pass count', function () {
+    $rows = [
+        // web search: 2 right, 1 wrong-with-likely (the lucky pass), 1 unjudged
+        metricsRow('intact', 'likely', ['match_method' => 'brave_search', 'human_source_match' => 'same_work']),
+        metricsRow('intact', 'confirmed', ['match_method' => 'brave_search', 'human_source_match' => 'same_work']),
+        metricsRow('intact', 'likely', ['match_method' => 'brave_search', 'human_source_match' => 'different_work']),
+        metricsRow('intact', 'likely', ['match_method' => 'brave_search']),
+        // index search: 1 wrong with a NEGATIVE verdict — wrong work, but not a lucky pass
+        metricsRow('intact', 'unlikely', ['match_method' => 'openalex', 'human_source_match' => 'different_work']),
+        // nothing resolved: never counted
+        metricsRow('fabricated_reference', 'source_not_found', ['match_method' => null]),
+    ];
+
+    $acc = (new MetricsCalculator())->resolutionAccuracy($rows);
+
+    expect(array_keys($acc))->toBe(['brave_search', 'openalex'])
+        ->and($acc['brave_search']['n'])->toBe(4)
+        ->and($acc['brave_search']['judged'])->toBe(3)
+        ->and($acc['brave_search']['precision'])->toBe(0.6667)
+        ->and($acc['brave_search']['precision_ci95'])->toHaveCount(2)
+        ->and($acc['brave_search']['wrong_work_positive_verdict'])->toBe(1)
+        ->and($acc['openalex']['precision'])->toEqual(0.0)
+        ->and($acc['openalex']['wrong_work_positive_verdict'])->toBe(0);
+});

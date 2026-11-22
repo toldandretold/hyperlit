@@ -114,3 +114,28 @@ test('persistSubResolutions is a no-op for parents without sub_citations metadat
         $db->table('library')->where('book', $book)->delete();
     }
 });
+
+test('a resolved sub-citation records HOW it resolved (match_method / match_score)', function () {
+    // A sub has no row of its own, so the wave's updateSourceEntry() write of match_method
+    // updated nothing and the method was lost — every multi-work sub-claim reached the review
+    // method-less, web-search hits included (deloitte-2025-pdf). The scan now carries it into
+    // the sub's resolution record.
+    $db = subPersistDb();
+    $job = new CitationScanBibliographyJob('scan_subres', 'book_canonv_subres_' . Str::random(8));
+    $ref = new ReflectionClass($job);
+    $ref->getProperty('sourceTable')->setValue($job, 'bibliography'); // no parent write-back
+
+    $pool = [
+        'fn1::sub1' => ['referenceId' => 'fn1::sub1', 'parentRefId' => 'fn1'],
+        'fn1::sub2' => ['referenceId' => 'fn1::sub2', 'parentRefId' => 'fn1'],
+    ];
+    $job->updateSourceEntry($db, 'fn1::sub1', ['foundation_source' => 'web_x', 'match_method' => 'brave_search', 'match_score' => null]);
+    $job->removeRelatedPoolEntries($pool, 'fn1::sub1', $db, 'web_x');
+    $job->updateSourceEntry($db, 'fn1::sub2', ['foundation_source' => 'b_y', 'match_method' => 'openalex', 'match_score' => 0.91]);
+    $job->removeRelatedPoolEntries($pool, 'fn1::sub2', $db, 'b_y');
+
+    $outcomes = $ref->getProperty('subResolutions')->getValue($job)['fn1'];
+    expect($outcomes['fn1::sub1'])->toBe(['status' => 'matched', 'book' => 'web_x', 'match_method' => 'brave_search'])
+        ->and($outcomes['fn1::sub2'])->toBe(['status' => 'matched', 'book' => 'b_y', 'match_method' => 'openalex', 'match_score' => 0.91])
+        ->and($pool)->toBe([]);
+});

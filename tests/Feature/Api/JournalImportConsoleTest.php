@@ -30,6 +30,12 @@ function jconCleanup(): void
         jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->pluck('id')
     )->delete();
     jconDb()->table('conversion_flags')->where('book', 'LIKE', 'book_jcon%')->delete();
+    jconDb()->table('nodes')->where('book', 'LIKE', 'book_jcon%')->delete();
+    jconDb()->table('conversion_lint_results')->where('book', 'LIKE', 'book_jcon%')->delete();
+    jconDb()->table('conversion_lint_snapshots')->whereIn(
+        'journal_source_id',
+        jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->pluck('id')
+    )->delete();
     jconDb()->table('canonical_source')->where('title', 'LIKE', 'JCon %')->delete();
     jconDb()->table('library')->where('book', 'LIKE', 'book_jcon%')->orWhere('title', 'LIKE', 'JCon %')->delete();
     jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->delete();
@@ -1149,4 +1155,178 @@ test('the detail payload and page carry the hero name field main.ts wires', func
     $html = $this->get('/maintainer/journal-import/' . $journal->slug)->assertOk()->getContent();
     expect($html)->toContain('id="ji-hero-name"');
     expect($html)->toContain('id="ji-hero-name-save"');
+});
+
+
+// ── Conversion lint: "search the journal for problems" ──
+
+/** Replace a lane's stored nodes with these paragraphs (html per node, in reading order). */
+function jconSeedNodes(string $book, array $htmls): void
+{
+    jconDb()->table('nodes')->where('book', $book)->delete();
+    foreach ($htmls as $i => $html) {
+        jconDb()->table('nodes')->insert([
+            'book'      => $book,
+            'startLine' => ($i + 1) * 100,
+            'chunk_id'  => 0,
+            'node_id'   => $book . '_n' . $i,
+            'content'   => $html,
+            'plainText' => strip_tags($html),
+        ]);
+    }
+}
+
+/** A page-break fragment wrapped as a blockquote — the 7fa30289 shape. */
+function jconBrokenNodes(): array
+{
+    return [
+        '<p>Alternative voices are less heard or read on the Internet than Mainstream ones. The assignment of</p>',
+        '<blockquote><p>domain names (such as microsoft.com) has been commodified. Formerly a state-owned foundation was in control of this area.</p></blockquote>',
+    ];
+}
+
+function jconCleanNodes(): array
+{
+    return [
+        '<p>Alternative voices are less heard or read on the Internet than Mainstream ones.</p>',
+        '<p>The assignment of domain names (such as microsoft.com) has been commodified entirely.</p>',
+    ];
+}
+
+test('lint is admin-gated like the rest of the console API', function () {
+    $this->loginUser();
+    $this->getJson('/api/maintainer/journal-import/anything/lint')->assertStatus(403);
+    $this->postJson('/api/maintainer/journal-import/anything/lint/snapshot')->assertStatus(403);
+    $this->deleteJson('/api/maintainer/journal-import/anything/lint/snapshot')->assertStatus(403);
+});
+
+test('lint ranks every lane with content by the problems in its stored nodes', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+
+    $broken = jconSeedArticle($journal->id, ['title' => 'JCon Broken'], [['foundation_source' => 'canonical_pdf_vacuum']]);
+    $clean  = jconSeedArticle($journal->id, ['title' => 'JCon Clean'], [['foundation_source' => 'canonical_pdf_vacuum']]);
+    $empty  = jconSeedArticle($journal->id, ['title' => 'JCon Empty'], [
+        ['foundation_source' => 'journal_html', 'has_nodes' => false],
+    ]);
+    $brokenBook = $broken['books']['canonical_pdf_vacuum'];
+    $cleanBook  = $clean['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($brokenBook, jconBrokenNodes());
+    jconSeedNodes($cleanBook, jconCleanNodes());
+
+    $body = $this->getJson("/api/maintainer/journal-import/{$journal->slug}/lint")->assertOk()->json();
+
+    expect($body['pending'])->toBe(0);
+    expect($body['total'])->toBe(2);                                  // the empty lane has nothing to lint
+    expect($body['books'])->not->toHaveKey($empty['books']['journal_html']);
+    expect($body['compare'])->toBeNull();                             // no snapshot taken
+
+    expect($body['books'][$cleanBook]['score'])->toBe(0);
+    expect($body['books'][$brokenBook]['counts'])->toBe(['fragment_blockquote' => 1]);
+    $finding = $body['books'][$brokenBook]['findings'][0];
+    expect($finding['detector'])->toBe('fragment_blockquote');
+    expect($finding['startLine'])->toBe('200');                       // what the reader pane jumps to
+    expect($finding['is_new'])->toBeFalse();
+});
+
+test('a stored lint is reused until the book content clock moves', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+
+    $url = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    expect($this->getJson($url)->json("books.{$book}.score"))->toBe(3);
+
+    // Content changes WITHOUT the clock moving (it cannot happen for real — every reconvert
+    // bumps library.timestamp — which is exactly why the clock is a sound cache key).
+    jconSeedNodes($book, jconCleanNodes());
+    expect($this->getJson($url)->json("books.{$book}.score"))->toBe(3);
+
+    jconDb()->table('library')->where('book', $book)->update(['timestamp' => 2000]);
+    expect($this->getJson($url)->json("books.{$book}.score"))->toBe(0);
+});
+
+test('a snapshot turns the lint into a before/after: what a reconvert fixed, and what it broke', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $fixed  = jconSeedArticle($journal->id, ['title' => 'JCon Gets Fixed'], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $broken = jconSeedArticle($journal->id, ['title' => 'JCon Gets Broken'], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $fixedBook  = $fixed['books']['canonical_pdf_vacuum'];
+    $brokenBook = $broken['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($fixedBook, jconBrokenNodes());
+    jconSeedNodes($brokenBook, jconCleanNodes());
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $this->postJson("{$base}/snapshot")->assertOk()->assertJsonPath('snapshot.books', 2);
+
+    // Untouched journal: a comparison exists and says nothing happened.
+    $compare = $this->getJson($base)->json('compare');
+    expect($compare['changed'])->toBe(0);
+    expect($compare['gone'])->toBe(0);
+    expect($compare['new_total'])->toBe(0);
+
+    // "Reconvert": one article's fragment is repaired, the other gains a heading that is a paragraph.
+    jconSeedNodes($fixedBook, jconCleanNodes());
+    jconSeedNodes($brokenBook, [...jconCleanNodes(), '<h2>Aspects of emergence are:</h2>']);
+    jconDb()->table('library')->whereIn('book', [$fixedBook, $brokenBook])->update(['timestamp' => 2000]);
+
+    $body = $this->getJson($base)->assertOk()->json();
+    expect($body['compare']['changed'])->toBe(2);
+    expect($body['compare']['waiting'])->toBe(0);
+    expect($body['compare']['detectors']['fragment_blockquote'])->toBe([1, 0]);
+    expect($body['compare']['detectors']['colon_heading'])->toBe([0, 1]);
+    expect($body['compare']['gone'])->toBe(1);
+    expect($body['compare']['new_total'])->toBe(1);
+    expect($body['compare']['new_books'])->toBe(1);
+
+    expect($body['books'][$fixedBook]['new'])->toBe(0);
+    expect($body['books'][$brokenBook]['new'])->toBe(1);
+    expect($body['books'][$brokenBook]['findings'][0]['is_new'])->toBeTrue();
+
+    $this->deleteJson("{$base}/snapshot")->assertOk();
+    expect($this->getJson($base)->json('compare'))->toBeNull();
+});
+
+test('a book still queued behind a reconvert is left out of the comparison, never counted as fixed', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $this->postJson("{$base}/snapshot")->assertOk();
+
+    // reconvert_all clears a book at ENQUEUE: no nodes, has_nodes false, until its turn comes.
+    jconDb()->table('nodes')->where('book', $book)->delete();
+    jconDb()->table('library')->where('book', $book)->update(['has_nodes' => false]);
+
+    $compare = $this->getJson($base)->json('compare');
+    expect($compare['waiting'])->toBe(1);
+    expect($compare['compared'])->toBe(0);
+    expect($compare['gone'])->toBe(0);          // its fragment is not "fixed" — it is not there yet
+    expect($compare['detectors'])->toBe([]);
+});
+
+test('a snapshot is refused while conversions are still queued for the journal', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $book = (string) Str::uuid();
+    jconSeedArticle($journal->id, ['title' => 'JCon Mid Drain'], [['foundation_source' => 'journal_html', 'book' => $book]]);
+
+    jconDb()->table('jobs')->insert([
+        'queue'   => 'default',
+        'payload' => json_encode([
+            'uuid'        => (string) Str::uuid(),
+            'displayName' => 'App\\Jobs\\ProcessDocumentImportJob',
+            'marker'      => 'jcon-backlog-marker',
+            'data'        => ['command' => "O:8:\"stub\":1:{s:6:\"bookId\";s:36:\"{$book}\";}"],
+        ]),
+        'attempts' => 0, 'available_at' => time(), 'created_at' => time(),
+    ]);
+
+    $this->postJson("/api/maintainer/journal-import/{$journal->slug}/lint/snapshot")->assertStatus(409);
+    expect(jconDb()->table('conversion_lint_snapshots')->where('journal_source_id', $journal->id)->exists())->toBeFalse();
 });

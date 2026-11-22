@@ -334,9 +334,44 @@ export async function reportServerCountMismatch(
     trigger: 'server-node-count-mismatch',
     comment: (
       `Post-drain node-count divergence: IndexedDB has ${localCount} nodes, the server reports `
-      + `${serverCount}. Every sync batch was ACKed, so one side silently diverged — compare `
-      + `sync_audit.log (DELETE_NODES / SYNC_SUSPICIOUS / DELETE_SKIPPED_IDENTITY_MISMATCH) `
+      + `${serverCount}. `
+      + (localCount > serverCount
+        ? `The server holds FEWER rows than this client: it acknowledged a write it did not fully `
+          + `persist, or deleted rows it should not have. `
+        : `The server holds MORE rows than this client: it refused or skipped a delete, or this `
+          + `client lost rows it once had (this copy was NOT marked as a partial download). `)
+      + `Compare sync_audit.log (DELETE_NODES / SYNC_SUSPICIOUS / DELETE_SKIPPED_IDENTITY_MISMATCH) `
       + `against the client historyLog for this book.`
+    ).slice(0, 2000),
+    url: window.location.href,
+    userAgent: navigator.userAgent,
+    timestamp: new Date().toISOString(),
+    recentLogs: getRecentLogs(),
+    context: {
+      sessionAgeSec: Math.round((Date.now() - _sessionStartTs) / 1000),
+      idbBroken: isIDBBroken(),
+    },
+  };
+  await _sendReport(payload);
+}
+
+/**
+ * A short local copy that is KNOWN to be a partial download (the first-chunk load marked
+ * it, no full download cleared the mark). Deliberately its own trigger: this is a fact
+ * about one browser's cache, and filing it under `server-node-count-mismatch` sent the
+ * reader of the report to audit a server that had done nothing wrong (prod 2026-11-22).
+ */
+export async function reportLocalCopyIncomplete(
+  { bookId, localCount, serverCount }: { bookId: string; localCount: number; serverCount: number }
+): Promise<void> {
+  const payload = {
+    bookId,
+    trigger: 'local-copy-incomplete',
+    comment: (
+      `Local copy incomplete: IndexedDB has ${localCount} of the server's ${serverCount} nodes. `
+      + `The background download for this book never finished in this browser, so the cache is a `
+      + `fragment — NOT a server divergence and no data is lost. The book is re-downloaded on the `
+      + `next load. Worth a look only if this recurs for one user/browser (a download that keeps failing).`
     ).slice(0, 2000),
     url: window.location.href,
     userAgent: navigator.userAgent,

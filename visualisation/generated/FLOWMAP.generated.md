@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2060 functions in 433 modules · 10 object stores · 10 PG tables · 4323 edges
+**MarkdownDB** schema v28 · 2062 functions in 433 modules · 10 object stores · 10 PG tables · 4332 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1403,6 +1403,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `endFullBookReplace` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `reconcileServerNodeCount` | `indexedDB/serverSync/countReconcile` | `historyLog` `nodes` | — | — | — |
 | `scheduleServerCountReconcile` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
+| `shouldRepairShortLocalCopy` | `indexedDB/serverSync/countReconcile` | `historyLog` `nodes` | — | — | — |
 | `whenServerCountReconcilesSettle` | `indexedDB/serverSync/countReconcile` | — | — | — | — |
 | `flushAllPendingEdits` | `indexedDB/serverSync/flush` | `historyLog` | — | — | — |
 | `loadBibliographyToIndexedDB` | `indexedDB/serverSync/loaders` | — | `bibliography` | — | — |
@@ -1499,6 +1500,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `resolveFirstChunkPromise` | `pageLoad/firstChunkPromise` | — | — | — | — |
 | `fetchInitialChunk` | `pageLoad/initialChunk` | — | `footnotes` | — | `↓route:/api/database-to-indexeddb/books/{}/initial` |
+| `initialChunkIsWholeBook` | `pageLoad/initialChunk` | — | — | — | — |
 | `resolveBootstrapTarget` | `pageLoad/initialChunk` | — | — | — | — |
 | `initializeLazyLoader` | `pageLoad/lazyLoaderRegistry` | — | — | read/write | — |
 | `initializeLazyLoaderForContainer` | `pageLoad/lazyLoaderRegistry` | — | — | — | — |

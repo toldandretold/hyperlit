@@ -66,8 +66,9 @@ export interface ManifestEntry {
   chapter?: string;
   editor?: string;
   school?: string;
-  /** Vault front matter / .bib only (not read from manifest.json). */
+  /** Vault front matter / .bib only (not read from manifest.json — `doi` is reserved there). */
   doi?: string;
+  /** Licence code from App\Support\Licenses + its terms URL (manifest.json AND vault front matter). */
   license?: string;
   license_url?: string;
 }
@@ -360,6 +361,10 @@ export function rewriteWikilinkImageEmbeds(mdText: string): string {
 const MANIFEST_ENTRY_KEYS: ReadonlyArray<keyof ManifestEntry> = [
   'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
   'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
+  // The work's OWN licence (a code from App\Support\Licenses, e.g. PDM / CC-BY-SA-2.0) and its
+  // terms link. A scraped text is someone else's work: without these every dropped document is
+  // born "Licence unknown". The server validates the code (an unrecognised one lands Unknown).
+  'license', 'license_url',
 ];
 
 interface ParsedManifest {

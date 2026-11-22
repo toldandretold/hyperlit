@@ -1114,3 +1114,87 @@ test('rerun endpoints are admin-gated and validate the citation key', function (
     $this->getJson('/api/maintainer/study/books/unrun/rerun-status?corpus=contest')
         ->assertOk()->assertJson(['status' => null]);
 });
+
+test('adjudicate round-trips source_match and refuses an unknown value', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'source_match' => 'different_work',
+        'found_url' => 'https://example.com/the-real-one',
+    ])->assertOk()->assertJsonPath('adjudication.source_match', 'different_work');
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'label' => 'verified_intact',
+        'source_match' => 'kinda',
+    ])->assertStatus(422);
+});
+
+test('source-match is answered onto an EXISTING verdict without disturbing it, and refused without one', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    // No verdict yet — refused (the workbench holds the answer until the verdict is saved).
+    $this->postJson('/api/maintainer/study/books/fixture/source-match?corpus=contest', [
+        'key' => 'fixture/c01', 'source_match' => 'different_work',
+    ])->assertStatus(422);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01', 'label' => 'verified_intact', 'note' => 'checked by hand',
+    ])->assertOk();
+
+    $this->postJson('/api/maintainer/study/books/fixture/source-match?corpus=contest', [
+        'key' => 'fixture/c01', 'source_match' => 'different_work',
+    ])->assertOk()
+        ->assertJsonPath('adjudication.source_match', 'different_work')
+        ->assertJsonPath('adjudication.label', 'verified_intact')
+        ->assertJsonPath('adjudication.note', 'checked by hand');
+
+    // Clearing it is allowed; an unknown value is not.
+    $this->postJson('/api/maintainer/study/books/fixture/source-match?corpus=contest', [
+        'key' => 'fixture/c01', 'source_match' => null,
+    ])->assertOk()->assertJsonPath('adjudication.source_match', null);
+    $this->postJson('/api/maintainer/study/books/fixture/source-match?corpus=contest', [
+        'key' => 'fixture/c01', 'source_match' => 'kinda',
+    ])->assertStatus(422);
+});
+
+
+/**
+ * The reviewer answers two questions; the label is derived, never posted.
+ */
+test('adjudicate takes the two answers and derives the label', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/study/books/fixture/adjudicate?corpus=contest', [
+        'key' => 'fixture/c01',
+        'reference' => 'details_wrong',
+        'reference_errors' => ['author'],
+        'supported_scope' => 'none',
+        'note' => 'Wrong committee named as author.',
+    ])->assertOk()
+        ->assertJsonPath('adjudication.reference', 'details_wrong')
+        ->assertJsonPath('adjudication.reference_errors', ['author'])
+        ->assertJsonPath('adjudication.supported_scope', 'none')
+        ->assertJsonPath('adjudication.label', 'claim_distortion');
+
+    $payload = $this->getJson('/api/maintainer/study/books/fixture?corpus=contest')->json();
+    expect($payload['claims'][0]['adjudication']['reference'])->toBe('details_wrong');
+});
+
+test('adjudicate refuses a verdict with neither answer nor label, and unknown answers', function () {
+    sconCorpus();
+    $this->loginUser(['is_admin' => true]);
+    $url = '/api/maintainer/study/books/fixture/adjudicate?corpus=contest';
+
+    $this->postJson($url, ['key' => 'fixture/c01'])->assertStatus(422);
+    $this->postJson($url, ['key' => 'fixture/c01', 'reference' => 'kind-of-real'])->assertStatus(422);
+    $this->postJson($url, ['key' => 'fixture/c01', 'reference' => 'details_wrong', 'reference_errors' => ['vibes']])
+        ->assertStatus(422);
+    // "Cited wrongly" must say what is wrong.
+    $this->postJson($url, ['key' => 'fixture/c01', 'reference' => 'details_wrong'])->assertStatus(422);
+});

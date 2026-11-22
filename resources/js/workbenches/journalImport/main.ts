@@ -15,6 +15,10 @@ import { log } from '../../utilities/logger';
 import { csrfHeaders as sharedCsrfHeaders } from '../shared/http';
 import { initShelfDrop } from './shelfDrop';
 import { hasMetadataDrift, isAttempted, isFailed, needsMetadataDecision } from './articleFilters';
+import {
+  ensureSnapshot, initLintPanel, lintBadges, lintState, refreshLint, renderFindings,
+} from './lintPanel';
+import { withNewFindings, worstFirst, type LintFinding } from './lintView';
 import { drainResponse } from '../../utilities/drainResponse';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
@@ -348,6 +352,12 @@ async function loadDetail(): Promise<void> {
   }
 
   renderArticles();
+
+  // The problem check rides behind the list rather than inside its payload: the list is what
+  // the page needs to draw at all, and a cold journal's lint arrives over several requests.
+  // Re-asked on every reload because that is exactly when it can have moved (a lane was
+  // reconverted, imported, or came back from the drain). No-op on the shelf console.
+  void refreshLint();
 }
 
 function renderArticles(): void {
@@ -382,6 +392,15 @@ function renderArticles(): void {
   if (needle) {
     rows = rows.filter((a) => (a.title || '').toLowerCase().includes(needle)
       || (a.doi || '').toLowerCase().includes(needle));
+  }
+  // "New only" narrows to what a reconvert made WORSE; "problems first" is a ranking as much as
+  // a filter — worst first, clean articles dropped — and runs last so it orders whatever the
+  // other filters left. See lintView.ts for why an article is judged by its promoted lane.
+  if (document.querySelector<HTMLInputElement>('#ji-only-new')?.checked) {
+    rows = withNewFindings(rows, lintState());
+  }
+  if (document.querySelector<HTMLInputElement>('#ji-only-problems')?.checked) {
+    rows = worstFirst(rows, lintState());
   }
 
   const list = el<HTMLDivElement>('ji-articles-list');
@@ -488,6 +507,9 @@ function buildLane(lane: Lane): HTMLElement {
   } else if (!lane.listed && lane.has_nodes) {
     badges.push(['dim', 'unlisted', 'imported but not public — another lane is the version']);
   }
+  // What the stored conversion LOOKS wrong in, found by reading its nodes (conversion lint).
+  // Last, so the evidence badges above keep their places as these come and go with a reconvert.
+  badges.push(...lintBadges(lane.book));
 
   for (const [kind, text, title] of badges) {
     const b = document.createElement('span');
@@ -542,6 +564,58 @@ function renderDetailStrip(lane: Lane): void {
   // Nothing to close when nothing is open.
   el<HTMLButtonElement>('ji-resolve').hidden = lane.open_flags === 0;
   el<HTMLButtonElement>('ji-dismiss').hidden = lane.open_flags === 0;
+
+  renderFindings(lane.book, (finding) => jumpToFinding(lane, finding));
+}
+
+/** A style element this page plants in the framed reader to ring the node a finding points at. */
+const FINDING_RING_ID = 'ji-finding-ring';
+
+/**
+ * Scroll the converted-output pane to the node a finding is about, and ring it.
+ *
+ * The reader resolves a URL hash to a node only at LOAD time — it has no hashchange handler — so
+ * assigning a src that differs only in its hash neither reloads nor scrolls. Same answer as the
+ * hypercite workbench's ReaderPane: hop through about:blank, then load `/book#<startLine>` (a
+ * numeric hash is the reader's "open at this node"). Chained on the blank's `load` event, with a
+ * timer behind it for the case where that event is missed.
+ *
+ * The ring is a stylesheet in the frame's <head>, NOT a class or style on the node: the reader
+ * can write a node's live DOM back to storage (CLAUDE.md §"The DOM is not a source of truth for
+ * content"), and a console that decorated the node itself would be one self-heal away from
+ * saving its own highlight into the book.
+ */
+function jumpToFinding(lane: Lane, finding: LintFinding): void {
+  if (!finding.startLine || !lane.has_nodes) return;
+  const frame = el<HTMLIFrameElement>('ji-converted');
+  const url = `/${lane.book}#${finding.startLine}`;
+  const stillWanted = (): boolean => selected?.book === lane.book;
+
+  const ring = (): void => {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc || !stillWanted()) return;
+      doc.getElementById(FINDING_RING_ID)?.remove();
+      const style = doc.createElement('style');
+      style.id = FINDING_RING_ID;
+      // The id is a decimal like "4400" or "100.5" — an attribute selector takes it as-is,
+      // where `#4400` would not parse.
+      style.textContent =
+        `[id="${finding.startLine}"]{outline:2px solid #ff8700;outline-offset:6px;border-radius:3px;}`;
+      doc.head.appendChild(style);
+    } catch { /* the frame navigated away mid-call — nothing to ring */ }
+  };
+
+  let started = false;
+  const go = (): void => {
+    if (started || !stillWanted()) return;
+    started = true;
+    frame.addEventListener('load', ring, { once: true });
+    frame.src = url;
+  };
+  frame.addEventListener('load', go, { once: true });
+  frame.src = 'about:blank';
+  window.setTimeout(go, 300);
 }
 
 /** Expand or collapse the note editor, keeping the toggle's ARIA state honest. */
@@ -1289,6 +1363,8 @@ function wireDetailActions(): void {
   document.getElementById('ji-only-failed')?.addEventListener('change', renderArticles);
   document.getElementById('ji-only-metadata')?.addEventListener('change', renderArticles);
   document.getElementById('ji-article-search')?.addEventListener('input', renderArticles);
+  document.getElementById('ji-only-problems')?.addEventListener('change', renderArticles);
+  document.getElementById('ji-only-new')?.addEventListener('change', renderArticles);
 }
 
 interface RunFailure {
@@ -1589,6 +1665,9 @@ async function pollReconvertBacklog(): Promise<void> {
 
   if (pending > 0) {
     renderReconvertBacklog(pending);
+    // Each tick some books have come back converted: move the before/after strip with them, so
+    // a regression shows up an hour into the drain rather than at the end of it.
+    void refreshLint();
     return;
   }
 
@@ -1854,7 +1933,12 @@ function wireJournalActions(): void {
       + 'takes hours. Watch progress at /maintainer/jobs.',
     )) return;
 
-    void runAction({ action: 'reconvert_all', lanes: scope }, setJournalStatus, buttons, true);
+    // A reconvert with no "before" cannot be checked afterwards, so one is recorded here when
+    // the journal has none. An existing snapshot is left alone — it is the baseline someone
+    // chose — and a failure to take one never holds the reconvert up.
+    void ensureSnapshot()
+      .catch(() => false)
+      .then(() => runAction({ action: 'reconvert_all', lanes: scope }, setJournalStatus, buttons, true));
   });
 
   document.getElementById('ji-bulk-import')?.addEventListener('click', () => {
@@ -2155,6 +2239,16 @@ function wireArchivePanel(): void {
 wireHelp();
 
 if (isDetail) {
+  initLintPanel({
+    apiBase,
+    onChange: () => {
+      renderArticles();
+      if (selected) {
+        const lane = selected;
+        renderFindings(lane.book, (finding) => jumpToFinding(lane, finding));
+      }
+    },
+  });
   wireActionBar();
   wireDetailActions();
   wireJournalActions();

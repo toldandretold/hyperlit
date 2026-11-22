@@ -259,3 +259,37 @@ def test_embedded_split_is_skipped_when_ambiguous():
     two = _padded(LEAD_IN) + '\n\n' + LEAD_IN
     md, wrapped = wrap_geometry_blockquotes(two, [[QUOTE]])
     assert wrapped == 0
+
+
+# ── A page-break fragment is not a quotation (7fa30289) ─────────────────────────────────────
+# A hanging-indent bullet carried onto the next page measures as an indented run. This pass
+# runs BEFORE rejoin_page_breaks, so wrapping the fragment made the split permanent.
+BULLET = ('- Underrepresentation of alternative voices: Decision and representation structures '
+          'in the Internet are monopolised. Alternative voices are less heard or read on the '
+          'Internet than Mainstream ones. The assignment of')
+FRAGMENT = ('domain names (such as microsoft.com) has been commodified. Formerly the state-owned '
+            'National Science Foundation was in control of this area.')
+
+
+def _norm40(t):
+    return re.sub(r'[^a-z0-9]+', ' ', t.lower()).strip()[:40]
+
+
+def test_page_opening_fragment_of_an_open_sentence_is_not_wrapped():
+    md = _padded(BULLET) .replace(BULLET, BULLET + '\n\n' + FRAGMENT)
+    out, n = wrap_geometry_blockquotes(md, [[FRAGMENT]], page_openers={_norm40(FRAGMENT)})
+    assert n == 0
+    assert '> domain names' not in out
+
+
+def test_same_shape_mid_page_is_still_a_quotation():
+    """244ae673: '…Razack, reading Ahmed, tells us that appropriating the other' / '> to the
+    point of being able to dance their dances…' — a real indented quote that carries the
+    author's sentence on. Only a PAGE OPENING is evidence of a page-break fragment."""
+    lead = ('Sherene Razack, reading Ahmed, tells us that appropriating the other')
+    quote = ('to the point of being able to dance their dances the white man in this example is '
+             'able to become without becoming')
+    md = _padded(lead).replace(lead, lead + '\n\n' + quote)
+    out, n = wrap_geometry_blockquotes(md, [[quote]], page_openers=set())
+    assert n == 1
+    assert '> to the point of being able' in out

@@ -98,8 +98,12 @@ class MetadataEnricher
                     'source_id'           => $subBook,
                     'content'             => $entry->content,
                     'llm_metadata'        => json_encode($subMeta),
-                    'match_method'        => null,
-                    'match_score'         => null,
+                    // HOW the sub resolved, as the scan recorded it (CitationScanBibliographyJob::
+                    // $subMatchMeta). Was hardcoded null, so every multi-work sub-claim looked
+                    // method-less — web-search hits included. Null still for subs scanned before
+                    // the scan recorded it, and for unresolved ones.
+                    'match_method'        => $subBook ? ($sub['resolution']['match_method'] ?? null) : null,
+                    'match_score'         => $subBook ? ($sub['resolution']['match_score'] ?? null) : null,
                     'match_diagnostics'   => null,
                     'canonical_source_id' => null,
                 ];

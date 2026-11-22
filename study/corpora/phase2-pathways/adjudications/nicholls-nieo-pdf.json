@@ -12,7 +12,10 @@
             "found_url": null,
             "reference_exists": true,
             "adjudicated_at": "2026-09-21T11:12:53+00:00",
-            "adjudicated_by": "encryptER"
+            "adjudicated_by": "encryptER",
+            "reference": "verified",
+            "reference_errors": [],
+            "from_other_work": false
         }
     }
 }
