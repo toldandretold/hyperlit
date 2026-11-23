@@ -118,3 +118,14 @@ it('does not read a lettered list as a sentence cut in two (27e44104)', function
     ]);
     expect(detectors($r))->toBe([]);
 });
+
+it('locates an orphaned definition whose stored node has no anchor, by its text', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Body text with no markers at all, ending properly.</p>'),
+        lintNode('400', '<h2><a id="footnotes"></a>Footnotes</h2>'),
+        lintNode('500', '<p>[^1]: A note that somebody points to, in principle.</p>'),
+        lintNode('600', '<p>[^2]: http://www.example.org/working-papers/2012/a-long-address</p>'),
+    ], ['Fn2' => 'http://www.example.org/working-papers/2012/a-long-address']);
+    expect($r['findings'][0]['detector'])->toBe('orphan_definition')
+        ->and($r['findings'][0]['startLine'])->toBe('600');
+});

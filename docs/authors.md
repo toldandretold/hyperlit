@@ -30,7 +30,18 @@ The homepage search (and any shelf search) parses `author:lenin` / `author:"rosa
 
 ## Linking existing books: suggestions, never silent merges
 
-`php artisan authors:suggest` proposes links for unlinked books by splitting `library.author` with the author-list vocabulary and matching each name against aliases (then, for unknown names, Wikidata search restricted to humans, with dates where the book has a year). Suggestions land in a review queue (a workbench lane under `/maintainer/…`, admin-gated by the route table); confirming writes `book_authors` with `source = review`. Nothing auto-merges: "Marx, Karl" is safe, "Smith, J." is not, and a wrong merge silently puts one person's books on another's page. Role detection from the string is suggestion-only too ("Fowkes, Ben" as translator needs a human or the work's metadata). The classics — the people whose pages matter first — are few enough to confirm by hand.
+One suggester, two places to confirm. The suggester splits `library.author` with the author-list vocabulary and matches each name against aliases (then, for unknown names, Wikidata search restricted to humans, with dates where the book has a year). Nothing auto-merges: "Marx, Karl" is safe, "Smith, J." is not, and a wrong merge silently puts one person's books on another's page. Role detection from the string is suggestion-only too ("Fowkes, Ben" as translator needs a human or the work's metadata).
+
+**Who confirms is whoever owns the library row** — the same rule RLS already applies to every other edit of a book's metadata:
+
+- **A user's own book** (an upload, a paste, a URL import they made): the suggestion appears in the source container beside the author credit — "Is this V. I. Lenin (1870–1924, Russian revolutionary)? Yes / No / Someone else" — and confirming writes `book_authors` with `source = user`. The owner knows what they uploaded better than any maintainer does, and asking them costs nothing. The same choice is offered at import time when the suggester is confident, and MCP `set_book_metadata` can carry it.
+- **A system-minted book** (OpenAlex harvest, ar5iv, journal lanes, marxists.org — `creator` is the system): links arrive with the book (`source = openalex` / `manifest`), and whatever is left unresolved goes to the maintainer review lane (`/maintainer/…`, admin-gated by the route table), confirmed with `source = review`.
+
+**What an owner may NOT do is change the identity itself.** The `authors` table is shared: creating a new person, editing aliases, merging two rows or splitting one changes every book and page that points at it, so those are maintainer actions. An owner choosing "Someone else" with no match files a proposal for a new author into the maintainer lane, and their book stays unlinked (still a perfectly good book) until it is decided.
+
+**Abuse.** An owner-confirmed link puts a public book on that author's `/a/` page and in `author:` results — exactly as anyone can already publish a book whose author string says "Lenin". So `source = user` links are kept distinguishable: a maintainer can detach one (recorded, so the suggester does not re-propose it), and the author page can later choose to show owner-linked books in their own section if spam ever appears. Not built until it is needed.
+
+`php artisan authors:suggest` runs the suggester in bulk (for the backlog: in practice almost every book on the site today was imported by the site's maintainer, so the first pass is the maintainer's lane either way). The classics — the people whose pages matter first — are few enough to confirm by hand.
 
 ## The marxists.org import, revised
 
@@ -43,7 +54,7 @@ MIA is organised author-first (`/archive/lenin/`, each author with a works index
 ## Build order
 
 1. `authors` + `book_authors` + the vocabulary of roles, with RLS (public read for public books' links, writes admin / book owner) and a seed of the handful of classics by hand.
-2. `authors:suggest` + the review lane; seed links from `canonical_source.authorships`.
+2. The suggester + `authors:suggest` + the maintainer review lane; seed links from `canonical_source.authorships`. Then the owner-facing prompt in the source container (and at import), with `source = user`.
 3. `archive_sources.kind = author`, `AuthorShelfSync`, and `/a/{slug}` rendering an author archive (about copy can start from the Wikidata description, edited by hand).
 4. `author:` in search.
 5. The marxists.org scraper as an artisan command, author-first, emitting the drop folder with `authors` in the manifest.

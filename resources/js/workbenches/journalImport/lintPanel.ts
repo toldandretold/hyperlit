@@ -106,6 +106,12 @@ export function initLintPanel(opts: LintPanelOptions): void {
     window.location.href = `${options.apiBase()}/lint/cases`;
     window.setTimeout(() => options?.setStatus(''), 6000);
   });
+  node<HTMLButtonElement>('ji-lint-sample')?.addEventListener('click', () => {
+    if (!options) return;
+    options.setStatus('building the sample archive — this can take a minute…');
+    window.location.href = `${options.apiBase()}/lint/cases?sample=1`;
+    window.setTimeout(() => options?.setStatus(''), 15000);
+  });
   node<HTMLButtonElement>('ji-lint-clear')?.addEventListener('click', () => { void clearSnapshot(); });
   node<HTMLButtonElement>('ji-findings-toggle')?.addEventListener('click', () => {
     findingsOpen = !findingsOpen;
@@ -242,6 +248,9 @@ function paintBar(): void {
     cases.hidden = reviewed === 0;
     cases.textContent = `⤓ reviewed cases (${reviewed})`;
   }
+
+  const sampleButton = node<HTMLButtonElement>('ji-lint-sample');
+  if (sampleButton) sampleButton.hidden = pending > 0 || total === 0;
 
   paintCompare();
 }

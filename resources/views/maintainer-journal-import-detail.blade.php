@@ -134,6 +134,8 @@
                     <button type="button" id="ji-lint-snapshot" disabled>snapshot</button>
                     <button type="button" id="ji-lint-cases" hidden
                             title="Download one example case per kind of problem you confirmed, plus the list of everything you confirmed or dismissed — for book:import-cases on a dev machine">⤓ reviewed cases</button>
+                    <button type="button" id="ji-lint-sample" hidden
+                            title="No review needed: download an example case for every kind of problem found — two for a kind the last reconvert made worse — for book:import-cases on a dev machine">⤓ sample cases</button>
                 </div>
                 <div class="ji-lint-compare" id="ji-lint-compare" hidden>
                     <div class="ji-lint-compare-body" id="ji-lint-compare-body"></div>

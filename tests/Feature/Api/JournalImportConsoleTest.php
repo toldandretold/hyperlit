@@ -1431,3 +1431,25 @@ test('the cases download refuses until something has been reviewed', function ()
     $journal = jconSeedJournal();
     $this->getJson("/api/maintainer/journal-import/{$journal->slug}/lint/cases")->assertStatus(422);
 });
+
+test('a sample cases download needs no review: it picks a lane per kind of problem itself', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+    $this->getJson("/api/maintainer/journal-import/{$journal->slug}/lint")->assertOk();
+
+    $resp = $this->get("/api/maintainer/journal-import/{$journal->slug}/lint/cases?sample=1");
+    $resp->assertOk();
+    $tar = $resp->baseResponse->getFile()->getPathname();
+    $probe = new \Symfony\Component\Process\Process(['tar', '-xOf', $tar, 'lint-review.json']);
+    $probe->run();
+    $review = json_decode($probe->getOutput(), true);
+    @unlink($tar);
+
+    expect($review['confirmed'])->toBe([])
+        ->and(array_keys($review['sampled']))->toBe([$book])
+        ->and($review['sampled_findings'][0]['book'])->toBe($book)
+        ->and($review['sampled_findings'][0]['excerpt'])->toContain('domain names');
+});

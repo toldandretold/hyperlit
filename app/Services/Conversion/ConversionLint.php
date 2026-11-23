@@ -37,7 +37,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -84,6 +84,7 @@ class ConversionLint
         $body = [];
         $defs = [];           // fn id => definition text
         $defLines = [];       // fn id => startLine of its stored definition node, where one has an anchor
+        $defNodes = [];       // startLine => text of every node in the stored definitions section
         $inDefs = false;
         foreach ($nodes as $n) {
             $html = (string) ($n['content'] ?? '');
@@ -97,6 +98,7 @@ class ConversionLint
                     $defs[$m[1]] = preg_replace('/^\[\^\d+\]:\s*/', '', $this->text($html));
                     $defLines[$m[1]] = (string) $n['startLine'];
                 }
+                $defNodes[(string) $n['startLine']] = preg_replace('/^\[\^\d+\]:\s*/', '', $this->text($html));
                 continue;
             }
             $body[] = ['startLine' => (string) $n['startLine'], 'html' => $html, 'tag' => $tag,
@@ -176,7 +178,8 @@ class ConversionLint
 
         foreach ($defs as $id => $defText) {
             if (!isset($markerIds[$id])) {
-                $findings[] = ['detector' => 'orphan_definition', 'startLine' => $defLines[$id] ?? '',
+                $findings[] = ['detector' => 'orphan_definition',
+                               'startLine' => $defLines[$id] ?? $this->defNodeByText($defText, $defNodes),
                                'excerpt' => mb_substr($defText, 0, 220)];
             }
         }
@@ -187,6 +190,29 @@ class ConversionLint
         }
 
         return ['findings' => $findings, 'chrome_candidates' => $this->chromeCandidates($body, $defs)];
+    }
+
+    /**
+     * Where an orphaned definition sits when its stored node carries no anchor to find it by
+     * (most stored definitions are bare "[^N]: text" paragraphs): the definitions-section node
+     * that opens with the same words. '' when none does — the finding then has nowhere to jump.
+     *
+     * @param array<string, string> $defNodes startLine => text
+     */
+    private function defNodeByText(string $defText, array $defNodes): string
+    {
+        $norm = fn (string $t) => mb_substr(mb_strtolower(preg_replace('/\s+/u', '', $t)), 0, 40);
+        $want = $norm($defText);
+        if ($want === '') {
+            return '';
+        }
+        foreach ($defNodes as $line => $text) {
+            if ($norm($text) === $want) {
+                return (string) $line;
+            }
+        }
+
+        return '';
     }
 
     /**

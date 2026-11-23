@@ -1659,9 +1659,21 @@ async function pollReconvertBacklog(): Promise<void> {
   if (boot.shelfId || !document.getElementById('ji-run-panel')) return;
   if (pollingRunId) return;   // a live run owns the panel; its completed branch re-seeds this
 
-  const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
-  if (!resp.ok) return;       // transient — the next loadDetail re-seeds the poll
-  const pending = Number(((await resp.json()) as { pending?: number }).pending ?? 0);
+  // A failed tick must NOT end the poll. It used to (`if (!resp.ok) return`), so one 429, one
+  // deploy blip or one dropped connection froze the panel on its last number for good while the
+  // worker carried on — "stuck on 89 for ages", and a refresh then showed nothing because the
+  // queue had long since drained (tripleC, 2026-11-23).
+  let pending: number;
+  try {
+    const resp = await fetch(`${apiBase()}/reconvert-backlog`, { credentials: 'include' });
+    const body = (await resp.json().catch(() => null)) as { pending?: number } | null;
+    if (!resp.ok || !body) throw new Error(`reconvert-backlog ${resp.status}`);
+    pending = Number(body.pending ?? 0);
+  } catch {
+    window.clearTimeout(backlogTimer);
+    backlogTimer = window.setTimeout(() => void pollReconvertBacklog(), 20_000);
+    return;
+  }
 
   if (pending > 0) {
     renderReconvertBacklog(pending);

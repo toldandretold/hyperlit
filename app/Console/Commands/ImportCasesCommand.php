@@ -318,6 +318,9 @@ class ImportCasesCommand extends Command
         foreach ($review['examples'] ?? [] as $book => $kinds) {
             $this->line("  example bundle:  {$book}  (" . implode(', ', (array) $kinds) . ')');
         }
+        foreach ($review['sampled'] ?? [] as $book => $kinds) {
+            $this->line("  sampled (unreviewed): {$book} — " . implode(', ', (array) $kinds));
+        }
         foreach ($review['export_failed'] ?? [] as $book) {
             $this->warn("  no bundle for {$book} — its export failed on the server");
         }

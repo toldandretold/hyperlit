@@ -350,7 +350,8 @@ class JournalImportController extends Controller
 
         $books = $this->lintableBooks($journal->id);
         $rows = $report->reviewRows(array_keys($books));
-        if ($rows === []) {
+        $sample = $request->boolean('sample');
+        if ($rows === [] && ! $sample) {
             return response()->json(['message' => 'Nothing reviewed yet — confirm or dismiss a problem first.'], 422);
         }
 
@@ -375,11 +376,53 @@ class JournalImportController extends Controller
             $examples[$best][] = $detector;
         }
 
+        // ?sample=1 — nobody has reviewed anything (or not every kind): take examples straight
+        // from the lint. One lane per kind, and for a kind the last reconvert made WORSE the two
+        // lanes with the most NEW findings of it, because those are the regression to diagnose.
+        $sampled = [];
+        $sampledFindings = [];
+        if ($sample) {
+            $result = $report->forBooks($books);
+            if ($result['pending'] > 0) {
+                return response()->json(['message' => 'Still checking this journal for problems — try again in a moment.'], 409);
+            }
+            $compare = $report->compareWithSnapshot($journal->id, $books, $result);
+            $perKind = [];   // detector => book => [new, all]
+            foreach ($result['books'] as $book => $b) {
+                $newKeys = array_flip($compare['new'][$book] ?? []);
+                foreach ($b['findings'] as $f) {
+                    $perKind[$f['detector']][$book] ??= [0, 0];
+                    $perKind[$f['detector']][$book][0] += isset($newKeys[$f['key']]) ? 1 : 0;
+                    $perKind[$f['detector']][$book][1] += 1;
+                }
+            }
+            foreach ($perKind as $detector => $perBook) {
+                uasort($perBook, fn ($x, $y) => [$y[0], $y[1]] <=> [$x[0], $x[1]]);
+                $top = array_key_first($perBook);
+                $take = $perBook[$top][0] > 0
+                    ? array_keys(array_filter(array_slice($perBook, 0, 2, true), fn ($n) => $n[0] > 0))
+                    : [$top];
+                foreach ($take as $book) {
+                    $sampled[$book][] = $detector;
+                }
+            }
+            foreach ($sampled as $book => $kinds) {
+                $newKeys = array_flip($compare['new'][$book] ?? []);
+                foreach ($result['books'][$book]['findings'] as $f) {
+                    if (in_array($f['detector'], $kinds, true)) {
+                        $sampledFindings[] = ['book' => $book, 'detector' => $f['detector'],
+                            'startLine' => $f['startLine'], 'excerpt' => $f['excerpt'],
+                            'is_new' => isset($newKeys[$f['key']])];
+                    }
+                }
+            }
+        }
+
         $dir = storage_path('app/book-exports/lint-cases-' . Str::random(12));
         \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
         $members = ['lint-review.json'];
         $failed = [];
-        foreach (array_keys($examples) as $book) {
+        foreach (array_unique(array_merge(array_keys($examples), array_keys($sampled))) as $book) {
             $out = "{$dir}/{$book}.tar.gz";
             $exit = \Illuminate\Support\Facades\Artisan::call('book:export', [
                 'book' => $book, '--out' => $out, '--origin' => 'journal-import',
@@ -400,6 +443,9 @@ class JournalImportController extends Controller
             'exported_at'   => now()->toIso8601String(),
             'lint_version'  => \App\Services\Conversion\ConversionLint::VERSION,
             'examples'      => $examples,
+            // Unreviewed lanes picked by the lint itself (?sample=1) and what it found in them.
+            'sampled'          => $sampled,
+            'sampled_findings' => $sampledFindings,
             'export_failed' => $failed,
             'confirmed'     => $verdict(ConversionLintReport::VERDICT_REAL),
             'false_alarms'  => $verdict(ConversionLintReport::VERDICT_FALSE_ALARM),

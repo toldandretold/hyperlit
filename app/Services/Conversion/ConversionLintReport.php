@@ -75,7 +75,13 @@ class ConversionLintReport
                 $pending++;
                 continue;
             }
-            $stored[$book] = $this->compute($db, (string) $book, (int) $timestamp);
+            // No nodes = a book cleared by a queued reconvert (the clear leaves `has_nodes` and the
+            // content clock alone). Nothing to lint and nothing to store: left out, it reads as
+            // "still converting" rather than as a book whose every problem was fixed.
+            $computed = $this->compute($db, (string) $book, (int) $timestamp);
+            if ($computed !== null) {
+                $stored[$book] = $computed;
+            }
         }
 
         $leaks = $pending === 0 ? $this->chromeLeaks($db, $books) : [];
@@ -253,12 +259,15 @@ class ConversionLintReport
         return $out;
     }
 
-    private function compute($db, string $book, int $timestamp): array
+    private function compute($db, string $book, int $timestamp): ?array
     {
         $nodes = $db->table('nodes')->where('book', $book)->orderBy('startLine')
             ->get(['startLine', 'content'])
             ->map(fn ($n) => ['startLine' => (string) $n->startLine, 'content' => (string) $n->content])
             ->all();
+        if ($nodes === []) {
+            return null;
+        }
         $footnotes = $db->table('footnotes')->where('book', $book)
             ->pluck('content', 'footnoteId')->map(fn ($c) => (string) $c)->all();
 
