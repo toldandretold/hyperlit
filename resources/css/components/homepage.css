@@ -58,6 +58,91 @@
   opacity: 0.16;
 }
 
+/* ---------- smoke / cloud layer (lavaSmoke.ts) ----------
+   A handful of pre-painted cloud <canvas>es in #lava-lamp-mount: over the
+   hills, under the copy (#app-container is z:1). JS parks them below the fold
+   and slides each up with the scroll-rise, clamped under the lava skyline.
+   On for everyone; tuned from the Shift+L adjuster. No filters / blend
+   modes on purpose — the first cut used them and the page crawled. */
+#lava-lamp-mount .lava-smoke {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* even haze behind the text column (JS sets left/width/colour/opacity).
+   JS slides its top to just under the header + the clear band; it runs off
+   the bottom of the screen. */
+#lava-lamp-mount .lava-smoke-fog {
+  position: absolute;
+  top: 0;
+  height: 150vh;
+  opacity: 0;
+}
+
+/* bottom cloud bank: full-width strip pinned to the bottom edge; JS slides it
+   up from below (translateY %) late in the scroll */
+#lava-lamp-mount .lava-smoke-bank {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  transform: translate3d(0, 105%, 0);
+  will-change: transform;
+}
+
+/* tuning affordance — opens the adjuster; only rendered in a browser that
+   has unlocked the dials with ?smoke (lavaSmoke.ts hasDials) */
+.lava-smoke-dials-btn {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 9999998; /* under the adjuster, which opens over it (✕ close shuts it) */
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(27, 24, 25, 0.85);
+  color: #eee;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#lava-lamp-mount .lava-smoke-clouds {
+  position: absolute;
+  inset: 0;
+}
+
+#lava-lamp-mount .lava-smoke-cloud {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* until JS places it: off-screen, never a flash at 0,0 */
+  transform: translate3d(0, 120vh, 0);
+  will-change: transform;
+}
+
+#lava-lamp-mount .lava-smoke-cloud canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* optional drift: transform-only, so the compositor slides the bitmap */
+#lava-lamp-mount .lava-smoke-cloud canvas.lava-smoke-drift {
+  will-change: transform;
+  animation: lava-smoke-drift 70s ease-in-out infinite alternate;
+}
+
+@keyframes lava-smoke-drift {
+  from { transform: translate3d(calc(var(--dx, 4vw) * -1), calc(var(--dy, 1vh) * -1), 0); }
+  to   { transform: translate3d(var(--dx, 4vw), var(--dy, 1vh), 0); }
+}
+
+/* feed showing: the lava dims to a ghost, so the clouds go entirely */
+#app-container.lava-lamp-background.content-active ~ #lava-lamp-mount .lava-smoke {
+  display: none;
+}
+
 /* ---------- hero: centered glass card ---------- */
 
 /* SCROLL-LINKED hero: --hero-p (0 = centered card, 1 = docked header slot)
@@ -538,6 +623,35 @@ body[data-page="user"] #app-container.lava-lamp-background.content-active .fixed
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* the smoke section makes it tall — scroll rather than run off-screen
+     (.lava-adjuster is on wheelScrollForwarder's SCROLLABLE_OVERLAY_SEL) */
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+}
+
+.lava-adjuster-smoke {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.lava-adjuster strong {
+  color: #eee; /* theme heading colours otherwise leak in (dark on dark) */
+}
+
+.lava-adjuster output {
+  float: right;
+  color: #cbcccc;
+}
+
+.lava-adjuster label.lava-adjuster-check,
+.lava-adjuster label.lava-adjuster-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .lava-adjuster label {

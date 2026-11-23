@@ -89,6 +89,20 @@ body[data-page="journal"] .journal-about .journal-about-links a {
   text-decoration: underline;
 }
 
+/* Author page credit: where the texts came from, who brought them in. Links wear the
+   hero's own ink, not the reading theme's link colour (which is light in dark mode). */
+body[data-page="journal"] .journal-about .journal-about-sources a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/* Who brought the texts in sits a step below the archive line it follows. */
+body[data-page="journal"] .journal-about .journal-about-contributors {
+  font-size: clamp(0.8rem, 1.4vw, 0.95rem);
+  opacity: 0.7;
+  margin: 0.4em 0;
+}
+
 body[data-page="journal"] .journal-about .journal-about-counts {
   font-size: clamp(0.9rem, 1.6vw, 1.05rem);
   opacity: 0.75;

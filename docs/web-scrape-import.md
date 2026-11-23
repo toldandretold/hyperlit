@@ -35,6 +35,10 @@ These fields are AUTHORITATIVE: request fields land on `library` before the conv
 
 A scraped document is someone else's work, so say what licence it carries: `license` is a code from `App\Support\Licenses` (`PDM`, `CC-BY-SA-2.0`, `CC-BY-SA` for a version-less claim, `All-Rights-Reserved`, `Unknown`…) and `license_url` the terms page. The server validates the code — an unrecognised one is stored as `Unknown`, never as Hyperlit's own-writing default — so never invent a version the source didn't state. Omitting it leaves the book "Licence unknown".
 
+## Authors
+
+`author` is the credit as printed. `authors` says WHO: a list of `{"name": "V. I. Lenin", "role": "author", "slug": "lenin", "wikidata": "Q1394"}` — a Hyperlit author slug and/or a Wikidata QID, plus a role (`author`, `translator`, `editor`, `introduction`, `compiler`; default `author`). It links the book to that person's `/a/{slug}` page at import, and an entry may create the author (filled from Wikidata), so a scrape carries its own author map. An entry with neither a slug nor a QID identifies nobody and is dropped. **Honoured for admin imports only** — for anyone else the field is ignored. The book joins the page when it is made public. It is the one structured manifest field: the client sends it as a single JSON string (`authors_json`). See `docs/authors.md`.
+
 ## Provenance
 
 `url` is the document's source URL and lands in `library.url` — the book's source link. Everything else posted with the file — every manifest field plus `imported_via=scrape-folder`, `manifest_schema_version` and `scrape_site` — is preserved verbatim in `library.raw_json` (`ImportController` stores the whole request). Books dropped by an admin are owned by that admin even when the target shelf is system-owned; that split is intended (the shelf curates, the importer owns).

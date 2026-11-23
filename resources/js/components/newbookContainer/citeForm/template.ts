@@ -46,12 +46,12 @@ export function getCiteFormHTML(): string {
         <!-- URL Import Panel (hidden by default; shown when source-toggle-url active) -->
         <div id="import-source-url" class="import-source-panel" style="display:none;">
           <div class="form-section">
-            <label for="import-url-input">arXiv, DOI, or Project Gutenberg</label>
+            <label for="import-url-input">arXiv, DOI, Project Gutenberg, or marxists.org</label>
             <div class="import-url-input-row">
-              <input type="text" id="import-url-input" placeholder="arxiv.org/abs/…, 10.xxxx/…, or gutenberg.org/ebooks/…" autocomplete="off">
+              <input type="text" id="import-url-input" placeholder="arxiv.org/abs/…, 10.xxxx/…, gutenberg.org/ebooks/…, or marxists.org/archive/…" autocomplete="off">
               <button type="button" id="import-url-fetch" class="formButton import-url-fetch-btn">Fetch</button>
             </div>
-            <div class="field-hint">Paste an arXiv link, a DOI, or a Project Gutenberg book URL.</div>
+            <div class="field-hint">Paste an arXiv link, a DOI, a Project Gutenberg book URL, or the contents page of a work on marxists.org.</div>
             <div id="import-url-status" class="validation-message"></div>
           </div>
           <div id="import-url-preview" class="import-url-preview" style="display:none;">

@@ -1,5 +1,5 @@
 import { test as base, expect } from '@playwright/test';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { listenerMonitorScript } from '../helpers/listenerMonitor.js';
@@ -109,6 +109,19 @@ function auditSample(args) {
 }
 
 /**
+ * The Vite dev server's HMR socket host ("hyperlit.test:5173"), read from the
+ * hot file Laravel itself uses; null when the suite runs against a built bundle.
+ */
+function viteHmrHost() {
+  try {
+    const hot = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../../../public/hot'), 'utf-8').trim();
+    return hot ? new URL(hot).host : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Extended test fixture that installs the listener monitor + restoration spy,
  * captures console errors + a full console-frequency audit, and provides SPA
  * navigation helpers.
@@ -121,6 +134,20 @@ export const test = base.extend({
     await page.addInitScript(restorationSpyScript);
     await page.addInitScript(integrityCaptureScript);
     await page.addInitScript(targetNotFoundCaptureScript);
+
+    // Mute Vite HMR for the test page. A source file saved while the suite
+    // runs makes Vite broadcast `full-reload` to EVERY connected page, whether
+    // or not that page imports the file — the page under test silently reloads
+    // mid-step and the failure names whatever it was doing (2026-11-23: a save
+    // of workbenches/journalImport/lintPanel.ts at 22:18:50 reloaded the home
+    // page under scroll-restore/reload.spec, the open import form vanished and
+    // `#book` timed out 30s later). The socket is answered here and never
+    // connected to the server, so it stays "open" and silent: no reload, and no
+    // reconnect-then-reload loop either. The app itself opens no WebSockets.
+    const hmrHost = viteHmrHost();
+    if (hmrHost) {
+      await page.routeWebSocket((url) => url.host === hmrHost, () => {});
+    }
 
     // Pages-mode sweep: E2E_READING_MODE=paginated runs the whole suite with
     // the paginated reading preference set (npm run test:e2e:pages). The

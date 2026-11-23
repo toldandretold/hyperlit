@@ -111,9 +111,14 @@ class ArchiveCorpusResolver
         // cited to them; a maintainer archive keeps the "{name} maintainers" line.
         $identity = app(\App\Services\Archives\ArchiveIdentity::class);
         $name = $identity->name($archive);
-        $author = $identity->isOwnerMinted($archive)
-            ? ($identity->creator($archive) ?: $name)
-            : $name . ' maintainers';
+        // An AUTHOR page (AuthorShelf) is curated by nobody: Hyperlit assembles it from the
+        // author links, so the collection is cited to Hyperlit — "Karl Marx maintainers"
+        // would name people who do not exist.
+        $author = match (true) {
+            \App\Services\Shelves\AuthorShelf::isAuthorArchive($archive) => 'Hyperlit',
+            $identity->isOwnerMinted($archive) => $identity->creator($archive) ?: $name,
+            default => $name . ' maintainers',
+        };
 
         // Hub (the vault's README) follows the archive PAGE: whatever is the
         // page's about text. That is the pinned overview book only when the

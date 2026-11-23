@@ -1945,9 +1945,9 @@ function wireJournalActions(): void {
       + 'takes hours. Watch progress at /maintainer/jobs.',
     )) return;
 
-    // A reconvert with no "before" cannot be checked afterwards, so one is recorded here when
-    // the journal has none. An existing snapshot is left alone — it is the baseline someone
-    // chose — and a failure to take one never holds the reconvert up.
+    // A reconvert with no "before" cannot be checked afterwards, so a FRESH one is recorded here
+    // every time — the strip then measures this run and nothing older. A failure to take one
+    // (lint incomplete, a drain still running) never holds the reconvert up.
     void ensureSnapshot()
       .catch(() => false)
       .then(() => runAction({ action: 'reconvert_all', lanes: scope }, setJournalStatus, buttons, true));

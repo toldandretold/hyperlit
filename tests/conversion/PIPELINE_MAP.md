@@ -187,6 +187,7 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 - **pdf** — `mistral_ocr.py` → `simple_md_to_html.py`, invoked by `PdfProcessor.php:61` → `main-text.md` → html; detects footnote **layout** (`PDF_CLASSIFIERS`).
 - **md / zip** — `simple_md_to_html.py`, invoked by `MarkdownProcessor.php:95` → `intermediate.html`; its markers select the sequential strategy.
 - **html** — `ar5iv_preprocessor.py` (conditional), invoked by `HtmlProcessor.php:75` → normalised html; distinguishes ar5iv/LaTeXML from raw.
+- **marxists.org** — `ingestion/marxists/stitch.py`, invoked by `MarxistsStitcher.php` (from `StitchMarxistsWorkJob`) → `original.epub`, which then enters the **epub** pathway unchanged. It crawls ONE work's pages and rewrites the site's note shapes into the `sup.enote` scheme the EPUB detectors already know; it detects no type of its own. See `docs/marxists-import.md`.
 - **docx** — `strip_docx_metadata.py` + `normalize_docx_headings.py` + `pandoc --wrap=none`, invoked by `PandocConversionJob.php:45` → html; detects no type of its own. Both python steps are non-fatal repairs of what pandoc cannot see: `w:outlineLvl` heading levels (pandoc reads the style NAME only) and pandoc's own ~72-column hard wrap (which made one reference entry look like a crammed multi-entry `<p>`).
 - **(all)** — `process_document.py`, invoked by the 4 processors → nodes/footnotes/references; selects the **strategy** (`STRATEGY_RULES`).
 

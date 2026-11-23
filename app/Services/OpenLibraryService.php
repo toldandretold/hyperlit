@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class OpenLibraryService
 {
     public const BASE_URL = 'https://openlibrary.org';
-    public const SEARCH_FIELDS = 'key,title,subtitle,author_name,first_publish_year,publisher,isbn,oclc,lccn,subject';
+    public const SEARCH_FIELDS = 'key,title,subtitle,author_name,author_key,first_publish_year,publisher,isbn,oclc,lccn,subject';
 
     /**
      * Search Open Library for books matching the given criteria.
@@ -186,6 +186,18 @@ class OpenLibraryService
         // FULL list, "; "-joined — et-al truncation is a render-time concern.
         $author = $authors ? implode('; ', $authors) : null;
 
+        // Open Library's own author ids, parallel to author_name. They are what lets a
+        // verified work be tied to a PERSON (Wikidata lists each author's key) rather
+        // than to a spelling — see docs/authors.md. Only when the two lists line up.
+        $authorKeys = $doc['author_key'] ?? [];
+        $authorships = null;
+        if ($authors && count($authorKeys) === count($authors)) {
+            $authorships = [];
+            foreach (array_values($authors) as $i => $name) {
+                $authorships[] = ['name' => $name, 'open_library_author_key' => array_values($authorKeys)[$i]];
+            }
+        }
+
         $publishers = $doc['publisher'] ?? [];
         $publisher = $publishers ? $publishers[0] : null;
 
@@ -202,6 +214,7 @@ class OpenLibraryService
             'book'             => null,
             'title'            => $title,
             'author'           => $author,
+            'authorships'      => $authorships,
             'has_nodes'        => false,
             'year'             => $doc['first_publish_year'] ?? null,
             'journal'          => null,

@@ -3,7 +3,7 @@
 namespace App\Services\Shelves;
 
 /**
- * Shelf kinds whose MEMBERSHIP is owned by a system writer (LikesShelf, LicenceReviewShelf):
+ * Shelf kinds whose MEMBERSHIP is owned by a system writer (LikesShelf, LicenceReviewShelf, AuthorShelf):
  * the owner may not hand-add to or delete them. Every guard asks here instead of comparing
  * to 'likes', so a new system kind is one line.
  */
@@ -11,7 +11,7 @@ final class ShelfKinds
 {
     public const USER = 'user';
 
-    public const SYSTEM = [LikesShelf::KIND, LicenceReviewShelf::KIND];
+    public const SYSTEM = [LikesShelf::KIND, LicenceReviewShelf::KIND, AuthorShelf::KIND];
 
     public static function isSystem(?object $shelf): bool
     {

@@ -547,3 +547,65 @@ def test_a_title_superscript_in_a_reference_entry_is_not_a_footnote_marker():
     out = ASM._demote_markers_in_bibliography_entries(md)
     assert 'The Power of Like 2. How' in out
     assert 'real marker.[^2]' in out and '[^2]: http' in out
+
+
+# ── Angle-bracketed URLs: the OCR returns "<https://host/a/b.pdf>" as a tag-shaped ──────────
+# "<https: b.pdf="" a="" host="">" with its segments lower-cased and SORTED. Which URL that
+# was is decided by the segments it kept, never by its position among the page's URLs.
+
+class _FakePage:
+    def __init__(self, text):
+        self._t = text
+
+    def extract_text(self):
+        return self._t
+
+
+class _FakeReader:
+    def __init__(self, texts):
+        self.pages = [_FakePage(t) for t in texts]
+
+
+def _fix_urls(md, layer, monkeypatch):
+    monkeypatch.setattr(REC, 'PdfReader', lambda _p: _FakeReader([layer]))
+    return REC.fix_mangled_urls(md, 'unused.pdf')
+
+
+def test_a_mangled_url_is_matched_by_its_segments_not_its_position(monkeypatch):
+    # The layer holds one URL the OCR did NOT mangle (so the lists are out of step) — position
+    # would hand note 5 the site root and push every later note onto its neighbour's address.
+    layer = ('1 The RDC is at: <https://example.org/>. See also https://example.org/about\n'
+             '5 <https://example.org/ArchivePDFs/87.pdf>. (Author 1942).\n'
+             '9 available at: <https://example.org/ArchivePDFs/1492.pdf>')
+    md = ('[^1]: The RDC is at: <https: example.org=""></https:>.\n\n'
+          '[^5]: <https: 87.pdf="" archivepdfs="" example.org="">. (Author 1942).\n\n'
+          '[^9]: available at: <https: 1492.pdf="" archivepdfs="" example.org="">')
+    out = _fix_urls(md, layer, monkeypatch)
+    assert '[^1]: The RDC is at: <https://example.org/>.' in out
+    assert '[^5]: <https://example.org/ArchivePDFs/87.pdf>.' in out
+    assert '[^9]: available at: <https://example.org/ArchivePDFs/1492.pdf>' in out
+    assert '</https' not in out
+
+
+def test_a_url_wrapped_across_a_line_in_the_layer_is_still_matched(monkeypatch):
+    layer = 'available at: <https://example.org/raya/Archive\nPDFs/5824.pdf> (Author 1978).'
+    md = '[^9]: available at: <https: 5824.pdf="" archivepdfs="" example.org="" raya="">'
+    assert ('<https://example.org/raya/ArchivePDFs/5824.pdf>'
+            in _fix_urls(md, layer, monkeypatch))
+
+
+def test_a_segment_the_ocr_dropped_does_not_stop_the_match(monkeypatch):
+    layer = ('<https://example.org/ArchivePDFs/87.pdf> and '
+             '<https://example.org/raya/ArchivePDFs/5824.pdf>')
+    md = 'see <https: 5824.pdf="" archivepdfs="" example.org="">'
+    assert ('<https://example.org/raya/ArchivePDFs/5824.pdf>'
+            in _fix_urls(md, layer, monkeypatch))
+
+
+def test_a_note_that_is_only_a_bracketed_url_leaves_the_body_with_its_page_notes():
+    md = ('Body text that ends the page "Two\n\n'
+          '[^5]: <https: 87.pdf="" archivepdfs="" example.org="">. (Author 1942).\n\n'
+          '[^6]: A prose note that follows it.')
+    body, notes = S.split_body_and_footnotes(md)
+    assert body == 'Body text that ends the page "Two'
+    assert notes.startswith('[^5]: <https:')

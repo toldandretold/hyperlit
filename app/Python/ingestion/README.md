@@ -7,13 +7,12 @@ work lives here; everything after "it's now HTML" lives in `digestion/`.
 
 Each reader also DETECTS a format-specific "type" on the way, which drives downstream linking.
 
-| sub-folder | reads | how it detects footnotes | produces |
-|---|---|---|---|
-| `pdf/` | a PDF (via Mistral OCR) | physical **LAYOUT** — co-location / clustering / resets, because OCR'd text has no markup | markdown of a footnote layout → (then `markdown_and_pdf_to_html/`) |
-| `epub/` | an EPUB | semantic **SCHEME** — `epub:type` / ARIA role / CSS class / anchor-heading / table | `main-text.html` of a footnote scheme |
-| `html/` | raw / arXiv HTML | (ar5iv/LaTeXML markup only; raw HTML passes straight through) | normalised HTML |
-| `word/` | a `.docx` | (none here — pandoc emits footnotes; detection happens downstream) | HTML (via pandoc) |
-| `markdown_and_pdf_to_html/` | markdown | `[^N]` markers → section markers | the common HTML |
+- **`pdf/`** — reads a PDF (via Mistral OCR). Detects footnotes by physical **LAYOUT** (co-location / clustering / resets), because OCR'd text has no markup. Produces markdown of a footnote layout → (then `markdown_and_pdf_to_html/`).
+- **`epub/`** — reads an EPUB. Detects footnotes by semantic **SCHEME** (`epub:type` / ARIA role / CSS class / anchor-heading / table). Produces `main-text.html` of a footnote scheme.
+- **`html/`** — reads raw / arXiv HTML. Detects only ar5iv/LaTeXML markup; raw HTML passes straight through. Produces normalised HTML.
+- **`word/`** — reads a `.docx`. Detects nothing here (pandoc emits footnotes; detection happens downstream). Produces HTML (via pandoc).
+- **`markdown_and_pdf_to_html/`** — reads markdown. `[^N]` markers → section markers. Produces the common HTML.
+- **`marxists/`** — reads a marxists.org WORK, i.e. many web pages (`stitch.py`). Detects nothing: it crawls the work and rewrites the site's note shapes into the `sup.enote` scheme. Produces `original.epub`, which then goes through `epub/` unchanged. See `docs/marxists-import.md`.
 
 ## Why the sub-folders differ
 

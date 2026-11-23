@@ -293,6 +293,39 @@ describe('scrape-folder manifest.json (docs/web-scrape-import.md)', () => {
     expect(theses.metadata).toMatchObject({ license: 'CC-BY-SA-2.0', license_url: 'https://www.marxists.org/admin/legal/cc/by-sa.htm' });
   });
 
+  test('manifest authors name PEOPLE: well-formed entries are kept, anything that identifies nobody is dropped', async () => {
+    // The author-first scrape (docs/authors.md): `author` stays the printed credit, `authors` says
+    // WHO — by Wikidata id and/or Hyperlit author slug — so the book lands on /a/lenin at import.
+    const epubFile = (name) => new File(['fakeepub'], name, { type: 'application/epub+zip' });
+    const plan = await buildIngestPlan([
+      collected(epubFile('lenin-imperialism.epub')),
+      collected(epubFile('capital-v1.epub')),
+      collected(manifest({
+        'lenin-imperialism.epub': {
+          title: 'Imperialism', author: 'V. I. Lenin',
+          authors: [
+            { name: 'V. I. Lenin', role: 'author', slug: 'lenin', wikidata: 'Q1394', rogue: 'x' },
+            { name: 'Tim Delaney', role: 'translator', slug: ' delaney ' },
+            { name: 'No Identity', role: 'author' },          // neither slug nor QID
+            'Lenin',                                           // not an object
+            { slug: 42, wikidata: ['Q1'] },                    // wrong types
+          ],
+        },
+        // Not a list at all: the field is dropped, the rest of the entry survives.
+        'capital-v1.epub': { title: 'Capital', authors: 'Karl Marx' },
+      }, { source: { site: 'marxists.org' } })),
+    ], 'marxists.org');
+
+    const lenin = plan.bundles.find((b) => b.filename === 'lenin-imperialism.epub');
+    expect(lenin.metadata.author).toBe('V. I. Lenin');
+    expect(lenin.metadata.authors).toEqual([
+      { name: 'V. I. Lenin', role: 'author', slug: 'lenin', wikidata: 'Q1394' },
+      { name: 'Tim Delaney', role: 'translator', slug: 'delaney' },
+    ]);
+    const capital = plan.bundles.find((b) => b.filename === 'capital-v1.epub');
+    expect(capital.metadata).toEqual({ title: 'Capital' });
+  });
+
   test('a manifest in a subfolder is ignored (root-only rule)', async () => {
     const nested = new File([JSON.stringify({ schema_version: 1, documents: { 'a.pdf': { title: 'X' } } })],
       'manifest.json', { type: 'application/json' });

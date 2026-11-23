@@ -71,6 +71,43 @@ export interface ManifestEntry {
   /** Licence code from App\Support\Licenses + its terms URL (manifest.json AND vault front matter). */
   license?: string;
   license_url?: string;
+  /**
+   * The work's authors as IDENTITIES (manifest.json only) — each names a person by Wikidata QID
+   * and/or Hyperlit author slug, with a role. Links the book to its author page at import
+   * (docs/authors.md). The server honours it for admin imports only; `author` stays the credit.
+   */
+  authors?: ManifestAuthor[];
+}
+
+/** One entry of a manifest's `authors` list. Role defaults to "author" server-side. */
+export interface ManifestAuthor {
+  name?: string;
+  role?: string;
+  slug?: string;
+  wikidata?: string;
+}
+
+/** The string-valued manifest fields (everything but the structured `authors` list). */
+export type ManifestStringKey = Exclude<keyof ManifestEntry, 'authors'>;
+
+const MANIFEST_AUTHOR_KEYS: ReadonlyArray<keyof ManifestAuthor> = ['name', 'role', 'slug', 'wikidata'];
+const MANIFEST_AUTHORS_MAX = 20;
+
+/** Keep only well-formed author entries: string fields, and at least a slug or a Wikidata id. */
+function sanitizeManifestAuthors(raw: unknown): ManifestAuthor[] {
+  if (!Array.isArray(raw)) return [];
+  const authors: ManifestAuthor[] = [];
+  for (const item of raw.slice(0, MANIFEST_AUTHORS_MAX)) {
+    if (typeof item !== 'object' || item === null) continue;
+    const source = item as Record<string, unknown>;
+    const author: ManifestAuthor = {};
+    for (const key of MANIFEST_AUTHOR_KEYS) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim()) author[key] = value.trim();
+    }
+    if (author.slug || author.wikidata) authors.push(author);
+  }
+  return authors;
 }
 
 /** A note left out of the plan on purpose — reported to the user, never silent. */
@@ -358,7 +395,7 @@ export function rewriteWikilinkImageEmbeds(mdText: string): string {
 /* ── Scrape-folder manifest ─────────────────────────────────────────────── */
 
 /** The manifest fields we accept — an explicit whitelist, never blind iteration. */
-const MANIFEST_ENTRY_KEYS: ReadonlyArray<keyof ManifestEntry> = [
+const MANIFEST_ENTRY_KEYS: ReadonlyArray<ManifestStringKey> = [
   'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
   'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
   // The work's OWN licence (a code from App\Support\Licenses, e.g. PDM / CC-BY-SA-2.0) and its
@@ -386,6 +423,8 @@ function sanitizeManifestEntry(raw: unknown): ManifestEntry | null {
       entry.year = value;
     }
   }
+  const authors = sanitizeManifestAuthors(source.authors);
+  if (authors.length) entry.authors = authors;
   return Object.keys(entry).length ? entry : null;
 }
 

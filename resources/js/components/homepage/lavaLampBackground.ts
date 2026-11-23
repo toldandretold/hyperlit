@@ -11,6 +11,7 @@
  */
 
 import { verbose } from '../../utilities/logger';
+import { LavaSmoke } from './lavaSmoke';
 
 interface Cluster {
   x: number;      // apex x of the tallest (back) leaf
@@ -114,7 +115,7 @@ export function ceilingCapRy(
   return Math.max(0, (BASE_Y - yVbCeil) / (1 + 1.9 * wobble + 0.01));
 }
 
-interface Blob { d: string; id: string; capped: boolean; pink: number; orange: number; aqua: number; }
+interface Blob { d: string; id: string; capped: boolean; cx: number; rx: number; ry: number; pink: number; orange: number; aqua: number; }
 
 function domePath(rng: Rng, cx: number, rx: number, ry: number, wobble: number): string {
   const lean = (rng() - 0.5) * 0.20;
@@ -149,6 +150,7 @@ class LavaLampBackground {
   private cfg: LavaCfg;
   private root: HTMLDivElement;
   private pathEls: SVGPathElement[] = [];
+  private lastBlobs: Blob[] = []; // geometry of the frame on screen (skyline)
   private rise = 0; // 0..1: scroll-driven — hills GROW toward the viewport top
   private capRy: number | null = null; // ceiling for capped blobs, viewBox units (see setCeiling)
   private riseRaf = 0;
@@ -159,6 +161,7 @@ class LavaLampBackground {
   private running = false;
   private reducedMotion: boolean;
   private adjuster: HTMLDivElement | null = null;
+  private smoke: LavaSmoke; // experimental clouds over the hills, under the copy (Shift+L / ?smoke)
   private keyHandler: (e: KeyboardEvent) => void;
 
   constructor(mount: HTMLElement, cfg: LavaCfg) {
@@ -169,8 +172,9 @@ class LavaLampBackground {
     this.root.setAttribute('aria-hidden', 'true');
     mount.prepend(this.root);
     this.renderFull();
+    this.smoke = new LavaSmoke(mount, xs => this.skyline(xs), () => this.toggleAdjuster());
     this.keyHandler = (e: KeyboardEvent) => {
-      if (e.key === 'L' && e.shiftKey && !this.isTypingTarget(e.target)) this.toggleAdjuster();
+      if (e.key.toLowerCase() === 'l' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !this.isTypingTarget(e.target)) this.toggleAdjuster();
     };
     document.addEventListener('keydown', this.keyHandler);
     if (this.reducedMotion) {
@@ -181,6 +185,12 @@ class LavaLampBackground {
       verbose.init('lavaLampBackground: prefers-reduced-motion — gentle mode (Shift+L to pause/adjust)', 'components/homepage/lavaLampBackground');
     }
     this.start();
+    // `?smoke` in the URL: switch the smoke layer on and open the adjuster —
+    // the no-keyboard door into the experiment (Shift+L is the other one)
+    if (new URLSearchParams(window.location.search).has('smoke')) {
+      this.smoke.enable();
+      if (!this.adjuster) this.toggleAdjuster();
+    }
   }
 
   destroy(): void {
@@ -189,6 +199,7 @@ class LavaLampBackground {
     document.removeEventListener('keydown', this.keyHandler);
     this.adjuster?.remove();
     this.adjuster = null;
+    this.smoke.destroy();
     this.root.remove();
   }
 
@@ -217,6 +228,7 @@ class LavaLampBackground {
         const blobs = this.buildBlobs();
         if (blobs.length !== this.pathEls.length) this.renderFull();
         else blobs.forEach((b, i) => this.pathEls[i]?.setAttribute('d', b.d));
+        this.smoke.follow(); // hills moved → re-clamp the clouds under them
       }
       this.rafId = requestAnimationFrame(loop);
     };
@@ -235,6 +247,7 @@ class LavaLampBackground {
     const next = clamp(f, 0, 1);
     if (next === this.rise) return;
     this.rise = next;
+    this.smoke.setRise(next);
     this.redrawSoon();
   }
 
@@ -243,6 +256,7 @@ class LavaLampBackground {
    *  always sits over lava while a dark band survives at the very top.
    *  null = no ceiling (feed mode). */
   setCeiling(linePx: number | null): void {
+    this.smoke.setCeiling(linePx);
     let next: number | null = null;
     if (linePx !== null) {
       const rect = this.root.querySelector('svg')?.getBoundingClientRect();
@@ -260,6 +274,7 @@ class LavaLampBackground {
       const blobs = this.buildBlobs();
       if (blobs.length !== this.pathEls.length) this.renderFull();
       else blobs.forEach((b, i) => this.pathEls[i]?.setAttribute('d', b.d));
+      this.smoke.follow();
     });
   }
 
@@ -326,7 +341,7 @@ class LavaLampBackground {
         const rx = c.W * Math.pow(ry1 / c.H, 0.75) * (1 + (rng() - 0.5) * 0.20);
         const x = c.x + c.stepX * i + (rng() - 0.5) * 2 * c.scatter;
         const ry = capped ? capRise(ry1 * restRatio, ry1, this.capRy, this.rise) : ry1;
-        blobs.push({ d: domePath(rng, x, rx, ry, cfg.wobble), id: `c${ci}-${i}`, capped, ...this.gradStops(rng, false) });
+        blobs.push({ d: domePath(rng, x, rx, ry, cfg.wobble), id: `c${ci}-${i}`, capped, cx: x, rx, ry, ...this.gradStops(rng, false) });
       }
     });
     const bobX = (i: number) => (this.simT ? Math.sin(this.simT * 0.15 + i * 1.9) * 30 * k : 0);
@@ -346,21 +361,45 @@ class LavaLampBackground {
     for (let i = 0; i < mid; i++) {
       const ry = capScatter((140 + sRng() * 180) * bobY(i) * lift);
       const rx = ry * (1.3 + sRng() * 1.9);
-      mids.push({ d: domePath(sRng, 560 + sRng() * 390 + bobX(i), rx, ry, cfg.wobble), id: `m${i}`, capped: true, ...this.gradStops(sRng, true) });
+      const x = 560 + sRng() * 390 + bobX(i);
+      mids.push({ d: domePath(sRng, x, rx, ry, cfg.wobble), id: `m${i}`, capped: true, cx: x, rx, ry, ...this.gradStops(sRng, true) });
     }
     const firstN = cfg.clusters[0] ? cfg.clusters[0].n : 0;
     blobs.splice(firstN, 0, ...mids);
     for (let i = 0; i < front; i++) {
       const ry = capScatter((70 + sRng() * 130) * bobY(i + 40) * lift);
       const rx = ry * (1.3 + sRng() * 1.9);
-      blobs.push({ d: domePath(sRng, -80 + sRng() * 1780 + bobX(i + 40), rx, ry, cfg.wobble), id: `f${i}`, capped: true, ...this.gradStops(sRng, true) });
+      const x = -80 + sRng() * 1780 + bobX(i + 40);
+      blobs.push({ d: domePath(sRng, x, rx, ry, cfg.wobble), id: `f${i}`, capped: true, cx: x, rx, ry, ...this.gradStops(sRng, true) });
     }
     for (let i = 0; i < tiny; i++) {
       const ry = capScatter((45 + sRng() * 65) * bobY(i + 80) * lift);
       const rx = ry * (1.3 + sRng() * 1.9);
-      blobs.push({ d: domePath(sRng, -80 + sRng() * 1780 + bobX(i + 80), rx, ry, cfg.wobble), id: `t${i}`, capped: true, ...this.gradStops(sRng, true) });
+      const x = -80 + sRng() * 1780 + bobX(i + 80);
+      blobs.push({ d: domePath(sRng, x, rx, ry, cfg.wobble), id: `t${i}`, capped: true, cx: x, rx, ry, ...this.gradStops(sRng, true) });
     }
+    this.lastBlobs = blobs;
     return blobs;
+  }
+
+  /** Screen-px y of the lava's top edge at each screen-px x — the smoke layer
+   *  keeps its clouds beneath it. Each blob is a dome (half-ellipse on the
+   *  baseline); same viewBox→screen mapping as ceilingCapRy (xMidYMax slice). */
+  private skyline(xs: number[]): number[] {
+    const rect = this.root.querySelector('svg')?.getBoundingClientRect();
+    if (!rect) return xs.map(() => window.innerHeight);
+    const scale = Math.max(rect.width / VW, rect.height / VH);
+    if (scale <= 0) return xs.map(() => window.innerHeight);
+    const mid = rect.left + rect.width / 2;
+    return xs.map((sx) => {
+      const xv = VW / 2 + (sx - mid) / scale;
+      let top = 0;
+      for (const b of this.lastBlobs) {
+        const t = (xv - b.cx) / b.rx;
+        if (t > -1 && t < 1) top = Math.max(top, b.ry * Math.sqrt(1 - t * t));
+      }
+      return rect.bottom - top * scale;
+    });
   }
 
   private renderFull(): void {
@@ -402,6 +441,7 @@ class LavaLampBackground {
       + `<button type="button" data-act="reroll">🎲 re-roll</button>`
       + `<button type="button" data-act="copy">copy settings</button></div>`;
     document.body.appendChild(panel);
+    // lava sliders only — the smoke section (appended below) wires its own
     panel.querySelectorAll('input[type=range]').forEach(el => {
       el.addEventListener('input', () => {
         const input = el as HTMLInputElement;
@@ -425,6 +465,7 @@ class LavaLampBackground {
     copy?.addEventListener('click', () => {
       void navigator.clipboard.writeText(JSON.stringify(this.cfg, null, 2));
     });
+    this.smoke.appendControls(panel);
     this.adjuster = panel;
   }
 

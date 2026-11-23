@@ -67,7 +67,8 @@ class CanonicalRegistry
 
         // Gutenberg works have no DOI, so dedup keys on the canonical ebooks URL
         // that commit stores in library.url.
-        if ($id instanceof GutenbergId) {
+        // …and so does a marxists.org work (its contents-page URL).
+        if ($id instanceof GutenbergId || $id instanceof \App\Services\SourceImport\Identifier\MarxistsId) {
             return PgLibrary::query()
                 ->where('has_nodes', true)
                 ->where('url', $id->url())

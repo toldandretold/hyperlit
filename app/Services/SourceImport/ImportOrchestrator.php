@@ -6,6 +6,7 @@ use App\Services\SourceImport\Content\ContentFetcher;
 use App\Services\SourceImport\Content\FetchResult;
 use App\Services\SourceImport\Identifier\Identifier;
 use App\Services\SourceImport\Identifier\IdentifierNormalizer;
+use App\Services\SourceImport\Metadata\MetadataRefused;
 use App\Services\SourceImport\Metadata\MetadataResolver;
 use App\Services\SourceImport\Metadata\SourceMetadata;
 use App\Services\SourceImport\Policy\AccessPolicy;
@@ -55,7 +56,12 @@ class ImportOrchestrator
         // the UI shows "existing source" and the user picks view vs. own-version.
         $existing = $this->registry->findByIdentifier($identifier);
 
-        $metadata = $this->resolveMetadata($identifier);
+        try {
+            $metadata = $this->resolveMetadata($identifier);
+        } catch (MetadataRefused $refused) {
+            // The resolver knows why this cannot be imported — say that, not "unavailable".
+            return InspectionResult::failure($refused->errorCode, $identifier);
+        }
         if (!$metadata) {
             // If the registry hit, we still know the work exists in our library —
             // surface that instead of a bare error.

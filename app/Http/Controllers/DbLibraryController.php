@@ -493,6 +493,16 @@ class DbLibraryController extends Controller
                                 Log::warning('licence review shelf reconcile failed', ['book' => $bookForShelf, 'err' => $e->getMessage()]);
                             }
                         }
+
+                        // An author's /a/ page holds their PUBLIC books: published → on it now,
+                        // made private → off it now (AuthorShelf is the shelf's only writer).
+                        if ($visChanged && ! str_contains($bookForShelf, '/') && \App\Services\Shelves\AuthorShelf::concerns($bookForShelf)) {
+                            try {
+                                \App\Services\Shelves\AuthorShelf::syncBook($bookForShelf);
+                            } catch (\Throwable $e) {
+                                Log::warning('author shelf sync failed', ['book' => $bookForShelf, 'err' => $e->getMessage()]);
+                            }
+                        }
                     });
                 }
 

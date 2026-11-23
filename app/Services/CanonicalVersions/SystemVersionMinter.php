@@ -92,6 +92,15 @@ class SystemVersionMinter
             'updated_at'             => $now,
         ]);
 
+        // A system version IS its canonical, so the canonical's authors are its authors
+        // (docs/authors.md). It joins their /a/ page once it has content. Never fatal.
+        try {
+            app(\App\Services\Authors\AuthorLinker::class)
+                ->linkFromCanonical($bookId, canonical: $canonical, method: 'auto_version_creation');
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Author linking failed for system version', ['book' => $bookId, 'error' => $e->getMessage()]);
+        }
+
         return $bookId;
     }
 

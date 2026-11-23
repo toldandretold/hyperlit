@@ -19,6 +19,8 @@ html/
   ar5iv_preprocessor.py — ar5iv → Hyperlit preprocessor
 markdown_and_pdf_to_html/
   simple_md_to_html.py — Really simple Markdown to HTML converter that treats footnotes as plain text
+marxists/
+  stitch.py — marxists.org: ONE work, shattered over many pages -> ONE EPUB the existing epub pipeline…
 pdf/
   assembly.py — Phase ② — assemble the markdown per layout  · registries: PDF_ASSEMBLERS
   classification.py — Phase ① — decide the PDF footnote LAYOUT  · registries: PDF_CLASSIFIERS

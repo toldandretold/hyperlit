@@ -37,7 +37,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 3;
+    public const VERSION = 4;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -89,9 +89,14 @@ class ConversionLint
         foreach ($nodes as $n) {
             $html = (string) ($n['content'] ?? '');
             $tag = $this->tag($html);
-            if (preg_match('/^h[1-6]$/', $tag) && preg_match('/>\s*(?:foot|end)?notes\s*</i', $html)) {
-                $inDefs = true;
-                continue;
+            if (preg_match('/^h[1-6]$/', $tag)) {
+                // The definitions section ends at the next heading. A converter slip can put the
+                // "Footnotes" heading mid-article (9d0400c9), and treating everything after it
+                // as definitions hid every later marker — 37 linked notes read as orphaned.
+                $inDefs = (bool) preg_match('/>\s*(?:foot|end)?notes\s*</i', $html);
+                if ($inDefs) {
+                    continue;
+                }
             }
             if ($inDefs || preg_match('/^<p[^>]*>\s*<a fn-count-id=/', $html)) {
                 if (preg_match('/<a fn-count-id="[^"]*" id="([^"]+)"/', $html, $m)) {

@@ -85,6 +85,27 @@ describe('uploadBatch wire format', () => {
     expect(fd.has('evil_key')).toBe(false);
   });
 
+  test('manifest authors travel as ONE json string field, and only when there are any', async () => {
+    const authors = [
+      { name: 'V. I. Lenin', role: 'author', slug: 'lenin', wikidata: 'Q1394' },
+      { name: 'Tim Delaney', role: 'translator', slug: 'delaney' },
+    ];
+    let calls = mockFetch();
+    await uploadBatch([bundle({ title: 'Imperialism', metadata: { author: 'V. I. Lenin', authors } })],
+      { label: 'L', source: 'folder', autoShelf: false, manifest: { schemaVersion: 1, site: 'marxists.org' } });
+    let fd = calls.find((c) => c.url === '/import-file').init.body;
+    expect(JSON.parse(fd.get('authors_json'))).toEqual(authors);
+    // The printed credit is still its own flat field — never derived from the identities.
+    expect(fd.get('author')).toBe('V. I. Lenin');
+    expect(fd.has('authors')).toBe(false);
+
+    calls = mockFetch();
+    await uploadBatch([bundle({ title: 'Imperialism', metadata: { author: 'V. I. Lenin', authors: [] } })],
+      { label: 'L', source: 'folder', autoShelf: false, manifest: { schemaVersion: 1 } });
+    fd = calls.find((c) => c.url === '/import-file').init.body;
+    expect(fd.has('authors_json')).toBe(false);
+  });
+
   test('no metadata, no manifest: the file POST stays minimal', async () => {
     const calls = mockFetch();
     await uploadBatch([bundle()], { label: 'L', source: 'files', autoShelf: false });

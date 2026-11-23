@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessDocumentImportJob;
+use App\Jobs\StitchMarxistsWorkJob;
 use App\Models\PgLibrary;
+use App\Services\Authors\MarxistsAuthors;
 use App\Services\CanonicalSourceMatcher;
 use App\Services\Licensing\WorkLicenseResolver;
 use App\Services\SourceImport\CanonicalRegistry;
+use App\Services\SourceImport\Content\FetchResult;
+use App\Services\SourceImport\Identifier\MarxistsId;
 use App\Services\SourceImport\ImportOrchestrator;
 use App\Services\SourceImport\InspectionResult;
 use App\Services\SourceImport\SingleWorkImporter;
@@ -25,8 +29,9 @@ use Illuminate\Support\Facades\Log;
  *   POST /import-url/inspect — preview (no side effects)
  *   POST /import-url         — commit (fetch content + dispatch processor)
  *
- * Two lanes behind commit. arXiv (ar5iv HTML) and Gutenberg (EPUB) fetch one known file here
- * and mint a book the importer owns. A DOI or OpenAlex id goes to SingleWorkImporter — the
+ * Lanes behind commit. arXiv (ar5iv HTML) and Gutenberg (EPUB) fetch one known file here
+ * and mint a book the importer owns. A marxists.org work is the same, except its many pages
+ * are crawled and stitched by a queued job (docs/marxists-import.md). A DOI or OpenAlex id goes to SingleWorkImporter — the
  * full open-access acquisition ladder, run in a queued job — and comes back as the shared
  * commons copy, or a private copy when that copy may not be hosted publicly.
  */
@@ -222,13 +227,22 @@ class UrlImportController extends Controller
         // render a live progress card during the sync fetch. Fetchers (and the
         // Node script inside PlaywrightPdfFetcher) overwrite this with finer
         // stages as they go.
-        if ($result->identifier->kind() === 'gutenberg') {
+        // A marxists.org work is MANY pages, fetched politely one after another — over a
+        // minute for Capital — so its fetch is a queued job (StitchMarxistsWorkJob), not part
+        // of this request. Everything else fetches one known file here.
+        $stitchLater = $result->identifier instanceof MarxistsId;
+
+        if ($stitchLater) {
+            $this->writeProgress($path, 'fetching_pages', 'Waiting to fetch the pages from marxists.org…', 2, 'processing');
+        } elseif ($result->identifier->kind() === 'gutenberg') {
             $this->writeProgress($path, 'fetching_epub', 'Downloading EPUB…', 8, 'processing');
         } else {
             $this->writeProgress($path, 'fetching_pdf', 'Fetching PDF…', 8, 'processing');
         }
 
-        $fetch = $this->orchestrator->fetchContent($result->identifier, $result->metadata, $path);
+        $fetch = $stitchLater
+            ? FetchResult::success("{$path}/original.epub", 'epub')
+            : $this->orchestrator->fetchContent($result->identifier, $result->metadata, $path);
         if (!$fetch->ok) {
             Log::warning('URL import content fetch failed', [
                 'book'       => $bookId,
@@ -269,6 +283,10 @@ class UrlImportController extends Controller
                 // CC slug → its CC code). Never the importer's own default licence: this is a
                 // third party's text. No evidence at all → "Licence unknown".
                 ...$this->importedWorkLicense($result->metadata->license(), $result->metadata->oaStatus()),
+                // A resolver that read the licence off the source's own page says the CODE
+                // outright (marxists.org) — nothing to infer from a free-text statement.
+                ...$this->statedLicense($result->metadata->data),
+                'note'           => $result->metadata->data['note'] ?? null,
                 'url'            => $result->identifier->url(),
                 'type'           => $result->metadata->data['type'] ?? 'article',
                 'journal'        => $result->metadata->data['journal'] ?? null,
@@ -323,6 +341,37 @@ class UrlImportController extends Controller
             ]);
         }
 
+        $formData = [
+            'title'  => $result->metadata->title(),
+            'author' => $result->metadata->author(),
+            'year'   => $result->metadata->year(),
+            'url'    => $result->identifier->url(),
+        ];
+
+        if ($stitchLater) {
+            // The page's own author credit names PEOPLE we know (a fixed, checked map), so the
+            // book is on its author's /a/ page as soon as it has content. Never fatal.
+            try {
+                app(MarxistsAuthors::class)->link($bookId, $result->metadata->data['author_credit'] ?? null);
+            } catch (\Throwable $e) {
+                Log::warning('marxists.org author link failed (continuing)', ['book' => $bookId, 'error' => $e->getMessage()]);
+            }
+
+            // Interactive lane, like every import a person is watching; the job dispatches
+            // the conversion onto the same lane once the pages are stitched.
+            StitchMarxistsWorkJob::dispatch($bookId, $result->identifier->value(), Auth::id(), $formData, $creatorInfo)
+                ->onQueue(ProcessDocumentImportJob::QUEUE_INTERACTIVE);
+
+            Log::info('marxists.org import queued', ['book' => $bookId, 'url' => $result->identifier->url()]);
+
+            return response()->json([
+                'ok'      => true,
+                'bookId'  => $bookId,
+                'status'  => 'processing',
+                'library' => $createdRecord,
+            ]);
+        }
+
         File::put("{$path}/progress.json", json_encode([
             'status'     => 'queued',
             'percent'    => 0,
@@ -337,12 +386,7 @@ class UrlImportController extends Controller
             $bookId,
             $fetch->extension,
             Auth::id(),
-            [
-                'title'  => $result->metadata->title(),
-                'author' => $result->metadata->author(),
-                'year'   => $result->metadata->year(),
-                'url'    => $result->identifier->url(),
-            ],
+            $formData,
             $creatorInfo,
         )->onQueue(ProcessDocumentImportJob::QUEUE_INTERACTIVE);
 
@@ -467,6 +511,28 @@ class UrlImportController extends Controller
             'no_fetcher_attempted'    => 'No PDF source available for this work.',
             default                   => 'Fetch failed' . ($reason ? ": {$reason}" : '.'),
         };
+    }
+
+    /**
+     * The licence a source STATED as a code (`license_code`, + `license_url`). Empty when the
+     * metadata carries none, so spreading it leaves importedWorkLicense's answer in place.
+     * A code outside the vocabulary is "Licence unknown", never Hyperlit's own-writing default.
+     *
+     * @return array{}|array{license: string, custom_license_text: null, license_url: ?string}
+     */
+    private function statedLicense(array $metadata): array
+    {
+        if (!array_key_exists('license_code', $metadata)) {
+            return [];
+        }
+        $code = Licenses::canonicalCode((string) $metadata['license_code']) ?? Licenses::UNKNOWN;
+        $url = $metadata['license_url'] ?? null;
+
+        return [
+            'license'             => $code,
+            'custom_license_text' => null,
+            'license_url'         => is_string($url) && preg_match('#^https?://#i', $url) ? $url : null,
+        ];
     }
 
     /**

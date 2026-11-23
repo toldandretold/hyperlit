@@ -217,3 +217,40 @@ test('a bare DOI keeps characters a publisher URL would lose', function () {
     expect($id->value())->toBe('10.1000/example/full');
 });
 
+
+// ─── marxists.org ─────────────────────────────────────────────────────
+
+test('parses a marxists.org work page, with or without scheme and www', function () {
+    foreach ([
+        'https://www.marxists.org/archive/marx/works/1867-c1/index.htm',
+        'http://marxists.org/archive/marx/works/1867-c1/index.htm',
+        'www.marxists.org/archive/marx/works/1867-c1/index.htm#contents',
+        'marxists.org/archive/marx/works/1867-c1/index.htm?x=1',
+    ] as $input) {
+        $id = $this->normaliser->parse($input);
+        expect($id)->toBeInstanceOf(\App\Services\SourceImport\Identifier\MarxistsId::class)
+            ->and($id->kind())->toBe('marxists')
+            ->and($id->value())->toBe('archive/marx/works/1867-c1/index.htm')
+            ->and($id->url())->toBe('https://www.marxists.org/archive/marx/works/1867-c1/index.htm');
+    }
+});
+
+test('a marxists.org folder means its index page, and language sections parse the same', function () {
+    expect($this->normaliser->parse('https://www.marxists.org/archive/lenin/works/1916/imp-hsc/')->value())
+        ->toBe('archive/lenin/works/1916/imp-hsc/index.htm');
+    expect($this->normaliser->parse('https://www.marxists.org/deutsch/archiv/marx-engels/1848/manifest/index.htm')->value())
+        ->toBe('deutsch/archiv/marx-engels/1848/manifest/index.htm');
+});
+
+test('only a text page ON marxists.org is a marxists identifier', function () {
+    foreach ([
+        'https://www.marxists.org/',                                           // the home page: no path
+        'https://www.marxists.org/archive/marx/works/download/capital.epub',   // a file, not a page
+        'https://www.marxists.org/archive/marx/../../etc/passwd.htm',          // traversal
+        'https://marxists.org.evil.example/archive/marx/works/1867-c1/index.htm',
+        'https://example.org/?u=https://www.marxists.org/archive/marx/works/1867-c1/index.htm',
+        'see marxists.org/archive/marx/works/1867-c1/index.htm for the text',
+    ] as $input) {
+        expect($this->normaliser->parse($input))->not->toBeInstanceOf(\App\Services\SourceImport\Identifier\MarxistsId::class);
+    }
+});

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloud buddy — character playground</title>
+<!--
+  Character sketch: the cloudRef button's cloud, come to life. The outline and
+  the quote marks are the EXACT cloudRef paths — the two quote glyphs are the
+  eyes. Self-contained playground (same idea as demo.html): pick a mood, try a
+  line in the bubble, "Copy SVG" for the markup. Nothing in the app loads this.
+-->
+<style>
+  :root {
+    --pink: #EE4A95; --orange: #F58A3C; --aqua: #2E8C8C;
+    --ink: #221F20; --cream: #F6EFE2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: Inter, system-ui, sans-serif; color: var(--ink);
+    display: grid; grid-template-columns: 1fr 300px;
+  }
+  .stage {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 40px; overflow: hidden;
+    background: linear-gradient(160deg, var(--pink), var(--orange) 55%, var(--aqua) 110%);
+  }
+  .stage.bg-cream { background: #E8D7B8; }
+  .stage.bg-dark { background: #1b1819; }
+  .actor { position: relative; width: var(--size, 260px); }
+  .actor svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+  /* ---------- speech bubble ---------- */
+  .bubble {
+    position: absolute; left: 78%; bottom: 82%; width: max-content; max-width: 260px;
+    padding: 12px 16px; border-radius: 18px 18px 18px 4px;
+    background: #fff; color: var(--ink); font-size: 15px; line-height: 1.35; font-weight: 500;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+    transform-origin: 0 100%; animation: pop .35s cubic-bezier(.3, 1.6, .5, 1) both;
+  }
+  .bubble:empty { display: none; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
+
+  /* ---------- the character ---------- */
+  .cb-fill { fill: var(--cream); }
+  .cb-ink { fill: var(--ink); }
+  .cb-line { fill: none; stroke: var(--ink); stroke-width: 13; stroke-linecap: round; stroke-linejoin: round; }
+  .cb-cheek { fill: var(--pink); opacity: .45; }
+  .cb-shadow { fill: #000; opacity: .16; transform-box: fill-box; transform-origin: center; animation: shadow 3.6s ease-in-out infinite; }
+  .cb-float { animation: bob 3.6s ease-in-out infinite; }
+  .cb-eye { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
+  .cb-eye-r { animation-delay: .04s; }
+  .cb-foot { transform-box: fill-box; transform-origin: 50% 0; animation: dangle 3.6s ease-in-out infinite; }
+  .cb-foot-r { animation-delay: -.5s; }
+  .cb-hand { transform-box: fill-box; transform-origin: 0% 100%; }
+  .cb-mouth, .cb-extra { display: none; }
+
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+  @keyframes shadow { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(.86); } }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.08); } }
+  @keyframes dangle { 0%, 100% { transform: rotate(5deg); } 50% { transform: rotate(-7deg); } }
+
+  /* idle */
+  .mood-idle .m-smile { display: block; }
+
+  /* talking: mouth flaps, little head-tilt */
+  .mood-talk .m-talk { display: block; transform-box: fill-box; transform-origin: center; animation: flap .32s ease-in-out infinite alternate; }
+  @keyframes flap { from { transform: scaleY(.25); } to { transform: scaleY(1); } }
+
+  /* thinking: eyes drift up-left, flat mouth, dots */
+  .mood-think .m-flat { display: block; }
+  .mood-think .cb-eyes { transform: translate(-10px, -12px); transition: transform .3s; }
+  .mood-think .x-dots { display: block; }
+  .mood-think .x-dots circle { animation: dot 1.2s infinite; }
+  .mood-think .x-dots circle:nth-child(2) { animation-delay: .2s; }
+  .mood-think .x-dots circle:nth-child(3) { animation-delay: .4s; }
+  @keyframes dot { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+
+  /* happy: big grin, bouncy, rosy */
+  .mood-happy .m-grin { display: block; }
+  .mood-happy .cb-float { animation: hop .7s cubic-bezier(.3, 0, .4, 1) infinite alternate; }
+  .mood-happy .cb-cheek { opacity: .75; }
+  @keyframes hop { from { transform: translateY(4px) scale(1.02, .97); } to { transform: translateY(-26px) scale(.98, 1.03); } }
+
+  /* waving */
+  .mood-wave .m-smile { display: block; }
+  .mood-wave .x-hand { display: block; }
+  .mood-wave .cb-hand { animation: wave .5s ease-in-out infinite alternate; }
+  @keyframes wave { from { transform: rotate(-12deg); } to { transform: rotate(22deg); } }
+
+  /* sleepy: eyes shut, slow float, zzz */
+  .mood-sleep .m-flat { display: block; }
+  .mood-sleep .cb-eye { animation: none; transform: scaleY(.1); }
+  .mood-sleep .cb-float { animation-duration: 6s; }
+  .mood-sleep .x-zzz { display: block; }
+  .mood-sleep .x-zzz text { animation: zzz 3s ease-in infinite; }
+  .mood-sleep .x-zzz text:nth-child(2) { animation-delay: 1s; }
+  .mood-sleep .x-zzz text:nth-child(3) { animation-delay: 2s; }
+  @keyframes zzz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(26px, -60px); } }
+
+  @media (prefers-reduced-motion: reduce) { .actor * { animation-duration: 0s !important; animation-iteration-count: 1 !important; } }
+
+  /* ---------- controls ---------- */
+  .panel { padding: 22px; background: #1b1819; color: #ddd; font-size: 13px; display: flex; flex-direction: column; gap: 14px; }
+  .panel h1 { margin: 0; font-size: 17px; color: #fff; }
+  .panel p { margin: 0; color: #9a9a9a; line-height: 1.45; }
+  .panel label { display: flex; flex-direction: column; gap: 5px; color: #9a9a9a; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { background: #3a3637; color: #eee; border: 0; border-radius: 7px; padding: 7px 11px; font: inherit; cursor: pointer; }
+  button[aria-pressed="true"] { background: var(--pink); color: #fff; }
+  input[type="text"] { padding: 7px 9px; border-radius: 7px; border: 1px solid #444; background: #262223; color: #eee; font: inherit; }
+  input[type="range"] { width: 100%; }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; } .stage { min-height: 70vh; } }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <div class="actor" id="actor">
+    <div class="bubble" id="bubble"></div>
+
+    <svg id="cloud-buddy" class="mood-idle" xmlns="http://www.w3.org/2000/svg" viewBox="-30 -70 580 470" role="img" aria-label="Cloud buddy">
+      <defs>
+        <!-- one cloudRef quote glyph, verbatim -->
+        <path id="cb-quote" d="M247.54,243.04h-67.31v-51.84c0-19.08,3.97-34.15,11.92-45.19,7.94-11.04,21.56-20.79,40.85-29.25l14.55,27.54c-11.86,5.57-20.07,11.12-24.6,16.64-4.54,5.52-7.07,12.05-7.58,19.58h32.19v62.52Z"/>
+      </defs>
+
+      <ellipse class="cb-shadow" cx="252" cy="384" rx="150" ry="13"/>
+
+      <g class="cb-float">
+        <!-- feet (behind the body) -->
+        <g class="cb-foot"><path class="cb-line" d="M196 300 v44"/><ellipse class="cb-ink" cx="188" cy="352" rx="24" ry="12"/></g>
+        <g class="cb-foot cb-foot-r"><path class="cb-line" d="M308 300 v44"/><ellipse class="cb-ink" cx="316" cy="352" rx="24" ry="12"/></g>
+
+        <!-- waving hand (wave mood) -->
+        <g class="cb-extra x-hand"><g class="cb-hand">
+          <path class="cb-line" d="M462 150 L508 84"/>
+          <circle class="cb-ink" cx="512" cy="76" r="20"/>
+        </g></g>
+
+        <!-- body: cloudRef's outer silhouette filled, its outline ring on top -->
+        <path class="cb-fill" d="M503.23,219.35c0-35.07-20.41-66.75-51.68-81.56C449.35,61.43,386.55,0,309.68,0c-54.39,0-103.11,30.53-127.01,78.67-4.94-.84-9.92-1.25-14.93-1.25-35.1,0-66.79,20.43-81.57,51.7C38.28,131.3,0,170.94,0,219.35s40.53,90.32,90.32,90.32h322.58c49.79,0,90.32-40.52,90.32-90.32Z"/>
+        <path class="cb-ink" d="M503.23,219.35c0-35.07-20.41-66.75-51.68-81.56C449.35,61.43,386.55,0,309.68,0c-54.39,0-103.11,30.53-127.01,78.67-4.94-.84-9.92-1.25-14.93-1.25-35.1,0-66.79,20.43-81.57,51.7C38.28,131.3,0,170.94,0,219.35s40.53,90.32,90.32,90.32h322.58c49.79,0,90.32-40.52,90.32-90.32ZM25.81,219.35c0-35.57,28.94-64.52,64.52-64.52.8,0,1.57.06,2.36.12l11.02.67,3.21-9.2c9.06-25.83,33.51-43.2,60.83-43.2,6.28,0,12.55.93,18.61,2.76l11.28,3.39,4.41-10.92c17.86-44.14,60.09-72.66,107.64-72.66,64.04,0,116.13,52.1,116.13,116.13l-.54,13.46,8.94,3.14c25.85,9.06,43.21,33.51,43.21,60.83,0,35.57-28.94,64.52-64.52,64.52H90.32c-35.57,0-64.52-28.94-64.52-64.52Z"/>
+
+        <!-- cheeks -->
+        <circle class="cb-cheek" cx="142" cy="232" r="22"/>
+        <circle class="cb-cheek" cx="366" cy="232" r="22"/>
+
+        <!-- eyes: the two quote marks, shrunk and set apart -->
+        <g class="cb-eyes">
+          <g transform="translate(204 172) scale(.56) translate(-213.9 -179.9)"><use href="#cb-quote" class="cb-ink cb-eye"/></g>
+          <g transform="translate(304 172) scale(.56) translate(-213.9 -179.9)"><use href="#cb-quote" class="cb-ink cb-eye cb-eye-r"/></g>
+        </g>
+
+        <!-- mouths (one shown per mood) -->
+        <path class="cb-line cb-mouth m-smile" d="M230 238 q24 22 48 0"/>
+        <path class="cb-line cb-mouth m-flat" d="M238 246 h32"/>
+        <ellipse class="cb-ink cb-mouth m-talk" cx="254" cy="246" rx="17" ry="15"/>
+        <path class="cb-ink cb-mouth m-grin" d="M222 234 h64 a32 30 0 0 1 -64 0 z"/>
+
+        <!-- thinking dots / sleeping z's -->
+        <g class="cb-extra x-dots cb-ink"><circle cx="420" cy="6" r="9"/><circle cx="452" cy="-22" r="12"/><circle cx="492" cy="-52" r="15"/></g>
+        <g class="cb-extra x-zzz cb-ink" font-family="Inter, system-ui, sans-serif" font-weight="800">
+          <text x="420" y="20" font-size="38">z</text><text x="440" y="0" font-size="48">z</text><text x="462" y="-20" font-size="58">z</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<div class="panel">
+  <h1>Cloud buddy</h1>
+  <p>The cloudRef cloud as a character: same outline, and the two quote marks are its eyes. Click the cloud for a line.</p>
+  <div class="row" id="moods"></div>
+  <label>says <input type="text" id="say" placeholder="type a line…"></label>
+  <label>size <input type="range" id="size" min="60" max="520" value="260"></label>
+  <div class="row" id="bgs"></div>
+  <div class="row"><button id="copy">Copy SVG</button></div>
+</div>
+
+<script>
+  const svg = document.getElementById('cloud-buddy');
+  const bubble = document.getElementById('bubble');
+  const say = document.getElementById('say');
+  const MOODS = ['idle', 'talk', 'think', 'happy', 'wave', 'sleep'];
+  const LINES = [
+    ['wave', "Hi! I'm the cloud. Yes, the one from the button."],
+    ['talk', "It looks like you're quoting something. Want a hypercite?"],
+    ['think', 'Hmm. That footnote says “ibid.” — ibid. to what?'],
+    ['happy', 'Two-way link made. Both books know about each other now!'],
+    ['talk', 'Highlight a passage and I can fetch what it cites.'],
+    ['sleep', ''],
+  ];
+  let lineIx = 0;
+
+  function setMood(m) {
+    MOODS.forEach(x => svg.classList.toggle('mood-' + x, x === m));
+    document.querySelectorAll('#moods button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mood === m)));
+  }
+  function speak(text) {
+    bubble.textContent = text;
+    bubble.style.animation = 'none'; void bubble.offsetWidth; bubble.style.animation = '';
+  }
+
+  MOODS.forEach(m => {
+    const b = document.createElement('button');
+    b.textContent = m; b.dataset.mood = m;
+    b.addEventListener('click', () => setMood(m));
+    document.getElementById('moods').appendChild(b);
+  });
+  [['lava', ''], ['cream', 'bg-cream'], ['dark', 'bg-dark']].forEach(([name, cls]) => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.addEventListener('click', () => { document.getElementById('stage').className = 'stage ' + cls; });
+    document.getElementById('bgs').appendChild(b);
+  });
+  svg.addEventListener('click', () => {
+    const [mood, text] = LINES[lineIx++ % LINES.length];
+    setMood(mood); speak(text); say.value = text;
+  });
+  svg.style.cursor = 'pointer';
+  say.addEventListener('input', () => { speak(say.value); setMood(say.value ? 'talk' : 'idle'); });
+  document.getElementById('size').addEventListener('input', e => {
+    document.getElementById('actor').style.setProperty('--size', e.target.value + 'px');
+  });
+  document.getElementById('copy').addEventListener('click', e => {
+    navigator.clipboard.writeText(svg.outerHTML).then(() => { e.target.textContent = 'Copied ✓'; });
+  });
+  setMood('idle');
+</script>
+</body>
+</html>

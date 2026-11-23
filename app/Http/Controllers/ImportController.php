@@ -228,6 +228,9 @@ class ImportController extends Controller
             'ocr_response' => 'nullable|file|max:102400',
             // Which client-side engine produced it (drives the provenance stamp).
             'ocr_source' => 'nullable|string|in:client_native,client_mistral',
+            // A scrape manifest's `authors` list, JSON-encoded (docs/web-scrape-import.md).
+            // Honoured for ADMIN imports only — see the ManifestAuthors call below.
+            'authors_json' => 'nullable|json|max:5000',
         ]);
 
         $bookId = preg_replace('/[^a-zA-Z0-9_-]/', '', $request->input('book'));
@@ -527,6 +530,20 @@ class ImportController extends Controller
             } catch (\Throwable $e) {
                 Log::warning('version_of canonical link failed — import continues unlinked', [
                     'book' => $bookId, 'version_of' => $original->book, 'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // A scrape manifest may name the book's authors by identity (Wikidata QID / author
+        // slug), linking it at birth instead of string-matching later (docs/authors.md).
+        // ADMIN ONLY: an entry can create an author and puts the book on a public /a/ page,
+        // so for anyone else the field is ignored (it stays in raw_json). Never fatal.
+        if ($request->filled('authors_json') && Auth::user()?->isAdmin() === true) {
+            try {
+                app(\App\Services\Authors\ManifestAuthors::class)->apply($bookId, $request->input('authors_json'));
+            } catch (\Throwable $e) {
+                Log::warning('Manifest authors failed — import continues unlinked', [
+                    'book' => $bookId, 'error' => $e->getMessage(),
                 ]);
             }
         }

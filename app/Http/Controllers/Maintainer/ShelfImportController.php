@@ -431,9 +431,12 @@ class ShelfImportController extends Controller
             'certified'    => 'boolean',
         ]);
 
+        // Authors share the /a/ namespace, and an author's page row is minted
+        // lazily — so the authors table is checked as well as archive_sources.
         $slugTaken = ArchiveSource::where('slug', $validated['slug'])
             ->where('shelf_id', '!=', $shelf->id)
-            ->exists();
+            ->exists()
+            || DB::table('authors')->where('slug', $validated['slug'])->exists();
         if ($slugTaken) {
             return response()->json(['message' => "Slug \"{$validated['slug']}\" already names another archive."], 422);
         }

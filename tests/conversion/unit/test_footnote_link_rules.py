@@ -4,10 +4,13 @@ phase is an isolated LinkRule so a broken phase pinpoints to one class. The nest
 the aarushi case is now `NoterefConverter` — exercised directly below.
 """
 
+import pytest
+
 from digestion.footnoteLinking.footnote_link_rules import (
     FootnoteLinkContext, IdMappingBuilder, NoterefConverter, LinkingStatsRecorder,
     FootnotesJsonBuilder, DefinitionElementRemover, link_epub_footnotes,
     FOOTNOTE_LINK_RULES,
+    strip_leading_footnote_number,
 )
 
 
@@ -159,3 +162,67 @@ def test_registry_is_ordered_and_complete():
     names = [r.name for r in FOOTNOTE_LINK_RULES]
     assert names.index('id_mapping') < names.index('noteref_convert')
     assert names.index('noteref_convert') < names.index('footnotes_json')
+
+
+# --- a definition's own printed marker is not part of its text ---------------------------------
+# marxists.org restarts numbering every chapter, so a "1." left in the note reads against the
+# book-wide number Hyperlit shows on the marker (Capital: marker 2 opened a note headed "1.").
+
+@pytest.mark.parametrize('html, expected', [
+    # Capital: the back-link sits inside an inline wrapper.
+    ('<p><span class="info"><a href="#p005-1b" id="p005-n1">1.</a></span> <cite>Geschichtliche Darstellung</cite>, von Gülich.</p>',
+     '<p><cite>Geschichtliche Darstellung</cite>, von Gülich.</p>'),
+    # Lenin: bracketed.
+    ('<p><a class="anote" href="#bk1" id="fw1">[1]</a>\n\nHobson, op. cit., pp. 59, 62.</p>',
+     '<p>Hobson, op. cit., pp. 59, 62.</p>'),
+    # Luxemburg: parenthesised, inside a superscript.
+    ('<p><sup><a href="#doc-1" id="foot-1">(1)</a></sup> “If production be capitalistic in form…”</p>',
+     '<p>“If production be capitalistic in form…”</p>'),
+    # MECW lettered notes.
+    ('<p><a href="#r91a" id="n91a">91a</a> The Executive Commission.</p>', '<p>The Executive Commission.</p>'),
+    ('<p><a href="#ra" id="na">[A]</a> Editor’s note.</p>', '<p>Editor’s note.</p>'),
+    # The plain forms it always handled.
+    ('<p><a href="#r">5.</a> Text.</p>', '<p>Text.</p>'),
+    ('<sup>5</sup>. Text.', 'Text.'),
+])
+def test_leading_marker_is_stripped_in_every_printed_form(html, expected):
+    assert strip_leading_footnote_number(html) == expected
+
+
+@pytest.mark.parametrize('html', [
+    # A wrapper that holds prose is prose, even when short enough to look like a symbol marker.
+    '<p><span class="sc">The</span> author resorts here to the economic language in current use.</p>',
+    '<p><strong>See</strong> Capital, Vol. 1.</p>',
+    # A wrapper holding the marker AND words is not a bare marker.
+    '<p><span><a href="#r">1.</a> Note</span> added in the 3rd German edition.</p>',
+    # A leading link that is a real citation, not a marker.
+    '<p><a href="https://example.org">Listen, Marxist!</a> (1969).</p>',
+    # No marker at all.
+    '<p>Mephistopheles in Goethe’s <em>Faust</em></p>',
+])
+def test_leading_prose_is_never_mistaken_for_a_marker(html):
+    assert strip_leading_footnote_number(html) == html
+
+
+# marxists.org's MECW notes: an empty id target, then the number in BOLD with no link.
+@pytest.mark.parametrize('html, expected', [
+    ('<a id="n5"></a><strong>5.</strong> The <em>German People’s Party</em>, established in 1868.',
+     '<a id="n5"></a>The <em>German People’s Party</em>, established in 1868.'),
+    ('<p><a id="n7"></a><b>[7]</b> The reference is to the war of 1870-71.</p>',
+     '<p><a id="n7"></a>The reference is to the war of 1870-71.</p>'),
+    ('<p><strong>12.</strong> Philippe Buchez.</p>', '<p>Philippe Buchez.</p>'),
+])
+def test_a_bold_unlinked_number_after_the_id_target_is_the_marker(html, expected):
+    assert strip_leading_footnote_number(html) == expected
+
+
+@pytest.mark.parametrize('html', [
+    # Bold PROSE opening a note is not a number…
+    '<p><a id="n1"></a><strong>See</strong> Capital, Vol. 1.</p>',
+    # …and a bold YEAR is not a note number.
+    '<p><strong>1848.</strong> The year of revolutions.</p>',
+    # An anchor that carries text is not an empty id target to skip past.
+    '<p><a id="n1">Marx</a> <strong>5.</strong> wrote.</p>',
+])
+def test_bold_prose_and_bold_years_are_left_alone(html):
+    assert strip_leading_footnote_number(html) == html

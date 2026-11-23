@@ -287,7 +287,12 @@ _DATE_LINE_RE = re.compile(
 # whose notes are almost all bare URLs). Lowercase "http" failed the capital test at every def
 # scan — the OCR-side signal collection, the page-bottom collector, AND the pypdf text-layer
 # rescue — so a note the PDF's own text layer carried plainly was invisible to the whole pipeline.
-DEF_URL_OPENER = r'https?://|www\.'
+# A URL printed in angle brackets ("5 <https://…/87.pdf>.") opens with "<", and the OCR returns
+# that as a mangled tag ("<https: 87.pdf="" …>") until fix_mangled_urls repairs it after the
+# pages are combined — both are the same opener. Missing them left a URL-only note in the body
+# flow, where the '## Footnotes' heading (inserted before the FIRST def) then split the article
+# in two (9d0400c9 note 5).
+DEF_URL_OPENER = r'<?https?://|<https?: |www\.'
 
 
 def collect_page_refs_and_defs(md_raw):
@@ -1452,7 +1457,10 @@ def split_body_and_footnotes(md):
     Footnote definitions start with [^N] at the beginning of a line.
     Returns (body, footnotes) where footnotes may be empty string.
     """
-    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*\u201c\u2018]', md, re.MULTILINE)
+    # "<" too: a note that is only an angle-bracketed URL ("[^5]: <https://…/87.pdf>.") opens
+    # with it. Left out, that note stayed in the BODY while the rest of its page's notes were
+    # collected, and the Footnotes heading landed mid-article in front of it (9d0400c9).
+    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*<\u201c\u2018]', md, re.MULTILINE)
     if not match:
         return md, ""
 

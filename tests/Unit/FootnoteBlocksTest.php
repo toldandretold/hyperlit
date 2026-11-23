@@ -47,3 +47,28 @@ test('a table is kept as its words, never welded, and an empty footnote is still
     expect(fnbShape('See:<br><br><table><tr><td>a</td><td>b</td></tr></table>'))->toBe(['<p>See:</p>', '<p>a b</p>']);
     expect(fnbShape(''))->toBe(['<p></p>']);
 });
+
+test('the definition anchor rides the first paragraph instead of becoming an empty node above it', function () {
+    // The EPUB lane's shape: the anchor is an inline run of its own BEFORE the first <p>. As a
+    // node of its own, every such footnote opened on a blank line (Capital via marxists.org).
+    $anchor = '<a fn-count-id="2" id="Fn1795425561249_00m5"></a>';
+
+    expect(fnbShape($anchor . '<p><cite>Geschichtliche Darstellung</cite>, von Gülich.</p><p>Second paragraph.</p>'))->toBe([
+        '<p>' . $anchor . 'Geschichtliche Darstellung, von Gülich.</p>',
+        '<p>Second paragraph.</p>',
+    ]);
+
+    // Same when the note opens with a quotation.
+    expect(fnbShape($anchor . '<blockquote><p>Quoted.</p></blockquote>'))->toBe([
+        '<blockquote>' . $anchor . 'Quoted.</blockquote>',
+    ]);
+
+    // The <br><br> shape never had the problem and is unchanged.
+    expect(fnbShape($anchor . 'One.<br><br>Two.'))->toBe(['<p>' . $anchor . 'One.</p>', '<p>Two.</p>']);
+
+    // An EMPTY footnote keeps its anchor paragraph: still a place to type.
+    expect(fnbShape($anchor))->toBe(['<p>' . $anchor . '</p>']);
+
+    // And an empty paragraph that is NOT first-of-a-pair with text (a list follows) is left alone.
+    expect(fnbShape($anchor . '<ul><li>item</li></ul>'))->toBe(['<p>' . $anchor . '</p>', '<ul><li>item</li></ul>']);
+});

@@ -273,31 +273,39 @@ async function restoreScrollPositionInner(): Promise<void> {
     recordNavDecision({ phase: 'restore-bail', reason: 'no-target-chunk0-path' });
     verbose.nav('WHY? Check if storage data was null/empty above', 'scrolling/restore');
 
-    // Load first chunk when no saved position
+    // Load first chunk when no saved position.
+    // Pin THIS loader: `currentLazyLoader` is a live binding that a navigation nulls (or
+    // repoints at the next book's loader) while we sit in an await or a timer. Reading it
+    // again afterwards threw "Cannot read properties of null (reading 'saveScrollPosition')"
+    // on a quick back-nav — or, with a new loader in place, would clear and refill ANOTHER
+    // book's container with this book's nodes.
+    const loader = currentLazyLoader;
+    const superseded = () => currentLazyLoader !== loader;
     try {
-      let cachedNodes = await getNodesFromIndexedDB(currentLazyLoader.bookId);
+      let cachedNodes = await getNodesFromIndexedDB(loader.bookId);
+      if (superseded()) return;
       verbose.nav(`Got cachedNodes from IndexedDB, count = ${cachedNodes?.length || 0}`, 'scrolling/restore');
 
       if (cachedNodes?.length > 0) {
         // 🛡️ FIX: Check if content already exists in DOM (e.g., from bfcache)
         // If so, preserve it and let browser's scroll restoration work
-        const existingChunks = currentLazyLoader.container.querySelectorAll('[data-chunk-id]');
+        const existingChunks = loader.container.querySelectorAll('[data-chunk-id]');
         verbose.nav(`Existing chunks in DOM = ${existingChunks.length}`, 'scrolling/restore');
 
         if (existingChunks.length > 0) {
           verbose.nav('Content exists in DOM - preserving instead of clearing', 'scrolling/restore');
-          verbose.nav(`Current scrollTop = ${currentLazyLoader.scrollableParent?.scrollTop}`, 'scrolling/restore');
+          verbose.nav(`Current scrollTop = ${loader.scrollableParent?.scrollTop}`, 'scrolling/restore');
 
           // Sync lazy loader state with existing DOM
           existingChunks.forEach((chunk: any) => {
             const chunkId = parseChunkId(chunk.getAttribute('data-chunk-id'));
-            currentLazyLoader.currentlyLoadedChunks.add(chunkId);
+            loader.currentlyLoadedChunks.add(chunkId);
           });
-          currentLazyLoader.nodes = cachedNodes;
+          loader.nodes = cachedNodes;
 
           // Save current scroll position for future restores
-          if (currentLazyLoader.saveScrollPosition) {
-            setTimeout(() => currentLazyLoader.saveScrollPosition(), 100);
+          if (loader.saveScrollPosition) {
+            setTimeout(() => { if (!superseded()) loader.saveScrollPosition(); }, 100);
           }
 
           return; // Exit - browser's restored position will be preserved
@@ -305,43 +313,46 @@ async function restoreScrollPositionInner(): Promise<void> {
 
         // No existing content - safe to clear and load chunk 0
         verbose.nav('No existing content, loading chunk 0', 'scrolling/restore');
-        currentLazyLoader.nodes = cachedNodes;
+        loader.nodes = cachedNodes;
         // ⚠️ DIAGNOSTIC: Log when container is cleared
-        const childCount2 = currentLazyLoader.container.children.length;
+        const childCount2 = loader.container.children.length;
         if (childCount2 > 0) {
           console.warn(`⚠️ CONTAINER CLEAR (scroll restore): ${childCount2} children removed`, {
             stack: new Error().stack,
             timestamp: Date.now()
           });
         }
-        currentLazyLoader.container.innerHTML = "";
+        loader.container.innerHTML = "";
         // Load chunk 0 if available, otherwise load the lowest available chunk
-        const chunk0Nodes = currentLazyLoader.nodes.filter((node: any) => node.chunk_id === 0);
+        const chunk0Nodes = loader.nodes.filter((node: any) => node.chunk_id === 0);
         let loadedChunkId: number | undefined;
         if (chunk0Nodes.length > 0) {
           loadedChunkId = 0;
-          await currentLazyLoader.loadChunk(0, "down");
-        } else if (currentLazyLoader.nodes.length > 0) {
+          await loader.loadChunk(0, "down");
+          if (superseded()) return;
+        } else if (loader.nodes.length > 0) {
           // Chunked lazy loading: initial chunk may not be chunk 0
-          loadedChunkId = currentLazyLoader.nodes
+          loadedChunkId = loader.nodes
             .reduce((min: number, n: any) => Math.min(min, n.chunk_id), Infinity);
-          await currentLazyLoader.loadChunk(loadedChunkId, "down");
+          await loader.loadChunk(loadedChunkId, "down");
+          if (superseded()) return;
         }
 
         // If the loaded chunk has fewer than 20 nodes, load the next chunk too
         if (loadedChunkId !== undefined) {
-          const loadedNodeCount = currentLazyLoader.container.querySelectorAll('[data-node-id]').length;
+          const loadedNodeCount = loader.container.querySelectorAll('[data-node-id]').length;
           if (loadedNodeCount < 20) {
-            const allChunkIds = currentLazyLoader.chunkManifest
-              ? currentLazyLoader.chunkManifest.map((m: any) => m.chunk_id)
-              : [...new Set(currentLazyLoader.nodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
+            const allChunkIds = loader.chunkManifest
+              ? loader.chunkManifest.map((m: any) => m.chunk_id)
+              : [...new Set(loader.nodes.map((n: any) => n.chunk_id))].sort((a: any, b: any) => a - b);
             const pos = allChunkIds.indexOf(loadedChunkId);
             let nextPos = pos + 1;
-            while (nextPos < allChunkIds.length && currentLazyLoader.container.querySelectorAll('[data-node-id]').length < 20) {
+            while (nextPos < allChunkIds.length && loader.container.querySelectorAll('[data-node-id]').length < 20) {
               const nextId = allChunkIds[nextPos];
-              const hasNodes = currentLazyLoader.nodes.some((n: any) => n.chunk_id === nextId);
+              const hasNodes = loader.nodes.some((n: any) => n.chunk_id === nextId);
               if (!hasNodes) break;
-              await currentLazyLoader.loadChunk(nextId, "down");
+              await loader.loadChunk(nextId, "down");
+              if (superseded()) return;
               nextPos++;
             }
           }
@@ -352,13 +363,15 @@ async function restoreScrollPositionInner(): Promise<void> {
       // Fallback to markdown fetch
       const response = await fetch(`/${book}/main-text.md`);
       const markdown = await response.text();
-      currentLazyLoader.nodes = parseMarkdownIntoChunksInitial(markdown);
-      currentLazyLoader.nodes
+      if (superseded()) return;
+      loader.nodes = parseMarkdownIntoChunksInitial(markdown);
+      loader.nodes
         .filter((node: any) => node.chunk_id === 0)
-        .forEach((node: any) => currentLazyLoader.loadChunk(node.chunk_id, "down"));
+        .forEach((node: any) => loader.loadChunk(node.chunk_id, "down"));
     } catch (error) {
+      if (superseded()) return;
       console.error("Error loading content:", error);
-      currentLazyLoader.container.innerHTML = "<p>Unable to load content. Please refresh the page.</p>";
+      loader.container.innerHTML = "<p>Unable to load content. Please refresh the page.</p>";
     }
     return;
   }

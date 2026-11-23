@@ -343,6 +343,19 @@ class ProcessDocumentImportJob implements ShouldQueue
             app(\App\Services\CanonicalVersions\CanonicalVersionSync::class)
                 ->syncForBook($this->bookId);
 
+            // An author's /a/ page lists public books WITH content — a public system
+            // version (or a reconverted public book) joins it now that it has some.
+            // Cheap probe first; best-effort like the hook above.
+            try {
+                if (\App\Services\Shelves\AuthorShelf::concerns($this->bookId)) {
+                    \App\Services\Shelves\AuthorShelf::syncBook($this->bookId);
+                }
+            } catch (\Throwable $authorErr) {
+                Log::warning('Author shelf sync failed after import', [
+                    'book' => $this->bookId, 'error' => $authorErr->getMessage(),
+                ]);
+            }
+
             // Detect the book's language from its fresh content (feeds <html lang>
             // only — never the bibliographic metadata). Best-effort queued job.
             DetectBookLanguageJob::dispatch($this->bookId);

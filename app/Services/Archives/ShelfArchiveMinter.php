@@ -35,7 +35,11 @@ class ShelfArchiveMinter
 
     public function isAvailable(string $slug): bool
     {
-        return self::isValidSlug($slug) && !ArchiveSource::where('slug', $slug)->exists();
+        // An author's /a/{slug} page is minted lazily (AuthorShelf), so an
+        // author's slug is spoken for before its archive row exists.
+        return self::isValidSlug($slug)
+            && !ArchiveSource::where('slug', $slug)->exists()
+            && !\Illuminate\Support\Facades\DB::table('authors')->where('slug', $slug)->exists();
     }
 
     public static function isValidSlug(string $slug): bool

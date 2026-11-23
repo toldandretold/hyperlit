@@ -183,6 +183,10 @@ class ArchivePageController extends Controller
             'hyperciteMap'    => $hyperciteMap,
             'pageSettings'    => $canEdit ? array_intersect_key($pageSettings, array_flip(['logo_image', 'background_image', 'background_art', 'show_map', 'overview_as_about'])) : null,
             'aboutNodes'      => $aboutNodes,
+            // An author page credits where its texts came from and who brought them in.
+            'authorSources'   => $shelfId && \App\Services\Shelves\AuthorShelf::isAuthorArchive($archive)
+                ? app(\App\Services\Authors\AuthorPageSources::class)->forShelf($shelfId)
+                : null,
             'archiveEdit'     => $canEdit ? [
                 'shelfId'     => $archive->shelf_id,
                 'name'        => $name,

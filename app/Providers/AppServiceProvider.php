@@ -119,6 +119,7 @@ class AppServiceProvider extends ServiceProvider
             OpenAlexMetadataResolver::class,
             ArxivMetadataResolver::class,
             GutenbergMetadataResolver::class,
+            \App\Services\SourceImport\Metadata\MarxistsMetadataResolver::class,
         ], 'source-import.resolvers');
 
         // Order matters: orchestrator iterates and falls through on failure.
@@ -127,6 +128,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->tag([
             Ar5ivFetcher::class,
             GutenbergEpubFetcher::class,
+            \App\Services\SourceImport\Content\MarxistsWorkFetcher::class,
             OpenAccessPdfFetcher::class,
             PlaywrightPdfFetcher::class,
         ], 'source-import.fetchers');

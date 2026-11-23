@@ -14,6 +14,16 @@ from pypdf import PdfReader, PdfWriter
 from ingestion.pdf.pdf_shared import *  # noqa: F401,F403
 from ingestion.pdf.pdf_shared import _TOC_ENTRY_TAIL_RE, _DATE_LINE_RE  # underscored — not in import *
 
+_BRACKETED_URL_RE = re.compile(r'<(https?://[^<>]{4,300})>')
+_WS_RE = re.compile(r'\s+')
+
+
+def _url_segments(url):
+    """The path segments of a URL as the bag an HTML parser leaves of them: lower-cased, unique."""
+    rest = re.sub(r'^https?://[^/]+', '', url)
+    return frozenset(seg.lower() for seg in rest.split('/') if seg)
+
+
 def fix_mangled_urls(text, pdf_path):
     """Fix URLs mangled by Mistral OCR into HTML-attribute format.
 
@@ -36,6 +46,11 @@ def fix_mangled_urls(text, pdf_path):
         # pypdf URLs may span lines; capture generously
         for m in re.finditer(r'https?://[^\s>)\]]+', page_text):
             real_urls.append(m.group().rstrip('.,;:'))
+        # A URL printed in angle brackets — the very shape OCR mangles — often wraps across a
+        # line, and the scan above then stops at the line end. Inside the brackets the extent
+        # is unambiguous, so the line break is simply removed.
+        for m in _BRACKETED_URL_RE.finditer(page_text):
+            real_urls.append(_WS_RE.sub('', m.group(1)).rstrip('.,;:'))
 
     # Build domain → [url, url, ...] map (preserving order)
     from collections import defaultdict
@@ -67,6 +82,34 @@ def fix_mangled_urls(text, pdf_path):
                 if '.' in attr and not attr.endswith('.pdf') and not attr.endswith('.html'):
                     domain = attr.lower()
                     break
+
+        # IDENTITY first: the mangling keeps every path segment (lower-cased, de-duplicated,
+        # sorted), so the real URL on this domain with the SAME bag of segments is this one.
+        # Position alone is not identity — the nth mangled tag is the nth layer URL only while
+        # the two lists stay in step, and one URL the OCR did not mangle (or one the layer wraps)
+        # shifts every later note onto its neighbour's address (9d0400c9: note 5 printed
+        # …/ArchivePDFs/87.pdf shipped as the site root, note 1 as …/69.pdf).
+        if domain and domain in domain_map:
+            want = frozenset(a.lower() for a in attrs if a.lower() != domain)
+            same = []
+            for u in domain_map[domain]:
+                if _url_segments(u) == want and u not in same:
+                    same.append(u)
+            if same:
+                # More than one only when two URLs share their segments in a different order
+                # or casing; nothing here can tell those apart, and the first is no worse a
+                # guess than position was.
+                return f'<{same[0]}>'
+            # The OCR can also DROP a segment ("…/raya/ArchivePDFs/5824.pdf" arrived without
+            # "raya"). What survived still names the URL when exactly one on this domain
+            # carries all of it — never for an empty bag, which every URL contains.
+            if want:
+                holds = []
+                for u in domain_map[domain]:
+                    if want <= _url_segments(u) and u not in holds:
+                        holds.append(u)
+                if len(holds) == 1:
+                    return f'<{holds[0]}>'
 
         if domain and domain in domain_map:
             idx = domain_used[domain]

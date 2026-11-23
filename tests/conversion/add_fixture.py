@@ -75,6 +75,23 @@ def main():
     pipeline = 'full' if has_ocr else 'html'
     print(f'Pipeline: {pipeline} ({"ocr_response.json" if has_ocr else "debug_converted.html"})')
 
+    # What a maintainer DECLARED about this fixture survives a re-capture. A second pull of the
+    # same book (a later lint sample, a re-export) used to rewrite the manifest from scratch,
+    # silently dropping "known_debt" and the allowed-orphan count — and the fixture then went
+    # red for debt that had been diagnosed and written down (three fixtures, 2026-11-23).
+    declared = {}
+    _old_manifest = os.path.join(fixture_dir, 'manifest.json')
+    if os.path.isfile(_old_manifest):
+        try:
+            _old = json.load(open(_old_manifest))
+            declared = {k: _old[k] for k in ('known_debt',) if k in _old}
+            if 'max_unmatched_defs' in _old.get('expected', {}):
+                declared['max_unmatched_defs'] = _old['expected']['max_unmatched_defs']
+            if _old.get('description') and not str(_old['description']).startswith('pulled prod case'):
+                declared['description'] = _old['description']
+        except (ValueError, OSError):
+            declared = {}
+
     if os.path.exists(fixture_dir):
         print(f'Warning: Fixture directory already exists: {fixture_dir}')
         # `book:import-cases` runs this with no tty (and a batch can legitimately carry two tars of
@@ -235,6 +252,15 @@ def main():
             'audit_gaps': audit_gaps,
         },
     }
+
+    if 'max_unmatched_defs' in declared:
+        manifest['expected']['max_unmatched_defs'] = declared['max_unmatched_defs']
+    if 'known_debt' in declared:
+        manifest['known_debt'] = declared['known_debt']
+    if 'description' in declared:
+        manifest['description'] = declared['description']
+    if declared:
+        print(f'  Kept declared: {", ".join(sorted(declared))}')
 
     manifest_path = os.path.join(fixture_dir, 'manifest.json')
     with open(manifest_path, 'w') as f:

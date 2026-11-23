@@ -146,6 +146,31 @@ test('a single-work (DOI / OpenAlex) import rides the interactive lane too', fun
     expect(file_get_contents(app_path('Jobs/ImportWorkJob.php')))->not->toContain('onQueue(');
 });
 
+test('a marxists.org import rides the interactive lane through BOTH of its jobs', function () {
+    // A person pasted one work's URL and is watching the progress card. The crawl-and-stitch
+    // job is dispatched onto the interactive lane, and so is the conversion it hands on to —
+    // one hop left on `default` would park the book behind a journal reconvert backlog.
+    $controller = file_get_contents(app_path('Http/Controllers/UrlImportController.php'));
+    expect($controller)->toMatch('/StitchMarxistsWorkJob::dispatch\([^;]*\)\s*->onQueue\(ProcessDocumentImportJob::QUEUE_INTERACTIVE\)/s');
+
+    $job = file_get_contents(app_path('Jobs/StitchMarxistsWorkJob.php'));
+    expect($job)->toMatch('/ProcessDocumentImportJob::dispatch\([^;]*\)\s*->onQueue\(ProcessDocumentImportJob::QUEUE_INTERACTIVE\)/s')
+        // The job never pins ITSELF to a queue; the dispatcher decides.
+        ->and(substr_count($job, 'onQueue('))->toBe(1);
+});
+
+test('the marxists.org BULK import does NOT ride the interactive lane', function () {
+    // `marxists:import` fans out hundreds of works (Lenin: ~3,400). The crawl job and the
+    // conversion it queues both stay on `default`, or one command would starve every upload.
+    $command = file_get_contents(app_path('Console/Commands/MarxistsImportCommand.php'));
+    expect($command)->toContain("ImportMarxistsWorkJob::dispatch((int) \$work->id)->onQueue('default')")
+        ->and($command)->not->toContain('QUEUE_INTERACTIVE');
+
+    $importer = file_get_contents(app_path('Services/Marxists/MarxistsBulkImporter.php'));
+    expect($importer)->toMatch("/ProcessDocumentImportJob::dispatch\\([^;]*\\)->onQueue\\('default'\\)/s")
+        ->and($importer)->not->toContain('QUEUE_INTERACTIVE');
+});
+
 test('the bulk reconvert-all fan-out does NOT ride the interactive lane', function () {
     // JournalImportActionJob::runReconvertAll queues one job per lane of a whole
     // journal — the exact backlog the lane exists to jump. It must never pass

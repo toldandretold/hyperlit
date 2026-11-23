@@ -177,6 +177,20 @@
           </div>
         </div>
       @endif
+      @if(!empty($authorSources['locations']) || !empty($authorSources['contributors']))
+        {{-- Author page credit (AuthorPageSources): the archives the texts were taken
+             from, then the Hyperlit users who brought them in. Names and hosts are escaped. --}}
+        @if(!empty($authorSources['locations']))
+        <h2 class="journal-about-meta journal-about-sources">Texts from
+          @foreach($authorSources['locations'] as $loc)<a href="{{ $loc['url'] }}" rel="noopener">{{ $loc['label'] }}</a> ({{ $loc['count'] }})@if(!$loop->last), @endif @endforeach
+        </h2>
+        @endif
+        @if(!empty($authorSources['contributors']))
+        <h2 class="journal-about-meta journal-about-sources journal-about-contributors">Contributed by
+          @foreach($authorSources['contributors'] as $who)<a href="{{ $who['url'] }}">{{ $who['name'] }}</a>@if(!$loop->last), @endif @endforeach
+        </h2>
+        @endif
+      @endif
       <h2 class="journal-about-counts">{{ number_format($readable) }} document{{ $readable === 1 ? '' : 's' }} readable on Hyperlit.@if(!$shelfId) Not yet public.@endif</h2>
     </section>
     {{-- No <main> containers: homepageDisplayUnit creates a fresh .main-content

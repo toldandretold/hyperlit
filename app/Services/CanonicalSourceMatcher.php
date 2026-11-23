@@ -289,6 +289,15 @@ class CanonicalSourceMatcher
                 'updated_at'          => $now,
             ] + self::licenceOnVerify($library, $canonical));
 
+        // A verified work names its authors: link the ones we hold, and queue a
+        // Wikidata lookup for ids we don't (docs/authors.md). Never fatal to the verify.
+        try {
+            app(\App\Services\Authors\AuthorLinker::class)
+                ->linkFromCanonical($library->book, canonical: $canonical, method: 'user_verified');
+        } catch (\Throwable $e) {
+            Log::warning('Author linking failed after verify', ['book' => $library->book, 'error' => $e->getMessage()]);
+        }
+
         return $canonical;
     }
 
@@ -749,6 +758,11 @@ class CanonicalSourceMatcher
         }
         if ($existing->is_oa === null && array_key_exists('is_oa', $n) && $n['is_oa'] !== null) {
             $fill['is_oa'] = $n['is_oa'];
+        }
+        // Author IDS, same only-fill-nulls contract: a canonical first stored with a name
+        // string alone gains the ids a later lookup of the same work carries (docs/authors.md).
+        if (empty($existing->authorships) && !empty($n['authorships']) && is_array($n['authorships'])) {
+            $fill['authorships'] = $n['authorships'];
         }
 
         if ($fill) {

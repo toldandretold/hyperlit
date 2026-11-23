@@ -342,6 +342,7 @@ const STAGE_LABELS: any = {
   db_references: 'Saving references',
   metadata: 'Finishing',
   processing: 'Processing',
+  fetching_pages: 'Fetching pages',
 };
 
 async function waitForImportCompletion(bookId: any, onProgress: any, ctl: any) {
@@ -397,7 +398,11 @@ function suggestBookId(metadata: any) {
 
 function humanError(code: any) {
   switch (code) {
-    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL, DOI, OpenAlex id, or Project Gutenberg link.";
+    case 'unrecognised_identifier': return "Couldn't recognise that as an arXiv URL, DOI, OpenAlex id, Project Gutenberg link, or marxists.org page.";
+    // marxists.org: one work = one book, imported from the work's own contents page.
+    case 'not_a_single_work': return 'That page lists several works. Paste the contents page of ONE work (e.g. …/works/1867-c1/index.htm) and import them one at a time.';
+    case 'not_a_text_page': return "That marxists.org page isn't a text we can import.";
+    case 'no_title': return "Couldn't find a title on that page.";
     case 'metadata_unavailable': return "Couldn't find metadata for this work.";
     case 'metadata_unavailable_but_canonical_exists': return 'This source exists in the library, but external metadata could not be refreshed.';
     case 'closed_access_requires_upload': return 'This work is not open access and no free copy is listed anywhere we could check. Switch to "Import a file" to upload the PDF.';

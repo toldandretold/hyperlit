@@ -8,8 +8,9 @@ namespace App\Services\SourceImport\Identifier;
  * Accepts: arXiv URLs (arxiv.org/abs, arxiv.org/pdf, ar5iv variants), bare arXiv IDs
  * (new-style "2302.08927", old-style "cs/0301001"), DOI URLs (doi.org/..., dx.doi.org/...),
  * bare DOIs ("doi:10.xxxx/..." or "10.xxxx/..."), OpenAlex work ids ("W2126853606",
- * openalex.org/W…), and Project Gutenberg book URLs
- * (gutenberg.org/ebooks/<id>, plus /cache/epub/<id>/ and /files/<id>/ file links).
+ * openalex.org/W…), Project Gutenberg book URLs
+ * (gutenberg.org/ebooks/<id>, plus /cache/epub/<id>/ and /files/<id>/ file links), and
+ * Marxists Internet Archive text pages (marxists.org/….htm — a work's contents page).
  *
  * Pure parsing — no I/O. arXiv is checked before DOI because arXiv DOIs would also match
  * the DOI regex and arXiv has a more specific shape. Gutenberg requires its host, so it
@@ -30,6 +31,10 @@ class IdentifierNormalizer
 
         if ($gutenberg = $this->tryGutenberg($trimmed)) {
             return $gutenberg;
+        }
+
+        if ($marxists = $this->tryMarxists($trimmed)) {
+            return $marxists;
         }
 
         // Before DOI: an openalex.org URL can never contain a DOI, and a bare "W123…"
@@ -54,6 +59,28 @@ class IdentifierNormalizer
         }
 
         return null;
+    }
+
+    /**
+     * A text page on the Marxists Internet Archive: marxists.org/<path>.htm, or a folder
+     * (its index.htm). Host-anchored, so nothing else can match. Whether the page is a WORK
+     * (and not an author's index of works) is the resolver's question — it needs the page.
+     */
+    private function tryMarxists(string $input): ?MarxistsId
+    {
+        if (!preg_match('#^(?:https?://)?(?:www\.)?marxists\.org/([^\s?\#]+)#i', $input, $m)) {
+            return null;
+        }
+        $path = $m[1];
+        if (str_ends_with($path, '/')) {
+            $path .= 'index.htm';
+        }
+        // Site paths are plain ASCII; anything else is not a page address we will fetch.
+        if (!preg_match('#^[A-Za-z0-9._~/-]+\.html?$#', $path) || str_contains($path, '..')) {
+            return null;
+        }
+
+        return new MarxistsId($path);
     }
 
     private function tryGutenberg(string $input): ?GutenbergId

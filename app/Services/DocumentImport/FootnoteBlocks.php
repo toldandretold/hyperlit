@@ -100,7 +100,37 @@ class FootnoteBlocks
         $blocks = [];
         self::walk($root, $doc, $blocks);
 
-        return $blocks;
+        return self::foldEmptyAnchors($blocks);
+    }
+
+    /**
+     * A block holding no words — only the definition's own `<a fn-count-id id>` anchor — is not a
+     * paragraph: it belongs at the head of the block that follows.
+     *
+     * The EPUB lane emits `<a fn-count-id="2" id="Fn…"></a><p>Text…</p>`: the anchor is an inline
+     * run of its own BEFORE the first paragraph, so it used to become a node of its own, and every
+     * such footnote opened on an empty line with its text a paragraph further down. Left alone when
+     * nothing follows (an empty footnote is still a place to type) or a list does.
+     *
+     * @param  list<array{0: string, 1: string}>  $blocks
+     * @return list<array{0: string, 1: string}>
+     */
+    private static function foldEmptyAnchors(array $blocks): array
+    {
+        $out = [];
+        $carry = '';
+        foreach ($blocks as $i => [$tag, $html]) {
+            $next = $blocks[$i + 1][0] ?? null;
+            if ($tag === 'p' && self::text($html) === '' && in_array($next, ['p', 'blockquote'], true)) {
+                $carry .= $html;
+
+                continue;
+            }
+            $out[] = [$tag, $carry . $html];
+            $carry = '';
+        }
+
+        return $out;
     }
 
     /** Collect $parent's children into blocks: inline runs become paragraphs, split at a double break. */

@@ -141,6 +141,14 @@ Schedule::command('library:licence-review')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Author pages (/a/{slug}) hold each author's PUBLIC books. AuthorShelf is synced on every link
+// and on the owner's visibility change; this is the backstop for the visibility writers that
+// don't call it (MCP, hosting policy, deletes). See docs/authors.md.
+Schedule::command('authors:reconcile')
+    ->dailyAt('05:50')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Commoner score ("hectares tilled"): writes every user's snapshot — total,
 // per-source counts, computed_at — which is exactly what the Stats overlay's
 // Tillage reads. Daily stats by design: the live count costs two corpus-wide

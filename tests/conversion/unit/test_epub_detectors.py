@@ -522,6 +522,45 @@ def test_inline_anchor_note_ignores_non_sup_link_targets(soup):
     assert det.transform(s, log)['footnotes'] == []
 
 
+def test_inline_anchor_note_never_restructures_an_anchor_inside_running_text(soup):
+    """marxists.org's MECW notes: the id target sits INSIDE the note's paragraph. The 'following block'
+    here is not a block at all — `find_next_siblings()` returns only the ELEMENTS of the sentence, so
+    wrapping them lifted every <em>/<strong> out of the prose and left the words behind: "The German
+    People's Party, established…" was stored as "The , established…" (Critique of the Gotha Programme,
+    11 of 14 notes). No count can see that. The note belongs to the block-based detectors."""
+    html = ('<body>'
+            '<p>Claim<sup class="enote"><a href="#n5">[5]</a></sup>.</p>'
+            '<h3>Notes</h3>'
+            '<p class="fst"><a id="n5"></a><strong>5.</strong> The <em>German People’s Party</em>, '
+            'established in <a href="x.htm">September 1868</a>, embraced the democrats.</p>'
+            '</body>')
+    s = soup(html)
+    before = str(s.find('p', class_='fst'))
+    det = E.InlineAnchorNoteFootnoteDetector()
+    _, log = _logs()
+
+    assert det.transform(s, log)['footnotes'] == []
+    assert str(s.find('p', class_='fst')) == before                  # byte-for-byte untouched
+    assert det.detect(s) is False
+
+    # The block-based detector takes the whole paragraph, sentence intact.
+    enote = E.EnoteFootnoteDetector().transform(s, log)
+    assert [f['id'] for f in enote['footnotes']] == ['n5']
+    assert 'The German People’s Party, established in September 1868, embraced' in \
+        ' '.join(enote['footnotes'][0]['element'].get_text(' ').split()).replace(' ,', ',')
+
+
+def test_inline_anchor_note_still_takes_the_block_that_follows_an_anchor_in_a_container(soup):
+    # The scheme's real shape is unaffected, including inside a <div> that also holds other blocks.
+    s = soup('<body><p>Claim<a href="#fn1"><sup>1</sup></a>.</p>'
+             '<div class="notes"><a id="fn1"></a><p>1 First note, with <em>emphasis</em> in place.</p></div></body>')
+    det = E.InlineAnchorNoteFootnoteDetector()
+    _, log = _logs()
+    out = det.transform(s, log)
+    assert [f['id'] for f in out['footnotes']] == ['fn1']
+    assert out['footnotes'][0]['element'].get_text() == 'First note, with emphasis in place.'
+
+
 # ---------------------------------------------------------------------------
 # AnchoredFootnoteScheme — the declarative factory the two detectors above are now instances of
 # ---------------------------------------------------------------------------

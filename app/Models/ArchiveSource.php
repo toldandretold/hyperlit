@@ -23,6 +23,10 @@ class ArchiveSource extends Model
         'display_name',
         'about',
         'certified_at',
+        // 'collection' (a curated shelf) or 'author' (AuthorShelf — a system-
+        // maintained shelf of one person's books; author_id names the person).
+        'kind',
+        'author_id',
     ];
 
     protected function casts(): array

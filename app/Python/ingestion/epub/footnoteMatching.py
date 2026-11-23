@@ -839,6 +839,12 @@ class AnchoredFootnoteScheme(EpubTransform):
     _NOTE_MARKER_RE = re.compile(r'^(?:end)?note\s+(\d+)$', re.I)
     _LEADING_NUM_RE = re.compile(r'^\s*\d{1,4}[.\)\s]\s*')
 
+    # Blocks that hold running text (an anchor inside one is inline), and block-level tags (the
+    # next one of these after an anchor is "the following block").
+    _PROSE_PARENTS = {'p', 'li', 'dd', 'dt', 'td', 'th', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'figcaption', 'caption'}
+    _BLOCK_TAGS = {'p', 'div', 'blockquote', 'ul', 'ol', 'dl', 'table', 'pre', 'figure', 'section', 'article',
+                   'aside', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr'}
+
     _MARKERS = {'sup-link', 'any-href', 'styled-superscript'}
     _DEFINITIONS = {'empty-anchor', 'note-heading', 'self-anchored-block'}
     _CONTENTS = {'following-siblings', 'self'}
@@ -962,7 +968,34 @@ class AnchoredFootnoteScheme(EpubTransform):
                     continue
                 yield el, eid
 
+    @staticmethod
+    def _is_inline_in_prose(a):
+        """An empty anchor sitting INSIDE a block of running text — `<p><a id=X></a><strong>5.</strong>
+        The <em>German People's Party</em>, established…</p>` — as opposed to standing BEFORE the note's
+        block. The 'empty-anchor' definition means the latter. Here the note IS the anchor's own block,
+        and its following ELEMENT siblings are fragments of the sentence: gathering them into a wrapper
+        lifted every <em>/<strong>/<a> out of the prose and left the words behind ("The , established…"
+        — marxists.org's Critique of the Gotha Programme, 11 of 14 notes). `find_next_siblings()` never
+        returns text nodes, so the damage was invisible to every count. Such a note belongs to the
+        block-based detectors (EnoteFootnoteDetector claims the block when the anchor opens it)."""
+        parent = a.parent
+        if parent is None:
+            return False
+        if parent.name in AnchoredFootnoteScheme._PROSE_PARENTS:
+            return True                       # an anchor inside a paragraph is part of that paragraph
+        # In a flow container (body / div / section): inline only if running text follows it before
+        # the next block — `<div><a id=X></a>5. The <em>Party</em>…</div>`.
+        for sib in a.next_siblings:
+            if isinstance(sib, NavigableString):
+                if str(sib).strip():
+                    return True
+            elif sib.name in AnchoredFootnoteScheme._BLOCK_TAGS:
+                return False
+        return False
+
     def _collect_content(self, el, linked):
+        if self.definition == 'empty-anchor' and self._is_inline_in_prose(el):
+            return []                                          # not this scheme's shape — never restructure it
         sibs = []
         for sib in el.find_next_siblings():
             if sib.name in _HEADINGS:

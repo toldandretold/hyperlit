@@ -44,9 +44,57 @@ class FootnoteLinkContext:
 # ---------------------------------------------------------------------------
 # Helper functions (were FootnoteConverter methods — pure, no instance state)
 # ---------------------------------------------------------------------------
+# A definition's own printed marker, as the whole text of its leading link/superscript:
+# "5" / "5." / "[5]" / "(5)" / "5)" / "91a" / "[A]" / "*" / "a.".
+_LEADING_MARKER_RE = re.compile(r'^(?:[\[(]?\d+[a-zA-Z]?[\])]?\.?|[\[(][a-zA-Z]{1,3}[\])]\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?)$')
+# Inline wrappers a publisher puts AROUND that link (marxists.org: <span class="info"><a …>1.</a></span>).
+_MARKER_WRAPPERS = ('span', 'b', 'strong', 'small', 'font')
+# The number printed BOLD with no link at all — `<a id="n5"></a><strong>5.</strong> The German…`
+# (marxists.org's MECW notes). Digits are required: three letters of bold prose are not a marker.
+_BOLD_NUMBER_RE = re.compile(r'^[\[(]?(\d{1,4})[a-zA-Z]?[\])]?\.?$')
+
+
+def _marker_core(elem):
+    """The <a>/<sup> that IS the definition's printed marker, when `elem` is it or merely wraps it.
+
+    A wrapper only counts when the marker link is ALL it holds — `<span>The</span> rest` is prose,
+    and three letters of prose match the symbol-marker shape, so a bare span is never a marker."""
+    while elem is not None and elem.name in _MARKER_WRAPPERS:
+        children = [c for c in elem.children
+                    if (hasattr(c, 'name') and c.name) or (isinstance(c, NavigableString) and str(c).strip())]
+        if len(children) != 1 or not getattr(children[0], 'name', None):
+            return None
+        elem = children[0]
+    if elem is None or elem.name not in ('a', 'sup'):
+        return None
+    return elem if _LEADING_MARKER_RE.match(elem.get_text().strip()) else None
+
+
+def _is_bold_number(elem):
+    """`<strong>5.</strong>` / `<b>[12]</b>` opening a definition: the note's printed number, unlinked.
+    A four-digit number that reads as a YEAR is left alone — a note can open "<b>1848.</b> The…"."""
+    if elem is None or elem.name not in ('strong', 'b'):
+        return False
+    m = _BOLD_NUMBER_RE.match(elem.get_text().strip())
+    return bool(m) and not (len(m.group(1)) == 4 and 1500 <= int(m.group(1)) <= 2099)
+
+
+def _is_empty_anchor(elem):
+    """The definition's own id target — `<a id="n5"></a>` — which carries no text and so cannot be
+    what the note opens with: the marker, if any, is whatever follows it."""
+    return (elem is not None and elem.name == 'a' and not elem.get('href')
+            and not elem.get_text(strip=True) and not elem.find(True))
+
+
 def strip_leading_footnote_number(content):
     """Remove leading footnote numbers/symbol markers from a definition's content
-    ('5. Text' / '[5] Text' / '<sup>5</sup>. Text' / '* Text' → 'Text')."""
+    ('5. Text' / '[5] Text' / '<sup>5</sup>. Text' / '* Text' → 'Text').
+
+    The marker is the SOURCE's number for the note; Hyperlit numbers notes itself, across the whole
+    book, so a printed "1." left in the text contradicts the marker the reader just tapped (every
+    chapter of a marxists.org work restarts at 1). It is usually a back-link to the reference —
+    `<a href="#ref">1.</a>`, `<sup><a …>(1)</a></sup>`, `<a class="anote">[1]</a>` — sometimes
+    inside an inline wrapper."""
     if not content:
         return content
     soup = BeautifulSoup(content, 'html.parser')
@@ -55,19 +103,19 @@ def strip_leading_footnote_number(content):
         first_elem = None
         for child in container.children:
             if hasattr(child, 'name') and child.name:
+                if _is_empty_anchor(child):
+                    continue                    # the id target, not the opening of the note
                 first_elem = child
                 break
             elif isinstance(child, NavigableString) and str(child).strip():
                 break
-        if first_elem and first_elem.name in ['a', 'sup']:
-            elem_text = first_elem.get_text().strip()
-            if re.match(r'^(\d+\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?)$', elem_text):
-                next_sib = first_elem.next_sibling
-                first_elem.decompose()
-                if next_sib and isinstance(next_sib, NavigableString):
-                    text = str(next_sib)
-                    next_sib.replace_with(re.sub(r'^[\.\s]+', '', text))
-                return True
+        if first_elem is not None and (_marker_core(first_elem) is not None or _is_bold_number(first_elem)):
+            next_sib = first_elem.next_sibling
+            first_elem.decompose()
+            if next_sib and isinstance(next_sib, NavigableString):
+                text = str(next_sib)
+                next_sib.replace_with(re.sub(r'^[\.\s]+', '', text))
+            return True
         return False
 
     strip_marker_element(soup)

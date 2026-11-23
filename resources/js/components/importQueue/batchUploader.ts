@@ -13,14 +13,14 @@ import { generateBookIdFromMetadata, findAvailableBookId } from '../newbookConta
 import { startImportQueuePolling } from './importQueuePoller';
 import { drainResponse } from '../../utilities/drainResponse';
 import { generateBibtexFromForm } from '../../utilities/bibtexProcessor';
-import type { ImportBundle, ManifestEntry } from './folderIngest';
+import type { ImportBundle, ManifestEntry, ManifestStringKey } from './folderIngest';
 
 /**
  * Manifest fields forwarded to POST /import-file — an explicit whitelist
  * mirroring ManifestEntry (never iterate the object blindly). Each maps to a
  * request field ImportController writes to `library` authoritatively.
  */
-const METADATA_KEYS: ReadonlyArray<keyof ManifestEntry> = [
+const METADATA_KEYS: ReadonlyArray<ManifestStringKey> = [
   'title', 'author', 'year', 'url', 'publisher', 'journal', 'type', 'language',
   'note', 'bibtex', 'volume', 'issue', 'pages', 'booktitle', 'chapter', 'editor', 'school',
   'doi', 'license', 'license_url',
@@ -189,6 +189,11 @@ export async function uploadBatch(
         if (value != null && String(value).trim()) {
           formData.append(key, String(value).trim());
         }
+      }
+      // The structured authors list travels as ONE JSON string (the wire format is flat
+      // strings). The server links the book to those author pages for admin imports only.
+      if (bundle.metadata.authors?.length) {
+        formData.append('authors_json', JSON.stringify(bundle.metadata.authors));
       }
     }
     // The user's own version of a book already in Hyperlit (vaultResolve.ts):

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2062,
-    "moduleCount": 433,
+    "fnCount": 2078,
+    "moduleCount": 434,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4332,
+    "edgeCount": 4342,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -824,6 +824,14 @@
       "leaf": true
     },
     {
+      "id": "components/homepage/lavaLampBackground:LavaLampBackground.skyline",
+      "label": "LavaLampBackground.skyline",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaLampBackground",
+      "leaf": false
+    },
+    {
       "id": "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
       "label": "LavaLampBackground.sliderRow",
       "kind": "fn",
@@ -869,6 +877,126 @@
       "kind": "fn",
       "stage": "components",
       "module": "components/homepage/lavaLampBackground",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.appendControls",
+      "label": "LavaSmoke.appendControls",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.build",
+      "label": "LavaSmoke.build",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.buildBank",
+      "label": "LavaSmoke.buildBank",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.buildSoon",
+      "label": "LavaSmoke.buildSoon",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.constructor",
+      "label": "LavaSmoke.constructor",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.destroy",
+      "label": "LavaSmoke.destroy",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.enable",
+      "label": "LavaSmoke.enable",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.follow",
+      "label": "LavaSmoke.follow",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.hasDials",
+      "label": "LavaSmoke.hasDials",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.onWinResize",
+      "label": "LavaSmoke.onWinResize",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.paintCloud",
+      "label": "LavaSmoke.paintCloud",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.place",
+      "label": "LavaSmoke.place",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.save",
+      "label": "LavaSmoke.save",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": false
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.setCeiling",
+      "label": "LavaSmoke.setCeiling",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
+      "leaf": true
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.setRise",
+      "label": "LavaSmoke.setRise",
+      "kind": "fn",
+      "stage": "components",
+      "module": "components/homepage/lavaSmoke",
       "leaf": true
     },
     {
@@ -18676,6 +18804,7 @@
         "components/homepage/lavaLampBackground:LavaLampBackground.riseCluster",
         "components/homepage/lavaLampBackground:LavaLampBackground.setCeiling",
         "components/homepage/lavaLampBackground:LavaLampBackground.setRise",
+        "components/homepage/lavaLampBackground:LavaLampBackground.skyline",
         "components/homepage/lavaLampBackground:LavaLampBackground.sliderRow",
         "components/homepage/lavaLampBackground:LavaLampBackground.start",
         "components/homepage/lavaLampBackground:LavaLampBackground.stop",
@@ -18686,6 +18815,29 @@
         "components/homepage/lavaLampBackground:initLavaLampBackground",
         "components/homepage/lavaLampBackground:setLavaCeiling",
         "components/homepage/lavaLampBackground:setLavaRise"
+      ]
+    },
+    {
+      "id": "components/homepage/lavaSmoke",
+      "label": "components/homepage/lavaSmoke",
+      "stage": "components",
+      "band": "components",
+      "fnIds": [
+        "components/homepage/lavaSmoke:LavaSmoke.appendControls",
+        "components/homepage/lavaSmoke:LavaSmoke.build",
+        "components/homepage/lavaSmoke:LavaSmoke.buildBank",
+        "components/homepage/lavaSmoke:LavaSmoke.buildSoon",
+        "components/homepage/lavaSmoke:LavaSmoke.constructor",
+        "components/homepage/lavaSmoke:LavaSmoke.destroy",
+        "components/homepage/lavaSmoke:LavaSmoke.enable",
+        "components/homepage/lavaSmoke:LavaSmoke.follow",
+        "components/homepage/lavaSmoke:LavaSmoke.hasDials",
+        "components/homepage/lavaSmoke:LavaSmoke.onWinResize",
+        "components/homepage/lavaSmoke:LavaSmoke.paintCloud",
+        "components/homepage/lavaSmoke:LavaSmoke.place",
+        "components/homepage/lavaSmoke:LavaSmoke.save",
+        "components/homepage/lavaSmoke:LavaSmoke.setCeiling",
+        "components/homepage/lavaSmoke:LavaSmoke.setRise"
       ]
     },
     {
@@ -24728,6 +24880,36 @@
       "source": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
       "target": "dom",
       "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.appendControls__domwrite__dom",
+      "source": "components/homepage/lavaSmoke:LavaSmoke.appendControls",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.build__domwrite__dom",
+      "source": "components/homepage/lavaSmoke:LavaSmoke.build",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.buildBank__domwrite__dom",
+      "source": "components/homepage/lavaSmoke:LavaSmoke.buildBank",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.destroy__domwrite__dom",
+      "source": "components/homepage/lavaSmoke:LavaSmoke.destroy",
+      "target": "dom",
+      "rel": "domwrite"
+    },
+    {
+      "id": "components/homepage/lavaSmoke:LavaSmoke.save__write__store:localStorage",
+      "source": "components/homepage/lavaSmoke:LavaSmoke.save",
+      "target": "store:localStorage",
+      "rel": "write"
     },
     {
       "id": "components/logoNav/logoNav:destroyLogoNav__domwrite__dom",
@@ -31589,9 +31771,27 @@
       "rel": "domread"
     },
     {
+      "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.skyline",
+      "source": "dom",
+      "target": "components/homepage/lavaLampBackground:LavaLampBackground.skyline",
+      "rel": "domread"
+    },
+    {
       "id": "dom__domread__components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
       "source": "dom",
       "target": "components/homepage/lavaLampBackground:LavaLampBackground.toggleAdjuster",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaSmoke:LavaSmoke.appendControls",
+      "source": "dom",
+      "target": "components/homepage/lavaSmoke:LavaSmoke.appendControls",
+      "rel": "domread"
+    },
+    {
+      "id": "dom__domread__components/homepage/lavaSmoke:LavaSmoke.build",
+      "source": "dom",
+      "target": "components/homepage/lavaSmoke:LavaSmoke.build",
       "rel": "domread"
     },
     {
@@ -50334,6 +50534,18 @@
       "rel": "read"
     },
     {
+      "id": "store:localStorage__read__components/homepage/lavaSmoke:LavaSmoke.constructor",
+      "source": "store:localStorage",
+      "target": "components/homepage/lavaSmoke:LavaSmoke.constructor",
+      "rel": "read"
+    },
+    {
+      "id": "store:localStorage__read__components/homepage/lavaSmoke:LavaSmoke.hasDials",
+      "source": "store:localStorage",
+      "target": "components/homepage/lavaSmoke:LavaSmoke.hasDials",
+      "rel": "read"
+    },
+    {
       "id": "store:localStorage__read__components/newbookContainer/citeForm/persistence:loadFormData",
       "source": "store:localStorage",
       "target": "components/newbookContainer/citeForm/persistence:loadFormData",
@@ -51960,6 +52172,11 @@
       "source": "components/homepage/homepageHero",
       "target": "components/userButton/userButton",
       "kind": "lazy"
+    },
+    {
+      "source": "components/homepage/lavaLampBackground",
+      "target": "components/homepage/lavaSmoke",
+      "kind": "static"
     },
     {
       "source": "components/newBookButton/newBookButton",

@@ -472,6 +472,7 @@
       "filetype": "html",
       "conditional": true
     },
+    "ingestion/marxists/stitch.py": {"band": "frontend", "filetype": "marxists.org url -> epub", "role": "crawl ONE marxists.org work, stitch its pages into original.epub for the epub frontend (no detection of its own)", "invoked_by": "MarxistsStitcher.php (StitchMarxistsWorkJob)"},
     "ingestion/word/strip_docx_metadata.py": {
       "band": "frontend",
       "filetype": "docx",

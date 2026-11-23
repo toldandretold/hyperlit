@@ -117,10 +117,8 @@ class ImportBatchController extends Controller
             // Derived shelves have ONE writer each: Likes mirrors book_likes,
             // licence-review is rebuilt by library:licence-review. An import
             // appended to either would be a row nothing else knows about.
-            if ($shelf && in_array($shelf->kind ?? null, [
-                \App\Services\Shelves\LikesShelf::KIND,
-                \App\Services\Shelves\LicenceReviewShelf::KIND,
-            ], true)) {
+            // (An author shelf follows book_authors — AuthorShelf.)
+            if ($shelf && \App\Services\Shelves\ShelfKinds::isSystem($shelf)) {
                 return response()->json(['message' => 'Books can\'t be imported straight onto this shelf.'], 422);
             }
 

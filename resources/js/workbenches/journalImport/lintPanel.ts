@@ -162,13 +162,14 @@ export async function refreshLint(): Promise<void> {
 }
 
 /**
- * Take a snapshot if the journal has none — called just before a reconvert_all, so the run it is
- * about to start always has a "before" to be compared with. Never overwrites one the operator
- * took on purpose, and silently does nothing when the lint is not complete (the server would
- * refuse a partial snapshot anyway, and a reconvert must not wait on it).
+ * Record the "before" of a reconvert_all — called just before one starts, every time, so the
+ * strip afterwards always measures THAT run. It replaces an older snapshot on purpose: a stale
+ * baseline measures everything since some earlier day, and the operator should not have to
+ * remember to press a button first. Silently does nothing when the lint is not complete; the
+ * server refuses mid-drain, which keeps the existing baseline when the button is pressed twice.
  */
 export async function ensureSnapshot(): Promise<boolean> {
-  if (!present() || !lintComplete() || compare) return false;
+  if (!present() || !lintComplete()) return false;
   return takeSnapshot();
 }
 

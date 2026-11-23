@@ -129,3 +129,15 @@ it('locates an orphaned definition whose stored node has no anchor, by its text'
     expect($r['findings'][0]['detector'])->toBe('orphan_definition')
         ->and($r['findings'][0]['startLine'])->toBe('600');
 });
+
+it('ends the definitions section at the next heading (9d0400c9)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Early text.</p>'),
+        lintNode('200', '<h2><a id="footnotes"></a>Footnotes</h2>'),
+        lintNode('300', '<p><a fn-count-id="5" id="Fn5"></a>[^5]: A note stranded mid-article.</p>'),
+        lintNode('400', '<h3>3.3. The next section</h3>'),
+        lintNode('500', '<p>Body text that calls a note<sup class="footnote-ref" fn-count-id="6" id="Fn6">6</sup> after the stray heading.</p>'),
+        lintNode('600', '<p><a fn-count-id="6" id="Fn6"></a>[^6]: The note it calls.</p>'),
+    ], ['Fn6' => 'The note it calls.']);
+    expect(detectors($r))->toBe([]);
+});

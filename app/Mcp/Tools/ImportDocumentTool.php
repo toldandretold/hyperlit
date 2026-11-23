@@ -45,7 +45,7 @@ class ImportDocumentTool extends HyperlitTool
 
     protected string $name = 'import_document';
 
-    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a work identifier via `url`: a DOI or an OpenAlex work id (the `doi` / `openalex_id` that search_sources returns) runs Hyperlit\'s open-access acquisition ladder — every free copy known to OpenAlex, Unpaywall, CORE, Semantic Scholar and Europe PMC — and so does not need you to fetch the text yourself; arXiv links and Project Gutenberg book URLs (gutenberg.org/ebooks/<id>) are fetched directly. A DOI/OpenAlex import can still fail (no open copy exists, or every copy is walled) and import_status then says why. An ordinary web page URL is NOT supported — fetch it yourself and pass `content`. Returns an id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
+    protected string $description = 'Import a document into the user\'s library. PREFERRED: pass the full text as `content` (Markdown or HTML) — e.g. the article text you fetched/cleaned from a journal page — which goes through the robust file-import pipeline. Also accepts base64 file bytes (docx/epub/pdf/…) via file_base64, or a work identifier via `url`: a DOI or an OpenAlex work id (the `doi` / `openalex_id` that search_sources returns) runs Hyperlit\'s open-access acquisition ladder — every free copy known to OpenAlex, Unpaywall, CORE, Semantic Scholar and Europe PMC — and so does not need you to fetch the text yourself; arXiv links and Project Gutenberg book URLs (gutenberg.org/ebooks/<id>) are fetched directly, and so is a work on the Marxists Internet Archive — pass the work\'s CONTENTS page (marxists.org/archive/…/index.htm; one work per import, an author index is refused) and its pages are stitched into one book. A DOI/OpenAlex import can still fail (no open copy exists, or every copy is walled) and import_status then says why. An ordinary web page URL is NOT supported — fetch it yourself and pass `content`. Returns an id to poll with import_status. PDFs cost credits (OCR) and use the estimate→confirm flow.';
 
     public function schema(JsonSchema $schema): array
     {
@@ -57,7 +57,7 @@ class ImportDocumentTool extends HyperlitTool
             'format' => $schema->string()->enum(['markdown', 'html'])->description('How to interpret `content`. Default markdown.'),
             'file_base64' => $schema->string()->description('Base64-encoded file bytes (for binary formats: docx/epub/pdf/odt/rtf). Provide with filename.'),
             'filename' => $schema->string()->description('Original filename incl. extension (drives the parser), for file_base64.'),
-            'url' => $schema->string()->description('A work identifier: a DOI (bare or doi.org URL), an OpenAlex work id (W… or openalex.org/W…), an arXiv URL/id, or a Project Gutenberg book URL. Metadata is derived server-side. A DOI/OpenAlex import returns the shared commons copy when one can be hosted, otherwise a private copy for the user. Not for arbitrary web pages — use content for those.'),
+            'url' => $schema->string()->description('A work identifier: a DOI (bare or doi.org URL), an OpenAlex work id (W… or openalex.org/W…), an arXiv URL/id, a Project Gutenberg book URL, or the contents page of one work on marxists.org. Metadata is derived server-side. A DOI/OpenAlex import returns the shared commons copy when one can be hosted, otherwise a private copy for the user. Not for arbitrary web pages — use content for those.'),
             'confirm_token' => $schema->string()->description('For PDFs only: the token from the estimate (returned by the first call for an uploaded PDF, or by import_status for a DOI/OpenAlex import that found a PDF), to confirm the OCR charge. Pass it alone to confirm a DOI/OpenAlex import.'),
             'force' => $schema->boolean()->description('Skip the "already in Hyperlit?" duplicate check and import anyway. Default false.'),
         ];
@@ -230,14 +230,17 @@ class ImportDocumentTool extends HyperlitTool
         $source = ! empty($json['source_url']) ? " Source: {$json['source_url']}." : '';
 
         return match ($error) {
-            'unrecognised_identifier' => 'That is not a recognised work identifier. `url` takes a DOI, an OpenAlex work id (W…), an arXiv link or a Project Gutenberg book URL — not an ordinary web page. For a web page, fetch the text yourself and pass it as `content`.',
+            'unrecognised_identifier' => 'That is not a recognised work identifier. `url` takes a DOI, an OpenAlex work id (W…), an arXiv link, a Project Gutenberg book URL or a marxists.org work\'s contents page — not an ordinary web page. For a web page, fetch the text yourself and pass it as `content`.',
             'metadata_unavailable', 'metadata_unavailable_but_canonical_exists' => match ($json['identifier_kind'] ?? null) {
                 // Each identifier kind resolves against its OWN registry — blaming
                 // OpenAlex for a Gutenberg catalogue outage sent agents chasing the wrong cause.
                 'gutenberg' => 'The Project Gutenberg catalogue did not return this book\'s metadata (gutenberg.org/ebooks/<id>.rdf failed — the site may be rate-limiting or down, or the ebook number is wrong). Retry later, or import the text via `content`.',
                 'arxiv' => 'arXiv did not return metadata for that id (the id may be wrong, or arXiv is unavailable). Retry later, or import the text via `content`.',
+                'marxists' => 'marxists.org did not return that page (the address may be wrong, or the site is unavailable). Retry later.',
                 default => 'OpenAlex has no record for that identifier, so the work could not be resolved. Check the DOI / id (search_sources returns valid ones), or import the text via `content`.',
             },
+            'not_a_single_work' => 'That marxists.org page is an index of several works, not one work. Import one work per call, passing that work\'s own contents page (e.g. marxists.org/archive/marx/works/1867-c1/index.htm).',
+            'not_a_text_page', 'no_title' => 'That marxists.org page is not a text that can be imported. Pass the contents page of one work.',
             'closed_access_requires_upload' => 'No open-access copy of this work is listed by OpenAlex, Unpaywall, CORE or Semantic Scholar, so it cannot be fetched automatically. If the user has the PDF, import it with file_base64.'.$source,
             'content_fetch_failed' => 'The file for this work could not be downloaded ('.($json['reason'] ?? 'unknown reason').').'.$source,
             'book_id_taken' => 'A book id collision occurred; retry.',
