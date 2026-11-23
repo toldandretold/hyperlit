@@ -661,6 +661,9 @@ def resurrect_pua_markers(ocr_md, seams, page_label=''):
     return ocr_md, count
 
 
+_URL_OPENER_RE = re.compile(r'https?://|www\.')
+
+
 def split_run_on_numbered_def(num, text):
     """A pypdf 'def' that is really a RUN-ON of consecutively numbered items on one text
     block — the affiliation-footer shape (a280cf5b: "1 School of International Development…,
@@ -671,6 +674,27 @@ def split_run_on_numbered_def(num, text):
     substantial. Trailing 'Correspondence:' contact chrome is trimmed from the last item.
     Returns [(num, text)] unchanged when the shape does not hold."""
     flat = re.sub(r'\s+', ' ', text).strip()
+
+    # URL-ONLY notes run together: "http://…/mswv5_65.htm 2 http://…/mswv8_09.htm" is note 1
+    # AND note 2 (tripleC 25cfb2ff — a page of bare-link footnotes extracts as one block, and
+    # the def shipped as a single note whose text was two addresses with a "2" between them).
+    # ONE boundary is enough here, unlike the prose run-on below: a note that IS a URL does
+    # not mention a number, and the next consecutive number followed by another URL is the
+    # same reading sanitize_layer_def_text already makes when it stops a URL at a bare number.
+    if _URL_OPENER_RE.match(flat):
+        url_segs = []
+        cur, rest = num, flat
+        while True:
+            m = re.search(r'\s{0}\s+(?=https?://|www\.)'.format(cur + 1), rest)
+            if not m:
+                break
+            url_segs.append((cur, rest[:m.start()].strip()))
+            rest = rest[m.end():]
+            cur += 1
+        if url_segs:
+            url_segs.append((cur, rest.strip()))
+            return [(n, t) for n, t in url_segs if t]
+
     segs = []
     cur = num
     rest = flat

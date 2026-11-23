@@ -867,7 +867,7 @@ def sanitize_layer_def_text(text):
 
 
 def reconcile_page_defs_with_pypdf(block, lines, pypdf_defs, ref_nums, page_label='',
-                                   confirmed_out=None):
+                                   confirmed_out=None, stray_defs=None):
     """Reconcile a page's whole OCR definition BLOCK against the PDF's own text layer.
 
     `repair_page_def_numbers` above fires only when the OCR contradicts ITSELF (a repeated or
@@ -910,6 +910,10 @@ def reconcile_page_defs_with_pypdf(block, lines, pypdf_defs, ref_nums, page_labe
         pypdf_defs: [(number, text), …] for THIS page from extract_pypdf_footnote_defs().
         page_label: for the log line.
 
+        stray_defs: [(number, body), …] — definition-shaped lines on this page that are NOT
+            in `block` (the block is only the TRAILING run; body text can interrupt a page's
+            notes). See the refusal below.
+
     Returns:
         (block, lines, changed).
     """
@@ -917,6 +921,23 @@ def reconcile_page_defs_with_pypdf(block, lines, pypdf_defs, ref_nums, page_labe
 
     if not block or not pypdf_defs:
         return block, lines, False
+
+    # `block` must be the page's WHOLE note apparatus for elimination to mean anything. When
+    # the OCR reads body text between two notes, the trailing run is only the LAST of them:
+    # tripleC e403008c page 5 carries ¹⁰ and ¹¹, a paragraph, then ¹². The block was [12], the
+    # layer said 10, 11, 12, and "the OCR lost notes 10 and 11" inserted layer copies of two
+    # definitions standing a few lines up — every such page then shipped two [^10]s, the
+    # sequential linker lost its place, and 15 of 37 definitions ended up with no marker.
+    # A stray definition the layer recognises as one of ITS notes proves the block is partial.
+    for stray_num, stray_body in (stray_defs or ()):
+        stray_print = _def_fingerprint(stray_body)
+        if not stray_print:
+            continue
+        for layer_num, layer_text in pypdf_defs:
+            if layer_num == stray_num and difflib.SequenceMatcher(
+                    None, stray_print, _def_fingerprint(layer_text) or '',
+                    autojunk=False).ratio() >= _DEF_MATCH_MIN_SIMILARITY:
+                return block, lines, False
 
     # The text layer's own block must be a clean ascending run before it can arbitrate
     # anything — a repeated or descending number there means the EXTRACTOR is confused
@@ -1024,6 +1045,18 @@ def reconcile_page_defs_with_pypdf(block, lines, pypdf_defs, ref_nums, page_labe
                         plan.append(('replace', gi, layer[gj][0],
                                      sanitize_layer_def_text(layer[gj][1])))
         elif gap_defs:
+            # Definitions past the END (or before the START) of the layer's block, with nothing
+            # in the layer to stand against: "spurious" is only one reading — the other is that
+            # the extractor stopped early, and the contiguity test above cannot see a block
+            # truncated at its edge. tripleC 00120a28 page 9 prints notes 18–21; the layer gave
+            # 18, 19; notes 20 and 21 were dropped as inventions while their markers stood in
+            # the body of the same page. A marker on this page calling the note is the page
+            # itself vouching for it, so the page is refused. (An INTERIOR surplus — deloitte's
+            # "StoE" between two anchored notes — is still dropped: there the layer has notes on
+            # both sides and no room for one more.)
+            at_edge = prev_i == -1 or i == len(block)
+            if at_edge and any(block[gi][1] in ref_nums for gi in gap_defs):
+                return block, lines, False
             plan.extend(('drop', gi) for gi in gap_defs)
         elif gap_layer:
             plan.extend(('insert', layer[gj][0], sanitize_layer_def_text(layer[gj][1]))
@@ -1313,8 +1346,12 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
     # what the layer's own order means, is a fresh way to collide.
     confirmed_local = set()
     if block and not _repaired:
+        _in_block = {entry[0] for entry in block}
+        _stray = [(c[0], c[2]) for c in (
+            _def_candidate(l.strip()) for k, l in enumerate(lines) if k not in _in_block) if c]
         block, lines, _reconciled = reconcile_page_defs_with_pypdf(
-            block, lines, pypdf_defs, ref_nums, page_label, confirmed_out=confirmed_local)
+            block, lines, pypdf_defs, ref_nums, page_label, confirmed_out=confirmed_local,
+            stray_defs=_stray)
 
     # A trailing run of STRICTLY ASCENDING numbers that overlaps this page's in-text refs is
     # unambiguously a page-bottom footnote block -- convert the WHOLE run, even numbers whose own

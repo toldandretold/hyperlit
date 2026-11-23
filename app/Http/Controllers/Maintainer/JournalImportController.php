@@ -426,6 +426,11 @@ class JournalImportController extends Controller
             $out = "{$dir}/{$book}.tar.gz";
             $exit = \Illuminate\Support\Facades\Artisan::call('book:export', [
                 'book' => $book, '--out' => $out, '--origin' => 'journal-import',
+                // A lint finding is about what the CONVERTER did with a fetch that was fine.
+                // Left to auto-detect, every harvested article exports as a `harvest`
+                // (acquisition) case: import-cases then prints "the fetch was wrong", captures
+                // no regression fixture, and reconvert-queue suggests retracting the book.
+                '--kind' => \App\Console\Commands\BookExport::KIND_CONVERSION,
             ]);
             if ($exit === 0 && is_file($out)) {
                 $members[] = "{$book}.tar.gz";

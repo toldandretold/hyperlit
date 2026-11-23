@@ -358,6 +358,51 @@ def test_a_definition_the_ocr_lost_is_inserted_from_the_text_layer():
     assert 'Ibid.' in [b[3] for b in block]
 
 
+# tripleC e403008c page 5 / 00120a28 page 9 (2026-11-23): two ways the trailing block or the
+# layer block is only PART of the page's notes, where elimination reads the missing part as
+# "the OCR lost it" / "the OCR invented it". Both shipped across a 900-article journal.
+TRIPLEC_NOTES = [
+    (10, 'J.D. Peters, op.cit. p. 13: The doctrine of ideas, developed initially by Descartes, '
+         'was central to early modern philosophy, both rationalist and empiricist.'),
+    (11, 'According to J.D. Peters, op.cit. p. 12, Bacon criticizes in the Great Instauration '
+         'the logicians of his day for receiving as conclusive the immediate informations.'),
+    (12, 'See Annex and the Diccionario de Autoridades entry reproduced there in full.'),
+    (13, 'Claude E. Shannon and Warren Weaver: The mathematical theory of communication. '
+         'Urbana, IL: University of Illinois Press 1972 (orig. 1949), p. 31.'),
+]
+
+
+def test_a_note_standing_above_the_trailing_block_is_not_inserted_again():
+    """Body text between two notes leaves only the LAST run as `block`. The layer's notes 10
+    and 11 are a few lines up the same page — inserting them minted two [^10]s."""
+    lines = ['Body [^10] and [^11].', TRIPLEC_NOTES[0][1], TRIPLEC_NOTES[1][1],
+             'A paragraph the OCR read between the notes [^12] [^13].',
+             TRIPLEC_NOTES[2][1], TRIPLEC_NOTES[3][1]]
+    block = [(4, 12, '12', TRIPLEC_NOTES[2][1]), (5, 13, '13', TRIPLEC_NOTES[3][1])]
+    stray = [(10, TRIPLEC_NOTES[0][1]), (11, TRIPLEC_NOTES[1][1])]
+    out_block, out_lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(block), list(lines), TRIPLEC_NOTES, {10, 11, 12, 13}, stray_defs=stray)
+    assert not changed and out_lines == lines
+    # positive control: with no stray definitions the same page DOES get its lost notes back
+    _b, with_insert, changed = S.reconcile_page_defs_with_pypdf(
+        list(block), list(lines), TRIPLEC_NOTES, {10, 11, 12, 13})
+    assert changed and len(with_insert) > len(lines)
+
+
+def test_a_referenced_note_past_the_end_of_the_layer_block_is_not_dropped():
+    """The layer stopped after two of four notes. The other two are called by markers on this
+    very page, so they are not inventions — a truncated layer cannot say otherwise."""
+    lines = ['Body [^10] [^11] [^12] [^13].'] + [t for _n, t in TRIPLEC_NOTES]
+    block = [(i + 1, n, str(n), t) for i, (n, t) in enumerate(TRIPLEC_NOTES)]
+    out_block, out_lines, changed = S.reconcile_page_defs_with_pypdf(
+        list(block), list(lines), TRIPLEC_NOTES[:2], {10, 11, 12, 13})
+    assert not changed and len(out_block) == 4
+    # positive control: nobody on the page calls them → still dropped as surplus
+    out_block, _l, changed = S.reconcile_page_defs_with_pypdf(
+        list(block), list(lines), TRIPLEC_NOTES[:2], {10, 11})
+    assert changed and [b[1] for b in out_block] == [10, 11]
+
+
 def test_a_block_the_text_layer_agrees_with_is_left_alone():
     """The gate that keeps this off every healthy page in the corpus."""
     clean = [(1, 1, '1', 'Senate Education and Employment References Committee, Jobactive: '
@@ -476,3 +521,29 @@ def test_text_without_a_url_is_returned_untouched():
     rather than guessed at."""
     text = 'An earlier version has been published as:  Fuchs, Christian (2003).  ISBN 0- 9740735-1-2.'
     assert S.sanitize_layer_def_text(text) == text
+
+
+# --- tripleC 25cfb2ff (2026-11-23): URL-only notes, and a superscript in a reference title ---
+
+def test_url_only_notes_run_together_are_split_on_one_boundary():
+    assert REC.split_run_on_numbered_def(
+        1, 'http://www.marxists.org/a/mswv5_65.htm 2 http://www.marxists.org/b/mswv8_09.htm'
+    ) == [(1, 'http://www.marxists.org/a/mswv5_65.htm'),
+          (2, 'http://www.marxists.org/b/mswv8_09.htm')]
+
+
+def test_a_prose_note_mentioning_one_number_before_a_url_is_not_split():
+    text = 'See the tables in volume 5 http://example.org/tables for the full series.'
+    assert REC.split_run_on_numbered_def(4, text) == [(4, text)]
+    url_note = 'http://example.org/page (accessed on August 20, 2011).'
+    assert REC.split_run_on_numbered_def(4, url_note) == [(4, url_note)]
+
+
+def test_a_title_superscript_in_a_reference_entry_is_not_a_footnote_marker():
+    import ingestion.pdf.assembly as ASM
+    md = ('Body text with a real marker.[^2]\n\n## References\n\n'
+          'Comscore. 2012. The Power of Like[^2]. How Social Marketing Works. White Paper.\n\n'
+          '## Footnotes\n\n[^2]: http://www.marxists.org/b/mswv8_09.htm')
+    out = ASM._demote_markers_in_bibliography_entries(md)
+    assert 'The Power of Like 2. How' in out
+    assert 'real marker.[^2]' in out and '[^2]: http' in out

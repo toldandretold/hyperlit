@@ -473,6 +473,47 @@ def _convert_sidecolumn_paren_footnotes(combined):
     return norm.rstrip() + '\n\n' + defs_block
 
 
+_BIB_SECTION_HEADING_RE = re.compile(
+    r'^#{1,4}\s*(?:\d+\.?\s*)?(?:references|bibliography|works cited|literature|sources)\s*$',
+    re.IGNORECASE)
+# "Comscore. 2012. The Power of…" / "Fuchs, Christian. 2014a. Digital…" / "Harvey, D. (2005)."
+_AUTHOR_YEAR_ENTRY_RE = re.compile(r"^[A-ZÀ-ÖØ-Þ][^\n]{1,120}?[.,]\s+\(?(?:1[5-9]|20)\d\d[a-z]?\)?[.,:]")
+
+
+def _demote_markers_in_bibliography_entries(combined):
+    """A superscript INSIDE an author-year reference entry is part of the TITLE, not a note.
+
+    tripleC 25cfb2ff: the reference list carries "Comscore. 2012. The Power of Like². How
+    Social Marketing Works." — the white paper is "The Power of Like 2" — and the OCR's
+    superscript became [^2]. While note 2's definition was missing that was merely a raw
+    marker in the references; once the definition is recovered it LINKS, and a marketing
+    white paper's title opens a footnote about Mao. A reference entry does not call
+    footnotes; the digit goes back to being a digit.
+
+    Only inside a headed reference section, only on a line shaped like an author-year entry,
+    and never a definition line."""
+    lines = combined.split('\n')
+    in_bib = False
+    changed = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith('#'):
+            in_bib = bool(_BIB_SECTION_HEADING_RE.match(stripped))
+            continue
+        if not in_bib or '[^' not in stripped or stripped.startswith('[^'):
+            continue
+        if not _AUTHOR_YEAR_ENTRY_RE.match(stripped):
+            continue
+        new = re.sub(r'(?<=[A-Za-z])\[\^(\d{1,2})\](?!:)', r' \1', line)
+        if new != line:
+            lines[i] = new
+            changed += 1
+    if changed:
+        print(f"  {changed} reference entr{'y' if changed == 1 else 'ies'} had a title superscript "
+              f"read as a footnote marker — restored to a plain digit")
+    return '\n'.join(lines)
+
+
 def _demote_defless_citation_refs(combined):
     """2c0544c4: a doc whose ONLY footnote defs are a small author-affiliation universe
     (defs 1..N, N small) but whose body carries superscript VANCOUVER citations that the
@@ -3264,6 +3305,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # run the other way round, demotion would eat the rescue's freshly inserted markers
     # (6c4e7d58's TRIPLE number space: affiliations 1-5, discursive footnotes 6-8, bracket
     # citations 1-53). ---
+    combined = _demote_markers_in_bibliography_entries(combined)
     combined = _demote_defless_citation_refs(combined)
 
     # --- Rescue refless footer footnotes (marker dropped by OCR, def stranded in the footer,

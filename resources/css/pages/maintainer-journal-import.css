@@ -1090,7 +1090,12 @@ body.ji-detail {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  /* three buttons do not fit beside the summary in the article column: wrap, never clip */
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+#ji-lint-summary {
+  flex: 1 1 100%;
 }
 .ji-lint-bar button {
   flex: 0 0 auto;
