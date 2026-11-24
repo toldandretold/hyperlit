@@ -550,7 +550,7 @@ class JournalImportActionJob implements ShouldQueue
         $db = DB::connection('pgsql_admin');
 
         $lanes = $db->table('library as l')
-            ->join('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
+            ->leftJoin('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
             ->when($run->journal_source_id, fn ($q) => $q->where('cs.journal_source_id', $run->journal_source_id))
             ->when($run->shelf_id ?? null, fn ($q) => $q->whereIn('l.book', function ($sub) use ($run) {
                 $sub->select('book')->from('shelf_items')->where('shelf_id', $run->shelf_id);

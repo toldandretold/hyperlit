@@ -221,3 +221,35 @@ def test_headings_at_a_different_indent_are_a_different_class():
     md = _levels_doc(levels)
     out, _r, _p, relevelled = recover_geometric_headings(md, info_a)
     assert relevelled == []
+
+
+def _colon_doc():
+    heads = ['Title of the Paper', '1. Introduction', 'Communism in General', 'Communism in General',
+             'Beauty as a principle of society:', 'Participatory democracy:', 'References']
+    md = '\n\n'.join(f'## {h}\n\nBody text under {i}.' for i, h in enumerate(heads))
+    lines = [{'page': i, 'text': h.replace(' ', '', 1), 'style': ['Trebuchet-Bold', 12.0], 'x': 18}
+             for i, h in enumerate(heads)]
+    return md, lines
+
+
+def test_a_colon_heading_the_pdf_sets_in_body_type_goes_back_to_prose():
+    # db2d8fb7: "Available functions:" opens a listing in the body font.
+    from ingestion.pdf.heading_geometry import demote_unwitnessed_colon_headings
+    md, lines = _colon_doc()
+    md += '\n\n## Available functions:\n\nx = CLOSEST(y, z)'
+    out, demoted = demote_unwitnessed_colon_headings(md, {'body_style': BODY, 'lines': lines})
+    assert demoted == ['Available functions:']
+    assert '\n\nAvailable functions:\n\nx = CLOSEST' in out
+    # the colon-ended sub-headings the PDF does set as headings stay
+    assert '## Beauty as a principle of society:' in out and '## Participatory democracy:' in out
+
+
+def test_no_colon_heading_is_demoted_when_the_styles_explain_too_little():
+    from ingestion.pdf.heading_geometry import demote_unwitnessed_colon_headings
+    md, lines = _colon_doc()
+    md += '\n\n## Available functions:\n\nx = CLOSEST(y, z)'
+    assert demote_unwitnessed_colon_headings(md, {'body_style': BODY, 'lines': lines[:3]}) == (md, [])
+    # and a heading without a colon is never this pass's business
+    md2, lines2 = _colon_doc()
+    md2 += '\n\n## A heading the layer missed\n\nText.'
+    assert demote_unwitnessed_colon_headings(md2, {'body_style': BODY, 'lines': lines2}) == (md2, [])

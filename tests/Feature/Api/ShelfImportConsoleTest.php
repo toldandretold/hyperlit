@@ -493,3 +493,37 @@ test('promote ignores an unknown or private shelf_id and journal behavior is unc
         ->assertOk()
         ->assertJsonPath('promoted', true);
 });
+
+test('reconvert_all on a shelf reaches books that have no canonical source', function () {
+    // The marxists.org archive shelf: system-minted books with no canonical_source row. The run
+    // joined canonical_source INNER, matched nothing, and reported "0 book(s) queued" (prod 2026-11-24).
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $linked = siSeedShelvedWork($shelf, [['foundation_source' => 'canonical_pdf_vacuum']])['books']['canonical_pdf_vacuum'];
+    $unlinked = 'book_si_' . Str::lower(Str::random(8));
+    siDb()->table('library')->insert([
+        'book' => $unlinked, 'title' => 'SI Unlinked', 'visibility' => 'public', 'listed' => false, 'has_nodes' => true,
+        'type' => 'book', 'raw_json' => '[]', 'timestamp' => 0, 'canonical_source_id' => null,
+        'creator' => \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR, 'created_at' => now(),
+    ]);
+    siDb()->table('shelf_items')->insert(['shelf_id' => $shelf->id, 'book' => $unlinked, 'added_at' => now()]);
+
+    $asked = [];
+    $this->mock(\App\Services\Conversion\BookReconverter::class, function ($mock) use (&$asked) {
+        $mock->shouldReceive('queue')->andReturnUsing(function (string $book) use (&$asked) {
+            $asked[] = $book;
+
+            return ['queued' => true, 'reason' => null, 'source' => 'epub'];
+        });
+    });
+
+    Queue::fake();
+    $runId = $this->postJson('/api/maintainer/shelf-import/' . $shelf->id . '/run', ['action' => 'reconvert_all', 'lanes' => 'both'])
+        ->assertOk()->json('run_id');
+    app()->call([new \App\Jobs\JournalImportActionJob($runId), 'handle']);
+
+    expect($asked)->toEqualCanonicalizing([$linked, $unlinked]);
+    $run = siDb()->table('journal_import_runs')->where('id', $runId)->first();
+    expect($run->status)->toBe('completed')
+        ->and(json_decode($run->counts, true)['queued'])->toBe(2);
+});

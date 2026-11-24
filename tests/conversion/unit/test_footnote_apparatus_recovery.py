@@ -25,6 +25,7 @@ that has to be numeric for any of it to survive.
 """
 
 import ingestion.pdf.pdf_shared as S
+import ingestion.pdf.recovery as R
 
 
 # The page's real notes, as the PDF's own text layer carries them.
@@ -739,3 +740,75 @@ def test_the_tail_of_a_doi_is_not_a_section_number():
     md = '## How to cite TSpace items\n\nAlways cite the published version.\n'
     layer = 'available at: http://www.tandfonline.com/10.5235/20414005.5.1.60. \n \nHow to cite TSpace items \nAlways cite'
     assert S.restore_heading_evidence_from_layer(md, layer) == md
+
+
+def test_a_numbered_section_heading_is_not_recovered_as_a_note():
+    # 8c40a2a0: the layer reads "2 The Limits of Laplace´s Demon The point is…" as note 2.
+    from ingestion.pdf.assembly import _drop_section_heading_defs
+    combined = ('Body text.[^1]\n\n# 2 The Limits of Laplace\'s Demon\n\nThe point is that even '
+                'the demon cannot.\n\n[^1]: A real note.')
+    recovered = [(2, 'The Limits of Laplace´s Demon The point is that even the demon cannot.'),
+                 (3, 'A note that is nobody\'s heading, lost by the OCR.')]
+    assert _drop_section_heading_defs(recovered, combined) == [recovered[1]]
+
+
+def test_a_heading_with_another_number_does_not_swallow_a_note():
+    from ingestion.pdf.assembly import _drop_section_heading_defs
+    combined = '# 4 Tailored medications\n\nText.'
+    recovered = [(9, 'Tailored medications are discussed by Smith (2001).')]
+    assert _drop_section_heading_defs(recovered, combined) == recovered
+
+
+def test_a_note_block_left_in_the_body_a_note_per_line_is_absorbed():
+    # 749b9c6b: "6 https://engelliweb.com/⏎7 Last accessed on…" stayed in the body as well.
+    from ingestion.pdf.assembly import _absorb_numbered_body_twins
+    combined = ('Body sentence one.\n\n6 https://engelliweb.com/\n7 Last accessed on 1 October '
+                '2016—the number was 110,464 on 4 May 2016.\n\n## Next\n\n'
+                '[^6]: https://engelliweb.com/\n\n'
+                '[^7]: Last accessed on 1 October 2016—the number was 110,464 on 4 May 2016.')
+    out = _absorb_numbered_body_twins(combined, [
+        (6, 'https://engelliweb.com/'),
+        (7, 'Last accessed on 1 October 2016—the number was 110,464 on 4 May 2016.')])
+    assert '\n6 https' not in out and '\n7 Last' not in out
+    assert '[^6]: https://engelliweb.com/' in out and '[^7]: Last accessed' in out
+
+
+def test_a_number_opening_a_line_of_the_previous_note_is_not_a_new_note():
+    # f8e87370: "…viewers in only⏎6 days, and thus it broke all previous records"
+    assert R._LOWER_OPENER_RE.match('days, and thus it broke all previous records')
+    assert not R._TERMINAL_CLOSE_RE.search('gathered 100 million viewers in only')
+    assert R._TERMINAL_CLOSE_RE.search('of justice” (5).')
+    assert not R._LOWER_OPENER_RE.match('Many of these accusations were handled')
+
+
+def test_two_notes_on_one_line_split_at_a_sentence_end_when_the_number_is_missing():
+    text = ('“They are nice guys, right?” Gavin asks his father, the boy that he knew. '
+            '17 Gavin’s image comes from http://example.org/a , accessed May 30, 2012.')
+    got = R.split_run_on_numbered_def(16, text, taken={16})
+    assert [n for n, _t in got] == [16, 17]
+    assert got[0][1].endswith('he knew.') and got[1][1].startswith('Gavin’s image')
+    # the page already holds a note 17: the "17" here is something the note says
+    assert R.split_run_on_numbered_def(16, text, taken={16, 17}) == [(16, text)]
+    # a date is never a note opening
+    dated = 'See the report of the committee. 17 April 2013 was the date of the hearing.'
+    assert R.split_run_on_numbered_def(16, dated, taken={16}) == [(16, dated)]
+    # and without the page's numbers nothing is read this way
+    assert R.split_run_on_numbered_def(16, text) == [(16, text)]
+
+
+def test_an_unlinked_definition_with_no_layer_to_ask_gets_no_verdict_of_absence():
+    md = 'Body with one marker.[^1]\n\n[^1]: A linked note.\n\n[^2]: A note nobody points to at all.'
+    got = R.assess_unlinked_definitions(md, None)
+    assert [(r['number'], r['verdict']) for r in got] == [(2, 'no_layer')]
+    assert R.assess_unlinked_definitions('Body.[^1]\n\n[^1]: Linked.', None) == []
+
+
+def test_a_note_cut_out_of_its_predecessor_is_marked_so_it_can_be_put_back():
+    # 00120a28: printed note 9 has no marker and no OCR copy; a consumer that cannot place it
+    # must be able to tell it was the tail of note 8 and leave it there.
+    text = ('We find ourselves in a very different intellectual moment, as Murphy described. '
+            '9 In an essay entitled “The Social Exclusion Discourse” Béland documents it.')
+    got = R.split_run_on_numbered_def(8, text, taken={8})
+    assert [n for n, _t in got] == [8, 9]
+    assert not isinstance(got[0][1], R.SplitBornNote) and isinstance(got[1][1], R.SplitBornNote)
+    assert got[1][1] == 'In an essay entitled “The Social Exclusion Discourse” Béland documents it.'

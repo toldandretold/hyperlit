@@ -147,7 +147,7 @@ _APPARATUS_DEF_RE = re.compile(
 # table row is the shape to avoid; recovery only ever injects for an ORPHANED marker anyway.
 MIN_GAP_DEF_CHARS = 25
 _GAP_DEF_RE = re.compile(
-    r'(?:^|\s{3,})(\d{1,3})[ \t]((?:[A-Z"\'(“‘]|' + DEF_URL_OPENER + r')[^\n]*?)(?=\s{3,}|$)',
+    r'(?:^|\s{3,})(\d{1,3})[ \t]((?:[A-Z"\'(“‘„«»]|' + DEF_URL_OPENER + r')[^\n]*?)(?=\s{3,}|$)',
     re.MULTILINE)
 
 
@@ -221,7 +221,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             # GLUED fallback: pypdf renders some superscript def numbers with NO space at all
             # ("1Senate Education and Employment\u2026", deloitte fn 1) \u2014 accept zero-space only when
             # followed by Uppercase-then-lowercase, so "42AM" (a legal section id) never splits.
-            m = re.match(r'^(\d{1,3})\s{1,3}((?:[A-Z"\'(\u201c\u2018]|' + DEF_URL_OPENER + r').{2,})', line) \
+            m = re.match(r'^(\d{1,3})\s{1,3}((?:[A-Z"\'(\u201c\u2018\u201e\u00ab\u00bb]|' + DEF_URL_OPENER + r').{2,})', line) \
                 or re.match(r'^(\d{1,3})([A-Z][a-z].{2,})', line) \
                 or _APPARATUS_DEF_RE.match(line)
             if m:
@@ -270,7 +270,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
                              or re.match(r'^\d{1,3}\.\s+\S', stripped)
                              or any(low.startswith(rh) for rh in running_lower if rh))
                 if stripped and not is_chrome \
-                        and not re.match(r'^\d{1,3}\s{1,3}(?:[A-Z"\'(\u201c\u2018]|' + DEF_URL_OPENER + r')', line) \
+                        and not re.match(r'^\d{1,3}\s{1,3}(?:[A-Z"\'(\u201c\u2018\u201e\u00ab\u00bb]|' + DEF_URL_OPENER + r')', line) \
                         and not re.match(r'^\d{1,3}[A-Z][a-z]', line) \
                         and not _APPARATUS_DEF_RE.match(line) \
                         and len(current_text) + len(stripped) <= 700:
@@ -310,11 +310,28 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     # page-level reconciler — which runs first — inserted the unsplit text: "22 http://forbes…
     # 23 http://4-traders…" shipped as one note and marker 23 stayed unlinked (27e44104).
     for page_idx, page_defs in result.items():
-        split_defs = []
+        # A number that merely opens a LINE of the note before it: "…gathered 100 million
+        # viewers in only⏎6 days, and thus it broke all previous records" read as note 5 and a
+        # note 6 beginning "days, and thus" (f8e87370 — a definition nobody points at, and the
+        # real note 5 cut mid-sentence). A note does not open lower-case straight after a note
+        # that never finished its sentence.
+        joined = []
         for n, t in page_defs:
-            split_defs.extend(split_run_on_numbered_def(n, t))
+            if (joined and _LOWER_OPENER_RE.match(t)
+                    and not _TERMINAL_CLOSE_RE.search(joined[-1][1])):
+                joined[-1] = (joined[-1][0], '{} {} {}'.format(joined[-1][1].rstrip(), n, t))
+                continue
+            joined.append((n, t))
+        taken = {n for n, _t in joined}
+        split_defs = []
+        for n, t in joined:
+            split_defs.extend(split_run_on_numbered_def(n, t, taken=taken))
         result[page_idx] = split_defs
     return result
+
+
+_LOWER_OPENER_RE = re.compile(r'[a-z]{2,}[ ,;]')
+_TERMINAL_CLOSE_RE = re.compile(r'[.!?:;)\]"\'\u201d\u2019/]\s*$')
 
 
 def _unglue_page_numbers(defs_by_page):
@@ -725,7 +742,23 @@ def resurrect_pua_markers(ocr_md, seams, page_label=''):
 _URL_OPENER_RE = re.compile(r'https?://|www\.')
 
 
-def split_run_on_numbered_def(num, text):
+class SplitBornNote(str):
+    """A note the boundary rule below cut out of the note before it. Still a plain string to
+    every consumer; the type only lets one that CANNOT place the note (no marker for its number
+    on the page) put the text back where the layer had it rather than drop it — 00120a28's
+    printed note 9 exists nowhere in the OCR, and survived only as the tail of note 8."""
+    __slots__ = ()
+
+
+# "<token> N <note opening>": the token that closes one note, the next number, and the word (or
+# opening quote — German „ and French « open a note with no capital after them) that opens the
+# next. Group 1 is the closing token, group 2 the opening word when there is one.
+_NOTE_BOUNDARY_TEMPLATE = (r'(\S+)\s{0}\s+(?=[\u201e\u00ab\u00bb]|["\'\u201c\u2018(]?([A-Z][A-Za-z]+)'
+                           r'|https?://|www\.)')
+_SENTENCE_CLOSE_TOKEN_RE = re.compile(r'[.!?]["\'\u201c\u201d\u2019)]?$')
+
+
+def split_run_on_numbered_def(num, text, taken=None):
     """A pypdf 'def' that is really a RUN-ON of consecutively numbered items on one text
     block — the affiliation-footer shape (a280cf5b: "1 School of International Development…,
     UK 2 Programme Strategy…, 3 African Climate…, 4 Institute for…, 5 Watershed…"): only item
@@ -777,6 +810,29 @@ def split_run_on_numbered_def(num, text):
         url_tail_segs.append((cur, rest.strip()))
         if all(len(t) >= 8 for _n, t in url_tail_segs):
             return [(n, t) for n, t in url_tail_segs]
+
+    # A note that ENDS ITS SENTENCE, then the next consecutive number, then a new note's
+    # capitalised opening: "…the boy that he knew. 17 Gavin's image comes from http://…" is
+    # notes 16 AND 17 (f8e87370 — note 17 shipped inside 16 and its marker stood raw in a
+    # figure caption). Weaker evidence than a URL tail, so it is only read this way when the
+    # caller says which numbers the page's block already holds and this one is MISSING from
+    # it: a note that merely cites "…in 1848. 18 Brumaire" sits beside a real note 18.
+    if taken is not None:
+        sent_segs = []
+        cur, rest = num, flat
+        while cur + 1 not in taken:
+            m = re.search(_NOTE_BOUNDARY_TEMPLATE.format(cur + 1), rest)
+            if not m or (m.group(2) and _MONTH_FOLLOWER_RE.match(m.group(2))) \
+                    or not (_SENTENCE_CLOSE_TOKEN_RE.search(m.group(1))
+                            or _URL_OPENER_RE.match(m.group(1))):
+                break
+            sent_segs.append((cur, rest[:m.end(1)].strip()))
+            rest = rest[m.end():]
+            cur += 1
+        if sent_segs:
+            sent_segs.append((cur, rest.strip()))
+            if all(len(t) >= 15 for _n, t in sent_segs):
+                return [sent_segs[0]] + [(n, SplitBornNote(t)) for n, t in sent_segs[1:]]
 
     segs = []
     cur = num
@@ -863,7 +919,7 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 # punctuation/digits is a BIBLIOGRAPHY fragment the extractor misread
                 # (cece961b: "(4), 1 – 6 . Masalu, D.C., 2000…" became phantom "def 1").
                 # Genuine orphan defs (no ref yet) stay recoverable as visible content.
-                if not re.match(r'''^["'‘“\[(]?[A-Za-z]''', split_text.strip()):
+                if not re.match(r'''^["'‘“„«»\[(]?[A-Za-z]''', split_text.strip()):
                     continue
                 if shifted_num in ocr_defs_set and not allow_overwrite:
                     continue
@@ -1610,6 +1666,89 @@ _DEF_WITNESS_MIN_SIMILARITY = 0.85
 _DEF_WITNESS_MIN_COVERAGE = 0.5
 # A definition this short carries no discriminating content either way ("Ibid.", "See ED75.").
 _DEF_WITNESS_MIN_CHARS = 12
+
+
+def assess_unlinked_definitions(markdown, pdf_path):
+    """Say, for every definition no marker points at, whether the PDF could ever link it.
+
+    A definition with no marker is one finding in the lint and two very different problems.
+    Either the document's own text layer prints the superscript in the body — the evidence is
+    there and the converter failed to use it (worth a person's time) — or it does not: the
+    marker is absent from the OCR AND from the layer, and nothing text-based can place it
+    (27e44104's printed note 14). Counting both alike buries the first kind under the second.
+
+    Returns [{number, head, verdict, page, printed}] — `head` is the definition's opening,
+    folded, so a consumer holding only the stored note text can find its verdict:
+      marker_in_layer     the layer shows this note's printed number glued to body text
+      no_marker_in_layer  the layer carries the note and no superscript for it anywhere on
+                          its page or the one before — unlinkable from text evidence
+      def_not_in_layer    the note's text is not in the layer; nothing to judge by
+      no_layer            the PDF has no usable text layer
+    """
+    defs = {}
+    for m in re.finditer(r'^\[\^(\d+)\]:[ \t]*(.+)$', markdown or '', re.MULTILINE):
+        defs.setdefault(int(m.group(1)), m.group(2).strip())
+    body = re.sub(r'(?m)^\[\^\d+\]:.*$', '', markdown or '')
+    linked = {int(n) for n in re.findall(r'\[\^(\d+)\]', body)}
+    orphans = sorted(n for n in defs if n not in linked)
+    if not orphans:
+        return []
+
+    def _head(text):
+        return re.sub(r'[^a-z0-9]+', '', text.lower())[:40]
+
+    try:
+        page_texts = extract_pypdf_page_texts(pdf_path) if pdf_path else {}
+        layer_defs = extract_pypdf_footnote_defs(pdf_path) if pdf_path else {}
+    except Exception:
+        page_texts, layer_defs = {}, {}
+    out = []
+    for number in orphans:
+        head = _head(defs[number])
+        record = {'number': number, 'head': head, 'verdict': 'no_layer',
+                  'page': None, 'printed': None}
+        out.append(record)
+        if not page_texts:
+            continue
+        record['verdict'] = 'def_not_in_layer'
+        probe = head[:24]
+        if len(probe) < 10:
+            continue
+        # EVERY layer note that opens this way: a citation repeated under several numbers
+        # (deloitte prints one Senate report a dozen times) cannot be told apart by its text,
+        # so the note is unlinkable only when none of its look-alikes has a marker either.
+        candidates = [(page_idx, printed, text)
+                      for page_idx, page_defs in layer_defs.items()
+                      for printed, text in page_defs if _head(text).startswith(probe)]
+        if not candidates:
+            continue
+        record['page'], record['printed'] = candidates[0][0], candidates[0][1]
+        record['verdict'] = 'no_marker_in_layer'
+        for page_idx, printed, layer_text in candidates:
+            # A superscript in the layer is the digit GLUED to what precedes it (a word,
+            # closing punctuation, a quote) and not followed by more digits. Looked for on the
+            # note's own page above its definition, and on the page before (a note can sit
+            # under the page after its marker). Deliberately loose: a false "the marker is
+            # there" costs a look, a false "it is not" hides a fixable note.
+            glued = re.compile(r'(?<=[A-Za-z.,;:!?)\]"\'\u201d\u2019])' + str(printed)
+                               + r'(?!\d)(?=[\s.,;:!?)\]]|$)')
+            def_opening = re.sub(r'\s+', ' ', layer_text)[:25]
+            for idx in (page_idx, page_idx - 1):
+                text = page_texts.get(idx)
+                if not text:
+                    continue
+                flat = re.sub(r'\s+', ' ', text)
+                if idx == page_idx:
+                    cut = flat.find(def_opening)
+                    if cut > 0:
+                        flat = flat[:cut]
+                if glued.search(flat):
+                    record['verdict'] = 'marker_in_layer'
+                    record['page'], record['printed'] = page_idx, printed
+                    break
+            if record['verdict'] == 'marker_in_layer':
+                break
+    return out
 
 
 def assess_def_content_fidelity(markdown, pypdf_defs_by_page):

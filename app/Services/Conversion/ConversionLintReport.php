@@ -271,7 +271,7 @@ class ConversionLintReport
         $footnotes = $db->table('footnotes')->where('book', $book)
             ->pluck('content', 'footnoteId')->map(fn ($c) => (string) $c)->all();
 
-        $result = $this->lint->lintBook($nodes, $footnotes);
+        $result = $this->lint->lintBook($nodes, $footnotes, ConversionLint::evidenceFor($book));
         $counts = array_count_values(array_column($result['findings'], 'detector'));
 
         $db->table('conversion_lint_results')->upsert([[

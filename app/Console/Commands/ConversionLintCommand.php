@@ -72,7 +72,7 @@ class ConversionLintCommand extends Command
                 ->all();
             $footnotes = $db->table('footnotes')->where('book', $row->book)
                 ->pluck('content', 'footnoteId')->map(fn ($c) => (string) $c)->all();
-            $res = $lint->lintBook($nodes, $footnotes);
+            $res = $lint->lintBook($nodes, $footnotes, ConversionLint::evidenceFor((string) $row->book));
             $perBook[$row->book] = ['title' => $row->title, 'findings' => $res['findings']];
             $chromeCands[$row->book] = $res['chrome_candidates'];
         }

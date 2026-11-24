@@ -105,6 +105,10 @@ export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = 
     label: 'page header/footer in the text',
     hint: 'A short string repeated across this journal\'s articles — a running header or footer glued into the text.',
   },
+  orphan_unrecoverable: {
+    label: 'footnote the PDF has no marker for',
+    hint: 'A footnote definition with no marker in the text, and the PDF\'s own text carries no marker for it either — not something a converter fix can link. Listed for the record; it does not count towards a book\'s score.',
+  },
 };
 
 const DETECTOR_ORDER = Object.keys(DETECTOR_LABELS);

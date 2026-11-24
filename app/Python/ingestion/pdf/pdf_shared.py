@@ -332,7 +332,7 @@ def collect_page_refs_and_defs(md_raw):
     defs = set(int(n) for n in re.findall(r'^\[\^(\d+)\]', md, re.MULTILINE))
     defs |= set(int(n) for n in re.findall(r'^(\d{1,3})\. \S', md, re.MULTILINE))
     for line in md.split('\n'):
-        m = re.match(r'^(\d{1,3}) (?:[A-Z‘“\'"]|' + DEF_URL_OPENER + r')', line)
+        m = re.match(r'^(\d{1,3}) (?:[A-Z‘“„«»\'"]|' + DEF_URL_OPENER + r')', line)
         if not m:
             continue
         stripped = line.rstrip()
@@ -1399,7 +1399,7 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
             return None
         num, rest = m.group(1), m.group(2)
         has_period = stripped[len(num)] == '.'
-        if has_period or re.match(r'(?:[A-Z‘“\'"]|' + DEF_URL_OPENER + r')', rest):
+        if has_period or re.match(r'(?:[A-Z‘“„«»\'"]|' + DEF_URL_OPENER + r')', rest):
             return int(num), num, rest
         return None
 

@@ -141,3 +141,93 @@ it('ends the definitions section at the next heading (9d0400c9)', function () {
     ], ['Fn6' => 'The note it calls.']);
     expect(detectors($r))->toBe([]);
 });
+
+it('ends a mid-article definitions block at the first body paragraph that calls a note (f04989d6)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Early text calling a note<sup class="footnote-ref" fn-count-id="4" id="Fn4">4</sup> properly.</p>'),
+        lintNode('200', '<h2><a id="footnotes"></a>Footnotes</h2>'),
+        lintNode('300', '<p><a fn-count-id="4" id="Fn4"></a>[^4]: The note of the first section.</p>'),
+        lintNode('400', '<p>The article simply carries on, with no heading, and calls another<sup class="footnote-ref" fn-count-id="10" id="Fn10">10</sup> note.</p>'),
+        lintNode('900', '<p><a fn-count-id="10" id="Fn10"></a>[^10]: The later note it calls.</p>'),
+    ], ['Fn4' => 'The note of the first section.', 'Fn10' => 'The later note it calls.']);
+    expect(detectors($r))->toBe([]);
+});
+
+it('files an orphan the PDF has no marker for under its own unscored detector', function () {
+    $nodes = [
+        lintNode('100', '<p>Body text with no markers at all, ending properly.</p>'),
+        lintNode('400', '<h2><a id="footnotes"></a>Footnotes</h2>'),
+        lintNode('500', '<p>[^1]: A note whose marker the print never carried.</p>'),
+        lintNode('600', '<p>[^2]: A note whose marker is in the PDF text.</p>'),
+    ];
+    $notes = ['Fn1' => 'A note whose marker the print never carried.', 'Fn2' => 'A note whose marker is in the PDF text.'];
+    $verdicts = [
+        ConversionLint::verdictHead($notes['Fn1']) => 'no_marker_in_layer',
+        ConversionLint::verdictHead($notes['Fn2']) => 'marker_in_layer',
+    ];
+    $r = (new ConversionLint)->lintBook($nodes, $notes, ['unlinked' => $verdicts]);
+    expect(detectors($r))->toBe(['orphan_unrecoverable', 'orphan_definition'])
+        ->and(ConversionLint::score(['orphan_unrecoverable' => 9]))->toBe(0);
+    // with no verdict on file every orphan is worth a look
+    expect(detectors((new ConversionLint)->lintBook($nodes, $notes)))->toBe(['orphan_definition', 'orphan_definition']);
+});
+
+it('does not read a letter-keyed table legend as split sentences (294c2019)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Table 2: Distribution of the use of Marx\'s name in the main text of the articles</p>'),
+        lintNode('200', '<p>a Provides a discussion using Marx\'s ideas throughout the article</p>'),
+        lintNode('300', '<p>b The whole article is dedicated to Marx, to Marxist views and analysis</p>'),
+        lintNode('400', '<p>c Uses Marx to provide a Marxist analysis of class, exploitation and media</p>'),
+    ]);
+    expect(detectors($r))->toBe([]);
+    // a lone "a" + capital is still a fragment
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>The whole article, the author says, is in the end an attempt to give</p>'),
+        lintNode('200', '<p>a Marxist analysis of class, of exploitation and of the media in general.</p>'),
+    ]);
+    expect(detectors($r))->toBe(['split_sentence']);
+});
+
+it('does not call a numbered section title a paragraph promoted to a heading (27e44104)', function () {
+    $long = 'Are People who Argue for an Alternative Concept of Work Stalinist Labour Fetishists? Why We Need to Repeat William Morris and Herbert Marcuse in the Digital Labour Debate, Again and Again.';
+    $r = (new ConversionLint)->lintBook([lintNode('100', "<h2>4.3. {$long}</h2>"), lintNode('200', "<h2>{$long}</h2>")]);
+    expect(array_column($r['findings'], 'startLine'))->toBe(['200']);
+});
+
+it('counts copies of one text once when deciding what is page chrome (8d829795 / 161d0385)', function () {
+    $lint = new ConversionLint;
+    $sentences = [];
+    foreach (range(1, 6) as $n) {
+        $sentences[] = "Academic labour is a specific historical form of academic work, sentence {$n}.";
+    }
+    $copy = array_fill_keys($sentences, 1);
+    $leaks = $lint->chromeLeaksFromCounts([
+        'lane_a' => $copy + ['tripleC 16(1): 1-20' => 1],
+        'lane_b' => $copy + ['tripleC 16(1): 1-20' => 1],
+        'lane_c' => $copy,
+        'other_1' => ['tripleC 16(1): 1-20' => 1],
+        'other_2' => ['tripleC 16(1): 1-20' => 1],
+    ]);
+    expect($leaks['lane_a'] ?? [])->toBe(['tripleC 16(1): 1-20'])
+        ->and($leaks['lane_c'] ?? [])->toBe([]);
+});
+
+it('does not call a quotation that completes its lead-in sentence a fragment when the PDF indents it (bd7c450b)', function () {
+    $nodes = [
+        lintNode('100', '<p>This has also shaped the conception of society. Society, in this sense, is defined as a</p>'),
+        lintNode('200', '<blockquote>specific, historically concrete system of societal relations that is shaped by principles and that humans enter.</blockquote>'),
+    ];
+    expect(detectors((new ConversionLint)->lintBook($nodes)))->toBe(['fragment_blockquote']);
+    $evidence = ['quote_blocks' => ['specifichistoricallyconcretesystemofsocietalrelationsthatisshap']];
+    expect(detectors((new ConversionLint)->lintBook($nodes, null, $evidence)))->toBe([]);
+});
+
+it('does not flag a colon heading the PDF sets in a heading type style (db2d8fb7)', function () {
+    $nodes = [
+        lintNode('100', '<h2>Beauty as a principle of society:</h2>'),
+        lintNode('200', '<p>What we can learn from Morris is the importance of beauty.</p>'),
+        lintNode('300', '<h2>Available functions:</h2>'),
+    ];
+    $r = (new ConversionLint)->lintBook($nodes, null, ['heading_lines' => ['beautyasaprincipleofsociety']]);
+    expect(array_column($r['findings'], 'startLine'))->toBe(['300']);
+});

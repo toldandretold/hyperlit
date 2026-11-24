@@ -344,6 +344,14 @@ def main():
     )
     output_md.write_text(markdown, encoding="utf-8")
 
+    # Which unlinked definitions the PDF's own text could still link, and which it cannot —
+    # read by the conversion lint so the review list is the fixable ones.
+    try:
+        footnote_meta['unlinked_definitions'] = _recovery.assess_unlinked_definitions(
+            markdown, pdf_path)
+    except Exception as exc:                      # a verdict is a nicety; never fail a conversion
+        print(f"  unlinked-definition verdicts skipped: {exc}")
+
     # Persist footnote_meta.json after assemble (which may have added warnings)
     meta_path = output_dir / "footnote_meta.json"
     meta_path.write_text(json.dumps(footnote_meta, indent=2), encoding="utf-8")

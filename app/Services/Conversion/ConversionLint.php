@@ -24,6 +24,8 @@ namespace App\Services\Conversion;
  *   split_sentence       paragraph that opens lower-case after an unfinished sentence
  *   body_footnote_twin   body paragraph "N text…" whose text IS footnote N (7fa30289 note 7)
  *   orphan_definition    a footnote definition no marker in the body points at
+ *   orphan_unrecoverable …and whose marker the PDF's text layer does not carry either (the
+ *                        converter's own verdict, footnote_meta.json `unlinked_definitions`)
  *   missing_definition   a footnote marker in the body with no definition
  *   raw_marker           unconverted [^N] / $^{N}$ / ^N left in body text
  *   glued_heading_digit  heading ending "Introduction1" with no marker — a lost footnote marker
@@ -37,13 +39,16 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 4;
+    public const VERSION = 5;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
         'fragment_blockquote' => 3,
         'split_sentence'      => 2,
         'orphan_definition'   => 2,
+        // Reported, never scored: the PDF's own text carries no marker for the note either,
+        // so there is nothing a converter fix could link it to.
+        'orphan_unrecoverable' => 0,
         'missing_definition'  => 2,
         'raw_marker'          => 2,
         'long_heading'        => 2,
@@ -56,6 +61,9 @@ class ConversionLint
     public const CHROME_MIN_BOOKS = 3;
     /** …or this many times inside ONE book. */
     public const CHROME_MIN_IN_BOOK = 3;
+    /** Two books sharing this many candidates of at least SAME_TEXT_MIN_CHARS are one text. */
+    public const SAME_TEXT_MIN_SHARED = 5;
+    public const SAME_TEXT_MIN_CHARS = 40;
 
     /** Leading body nodes never read as page furniture: a prolific author's byline repeats across a journal. */
     private const FRONT_MATTER_NODES = 10;
@@ -79,8 +87,13 @@ class ConversionLint
      * @return array{findings: list<array{detector: string, startLine: string, excerpt: string}>,
      *               chrome_candidates: list<string>}
      */
-    public function lintBook(array $nodes, ?array $footnotes = null): array
+    public function lintBook(array $nodes, ?array $footnotes = null, array $evidence = []): array
     {
+        // What the converter learned from the PDF itself (see evidenceFor()): absent for a
+        // book with no PDF, and then every finding stands.
+        $unlinkedVerdicts = $evidence['unlinked'] ?? [];
+        $headingLines = $evidence['heading_lines'] ?? [];
+        $quoteBlocks = $evidence['quote_blocks'] ?? [];
         $body = [];
         $defs = [];           // fn id => definition text
         $defLines = [];       // fn id => startLine of its stored definition node, where one has an anchor
@@ -97,6 +110,14 @@ class ConversionLint
                 if ($inDefs) {
                     continue;
                 }
+            }
+            // …and it ends at the first paragraph that is plainly BODY: one carrying a marker
+            // and no definition anchor. A section's notes can sit mid-article with no heading
+            // after them (f04989d6 — six notes, then the article carries on), and reading the
+            // rest as definitions hid thirteen correctly linked markers.
+            if ($inDefs && !preg_match('/^<p[^>]*>\s*<a fn-count-id=/', $html)
+                    && str_contains($html, '<sup class="footnote-ref"')) {
+                $inDefs = false;
             }
             if ($inDefs || preg_match('/^<p[^>]*>\s*<a fn-count-id=/', $html)) {
                 if (preg_match('/<a fn-count-id="[^"]*" id="([^"]+)"/', $html, $m)) {
@@ -133,13 +154,21 @@ class ConversionLint
                 if (preg_match('/\p{Ll}{3,}\d{1,2}$/u', $headText)) {
                     $add('glued_heading_digit', $node, $headText);
                 }
+                // …unless the PDF sets these very words in a heading type style: then the colon is
+                // the author's, the heading is real, and there is nothing to repair (db2d8fb7
+                // prints thirty "Beauty as a principle of society:" sub-headings in bold).
                 if (str_ends_with($headText, ':')
-                        && !preg_match('/^(?:\d+\.?\s*)?(?:references|bibliography|keywords?|abstract|notes)\s*:$/i', $headText)) {
+                        && !preg_match('/^(?:\d+\.?\s*)?(?:references|bibliography|keywords?|abstract|notes)\s*:$/i', $headText)
+                        && !$this->opensOneOf(preg_replace('/^\d{1,2}(?:\.\d{1,2})*\.?\s*/', '', $headText), $headingLines, 60)) {
                     $add('colon_heading', $node, $headText);
                 }
                 // Not the h1: an article's own title is legitimately a sentence ("The Diamond Model of
                 // Open Access Publishing: Why Policy Makers, Scholars, …" is 190 characters).
-                if ($tag !== 'h1' && mb_strlen($headText) > 160) {
+                // …nor a heading that carries its own section number: a paragraph promoted to a
+                // heading has none, and "4.3. Are People who Argue for an Alternative Concept of
+                // Work Stalinist Labour Fetishists? Why We Need to Repeat…" is the printed title.
+                if ($tag !== 'h1' && mb_strlen($headText) > 160
+                        && !preg_match('/^\d{1,2}(?:\.\d{1,2}){1,3}\.?\s/', $headText)) {
                     $add('long_heading', $node, $headText);
                 }
             }
@@ -174,7 +203,12 @@ class ConversionLint
                 $prev = $this->previousProse($body, $i);
                 if ($prev !== null && $this->leavesSentenceOpen($prev['text'])
                         && mb_strlen($text) >= 40 && !preg_match('#^(?:https?:|www\.)#i', $text)
-                        && !preg_match(self::ENUMERATOR, $text)) {
+                        && !preg_match(self::ENUMERATOR, $text)
+                        && !$this->isLetteredLegendRow($body, $i)
+                        // A quotation that completes its lead-in sentence ("…defines fascism
+                        // as ⏎ a genus of political ideology…") has this exact shape and is
+                        // not a fragment: the PDF indents it as a block (bd7c450b, five of them).
+                        && !($tag === 'blockquote' && $this->opensOneOf($text, $quoteBlocks, 30))) {
                     $add($tag === 'blockquote' ? 'fragment_blockquote' : 'split_sentence', $node,
                         '…' . mb_substr($prev['text'], -70) . ' ‖ ' . mb_substr($text, 0, 120));
                 }
@@ -183,7 +217,9 @@ class ConversionLint
 
         foreach ($defs as $id => $defText) {
             if (!isset($markerIds[$id])) {
-                $findings[] = ['detector' => 'orphan_definition',
+                $head = self::verdictHead($defText);
+                $unrecoverable = $head !== '' && ($unlinkedVerdicts[$head] ?? null) === 'no_marker_in_layer';
+                $findings[] = ['detector' => $unrecoverable ? 'orphan_unrecoverable' : 'orphan_definition',
                                'startLine' => $defLines[$id] ?? $this->defNodeByText($defText, $defNodes),
                                'excerpt' => mb_substr($defText, 0, 220)];
             }
@@ -195,6 +231,53 @@ class ConversionLint
         }
 
         return ['findings' => $findings, 'chrome_candidates' => $this->chromeCandidates($body, $defs)];
+    }
+
+    /**
+     * True when `$text`, folded to bare letters and digits, opens with — or is the opening of —
+     * one of the folded strings the converter recorded from the PDF's layout.
+     *
+     * @param list<string> $recorded already folded
+     */
+    private function opensOneOf(string $text, array $recorded, int $chars): bool
+    {
+        $want = substr(self::fold($text), 0, $chars);
+        if (strlen($want) < 8) {
+            return false;
+        }
+        foreach ($recorded as $have) {
+            if (str_starts_with($have, $want) || (strlen($have) >= 8 && str_starts_with($want, $have))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function fold(string $text): string
+    {
+        return preg_replace('/[^a-z0-9]+/', '', mb_strtolower($text)) ?? '';
+    }
+
+    /**
+     * A table legend keyed by bare letters — "a Provides a discussion using Marx's ideas",
+     * "b The whole article is dedicated to…" (294c2019, nine false split sentences). A bare
+     * letter proves nothing alone ("a Marxist analysis…" opens a real fragment), so a NEIGHBOUR
+     * must carry the adjacent letter.
+     */
+    private function isLetteredLegendRow(array $body, int $i): bool
+    {
+        if (!preg_match('/^([a-z])\s+\p{Lu}/u', $body[$i]['text'], $m)) {
+            return false;
+        }
+        $letter = ord($m[1]);
+        foreach ([[$i - 1, $letter - 1], [$i + 1, $letter + 1]] as [$j, $want]) {
+            if (isset($body[$j]) && preg_match('/^' . chr($want) . '\s+\p{Lu}/u', $body[$j]['text'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -248,15 +331,114 @@ class ConversionLint
                 $books[$c][$book] = $n;
             }
         }
+        $copyOf = $this->sameTextClusters($books);
         $out = [];
         foreach ($books as $c => $perBook) {
-            $multiBook = count($perBook) >= self::CHROME_MIN_BOOKS;
+            $distinct = [];
+            foreach ($perBook as $book => $_n) {
+                $distinct[$copyOf[$book] ?? $book] = true;
+            }
+            $multiBook = count($distinct) >= self::CHROME_MIN_BOOKS;
             foreach ($perBook as $book => $n) {
                 if ($multiBook || $n >= self::CHROME_MIN_IN_BOOK) {
                     $out[$book][] = $c;
                 }
             }
         }
+        return $out;
+    }
+
+    /**
+     * Books that are copies of ONE text — the same article held in two lanes, or an issue
+     * and the article cut from it. They share whole sentences, and every shared sentence then
+     * "recurs across the journal" and reads as page furniture (8d829795 / 161d0385: ninety
+     * ordinary sentences each). Two books sharing this many LONG candidates are one text, and
+     * count once towards CHROME_MIN_BOOKS; real chrome is short and shared by everything.
+     *
+     * @param array<string, array<string, int>> $books candidate => book => occurrences
+     * @return array<string, string> book => representative book of its cluster
+     */
+    private function sameTextClusters(array $books): array
+    {
+        $shared = [];
+        foreach ($books as $c => $perBook) {
+            if (mb_strlen((string) $c) < self::SAME_TEXT_MIN_CHARS || count($perBook) < 2 || count($perBook) > 6) {
+                continue;
+            }
+            $ids = array_map('strval', array_keys($perBook));
+            sort($ids);
+            for ($i = 0; $i < count($ids); $i++) {
+                for ($j = $i + 1; $j < count($ids); $j++) {
+                    $shared[$ids[$i]][$ids[$j]] = ($shared[$ids[$i]][$ids[$j]] ?? 0) + 1;
+                }
+            }
+        }
+        $parent = [];
+        $find = function (string $b) use (&$parent, &$find): string {
+            $parent[$b] ??= $b;
+            return $parent[$b] === $b ? $b : ($parent[$b] = $find($parent[$b]));
+        };
+        foreach ($shared as $a => $others) {
+            foreach ($others as $b => $n) {
+                if ($n >= self::SAME_TEXT_MIN_SHARED) {
+                    $parent[$find((string) $b)] = $find((string) $a);
+                }
+            }
+        }
+        $out = [];
+        foreach (array_keys($parent) as $b) {
+            $out[(string) $b] = $find((string) $b);
+        }
+
+        return $out;
+    }
+
+    /** The key the converter files a definition's verdict under: its opening, folded. */
+    public static function verdictHead(string $defText): string
+    {
+        return substr(preg_replace('/[^a-z0-9]+/', '', mb_strtolower($defText)) ?? '', 0, 40);
+    }
+
+    /**
+     * What the conversion recorded from the PDF itself, for lintBook():
+     *   unlinked      head => verdict for each definition the converter could not link
+     *                 (footnote_meta.json `unlinked_definitions`)
+     *   heading_lines folded text of every line set in a heading type style (heading_geometry.json)
+     *   quote_blocks  folded opening of every block the page indents (quote_geometry.json)
+     * Each is empty for a book converted before it existed, or by a lane with no PDF — the
+     * finding it would have qualified then stands, which is the safe default.
+     *
+     * @return array{unlinked: array<string, string>, heading_lines: list<string>, quote_blocks: list<string>}
+     */
+    public static function evidenceFor(string $book): array
+    {
+        $read = function (string $file) use ($book) {
+            $path = resource_path("markdown/{$book}/{$file}");
+
+            return is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+        };
+        $out = ['unlinked' => [], 'heading_lines' => [], 'quote_blocks' => []];
+        foreach ((($read('footnote_meta.json') ?? [])['unlinked_definitions'] ?? []) as $row) {
+            if (is_array($row) && ($row['head'] ?? '') !== '' && isset($row['verdict'])) {
+                $out['unlinked'][(string) $row['head']] = (string) $row['verdict'];
+            }
+        }
+        foreach ((($read('heading_geometry.json') ?? [])['lines'] ?? []) as $line) {
+            $folded = self::fold(preg_replace('/^\d{1,2}(?:\.\d{1,2})*\.?\s*/', '', (string) ($line['text'] ?? '')));
+            if (strlen($folded) >= 8) {
+                $out['heading_lines'][] = $folded;
+            }
+        }
+        foreach (($read('quote_geometry.json') ?? []) as $pageBlocks) {
+            foreach ((array) $pageBlocks as $block) {
+                // Line-break hyphens ("socie- tal") fold away with the rest of the punctuation.
+                $folded = self::fold(is_string($block) ? $block : '');
+                if (strlen($folded) >= 8) {
+                    $out['quote_blocks'][] = substr($folded, 0, 60);
+                }
+            }
+        }
+
         return $out;
     }
 

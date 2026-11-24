@@ -18,6 +18,7 @@ from ingestion.pdf.pdf_shared import (  # noqa: F401
 )
 from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
+    SplitBornNote,
     extract_pypdf_page_texts, resurrect_dropped_markers_from_pypdf,
     derive_pua_digit_map, extract_pua_marker_seams, filter_ascending_marker_chain,
     resurrect_pua_markers,
@@ -827,6 +828,38 @@ def _strip_declared_page_chrome(recovered, response_dict):
     return out
 
 
+_SECTION_HEADING_LINE_RE = re.compile(r'(?m)^#{1,6}[ \t]+(?:(\d{1,2})(?:\.\d{1,2})*\.?[ \t]+)?(\S.*)$')
+_NON_ALNUM_RE = re.compile(r'[^a-z0-9]+')
+
+
+def _drop_section_heading_defs(recovered, combined):
+    """Refuse a text-layer "definition" that is a numbered SECTION of the article.
+
+    The layer extractor reads "N Capitalised text" as a note, and a numbered section heading
+    has that shape exactly: "2 The Limits of Laplace´s Demon" + its first paragraph shipped as
+    footnote 2 (8c40a2a0 — five sections became five notes nobody points to, each a second copy
+    of body text). The OCR is the witness: it printed the same words as a HEADING carrying the
+    same number (or none), so the layer line is that heading and not a note.
+    """
+    headings = []
+    for m in _SECTION_HEADING_LINE_RE.finditer(combined):
+        folded = _NON_ALNUM_RE.sub('', m.group(2).lower())
+        if len(folded) >= 8:
+            headings.append((m.group(1), folded))
+    if not headings:
+        return recovered
+    kept = []
+    for num, text in recovered:
+        folded = _NON_ALNUM_RE.sub('', text.lower())
+        if any(folded.startswith(h) and (hn is None or int(hn) == num) for hn, h in headings):
+            continue
+        kept.append((num, text))
+    return kept
+
+
+_NOTE_BLOCK_LINE_RE = re.compile(r'^\s*(\d{1,3})\s+\S')
+
+
 def _absorb_numbered_body_twins(combined, recovered):
     """A recovered note whose OCR copy was left in the BODY as a plain paragraph
     ("7 Marx formulated the general law…") — the layout classifier said `unknown`, so the OCR's
@@ -839,12 +872,32 @@ def _absorb_numbered_body_twins(combined, recovered):
     "…a consolidated surplus-"), the complete OCR copy becomes the definition. The body sentence
     the note interrupted is re-glued when the two halves read as one sentence."""
     from ingestion.pdf.pdf_shared import continues_across_break
-    paras = re.split(r'\n\s*\n', combined)
+    paras = []
+    for para in re.split(r'\n\s*\n', combined):
+        # A page-foot note BLOCK the OCR left as one paragraph, a note per line ("6 https://
+        # engelliweb.com/⏎7 Last accessed on…", 749b9c6b): each line is its own candidate twin.
+        lines = para.strip().split('\n')
+        nums = [_NOTE_BLOCK_LINE_RE.match(ln) for ln in lines]
+        if (len(lines) > 1 and all(nums)
+                and [int(m.group(1)) for m in nums]
+                == list(range(int(nums[0].group(1)), int(nums[0].group(1)) + len(lines)))):
+            paras.extend(lines)
+        else:
+            paras.append(para)
     replacements = {}
     drop = set()
     for num, text in recovered:
         head = _norm_note_text(text)[:40]
         if len(head) < 25:
+            # A short note (a bare URL) has too little text for an opening to prove anything —
+            # it is the same note only when the WHOLE of it agrees.
+            if len(head) < 10:
+                continue
+            whole = re.compile(r'^\s*' + str(num) + r'\s+(?=\S)')
+            exact = [i for i, p in enumerate(paras)
+                     if whole.match(p) and _norm_note_text(whole.sub('', p, count=1)) == head]
+            if len(exact) == 1:
+                drop.add(exact[0])
             continue
         opener = re.compile(r'^\s*' + str(num) + r'\s+(?=\S)')
         hits = [i for i, p in enumerate(paras)
@@ -940,7 +993,9 @@ def _marker_seam_witnesses(ptext, num):
         # Nothing but gluedness distinguishes this from a number in the prose, which is why the
         # word must be a real word (4+ letters) and the whole-document uniqueness check does the
         # actual deciding. 7fa30289 loses 3 of its 9 notes without this shape.
-        (rf'([A-Za-z]{{4,}}){num}\s+([A-Za-z]{{2,}})', 2),
+        # Any LETTER, not just ASCII: "AzTVdən Seçmələr2 are" (749b9c6b) lost its marker because
+        # the word's last ASCII run is one character long.
+        (rf'([^\W\d_]{{4,}}){num}\s+([A-Za-z]{{2,}})', 2),
         # glued onto a closing paren or a citation YEAR, punctuation AFTER the marker:
         # "(see figure 4)6: dispositions…", "(see also Oberquelle 19919). This…" — up to two
         # punctuation marks, because a marker inside a parenthetical closes both at once (").").
@@ -1693,9 +1748,9 @@ def qualify_def_heavy_pages(page_summary):
 
 
 _PAGE_NOTE_SET_RE = re.compile(r'^\[\^(\d{1,3})\]: ')
-_PAGE_NOTE_LED_RE = re.compile(r'^\[\^(\d{1,3})\]\s+(?=[A-Za-z\d"\'(*\u201c\u2018])')
-_PAGE_NOTE_GLUED_RE = re.compile(r'^\[\^(\d{1,3})\](?=[A-Z"\'\u201c\u2018])')
-_PAGE_NOTE_BARE_RE = re.compile(r'^(\d{1,3}) (?=[A-Z"\'\u201c\u2018])')
+_PAGE_NOTE_LED_RE = re.compile(r'^\[\^(\d{1,3})\]\s+(?=[A-Za-z\d"\'(*\u201c\u2018\u201e\u00ab\u00bb])')
+_PAGE_NOTE_GLUED_RE = re.compile(r'^\[\^(\d{1,3})\](?=[A-Z"\'\u201c\u2018\u201e\u00ab\u00bb])')
+_PAGE_NOTE_BARE_RE = re.compile(r'^(\d{1,3}) (?=[A-Z"\'\u201c\u2018\u201e\u00ab\u00bb])')
 _PAGE_NOTE_MAX_PAGE_GAP = 10
 _PAGE_NOTE_MIN_LEN = 40
 
@@ -1750,7 +1805,7 @@ def harvest_page_bottom_notes(md, page_idx, run):
     return '\n'.join(lines)
 
 
-_PAGE_NOTE_DEF_LINE_RE = re.compile(r'^\[\^(\d{1,3})\](?:: |\s+(?=[A-Za-z\d"\'(*\u201c\u2018]))')
+_PAGE_NOTE_DEF_LINE_RE = re.compile(r'^\[\^(\d{1,3})\](?:: |\s+(?=[A-Za-z\d"\'(*\u201c\u2018\u201e\u00ab\u00bb]))')
 _MD_HEADING_LINE_RE = re.compile(r'^#{1,6}\s')
 _PAGE_ANCHOR_RE = re.compile(r'\s*<a class="pageNumber"[^>]*></a>')
 
@@ -3017,7 +3072,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             md = re.sub(r'^\d{1,3}\. (\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
             md = re.sub(r'^(\d{1,3})\. (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
             # Also handle N text format (no period) — common in document endnotes
-            md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)
+            md = re.sub(r'^(\d{1,3}) ([A-Z\u2018\u201c\u201e\u00ab\u00bb\'"])', r'[^\1]: \2', md, flags=re.MULTILINE)
             # Also handle [N] text format — bracket-wrapped definitions
             md = re.sub(r'^\[(\d{1,3})\] (.+)', r'[^\1]: \2', md, flags=re.MULTILINE)
 
@@ -3124,7 +3179,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # drives its heading's level.
     try:
         from ingestion.pdf.heading_geometry import (
-            detect_heading_lines, recover_geometric_headings)
+            detect_heading_lines, recover_geometric_headings,
+            demote_unwitnessed_colon_headings)
         head_info = heading_lines
         if head_info is None and pdf_path:
             head_info = detect_heading_lines(str(pdf_path))
@@ -3143,6 +3199,12 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                       f"their type style carries elsewhere: "
                       + ', '.join(f'"{t[:44]}" h{was}→h{now}' for t, was, now in _relevel[:5])
                       + (' …' if len(_relevel) > 5 else ''))
+            combined, _demoted = demote_unwitnessed_colon_headings(combined, head_info)
+            if _demoted:
+                print(f"  Geometry headings: {len(_demoted)} colon-ended heading(s) the PDF sets in "
+                      f"body type returned to prose: "
+                      + ', '.join(f'"{t[:50]}"' for t in _demoted[:5])
+                      + (' …' if len(_demoted) > 5 else ''))
     except Exception as e:
         print(f"  Geometry heading pass skipped ({e.__class__.__name__})")
     # A boxed side-section dropped mid-sentence by the print layout → rejoin the sentence and
@@ -3244,7 +3306,14 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 translated = {}
                 for page_idx, page_defs in clean_pypdf_defs.items():
                     page_map = ctx.page_local_to_global.get(page_idx) or {}
-                    kept = [(page_map[n], t) for n, t in page_defs if n in page_map]
+                    kept = []
+                    for n, t in page_defs:
+                        if n in page_map:
+                            kept.append((page_map[n], t))
+                        elif kept and isinstance(t, SplitBornNote):
+                            # Cut out of the note before it and unplaceable here: back it goes,
+                            # number and all, exactly as the layer printed the line.
+                            kept[-1] = (kept[-1][0], '{} {} {}'.format(kept[-1][1], n, t))
                     if kept:
                         translated[page_idx] = kept
                 clean_pypdf_defs = translated
@@ -3285,6 +3354,8 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 ocr_def_nums, clean_pypdf_defs, max_ref,
                 page_offsets=page_offsets_map,
             )
+            if recovered:
+                recovered = _drop_section_heading_defs(recovered, combined)
             if recovered:
                 recovered = _strip_declared_page_chrome(recovered, response_dict)
                 recovered_lines = [f'[^{num}]: {text}' for num, text in recovered]

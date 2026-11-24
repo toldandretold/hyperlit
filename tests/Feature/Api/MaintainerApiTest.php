@@ -294,6 +294,42 @@ test('original endpoint streams the PDF inline for the side-by-side view; 404 wh
     }
 });
 
+test('an EPUB source is shown as a readable page, in reading order — never handed to the browser to download', function () {
+    // Framed, original.epub is just downloaded: opening a marxists.org import in the shelf console
+    // saved a file to the operator's disk instead of showing the source (prod 2026-11-24).
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public']);
+    $dir = resource_path("markdown/{$book}");
+    File::ensureDirectoryExists($dir);
+
+    $zip = new ZipArchive;
+    $zip->open("{$dir}/original.epub", ZipArchive::CREATE);
+    $zip->addFromString('META-INF/container.xml', '<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>');
+    $zip->addFromString('OEBPS/content.opf', '<package xmlns="http://www.idpf.org/2007/opf"><manifest>'
+        . '<item id="b" href="two.xhtml"/><item id="a" href="one.xhtml"/></manifest>'
+        . '<spine><itemref idref="a"/><itemref idref="b"/></spine></package>');
+    $zip->addFromString('OEBPS/one.xhtml', '<html><body><h1>Chapter One</h1><script>alert(1)</script><img src="x.png" alt="a map"/></body></html>');
+    $zip->addFromString('OEBPS/two.xhtml', '<html><body><p onclick="x()">Chapter Two text</p></body></html>');
+    $zip->close();
+
+    try {
+        $resp = $this->get("/api/maintainer/conversion/original/{$book}");
+        $resp->assertOk();
+        expect($resp->headers->get('Content-Type'))->toContain('text/html');
+        $html = $resp->getContent();
+        expect(strpos($html, 'Chapter One'))->toBeLessThan(strpos($html, 'Chapter Two text'))
+            ->and($html)->toContain('[image: a map]')
+            ->and($html)->not->toContain('alert(1)')
+            ->and($html)->not->toContain('onclick');
+
+        // The file itself is still one click away.
+        $file = $this->get("/api/maintainer/conversion/original/{$book}?download=1");
+        expect($file->headers->get('Content-Type'))->toBe('application/octet-stream');
+    } finally {
+        File::deleteDirectory($dir);
+    }
+});
+
 test('original endpoint falls back to the scraped fetched_page.html when no original.* exists', function () {
     $admin = $this->loginUser(['is_admin' => true]);
     $book = $this->makeBook($admin, ['visibility' => 'public', 'conversion_method' => 'html_scrape_unverified']);

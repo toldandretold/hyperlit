@@ -144,7 +144,8 @@ class MaintainerController extends Controller
     /**
      * GET /api/maintainer/conversion/original/{book} — stream the book's original source
      * file for the right-hand column. PDFs/HTML/MD render natively in an
-     * iframe; binary formats download.
+     * iframe; an EPUB is shown as one readable page (EpubPreview); other binary
+     * formats download.
      */
     public function original(string $book)
     {
@@ -165,6 +166,16 @@ class MaintainerController extends Controller
         foreach ($types as $ext => $mime) {
             $path = "{$dir}/original.{$ext}";
             if (File::exists($path)) {
+                // A browser downloads an EPUB instead of framing it, so the pane gets a readable
+                // page built from it. `?download=1` still hands over the file itself.
+                if ($ext === 'epub' && ! request()->boolean('download')
+                    && ($preview = \App\Services\Conversion\EpubPreview::html($path, "{$book} — original.epub")) !== null) {
+                    return response($preview, 200, [
+                        'Content-Type'  => 'text/html; charset=UTF-8',
+                        'Cache-Control' => 'private, no-store',
+                    ]);
+                }
+
                 return response()->file($path, [
                     'Content-Type'        => $mime,
                     // inline: the triage iframe renders it; browsers fall back

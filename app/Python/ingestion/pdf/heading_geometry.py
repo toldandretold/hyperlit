@@ -365,3 +365,65 @@ def recover_geometric_headings(md, heading_info):
     if not (renumbered or promoted or relevelled):
         return md, [], [], []
     return '\n\n'.join(paras), renumbered, promoted, relevelled
+
+
+# How much of the document's headings the type styles must account for before their SILENCE
+# about one heading is evidence: at least this many witnessed, and this share of all of them.
+MIN_WITNESSED_HEADINGS = 5
+MIN_WITNESSED_SHARE = 0.7
+
+
+def demote_unwitnessed_colon_headings(md, heading_info):
+    """Turn a heading the OCR invented from a body-text lead-in back into a paragraph.
+
+    Mistral promotes a short line ending in a colon to a heading whatever it is set in:
+    "Available functions:" and "Allocation matrix:" open two listings in db2d8fb7 in the body
+    font, and shipped as h2 beside thirty real colon-ended sub-headings the PDF sets in
+    TrebuchetMS-Bold. The text cannot tell the two kinds apart; the type style can. A heading is
+    demoted only when it ends in a colon, carries no section number, is not the title, NO
+    heading-styled line of the PDF names it — and the styles do account for nearly every other
+    heading of the document, so their silence means "body text" and not "the layer is unreadable
+    here". Returns (md, demoted_texts).
+    """
+    lines = (heading_info or {}).get('lines') or []
+    if not lines:
+        return md, []
+    paras = re.split(r'\n\s*\n', md)
+    heading_paras = {}
+    for i, p in enumerate(paras):
+        m = _MD_HEADING_RE.match(p.strip())
+        if m and '\n' not in p.strip():
+            heading_paras[i] = (m.group(1), m.group(2))
+    if len(heading_paras) < MIN_WITNESSED_HEADINGS:
+        return md, []
+    # "Does ANY heading-styled line carry these words" — not `_best_match`, which wants a
+    # unique winner and so calls four identical "Communism in General" headings unmatched.
+    def _fold(text):
+        return re.sub(r'[^a-z0-9]+', '', _LEADING_NUMBER_RE.sub('', text, count=1).lower())
+
+    line_texts = [_fold(line['text']) for line in lines]
+    witnessed = set()
+    for idx, (_hashes, text) in heading_paras.items():
+        want = _fold(text)
+        if not want:
+            continue
+        for have in line_texts:
+            lcp = _common_prefix_len(have, want)
+            if lcp == len(want) or (lcp >= MIN_MATCH_CHARS and lcp / len(want) >= MATCH_SCORE_EXISTING):
+                witnessed.add(idx)
+                break
+    if (len(witnessed) < MIN_WITNESSED_HEADINGS
+            or len(witnessed) < len(heading_paras) * MIN_WITNESSED_SHARE):
+        return md, []
+    title_idx = min(heading_paras)
+    demoted = []
+    for idx, (_hashes, text) in heading_paras.items():
+        bare = re.sub(r'[*_`]+', '', text).strip()
+        if (idx in witnessed or idx == title_idx or not bare.endswith(':')
+                or _LEADING_NUMBER_RE.match(bare)):
+            continue
+        paras[idx] = text
+        demoted.append(text)
+    if not demoted:
+        return md, []
+    return '\n\n'.join(paras), demoted
