@@ -305,6 +305,15 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             result[page_idx] = defs
 
     _unglue_page_numbers(result)
+    # Notes the layer ran together on one line are split HERE, once, so every consumer sees the
+    # same block. It used to happen only inside the two document-level recovery passes, and the
+    # page-level reconciler — which runs first — inserted the unsplit text: "22 http://forbes…
+    # 23 http://4-traders…" shipped as one note and marker 23 stayed unlinked (27e44104).
+    for page_idx, page_defs in result.items():
+        split_defs = []
+        for n, t in page_defs:
+            split_defs.extend(split_run_on_numbered_def(n, t))
+        result[page_idx] = split_defs
     return result
 
 
@@ -464,6 +473,15 @@ def resurrect_dropped_markers_from_pypdf(ocr_md, pypdf_text, def_nums, page_labe
     Returns (updated_md, resurrected_count).
     """
     existing = set(int(n) for n in re.findall(r'\[\^?(\d{1,3})\]', ocr_md))
+    # ...in EVERY shape the OCR writes a marker, because this runs before they are normalised.
+    # Knowing only the bracket form, a page that carried "$^{26}$" read as having lost marker
+    # 26, and a second one was planted on a look-alike seam two sentences earlier — "French
+    # Sign Language, [^26]" for the layer's "British Sign Language,26" (99a9fa50): a marker in
+    # the wrong sentence opening another sentence's note.
+    existing |= set(int(n) for n in re.findall(r'\^\{?(\d{1,3})\}?', ocr_md))
+    existing |= set(int(n) for n in re.findall(r'<sup>\s*(\d{1,3})\s*</sup>', ocr_md))
+    existing |= set(int(run.translate(SUPERSCRIPT_MAP))
+                    for run in re.findall(r'[\u2070\u00b9\u00b2\u00b3\u2074-\u2079]{1,3}', ocr_md))
     def_texts = def_texts or {}
     count = 0
 
@@ -738,6 +756,28 @@ def split_run_on_numbered_def(num, text):
             url_segs.append((cur, rest.strip()))
             return [(n, t) for n, t in url_segs if t]
 
+    # A note that ENDS in a URL, then the next consecutive number, then a new note's opening
+    # word: "See http://de.wikipedia.org/wiki/Werkunterricht 18 Translation from German. …"
+    # is notes 17 AND 18 (tripleC 27e44104 — the layer prints the page's note block on one
+    # line, and note 18 shipped inside note 17 while its marker stood unlinked). One boundary
+    # is enough for the same reason as above: a URL is not followed by a bare number in
+    # running prose. The one thing with this exact shape is a DATE ("…/page.html 18 March
+    # 2013" in note 17), so a month name never opens the new note.
+    url_tail_segs = []
+    cur, rest = num, flat
+    while True:
+        m = re.search(r'(\S+)\s{0}\s+(?=(?:["\'\u201c\u2018(]?([A-Z][A-Za-z]+)|https?://|www\.))'.format(cur + 1), rest)
+        if not m or not _URL_OPENER_RE.match(m.group(1)) \
+                or (m.group(2) and _MONTH_FOLLOWER_RE.match(m.group(2))):
+            break
+        url_tail_segs.append((cur, rest[:m.end(1)].strip()))
+        rest = rest[m.end():]
+        cur += 1
+    if url_tail_segs:
+        url_tail_segs.append((cur, rest.strip()))
+        if all(len(t) >= 8 for _n, t in url_tail_segs):
+            return [(n, t) for n, t in url_tail_segs]
+
     segs = []
     cur = num
     rest = flat
@@ -752,7 +792,10 @@ def split_run_on_numbered_def(num, text):
     if len(segs) < 3 or any(len(t) < 15 for _n, t in segs[:-1]):
         return [(num, text)]
     last_n, last_t = segs[-1]
-    last_t = re.split(r'\bCorrespondence\b', last_t)[0].strip().rstrip(',;')
+    # The colon is what makes it contact chrome. Without it this cut a real note at the WORD
+    # ("See Marcuse-Dunayevskaya Correspondence see RDC, Volume 12…" shipped as three words
+    # once the reconciler began reading split notes — 9d0400c9).
+    last_t = re.split(r'\bCorrespondence\s*:', last_t)[0].strip().rstrip(',;')
     segs[-1] = (last_n, last_t)
     return [(n, t) for n, t in segs if t]
 
@@ -790,13 +833,17 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
     # DIFFERENT numbers is a page-number + running-footer line ("2 PALGRAVE COMMUNICATIONS |
     # 3:17092 | DOI…" on page 2, "4 PALGRAVE…" on page 4 — a280cf5b linked two authors to
     # journal chrome). Genuine defs never share identical text.
-    text_counts = {}
-    for page_defs in pypdf_defs_by_page.values():
+    # Counted by PAGE: a running footer repeats across pages, while two consecutive notes on
+    # ONE page citing the same address ("5 http://money.cnn.com/data/us_markets/ 6 http://
+    # money.cnn.com/data/us_markets/", 25cfb2ff) are two notes, and reading them as chrome
+    # deleted both.
+    text_pages = {}
+    for page_idx, page_defs in pypdf_defs_by_page.items():
         for _n, t in page_defs:
             key = re.sub(r'\s+', ' ', t).strip().lower()
-            text_counts[key] = text_counts.get(key, 0) + 1
-    chrome = {k for k, c in text_counts.items()
-              if c >= 2 and not _SHORT_FORM_DEF_RE.match(k)}
+            text_pages.setdefault(key, set()).add(page_idx)
+    chrome = {k for k, pages in text_pages.items()
+              if len(pages) >= 2 and not _SHORT_FORM_DEF_RE.match(k)}
 
     recovered = []
     seen = set()

@@ -109,6 +109,31 @@ def encode_math(latex_content):
     latex_content = repair_unbalanced_latex(latex_content)
     return base64.b64encode(latex_content.encode('utf-8')).decode('ascii')
 
+_INLINE_MATH_RE = re.compile(
+    r'(?<!\$)(?<!\\)\$(?!\$)(?! )(\S[^$]*\S|\S)(?<! )(?<!\\)\$(?!\$)(?!\d)'
+)
+_MATH_SIGNIFIER_RE = re.compile(r'[\\^_={}<>|]')
+_PROSE_RUN_RE = re.compile(r'[A-Za-z]{3,}[,;.]?\s+[A-Za-z]{2,}')
+
+
+def _is_currency_span(text, m):
+    """True when a "$…$" match is two currency signs with prose between, not inline maths.
+
+    The span must open with an amount. Then either tell is enough: the opening "$" is glued to
+    a currency code ("US$", "A$", "HK$"), or the span carries running prose with nothing a formula would have
+    (no backslash, ^, _, =, braces). Maths that contains words uses \\text{…}, which is kept.
+    """
+    start = m.start()
+    body = m.group(1)
+    if not body[0].isdigit():
+        return False        # "XI$^{e}$ siècle" — glued to a letter, and maths all the same
+    if start > 0 and text[start - 1].isalpha():
+        return True
+    if not _MATH_SIGNIFIER_RE.search(body) and _PROSE_RUN_RE.search(body):
+        return True
+    return False
+
+
 def process_inline_formatting(text):
     """Process inline markdown formatting"""
     # Extract inline math ($...$) BEFORE any other processing to protect LaTeX from
@@ -138,11 +163,24 @@ def process_inline_formatting(text):
         math_counter[0] += 1
         return key
 
-    text = re.sub(
-        r'(?<!\$)(?<!\\)\$(?!\$)(?! )(\S[^$]*\S|\S)(?<! )(?<!\\)\$(?!\$)(?!\d)',
-        replace_inline_math,
-        text
-    )
+    # A matched span is still refused when it is CURRENCY, not maths: "US$3.7 billion in 2011 (…)
+    # a wealth of US$ 17.5 billion" has a second "$" followed by a space, so the (?!\d) guard above
+    # does not see it and a whole sentence was typeset as an equation (27e44104). On refusal the scan
+    # resumes just after the opening "$", so real maths later in the same line is still found.
+    out, pos = [], 0
+    while True:
+        m = _INLINE_MATH_RE.search(text, pos)
+        if not m:
+            out.append(text[pos:])
+            break
+        if _is_currency_span(text, m):
+            out.append(text[pos:m.start() + 1])
+            pos = m.start() + 1
+            continue
+        out.append(text[pos:m.start()])
+        out.append(replace_inline_math(m))
+        pos = m.end()
+    text = ''.join(out)
 
     # Preserve <br>, <br/>, <br /> tags by replacing with placeholder
     br_placeholder = '\x00BR_TAG\x00'

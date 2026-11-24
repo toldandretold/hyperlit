@@ -47,6 +47,10 @@ The page's information block is the only evidence used: `Copyleft: … Creative 
 
 A third, in `FootnoteBlocks` (every EPUB-lane footnote opened on an empty line: the definition anchor became a node of its own), is covered in `tests/Unit/FootnoteBlocksTest.php`.
 
+## Notes stay printed at the foot of the text
+
+The EPUB lane removes every footnote definition from the body once it is extracted (`DefinitionElementRemover`) — the note lives in the tap-to-open container. For this site that left a bare "Notes" heading over nothing at the end of every letter, where a reader expects the notes. So the stitcher writes `<meta name="hyperlit:keep-notes" content="true"/>` into the EPUB's package file, the normaliser reads it (`keep_notes`; the stitcher's `marxists_provenance.json` beside an older EPUB counts too, so a plain reconvert fixes books stitched before the flag), and the remover instead reprints each note where it stood, from its EXTRACTED content, as plain text under the book-wide number its marker shows (`[5] Mitya—the pet name…`). Not the source's number: those restart every chapter. Not a `sup[fn-count-id]`: that would be counted and renumbered as a second marker. Each kept block carries `role="doc-footnote"` (one of the few attributes the normaliser's sanitiser passes), which is how the bibliography scan knows to skip it — an editorial note that opens with a name and a year ("Ulyanova, Maria Ilyinichna (1878-1937)—…") is entry-shaped, and three of one letter's seven notes were minted as references before that. The flag is opt-in per source; every other EPUB converts as before.
+
 ## The bulk import (a whole author, from the backend)
 
 For the maintainer: list an author's works, then import them a batch at a time into the **marxists.org archive** (`/a/marxists-org`), reviewed in `/maintainer/shelf-import/marxists-org` like any other imported collection.

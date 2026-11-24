@@ -111,7 +111,9 @@ def _find_reference_paragraphs(soup):
     Returns (reference_p_tags, used_reverse_scan)."""
     reference_p_tags = []
     used_reverse_scan = False
-    all_paragraphs = [p for p in soup.find_all('p') if not _in_footnote_container(p)]
+    # A footnote printed in place (role="doc-footnote", the EPUB lane's keep-notes mode) is a NOTE.
+    all_paragraphs = [p for p in soup.find_all('p')
+                      if not _in_footnote_container(p) and (p.get('role') or '').lower() != 'doc-footnote']
 
     print(f"\U0001F4DA Scanning {len(all_paragraphs)} paragraphs for reference section...")
 

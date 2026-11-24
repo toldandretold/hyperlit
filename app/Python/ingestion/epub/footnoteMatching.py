@@ -1436,12 +1436,12 @@ class FootnoteConverter(EpubTransform):
         # This is run manually after pipeline, not auto-detected
         return False
 
-    def convert(self, soup, all_footnotes, all_noterefs, book_id, log) -> dict:
+    def convert(self, soup, all_footnotes, all_noterefs, book_id, log, keep_definitions=False) -> dict:
         """Convert footnotes to Hyperlit format — delegates to the FOOTNOTE_LINK_RULES registry
         (conversion/footnote_link_rules.py), where each linking step is an independently-testable,
         loop-registerable LinkRule (the monolith this replaced is where the aarushi bug lived)."""
         self.book_id = book_id
-        result = link_epub_footnotes(soup, all_footnotes, all_noterefs, book_id, log)
+        result = link_epub_footnotes(soup, all_footnotes, all_noterefs, book_id, log, keep_definitions)
         self.footnotes_json = result['footnotes_json']
         self._linking_stats = result['linking_stats']
         return {'footnotes_json': result['footnotes_json'], 'id_mapping': result['id_mapping']}

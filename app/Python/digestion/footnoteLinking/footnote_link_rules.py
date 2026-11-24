@@ -22,9 +22,11 @@ _BLOCK_TAGS = {'p', 'div', 'li', 'aside', 'section', 'blockquote', 'td'}
 # Shared context (the state the monolith threaded through its phases)
 # ---------------------------------------------------------------------------
 class FootnoteLinkContext:
-    def __init__(self, soup, all_footnotes, all_noterefs, book_id):
+    def __init__(self, soup, all_footnotes, all_noterefs, book_id, keep_definitions=False):
         self.soup = soup
         self.book_id = book_id
+        # The source asked for its notes to STAY printed where they stand (see DefinitionElementRemover).
+        self.keep_definitions = keep_definitions
         # SAME list reference (not a copy): reverse-definition appends in place, and
         # epub_normalizer._write_assessment reads `all_footnotes` after convert() returns.
         self.all_footnotes = all_footnotes
@@ -366,13 +368,60 @@ class FootnotesJsonBuilder(LinkRule):
 
 class DefinitionElementRemover(LinkRule):
     name = 'definition_remove'
-    description = "Decompose each definition element from the body (its content is now in footnotes.json)."
+    description = ("Decompose each definition element from the body (its content is now in footnotes.json) — "
+                   "or, when the source asks to keep its notes, leave each printed in place under its book-wide number.")
 
     def apply(self, ctx, log=None):
+        kept = 0
         for mapping in ctx.id_mapping.values():
             elem = mapping.get('element')
-            if elem and elem.parent:
-                elem.decompose()
+            if not (elem and elem.parent):
+                continue
+            if ctx.keep_definitions and _print_definition_in_place(ctx.soup, elem, mapping):
+                kept += 1
+                continue
+            elem.decompose()
+        if kept and log:
+            log(f"  Kept {kept} footnote definitions printed in place")
+
+
+# DPUB-ARIA's role for a footnote. `role` is one of the few attributes the EPUB normaliser's
+# sanitiser lets through to main-text.html, which is how the mark reaches the digestion stage.
+KEPT_NOTE_ROLE = 'doc-footnote'
+
+
+def _print_definition_in_place(soup, elem, mapping):
+    """A notes section the reader expects to find at the foot of the text (marxists.org: "Notes",
+    then the notes). Removing every definition left a bare "Notes" heading over nothing. The note is
+    reprinted from its EXTRACTED content — the source's own number already stripped — under the same
+    book-wide number its marker shows, because the source's numbers restart every chapter and would
+    contradict the marker the reader tapped. Plain "[N] " text: it is a printed note, not a second
+    marker (a `sup[fn-count-id]` here would be counted and renumbered as one). False = nothing to
+    print, so the caller removes the element as before."""
+    content = BeautifulSoup(mapping.get('content') or '', 'html.parser')
+    blocks = [c for c in content.contents if getattr(c, 'name', None) or str(c).strip()]
+    if not blocks or not content.get_text(strip=True):
+        return False
+    # The marker may already be printed in brackets ("[1]"); never "[[1]]".
+    marker = str(mapping.get('display_marker', mapping['count'])).strip().strip('[]()')
+    label = f"[{marker}] "
+    first = blocks[0]
+    if getattr(first, 'name', None) in ('p', 'div', 'blockquote', 'li'):
+        first.insert(0, NavigableString(label))
+    else:
+        wrapper = soup.new_tag('p')
+        wrapper.append(NavigableString(label))
+        for b in blocks:
+            wrapper.append(b.extract())
+        blocks = [wrapper]
+    for b in blocks:
+        # Read by the bibliography scan (`KEPT_NOTE_ROLE`): an editorial note that opens with a name
+        # and carries a year ("Ulyanova, Maria Ilyinichna (1878-1937)—…") is entry-shaped, and
+        # three of this letter's seven notes were minted as a bibliography before this marked them.
+        if getattr(b, 'name', None):
+            b['role'] = KEPT_NOTE_ROLE
+    elem.replace_with(*[b.extract() if b.parent is not None else b for b in blocks])
+    return True
 
 
 class StrayLinkCleaner(LinkRule):
@@ -410,14 +459,14 @@ FOOTNOTE_LINK_RULES = [
 ]
 
 
-def link_epub_footnotes(soup, all_footnotes, all_noterefs, book_id, log):
+def link_epub_footnotes(soup, all_footnotes, all_noterefs, book_id, log, keep_definitions=False):
     """Run the footnote-linking pipeline. Returns {footnotes_json, id_mapping, linking_stats}.
     The thin `FootnoteConverter.convert` shell calls this."""
     if not all_footnotes and not all_noterefs:
         log("  No footnotes to convert")
         return {'footnotes_json': [], 'id_mapping': {}, 'linking_stats': None}
     log(f"  Converting {len(all_footnotes)} footnotes, {len(all_noterefs)} references (detected)")
-    ctx = FootnoteLinkContext(soup, all_footnotes, all_noterefs, book_id)
+    ctx = FootnoteLinkContext(soup, all_footnotes, all_noterefs, book_id, keep_definitions)
     run_link_rules(FOOTNOTE_LINK_RULES, ctx, log)
     log(f"  Generated {len(ctx.footnotes_json)} footnote entries for JSON")
     return {'footnotes_json': ctx.footnotes_json, 'id_mapping': ctx.id_mapping,

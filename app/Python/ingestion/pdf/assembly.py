@@ -1380,6 +1380,7 @@ class PageBottomAssembler(FootnoteAssembler):
         # text layer's glued-superscript seams before renumbering, so they enter the page map
         # and the missing-def recovery can pair them.
         ptext = (getattr(ctx, 'pypdf_page_texts', None) or {}).get(i)
+        md = promote_list_numbered_note(md, ptext)
         if pypdf_nums and ptext:
             def_texts = {}
             for _n, _t in pypdf_defs:
@@ -2743,6 +2744,15 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         except Exception as e:
             print(f"  pypdf pre-extraction skipped (cannot read PDF: {e.__class__.__name__})")
 
+    # The text layer as a witness for HEADINGS, whatever the footnote layout: the section numbers
+    # the OCR drops and the bullets it promotes to headings (restore_heading_evidence_from_layer).
+    ctx.layer_page_texts = ctx.pypdf_page_texts
+    if pdf_path and ctx.layer_page_texts is None:
+        try:
+            ctx.layer_page_texts = extract_pypdf_page_texts(pdf_path)
+        except Exception as e:
+            print(f"  text-layer heading witness skipped (cannot read PDF: {e.__class__.__name__})")
+
     # Markers the OCR could not see AT ALL because the PDF encodes its digits in the Unicode
     # Private Use Area (see derive_pua_digit_map). Not gated on classification: the file that
     # exposed this is an ENDNOTES article, and the page_bottom-only gate above is exactly why its
@@ -3038,6 +3048,13 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             if _n_pua:
                 md_stripped = md.strip()
 
+        _layer_text = (getattr(ctx, 'layer_page_texts', None) or {}).get(i)
+        if _layer_text:
+            _md_headed = restore_heading_evidence_from_layer(md, _layer_text)
+            if _md_headed != md:
+                md = _md_headed
+                md_stripped = md.strip()
+
         # Per-classification per-page footnote handling (renumber / convert / offset + append).
         assembler.per_page(ctx, i, page, md, md_stripped)
 
@@ -3325,11 +3342,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # --- Convert <url> autolinks to clickable links ---
     # Angle-bracket URLs like <https://example.com> get stripped by HTML parsers.
     # Use <a> tags directly since footnote content is stored as HTML.
-    combined = re.sub(
-        r'<(https?://[^>]+)>',
-        r'<a href="\1" target="_blank">\1</a>',
-        combined
-    )
+    # A URL holds no whitespace. With "[^>]+" an autolink the OCR left UNCLOSED ("<http://www.
+    # isj.org.uk/…issue=114." at the end of one note) ran on to the next ">" in the document, so
+    # the two notes after it were swallowed into its href and printed twice (eb250225).
+    combined = autolink_angle_urls(combined)
 
     # --- Reorder image-before-caption → caption-before-image ---
     # OCR places images before their figure/table captions.  Swap so the

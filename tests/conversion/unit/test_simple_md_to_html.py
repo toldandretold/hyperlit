@@ -156,3 +156,33 @@ def test_ordinary_angle_brackets_are_still_escaped():
 def test_long_sup_like_text_is_not_treated_as_frontend_markup():
     out = process_inline_formatting('<sup>far too much text to be an ordinal suffix</sup>')
     assert '&lt;sup&gt;' in out
+
+
+def test_currency_code_dollars_with_prose_between_are_not_math():
+    # 27e44104: the second "$" is followed by a space, so the digit guard never saw it and
+    # a whole sentence was typeset as an equation.
+    src = ('Facebook achieved revenues of US$3.7 billion in 2011 (Form S-1). Zuckerberg was '
+           'controlling a wealth of US$ 17.5 billion (Forbes).')
+    out = process_inline_formatting(src)
+    assert '<latex' not in out
+    assert 'US$3.7 billion in 2011' in out and 'US$ 17.5 billion' in out
+
+
+def test_bare_dollar_amount_then_prose_is_not_math():
+    out = process_inline_formatting('It earned $68 billion in 2010 and paid a fine of $ 2 million.')
+    assert '<latex' not in out
+
+
+def test_math_after_a_currency_amount_is_still_math():
+    out = process_inline_formatting('It cost US$5 where $x^2$ is the area.')
+    assert out.count('<latex') == 1 and 'US$5 where' in out
+
+
+def test_inline_math_starting_with_a_digit_is_still_math():
+    assert '<latex' in process_inline_formatting('so $2x + 1 = 5$ holds')
+    assert '<latex' in process_inline_formatting('for $3 \\text{ of the } n$ cases')
+
+
+def test_superscript_glued_to_a_word_is_still_math():
+    # bedjaoui: "XI$^{e}$ Colloque" — a letter before the "$" is not by itself currency.
+    assert process_inline_formatting('Actes du XI$^{e}$ Colloque').count('<latex') == 1

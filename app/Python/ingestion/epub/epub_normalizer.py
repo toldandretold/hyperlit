@@ -606,7 +606,8 @@ class EpubNormalizer:
             all_footnotes,
             all_noterefs,
             self.book_id,
-            self._log
+            self._log,
+            keep_definitions=getattr(self, 'keep_notes', False),
         )
 
         self.results['footnotes_json'] = result.get('footnotes_json', [])
@@ -896,6 +897,15 @@ class EpubNormalizer:
         for elem in root.iter():
             elem.tag = re.sub(r'\{.*?\}', '', elem.tag)
 
+        # A source may ask for its notes to stay printed at the foot of the text as well as being
+        # linked (`<meta name="hyperlit:keep-notes" content="true"/>` — the marxists.org stitcher).
+        self.keep_notes = any(
+            m.get('name') == 'hyperlit:keep-notes' and (m.get('content') or '').lower() == 'true'
+            for m in root.findall('.//metadata/meta'))
+        # EPUBs stitched before the flag existed carry no such meta; the stitcher's provenance file
+        # beside them says the same thing, so an ordinary reconvert of those books prints their notes.
+        if os.path.exists(os.path.join(self.output_dir, 'marxists_provenance.json')):
+            self.keep_notes = True
         manifest = {item.get('id'): item.get('href') for item in root.findall('.//manifest/item')}
         spine = [item.get('idref') for item in root.findall('.//spine/itemref')]
         self._log(f"Manifest: {len(manifest)} items, Spine: {len(spine)} items")

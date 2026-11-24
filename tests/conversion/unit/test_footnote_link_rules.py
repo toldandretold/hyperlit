@@ -150,6 +150,36 @@ def test_link_epub_footnotes_end_to_end(soup):
     assert s.find(id='fn1') is None
 
 
+def test_a_source_that_asks_to_keep_its_notes_has_them_printed_in_place(soup):
+    """marxists.org prints "Notes" and then the notes. Removing every definition left a bare heading
+    over nothing (prod 2026-11-24). In keep mode the note stays where it stood, under the SAME
+    book-wide number its marker shows — the source's own number restarts every chapter — and it is
+    still extracted, so tapping the marker works exactly as before."""
+    s = soup('<body><p>First<a href="#n1">[1]</a> and second<a href="#n2">[2]</a>.</p><h3>Notes</h3>'
+             '<p id="n1"><a href="#x">[1]</a> The first note.</p><p id="n2">[2] The <em>second</em> note.</p></body>')
+    all_footnotes = [{'id': i, 'element': s.find(id=i), 'type': 'footnote'} for i in ('n1', 'n2')]
+    all_noterefs = [{'element': s.find('a', href='#' + i), 'target_id': i, 'original_marker': m}
+                    for i, m in (('n1', '[1]'), ('n2', '[2]'))]
+    _, log = _logs()
+    out = link_epub_footnotes(s, all_footnotes, all_noterefs, 'b', log, keep_definitions=True)
+
+    assert len(out['footnotes_json']) == 2 and len(s.find_all('sup', class_='footnote-ref')) == 2
+    kept = s.find_all(attrs={'role': 'doc-footnote'})
+    assert [k.get_text(' ', strip=True) for k in kept] == ['[1] The first note.', '[2] The second note.']
+    assert kept[1].find('em') is not None                     # the note's own markup survives
+    assert s.find('h3').find_next_sibling() is kept[0]        # …where the definitions stood
+    # A printed note is text, never a second marker: nothing here may be counted or renumbered.
+    assert not any(k.find('sup') or k.find(attrs={'fn-count-id': True}) for k in kept)
+
+
+def test_notes_are_removed_from_the_body_unless_the_source_asks(soup):
+    s = soup('<body><p>Claim<a href="#n1">[1]</a>.</p><p id="n1">[1] The note.</p></body>')
+    _, log = _logs()
+    link_epub_footnotes(s, [{'id': 'n1', 'element': s.find(id='n1'), 'type': 'footnote'}],
+                        [{'element': s.find('a', href='#n1'), 'target_id': 'n1', 'original_marker': '[1]'}], 'b', log)
+    assert 'The note.' not in s.get_text() and not s.find(attrs={'role': 'doc-footnote'})
+
+
 def test_link_epub_footnotes_noop_when_empty(soup):
     s = soup('<body><p>nothing to link</p></body>')
     _, log = _logs()

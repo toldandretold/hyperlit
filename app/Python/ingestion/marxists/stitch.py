@@ -904,7 +904,7 @@ def pack_epub(meta, chapters, media):
         language = esc(meta.get('language') or 'en')
         z.writestr('content.opf', f'''<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uid">
- <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>{title}</dc:title><dc:creator>{author}</dc:creator><dc:identifier id="uid">{source}</dc:identifier><dc:source>{source}</dc:source><dc:language>{language}</dc:language></metadata>
+ <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>{title}</dc:title><dc:creator>{author}</dc:creator><dc:identifier id="uid">{source}</dc:identifier><dc:source>{source}</dc:source><dc:language>{language}</dc:language><meta name="hyperlit:keep-notes" content="true"/></metadata>
  <manifest>{''.join(items)}<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>
  <spine toc="ncx">{''.join(refs)}</spine>
 </package>''', compress_type=zipfile.ZIP_DEFLATED)

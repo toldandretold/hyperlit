@@ -609,3 +609,133 @@ def test_a_note_that_is_only_a_bracketed_url_leaves_the_body_with_its_page_notes
     body, notes = S.split_body_and_footnotes(md)
     assert body == 'Body text that ends the page "Two'
     assert notes.startswith('[^5]: <https:')
+
+
+# ── 27e44104: notes the layer ran together, and a note printed inside a list item ──────────
+
+def test_note_ending_in_a_url_splits_from_the_next_numbered_note():
+    run = ('See http://de.wikipedia.org/wiki/Werkunterricht 18 Translation from German. '
+           'Lehrpläne technisches Werken, http://www.bmukk.gv.at/medienpool/792/ahs17.pdf')
+    out = REC.split_run_on_numbered_def(17, run)
+    assert [n for n, _t in out] == [17, 18]
+    assert out[0][1] == 'See http://de.wikipedia.org/wiki/Werkunterricht'
+    assert out[1][1].startswith('Translation from German.')
+
+
+def test_a_date_after_a_url_is_not_the_next_note():
+    run = 'See http://example.org/report.html 18 March 2013, section two of the report'
+    assert REC.split_run_on_numbered_def(17, run) == [(17, run)]
+
+
+def test_a_number_inside_prose_does_not_split_a_note():
+    run = 'Compare the figures in chapter 18 Translation is discussed at http://example.org/x'
+    assert REC.split_run_on_numbered_def(17, run) == [(17, run)]
+
+
+def test_list_numbered_page_foot_note_becomes_a_definition():
+    md = ('pose a strong incentive for people to move into work”²⁰. It does not matter.\n\n'
+          '1. *BBC Online*, Iain Duncan Smith criticised over benefit cap figures. May 9, 2013.\n')
+    layer = ('…if this is techno-        1. 20 BBC Online, Iain Duncan Smith criticised over '
+             'benefit cap figures. May 9, 2013.')
+    out = S.promote_list_numbered_note(md, layer)
+    assert '\n²⁰ *BBC Online*, Iain Duncan Smith' in out
+    assert '\n1. *BBC Online*' not in out
+
+
+def test_an_ordinary_closing_list_item_is_left_alone():
+    md = 'Some text with a marker²⁰ here.\n\n1. First point of the argument is made here.\n'
+    layer = 'Some text with a marker20 here. 1. First point of the argument is made here.'
+    assert S.promote_list_numbered_note(md, layer) == md
+    # layer agrees on the shape but the page has no such marker → still left alone
+    layer2 = 'x 1. 20 First point of the argument is made here.'
+    md2 = 'Some text with no marker.\n\n1. First point of the argument is made here.\n'
+    assert S.promote_list_numbered_note(md2, layer2) == md2
+
+
+def test_the_word_correspondence_does_not_cut_a_note():
+    run = ('Lenin, The Theoretic Mistakes of the comrades are discussed here at length. '
+           '16 See the last writings on Lenin in the collected volumes of the archive. '
+           '17 For Lukacs the Absolute Spirit introduced no really new knowledge of history. '
+           '18 See Marcuse-Dunayevskaya Correspondence see RDC, Volume 12, Section V.')
+    out = REC.split_run_on_numbered_def(15, run)
+    assert out[-1] == (18, 'See Marcuse-Dunayevskaya Correspondence see RDC, Volume 12, Section V.')
+
+
+def test_a_marker_the_ocr_wrote_as_latex_is_not_resurrected_a_second_time():
+    # 99a9fa50: "$^{26}$" already marks note 26; the layer's "British Sign Language,26 the sign"
+    # also fits "French Sign Language, "the sign" two sentences earlier.
+    md = ('derived from the French Sign Language, "the sign for work is made by fists.\n\n'
+          'In British Sign Language, $^{26}$  the sign for work is made with open palms.')
+    layer = ('derived from the French Sign Language, “the sign for work is made by fists. '
+             'In British Sign Language,26 the sign for work is made with open palms.')
+    out, n = REC.resurrect_dropped_markers_from_pypdf(md, layer, {26})
+    assert n == 0 and out == md
+    for shape in ('²⁶', '<sup>26</sup>', '[^26]'):
+        md2 = md.replace('$^{26}$', shape)
+        assert REC.resurrect_dropped_markers_from_pypdf(md2, layer, {26})[1] == 0
+
+
+def test_an_unclosed_angle_url_does_not_swallow_the_notes_after_it():
+    md = ('[^14]: see also the journal:<http://www.isj.org.uk/index.php4?s=contents&issue=114.\n\n'
+          '[^15]: A note with no link at all.\n\n'
+          '[^16]: found in this post: <http://www.renesys.com/blog/egypt.shtml>.')
+    out = S.autolink_angle_urls(md)
+    assert out.count('[^15]:') == 1 and out.count('[^16]:') == 1
+    assert '<a href="http://www.renesys.com/blog/egypt.shtml" target="_blank">' in out
+    assert S.autolink_angle_urls('x < http://a.org/b> y') == 'x <a href="http://a.org/b" target="_blank">http://a.org/b</a> y'
+
+
+def test_two_notes_on_one_page_with_the_same_url_are_not_page_chrome():
+    by_page = {33: [(5, 'http://money.cnn.com/data/us_markets/'),
+                    (6, 'http://money.cnn.com/data/us_markets/')]}
+    got = REC.recover_missing_defs(set(), by_page, 6)
+    assert [n for n, _t in got] == [5, 6]
+    # the same text on two different pages is still a running footer
+    footer = {2: [(2, 'Palgrave Communications 3:17092 DOI 10.1057')],
+              4: [(4, 'Palgrave Communications 3:17092 DOI 10.1057')]}
+    assert REC.recover_missing_defs(set(), footer, 9) == []
+
+
+# ── headings: what the text layer can put back ────────────────────────────────────────────
+
+def test_dropped_section_number_is_restored_from_the_layer():
+    md = 'Some prose here.\n\n### Defining Cultural Labour\n\nThere exists a latent debate.\n'
+    layer = 'how to define cultural labour.  1.1. Defining Cultural Labour There exists a latent debate.'
+    out = S.restore_heading_evidence_from_layer(md, layer)
+    assert '### 1.1. Defining Cultural Labour' in out
+
+
+def test_heading_number_needs_the_exact_text_once_and_a_dotted_number():
+    md = '## Results\n\nText.\n\n## Digital Labour Today\n\nMore.\n'
+    # bare number (page/note number look-alike), and a heading the layer never numbers
+    layer = 'page 3 Results Text. Digital Labour Today More.'
+    assert S.restore_heading_evidence_from_layer(md, layer) == md
+    # ambiguous: printed twice with a number (contents list + body)
+    layer2 = '2.1. Digital Labour Today .... 5  2.1. Digital Labour Today More.'
+    assert S.restore_heading_evidence_from_layer(md, layer2) == md
+    # already numbered headings are left alone
+    md3 = '## 1.4. Digital Work and Digital Labour\n\nText.\n'
+    assert S.restore_heading_evidence_from_layer(md3, '1.4. Digital Work and Digital Labour Text.') == md3
+
+
+def test_bullet_lead_in_the_ocr_made_a_heading_goes_back_to_a_list_item():
+    md = ('communities, etc.\n\n### False coronavirus news:\n\n'
+          'The collective shock is a fertile ground.\n\n### Types of false coronavirus news:\n\n'
+          'There are two main types.\n')
+    layer = ('communities, etc.   \u2022 False coronavirus news:  The collective shock is a fertile '
+             'ground.  \u2022 Types of false coronavirus news:  There are two main types.')
+    out = S.restore_heading_evidence_from_layer(md, layer)
+    assert '#' not in out
+    assert '- False coronavirus news: The collective shock is a fertile ground.' in out
+    assert '- Types of false coronavirus news: There are two main types.' in out
+
+
+def test_a_real_colon_heading_with_no_bullet_in_the_layer_is_kept():
+    md = '## Key Findings:\n\nThe findings are these.\n'
+    assert S.restore_heading_evidence_from_layer(md, 'Key Findings: The findings are these.') == md
+
+
+def test_the_tail_of_a_doi_is_not_a_section_number():
+    md = '## How to cite TSpace items\n\nAlways cite the published version.\n'
+    layer = 'available at: http://www.tandfonline.com/10.5235/20414005.5.1.60. \n \nHow to cite TSpace items \nAlways cite'
+    assert S.restore_heading_evidence_from_layer(md, layer) == md

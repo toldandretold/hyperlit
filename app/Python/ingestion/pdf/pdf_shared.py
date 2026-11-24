@@ -1204,6 +1204,138 @@ def find_midpage_def_block(lines, candidate_fn, pypdf_defs):
     return []
 
 
+_ANGLE_URL_RE = re.compile(r'<[ \t]*(https?://[^>\s]+)[ \t]*>')
+
+
+def autolink_angle_urls(text):
+    """<https://…> autolinks → <a> tags (HTML parsers strip the bare angle form)."""
+    return _ANGLE_URL_RE.sub(r'<a href="\1" target="_blank">\1</a>', text)
+
+
+_BLANK_RUN_RE = re.compile(r'\n{3,}')
+_HEADING_LINE_RE = re.compile(r'^(#{1,6})\s+(.+?)\s*$')
+_SECTION_NUMBER_HEAD_RE = re.compile(r'^(?:\d{1,2}(?:\.\d{1,2})*\.?|[IVXLC]+\.|[A-Z]\.)\s')
+_LAYER_FOLD_TABLE = str.maketrans({
+    '\u2010': '-', '\u2011': '-', '\u2012': '-', '\u2013': '-', '\u2014': '-',
+    '\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"', '\u00a0': ' ',
+})
+
+
+def _fold_for_layer_match(text):
+    return _WS_RUN_RE.sub(' ', text.translate(_LAYER_FOLD_TABLE)).strip()
+
+
+def restore_heading_evidence_from_layer(page_md, layer_text):
+    """Two things OCR does to a heading that the PDF's own text layer can undo.
+
+    (1) It drops the printed SECTION NUMBER: "1.1. Defining Cultural Labour" arrives as
+    "### Defining Cultural Labour" (tripleC c0813ca6 — every heading in the article), which
+    also costs the heading its level. The number is put back when the layer prints it directly
+    before that exact heading text, once on the page.
+
+    (2) It promotes a BULLET's bold lead-in to a heading: the page prints "• False coronavirus
+    news: The collective shock…" and the OCR returns "### False coronavirus news:" over a
+    paragraph (5fc4aad4) — a heading that does not exist in the document. When the layer shows
+    a bullet glyph directly before the heading text, the line goes back to being a list item
+    and takes the paragraph under it with it.
+
+    Both need the heading text found verbatim (dash/quote/space-folded) in the layer; anything
+    less is left exactly as the OCR gave it.
+    """
+    if not layer_text or '#' not in page_md:
+        return page_md
+    layer = _fold_for_layer_match(layer_text)
+    lines = page_md.split('\n')
+    changed = False
+    for i, line in enumerate(lines):
+        m = _HEADING_LINE_RE.match(line)
+        if not m:
+            continue
+        text = _EMPHASIS_CHARS_RE.sub('', m.group(2)).strip()
+        folded = _fold_for_layer_match(text)
+        if len(folded) < 6:
+            continue
+        if folded.endswith(':'):
+            if re.search(r'[\u2022\u25cf\u25aa\u2023]\s*' + re.escape(folded), layer):
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                if j < len(lines) and not re.match(r'^(?:#|[-*+]\s|\d{1,3}[.)]\s|>|\||!\[|\[\^)', lines[j]):
+                    lines[i] = '- ' + text + ' ' + lines[j].strip()
+                    for k in range(i + 1, j + 1):
+                        lines[k] = ''
+                else:
+                    lines[i] = '- ' + text
+                changed = True
+            continue
+        if _SECTION_NUMBER_HEAD_RE.match(folded):
+            continue
+        hits = list(re.finditer(
+            # Whitespace before the number, nothing else: "…/20414005.5.1.60. How to cite" is
+            # the tail of a DOI, not section 5.1.60.
+            r'(?:^|(?<=\s))(\d{1,2}(?:\.\d{1,2}){0,3}\.?)\s+' + re.escape(folded) + r'(?!\w)',
+            layer))
+        if len(hits) != 1:
+            continue
+        number = hits[0].group(1)
+        if '.' not in number:
+            continue        # a bare "3 Results" is as likely a page number or a note number
+        lines[i] = m.group(1) + ' ' + number + ' ' + m.group(2)
+        changed = True
+    if not changed:
+        return page_md
+    return _BLANK_RUN_RE.sub('\n\n', '\n'.join(lines))
+
+
+_LIST_NUMBERED_LINE_RE = re.compile(r'^(\d{1,2})\.\s+(.+)$')
+_SUPERSCRIPT_DIGITS = str.maketrans("0123456789", "\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079")
+_EMPHASIS_CHARS_RE = re.compile(r'[*_]')
+
+
+def promote_list_numbered_note(page_md, layer_text):
+    """A page-foot note the print itself carries inside a numbered LIST item.
+
+    tripleC 27e44104 prints note 20 as "1. 20 BBC Online, Iain Duncan Smith criticised…" (a
+    stray list number from the author's word processor). OCR reads the list number and drops
+    the note number — "1. *BBC Online*, …" — so the note stayed in the body as a one-item list
+    and marker 20 linked to nothing. Rewritten to the page's own note shape only when the text
+    layer shows that list number, then a note number, then the same opening words, AND that
+    note number is a marker on this page with no definition line of its own. Returns the page
+    markdown, changed or not.
+    """
+    if not layer_text:
+        return page_md
+    lines = page_md.rstrip('\n').split('\n')
+    idx = len(lines) - 1
+    while idx >= 0 and not lines[idx].strip():
+        idx -= 1
+    if idx < 1 or lines[idx - 1].strip():
+        return page_md
+    m = _LIST_NUMBERED_LINE_RE.match(lines[idx])
+    if not m:
+        return page_md
+    body = m.group(2)
+    words = _EMPHASIS_CHARS_RE.sub('', body).split()[:3]
+    if len(words) < 2:
+        return page_md
+    seam = re.search(r'(?<!\d)' + m.group(1) + r'\.\s+(\d{1,3})\s+'
+                     + r'\s+'.join(re.escape(w) for w in words), layer_text)
+    if not seam:
+        return page_md
+    num = seam.group(1)
+    sup = num.translate(_SUPERSCRIPT_DIGITS)
+    above = '\n'.join(lines[:idx])
+    if re.search(r'(?m)^(?:\[\^' + num + r'\]:|' + sup + r'\s)', above):
+        return page_md
+    if re.search(r'\[\^' + num + r'\](?!:)', above):
+        lines[idx] = '[^' + num + ']: ' + body
+    elif re.search(r'(?<![\u2070\u00b9\u00b2\u00b3\u2074-\u2079])' + sup + r'(?![\u2070\u00b9\u00b2\u00b3\u2074-\u2079])', above):
+        lines[idx] = sup + ' ' + body
+    else:
+        return page_md
+    return '\n'.join(lines) + '\n'
+
+
 def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,
                             pypdf_defs=None, page_label='', confirmed_out=None):
     """Renumber footnotes on a single page from local numbering to global sequential.

@@ -11,6 +11,7 @@ synthetic: they copy marxists.org's MARKUP shapes, not its texts.
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -378,6 +379,16 @@ def test_the_stitched_epub_converts_with_every_note_linked(built):
     texts = ' '.join(f['content'] for f in footnotes)
     assert 'The first chapter’s only note.' in texts and '>1.<' not in texts and '>6.<' not in texts
     assert (conv / 'media').is_dir() and len(os.listdir(conv / 'media')) == 1
+    # …and the notes are still PRINTED at the foot of the text (the stitcher's keep-notes flag): a
+    # reader expects them there, and removing them left "Notes" heading nothing. Each carries the
+    # book-wide number of its marker, and none is mistaken for a bibliography entry.
+    nodes = [json.loads(line)['content'] for line in (conv / 'nodes.jsonl').read_text().splitlines() if line.strip()]
+    printed = [n for n in nodes if 'role="doc-footnote"' in n]
+    assert len(printed) == 4 and any('The first chapter’s only note.' in n for n in printed)
+    assert all(re.search(r'>\[\d+\] ', n) for n in printed)
+    assert json.loads((conv / 'references.json').read_text()) == []
+    opf = next(n for n in zipfile.ZipFile(tmp_path / 'original.epub').namelist() if n.endswith('.opf'))
+    assert 'hyperlit:keep-notes' in zipfile.ZipFile(tmp_path / 'original.epub').read(opf).decode()
 
 
 # ---------------------------------------------------------------- listing an author's works
