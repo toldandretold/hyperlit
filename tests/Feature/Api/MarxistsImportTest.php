@@ -523,6 +523,61 @@ test('a piece headed only by what it is takes the listing\'s fuller title', func
         ->and(MarxistsBulkImporter::betterTitle('Capital', null))->toBe('Capital');
 });
 
+test('the Selected Works page flags works the listing found, and --selected imports only those', function () {
+    Queue::fake();
+    $listing = ['ok' => true, 'listing' => 'https://www.marxists.org/archive/lenin/by-date.htm', 'root' => '/archive/lenin/',
+        'works' => [
+            ['url' => MARXTEST_ROOT . '1893/letter.htm', 'title' => 'Marxtest letter', 'kind' => 'article'],
+            ['url' => MARXTEST_ROOT . '1917/staterev/index.htm', 'title' => 'Preface', 'kind' => 'work_folder'],
+        ], 'followed' => [], 'skipped' => []];
+    // The editors' page links one listed work and one single chapter the listing never held.
+    $selected = ['ok' => true, 'listing' => 'https://www.marxists.org/archive/lenin/works/sw/index.htm', 'root' => '/archive/lenin/',
+        'works' => [
+            ['url' => MARXTEST_ROOT . '1917/staterev/index.htm', 'title' => 'Marxtest State and Revolution', 'kind' => 'work_folder'],
+            ['url' => MARXTEST_ROOT . '1899/devel/ch01.htm', 'title' => 'Marxtest chapter one', 'kind' => 'article'],
+        ], 'followed' => [], 'skipped' => []];
+    Process::fake(fn ($process) => Process::result(output: json_encode(
+        str_contains(implode(' ', (array) $process->command), '/works/sw/') ? $selected : $listing
+    )));
+    marxDb()->table('marxists_works')->where('author', 'lenin')->where('url', 'NOT LIKE', '%/archive/marxtest/%')->where('status', 'listed')
+        ->update(['status' => 'marxtest_parked']);
+
+    try {
+        $importer = app(MarxistsBulkImporter::class);
+        // A dry run reports the match and writes nothing.
+        expect($importer->listAuthor('lenin', dryRun: true)['selected'])->toMatchArray(['ok' => true, 'found' => 2, 'marked' => 1])
+            ->and(marxDb()->table('marxists_works')->where('url', 'LIKE', '%/archive/marxtest/%')->count())->toBe(0);
+
+        $result = $importer->listAuthor('lenin');
+        expect($result['selected'])->toMatchArray(['ok' => true, 'found' => 2, 'marked' => 1, 'unlisted' => [MARXTEST_ROOT . '1899/devel/ch01.htm']]);
+        $rows = marxDb()->table('marxists_works')->where('url', 'LIKE', '%/archive/marxtest/%')->orderBy('id')->get();
+        // The chapter is not a work of its own: reported, never added. And the flagged work takes the
+        // editors' title in place of the chapter name the by-date listing linked it by.
+        expect($rows->pluck('selected', 'link_title')->all())->toBe(['Marxtest letter' => false, 'Marxtest State and Revolution' => true]);
+
+        $this->artisan('marxists:import', ['author' => 'lenin', '--selected' => true, '--limit' => 10])->assertExitCode(0);
+        expect(Queue::pushed(ImportMarxistsWorkJob::class)->map->workId->all())->toBe([(int) $rows[1]->id])
+            ->and(marxDb()->table('marxists_works')->where('id', $rows[0]->id)->value('status'))->toBe('listed');
+        $this->artisan('marxists:import', ['author' => 'lenin', '--selected' => true])->assertExitCode(0);
+        expect(Queue::pushed(ImportMarxistsWorkJob::class))->toHaveCount(1);
+        $this->artisan('marxists:status', ['author' => 'lenin'])->expectsOutputToContain('Selected works: 0 of 1 imported')->assertExitCode(0);
+    } finally {
+        marxDb()->table('marxists_works')->where('status', 'marxtest_parked')->update(['status' => 'listed']);
+    }
+});
+
+test('a Selected Works page that cannot be read does not fail the listing', function () {
+    Process::fake(fn ($process) => Process::result(output: json_encode(
+        str_contains(implode(' ', (array) $process->command), '/works/sw/')
+            ? ['ok' => false, 'error' => 'page_unavailable']
+            : ['ok' => true, 'listing' => 'x', 'works' => [['url' => MARXTEST_ROOT . '1893/only.htm', 'title' => 'Marxtest only', 'kind' => 'article']], 'followed' => [], 'skipped' => []]
+    ), exitCode: 0));
+
+    $result = app(MarxistsBulkImporter::class)->listAuthor('lenin');
+    expect($result)->toMatchArray(['ok' => true, 'new' => 1])
+        ->and($result['selected'])->toMatchArray(['ok' => false, 'error' => 'page_unavailable']);
+});
+
 test('marxists:import claims a batch and queues it on the bulk lane, never twice', function () {
     Queue::fake();
     $a = marxWork('1916/a.htm', 'lenin', MarxistsBulkImporter::STATUS_LISTED);

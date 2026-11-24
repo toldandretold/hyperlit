@@ -46,9 +46,18 @@ class MarxistsListCommand extends Command
         if ($result['skipped']) {
             $this->line('  skipped links: ' . implode(', ', array_map(fn ($why, $n) => "{$n} {$why}", array_keys($result['skipped']), $result['skipped'])));
         }
+        $selected = $result['selected'] ?? null;
+        if ($selected !== null && ! $selected['ok']) {
+            $this->warn('  Selected Works page could not be read (' . $selected['error'] . ') — nothing flagged; run this again later.');
+        } elseif ($selected !== null) {
+            $this->info("  Selected Works: {$selected['marked']} of the {$selected['found']} works on that page are in the listing and flagged.");
+            foreach ($selected['unlisted'] as $url) {
+                $this->line('    not flagged (a part of a work, or not in the listing): ' . str_replace('https://www.marxists.org', '', $url));
+            }
+        }
         $this->comment($this->option('dry-run')
             ? 'Dry run — nothing recorded.'
-            : "Next: php artisan marxists:import {$author} --limit=10");
+            : 'Next: php artisan marxists:import ' . $author . ($selected && ($selected['marked'] ?? 0) ? ' --selected --limit=50' : ' --limit=10'));
 
         return self::SUCCESS;
     }

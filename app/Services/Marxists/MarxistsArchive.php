@@ -30,22 +30,29 @@ class MarxistsArchive
      * Marx/Engels archive on purpose — it holds two people's works under one folder, so a page
      * with no credit of its own is left unlinked rather than filed under Marx.
      *
-     * @var array<string, array{listing: string, default_credit: ?string, label: string}>
+     * `selected` is the author's Selected Works page, where marxists.org has one: the editors'
+     * own choice of the works that matter. Works it links are flagged in the ledger so they can
+     * be imported on their own (`marxists:import --selected`) instead of every letter and note.
+     *
+     * @var array<string, array{listing: string, default_credit: ?string, label: string, selected?: string}>
      */
     public const AUTHORS = [
         'marx' => [
             'label' => 'Karl Marx (and Engels — the Marx/Engels archive)',
             'listing' => 'https://www.marxists.org/archive/marx/works/date/index.htm',
+            'selected' => 'https://www.marxists.org/archive/marx/works/sw/index.htm',
             'default_credit' => null,
         ],
         'lenin' => [
             'label' => 'V. I. Lenin',
             'listing' => 'https://www.marxists.org/archive/lenin/by-date.htm',
+            'selected' => 'https://www.marxists.org/archive/lenin/works/sw/index.htm',
             'default_credit' => 'Vladimir Lenin',
         ],
         'trotsky' => [
             'label' => 'Leon Trotsky',
             'listing' => 'https://www.marxists.org/archive/trotsky/works/index.htm',
+            'selected' => 'https://www.marxists.org/archive/trotsky/works/sw.htm',
             'default_credit' => 'Leon Trotsky',
         ],
         'luxemburg' => [

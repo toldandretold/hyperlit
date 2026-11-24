@@ -14,12 +14,14 @@ use Illuminate\Support\Facades\DB;
  * Deliberately a BATCH, not "everything": Lenin alone is ~3,400 works, each a polite crawl plus
  * a conversion on the one serial import worker. Queue some, review them in
  * /maintainer/shelf-import/marxists-org, queue more. Jobs ride the `default` lane, behind any
- * import a person is waiting on.
+ * import a person is waiting on. `--selected` is the sensible first pass for an author who has a
+ * Selected Works page: a few dozen works the archive's editors chose, not every letter.
  */
 class MarxistsImportCommand extends Command
 {
     protected $signature = 'marxists:import {author : marx | lenin | trotsky | luxemburg | clr-james}
                             {--limit=10 : How many works to queue in this batch}
+                            {--selected : Only works on the Selected Works page of the author (chosen by the archive editors)}
                             {--kind= : Only this kind (work_folder = multi-page works, article, folder_member, undated_index)}
                             {--retry-failed : Queue works whose last attempt failed, instead of new ones}
                             {--now : Run the batch in this terminal instead of queueing it}
@@ -41,14 +43,18 @@ class MarxistsImportCommand extends Command
         $works = $db->table('marxists_works')
             ->where('author', $author)->where('status', $from)
             ->when($this->option('kind'), fn ($q, $kind) => $q->where('kind', $kind))
-            ->orderBy('id')
+            ->when($this->option('selected'), fn ($q) => $q->where('selected', true))
+            // Selected works go first in any batch: they are what a reader comes for.
+            ->orderByDesc('selected')->orderBy('id')
             ->limit(max(1, (int) $this->option('limit')))
             ->get(['id', 'url', 'link_title', 'kind']);
 
         if ($works->isEmpty()) {
-            $this->warn($from === MarxistsBulkImporter::STATUS_LISTED
+            $this->warn($this->option('selected') && $from === MarxistsBulkImporter::STATUS_LISTED
+                ? "No selected works left to import for {$author}. (marxists:list {$author} flags them; not every author has a Selected Works page.)"
+                : ($from === MarxistsBulkImporter::STATUS_LISTED
                 ? "Nothing left to import for {$author}. (Run marxists:list {$author} first, or marxists:status.)"
-                : "No failed works for {$author}.");
+                : "No failed works for {$author}."));
 
             return self::SUCCESS;
         }

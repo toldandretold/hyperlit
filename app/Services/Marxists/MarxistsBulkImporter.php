@@ -65,7 +65,8 @@ class MarxistsBulkImporter
      * Read an author's listing and record every work it links that the ledger does not hold yet.
      *
      * @return array{ok: bool, error?: string, found?: int, new?: int, already_listed?: int,
-     *               by_kind?: array<string, int>, skipped?: array<string, int>, followed?: int}
+     *               by_kind?: array<string, int>, skipped?: array<string, int>, followed?: int,
+     *               selected?: array{ok: bool, error?: string, found?: int, marked?: int, unlisted?: list<string>}}
      */
     public function listAuthor(string $author, bool $dryRun = false): array
     {
@@ -103,10 +104,56 @@ class MarxistsBulkImporter
             }
         }
 
-        return [
+        $summary = [
             'ok' => true, 'found' => count($works), 'new' => $new, 'already_listed' => count($works) - $new,
             'by_kind' => $byKind, 'skipped' => $result['skipped'] ?? [], 'followed' => count($result['followed'] ?? []),
         ];
+        if (isset($config['selected'])) {
+            $summary['selected'] = $this->markSelected($author, $config['selected'], array_column($works, 'url'), $dryRun);
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Flag the works the author's Selected Works page links.
+     *
+     * Only a work the author's OWN listing already found is flagged, matched by address. A
+     * Selected Works page also links single chapters and prefaces of longer works (Marx's links
+     * "Capital, Chapter One" and the letters index); those are not works of their own, so they
+     * are reported back as `unlisted` for a person to look at, never added. A selected page that
+     * cannot be read fails only this step: the listing itself is already recorded.
+     *
+     * @param  list<string>  $listed  every address the author's listing just returned
+     * @return array{ok: bool, error?: string, found?: int, marked?: int, unlisted?: list<string>}
+     */
+    private function markSelected(string $author, string $selectedUrl, array $listed, bool $dryRun): array
+    {
+        $result = $this->stitcher->listWorks($selectedUrl);
+        if (! ($result['ok'] ?? false)) {
+            return ['ok' => false, 'error' => (string) ($result['error'] ?? 'stitch_failed')];
+        }
+
+        $urls = array_values(array_unique(array_column($result['works'] ?? [], 'url')));
+        $inLedger = self::db()->table('marxists_works')->where('author', $author)->whereIn('url', $urls)->pluck('url')->all();
+        $matched = array_values(array_intersect($urls, array_merge($listed, $inLedger)));
+        if (! $dryRun) {
+            // The editors' page names the WORK ("What Is To Be Done? Burning Questions of our
+            // Movement"); a by-date listing often links a multi-page work by one of its chapters
+            // ("Conclusion", "Preface", "I"), and that link title is what betterTitle() falls
+            // back on. So the selected page's wording replaces it.
+            $titles = array_column($result['works'] ?? [], 'title', 'url');
+            foreach ($matched as $url) {
+                $title = trim((string) ($titles[$url] ?? ''));
+                self::db()->table('marxists_works')->where('author', $author)->where('url', $url)->update(array_filter([
+                    'selected' => true,
+                    'link_title' => $title !== '' ? mb_substr($title, 0, 500) : null,
+                    'updated_at' => now(),
+                ], fn ($v) => $v !== null));
+            }
+        }
+
+        return ['ok' => true, 'found' => count($urls), 'marked' => count($matched), 'unlisted' => array_values(array_diff($urls, $matched))];
     }
 
     /**

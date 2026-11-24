@@ -515,3 +515,25 @@ def test_a_listing_must_be_an_author_folder_and_must_exist():
     with pytest.raises(stitch.StitchRefusal) as refusal:
         stitch.Lister(stitch.DictFetcher({})).list(ROOT + 'index.htm')
     assert refusal.value.code == 'page_unavailable'
+
+
+def test_a_selected_works_page_lists_the_works_and_not_its_own_volume_pages():
+    # Lenin's /works/sw/index.htm: three volume pages (which repeat the same links) and the works
+    # themselves, each at the address the author's own listing uses — that match is what lets the
+    # bulk import flag a work as "selected" without guessing.
+    sw = 'https://www.marxists.org/archive/lenin/works/sw/index.htm'
+    page = '''<html><body>
+      <a href="../../index.htm">Lenin</a>
+      <a href="volume01.htm">Volume 1: 1897 - 1916</a>
+      <a href="../1901/witbd/index.htm">What Is To Be Done?</a>
+      <a href="../1913/mar/x01.htm">The Three Sources and Three Component Parts of Marxism</a>
+      <a href="volume02.htm">Volume 2: 1917 - 1918</a>
+      <a href="../1917/staterev/index.htm">The State and Revolution</a>
+    </body></html>'''
+    result = stitch.Lister(stitch.DictFetcher({sw: page})).list(sw)
+    assert [(w['kind'], w['url'].split('/works/')[1]) for w in result['works']] == [
+        ('article', '1913/mar/x01.htm'),
+        ('work_folder', '1901/witbd/index.htm'),
+        ('work_folder', '1917/staterev/index.htm'),
+    ]
+    assert result['requests'] == 1

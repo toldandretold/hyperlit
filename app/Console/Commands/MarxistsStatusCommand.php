@@ -30,6 +30,12 @@ class MarxistsStatusCommand extends Command
             $this->line(sprintf('%-11s %s', $author, $rows->map(fn ($r) => "{$r->n} {$r->status}")->implode(' · ')));
         }
 
+        $selected = $scope($db->table('marxists_works'))->where('selected', true)
+            ->selectRaw("count(*) as total, count(*) filter (where status = 'imported') as imported")->first();
+        if ($selected->total) {
+            $this->line("Selected works: {$selected->imported} of {$selected->total} imported.");
+        }
+
         $converted = $scope($db->table('marxists_works as w'), 'w.author')->where('w.status', MarxistsBulkImporter::STATUS_IMPORTED)
             ->join('library as l', 'l.book', '=', 'w.book')
             ->selectRaw('count(*) filter (where l.has_nodes) as done, count(*) as total')->first();
