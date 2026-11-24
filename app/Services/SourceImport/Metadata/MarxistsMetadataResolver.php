@@ -65,7 +65,11 @@ class MarxistsMetadataResolver implements MetadataResolver
             // whether we may FETCH it. What licence it carries is a separate, stated fact:
             'is_oa'        => true,
             'oa_status'    => null,
-            'work_license' => $licence['evidence'] ?? null,
+            // The CODE, not the page's sentence: `library.work_license` is varchar(100) and MIA's
+            // public-domain statement runs past 200 characters — every Lenin letter failed its
+            // insert on it (prod 2026-11-24). The sentence itself is kept in `note`.
+            'work_license' => ($licence['code'] ?? 'Unknown') !== 'Unknown' ? $licence['code'] : null,
+            'license_evidence' => $licence['evidence'] ?? null,
             'license_code' => $licence['code'] ?? 'Unknown',
             'license_url'  => $licence['url'] ?? null,
             // The information block (Written / Source / Translated / Transcription …).

@@ -16,7 +16,8 @@ class MarxistsStatusCommand extends Command
     public function handle(): int
     {
         $db = DB::connection('pgsql_admin');
-        $scope = fn ($q) => $q->when($this->argument('author'), fn ($w, $author) => $w->where('author', $author));
+        // `library` has an author column too, so the joined query must name the ledger's.
+        $scope = fn ($q, string $column = 'author') => $q->when($this->argument('author'), fn ($w, $author) => $w->where($column, $author));
 
         $counts = $scope($db->table('marxists_works'))
             ->selectRaw('author, status, count(*) as n')->groupBy('author', 'status')->orderBy('author')->get();
@@ -29,7 +30,7 @@ class MarxistsStatusCommand extends Command
             $this->line(sprintf('%-11s %s', $author, $rows->map(fn ($r) => "{$r->n} {$r->status}")->implode(' · ')));
         }
 
-        $converted = $scope($db->table('marxists_works as w'))->where('w.status', MarxistsBulkImporter::STATUS_IMPORTED)
+        $converted = $scope($db->table('marxists_works as w'), 'w.author')->where('w.status', MarxistsBulkImporter::STATUS_IMPORTED)
             ->join('library as l', 'l.book', '=', 'w.book')
             ->selectRaw('count(*) filter (where l.has_nodes) as done, count(*) as total')->first();
         $this->line("Imported books converted: {$converted->done} of {$converted->total}.");

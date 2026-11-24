@@ -473,6 +473,8 @@ class Lister:
         self.followed = []
         self.skipped = {}
         self.fetches = 0
+        self.year_pages = {}        # /<year>/index.htm -> its soup: each is FETCHED once
+        self.year_settled = set()   # …and added as a work, or followed, once
 
     def _skip(self, reason):
         self.skipped[reason] = self.skipped.get(reason, 0) + 1
@@ -501,8 +503,8 @@ class Lister:
         return {'ok': True, 'listing': listing_url, 'root': self.root, 'works': list(self.works.values()),
                 'followed': self.followed, 'skipped': self.skipped, 'requests': getattr(self.fetcher, 'requests', None)}
 
-    def _harvest(self, listing_url, depth, max_depth):
-        soup = self._page(listing_url)
+    def _harvest(self, listing_url, depth, max_depth, soup=None):
+        soup = soup if soup is not None else self._page(listing_url)
         if soup is None:
             return None
         folders = {}     # '<prefix>/<year>/<slug>' -> [(url, title, file)]
@@ -553,15 +555,31 @@ class Lister:
 
     def _year_index(self, url, title, depth, max_depth):
         """`/<year>/index.htm`: a year's listing of works, or a work filed straight under a year."""
-        soup = self._page(url)
+        # Year pages link each other (prev / next year) and the listing links some twice. Without
+        # this, every such link was fetched and classified again and the Marx/Engels archive (62
+        # year pages) ran past the listing cap before it finished.
+        # A year first met through another year's "next" link is too deep to follow THERE, and must
+        # still be followed when the listing itself links it — so "fetched" and "settled" are kept apart.
+        if url in self.year_settled:
+            return
+        if url not in self.year_pages:
+            self.year_pages[url] = self._page(url)
+        soup = self.year_pages[url]
         if soup is None:
+            self.year_settled.add(url)
             self._skip('year_index_unavailable')
             return
-        if collection_reason(soup, url) is None:
+        # A folder that is EXACTLY a year (/1838/) is that year's listing however few works it
+        # holds: nine sparse Marx/Engels years read as "a contents page" and were listed as works
+        # titled "1838". Only a year-shaped folder with more to its name (/1867-c1/) can be a work.
+        bare_year = re.search(r'/\d{4}/index\.html?$', url, re.I)
+        if not bare_year and collection_reason(soup, url) is None:
+            self.year_settled.add(url)
             self._add(url, title, 'work_folder')
         elif depth < max_depth:
+            self.year_settled.add(url)
             self.followed.append(url)
-            self._harvest(url, depth + 1, max_depth)
+            self._harvest(url, depth + 1, max_depth, soup)
         else:
             self._skip('listing_too_deep')
 

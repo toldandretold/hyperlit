@@ -551,3 +551,27 @@ test('marxists:import claims a batch and queues it on the bulk lane, never twice
         marxDb()->table('marxists_works')->where('status', 'marxtest_parked')->update(['status' => 'listed']);
     }
 });
+
+test('marxists:status runs for one author as well as for all', function () {
+    // The per-author form joins `library`, which has an `author` column of its own — it died with
+    // "column reference author is ambiguous" the first time it was run with an argument (prod 2026-11-24).
+    marxWork('1916/status.htm', 'lenin', MarxistsBulkImporter::STATUS_LISTED);
+
+    $this->artisan('marxists:status', ['author' => 'lenin'])->assertExitCode(0);
+    $this->artisan('marxists:status')->assertExitCode(0);
+});
+
+test('a page whose licence statement is a long sentence still imports, on both lanes', function () {
+    // MIA's real wording, 200+ characters. The short fixture sentence hid that it was being
+    // written into a varchar(100) column, so every real Lenin letter failed at the insert.
+    Queue::fake();
+    $evidence = 'Public Domain: Lenin Internet Archive. You may freely copy, distribute, display and perform this work, as well as make derivative and commercial works. Please credit “Marxists Internet Archive” as your source.';
+    marxMockStitcher($this, marxMetadata(['title' => 'Marxtest To His Sister Maria', 'author' => 'V.I. Lenin', 'year' => 1893,
+        'licence' => ['code' => 'PDM', 'url' => null, 'evidence' => $evidence]]));
+    $workId = marxWork('1893/oct/00mu.htm', 'lenin');
+
+    expect(app(MarxistsBulkImporter::class)->importWork($workId))->toBe(MarxistsBulkImporter::STATUS_IMPORTED);
+
+    $row = marxDb()->table('library')->where('book', marxDb()->table('marxists_works')->where('id', $workId)->value('book'))->first();
+    expect($row->license)->toBe('PDM')->and($row->work_license)->toBe('PDM');
+});

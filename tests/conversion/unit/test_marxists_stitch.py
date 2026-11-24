@@ -466,6 +466,37 @@ def test_a_year_page_is_followed_but_a_work_filed_under_a_year_is_a_work():
     assert stitch.Stitcher(fetcher).metadata(ROOT + 'works/1867-c1/index.htm')[0]['title'] == 'Capital'
 
 
+def test_year_pages_that_link_each_other_are_each_read_once():
+    """Every Marx/Engels year page links the previous and next year. Each of those links used to be
+    fetched and classified again, so 62 year pages ran past the listing cap ("too_many_pages", prod
+    2026-11-24) before the listing finished."""
+    years = list(range(1840, 1900))
+    by_date = _listing([(f'../{y}/index.htm', str(y)) for y in years])
+    pages = {ROOT + 'works/date/index.htm': by_date}
+    for y in years:
+        pages[ROOT + f'works/{y}/index.htm'] = _listing([
+            (f'../{y - 1}/index.htm', 'Previous year'), (f'../{y + 1}/index.htm', 'Next year'),
+            ('a/index.htm', 'A'), ('b/index.htm', 'B'), ('c/index.htm', 'C'), ('01/x.htm', 'X'),
+        ])
+    lister = stitch.Lister(stitch.DictFetcher(pages))
+    result = lister.list(ROOT + 'works/date/index.htm')
+
+    assert len(result['followed']) == len(years)
+    assert len(result['works']) == len(years) * 4
+    assert lister.fetches <= len(years) + 3      # the listing, each year once, the two off the ends
+
+
+def test_a_sparse_year_page_is_still_a_listing_not_a_work_called_1838():
+    by_date = _listing([('../1838/index.htm', '1838')])
+    sparse = _listing([('11/10.htm', 'Letter to his father'), ('poems/index.htm', 'Poems')])
+    result = stitch.Lister(stitch.DictFetcher({
+        ROOT + 'works/date/index.htm': by_date, ROOT + 'works/1838/index.htm': sparse,
+    })).list(ROOT + 'works/date/index.htm')
+
+    assert result['followed'] == [ROOT + 'works/1838/index.htm']
+    assert sorted(w['url'].replace(ROOT + 'works/', '') for w in result['works']) == ['1838/11/10.htm', '1838/poems/index.htm']
+
+
 def test_a_listing_must_be_an_author_folder_and_must_exist():
     with pytest.raises(stitch.StitchRefusal) as refusal:
         stitch.Lister(stitch.DictFetcher({})).list('https://www.marxists.org/history/etol/index.htm')
