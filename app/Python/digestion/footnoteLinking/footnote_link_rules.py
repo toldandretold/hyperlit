@@ -48,7 +48,12 @@ class FootnoteLinkContext:
 # ---------------------------------------------------------------------------
 # A definition's own printed marker, as the whole text of its leading link/superscript:
 # "5" / "5." / "[5]" / "(5)" / "5)" / "91a" / "[A]" / "*" / "a.".
-_LEADING_MARKER_RE = re.compile(r'^(?:[\[(]?\d+[a-zA-Z]?[\])]?\.?|[\[(][a-zA-Z]{1,3}[\])]\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?)$')
+# A run of SYMBOLS may be longer than three: a page with five notes marks them * ** *** **** *****
+# (marxists.org, Theories of Surplus-Value), and "****" left in place printed the note as
+# "**** In the manuscript: …". Letters stay capped at three — a longer run of letters is a word.
+_SYMBOL_MARKER = r'[\*†‡§¶#+]{1,8}'
+_LEADING_MARKER_RE = re.compile(r'^(?:[\[(]?\d+[a-zA-Z]?[\])]?\.?|[\[(][a-zA-Z]{1,3}[\])]\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?|' + _SYMBOL_MARKER + r'\.?'
+                                r'|[\[(]?[\*†‡]{1,3}\d{1,3}[\])]?\.?)$')   # "[*1]": a second, starred series
 # Inline wrappers a publisher puts AROUND that link (marxists.org: <span class="info"><a …>1.</a></span>).
 _MARKER_WRAPPERS = ('span', 'b', 'strong', 'small', 'font')
 # The number printed BOLD with no link at all — `<a id="n5"></a><strong>5.</strong> The German…`
@@ -137,7 +142,7 @@ def extract_footnote_content(elem, old_id):
         elem_text = elem.get_text(strip=True)
         is_empty = not elem_text
         is_numeric = bool(re.match(r'^\d+\.?$', elem_text))
-        is_symbol_marker = bool(re.match(r'^[\*†‡§¶#a-zA-Z]{1,3}\.?$', elem_text))
+        is_symbol_marker = bool(re.match(r'^(?:[\*†‡§¶#a-zA-Z]{1,3}|' + _SYMBOL_MARKER + r')\.?$', elem_text))
         if is_empty or is_numeric or is_symbol_marker:
             sibling_content = []
             for sibling in elem.next_siblings:
@@ -399,7 +404,11 @@ def _print_definition_in_place(soup, elem, mapping):
     marker (a `sup[fn-count-id]` here would be counted and renumbered as one). False = nothing to
     print, so the caller removes the element as before."""
     content = BeautifulSoup(mapping.get('content') or '', 'html.parser')
-    blocks = [c for c in content.contents if getattr(c, 'name', None) or str(c).strip()]
+    # Extracted content opens with the note's own id target (`<a fn-count-id id></a>`). It is not
+    # the note: left in, it was taken for the first block, the real paragraph was nested inside a
+    # second <p>, and the label and role landed on the wrong element.
+    blocks = [c for c in content.contents
+              if (getattr(c, 'name', None) and not _is_empty_anchor(c)) or (not getattr(c, 'name', None) and str(c).strip())]
     if not blocks or not content.get_text(strip=True):
         return False
     # The marker may already be printed in brackets ("[1]"); never "[[1]]".

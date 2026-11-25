@@ -89,6 +89,18 @@ export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = 
     label: 'unconverted marker',
     hint: 'A raw footnote marker such as [^7] left in the text.',
   },
+  note_keeps_marker: {
+    label: 'note repeats its own marker',
+    hint: 'A footnote that still opens with the source\'s marker, such as "[****] **** In the manuscript" — the marker was not recognised and stripped.',
+  },
+  unconverted_note_link: {
+    label: 'link that looks like a note marker',
+    hint: 'An in-page link whose whole text is a marker such as "[*1]" or "**" — probably a footnote the converter did not recognise.',
+  },
+  bare_superscript_number: {
+    label: 'raised number that is not a link',
+    hint: 'A superscript number after a word or full stop that is not a footnote link (fractions and exponents are ignored) — possibly a note marker the source never linked.',
+  },
   long_heading: {
     label: 'very long heading',
     hint: 'A sub-heading over 160 characters — usually a paragraph promoted to a heading.',

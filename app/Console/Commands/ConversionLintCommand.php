@@ -32,6 +32,7 @@ class ConversionLintCommand extends Command
         {--top=25 : Books to list in the ranking}
         {--sample=3 : Example findings to print per book}
         {--out= : Write the full review list (every finding, with links) to this .md file}
+        {--json= : Write every finding as a JSON row (book, title, detector, startLine, url, excerpt) for offline assessment}
         {--save= : Write a JSON snapshot (per-book counts + finding keys) for a later --compare}
         {--compare= : Compare against a snapshot from --save: per-detector and per-book deltas}
         {--base-url=https://hyperlit.io : Reader origin for links in --out}
@@ -101,6 +102,21 @@ class ConversionLintCommand extends Command
         if ($path = $this->option('out')) {
             file_put_contents($path, $this->reviewDocument($perBook));
             $this->info("Full review list → {$path}");
+        }
+        if ($path = $this->option('json')) {
+            $base = rtrim((string) $this->option('base-url'), '/');
+            $rows = [];
+            foreach ($perBook as $book => $b) {
+                foreach ($b['findings'] as $f) {
+                    $rows[] = ['book' => $book, 'title' => $b['title'], 'detector' => $f['detector'],
+                        'startLine' => $f['startLine'],
+                        'url' => $f['startLine'] !== '' ? "{$base}/{$book}#{$f['startLine']}" : "{$base}/{$book}",
+                        'excerpt' => $f['excerpt']];
+                }
+            }
+            @mkdir(dirname($path), 0775, true);
+            file_put_contents($path, json_encode($rows, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $this->info(count($rows) . " finding(s) → {$path}");
         }
         if ($path = $this->option('save')) {
             @mkdir(dirname($path), 0775, true);

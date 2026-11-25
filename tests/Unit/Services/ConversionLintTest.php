@@ -267,3 +267,32 @@ it('does not flag a long heading that is one of a series (2b51bc20)', function (
     ];
     expect(detectors((new ConversionLint)->lintBook($alone)))->toBe(['long_heading']);
 });
+
+it('flags a note that still carries its own marker, in the text and in the popup (theories of surplus-value)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>his<sup class="footnote-ref" fn-count-id="****" id="Fn1">****</sup> product, and more<sup class="footnote-ref" fn-count-id="*" id="Fn2">*</sup>.</p>'),
+        lintNode('200', '<p>[****] <a href="#r4" id="d4">****</a> In the manuscript: “the”.</p>'),
+        lintNode('300', '<p>[**] <a href="#r5" id="d5">+*</a> Unproductive.</p>'),
+        // Clean notes, and prose that merely begins with a bracketed number, are left alone.
+        lintNode('400', '<p role="doc-footnote">[*] In the manuscript: “return”.</p>'),
+        lintNode('500', '<p>[1] 1 January 1917 was the date of the letter in question here.</p>'),
+    ], ['Fn1' => '<p>**** In the manuscript: “the”.</p>', 'Fn2' => '<p>In the manuscript: “return”.</p>']);
+
+    expect(detectors($r))->toBe(['note_keeps_marker', 'note_keeps_marker', 'note_keeps_marker'])
+        ->and(array_column($r['findings'], 'startLine'))->toBe(['200', '300', '100']);
+});
+
+it('reads what an unrecognised note marker is left as: a marker-shaped link, or a bare raised number', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Economists and socialists <a href="#p011-2" id="p011-2b">[*1]</a> are in agreement on one point.</p>'),
+        lintNode('200', '<p>The apologetic accounts of profit.<sup>29</sup> This something given for the profit.</p>'),
+        // Ordinary links, converted markers, fractions and indexed symbols are none of these.
+        lintNode('300', '<p>See <a href="#chapter-2">the second chapter</a> and <a href="https://example.org/a">a</a>.</p>'),
+        lintNode('400', '<p>A claim<sup class="footnote-ref" fn-count-id="1" id="Fn1">1</sup> that is linked properly here.</p>'),
+        lintNode('500', '<p>About <sup>1</sup>/<sub>3</sub> of the spheres K<sup>1</sup>—K<sup>18</sup>, and 10<sup>2</sup> more.</p>'),
+        lintNode('600', '<p>As <a class="in-text-citation" href="#bib1">12</a> has shown at some length already.</p>'),
+    ], ['Fn1' => '<p>The note.</p>']);
+
+    expect(detectors($r))->toBe(['unconverted_note_link', 'bare_superscript_number'])
+        ->and(array_column($r['findings'], 'startLine'))->toBe(['100', '200']);
+});

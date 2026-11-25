@@ -537,3 +537,20 @@ def test_a_selected_works_page_lists_the_works_and_not_its_own_volume_pages():
         ('work_folder', '1917/staterev/index.htm'),
     ]
     assert result['requests'] == 1
+
+
+def test_a_starred_number_is_a_note_marker_too():
+    # The Poverty of Philosophy marks Engels's notes to the 1885 edition "[*1]", "[*2]" beside the
+    # editors' "[1]". Unrecognised, "[*1]" stayed in the text as a dead link (prod 2026-11-25).
+    from bs4 import BeautifulSoup
+    from collections import Counter
+    body = BeautifulSoup(
+        '<body><p>Economists and socialists <span class="note"><a href="#2" id="2b">[*1]</a></span> agree,'
+        ' and others <span class="note"><a href="#1" id="1b">[1]</a></span> do not.</p>'
+        '<p><span class="note"><a id="1" href="#1b">[1]</a></span> The laws in operation.</p>'
+        '<p><span class="note"><a id="2" href="#2b">[*1]</a></span> That is, the Socialists of that time.</p></body>', 'lxml').body
+    stats = Counter()
+    stitch.normalise_reciprocal_notes(body, stats)
+    assert stats['reciprocal_notes_normalised'] == 2
+    assert [s.get_text() for s in body.select('sup.enote')] == ['[*1]', '[1]']
+    assert stitch.NOTE_MARKER.match('[*2]') and not stitch.NOTE_MARKER.match('[*see below]')

@@ -1303,7 +1303,8 @@ class HeuristicFootnoteDetector(EpubTransform):
         # Matches asterisks (*), daggers (†‡), numbers, letters used as footnote refs
         # Also matches bracketed numbers like [1], [2] (common in Marxists.org, Calibre EPUBs)
         # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>, <a href="#intro1">[1]</a>
-        footnote_symbols = re.compile(r'^(?:\[\d+\]|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
+        # "[*1]": a second, starred series beside the numbered one (The Poverty of Philosophy).
+        footnote_symbols = re.compile(r'^(?:\[\d+\]|\[[*†‡]{1,3}\d{1,3}\]|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
         # Bare digits only when the <a> has an id (indicating a back-linkable reference)
         bare_digit = re.compile(r'^\d{1,3}\.?$')
         for a_tag in soup.find_all('a', href=True):
@@ -1373,7 +1374,8 @@ class HeuristicFootnoteDetector(EpubTransform):
                 # in-text reference) and contains a short marker like [1]
                 has_backlink = first_a.get('href', '').startswith('#')
                 marker_text = first_a.get_text(strip=True)
-                looks_like_marker = bool(re.match(r'^\[?\d+\]?$', marker_text))
+                # "[*1]" too: a second, starred series under the same heading (The Poverty of Philosophy).
+                looks_like_marker = bool(re.match(r'^\[?[*†‡]{0,3}\d+\]?$', marker_text))
 
                 if has_backlink and looks_like_marker:
                     seen_fn_ids.add(a_id)

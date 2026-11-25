@@ -4,6 +4,7 @@ phase is an isolated LinkRule so a broken phase pinpoints to one class. The nest
 the aarushi case is now `NoterefConverter` — exercised directly below.
 """
 
+import re
 import pytest
 
 from digestion.footnoteLinking.footnote_link_rules import (
@@ -170,6 +171,28 @@ def test_a_source_that_asks_to_keep_its_notes_has_them_printed_in_place(soup):
     assert s.find('h3').find_next_sibling() is kept[0]        # …where the definitions stood
     # A printed note is text, never a second marker: nothing here may be counted or renumbered.
     assert not any(k.find('sup') or k.find(attrs={'fn-count-id': True}) for k in kept)
+
+
+def test_a_long_run_of_symbols_is_a_marker_and_a_kept_note_is_printed_once_and_marked(soup):
+    """marxists.org, Theories of Surplus-Value: a page with five notes marks them * ** *** **** *****,
+    each definition opening with a link back to its marker. Four and five stars were not recognised
+    as the note's own marker, so the note read "**** In the manuscript: …" in the popup, and the
+    printed copy came out "[****] **** In the manuscript" with its back-link and WITHOUT the role
+    that keeps it out of the bibliography scan (prod 2026-11-25)."""
+    s = soup('<body><p>his<sup class="enote"><a href="#d4" id="r4">****</a></sup> product and'
+             '<sup class="enote"><a href="#d5" id="r5">*****</a></sup> more.</p><h3>Footnotes</h3>'
+             '<p><a href="#r4" id="d4">****</a> In the manuscript: “the”.</p>'
+             '<p><a href="#r5" id="d5">*****</a> In the manuscript: “to be”.</p></body>')
+    all_footnotes = [{'id': i, 'element': s.find(id=i).parent, 'type': 'footnote'} for i in ('d4', 'd5')]
+    all_noterefs = [{'element': s.find(id=r), 'target_id': d, 'original_marker': m}
+                    for r, d, m in (('r4', 'd4', '****'), ('r5', 'd5', '*****'))]
+    _, log = _logs()
+    out = link_epub_footnotes(s, all_footnotes, all_noterefs, 'b', log, keep_definitions=True)
+
+    assert ['****' not in re.sub(r'fn-count-id="[^"]*"', '', f['content']) for f in out['footnotes_json']] == [True, True]
+    kept = s.find_all(attrs={'role': 'doc-footnote'})
+    assert [k.get_text(' ', strip=True) for k in kept] == ['[****] In the manuscript: “the”.', '[*****] In the manuscript: “to be”.']
+    assert not any(k.find('a') or k.find('p') for k in kept)   # no back-link, no paragraph inside a paragraph
 
 
 def test_notes_are_removed_from_the_body_unless_the_source_asks(soup):

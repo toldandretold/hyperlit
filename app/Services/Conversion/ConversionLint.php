@@ -39,7 +39,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 6;
+    public const VERSION = 7;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -51,6 +51,9 @@ class ConversionLint
         'orphan_unrecoverable' => 0,
         'missing_definition'  => 2,
         'raw_marker'          => 2,
+        'note_keeps_marker'   => 2,
+        'unconverted_note_link' => 2,
+        'bare_superscript_number' => 1,
         'long_heading'        => 2,
         'glued_heading_digit' => 1,
         'colon_heading'       => 1,
@@ -203,6 +206,48 @@ class ConversionLint
                 $add('raw_marker', $node);
             }
 
+            // A printed note that still carries the source's own marker after ours:
+            // "[****] **** In the manuscript: …" (marx-1863-theories-of-surplus-value, 2026-11-25 —
+            // a run of four stars was not recognised as the note's marker). A symbol repeated is
+            // always this; a number or letter repeated only when it is still a link, because
+            // "[1] 1 January 1917 …" is ordinary prose.
+            if ($tag === 'p' && preg_match('/^\[([^\]\s]{1,6})\]\s+(\S{1,6})\s/u', $text, $m)
+                    && ($m[2] === $m[1] || (preg_match('/^[*†‡§¶#+]{2,}$/u', $m[2]) && preg_match('/^[*†‡§¶#+]+$/u', $m[1])))
+                    && (preg_match('/^[*†‡§¶#+]+$/u', $m[2]) || preg_match('/^<p[^>]*>\s*\[[^\]]+\]\s*<a\b/u', $node['html']))) {
+                $add('note_keeps_marker', $node);
+            }
+
+            // A note marker the converter did not recognise is still there as what the source
+            // made it: an in-page link whose whole text is a marker ("[*1]", "**", "a"), or a bare
+            // superscript number. Sources mark notes in more ways than any list of patterns holds
+            // (marxists.org alone: sup.enote, span.note, bare links, starred series), so this reads
+            // the LEFTOVER instead of the pattern — whatever shape was missed, it ends up as one
+            // of these two. (the-poverty-of-philosophy "[*1]", prod 2026-11-25.)
+            if (preg_match_all('/<a\b([^>]*)\bhref="#[^"]*"([^>]*)>(.*?)<\/a>/su', $node['html'], $am, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+                foreach ($am as $a) {
+                    $attrs = $a[1][0] . $a[2][0];
+                    $label = trim(html_entity_decode(strip_tags($a[3][0]), ENT_QUOTES | ENT_HTML5));
+                    // A marker FOLLOWS the words it annotates. A numbered link that opens its
+                    // block is a contents entry ("1 Transfer of the Inquiry…" — 170 of them in
+                    // one table of contents) or the definition side of a pair.
+                    $before = trim(strip_tags(substr($node['html'], 0, $a[0][1])));
+                    if ($before === '' || preg_match('/^\[[^\]]{1,6}\]$/u', $before)) {   // …or our own "[N]" label
+                        continue;
+                    }
+                    if (!str_contains($attrs, 'citation') && !str_contains($attrs, 'hypercite')
+                            && preg_match('/^[\[(]?(?:\d{1,3}[a-z]?|[*†‡§¶#+]{1,6}\d{0,3}|[a-z])[\])]?\.?$/iu', $label)) {
+                        $add('unconverted_note_link', $node, "link “{$label}” · " . mb_substr($text, 0, 170));
+                        break;
+                    }
+                }
+            }
+            // A number raised after a word or closing punctuation, with no fraction or subscript
+            // after it: "…accounts of profit.²⁹ This something…". Fractions (¹⁄₃), exponents and
+            // indexed symbols (K¹—K¹⁸) are the same tag and are left alone.
+            if (preg_match('/(?:\p{Ll}{3}|[.,;:!?”’"\)])<sup>\d{1,3}<\/sup>(?!\s*(?:[\/⁄]|<sub>|&frasl;))/u', $node['html'])) {
+                $add('bare_superscript_number', $node);
+            }
+
             if ($inRefs || str_contains($node['html'], 'class="bib-entry"')) {
                 continue;     // bibliography entries split differently; not this lint's business
             }
@@ -252,6 +297,13 @@ class ConversionLint
         foreach ($markerIds as $id => $node) {
             if (!isset($defs[$id]) && $defs !== []) {
                 $add('missing_definition', $node);
+            }
+        }
+        // The same slip seen from the popup: the definition itself opens with a run of symbols.
+        // Two or more only — a lone "*" can open a note legitimately ("* p < 0.05").
+        foreach ($defs as $id => $defText) {
+            if (isset($markerIds[$id]) && preg_match('/^[*†‡§¶#+]{2,}\s/u', ltrim($defText))) {
+                $add('note_keeps_marker', $markerIds[$id], 'footnote opens with its own marker: ' . mb_substr(ltrim($defText), 0, 160));
             }
         }
 

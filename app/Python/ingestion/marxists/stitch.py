@@ -43,7 +43,9 @@ MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
 # Links that are never part of a work's body even when they sit in a contents list.
 NOT_WORK = re.compile(r'/(glossary|download|admin|subject|reference/archive|xlang)/|/pics/|\.(gif|jpe?g|png|pdf|doc|epub|azw3?|mp3)$', re.I)
-NOTE_MARKER = re.compile(r'^\s*[\[(]?\s*(\d{1,4}|[*†‡]+|[a-z])\s*[\])]?\.?\s*$', re.I)  # [1] (1) 1. *
+# [1] (1) 1. * — and [*1]: The Poverty of Philosophy numbers Engels's notes to the 1885 edition
+# "[*1]", "[*2]" beside the editors' "[1]"; unrecognised, they stayed in the text as dead links.
+NOTE_MARKER = re.compile(r'^\s*[\[(]?\s*(\d{1,4}|[*†‡]+\d{0,3}|[a-z])\s*[\])]?\.?\s*$', re.I)
 IMG_EXT = re.compile(r'\.(gif|jpe?g|png|svg)$', re.I)
 MEDIA_TYPES = {'gif': 'image/gif', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'svg': 'image/svg+xml'}
 

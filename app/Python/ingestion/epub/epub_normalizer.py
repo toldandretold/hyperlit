@@ -1035,6 +1035,20 @@ class EpubNormalizer:
         """Load EPUB content from a .epub file using EbookLib."""
         book = epub.read_epub(self.input_path)
         self._log(f"Title: {book.get_metadata('DC', 'title')}")
+        # Same decision as the directory path (see _load_from_directory): the stitcher's flag in
+        # the package file, or its provenance file beside the output. Production always converts
+        # the extracted directory; without this a packed .epub run silently dropped the printed notes.
+        self.keep_notes = os.path.exists(os.path.join(self.output_dir, 'marxists_provenance.json'))
+        try:
+            import zipfile
+            with zipfile.ZipFile(self.input_path) as z:
+                for name in z.namelist():
+                    if name.lower().endswith('.opf'):
+                        opf = z.read(name).decode('utf-8', 'replace')
+                        if re.search(r'name="hyperlit:keep-notes"\s+content="true"', opf, re.I):
+                            self.keep_notes = True
+        except Exception as e:
+            self._log(f"Warning: could not read the package file for keep-notes: {e}")
 
         # Collect stylesheet(s) + toc.ncx for the StyleProfiler / TocIndex. Best-effort (never fatal).
         try:
