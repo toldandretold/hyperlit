@@ -149,6 +149,7 @@ def expand_latex_superscripts(text):
     superscript, not become literal "[^1][^2][^4]" text. So we only split a comma group when a
     matching definition is present in the same text."""
     text = _LATEX_SUP_TEXT_JUNK_RE.sub(r'\1\2', text)
+    text = _YEAR_SUP_MATH_RE.sub(r'\1[^\2]', text)
 
     # Definition forms: an already-[^N]: def, or a line-start single superscript "$^{1}$ School…".
     def_nums = set(re.findall(r'(?m)^\s*\[\^(\d+)\]:', text))
@@ -184,7 +185,14 @@ def expand_latex_superscripts(text):
 # boundary (space / dash / punctuation / EOL) — an exponent is followed by a letter/variable or the
 # expression continues — and the caret is preceded by a word char or sentence punctuation (not "{"/"_",
 # which sit inside maths). Math inside $…$ / $$…$$ is masked out first so exponents there are untouched.
-_MATH_SPAN_RE = re.compile(r'\$\$.+?\$\$|\$(?!\$).+?(?<!\$)\$', re.DOTALL)
+# Inline maths hugs its delimiters ("$(0.05\%)$") and stays on one line. Without that, a lone
+# currency sign pairs with the next real "$" and the PROSE between two formulas is masked as
+# maths instead of them: three "US$" on d6c052da's page hid "… ^{15}. Facebook paid …" so marker
+# 15 never converted and "$2011^{16}$" was read inside-out.
+_MATH_SPAN_RE = re.compile(r'\$\$.+?\$\$|\$(?!\$)(?=\S)[^$\n]+?(?<=\S)(?<!\$)\$', re.DOTALL)
+# A YEAR carrying a superscript inside one maths span is a sentence-final date with a footnote
+# marker on it, not an exponent: "in $2011^{16}$ ." (d6c052da).
+_YEAR_SUP_MATH_RE = re.compile(r'\$((?:1[5-9]|20)\d{2})\^\{?(\d{1,3})\}?\$')
 _BARE_CARET_FN_RE = re.compile(r'(?<=[A-Za-z0-9.,;:!?)\'"’”])\^(\d{1,3})(?![A-Za-z0-9])')
 # Module-level so the substitution below doesn't need a backslash INSIDE an f-string
 # expression — legal from Python 3.12 (PEP 701), a SyntaxError on 3.11 (prod's python3).
@@ -550,6 +558,10 @@ def normalize_all_footnote_refs(text):
         # "Market Capitalisation … 451,8" → "451,[^8]"). "preferable,30 but" keeps its marker:
         # the char before the comma is a letter.
         if text[pos - 1] == ',' and pos >= 2 and text[pos - 2].isdigit():
+            continue
+        # …and a digit before a COLON makes it a clock time or a ratio: "running time: 03:18
+        # (mm:ss)" grew a marker 18 (320fda56).
+        if text[pos - 1] == ':' and pos >= 2 and text[pos - 2].isdigit():
             continue
         bare_candidates.append((pos, num, m.start(), m.start() + len(m.group(1)), 'bare'))
 
@@ -1382,7 +1394,7 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
         # recovery then appends a colon-form DUPLICATE at the doc end (deloitte p5, defs 1-4).
         # Line-start [^N] glued to text is def-shaped everywhere in this pipeline (an inline ref
         # glues to the PRECEDING word); the ascending-run + ref-overlap licensing still gates it.
-        m = re.match(r'^\[\^(\d{1,3})\]([A-Za-z\d"\'(*“‘].+)', stripped)
+        m = re.match(r'^\[\^(\d{1,3})\]([A-Za-z\d"\'(*“‘„«»].+)', stripped)
         if m:
             return int(m.group(1)), m.group(1), m.group(2)
         # Bracket-form def: "[17] Mackenzie Owen 2002." — Mistral renders some page-bottom notes
@@ -1518,6 +1530,23 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
             if m and int(m.group(1)) in licensed_bare and int(m.group(1)) not in ref_nums:
                 lines[li] = lines[li][:m.start(1)] + f'[^{m.group(1)}]'
                 ref_nums.add(int(m.group(1)))
+        # …and a licensed number standing on a CLOSING QUOTE, wherever in the line: the marker of
+        # a quoted translation, printed before the page reference that follows it — 'the human
+        # being disappears"50.', "'master race'\"52 (Anders 2001, 277)", 'Da-sein" 64 (61-62)'
+        # (820fe235, four notes unlinked on two pages). The general converter wants a capital
+        # after the number and no space before it. Here the page's own note block vouches for
+        # the number, and it must stand in exactly ONE such place on the page.
+        for n in sorted(licensed_bare - ref_nums):
+            quoted = re.compile(r'''(?<=[A-Za-z.,;:!?'’])["”’] ?(''' + str(n)
+                                + r''')(?=[\s.,;:)]|$)''')
+            sites = [(li, m) for li in range(bound)
+                     if not lines[li].lstrip().startswith('[^')
+                     for m in quoted.finditer(lines[li])]
+            if len(sites) != 1:
+                continue
+            li, m = sites[0]
+            lines[li] = lines[li][:m.start(1)].rstrip(' ') + f'[^{n}]' + lines[li][m.end(1):]
+            ref_nums.add(n)
 
     # CONSTANT-OFFSET rekey: the fetch-time chunk renumberer (renumber_chunk_footnotes) shifts
     # [^N] forms and LINE-START [N] defs by the segment offset but NOT inline [N] refs — so a
@@ -1592,7 +1621,10 @@ def split_body_and_footnotes(md):
     # "<" too: a note that is only an angle-bracketed URL ("[^5]: <https://…/87.pdf>.") opens
     # with it. Left out, that note stayed in the BODY while the rest of its page's notes were
     # collected, and the Footnotes heading landed mid-article in front of it (9d0400c9).
-    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*<\u201c\u2018]', md, re.MULTILINE)
+    # …and the German / French opening quotes: a page whose first notes are quotations in the
+    # original ("20 „Wo Abhörapparate…") kept those four in the body, and the Footnotes heading
+    # cut section 3.2 in half in front of them (820fe235).
+    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*<\u201c\u2018\u201e\u00ab\u00bb]', md, re.MULTILINE)
     if not match:
         return md, ""
 
@@ -1808,6 +1840,7 @@ def rejoin_page_breaks(text):
     # occurrence), for the lost-hyphen test in Case 1b.
     vocabulary = Counter(w.lower() for w in _WORD_TOKEN_RE.findall(text))
     result = []
+    carried = {}        # line index -> stepped-over furniture to re-emit after that line
     i = 0
 
     while i < len(lines):
@@ -1839,10 +1872,14 @@ def rejoin_page_breaks(text):
         next_nonempty = ''
         next_idx = None
         barriers = []
-        j, limit = i + 1, i + 4
-        while j < min(limit, len(lines)):
+        # Blank lines are free up to a point: page-bottom notes lifted out of the page leave a run
+        # of them behind, and counting those against the window stranded the sentence's second
+        # half (5fc4aad4: five notes removed between "…and fascist potentials" / "that divide…").
+        j, limit, blank_cap = i + 1, i + 4, i + 16
+        while j < min(limit, blank_cap, len(lines)):
             if not lines[j].strip():
                 j += 1
+                limit += 1
                 continue
             if prose and is_join_barrier(lines[j]) and len(barriers) < 2:
                 barriers.append(lines[j].rstrip())   # stepped over; re-emitted after the join
@@ -1858,10 +1895,12 @@ def rejoin_page_breaks(text):
 
             # Case 1: Hyphenated word break — "accumu-" + "lation"
             if stripped.endswith('-') and not stripped.endswith('---') and next_nonempty[0].islower():
-                result.append(stripped[:-1] + next_nonempty)
-                for b in barriers:
-                    result.extend(('', b))
-                i = next_idx + 1
+                # The joined line takes the second half's place and is looked at AGAIN: a
+                # paragraph can run over two page turns, and moving past it left its own tail
+                # unjoined (e403008c: "…i.e., a" + "technical … quelque chose à" + "quelqu'un…").
+                lines[next_idx] = stripped[:-1] + next_nonempty
+                carried[next_idx] = carried.pop(i, []) + barriers
+                i = next_idx
                 continue
 
             # Case 2: Paragraph continues — line doesn't end with sentence punct,
@@ -1869,13 +1908,14 @@ def rejoin_page_breaks(text):
             if continues_across_break(stripped, next_nonempty):
                 # Case 1b: the hyphen itself was lost in OCR — glue the halves of the word.
                 sep = '' if _glues_into_one_word(stripped, next_nonempty, vocabulary) else ' '
-                result.append(stripped + sep + next_nonempty)
-                for b in barriers:
-                    result.extend(('', b))
-                i = next_idx + 1
+                lines[next_idx] = stripped + sep + next_nonempty
+                carried[next_idx] = carried.pop(i, []) + barriers
+                i = next_idx
                 continue
 
         result.append(line)
+        for b in carried.pop(i, []):
+            result.extend(('', b))
         i += 1
 
     return '\n'.join(result)

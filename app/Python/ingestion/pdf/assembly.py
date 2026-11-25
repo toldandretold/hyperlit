@@ -20,6 +20,7 @@ from ingestion.pdf.recovery import (  # noqa: F401
     fix_mangled_urls, extract_pypdf_footnote_defs, recover_missing_defs,
     SplitBornNote,
     extract_pypdf_page_texts, resurrect_dropped_markers_from_pypdf,
+    realign_def_numbers_to_layer, reconcile_markers_with_lone_line_seams,
     derive_pua_digit_map, extract_pua_marker_seams, filter_ascending_marker_chain,
     resurrect_pua_markers,
     repair_def_text_from_pypdf, assess_def_content_fidelity,
@@ -899,7 +900,10 @@ def _absorb_numbered_body_twins(combined, recovered):
             if len(exact) == 1:
                 drop.add(exact[0])
             continue
-        opener = re.compile(r'^\s*' + str(num) + r'\s+(?=\S)')
+        # ANY leading number: in a renumbered document the body copy still carries the PRINTED
+        # number ("15 Podkorny's entry…") while the recovered note is [^14] (99a9fa50). Forty
+        # matching characters are the identity; the number is only the shape of a note line.
+        opener = re.compile(r'^\s*\d{1,3}\s+(?=\S)')
         hits = [i for i, p in enumerate(paras)
                 if not p.lstrip().startswith(('[^', '#', '>', '|'))
                 and opener.match(p)
@@ -911,6 +915,11 @@ def _absorb_numbered_body_twins(combined, recovered):
         rec = _norm_note_text(re.sub(r'[-‐‑]\s*$', '', text or ''))
         if len(_norm_note_text(body)) > len(rec) and _norm_note_text(body).startswith(rec):
             replacements[num] = body
+        elif len(_norm_note_text(body)) > len(rec) * 1.3:
+            # Far longer than what the layer gave (its extraction stops at a cap): a long note —
+            # a dictionary entry running half a page — would lose everything past the cap if
+            # the body copy were simply dropped. The OCR's copy is the complete one.
+            replacements[num] = re.sub(r'\s*\n\s*', ' ', body)
         drop.add(i)
     if not drop:
         return combined
@@ -968,6 +977,59 @@ def _pypdf_footnote_run(pypdf_defs_by_page, page_offsets=None):
     return top
 
 
+_GAP_NOTE_LINE_RE = re.compile(r'^(\d{1,3}) (["\'\u201c\u2018(]?[A-Z].{15,})$')
+
+
+def _adopt_gap_filling_note_lines(combined):
+    """Numbered lines stranded in the body that are exactly the notes the document is missing.
+
+    320fda56 has definitions 5 and 8; between two body paragraphs sit the lines "6 Taken from
+    http://v.youku.com/…" and "7 Taken from http://v.youku.com/…". The OCR dropped both
+    superscripts in the text, so nothing licensed the lines as notes and they shipped as prose.
+    The licence here is the GAP: a run of consecutive numbered lines whose numbers no definition
+    holds, standing between two numbers that definitions do hold, filling the hole completely.
+    A numbered list in the prose does not land in a hole in the note sequence and close it.
+
+    Returns (combined, adopted_numbers)."""
+    def_nums = {int(n) for n in re.findall(r'(?m)^\[\^(\d+)\]:', combined)}
+    if len(def_nums) < 2:
+        return combined, []
+    lines = combined.split('\n')
+    adopted, drop = [], set()
+    i = 0
+    while i < len(lines):
+        m = _GAP_NOTE_LINE_RE.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        run, j, expect = [], i, int(m.group(1))
+        while j < len(lines):
+            if not lines[j].strip():
+                j += 1
+                continue
+            mm = _GAP_NOTE_LINE_RE.match(lines[j])
+            if not mm or int(mm.group(1)) != expect:
+                break
+            run.append((j, expect, mm.group(2)))
+            expect += 1
+            j += 1
+        first, last = run[0][1], run[-1][1]
+        if (first - 1 in def_nums and last + 1 in def_nums
+                and not any(n in def_nums for _l, n, _t in run)):
+            for line_idx, n, text in run:
+                drop.add(line_idx)
+                adopted.append((n, text.strip()))
+            i = run[-1][0] + 1
+        else:
+            i += 1
+    if not adopted:
+        return combined, []
+    body = '\n'.join(line for k, line in enumerate(lines) if k not in drop)
+    body = re.sub(r'\n{3,}', '\n\n', body).rstrip()
+    body += '\n\n' + '\n\n'.join(f'[^{n}]: {t}' for n, t in adopted)
+    return _order_trailing_def_block(body), [n for n, _t in adopted]
+
+
 def _marker_seam_witnesses(ptext, num):
     """Every way footnote marker `num` can render in a pypdf text layer, tightest shape first.
 
@@ -999,13 +1061,26 @@ def _marker_seam_witnesses(ptext, num):
         # glued onto a closing paren or a citation YEAR, punctuation AFTER the marker:
         # "(see figure 4)6: dispositions…", "(see also Oberquelle 19919). This…" — up to two
         # punctuation marks, because a marker inside a parenthetical closes both at once (").").
-        (rf'([A-Za-z0-9)\]]{{2,}}){num}([.,;:!?)\]]{{1,2}})\s+([A-Za-z]{{2,}})', 3),
+        # A digit-ended word must be a whole four-digit YEAR: "January 6, 1941, President" is
+        # otherwise a witness for marker 41 on the word "19", and being the first page to
+        # witness anything it took the rescue away from the real site (d943d806 "Sighele41,").
+        (rf'((?:[A-Za-z0-9)\]]+[A-Za-z)\]]|(?<!\d)\d{{4}})){num}([.,;:!?)\]]{{1,2}})\s+([A-Za-z]{{2,}})', 3),
+        # marker between a closing quote and the sentence period: "…these miseries”67. The rule"
+        (rf'([A-Za-z]{{3,}}["\'’”]){num}([.,;:!?])\s+([A-Za-z]+)', 3),
+        # the marker standing free MID-sentence: "…incentives for webmasters 7 to operate…",
+        # "…spelt out by Google 8 as: …" (a60f6c3c). A number that belongs to the prose is still
+        # in the OCR text and so can never match the digitless seam the caller searches for.
+        (rf'([A-Za-z]{{4,}}) {num} ([a-z]{{2,}})', 2),
         # a closing QUOTE then the sentence period, marker after both (the American
         # quote-then-period order): "…interpreting it adequately”.1 Presumably" (d7322ddc). The
         # OCR renders the quote glyph its own way, so the caller matches quotes as a class.
         # The quote+period ride in the WORD group so the marker is inserted after them, where the
         # print has it.
         (rf'([A-Za-z]{{3,}}["\'’”][.,;:!?]){num}\s+([A-Z][a-z]+)', 2),
+        # the marker standing FREE between two sentences — a layer that sets the superscript as
+        # its own word: "…or implicitly supremacist. 1 But, as Yarden Katz…" (c45b67a0, all four
+        # of its markers). Sentence end before, capitalised opener after, on one line.
+        (rf'([A-Za-z]{{4,}}[.!?]) {num} ([A-Z][a-z]+)', 2),
     )
     for pattern, groups in shapes:
         m = re.search(pattern, ptext)
@@ -1062,7 +1137,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
     # converted fine, only the in-text superscripts were dropped). def_text None = marker-only
     # rescue, and the marker MUST keep the def's own number to link to it.
     orphan_defs = [(int(m.group(1)), m.group(2))
-                   for m in re.finditer(r'(?m)^\[\^(\d{1,2})\]:[ \t]*(.*)$', combined)]
+                   for m in re.finditer(r'(?m)^\[\^(\d{1,3})\]:[ \t]*(.*)$', combined)]
 
     if not pdf_path:
         return combined, 0
@@ -1203,6 +1278,24 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             # lets the seam line up, and the insertion REPLACES it rather than leaving junk
             # beside the new marker.
             pattern = rf'{word}({_SUP_LETTER}?){punct}\s+{follow}'
+            # …or the DIGIT itself, left as plain text: a journal that prints the marker before
+            # the sentence period ("…no doubt among psychologists36. From…") gets no help from
+            # the per-page converter, which only reads a number standing AFTER punctuation.
+            # d943d806 shipped 19 of its endnotes unlinked with every one of those digits sitting
+            # in the body. Markdown side only — the layer check below must stay digitless.
+            # The digit must stand on a LETTER (or a closing bracket/quote): standing on another
+            # digit it is the tail of a number, and "January 6, 1941, President" would read as
+            # "19" + marker 41.
+            # …or a marker under the WRONG number, when that number also has a marker
+            # elsewhere (so no note is left stranded by taking this one): the OCR read "Big
+            # Science¹⁶" as 18 while the real marker 18 stood two lines on (03e9f2f7).
+            # Both only when hunting the marker of a definition the document already HOLDS. A
+            # candidate lifted from a footer or the layer has no such anchor, and its "number"
+            # may be a folio: deloitte's page 21 turned "MR21, confirmed" into a marker.
+            _corpse = (rf'{_SUP_LETTER}|(?<![\d.,]){num}|\[\^\d+\]' if def_text is None
+                       else _SUP_LETTER)
+            md_pattern = (rf'{word}((?:{_corpse})?){punct}'
+                          rf'\s+(?:#{{1,6}}[ \t]+)?{follow}')
             # The DIGITLESS seam must not exist anywhere in the text layer itself: if the PDF
             # carries both "study10 :" (the marker site) and "case study: over" (plain prose,
             # possibly pages away), the markdown's unique match can be the WRONG site — the
@@ -1210,19 +1303,23 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             # abstract got a phantom [^10] from a seam witnessed 40 pages later).
             if any(re.search(pattern, pt) for pt in page_texts.values() if pt):
                 continue
-            hits = list(re.finditer(pattern, combined))
+            hits = list(re.finditer(md_pattern, combined))
             if len(hits) > 1 and follow_tail:
                 # ambiguous with one follow word — extend the witness word by word until unique
                 extra_words = follow_tail.split()
                 for w in extra_words[:3]:
                     if not re.match(r'^[A-Za-z]{2,}[.,;:]?$', w):
                         break
-                    pattern += rf'\s+{re.escape(w.rstrip(".,;:"))}'
-                    hits = list(re.finditer(pattern, combined))
+                    md_pattern += rf'\s+{re.escape(w.rstrip(".,;:"))}'
+                    hits = list(re.finditer(md_pattern, combined))
                     if len(hits) <= 1:
                         break
             if len(hits) != 1 or hits[0].start() >= body_end:
                 continue                # reworded, ambiguous, or in the back matter — skip
+            _wrong = re.fullmatch(r'\[\^(\d+)\]', hits[0].group(1) or '')
+            if _wrong and (int(_wrong.group(1)) == num or len(re.findall(
+                    rf'\[\^{_wrong.group(1)}\](?!:)', combined)) < 2):
+                continue
             placed = (hits[0], len(seam[0]))
             break
         if placed is None:
@@ -1336,7 +1433,7 @@ class DefaultAssembler(FootnoteAssembler):
         combined = normalize_footnote_defs(combined)
         # Fix footnote definitions: OCR produces [^N] Text but markdown expects [^N]: Text
         # Only at start of line (definitions), not inline references
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘„«»])', r'\1: ', combined, flags=re.MULTILINE)
         # A whole affiliation list OCR-glued into ONE def line → one definition per line.
         combined = _split_glued_inline_defs(combined)
         # Re-run the def-gated latex expansion: comma groups ($^{7,8}$ author-affiliation
@@ -1371,7 +1468,7 @@ class WackStemAssembler(FootnoteAssembler):
         # "$^{1,2,4}$" citation — is left alone, exactly as on the default path), then the
         # "[^N] Text" → "[^N]: Text" def fix and the affiliation-block resolver it relies on.
         combined = expand_latex_superscripts(combined)
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘„«»])', r'\1: ', combined, flags=re.MULTILINE)
         combined = _resolve_affiliation_block(combined)
         # A mixed-style paper cites BOTH ways — brackets ("[18,19]") and superscripts
         # ("piracy⁷", "2011.¹¹,¹²"). Normalise the superscript runs to bracket form first,
@@ -1449,6 +1546,11 @@ class PageBottomAssembler(FootnoteAssembler):
         if page_map:
             ctx.page_local_to_global[i] = page_map
         body, fn_text = split_body_and_footnotes(md)
+        if fn_text.strip():
+            # The footnote RULE, which the OCR renders as a horizontal rule above the notes: with
+            # the notes lifted out it is a stray "---" ending the page, and a sentence running on
+            # to the next page stops dead at it (820fe235: "…a matter of non-control," / "---").
+            body = re.sub(r'\n\s*(?:---+|\*\*\*+|___+)\s*$', '', body.rstrip())
         if body.strip():
             ctx.md_parts.append(body)
         if fn_text.strip():
@@ -1459,7 +1561,7 @@ class PageBottomAssembler(FootnoteAssembler):
         combined = rejoin_page_breaks(combined)
         # Format and append collected footnote definitions
         fn_defs = "\n\n".join(ctx.fn_defs_parts)
-        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', fn_defs, flags=re.MULTILINE)
+        fn_defs = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘„«»])', r'\1: ', fn_defs, flags=re.MULTILINE)
         if fn_defs.strip():
             combined = combined + "\n\n" + fn_defs
         return combined
@@ -1620,7 +1722,7 @@ class DocumentEndnotesAssembler(FootnoteAssembler):
             ctx.md_parts.append(md)
 
     def post_combine(self, ctx, combined):
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘„«»])', r'\1: ', combined, flags=re.MULTILINE)
         # A trailing numbered References/Notes list cited by in-order markers is the def list.
         combined = _convert_numbered_endnote_defs(combined)
         # A $-form comma-group superscript ("$^{13,16}$" — 0fb751c1) survives the per-page
@@ -2106,7 +2208,7 @@ class ChapterEndnotesAssembler(FootnoteAssembler):
             self._pending_page_notes = []
         # Superscripts already converted per-page with chapter offsets applied.
         # Fix def formatting and rejoin page breaks.
-        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘])', r'\1: ', combined, flags=re.MULTILINE)
+        combined = re.sub(r'^(\[\^\d+\])\s+(?=[A-Za-z\d"\'(*“‘„«»])', r'\1: ', combined, flags=re.MULTILINE)
         combined = rejoin_page_breaks(combined)
         return combined
 
@@ -3319,6 +3421,19 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 clean_pypdf_defs = translated
                 page_offsets_map = {}
 
+            # A note block the OCR numbered by COUNTING drifts from the print at the first
+            # unnumbered note in it. Settled before anything pairs by number: the text repair
+            # below and the missing-def recovery would both be comparing the wrong notes.
+            if classification != 'page_bottom' and not page_offsets_map:
+                combined, _realigned = realign_def_numbers_to_layer(combined, clean_pypdf_defs)
+                if _realigned:
+                    print(f"  pypdf fallback: {len(_realigned)} definition(s) given back the number "
+                          f"the PDF prints them under: "
+                          + ', '.join(f'[^{a}]→[^{b}]' for a, b in _realigned[:8]))
+                    ocr_def_nums = set(int(n) for n in re.findall(
+                        r'^\[\^(\d+)\]\s*:', combined, re.MULTILINE))
+                    missing = ref_nums - ocr_def_nums
+
             # Repair the text of defs the OCR DID produce but garbled. Runs
             # before recovery so that recovery's ocr_def_nums bookkeeping is
             # untouched: this pass rewrites definition text in place and never
@@ -3367,6 +3482,16 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 # copy carries the real number, so it wins and the unnumbered twin goes.
                 combined = _drop_substituted_marker_duplicates(combined, recovered)
                 combined = _absorb_numbered_body_twins(combined, recovered)
+            if classification != 'page_bottom' and not page_offsets_map:
+                combined, _mk_fixed, _mk_removed, _mk_planted = \
+                    reconcile_markers_with_lone_line_seams(
+                        combined, getattr(ctx, 'layer_page_texts', None) or {})
+                if _mk_fixed or _mk_removed or _mk_planted:
+                    print(f"  pypdf fallback: marker numbers checked against the PDF's own "
+                          f"superscripts — {len(_mk_fixed)} corrected ("
+                          + ', '.join(f'[^{a}]→[^{b}]' for a, b in _mk_fixed[:8])
+                          + f"), {len(_mk_removed)} phantom marker(s) removed, "
+                          f"{len(_mk_planted)} dropped marker(s) restored")
             if pypdf_rejected_mojibake:
                 # These are "candidate" defs pypdf pattern-matched (^N + Uppercase)
                 # on the source PDF — but the text payload was unreadable glyphs.
@@ -3386,6 +3511,14 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                         "unrecovered": [entry["fn_num"]],
                         "reason": "unreadable_pypdf_candidate",
                     })
+
+    # After the layer has filled in what it can, so the gap is judged against the fullest
+    # sequence available.
+    if classification != 'page_bottom':
+        combined, _adopted = _adopt_gap_filling_note_lines(combined)
+        if _adopted:
+            print(f"  {len(_adopted)} numbered body line(s) adopted as the notes missing from the "
+                  f"sequence: " + ', '.join(f'[^{n}]' for n in _adopted[:8]))
 
     # --- Demote Vancouver-citation refs (bracket citations mis-promoted to footnote markers)
     # BEFORE the marker rescue: demotion returns bracket-regime tokens to citations, and the

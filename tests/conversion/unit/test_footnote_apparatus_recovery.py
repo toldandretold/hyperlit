@@ -812,3 +812,171 @@ def test_a_note_cut_out_of_its_predecessor_is_marked_so_it_can_be_put_back():
     assert [n for n, _t in got] == [8, 9]
     assert not isinstance(got[0][1], R.SplitBornNote) and isinstance(got[1][1], R.SplitBornNote)
     assert got[1][1] == 'In an essay entitled “The Social Exclusion Discourse” Béland documents it.'
+
+
+# --- 2026-11-25 batch: what the text layer says about numbers ------------------------------
+
+
+def test_a_folio_glued_to_the_running_head_is_not_a_note():
+    """c45b67a0: "2 Geoff M. Bocher & Emily McAvan …" heads every even page, each swallowing the
+    page under it, so no two share a text — the number climbing with the page gives them away."""
+    layer = {
+        1: [(2, 'Geoff M. Bocher & Emily McAvan CC-BY-NC-ND. Sci-Fi Author: In my book I invented')],
+        3: [(4, 'Geoff M. Bocher & Emily McAvan CC-BY-NC-ND. of Silicon Valley is trying to make')],
+        5: [(6, 'Geoff M. Bocher & Emily McAvan CC-BY-NC-ND. The most recent mutation of the'),
+            (2, 'One oft-unremarked underlying thread that ties key figures together.')],
+    }
+    recovered = R.recover_missing_defs(set(), layer, 10)
+    assert recovered == [(2, 'One oft-unremarked underlying thread that ties key figures together.')]
+
+
+def test_notes_that_merely_open_alike_are_not_folios():
+    layer = {
+        1: [(1, 'Translation from German: the first of several translated passages.')],
+        2: [(4, 'Translation from German: another passage entirely, on a later page.')],
+        4: [(9, 'Translation from German: and a third, where the numbers do not track pages.')],
+    }
+    assert [n for n, _t in R.recover_missing_defs(set(), layer, 10)] == [1, 4, 9]
+
+
+def test_a_definition_gets_back_the_number_the_pdf_prints_it_under():
+    """0c64b464: an unnumbered table note in the block pushed the OCR's count up by one, so
+    marker 6 opened the table note and the real note 6 had no marker."""
+    md = ('Body with a marker[^6]. More body.\n\n'
+          '[^5]: Colin Sparks (1989) explains the debt to Ernesto Laclau.\n'
+          '[^6]: See italicized, bolded items in Table 1, p. 9.\n'
+          '[^7]: The following interpretation of the theorization of ideology is indebted to Larrain.\n\n'
+          '[^8]: Emphasis in original.\n')
+    layer = {2: [(5, 'Colin Sparks (1989) explains the debt to Ernesto Laclau.'),
+                 (6, 'The following interpretation of the theorization of ideology is indebted to Larrain.')],
+             4: [(7, 'The Young Hegelians were leftist Prussian intellectuals.'),
+                 (8, 'Emphasis in original.')]}
+    out, moved = R.realign_def_numbers_to_layer(md, layer)
+    assert moved == [(6, 9), (7, 6)]
+    assert '[^6]: The following interpretation' in out
+    assert '[^9]: See italicized' in out            # the note the print gives no number
+    assert '[^7]:' not in out                       # left free for the layer's own note 7
+
+
+def test_definitions_are_not_renumbered_when_the_layer_restarts_its_count():
+    md = '[^1]: A first note with enough words to compare.\n\n[^2]: A second note with enough words.\n'
+    layer = {1: [(1, 'A second note with enough words.')],
+             2: [(1, 'Something else entirely that also carries number one.')]}
+    assert R.realign_def_numbers_to_layer(md, layer) == (md, [])
+
+
+def test_two_definitions_under_one_number_are_told_apart_by_the_layer():
+    """03e9f2f7: "[^18]: Galison…" beside the real "[^18]: Latour…" — the first is printed 16."""
+    md = ('[^17]: http://lcg.web.cern.ch/LCG. There is also a big effort.\n\n'
+          '[^18]: Galison &amp; Hevly (1994).\n\n'
+          '[^18]: Latour (1986), Giere &amp; Moffat (2003).\n')
+    layer = {5: [(16, 'Galison & Hevly (1994).'),
+                 (17, 'http://lcg.web.cern.ch/LCG. There is also a big effort.'),
+                 (18, 'Latour (1986), Giere & Moffat (2003).')]}
+    out, moved = R.realign_def_numbers_to_layer(md, layer)
+    assert moved == [(18, 16)]
+    assert '[^16]: Galison' in out and '[^18]: Latour' in out
+
+
+_LONE_PAGE = (
+    'meanings of intelligence or rationality\n1\n.  \n'
+    'this is an ad machinam  fallacy\n5\n. \n'
+    'attribute will to it, as to the animals\n6\n. They feared the arguments\n'
+    'talk of the automation of proof\n13\n. \n'
+    'valuable to research and discovery\n14\n. \n'
+    'has appeared in the historical development\n18\n. We must remember\n'
+    '                                        \n'
+    '1\n Kurzweil (1990). \n'
+    '2\n Brooks (1991). \n'
+    '3\n Vallverdu (2005). \n'
+)
+
+
+def test_notes_whose_numbers_sit_on_their_own_line_are_read_as_a_block():
+    lines = _LONE_PAGE.split('\n')
+    assert R._lone_line_note_defs(lines) == [
+        (1, 'Kurzweil (1990).'), (2, 'Brooks (1991).'), (3, 'Vallverdu (2005).')]
+    # a body marker is not a note: nothing opens like one after it
+    assert R._lone_line_note_defs('some text\n7\n: and it goes on\n'.split('\n')) == []
+
+
+def test_marker_numbers_are_held_to_the_layers_own_superscripts():
+    """03e9f2f7: OCR read marker 5 as 6, put a phantom 5 on an ordinal, and dropped marker 1."""
+    md = ("We use different meanings of 'intelligence' or 'rationality'.\n\n"
+          'We can travel to XVII[^5] Century. This is an *ad machinam* fallacy[^6].\n\n'
+          'We can talk of the automation of proof[^13]. Valuable to research and discovery[^14].\n\n'
+          'It has appeared in the historical development[^18]. We must remember.\n\n'
+          '[^1]: Kurzweil (1990).\n\n[^5]: The neologism is mine.\n\n[^6]: Thoughts, Chapter VI.\n\n'
+          '[^13]: Mackenzie (1995).\n\n[^14]: Stormo (2000).\n\n[^18]: Latour (1986).\n')
+    out, corrected, removed, planted = R.reconcile_markers_with_lone_line_seams(md, {0: _LONE_PAGE})
+    assert corrected == [(6, 5)] and removed == [5] and planted == [1]
+    assert "'rationality'[^1]." in out
+    assert 'XVII Century' in out
+    assert 'fallacy[^5].' in out
+
+
+def test_marker_numbers_are_left_alone_without_an_established_lone_line_layout():
+    md = 'An *ad machinam* fallacy[^6].\n\n[^5]: The neologism.\n\n[^6]: Thoughts.\n'
+    page = 'this is an ad machinam  fallacy\n5\n. \n'
+    assert R.reconcile_markers_with_lone_line_seams(md, {0: page}) == (md, [], [], [])
+
+
+def test_a_run_of_notes_splits_at_a_short_form_note():
+    """d6c052da: "…/business-20288077  14 ibid.  15 Amazon: …" — the split stopped at "ibid."."""
+    text = ('Starbucks, Google and Amazon grilled over tax avoidance. BBC Online. '
+            'http://www.bbc.co.uk/news/business-20288077  14 ibid.  15 Amazon: £7bn sales, no UK '
+            'corporation tax. The Guardian Online. http://www.guardian.co.uk/technology/amazon  '
+            '16 Should we boycott the tax-avoiding companies? The Guardian Online.')
+    parts = R.split_run_on_numbered_def(13, text, taken={12, 13})
+    assert [n for n, _t in parts] == [13, 14, 15, 16]
+    assert parts[1][1] == 'ibid.'
+
+
+def test_an_endnote_marker_pages_before_its_note_counts_as_in_the_layer(monkeypatch):
+    """d943d806: notes on the last pages, "…among psychologists36." on page 5."""
+    monkeypatch.setattr(R, 'extract_pypdf_page_texts', lambda _p: {
+        4: 'there seems to be no doubt among psychologists36. From the numerous phobias',
+        19: '36 But cf. Franz Alexander, Psychoanalysis of the Total Personality, concerning'})
+    monkeypatch.setattr(R, 'extract_pypdf_footnote_defs', lambda _p: {
+        19: [(36, 'But cf. Franz Alexander, Psychoanalysis of the Total Personality, concerning')]})
+    md = 'Body text.\n\n[^36]: But cf. Franz Alexander, Psychoanalysis of the Total Personality, concerning\n'
+    assert R.assess_unlinked_definitions(md, 'x.pdf')[0]['verdict'] == 'marker_in_layer'
+
+
+def test_a_licensed_number_on_a_closing_quote_is_a_marker():
+    """820fe235: 'disappears"50.' and 'Da-sein" 64 (61-62)' — the page's own notes vouch."""
+    page = ('He says that "the human being disappears"50.\n\n'
+            'The brand name of the \'master race\'"52 (Anders 2001, 277). For Anders this matters.\n\n'
+            '50 Translation from German: the first passage.\n\n'
+            '51 Translation from German: the second passage.\n\n'
+            '52 Translation from German: the third passage.')
+    out, _counter = S.renumber_page_footnotes(page, 1)
+    assert 'disappears"[^1].' in out
+    assert '\'master race\'"[^3] (Anders' in out
+
+
+def test_a_clock_time_is_not_a_marker():
+    text = ('See the first claim.[^17] Video screen running time: 03:18 (mm:ss); key narratives '
+            'follow. Another claim.[^19]\n\n[^17]: One.\n\n[^18]: Two.\n\n[^19]: Three.\n')
+    assert '03:18 (mm:ss)' in S.normalize_all_footnote_refs(text)
+
+
+def test_prose_between_two_formulas_is_not_masked_as_maths():
+    """d6c052da: three "US$" on the page paired the dollars the wrong way round."""
+    text = ('bought for US$ 30 million. It paid tax  $(0.05\\%)$ ^{15}. Facebook paid tax '
+            '$(0.1\\%)$  in  $2011^{16}$ .')
+    out = S.convert_bare_caret_footnotes(S.expand_latex_superscripts(text))
+    assert '[^15]' in out and '2011[^16]' in out
+
+
+def test_a_sentence_running_over_two_page_turns_is_joined_twice():
+    text = ('It is only a technical term, i.e., a\n\n'
+            'matter of giving someone knowledge ("faire connaître quelque chose à\n\n'
+            'quelqu\'un") as the dictionary has it.')
+    assert S.rejoin_page_breaks(text).count('\n') == 0
+
+
+def test_the_blank_run_left_by_lifted_notes_does_not_stop_a_join():
+    text = ('These potentials might be destroyed and fascist potentials' + '\n' * 7
+            + 'that divide society might be realised.')
+    assert 'fascist potentials that divide' in S.rejoin_page_breaks(text)

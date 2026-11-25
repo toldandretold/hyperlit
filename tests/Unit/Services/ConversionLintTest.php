@@ -231,3 +231,39 @@ it('does not flag a colon heading the PDF sets in a heading type style (db2d8fb7
     $r = (new ConversionLint)->lintBook($nodes, null, ['heading_lines' => ['beautyasaprincipleofsociety']]);
     expect(array_column($r['findings'], 'startLine'))->toBe(['300']);
 });
+
+it('does not call a cited block quotation a fragment when no indentation record covers it (90556e72)', function () {
+    $leadInNamesSource = [
+        lintNode('100', '<p>Roger Griffin takes an approach on Trump that is comparable to the one by Paxton. Griffin (1993, 44) defines fascism as</p>'),
+        lintNode('200', '<blockquote>a genus of political ideology whose mythic core in its various permutations is a palingenetic form of populist ultra-nationalism.</blockquote>'),
+    ];
+    $blockClosesOnSource = [
+        lintNode('100', '<p>He ranks them among the inferior classes" (2000, 29-30). Furthermore, the word people signals</p>'),
+        lintNode('200', '<blockquote>a dialectical oscillation between on the one hand, the People as a whole and as an integral body politic, and on the other the subset of the excluded (Agamben 2000, 31).</blockquote>'),
+    ];
+    $bareFragment = [
+        lintNode('100', '<p>Alternative voices are less heard or read on the Internet than Mainstream ones. The assignment of</p>'),
+        lintNode('200', '<blockquote>domain names (such as microsoft.com) has been commodified, which favours large corporate actors.</blockquote>'),
+    ];
+
+    expect(detectors((new ConversionLint)->lintBook($leadInNamesSource)))->toBe([]);
+    expect(detectors((new ConversionLint)->lintBook($blockClosesOnSource)))->toBe([]);
+    expect(detectors((new ConversionLint)->lintBook($bareFragment)))->toBe(['fragment_blockquote']);
+});
+
+it('does not flag a long heading that is one of a series (2b51bc20)', function () {
+    $long = str_repeat('The circumstance that the award exists brings up the question of what critical studies are about. ', 2);
+    $nodes = [lintNode('100', '<h1>Critical Media and Communication Studies Today</h1>')];
+    foreach ([1, 2, 3, 4] as $n) {
+        $nodes[] = lintNode((string) (100 + $n * 100), '<h2>Discussion Turn '.$n.' (Christian Fuchs): "'.($n === 2 ? $long : 'Short.').'"</h2>');
+        $nodes[] = lintNode((string) (150 + $n * 100), '<p>Body text of the turn follows here in full sentences.</p>');
+    }
+    expect(detectors((new ConversionLint)->lintBook($nodes)))->toBe([]);
+
+    $alone = [
+        lintNode('100', '<h1>Title</h1>'),
+        lintNode('200', '<h2>'.$long.'</h2>'),
+        lintNode('300', '<p>Body text follows here in full sentences.</p>'),
+    ];
+    expect(detectors((new ConversionLint)->lintBook($alone)))->toBe(['long_heading']);
+});

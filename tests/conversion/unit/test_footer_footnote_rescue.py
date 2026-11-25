@@ -256,3 +256,39 @@ def test_marker_after_a_closing_quote_then_period(monkeypatch):
     out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
     assert n == 1
     assert 'adequately".[^1] Presumably' in out
+
+
+# --- 2026-11-25 batch ----------------------------------------------------------------------
+
+
+def test_numbered_lines_that_fill_a_hole_in_the_notes_are_adopted():
+    """320fda56: definitions 5 and 8 exist; "6 Taken from…" / "7 Taken from…" sit in the body."""
+    from ingestion.pdf.assembly import _adopt_gap_filling_note_lines
+    md = ('Body paragraph one.\n\n'
+          '6 Taken from http://v.youku.com/v_show/id_A.html on July 31, 2013, Berlin Time.\n'
+          '7 Taken from http://v.youku.com/v_show/id_B.html on July 31, 2013, Berlin Time.\n\n'
+          'Body paragraph two.\n\n'
+          '[^5]: With the diffusion of the Internet a new form has emerged.\n\n'
+          '[^8]: Income Gini coefficient: a measure of deviation.\n')
+    out, adopted = _adopt_gap_filling_note_lines(md)
+    assert adopted == [6, 7]
+    assert '[^6]: Taken from http://v.youku.com/v_show/id_A.html' in out
+    assert '\n6 Taken from' not in out
+
+
+def test_a_numbered_list_that_fills_no_hole_stays_in_the_body():
+    from ingestion.pdf.assembly import _adopt_gap_filling_note_lines
+    md = ('Body.\n\n1 First principle of the charter, stated at length.\n'
+          '2 Second principle of the charter, stated at length.\n\n'
+          '[^1]: A note that already holds the number one.\n\n[^2]: And the second note as well.\n')
+    assert _adopt_gap_filling_note_lines(md) == (md, [])
+
+
+def test_a_year_is_not_a_marker_witness():
+    """d943d806: "January 6, 1941, President" must not witness marker 41 on the word "19"."""
+    from ingestion.pdf.assembly import _marker_seam_witnesses
+    assert list(_marker_seam_witnesses('On January 6, 1941, President Roosevelt said', 41)) == []
+    hits = list(_marker_seam_witnesses('the Italian Scipio Sighele41, and Le Bon', 41))
+    assert hits and hits[0][1][0] == 'Sighele'
+    # a citation year still carries its marker
+    assert list(_marker_seam_witnesses('(see also Oberquelle 19919). This shows', 9))

@@ -4,6 +4,8 @@ import os
 import json
 import re
 import argparse
+import difflib
+import html
 import base64
 from pathlib import Path
 from collections import Counter
@@ -181,6 +183,186 @@ def pypdf_text_is_usable(text):
     return (text.count(' ') / len(text)) >= _MIN_SPACE_RATIO
 
 
+_LONE_DIGIT_LINE_RE = re.compile(r'^\s*(\d{1,3})\s*$')
+_LONE_NOTE_OPENER_RE = re.compile(
+    r"""["'(\u201c\u2018\u201e\u00ab\u00bb]?[A-Z]|https?://|www\.""")
+LONE_NOTE_MAX_CHARS = 700
+# How many body markers the layer must set on their own line before that layout is trusted to
+# correct the OCR's marker numbers.
+MIN_LONE_LINE_SEAMS = 5
+LONE_SEAM_TAIL = 16
+
+
+def _lone_line_note_run(lines):
+    """A page-bottom note block whose NUMBERS each sit on a line of their own.
+
+    Some producers emit every superscript as its own text run, so the layer reads
+    "…or 'rationality'⏎1⏎." in the body and "⏎1⏎ Kurzweil (1990)." at the foot (03e9f2f7 — the
+    line-anchored rules found none of its 31 notes and took the numbered section headings for
+    notes instead). The block is the page's LAST run of such lines: numbers climbing by one, each
+    followed by a line that opens like a note, the first one standing under a blank line (the
+    footnote rule). A body marker fails the opener test or breaks the count, which ends the run.
+
+    Returns [(line_index, number)]."""
+    lone = [(i, int(m.group(1))) for i, line in enumerate(lines)
+            for m in [_LONE_DIGIT_LINE_RE.match(line)] if m]
+
+    def opens_a_note(i):
+        for line in lines[i + 1:i + 3]:
+            if line.strip():
+                return bool(_LONE_NOTE_OPENER_RE.match(line.strip()))
+        return False
+
+    run = []
+    for i, n in reversed(lone):
+        if not opens_a_note(i) or (run and n != run[0][1] - 1):
+            break
+        run.insert(0, (i, n))
+    if not run or run[0][0] == 0 or lines[run[0][0] - 1].strip():
+        return []
+    return run
+
+
+def _lone_line_note_defs(lines):
+    run = _lone_line_note_run(lines)
+    defs = []
+    for k, (i, n) in enumerate(run):
+        end = run[k + 1][0] if k + 1 < len(run) else len(lines)
+        parts = []
+        for line in lines[i + 1:end]:
+            if not line.strip():
+                if parts:
+                    break
+                continue
+            if sum(len(x) for x in parts) + len(line.strip()) > LONE_NOTE_MAX_CHARS:
+                break
+            parts.append(line.strip())
+        text = ' '.join(parts)
+        if len(text) >= 3:
+            defs.append((n, text))
+    return defs
+
+
+def extract_lone_line_marker_seams(page_texts):
+    """Body markers the layer sets on a line of their own → [(page, number, tail)].
+
+    `tail` is the folded end of the line the marker hangs on. A lone number only counts when
+    text stands on both sides of it (a folio has the page edge on one), above the note block."""
+    seams = []
+    for page_idx in sorted(page_texts or {}):
+        lines = (page_texts[page_idx] or '').split('\n')
+        run = _lone_line_note_run(lines)
+        body_end = run[0][0] if run else len(lines)
+        for i in range(1, body_end - 1):
+            m = _LONE_DIGIT_LINE_RE.match(lines[i])
+            if not m or not lines[i - 1].strip() or not lines[i + 1].strip():
+                continue
+            tail = re.sub(r'[^a-z0-9]+', '', lines[i - 1].lower())[-LONE_SEAM_TAIL:]
+            if len(tail) >= 10:
+                seams.append((page_idx, int(m.group(1)), tail))
+    return seams
+
+
+def reconcile_markers_with_lone_line_seams(markdown, page_texts):
+    """Hold the OCR's marker NUMBERS to the layer, where the layer sets each marker on its own line.
+
+    The OCR reads a superscript by eye and gets some wrong: 03e9f2f7 prints "ad machinam
+    fallacy⁵" and "Big Science¹⁶" and shipped them as 6 and 18 — each opening another note's
+    text — plus a marker 5 on "XVII" where the page has an ordinal. In this layout the layer
+    states every marker's number and the words it hangs on, so each is checked in place:
+
+      * a marker standing on a witnessed seam under the wrong number takes the layer's number;
+      * a marker that then shares its number with a witnessed one, and has no seam of its own,
+        is not a marker and goes back to plain text.
+
+      * a seam with no marker on it gets one, when its note exists unlinked and the words it
+        hangs on occur exactly once in the body.
+
+    Returns (markdown, corrected, removed, planted)."""
+    seams = extract_lone_line_marker_seams(page_texts)
+    if len(seams) < MIN_LONE_LINE_SEAMS:
+        return markdown, [], [], []
+    def_nums = {int(n) for n in re.findall(r'(?m)^\[\^(\d+)\]:', markdown)}
+    markers = []
+    for m in re.finditer(r'\[\^(\d+)\](?!:)', markdown):
+        if m.start() == 0 or markdown[m.start() - 1] == '\n':
+            continue
+        before = re.sub(r'\[\^\d+\]', '', markdown[max(0, m.start() - 120):m.start()])
+        tail = re.sub(r'[^a-z0-9]+', '', before.lower())[-LONE_SEAM_TAIL:]
+        markers.append([m.start(), m.end(), int(m.group(1)), tail])
+    witnessed, retarget = set(), {}
+    for _page, num, tail in seams:
+        hits = [k for k, mk in enumerate(markers) if mk[3] and mk[3].endswith(tail[-min(len(tail), len(mk[3])):])
+                and len(mk[3]) >= 10]
+        if len(hits) != 1:
+            continue
+        k = hits[0]
+        witnessed.add(k)
+        if markers[k][2] != num and num in def_nums:
+            retarget[k] = num
+    final = {k: retarget.get(k, mk[2]) for k, mk in enumerate(markers)}
+    witnessed_nums = {final[k] for k in witnessed}
+    remove = {k for k in final if k not in witnessed and final[k] in witnessed_nums}
+    edits = []                                   # (start, end, replacement)
+    corrected, removed, planted = [], [], []
+    for k in sorted(set(retarget) | remove):
+        start, end, old, _tail = markers[k]
+        if k in remove:
+            edits.append((start, end, ''))
+            removed.append(old)
+        else:
+            edits.append((start, end, '[^{}]'.format(retarget[k])))
+            corrected.append((old, retarget[k]))
+
+    # A seam with NO marker on it: the OCR dropped the superscript. Planted only where the note
+    # exists, nothing else carries its number, and the words it hangs on occur once in the body.
+    live = {final[k] for k in final if k not in remove}
+    first_def = re.search(r'(?m)^\[\^\d+\]:', markdown)
+    body_end = first_def.start() if first_def else len(markdown)
+    folded, origin = [], []
+    for pos, ch in enumerate(markdown[:body_end]):
+        low = ch.lower()
+        if low.isascii() and low.isalnum():
+            folded.append(low)
+            origin.append(pos)
+    folded = ''.join(folded)
+    taken = [(st, en) for st, en, _r in edits]
+    for _page, num, tail in seams:
+        if num in live or num not in def_nums or len(tail) < LONE_SEAM_TAIL:
+            continue
+        at = folded.find(tail)
+        if at < 0 or folded.find(tail, at + 1) >= 0:
+            continue
+        pos = origin[at + len(tail) - 1] + 1
+        # The OCR may have kept the superscript as inline maths: "Commandos $3^{25}$)".
+        maths = re.match(r'\^\{?%d\}?\$' % num, markdown[pos:])
+        opened = markdown.rfind('$', max(0, pos - 12), pos)
+        if maths and opened >= 0:
+            if any(st <= pos <= en for st, en in taken):
+                continue
+            edits.append((opened, pos + maths.end(),
+                          markdown[opened + 1:pos] + '[^{}]'.format(num)))
+            live.add(num)
+            planted.append(num)
+            continue
+        while pos < body_end and markdown[pos] in '\'"\u2019\u201d*_)]':
+            pos += 1
+        # "[^7]:" is how a DEFINITION opens — a marker printed before a colon goes after it.
+        if markdown[pos:pos + 1] == ':':
+            pos += 1
+        if markdown[pos:pos + 1] in ('[', '^', '$', '{') or any(st <= pos <= en for st, en in taken):
+            continue
+        edits.append((pos, pos, '[^{}]'.format(num)))
+        live.add(num)
+        planted.append(num)
+
+    if not edits:
+        return markdown, [], [], []
+    for start, end, replacement in sorted(edits, reverse=True):
+        markdown = markdown[:start] + replacement + markdown[end:]
+    return markdown, corrected, removed, planted
+
+
 def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     """Extract per-page footnote definitions from PDF using pypdf.
 
@@ -198,6 +380,7 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
     )
 
     result = {}
+    lone_by_page = {}
     for page_idx in range(len(reader.pages)):
         text = reader.pages[page_idx].extract_text()
         if not text:
@@ -301,8 +484,28 @@ def extract_pypdf_footnote_defs(pdf_path, running_headers=None):
             found.add(num)
             defs.append((num, body))
 
+        # Notes whose number sits on a line of its own outrank a same-numbered line-anchored
+        # match on the page: in that layout the latter is a numbered section heading.
+        lone_defs = _lone_line_note_defs(lines)
+        if lone_defs:
+            lone_nums = {n for n, _t in lone_defs}
+            defs = [d for d in defs if d[0] not in lone_nums] + lone_defs
+            lone_by_page[page_idx] = lone_nums
+
         if defs:
             result[page_idx] = defs
+
+    # Once that layout is established for the document, a line-anchored match elsewhere under a
+    # number one of those notes holds is the same mistake on a page without a note block.
+    lone_all = set().union(*lone_by_page.values()) if lone_by_page else set()
+    if len(lone_all) >= MIN_LONE_LINE_SEAMS:
+        for page_idx in list(result):
+            own = lone_by_page.get(page_idx, set())
+            kept = [d for d in result[page_idx] if d[0] in own or d[0] not in lone_all]
+            if kept:
+                result[page_idx] = kept
+            else:
+                del result[page_idx]
 
     _unglue_page_numbers(result)
     # Notes the layer ran together on one line are split HERE, once, so every consumer sees the
@@ -753,8 +956,11 @@ class SplitBornNote(str):
 # "<token> N <note opening>": the token that closes one note, the next number, and the word (or
 # opening quote — German „ and French « open a note with no capital after them) that opens the
 # next. Group 1 is the closing token, group 2 the opening word when there is one.
+# The follower may also be a short-form note, which opens lower-case: "…/business-20288077  14
+# ibid.  15 Amazon: £7bn sales…" (d6c052da — the split stopped at "ibid." and notes 14-18
+# shipped inside note 13).
 _NOTE_BOUNDARY_TEMPLATE = (r'(\S+)\s{0}\s+(?=[\u201e\u00ab\u00bb]|["\'\u201c\u2018(]?([A-Z][A-Za-z]+)'
-                           r'|https?://|www\.)')
+                           r'|https?://|www\.|ibid\b|op\.? ?cit)')
 _SENTENCE_CLOSE_TOKEN_RE = re.compile(r'[.!?]["\'\u201c\u201d\u2019)]?$')
 
 
@@ -799,7 +1005,7 @@ def split_run_on_numbered_def(num, text, taken=None):
     url_tail_segs = []
     cur, rest = num, flat
     while True:
-        m = re.search(r'(\S+)\s{0}\s+(?=(?:["\'\u201c\u2018(]?([A-Z][A-Za-z]+)|https?://|www\.))'.format(cur + 1), rest)
+        m = re.search(r'(\S+)\s{0}\s+(?=(?:["\'\u201c\u2018(]?([A-Z][A-Za-z]+)|https?://|www\.|ibid\b|op\.? ?cit))'.format(cur + 1), rest)
         if not m or not _URL_OPENER_RE.match(m.group(1)) \
                 or (m.group(2) and _MONTH_FOLLOWER_RE.match(m.group(2))):
             break
@@ -808,7 +1014,14 @@ def split_run_on_numbered_def(num, text, taken=None):
         cur += 1
     if url_tail_segs:
         url_tail_segs.append((cur, rest.strip()))
-        if all(len(t) >= 8 for _n, t in url_tail_segs):
+        if all(len(t) >= 8 or _SHORT_FORM_DEF_RE.match(t) for _n, t in url_tail_segs):
+            # The run may carry on past a note that does not end in a URL — hand what is left
+            # to the weaker rules below, under the same conditions they always apply.
+            if taken is not None:
+                tail = split_run_on_numbered_def(cur, rest.strip(), taken=taken | {
+                    n for n, _t in url_tail_segs})
+                if len(tail) > 1:
+                    return url_tail_segs[:-1] + tail
             return [(n, t) for n, t in url_tail_segs]
 
     # A note that ENDS ITS SENTENCE, then the next consecutive number, then a new note's
@@ -831,7 +1044,7 @@ def split_run_on_numbered_def(num, text, taken=None):
             cur += 1
         if sent_segs:
             sent_segs.append((cur, rest.strip()))
-            if all(len(t) >= 15 for _n, t in sent_segs):
+            if all(len(t) >= 15 or _SHORT_FORM_DEF_RE.match(t) for _n, t in sent_segs):
                 return [sent_segs[0]] + [(n, SplitBornNote(t)) for n, t in sent_segs[1:]]
 
     segs = []
@@ -865,6 +1078,121 @@ def split_run_on_numbered_def(num, text, taken=None):
 _SHORT_FORM_DEF_RE = re.compile(
     r'^(ibid|id|idem|op\.?\s*cit|loc\.?\s*cit|ebd|a\.?\s*a\.?\s*o)\b[.,]?\s*\S{0,40}$',
     re.IGNORECASE)
+
+
+_REALIGN_MAX_SHIFT = 3
+_REALIGN_MIN_CHARS = 15
+_REALIGN_SIMILARITY = 0.85
+_MD_DEF_LINE_RE = re.compile(r'^\[\^(\d+)\]:[ \t]*(.*)$', re.MULTILINE)
+
+
+def _same_note_text(a, b):
+    """Do two renderings open as the same note? Compared on the folded opening only — tails
+    differ legitimately (the layer glues the next page on, the OCR drops a continuation)."""
+    fa = re.sub(r'[^a-z0-9]+', '', html.unescape(a or '').lower())[:120]
+    fb = re.sub(r'[^a-z0-9]+', '', html.unescape(b or '').lower())[:120]
+    n = min(len(fa), len(fb))
+    if n < _REALIGN_MIN_CHARS:
+        return False
+    if fa[:min(n, 40)] == fb[:min(n, 40)]:
+        return True
+    return difflib.SequenceMatcher(None, fa[:n], fb[:n]).ratio() >= _REALIGN_SIMILARITY
+
+
+def realign_def_numbers_to_layer(markdown, layer_defs_by_page):
+    """Give a definition back the number the PDF prints it under.
+
+    The body's markers are the printed superscripts and are right; the OCR numbers the note block
+    by counting, and an UNNUMBERED note in the block (a starred table note) pushes every later
+    number up by one. 0c64b464: the page prints "*See italicized…" then "6 The following
+    interpretation…"; the OCR emitted them as 6 and 7, so marker 6 opened the table note, the
+    real note 6 had no marker, and printed note 7 was never recovered because its number looked
+    taken. Counts saw nothing wrong.
+
+    Only for documents whose printed numbers ARE the markdown numbers (the caller excludes
+    renumbered page-bottom layouts). A definition moves only when the layer prints its text under
+    exactly one nearby number and not under its own; the note it displaces — which by
+    construction the layer prints under no number at all — takes a fresh number past the end
+    rather than keep one the print never gave it. Any ambiguity leaves the document untouched.
+
+    Returns (markdown, [(old, new)]).
+    """
+    layer = {}
+    for _page, page_defs in sorted((layer_defs_by_page or {}).items()):
+        for n, t in page_defs:
+            if n in layer and not _same_note_text(layer[n], t):
+                return markdown, []              # numbering restarts — two number spaces
+            layer.setdefault(n, t)
+    md_defs = [(int(m.group(1)), m.group(2)) for m in _MD_DEF_LINE_RE.finditer(markdown or '')]
+    if not layer or not md_defs:
+        return markdown, []
+
+    # Decided per definition LINE, not per number: the drift this repairs is exactly what puts
+    # two definitions under one number ("[^18]: Galison…" beside the real "[^18]: Latour…").
+    targets = {}                                 # occurrence index -> layer number
+    for k, (num, text) in enumerate(md_defs):
+        if num in layer and _same_note_text(text, layer[num]):
+            targets[k] = num
+            continue
+        near = [j for j in layer
+                if j != num and abs(j - num) <= _REALIGN_MAX_SHIFT and _same_note_text(text, layer[j])]
+        if len(near) > 1:
+            return markdown, []
+        if near:
+            targets[k] = near[0]
+    moves = {k: j for k, j in targets.items() if md_defs[k][0] != j}
+    if not moves or len(set(targets.values())) != len(targets):
+        return markdown, []
+    every = [int(n) for n in re.findall(r'\[\^(\d+)\]', markdown)] + list(layer)
+    fresh = max(every) + 1
+    claimed = set(targets.values())
+    for k, (num, _text) in enumerate(md_defs):
+        if k not in targets and num in claimed:
+            moves[k] = fresh
+            fresh += 1
+
+    counter = iter(range(len(md_defs)))
+
+    def _renumber(m):
+        k = next(counter)
+        if k not in moves:
+            return m.group(0)
+        return '[^{}]: {}'.format(moves[k], m.group(2))
+    out = _MD_DEF_LINE_RE.sub(_renumber, markdown)
+    return out, sorted((md_defs[k][0], j) for k, j in moves.items())
+
+
+_FOLIO_HEAD_CHARS = 20
+_FOLIO_HEAD_MIN = 12
+_FOLIO_MIN_PAGES = 3
+
+
+def _folio_head(text):
+    return re.sub(r'[^a-z0-9]+', '', (text or '').lower())[:_FOLIO_HEAD_CHARS]
+
+
+def _folio_chrome_heads(pypdf_defs_by_page):
+    """Openings that are a page FOLIO glued to the running head, not a note.
+
+    The layer prints "2 Geoff M. Bocher & Emily McAvan" at the top of page 2 and "4 Geoff M. Bocher
+    & Emily McAvan" on page 4; read as definitions they swallow the page that follows, so no two
+    carry the same TEXT and the whole-text chrome test never fires (c45b67a0 shipped eleven pages
+    of body text as footnotes 2-22). The signature is the number itself: it climbs in step with
+    the page, on several pages, under one opening. Notes that merely open alike ("See also …",
+    a shared URL stem) do not track the page number."""
+    seen = {}                                   # head -> {page_idx: number}
+    for page_idx, page_defs in pypdf_defs_by_page.items():
+        for n, t in page_defs:
+            head = _folio_head(t)
+            if len(head) >= _FOLIO_HEAD_MIN:
+                seen.setdefault(head, {}).setdefault(page_idx, n)
+    heads = set()
+    for head, by_page in seen.items():
+        if len(by_page) < _FOLIO_MIN_PAGES:
+            continue
+        if len({n - page_idx for page_idx, n in by_page.items()}) == 1:
+            heads.add(head)
+    return heads
 
 
 def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
@@ -901,6 +1229,8 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
     chrome = {k for k, pages in text_pages.items()
               if len(pages) >= 2 and not _SHORT_FORM_DEF_RE.match(k)}
 
+    folio_heads = _folio_chrome_heads(pypdf_defs_by_page)
+
     recovered = []
     seen = set()
     page_offsets = page_offsets or {}
@@ -911,6 +1241,8 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
         for fn_num, fn_text in pypdf_defs_by_page[page_idx]:
             if re.sub(r'\s+', ' ', fn_text).strip().lower() in chrome:
                 continue
+            if _folio_head(fn_text) in folio_heads:
+                continue
             for split_num, split_text in split_run_on_numbered_def(fn_num, fn_text):
                 shifted_num = split_num + offset
                 if only_numbers is not None and shifted_num not in only_numbers:
@@ -919,7 +1251,7 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 # punctuation/digits is a BIBLIOGRAPHY fragment the extractor misread
                 # (cece961b: "(4), 1 – 6 . Masalu, D.C., 2000…" became phantom "def 1").
                 # Genuine orphan defs (no ref yet) stay recoverable as visible content.
-                if not re.match(r'''^["'‘“„«»\[(]?[A-Za-z]''', split_text.strip()):
+                if not re.match(r'''^["'‘“„«»\[(]{0,2}[A-Za-z]''', split_text.strip()):
                     continue
                 if shifted_num in ocr_defs_set and not allow_overwrite:
                     continue
@@ -1702,6 +2034,11 @@ def assess_unlinked_definitions(markdown, pdf_path):
         layer_defs = extract_pypdf_footnote_defs(pdf_path) if pdf_path else {}
     except Exception:
         page_texts, layer_defs = {}, {}
+    printed_pages = {}
+    for page_idx, page_defs in layer_defs.items():
+        for printed, _t in page_defs:
+            printed_pages.setdefault(printed, set()).add(page_idx)
+    restarts = any(len(pages) > 1 for pages in printed_pages.values())
     out = []
     for number in orphans:
         head = _head(defs[number])
@@ -1730,10 +2067,19 @@ def assess_unlinked_definitions(markdown, pdf_path):
             # note's own page above its definition, and on the page before (a note can sit
             # under the page after its marker). Deliberately loose: a false "the marker is
             # there" costs a look, a false "it is not" hides a fixable note.
-            glued = re.compile(r'(?<=[A-Za-z.,;:!?)\]"\'\u201d\u2019])' + str(printed)
-                               + r'(?!\d)(?=[\s.,;:!?)\]]|$)')
+            # …or standing free between two sentences ("…supremacist. 1 But, as…", c45b67a0).
+            glued = re.compile(r'(?:(?<=[A-Za-z.,;:!?)\]"\'\u201d\u2019])' + str(printed)
+                               + r'(?!\d)(?=[\s.,;:!?)\]]|$)'
+                               + r'|(?<=[a-z][.!?] )' + str(printed) + r'(?= [A-Z][a-z])'
+                               + r'|(?<=[a-z]{4} )' + str(printed) + r'(?= [a-z]{2}))')
             def_opening = re.sub(r'\s+', ' ', layer_text)[:25]
-            for idx in (page_idx, page_idx - 1):
+            # Endnotes sit pages after their markers. Where the layer's numbers never restart
+            # (one page per number), every earlier page is a legitimate place to look
+            # (d943d806: notes on pages 19-25, "…among psychologists36." on page 5).
+            search = [page_idx, page_idx - 1]
+            if not restarts:
+                search += [i for i in sorted(page_texts) if i < page_idx - 1]
+            for idx in search:
                 text = page_texts.get(idx)
                 if not text:
                     continue

@@ -39,7 +39,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 5;
+    public const VERSION = 6;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -61,8 +61,14 @@ class ConversionLint
     public const CHROME_MIN_BOOKS = 3;
     /** …or this many times inside ONE book. */
     public const CHROME_MIN_IN_BOOK = 3;
-    /** Two books sharing this many candidates of at least SAME_TEXT_MIN_CHARS are one text. */
-    public const SAME_TEXT_MIN_SHARED = 5;
+    /**
+     * Two books sharing this many candidates of at least SAME_TEXT_MIN_CHARS hold the same text.
+     * Two, not five: a whole-issue PDF shares only a sentence or two with each article it
+     * contains, and at five every such sentence read as page chrome (8d829795, twenty of them).
+     * Real chrome that long carries a date or page range, is shared by far more than six books,
+     * and is ignored here for exactly that reason.
+     */
+    public const SAME_TEXT_MIN_SHARED = 2;
     public const SAME_TEXT_MIN_CHARS = 40;
 
     /** Leading body nodes never read as page furniture: a prolific author's byline repeats across a journal. */
@@ -141,6 +147,17 @@ class ConversionLint
                            'excerpt' => mb_substr($excerpt ?? $node['text'], 0, 220)];
         };
 
+        // How many headings share each two-word opening ("discussion turn" → 10).
+        $headingSeries = [];
+        foreach ($body as $node) {
+            if (preg_match('/^h[2-6]$/', $node['tag'])) {
+                $key = $this->seriesKey($node['text']);
+                if ($key !== '') {
+                    $headingSeries[$key] = ($headingSeries[$key] ?? 0) + 1;
+                }
+            }
+        }
+
         $inRefs = false;
         $markerIds = [];
         foreach ($body as $i => $node) {
@@ -167,8 +184,11 @@ class ConversionLint
                 // …nor a heading that carries its own section number: a paragraph promoted to a
                 // heading has none, and "4.3. Are People who Argue for an Alternative Concept of
                 // Work Stalinist Labour Fetishists? Why We Need to Repeat…" is the printed title.
+                // …nor one of a SERIES: "Discussion Turn 6 (Christian Fuchs): …" beside nine other
+                // "Discussion Turn N" headings is the article's own structure (2b51bc20).
                 if ($tag !== 'h1' && mb_strlen($headText) > 160
-                        && !preg_match('/^\d{1,2}(?:\.\d{1,2}){1,3}\.?\s/', $headText)) {
+                        && !preg_match('/^\d{1,2}(?:\.\d{1,2}){1,3}\.?\s/', $headText)
+                        && ($headingSeries[$this->seriesKey($headText)] ?? 0) < 3) {
                     $add('long_heading', $node, $headText);
                 }
             }
@@ -208,7 +228,12 @@ class ConversionLint
                         // A quotation that completes its lead-in sentence ("…defines fascism
                         // as ⏎ a genus of political ideology…") has this exact shape and is
                         // not a fragment: the PDF indents it as a block (bd7c450b, five of them).
-                        && !($tag === 'blockquote' && $this->opensOneOf($text, $quoteBlocks, 30))) {
+                        && !($tag === 'blockquote' && $this->opensOneOf($text, $quoteBlocks, 30))
+                        // …and where no indentation record covers it, the citation does: the
+                        // lead-in names its source ("Griffin (1993, 44) defines fascism as"), or
+                        // the block closes on one ("… (Agamben 2000, 31)"). A page-break fragment
+                        // carries neither (90556e72, 45e713ca).
+                        && !($tag === 'blockquote' && $this->isCitedQuotation($prev['text'], $text))) {
                     $add($tag === 'blockquote' ? 'fragment_blockquote' : 'split_sentence', $node,
                         '…' . mb_substr($prev['text'], -70) . ' ‖ ' . mb_substr($text, 0, 120));
                 }
@@ -239,6 +264,30 @@ class ConversionLint
      *
      * @param list<string> $recorded already folded
      */
+    /**
+     * A block quotation in a citation frame: the unfinished lead-in sentence carries a
+     * year-parenthetical, or the block itself ends on a parenthetical reference.
+     */
+    private function isCitedQuotation(string $leadIn, string $quote): bool
+    {
+        $tail = mb_substr(trim($leadIn), -200);
+        if (preg_match('/\((?:[^()]{0,40})?\b(?:1[5-9]|20)\d{2}[a-z]?\b[^()]{0,25}\)[^.!?]{0,80}$/u', $tail)) {
+            return true;
+        }
+
+        return (bool) preg_match('/\([^()]{0,80}\d{1,4}\)\s*[.”"’\']?\s*(?:\[\^?\d+\])?\s*$/u', trim($quote));
+    }
+
+    /** The first two words of a heading, folded — the key headings of one series share. */
+    private function seriesKey(string $heading): string
+    {
+        if (! preg_match('/^\s*(\p{L}{3,})\s+(\p{L}{3,})\b/u', $heading, $m)) {
+            return '';
+        }
+
+        return mb_strtolower($m[1].' '.$m[2]);
+    }
+
     private function opensOneOf(string $text, array $recorded, int $chars): bool
     {
         $want = substr(self::fold($text), 0, $chars);

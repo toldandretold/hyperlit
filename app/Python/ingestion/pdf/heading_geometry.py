@@ -319,7 +319,7 @@ def recover_geometric_headings(md, heading_info):
         # Level: the nearest confirmed heading of the SAME style, by page — locality tracks the
         # document's own nesting better than a document-wide majority.
         level = min(seen, key=lambda pl: (abs(pl[0] - line['page']), pl[0]))[1]
-        if number:
+        if number and not _LEADING_NUMBER_RE.match(para):   # never "7. 7. Discussion"
             number = number if number.endswith(('.', ')')) else number + '.'
             para = f'{number} {para}'
         paras[idx] = '#' * level + ' ' + para
@@ -412,8 +412,15 @@ def demote_unwitnessed_colon_headings(md, heading_info):
             if lcp == len(want) or (lcp >= MIN_MATCH_CHARS and lcp / len(want) >= MATCH_SCORE_EXISTING):
                 witnessed.add(idx)
                 break
-    if (len(witnessed) < MIN_WITNESSED_HEADINGS
-            or len(witnessed) < len(heading_paras) * MIN_WITNESSED_SHARE):
+    # The share is taken over the headings that are NOT under suspicion. Counting the colon-ended
+    # ones too lets a document escape by having many of them: 64549a70 is a dialogue whose ten
+    # speaker labels ("Christian Fuchs:", "Nicholas Garnham:") all shipped as headings, which
+    # put the witnessed share at 10 of 21 and switched the pass off.
+    plain = [idx for idx, (_h, text) in heading_paras.items()
+             if not re.sub(r'[*_`]+', '', text).strip().endswith(':')]
+    plain_witnessed = [idx for idx in plain if idx in witnessed]
+    if (len(plain_witnessed) < MIN_WITNESSED_HEADINGS
+            or len(plain_witnessed) < len(plain) * MIN_WITNESSED_SHARE):
         return md, []
     title_idx = min(heading_paras)
     demoted = []

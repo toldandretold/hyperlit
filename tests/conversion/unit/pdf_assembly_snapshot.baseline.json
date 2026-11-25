@@ -149,8 +149,8 @@
   "tests/conversion/corpus/soviet_marxism_a_critical_analysis_herbert_marcu/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.95,
-    "md_len": 460404,
-    "md_sha256": "a86df27bfdcc2da6d9499d1b95ca581bd4ed38e481cb2f42bc4b0521c10aded4",
+    "md_len": 460366,
+    "md_sha256": "7d827e3a48b0d06c553fc719190d8054921a18410010ba103ed9dd938d63a334",
     "segments": [
       86,
       101,
@@ -186,8 +186,8 @@
   "tests/conversion/corpus/towards_a_new_international_economic_order_pour_/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 772321,
-    "md_sha256": "7d9e9dd65ebe70f3a11d56284ceed3d70028f45ad7a176460e8b1e284c0b29b5",
+    "md_len": 772249,
+    "md_sha256": "9fefbb26fd25681ec44f8c5d63275518bb6ed0a89aefffcb099c4ddf2c894e46",
     "segments": [
       29,
       189
@@ -273,8 +273,8 @@
   "tests/conversion/fixtures-local/pdf/author_year_bracket/78516d0d-be54-4aa3-abbb-26b69e9d6433/ocr_response.json": {
     "classification": "none",
     "confidence": 1.0,
-    "md_len": 24099,
-    "md_sha256": "e75e36c4df48be496d4ec1b34e2f8417fc8bd0a00941592abc855e6ad82b4ba5",
+    "md_len": 24098,
+    "md_sha256": "89f826452da2e956062a9f7f096880bb9a01c17b152cfc3d6c4ddd0c7105da91",
     "segments": [],
     "signals": {
       "back_citation_count": 0,
@@ -413,8 +413,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/1abb31d5-9f74-4451-80c8-aea19c135b1a/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.75,
-    "md_len": 73170,
-    "md_sha256": "59a547ea956e953bdadfacf099501903281f9bd245bb597cdcdd00e9ee68de99",
+    "md_len": 73169,
+    "md_sha256": "6d63bd0004df964ab5ffe634f37697b5fcb17e84b2cb6fc16062a5621592f899",
     "segments": [],
     "signals": {
       "back_citation_count": 0,
@@ -497,8 +497,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/514e27a5-4028-4599-9ac4-5c88ba1d25db/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 69387,
-    "md_sha256": "b023c4008e111391f8d56c3cd6e65186e5bb58933e54050526e51ca404e84e12",
+    "md_len": 69384,
+    "md_sha256": "a8b2eb7f1da699ac83c6aea55d2c52be9790c660164a85fd599e5f4e9f60b514",
     "segments": [],
     "signals": {
       "back_citation_count": 0,
@@ -525,8 +525,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/79394f2a-f063-46fa-a140-76ef22c650af/ocr_response.json": {
     "classification": "unknown",
     "confidence": 0.0,
-    "md_len": 42411,
-    "md_sha256": "8b780d3fbe8a9bcb4c8410542a95aa49820ebde87326fadef35d4fc4f9025712",
+    "md_len": 42410,
+    "md_sha256": "f1c3fddfaea13b0cc68625f86617a03ed2a2087f04f466a9453dc0334b9a50c0",
     "segments": [],
     "signals": {
       "back_citation_count": 0,
@@ -581,8 +581,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards-ocr3/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.8,
-    "md_len": 764672,
-    "md_sha256": "c9364f6621bcae118886b0511b7dd1871dc066b879cafa212a040d53157a6525",
+    "md_len": 764642,
+    "md_sha256": "78fbd896426558c903c3559812c3a36df5be0b7931af9cb6154c41369140905b",
     "segments": [],
     "signals": {
       "back_citation_count": 2,
@@ -609,8 +609,8 @@
   "tests/conversion/fixtures-local/pdf/sequential/bedjaoui0000towards/ocr_response.json": {
     "classification": "page_bottom",
     "confidence": 0.5,
-    "md_len": 713220,
-    "md_sha256": "51830356b056a0d371ccf58709fa81645996cde9625a709999572e48d375f4fa",
+    "md_len": 713219,
+    "md_sha256": "c543b43f76aec51f9caeb0f9aed21ac6f08ea08699f82a2e09fc246cf1b55103",
     "segments": [],
     "signals": {
       "back_citation_count": 3,

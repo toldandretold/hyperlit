@@ -253,3 +253,34 @@ def test_no_colon_heading_is_demoted_when_the_styles_explain_too_little():
     md2, lines2 = _colon_doc()
     md2 += '\n\n## A heading the layer missed\n\nText.'
     assert demote_unwitnessed_colon_headings(md2, {'body_style': BODY, 'lines': lines2}) == (md2, [])
+
+
+def test_speaker_labels_do_not_shield_each_other_from_demotion():
+    """64549a70: a dialogue whose ten "Christian Fuchs:" labels shipped as headings — counted
+    among the headings, they held the witnessed share under the gate that would demote them."""
+    from ingestion.pdf.heading_geometry import demote_unwitnessed_colon_headings
+    sections = ['Editorial Introduction', 'Raymond Williams and Cultural Materialism',
+                'Pierre Bourdieu and the Sociology of Culture', 'Political Economy and Cultural Studies',
+                'Information Society as Theory or Ideology', 'Karl Marx and Capitalism']
+    md = '# Revisiting the Political Economy of Communication\n\n'
+    for s in sections:
+        md += f'## {s}\n\n## Christian Fuchs:\n\nA question.\n\n## Nicholas Garnham:\n\nAn answer.\n\n'
+    info = {'body_style': ['ArialMT', 1.0], 'lines': [
+        {'page': 0, 'style': ['Trebuchet-Bold', 1.0], 'x': 18, 'text': t}
+        for t in ['Revisiting the Political Economy of Communication'] + sections]}
+    out, demoted = demote_unwitnessed_colon_headings(md, info)
+    assert len(demoted) == 12
+    assert '## Christian Fuchs:' not in out and '\n\nChristian Fuchs:\n\n' in out
+    assert '## Karl Marx and Capitalism' in out
+
+
+def test_a_promoted_heading_keeps_one_section_number():
+    md = ('# Title of the Article Here\n\n' + 'Front matter line.\n\n' * 8
+          + '## 1. Editorial Introduction\n\nText.\n\n## 2. Raymond Williams and Materialism\n\nText.\n\n'
+          + '7. Discussion of the Seminar\n\nText.\n')
+    info = {'body_style': ['ArialMT', 1.0], 'lines': [
+        {'page': 0, 'style': ['Trebuchet-Bold', 1.0], 'x': 18, 'text': '1.Editorial Introduction'},
+        {'page': 2, 'style': ['Trebuchet-Bold', 1.0], 'x': 18, 'text': '2. Raymond Williams and Materialism'},
+        {'page': 9, 'style': ['Trebuchet-Bold', 1.0], 'x': 18, 'text': '7. Discussion of the Seminar'}]}
+    out = recover_geometric_headings(md, info)[0]
+    assert '## 7. Discussion of the Seminar' in out and '7. 7.' not in out
