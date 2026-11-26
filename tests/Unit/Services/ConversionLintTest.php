@@ -370,3 +370,135 @@ it('flags an ordinary in-page link whose target is in no node, never one that la
     expect(detectors($r))->toBe(['dead_internal_link']);
     expect($r['findings'][0]['excerpt'])->toContain('#p001-loc2');
 });
+
+// ── "The source prints it this way" ──
+// A born-digital source has its own structure. Where it shows the same shape the lint is
+// reading, the finding is the source's: listed with cause `source`, counted under its own key
+// and never scored. With no source witness (a PDF) every finding stands, as before.
+
+function witness(string $html): array
+{
+    $source = ['blocks' => [], 'headings' => [], 'bare_sups' => []];
+    \App\Services\Conversion\SourceWitness::read($html, $source);
+
+    return ['source' => $source];
+}
+
+it('attributes a split sentence to the source when the source starts a block there (the civil war in france)', function () {
+    $nodes = [
+        lintNode('100', '<p id="100">Jules Favre had, by a most complicated concatenation of daring forgeries, contrived to grasp in the name of his</p>'),
+        lintNode('200', '<p id="200">bastards, a large succession that made him a rich man and that the connivance only of the tribunals saved him.</p>'),
+    ];
+    $sourceSplit = witness('<p>…contrived to grasp in the name of his</p>' . "\n" . '<p>bastards, a large succession that made him a rich man and that the connivance only of the tribunals saved him.</p>');
+    $sourceWhole = witness('<p>…contrived to grasp in the name of his bastards, a large succession that made him a rich man.</p>');
+
+    $theirs = (new ConversionLint)->lintBook($nodes, null, $sourceSplit)['findings'];
+    expect($theirs[0]['detector'])->toBe('split_sentence');
+    expect($theirs[0]['cause'])->toBe('source');
+    expect(ConversionLint::counts($theirs))->toBe(['split_sentence@source' => 1]);
+    expect(ConversionLint::score(ConversionLint::counts($theirs)))->toBe(0);
+
+    // The source holds it as ONE paragraph: the converter cut it, and that is ours.
+    $ours = (new ConversionLint)->lintBook($nodes, null, $sourceWhole)['findings'];
+    expect($ours[0])->not->toHaveKey('cause');
+    expect(ConversionLint::score(ConversionLint::counts($ours)))->toBe(2);
+
+    // No witness at all (a PDF): the finding stands.
+    expect((new ConversionLint)->lintBook($nodes)['findings'][0])->not->toHaveKey('cause');
+});
+
+it('matches a source block through a note marker the book renumbered (capital, the piece-wage fraction)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p id="100">In piece-wages the quality of this labour was determined, not as with time-wages, by the fraction</p>'),
+        lintNode('200', '<p id="200">but by the capacity for work of the producer.<sup class="footnote-ref" fn-count-id="402" id="Fn1_a">402</sup></p>'),
+    ], null, witness('<p class="fst">but by the capacity for work of the producer. <sup class="enote"><a href="#n1">[1]</a></sup></p>'));
+    expect($r['findings'][0]['cause'] ?? null)->toBe('source');
+});
+
+it('does not flag a long or colon heading the source itself marks as a heading (the grundrisse)', function () {
+    $long = 'Capital and labour. Exchange value and use value for exchange value. – Money and its use value (labour) in this relation, capital. Self-multiplication of value is its only movement. – The phrase that no capitalist will employ his capital without drawing a gain from it.';
+    $nodes = [
+        lintNode('100', '<h2 id="100">Notebook II</h2>'),
+        lintNode('200', "<h5 id=\"200\"><em>{$long}</em></h5>"),
+        lintNode('300', '<h4 id="300">Resolved :</h4>'),
+    ];
+    expect(detectors((new ConversionLint)->lintBook($nodes)))->toBe(['long_heading', 'colon_heading']);
+    expect(detectors((new ConversionLint)->lintBook($nodes, null, witness("<h5><em>{$long}</em></h5><h4>Resolved :</h4>"))))->toBe([]);
+    // A paragraph the CONVERTER promoted is still caught: the source has it as a paragraph.
+    expect(detectors((new ConversionLint)->lintBook($nodes, null, witness("<p>{$long}</p><p>Resolved :</p>"))))
+        ->toBe(['long_heading', 'colon_heading']);
+});
+
+it('attributes a bare raised number to the source when the source never linked it (theories of surplus-value)', function () {
+    $nodes = [lintNode('100', '<p id="100">We shall return to this in the chapter on the apologetic accounts of profit.<sup>29</sup> This something given for the profits.</p>')];
+    $r = (new ConversionLint)->lintBook($nodes, null, witness('<p>…in the chapter on the apologetic' . "\n" . 'accounts of profit.<sup class="ratio">29</sup>  This something</p>'));
+    expect($r['findings'][0]['detector'])->toBe('bare_superscript_number');
+    expect($r['findings'][0]['cause'])->toBe('source');
+
+    // The source LINKED it and the link was lost on the way in: ours.
+    $r = (new ConversionLint)->lintBook($nodes, null, witness('<p>…accounts of profit.<sup><a href="#n29">29</a></sup> This</p>'));
+    expect($r['findings'][0])->not->toHaveKey('cause');
+});
+
+it('reads a numbered link that lands on a heading as a contents entry, however it is punctuated (the civil war in france)', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p id="100"><a href="#d2s3">3</a>) The Rural Assembly<br/>[There is no section 4.] <br/><a href="#d2s5">5</a> Opening of the Civil War<br/><a href="#d2s6">6</a> The Commune</p>'),
+        lintNode('200', '<h3 id="200"><a id="d2s3"></a>3) The Rural Assembly</h3>'),
+        lintNode('300', '<h3 id="300"><a id="d2s5"></a>5) Opening of the Civil War</h3>'),
+        lintNode('400', '<h3 id="400"><a id="d2s6"></a>6) The Commune</h3>'),
+        // …while the same shape pointing at a paragraph is still a marker nobody converted.
+        lintNode('500', '<p id="500">A claim about the Commune <a href="#n7">7</a> and its measures.</p>'),
+        lintNode('600', '<p id="600"><a id="n7"></a>Seventh note text.</p>'),
+    ]);
+    expect(array_column($r['findings'], 'startLine', 'detector'))->toBe(['unconverted_note_link' => '500']);
+});
+
+it('does not read letter salutations, provenance lines or editors\' notes as page chrome (letters of marx and engels)', function () {
+    $letter = fn (int $n, string $to) => [
+        lintNode("{$n}00", "<h3 id=\"{$n}00\">Marx to Engels, letter {$n}</h3>"),
+        lintNode("{$n}01", "<p id=\"{$n}01\">Source: Marx Engels On Literature and Art, Progress Publishers, 1976; Transcribed: by Andy Blunden;</p>"),
+        lintNode("{$n}02", "<p id=\"{$n}02\">First published: in Der Briefwechsel zwischen F. Engels und K. Marx, Stuttgart, 1913.</p>"),
+        lintNode("{$n}03", "<p id=\"{$n}03\">{$to}</p>"),
+        lintNode("{$n}04", "<p id=\"{$n}04\">" . str_repeat(chr(87 + $n), 6) . " is how this letter opens, with a body of its own that repeats nowhere else in the volume.</p>"),
+        lintNode("{$n}05", '<p id="' . $n . '05">Yours fraternally,</p>'),
+        lintNode("{$n}06", "<p id=\"{$n}06\">In the manuscript: “the”.—Ed.</p>"),
+        lintNode("{$n}07", "<p id=\"{$n}07\">Scanned and prepared for the Marxist Internet Archive by Paul Flewers.</p>"),
+        // A real running head keeps firing beside them.
+        lintNode("{$n}08", "<p id=\"{$n}08\">© Vienna University of Technology 2003.</p>"),
+    ];
+    $lint = new ConversionLint;
+    $nodes = array_merge([lintNode('1', '<h1 id="1">Letters</h1>')],
+        ...array_map(fn ($n) => $letter($n, 'Dear Engels,'), range(10, 14)));
+    $leaks = $lint->chromeLeaks(['letters' => $lint->lintBook($nodes)['chrome_candidates']]);
+    expect(array_values(array_unique($leaks['letters'] ?? [])))->toBe(['© Vienna University of Technology ####.']);
+});
+
+it('reports what the converter found against the PDF: a wrong note, a far note, lost text', function () {
+    $nodes = [
+        lintNode('100', '<p>An opening paragraph that ends as it should.</p>'),
+        lintNode('200', '<p>The most populous minority in the country, contrary to smaller minorities, is absent.</p>'),
+        lintNode('300', '<p>They act as visual props for practices of remembrance and celebration.</p>'),
+    ];
+    $integrity = [
+        'wrong_note' => [['number' => 8, 'context' => 'the most populous minority in the country,',
+            'marker_printed' => 10, 'note_printed' => 8, 'note' => 'http://www.flickr.com/photos/x']],
+        'far_from_note' => [['number' => 8, 'context' => 'the most populous minority in the country,',
+            'marker_page' => 4, 'note_page' => 2, 'note' => 'http://www.flickr.com/photos/x']],
+        'out_of_order' => [['number' => 3, 'after' => 9, 'context' => 'words found in no paragraph of this book']],
+        'lost_text' => [['page' => 6, 'chars' => 400, 'before' => 'practices of remembrance and celebration.',
+            'excerpt' => 'A paragraph the page prints and the book does not hold.']],
+    ];
+    $r = (new ConversionLint)->lintBook($nodes, [], ['integrity' => $integrity]);
+    expect(detectors($r))->toBe(['wrong_note_link', 'marker_far_from_note', 'marker_out_of_order', 'lost_text']);
+    $at = array_column($r['findings'], 'startLine', 'detector');
+    // each lands on the paragraph holding the words recorded beside it; unfindable words fall
+    // back to the first paragraph rather than dropping the finding
+    expect($at)->toBe(['wrong_note_link' => '200', 'marker_far_from_note' => '200',
+        'marker_out_of_order' => '100', 'lost_text' => '300']);
+    expect($r['findings'][0]['excerpt'])->toContain('the PDF prints 10 here')
+        ->and($r['findings'][3]['excerpt'])->toContain('PDF page 7');
+    // a wrong link outweighs every shape-based finding
+    expect(ConversionLint::score(['wrong_note_link' => 1]))->toBeGreaterThan(ConversionLint::score(['body_footnote_twin' => 1]));
+    // …and a book converted before the checks existed reports nothing new
+    expect(detectors((new ConversionLint)->lintBook($nodes, [])))->toBe([]);
+});

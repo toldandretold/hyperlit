@@ -1233,6 +1233,16 @@ body.ji-detail {
 .ji-finding-dismissed .ji-finding-main {
   opacity: 0.6;
 }
+/* Printed that way by the source: listed for the record, not scored. */
+.ji-finding-source {
+  border-left-color: var(--color-text-faint, #888);
+}
+.ji-finding-source .ji-finding-excerpt {
+  opacity: 0.75;
+}
+.ji-finding-tag-source {
+  background: color-mix(in srgb, var(--color-text-faint, #888) 30%, transparent);
+}
 .ji-finding-fold {
   border: 0;
   background: transparent;

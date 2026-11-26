@@ -88,6 +88,8 @@ trait ServesConversionLint
     /**
      * POST …/{key}/lint/review — a human's verdict on one finding.
      *
+     * `source` says the SOURCE is wrong here: the finding stays listed, marked as the source's,
+     * and stops counting towards the lane's score.
      * `false_alarm` takes it out of the lane's count for good (keyed by detector + excerpt, so it
      * stays dismissed across reconverts). `real` confirms it AND writes it into the lane's
      * maintainer note — the note already opens a case and already rides the case bundle, so a
@@ -105,7 +107,7 @@ trait ServesConversionLint
             'detector'  => 'required|string|max:40|regex:/^[a-z_]+$/',
             'excerpt'   => 'required|string|max:400',
             'startLine' => 'nullable|string|max:40',
-            'verdict'   => 'present|nullable|in:' . ConversionLintReport::VERDICT_REAL . ',' . ConversionLintReport::VERDICT_FALSE_ALARM,
+            'verdict'   => 'present|nullable|in:' . implode(',', ConversionLintReport::VERDICTS),
         ]);
         if (! array_key_exists($data['book'], $scope->lintableBooks())) {
             return response()->json(['message' => "That book is not a lane of this {$scope->noun()}."], 404);
@@ -246,6 +248,8 @@ trait ServesConversionLint
             'export_failed' => $failed,
             'confirmed'     => $verdict(ConversionLintReport::VERDICT_REAL),
             'false_alarms'  => $verdict(ConversionLintReport::VERDICT_FALSE_ALARM),
+            // Real and visible, but the source's own error — nothing here for a converter fix.
+            'source_faults' => $verdict(ConversionLintReport::VERDICT_SOURCE),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
 
         $outer = "{$dir}.tar";

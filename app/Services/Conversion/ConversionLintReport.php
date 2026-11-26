@@ -34,6 +34,14 @@ class ConversionLintReport
 
     public const VERDICT_REAL = 'real';
     public const VERDICT_FALSE_ALARM = 'false_alarm';
+    /**
+     * "The source is wrong here": a marker the source points at the wrong id, a stray character
+     * in a transcription. Real, visible to a reader, and not something a converter fix can
+     * change — so it stays LISTED (unlike a false alarm) and stops being scored.
+     */
+    public const VERDICT_SOURCE = 'source';
+
+    public const VERDICTS = [self::VERDICT_REAL, self::VERDICT_FALSE_ALARM, self::VERDICT_SOURCE];
 
     public function __construct(private ConversionLint $lint)
     {
@@ -103,9 +111,13 @@ class ConversionLintReport
                     continue;
                 }
                 $f['confirmed'] = $verdict === self::VERDICT_REAL;
+                if ($verdict === self::VERDICT_SOURCE) {
+                    $f['cause'] = ConversionLint::CAUSE_SOURCE;
+                    $f['source_verdict'] = true;     // a person said so: the page offers an undo
+                }
                 $kept[] = $f;
             }
-            $counts = array_count_values(array_column($kept, 'detector'));
+            $counts = ConversionLint::counts($kept);
             $out[$book] = ['score' => ConversionLint::score($counts), 'counts' => $counts,
                            'findings' => $kept, 'dismissed' => $dismissed];
         }
@@ -277,7 +289,7 @@ class ConversionLintReport
             ->pluck('content', 'footnoteId')->map(fn ($c) => (string) $c)->all();
 
         $result = $this->lint->lintBook($nodes, $footnotes, ConversionLint::evidenceFor($book));
-        $counts = array_count_values(array_column($result['findings'], 'detector'));
+        $counts = ConversionLint::counts($result['findings']);
 
         $db->table('conversion_lint_results')->upsert([[
             'book'              => $book,

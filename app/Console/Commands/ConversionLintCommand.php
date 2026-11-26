@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\ConversionFlag;
 use App\Services\Conversion\BookExport;
 use App\Services\Conversion\ConversionLint;
+use App\Services\Conversion\ConversionLintReport;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -44,7 +45,7 @@ class ConversionLintCommand extends Command
 
     private const ISSUE_TYPE = 'conversion_lint';
 
-    public function handle(ConversionLint $lint): int
+    public function handle(ConversionLint $lint, ConversionLintReport $report): int
     {
         if ($this->option('unflag')) {
             $deleted = DB::table('conversion_flags')
@@ -83,6 +84,33 @@ class ConversionLintCommand extends Command
             }
         }
 
+        // What people have already said about these findings (the console's ✓ / src / ✗), so the
+        // command and the page tell the same story: a false alarm is gone, and one a person
+        // traced to the source is listed as the source's and no longer scored.
+        $dismissed = 0;
+        $verdicts = [];
+        foreach ($report->reviewRows(array_keys($perBook)) as $row) {
+            $verdicts[$row['book']][$row['key']] = $row['verdict'];
+        }
+        foreach ($perBook as $book => &$b) {
+            $kept = [];
+            foreach ($b['findings'] as $f) {
+                $verdict = $verdicts[$book][ConversionLint::key($f)] ?? null;
+                if ($verdict === ConversionLintReport::VERDICT_FALSE_ALARM) {
+                    $dismissed++;
+                    continue;
+                }
+                if ($verdict === ConversionLintReport::VERDICT_SOURCE) {
+                    $f['cause'] = ConversionLint::CAUSE_SOURCE;
+                }
+                $kept[] = $f;
+            }
+            // Ours to fix first, the source's own after.
+            usort($kept, fn ($x, $y) => isset($x['cause']) <=> isset($y['cause']));
+            $b['findings'] = $kept;
+        }
+        unset($b);
+
         if ($only = $this->option('detector')) {
             foreach ($perBook as &$b) {
                 $b['findings'] = array_values(array_filter($b['findings'], fn ($f) => $f['detector'] === $only));
@@ -90,13 +118,13 @@ class ConversionLintCommand extends Command
             unset($b);
         }
         foreach ($perBook as &$b) {
-            $b['counts'] = array_count_values(array_column($b['findings'], 'detector'));
+            $b['counts'] = ConversionLint::counts($b['findings']);
             $b['score'] = ConversionLint::score($b['counts']);
         }
         unset($b);
         uasort($perBook, fn ($a, $b) => $b['score'] <=> $a['score']);
 
-        $this->printTotals($perBook);
+        $this->printTotals($perBook, $dismissed);
         $this->printRanking($perBook);
 
         if ($path = $this->option('out')) {
@@ -111,6 +139,8 @@ class ConversionLintCommand extends Command
                     $rows[] = ['book' => $book, 'title' => $b['title'], 'detector' => $f['detector'],
                         'startLine' => $f['startLine'],
                         'url' => $f['startLine'] !== '' ? "{$base}/{$book}#{$f['startLine']}" : "{$base}/{$book}",
+                        // 'source' = the source prints it this way; absent = suspected conversion defect.
+                        'cause' => $f['cause'] ?? null,
                         'excerpt' => $f['excerpt']];
                 }
             }
@@ -164,7 +194,7 @@ class ConversionLintCommand extends Command
         return $q->orderBy('book')->get(['book', 'title']);
     }
 
-    private function printTotals(array $perBook): void
+    private function printTotals(array $perBook, int $dismissed = 0): void
     {
         $tot = [];
         $booksWith = [];
@@ -175,13 +205,28 @@ class ConversionLintCommand extends Command
             }
         }
         arsort($tot);
+        $isSource = fn (string $d) => str_ends_with($d, ConversionLint::SOURCE_SUFFIX);
+        $ours = array_filter($tot, fn ($d) => !$isSource($d), ARRAY_FILTER_USE_KEY);
+        $theirs = array_filter($tot, $isSource, ARRAY_FILTER_USE_KEY);
+
         $this->newLine();
-        $this->line('<comment>Findings by detector</comment> (total · books affected)');
-        foreach ($tot as $d => $n) {
-            $this->line(sprintf('  %-20s %5d · %d', $d, $n, $booksWith[$d]));
+        $this->line('<comment>Suspected conversion defects</comment> (total · books affected)');
+        foreach ($ours as $d => $n) {
+            $this->line(sprintf('  %-26s %5d · %d', $d, $n, $booksWith[$d]));
         }
-        if (!$tot) {
+        if (!$ours) {
             $this->line('  none');
+        }
+        if ($theirs) {
+            $this->newLine();
+            $this->line('<comment>As the source prints it</comment> — listed, not scored: nothing a converter fix can change');
+            foreach ($theirs as $d => $n) {
+                $this->line(sprintf('  %-26s %5d · %d', substr($d, 0, -strlen(ConversionLint::SOURCE_SUFFIX)), $n, $booksWith[$d]));
+            }
+        }
+        if ($dismissed > 0) {
+            $this->newLine();
+            $this->line("<comment>Reviewed false alarms</comment> — {$dismissed} finding(s) a person dismissed, left out above");
         }
     }
 
@@ -198,7 +243,7 @@ class ConversionLintCommand extends Command
             $this->line(sprintf('<info>%3d</info>  %s  %s', $b['score'], $book, mb_substr((string) $b['title'], 0, 50)));
             $this->line("       {$summary}");
             foreach (array_slice($b['findings'], 0, $sample) as $f) {
-                $this->line(sprintf('       · [%s] %s', $f['detector'], mb_substr($f['excerpt'], 0, 140)));
+                $this->line(sprintf('       · [%s%s] %s', $f['detector'], isset($f['cause']) ? ' · source' : '', mb_substr($f['excerpt'], 0, 140)));
             }
         }
     }
@@ -214,7 +259,7 @@ class ConversionLintCommand extends Command
             $md .= "## {$b['title']} (score {$b['score']})\n\n- **Book** — [{$book}]({$base}/{$book}) · [maintainer]({$base}/maintainer/conversion?book={$book})\n";
             foreach ($b['findings'] as $f) {
                 $link = $f['startLine'] !== '' ? " ([#{$f['startLine']}]({$base}/{$book}#{$f['startLine']}))" : '';
-                $md .= '- **' . $f['detector'] . "**{$link} — " . str_replace("\n", ' ', $f['excerpt']) . "\n";
+                $md .= '- **' . $f['detector'] . (isset($f['cause']) ? ' (as the source prints it)' : '') . "**{$link} — " . str_replace("\n", ' ', $f['excerpt']) . "\n";
             }
             $md .= "\n";
         }

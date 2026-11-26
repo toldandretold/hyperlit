@@ -277,6 +277,7 @@ async function review(book: string, finding: Pick<LintFinding, 'detector' | 'exc
     options.setStatus(
       verdict === 'real' ? 'confirmed — added to this lane\'s note, it rides the case bundle'
         : verdict === 'false_alarm' ? 'dismissed as a false alarm — it stays dismissed after a reconvert'
+          : verdict === 'source' ? 'marked as the source\'s own fault — still listed, no longer scored'
           : 'verdict withdrawn',
     );
     await refreshLint();
@@ -458,9 +459,21 @@ function buildFinding(book: string, finding: LintFinding, onJump: (finding: Lint
     main.title = DETECTOR_LABELS[finding.detector]?.hint ?? '';
   }
   if (finding.is_new) main.appendChild(span('ji-finding-tag', 'new'));
+  if (finding.cause === 'source') main.appendChild(span('ji-finding-tag ji-finding-tag-source', 'source'));
   main.appendChild(span('ji-finding-kind', detectorLabel(finding.detector)));
   main.appendChild(span('ji-finding-excerpt', finding.excerpt));
   row.appendChild(main);
+
+  // The source prints it this way: nothing to confirm for a converter fix. A person's verdict
+  // can be withdrawn; the lint's own reading of the source can only be overruled as a false alarm.
+  if (finding.cause === 'source') {
+    row.classList.add('ji-finding-source');
+    if (finding.source_verdict) {
+      row.appendChild(verdictButton('undo', 'Not the source\'s fault after all — score it again',
+        'ji-finding-verdict-undo', () => { void review(book, finding, null); }));
+    }
+    return row;
+  }
 
   if (finding.confirmed) {
     row.appendChild(verdictButton('✓ real', 'Confirmed real — click to withdraw (removes it from the note)',
@@ -469,6 +482,8 @@ function buildFinding(book: string, finding: LintFinding, onJump: (finding: Lint
     row.appendChild(verdictButton('✓', 'This is a real problem — add it to this lane\'s note for the case bundle',
       'ji-finding-verdict-real', () => { void review(book, finding, 'real'); }));
   }
+  row.appendChild(verdictButton('src', 'The source itself is wrong here (a bad link, a typo in the original) — keep it listed, stop scoring it',
+    'ji-finding-verdict-source', () => { void review(book, finding, 'source'); }));
   row.appendChild(verdictButton('✗', 'False alarm — not a problem; hide it and stop counting it',
     'ji-finding-verdict-false', () => { void review(book, finding, 'false_alarm'); }));
 

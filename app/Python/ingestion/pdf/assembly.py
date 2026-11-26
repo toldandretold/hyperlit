@@ -1271,6 +1271,24 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             md_num = ((page_local_to_global or {}).get(page_idx) or {}).get(num)
         else:
             md_num = num
+        # The number to look for IN THE PDF. A definition parsed from the document carries its
+        # markdown number, and in a renumbered document that is not what the page prints:
+        # hunting the layer for it finds some OTHER note's marker (27e44104: note "10" is
+        # printed 14, and the layer's "…UK operations10" is the BBC note's marker — which was
+        # duly planted, opening the wrong note). Read the printed number back out of the page
+        # maps; a number in no map was never renumbered and is its own printed number.
+        seam_num = num
+        if not printed_space and renumbered:
+            _maps = page_local_to_global or {}
+            _printed = {p for p, g in (_maps.get(page_idx) or {}).items() if g == num}
+            if not _printed:
+                _printed = {p for m in _maps.values() for p, g in m.items() if g == num}
+            if len(_printed) > 1:
+                continue                # printed under several numbers: no single seam to hunt
+            if _printed:
+                seam_num = next(iter(_printed))
+            elif any(num in m for m in _maps.values()):
+                continue                # its own number is some OTHER note's printed number
         # A number that already has an IN-TEXT ref is linked material — EXCEPT a FOOTER def
         # under a page-LOCAL number that collides with a DIFFERENT globally-linked note
         # (699314f1: footer "2 Briefing note documents…" vs the linked [^2] "What
@@ -1308,7 +1326,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         seams = []
         for ptext in ordered:
             seams = [(sh, re.sub(r'\s+', ' ', ptext[mm.end():mm.end() + 60]).strip())
-                     for mm, sh in _marker_seam_witnesses(ptext, num)]
+                     for mm, sh in _marker_seam_witnesses(ptext, seam_num)]
             if seams:
                 break
         if not seams and not (def_text is None and page_idx is not None):
@@ -1344,7 +1362,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             # Both only when hunting the marker of a definition the document already HOLDS. A
             # candidate lifted from a footer or the layer has no such anchor, and its "number"
             # may be a folio: deloitte's page 21 turned "MR21, confirmed" into a marker.
-            _corpse = (rf'{_SUP_LETTER}|(?<![\d.,]){num}|\[\^\d+\]' if def_text is None
+            _corpse = (rf'{_SUP_LETTER}|(?<![\d.,]){seam_num}|\[\^\d+\]' if def_text is None
                        else _SUP_LETTER)
             md_pattern = (rf'{word}((?:{_corpse})?){punct}'
                           rf'\s+(?:#{{1,6}}[ \t]+)?["\'“‘]?{follow}')
@@ -1393,7 +1411,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             placed = (hits[0], len(seam[0]))
             break
         if placed is None and def_text is None and page_idx is not None:
-            placed = _plain_digit_marker_site(combined[:body_end], num,
+            placed = _plain_digit_marker_site(combined[:body_end], seam_num,
                                               page_texts.get(page_idx) or '')
         if placed is None:
             continue

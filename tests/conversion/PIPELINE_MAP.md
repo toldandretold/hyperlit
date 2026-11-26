@@ -141,6 +141,10 @@ IMPORT ─ by file extension  (ProcessDocumentImportJob match)
 │  │       from the source PDF and aligned back to the markdown; promotes the headings the OCR left as plain
 │  │       paragraphs and restores the printed section NUMBERS it dropped, using only styles this document
 │  │       already marks as headings; cached to heading_geometry.json, inert without a PDF
+│  │     link_checks.py: POST-ASSEMBLY checks against the PDF's own text that no count can make — a marker
+│  │       that opens a different note than the PDF prints for it, a marker far from its note, markers out
+│  │       of sequence, page text that never reached the document; writes footnote_meta.json `integrity`
+│  │       (read by the conversion lint), changes nothing, inert without a PDF
 │  │     OCR→ocr_response.json ∅replay · PDF_CLASSIFIERS {none|page_bottom|chapter_endnotes|
 │  │       document_endnotes|wackSTEMbibliographyNotes | unknown ✗} · renumber[cond] · segments ·
 │  │       PDF_ASSEMBLERS(per layout) ·

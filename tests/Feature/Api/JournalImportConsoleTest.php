@@ -1414,6 +1414,41 @@ test('a finding dismissed as a false alarm stops counting, survives a reconvert,
     expect($this->getJson($base)->json("books.{$book}.findings_total"))->toBe(1);
 });
 
+test('a finding traced to the source stays listed, stops scoring, and can be undone', function () {
+    // The third verdict: real and visible to a reader, but the SOURCE's own error (a marker it
+    // points at the wrong id, a stray character) — nothing a converter fix can change. Unlike a
+    // false alarm it is not hidden; unlike a real one it opens no case.
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000]]);
+    $book = $a['books']['canonical_pdf_vacuum'];
+    jconSeedNodes($book, jconBrokenNodes());
+
+    $base = "/api/maintainer/journal-import/{$journal->slug}/lint";
+    $finding = $this->getJson($base)->json("books.{$book}.findings.0");
+    $payload = ['book' => $book, 'detector' => $finding['detector'], 'excerpt' => $finding['excerpt'],
+                'startLine' => $finding['startLine']];
+    expect($this->getJson($base)->json("books.{$book}.score"))->toBeGreaterThan(0);
+
+    $this->postJson("{$base}/review", $payload + ['verdict' => 'source'])->assertOk();
+
+    $body = $this->getJson($base)->json("books.{$book}");
+    expect($body['findings_total'])->toBe(1);
+    expect($body['findings'][0]['cause'])->toBe('source');
+    expect($body['findings'][0]['source_verdict'])->toBeTrue();
+    expect($body['counts'])->toBe([$finding['detector'] . '@source' => 1]);
+    expect($body['score'])->toBe(0);
+    expect($body['dismissed'])->toBe([]);
+    expect(\App\Models\ConversionFlag::where('book', $book)->where('status', 'open')->exists())->toBeFalse();
+
+    $this->postJson("{$base}/review", $payload + ['verdict' => null])->assertOk();
+    $body = $this->getJson($base)->json("books.{$book}");
+    expect($body['findings'][0])->not->toHaveKey('cause');
+    expect($body['score'])->toBeGreaterThan(0);
+
+    $this->postJson("{$base}/review", $payload + ['verdict' => 'nonsense'])->assertStatus(422);
+});
+
 test('confirming a finding writes it into the lane note and opens a case; withdrawing takes both back', function () {
     $this->loginUser(['is_admin' => true]);
     $journal = jconSeedJournal();

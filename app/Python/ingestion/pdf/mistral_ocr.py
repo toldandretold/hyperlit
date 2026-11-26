@@ -342,6 +342,16 @@ def main():
         geometry_blocks=geometry_blocks,
         heading_lines=heading_lines,
     )
+    # A marker the PDF prints under one number that opens the note printed under another is
+    # given the note the print means, where the document holds exactly one such note.
+    try:
+        from ingestion.pdf import link_checks as _link_checks
+        markdown, _relinked = _link_checks.repair_witnessed_wrong_links(markdown, pdf_path)
+        if _relinked:
+            print(f"  {len(_relinked)} marker(s) pointed at the note the PDF prints for them: "
+                  + '; '.join(f'…{c[-40:]} [^{a}]→[^{b}]' for c, a, b in _relinked[:6]))
+    except Exception as exc:
+        print(f"  wrong-link repair skipped: {exc}")
     output_md.write_text(markdown, encoding="utf-8")
 
     # Which unlinked definitions the PDF's own text could still link, and which it cannot —
@@ -351,6 +361,19 @@ def main():
             markdown, pdf_path)
     except Exception as exc:                      # a verdict is a nicety; never fail a conversion
         print(f"  unlinked-definition verdicts skipped: {exc}")
+
+    # What no count can see: a marker opening a different note than the PDF prints for it, and
+    # page text that never reached the document. Also read by the conversion lint.
+    try:
+        from ingestion.pdf import link_checks as _link_checks
+        footnote_meta['integrity'] = _link_checks.assess_link_integrity(markdown, pdf_path)
+        _i = footnote_meta['integrity']
+        if _i['wrong_note'] or _i['far_from_note'] or _i['lost_text']:
+            print(f"  integrity: {len(_i['wrong_note'])} marker(s) open a different note than "
+                  f"the PDF prints, {len(_i['far_from_note'])} far from their note, "
+                  f"{len(_i['lost_text'])} run(s) of page text missing")
+    except Exception as exc:
+        print(f"  integrity checks skipped: {exc}")
 
     # Persist footnote_meta.json after assemble (which may have added warnings)
     meta_path = output_dir / "footnote_meta.json"

@@ -458,6 +458,11 @@
       "filetype": "pdf",
       "role": "zero-import leaf: geometric HEADING recovery — the PDF's own type styles (pypdf visitor) name the headings the OCR left as plain paragraphs and the printed section numbers it dropped, learned from the headings this document already marked; inert without a PDF"
     },
+    "ingestion/pdf/link_checks.py": {
+      "band": "frontend",
+      "filetype": "pdf",
+      "role": "post-assembly checks against the PDF's own text that no count can make: a marker opening a different note than the PDF prints for it, a marker far from its note, markers out of sequence, page text that never reached the document; writes footnote_meta.json `integrity` (read by the conversion lint), changes nothing; inert without a PDF"
+    },
     "ingestion/pdf/recovery.py": {
       "band": "frontend",
       "filetype": "pdf",

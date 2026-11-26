@@ -22,10 +22,17 @@ export interface LintFinding {
   is_new: boolean;
   /** A human looked and said it is real — it is in the lane's note and rides the case bundle. */
   confirmed: boolean;
+  /**
+   * Not the converter's doing: the source prints it this way. Set by the lint where the book's
+   * own source shows it, or by a person. Listed for the record and never scored.
+   */
+  cause?: 'source';
+  /** `cause` came from a person's verdict (so it can be withdrawn), not from the lint. */
+  source_verdict?: boolean;
 }
 
 /** What a human can say about a finding; null withdraws the verdict. */
-export type LintVerdict = 'real' | 'false_alarm' | null;
+export type LintVerdict = 'real' | 'false_alarm' | 'source' | null;
 
 export interface BookLint {
   score: number;
@@ -70,6 +77,14 @@ export interface LintableArticle {
  * a new one added server-side must not silently vanish from the page.
  */
 export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = {
+  wrong_note_link: {
+    label: 'marker opens the wrong footnote',
+    hint: 'The PDF prints one number at this place in the text and another in front of the note this marker opens. The worst kind of fault: a reader is sent to the wrong note.',
+  },
+  lost_text: {
+    label: 'text missing from the book',
+    hint: 'A run of a PDF page\'s text (about a paragraph or more) that is nowhere in the converted book. Shown where the text before it ends.',
+  },
   body_footnote_twin: {
     label: 'footnote text in the body',
     hint: 'A body paragraph that opens with a note number and carries that footnote\'s own text — the note was left in the body as well as (or instead of) being linked.',
@@ -126,6 +141,14 @@ export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = 
     label: 'page header/footer in the text',
     hint: 'A short string repeated across this journal\'s articles — a running header or footer glued into the text.',
   },
+  marker_far_from_note: {
+    label: 'marker and its note on different pages',
+    hint: 'This journal prints notes at the foot of the page, and this marker\'s note is printed on some other page — possibly the wrong note.',
+  },
+  marker_out_of_order: {
+    label: 'marker out of sequence',
+    hint: 'A footnote marker numbered lower than the one before it in reading order — sometimes a misnumbered marker, sometimes a note in a table or caption.',
+  },
   orphan_unrecoverable: {
     label: 'footnote the PDF has no marker for',
     hint: 'A footnote definition with no marker in the text, and the PDF\'s own text carries no marker for it either — not something a converter fix can link. Listed for the record; it does not count towards a book\'s score.',
@@ -134,15 +157,23 @@ export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = 
 
 const DETECTOR_ORDER = Object.keys(DETECTOR_LABELS);
 
+/** The count key of findings attributed to the source: "split_sentence@source". */
+const SOURCE_SUFFIX = '@source';
+
 export function detectorLabel(detector: string): string {
+  if (detector.endsWith(SOURCE_SUFFIX)) {
+    return `${detectorLabel(detector.slice(0, -SOURCE_SUFFIX.length))} (as the source prints it)`;
+  }
   return DETECTOR_LABELS[detector]?.label ?? detector;
 }
 
 /** Known detectors in severity order, then any the page has never heard of. */
 function ordered(detectors: string[]): string[] {
+  // The source's own come last, in the same order among themselves: they are not ours to fix.
   const rank = (d: string): number => {
-    const i = DETECTOR_ORDER.indexOf(d);
-    return i === -1 ? DETECTOR_ORDER.length : i;
+    const fromSource = d.endsWith(SOURCE_SUFFIX);
+    const i = DETECTOR_ORDER.indexOf(fromSource ? d.slice(0, -SOURCE_SUFFIX.length) : d);
+    return (i === -1 ? DETECTOR_ORDER.length : i) + (fromSource ? DETECTOR_ORDER.length + 1 : 0);
   };
   return [...detectors].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }

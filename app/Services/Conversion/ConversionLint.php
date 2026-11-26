@@ -14,10 +14,19 @@ namespace App\Services\Conversion;
  * the journal's articles. Each detector here is one such shape, taken from a real case, and
  * each finding carries the node and an excerpt so a human can confirm it in seconds.
  *
- * Deliberately offline and free: it reads nodes, never the source, never an LLM. It is a
+ * Deliberately offline and free: it reads nodes, never an LLM. It is a
  * TRIAGE ranking — a finding is "look here", not a verdict — and it is most useful as a
  * before/after DIFF around a corpus reconvert (`conversion:lint --save` / `--compare`), where
  * a detector count that moves is evidence about the change, whatever the absolute noise floor.
+ *
+ * Three things a finding can turn out to be, and the lint keeps them apart:
+ *   a conversion defect       the default — scored, and what a converter fix is for
+ *   the source's own doing    `cause: source` — the book's born-digital source prints it this
+ *                             way (SourceWitness), or a person traced it there. Listed, counted
+ *                             under `<detector>@source`, never scored.
+ *   a false alarm             the detector misread ordinary text. A person dismisses it
+ *                             (ConversionLintReport) and it leaves every count; a pattern of
+ *                             them is a reason to teach the detector, as the exclusions below do.
  *
  * Detector vocabulary (stable keys — snapshots compare by them):
  *   fragment_blockquote  blockquote that opens lower-case after an unfinished sentence (7fa30289)
@@ -32,6 +41,12 @@ namespace App\Services\Conversion;
  *   colon_heading        heading ending in ':' — usually a list lead-in promoted to a heading
  *   long_heading         sub-heading over 160 chars — usually a paragraph promoted to a heading
  *   chrome_leak          a short string repeated across the scope's books (page header/footer)
+ *   wrong_note_link      a marker that opens a different note than the PDF prints for it
+ *   marker_far_from_note a marker whose note the PDF prints on some other page
+ *   marker_out_of_order  a marker numbered lower than the one before it
+ *   lost_text            a run of a PDF page's text that is nowhere in the book
+ *                        (these four are the converter's own checks against the PDF's text —
+ *                        footnote_meta.json `integrity` — because no count can see them)
  */
 class ConversionLint
 {
@@ -39,7 +54,17 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 9;
+    public const VERSION = 10;
+
+    /**
+     * A finding's `cause`, when it is not the converter's doing: the source prints it this way.
+     * Set by the lint itself where the book's own source witnesses it (SourceWitness), or by a
+     * person (ConversionLintReport::VERDICT_SOURCE) where only a reader can tell — a marker the
+     * source points at the wrong id, a stray character in a transcription. Such a finding is
+     * still listed, for the record, and never scored.
+     */
+    public const CAUSE_SOURCE = 'source';
+    public const SOURCE_SUFFIX = '@source';
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -59,6 +84,11 @@ class ConversionLint
         'glued_heading_digit' => 1,
         'colon_heading'       => 1,
         'chrome_leak'         => 1,
+        // The two failures that matter most: a reader sent to the wrong note, and text gone.
+        'wrong_note_link'     => 6,
+        'lost_text'           => 4,
+        'marker_far_from_note' => 3,
+        'marker_out_of_order' => 1,
     ];
 
     /** A chrome candidate must recur in at least this many BOOKS of the scope… */
@@ -85,6 +115,14 @@ class ConversionLint
      */
     private const ENUMERATOR = '/^\\(?(?:[a-z]|[ivx]{1,5})[).]\\s/u';
 
+    /**
+     * A publication record an archive prints on each piece it holds: "Source: Marx Engels On
+     * Literature and Art, Progress Publishers, 1976; Transcribed: by Andy Blunden;", "Scanned and
+     * prepared for the Marxist Internet Archive by Paul Flewers." Repeated across a collection
+     * because the same people prepared it — content, not a page header.
+     */
+    private const PROVENANCE_LINE = '/^(?:source|written|first published|published|translated|transcribed|transcription|scanned|proofed|proofread|markup|html markup|online version|public domain|copyleft|digitali[sz]ed|prepared)\b[^.]{0,3}(?::|\s+(?:and|by|for|from|in)\b)/iu';
+
     private const TERMINAL = '/[.!?:;)\]"”’\'…]$/u';
     private const PROSE_TAGS = ['p', 'blockquote', 'ul', 'ol'];
     private const SKIPPABLE_TAGS = ['img', 'figure', 'a', 'hr', 'table'];
@@ -104,18 +142,26 @@ class ConversionLint
         $unlinkedVerdicts = $evidence['unlinked'] ?? [];
         $headingLines = $evidence['heading_lines'] ?? [];
         $quoteBlocks = $evidence['quote_blocks'] ?? [];
+        // What a born-digital source says about its own structure (SourceWitness): null for a
+        // PDF, and then nothing is ever attributed to the source.
+        $source = $evidence['source'] ?? null;
         $body = [];
         $defs = [];           // fn id => definition text
         $defLines = [];       // fn id => startLine of its stored definition node, where one has an anchor
         $defNodes = [];       // startLine => text of every node in the stored definitions section
         $anchorIds = [];      // every id / name any node's content carries: what an in-page link can land on
+        $headingAnchorIds = []; // …and those of them a HEADING carries: where a contents entry lands
         $inDefs = false;
         foreach ($nodes as $n) {
             $html = (string) ($n['content'] ?? '');
+            $idm = [];
             if (preg_match_all('/<[^>]*\s(?:id|name)="([^"]+)"/', $html, $idm)) {
                 $anchorIds += array_flip($idm[1]);
             }
             $tag = $this->tag($html);
+            if (preg_match('/^h[1-6]$/', $tag) && !empty($idm[1])) {
+                $headingAnchorIds += array_flip($idm[1]);
+            }
             if (preg_match('/^h[1-6]$/', $tag)) {
                 // The definitions section ends at the next heading. A converter slip can put the
                 // "Footnotes" heading mid-article (9d0400c9), and treating everything after it
@@ -150,10 +196,19 @@ class ConversionLint
         }
 
         $findings = [];
-        $add = function (string $detector, array $node, ?string $excerpt = null) use (&$findings) {
-            $findings[] = ['detector' => $detector, 'startLine' => $node['startLine'],
-                           'excerpt' => mb_substr($excerpt ?? $node['text'], 0, 220)];
+        $add = function (string $detector, array $node, ?string $excerpt = null, ?string $cause = null) use (&$findings) {
+            $finding = ['detector' => $detector, 'startLine' => $node['startLine'],
+                        'excerpt' => mb_substr($excerpt ?? $node['text'], 0, 220)];
+            if ($cause !== null) {
+                $finding['cause'] = $cause;
+            }
+            $findings[] = $finding;
         };
+        // The source marks these very words as a heading: whatever it looks like, nothing was
+        // promoted. Marx's analytical headings run to five hundred characters (the Grundrisse —
+        // 48 "very long headings", every one his).
+        $sourceHeading = fn (string $headText): bool => $source !== null
+            && $this->opensOneOf($headText, $source['headings'] ?? [], 60);
 
         // How many headings share each two-word opening ("discussion turn" → 10).
         $headingSeries = [];
@@ -182,7 +237,7 @@ class ConversionLint
                 // …unless the PDF sets these very words in a heading type style: then the colon is
                 // the author's, the heading is real, and there is nothing to repair (db2d8fb7
                 // prints thirty "Beauty as a principle of society:" sub-headings in bold).
-                if (str_ends_with($headText, ':')
+                if (str_ends_with($headText, ':') && !$sourceHeading($headText)
                         && !preg_match('/^(?:\d+\.?\s*)?(?:references|bibliography|keywords?|abstract|notes)\s*:$/i', $headText)
                         && !$this->opensOneOf(preg_replace('/^\d{1,2}(?:\.\d{1,2})*\.?\s*/', '', $headText), $headingLines, 60)) {
                     $add('colon_heading', $node, $headText);
@@ -194,7 +249,7 @@ class ConversionLint
                 // Work Stalinist Labour Fetishists? Why We Need to Repeat…" is the printed title.
                 // …nor one of a SERIES: "Discussion Turn 6 (Christian Fuchs): …" beside nine other
                 // "Discussion Turn N" headings is the article's own structure (2b51bc20).
-                if ($tag !== 'h1' && mb_strlen($headText) > 160
+                if ($tag !== 'h1' && mb_strlen($headText) > 160 && !$sourceHeading($headText)
                         && !preg_match('/^\d{1,2}(?:\.\d{1,2}){1,3}\.?\s/', $headText)
                         && ($headingSeries[$this->seriesKey($headText)] ?? 0) < 3) {
                     $add('long_heading', $node, $headText);
@@ -265,6 +320,13 @@ class ConversionLint
                     // "…<br/>2. Measures for the Middle Classes": a bare number with its own full
                     // stop and a title after it is a line of a contents list, wherever it stands
                     // in the block (The Civil War in France — 26 such links to section headings).
+                    // …and so is any numbered link that lands ON a heading, however the line is
+                    // punctuated: "5 Opening of the Civil War" has no bracket after its number
+                    // (The Civil War in France, second draft — 8 of these). A note is never a heading.
+                    if (preg_match('/\bhref="#([^"]+)"/', $a[0][0], $hm)
+                            && (isset($headingAnchorIds[$hm[1]]) || isset($headingAnchorIds[rawurldecode($hm[1])]))) {
+                        continue;
+                    }
                     $after = substr($node['html'], $a[0][1] + strlen($a[0][0]), 12);
                     if (preg_match('/^\d{1,3}$/', $label) && preg_match('/^[.)]\s+\p{Lu}/u', $after)) {
                         continue;
@@ -279,8 +341,13 @@ class ConversionLint
             // A number raised after a word or closing punctuation, with no fraction or subscript
             // after it: "…accounts of profit.²⁹ This something…". Fractions (¹⁄₃), exponents and
             // indexed symbols (K¹—K¹⁸) are the same tag and are left alone.
-            if (preg_match('/(?:\p{Ll}{3}|[.,;:!?”’"\)])<sup>\d{1,3}<\/sup>(?!\s*(?:[\/⁄]|<sub>|&frasl;))/u', $node['html'])) {
-                $add('bare_superscript_number', $node);
+            if (preg_match('/(?:\p{Ll}{3}|[.,;:!?”’"\)])<sup>(\d{1,3})<\/sup>(?!\s*(?:[\/⁄]|<sub>|&frasl;))/u', $node['html'], $sm, PREG_OFFSET_CAPTURE)) {
+                // The source prints the number raised and unlinked itself: there was never a
+                // link to convert (Theories of Surplus-Value, "…accounts of profit.²⁹").
+                $at = $sm[1][1] - strlen('<sup>');
+                $inSource = $source !== null && isset($source['bare_sups'][
+                    SourceWitness::supKey(substr($node['html'], max(0, $at - 400), min(400, $at)), $sm[1][0])]);
+                $add('bare_superscript_number', $node, null, $inSource ? self::CAUSE_SOURCE : null);
             }
 
             if ($inRefs || str_contains($node['html'], 'class="bib-entry"')) {
@@ -318,8 +385,14 @@ class ConversionLint
                         // the block closes on one ("… (Agamben 2000, 31)"). A page-break fragment
                         // carries neither (90556e72, 45e713ca).
                         && !($tag === 'blockquote' && $this->isCitedQuotation($prev['text'], $text))) {
+                    // The source itself starts a new block here — a display quotation set inside
+                    // its sentence, a manuscript page break transcribed as a paragraph break.
+                    // The converter carried the source over; there is no join for it to have made.
+                    $inSource = $source !== null
+                        && isset($source['blocks'][SourceWitness::opening(preg_replace('/^\s*<[^>]+>/', '', $node['html']) ?? '')]);
                     $add($tag === 'blockquote' ? 'fragment_blockquote' : 'split_sentence', $node,
-                        '…' . mb_substr($prev['text'], -70) . ' ‖ ' . mb_substr($text, 0, 120));
+                        '…' . mb_substr($prev['text'], -70) . ' ‖ ' . mb_substr($text, 0, 120),
+                        $inSource ? self::CAUSE_SOURCE : null);
                 }
             }
         }
@@ -354,7 +427,66 @@ class ConversionLint
             }
         }
 
+        foreach ($this->integrityFindings($evidence['integrity'] ?? [], $body) as $finding) {
+            $findings[] = $finding;
+        }
+
         return ['findings' => $findings, 'chrome_candidates' => $this->chromeCandidates($body, $defs)];
+    }
+
+    /**
+     * The converter's own checks against the PDF's text, as findings. Each lands on the body
+     * node that holds the words the converter recorded beside it (before the marker, or before
+     * the gap); where those words cannot be found it lands on the first node, still listed.
+     *
+     * @param array<string, mixed> $integrity footnote_meta.json `integrity`
+     * @param list<array{startLine: string, text: string}> $body
+     * @return list<array{detector: string, startLine: string, excerpt: string}>
+     */
+    private function integrityFindings(array $integrity, array $body): array
+    {
+        if ($body === []) {
+            return [];
+        }
+        $folded = null;
+        $locate = function (string $words) use ($body, &$folded): string {
+            $folded ??= array_map(fn ($n) => self::fold($n['text']), $body);
+            $needle = substr(self::fold($words), -30);
+            if (strlen($needle) >= 12) {
+                foreach ($folded as $i => $text) {
+                    if (str_contains($text, $needle)) {
+                        return $body[$i]['startLine'];
+                    }
+                }
+            }
+
+            return $body[0]['startLine'];
+        };
+        $out = [];
+        foreach ((array) ($integrity['wrong_note'] ?? []) as $r) {
+            $out[] = ['detector' => 'wrong_note_link', 'startLine' => $locate((string) ($r['context'] ?? '')),
+                'excerpt' => mb_substr(sprintf('…%s [the PDF prints %s here; it opens the note printed as %s] %s',
+                    mb_substr((string) ($r['context'] ?? ''), -70), $r['marker_printed'] ?? '?',
+                    $r['note_printed'] ?? '?', (string) ($r['note'] ?? '')), 0, 220)];
+        }
+        foreach ((array) ($integrity['far_from_note'] ?? []) as $r) {
+            $out[] = ['detector' => 'marker_far_from_note', 'startLine' => $locate((string) ($r['context'] ?? '')),
+                'excerpt' => mb_substr(sprintf('…%s [marker on PDF page %d, its note on page %d] %s',
+                    mb_substr((string) ($r['context'] ?? ''), -70), (int) ($r['marker_page'] ?? 0) + 1,
+                    (int) ($r['note_page'] ?? 0) + 1, (string) ($r['note'] ?? '')), 0, 220)];
+        }
+        foreach ((array) ($integrity['out_of_order'] ?? []) as $r) {
+            $out[] = ['detector' => 'marker_out_of_order', 'startLine' => $locate((string) ($r['context'] ?? '')),
+                'excerpt' => mb_substr(sprintf('…%s [marker %s comes after marker %s]',
+                    mb_substr((string) ($r['context'] ?? ''), -90), $r['number'] ?? '?', $r['after'] ?? '?'), 0, 220)];
+        }
+        foreach ((array) ($integrity['lost_text'] ?? []) as $r) {
+            $out[] = ['detector' => 'lost_text', 'startLine' => $locate((string) ($r['before'] ?? '')),
+                'excerpt' => mb_substr(sprintf('PDF page %d, not in the book: %s',
+                    (int) ($r['page'] ?? 0) + 1, (string) ($r['excerpt'] ?? '')), 0, 220)];
+        }
+
+        return $out;
     }
 
     /**
@@ -590,10 +722,15 @@ class ConversionLint
      *                 (footnote_meta.json `unlinked_definitions`)
      *   heading_lines folded text of every line set in a heading type style (heading_geometry.json)
      *   quote_blocks  folded opening of every block the page indents (quote_geometry.json)
+     *   integrity     the converter's checks of markers and page text against the PDF
+     *                 (footnote_meta.json `integrity`)
      * Each is empty for a book converted before it existed, or by a lane with no PDF — the
      * finding it would have qualified then stands, which is the safe default.
      *
-     * @return array{unlinked: array<string, string>, heading_lines: list<string>, quote_blocks: list<string>}
+     *   source        what a born-digital source says of its own blocks, headings and raised
+     *                 numbers (SourceWitness) — null for a PDF
+     *
+     * @return array{unlinked: array<string, string>, heading_lines: list<string>, quote_blocks: list<string>, source: ?array}
      */
     public static function evidenceFor(string $book): array
     {
@@ -602,7 +739,8 @@ class ConversionLint
 
             return is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
         };
-        $out = ['unlinked' => [], 'heading_lines' => [], 'quote_blocks' => []];
+        $out = ['unlinked' => [], 'heading_lines' => [], 'quote_blocks' => [],
+                'source' => SourceWitness::for($book)];
         foreach ((($read('footnote_meta.json') ?? [])['unlinked_definitions'] ?? []) as $row) {
             if (is_array($row) && ($row['head'] ?? '') !== '' && isset($row['verdict'])) {
                 $out['unlinked'][(string) $row['head']] = (string) $row['verdict'];
@@ -632,9 +770,27 @@ class ConversionLint
     {
         $s = 0;
         foreach ($counts as $d => $n) {
+            if (str_ends_with((string) $d, self::SOURCE_SUFFIX)) {
+                continue;     // listed, never scored: not something a converter fix can change
+            }
             $s += (self::WEIGHTS[$d] ?? 1) * $n;
         }
         return $s;
+    }
+
+    /**
+     * Findings counted per detector, with the ones attributed to the source under their own
+     * key (`split_sentence@source`) so a total never mixes "ours to fix" with "theirs".
+     *
+     * @param list<array{detector: string, cause?: string}> $findings
+     * @return array<string, int>
+     */
+    public static function counts(array $findings): array
+    {
+        return array_count_values(array_map(
+            fn (array $f) => $f['detector'] . (($f['cause'] ?? null) === self::CAUSE_SOURCE ? self::SOURCE_SUFFIX : ''),
+            $findings,
+        ));
     }
 
     /** A finding's identity across a reconvert: node ids change, the excerpt does not. */
@@ -701,8 +857,8 @@ class ConversionLint
         }
         foreach ($texts as $t) {
             $t = trim($t);
-            if ($t === '') {
-                continue;
+            if ($t === '' || preg_match(self::PROVENANCE_LINE, $t)) {
+                continue;     // the archive's record of the text — and its tail ("…, Stuttgart, 1913.") with it
             }
             // The whole node when it is short (a running head as its own paragraph), else the
             // trailing segment after the last sentence boundary (a footer glued onto a note).
@@ -726,6 +882,19 @@ class ConversionLint
                 }
                 if (!preg_match('/[\d©:|,.\/]/u', $c)) {
                     continue;    // bare words — a name under "About the Author", not a running head
+                }
+                if (preg_match('/,$/u', $c) && !preg_match('/[\d©|\/]/u', $c)) {
+                    // "Dear Engels," / "My dear Friend," / "Yours fraternally," — a letter's
+                    // salutation or sign-off repeats down a volume of correspondence by nature
+                    // (Letters of Marx and Engels: 150 of the shelf's 231 "chrome leaks"). A
+                    // running head does not end on a comma.
+                    continue;
+                }
+                if (preg_match('/[—–-]\s*Ed\.?\]?$/u', $c)) {
+                    continue;    // "In the manuscript: “the”.—Ed." — an editor's note, repeated because the slip is
+                }
+                if (preg_match(self::PROVENANCE_LINE, $c)) {
+                    continue;    // "Source: …; Transcribed: by …" — the archive's record of the text, printed once per piece
                 }
                 $out[] = preg_replace('/\d/', '#', $c);
             }

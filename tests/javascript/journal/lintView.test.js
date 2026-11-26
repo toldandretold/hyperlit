@@ -21,6 +21,14 @@ describe('journal-import conversion lint view', () => {
       .toBe('split sentence ×1, brand_new_detector ×2');
   });
 
+  it('names findings the source prints that way, and lists them after the ones that are ours', () => {
+    // Counted under `<detector>@source` by the server: listed for the record, never scored.
+    expect(detectorLabel('split_sentence@source')).toBe('split sentence (as the source prints it)');
+    expect(detectorLabel('brand_new_detector@source')).toBe('brand_new_detector (as the source prints it)');
+    expect(summarize({ 'split_sentence@source': 7, chrome_leak: 1, orphan_definition: 3 }))
+      .toBe('footnote nobody points to ×3, page header/footer in the text ×1, split sentence (as the source prints it) ×7');
+  });
+
   it('judges an article by its PROMOTED lane, not its worst one', () => {
     // The losing sibling's problems are why it lost — they are not what readers get.
     const lint = new Map([['pdf', found(2)], ['html', found(40)]]);

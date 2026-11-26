@@ -70,6 +70,14 @@ The second lint, after reconverting (45 dead links in 8 books, 41 orphaned notes
 
 **Ordinary links (contents entries, "see section 3").** The stitcher rewrites a link to another page of the same work into an in-book `#pNNN-id` link and a link to any other work into its absolute marxists.org URL. The in-book ones went dead when their landing anchor stood BETWEEN blocks (`</p><a id="s3"></a><h5>Third Observation</h5>`): a book is one node per block, so the loose anchor became an empty node with no id. `seat_loose_link_targets` (end of the EPUB normaliser) moves each still-linked loose anchor into the block it precedes (Grundrisse 34 dead of 297 → 0; Left-Wing Communism's appendix contents 6 → 0). The lint's `dead_internal_link` detector reports any in-page link whose target is in no node of the book.
 
+**Third lint (2026-11-26), three more causes, all general.**
+
+- **A starred note that prints no marker of its own** (Letters of Marx and Engels): `…the death of Brown<a href="#note"><b>*</b></a>…`, then after the signature `<a id="note"></a><p class="information">BROWN, JOHN (1800-59)…`. A star is never a contents entry, so a star pointing forward at an anchor that stands just before a block needs no opening marker to vouch for it. A bracketed star (`[*]`) is now a marker at all.
+- **A note's own backlink read as a marker** (Capital, chapter 1): the backlink "A." returns to an empty anchor closing a body paragraph, and the next paragraph opens "A thing can be a use value…" — so that paragraph left the text as note [A]. A link that OPENS its own block and points backward is that block's backlink.
+- **`<caption>` was not an allowed tag**, so every table caption was deleted with whatever it held, including two of Capital's note markers. Allowed in all three sanitiser lists.
+
+**Reading this shelf's lint.** After those, what the lint still lists for a marxists.org work is mostly the source's own layout, and it now says so: see `docs/maintainer-loop.md` §"Three things a finding can be". Use the `src` verdict for the two kinds below.
+
 Still not handled: markers whose target id does not exist in the source (Left-Wing Communism's `[30]` points at a backlink id), and a stray character before a note's marker (`((1)`, `"[2]`), one each in the doctoral thesis and One Step Forward. The shelf's `split_sentence` findings are the source's own layout: a display quotation inside a sentence is three `<p>`s on the page (Anti-Dühring).
 
 ## The bulk import (a whole author, from the backend)
