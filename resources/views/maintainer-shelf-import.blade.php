@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-{{-- The journal-import console generalized to a SHELF scope: same CSS, same JS
-     entry, boot global carries mode:'shelf'. Detail mode is the journal detail
-     three-pane layout MINUS the journal-registry controls (enumerate /
-     import_all) — a shelf has no OpenAlex source to enumerate. --}}
+{{-- The journal-import console over a SHELF scope: same CSS, same JS entry (boot
+     global carries mode:'shelf'), and the same blade partials for the panes, the
+     action bars and the run panel. Only the header is the shelf's own — it has no
+     journal-registry controls (enumerate / import), because a shelf has no OpenAlex
+     source to enumerate, and it carries the archive-page record instead. --}}
 @php($isDetail = (bool) $shelfId)
 <html lang="en" @if($isDetail) class="ji-detail-root" @endif>
 <head>
@@ -27,8 +28,16 @@
              imported lane on the shelf, each from its own cached source — free, nothing re-fetched,
              no OCR. The way a processor fix reaches a corpus imported before it existed. --}}
         <div class="ji-journal-actions">
+            {{-- Which lanes "reconvert all" covers. Same id as the journal console's picker, which
+                 main.ts reads — there it doubles as the import lane; here there is no import. --}}
+            <label class="ji-visually-hidden" for="ji-bulk-lanes">Lanes to reconvert</label>
+            <select id="ji-bulk-lanes">
+                <option value="both" selected>every lane</option>
+                <option value="html">HTML lanes only</option>
+                <option value="pdf">PDF lanes only</option>
+            </select>
             <button type="button" id="ji-reconvert-all"
-                    title="Re-run the current converter over EVERY imported lane on this shelf, from each one's cached source. Free — nothing is re-fetched and no OCR runs. Books convert one at a time on the import worker.">⟲ reconvert all</button>
+                    title="Re-run the current converter over EVERY imported book on this shelf, from each one's cached source. Free — nothing is re-fetched and no OCR runs. Books convert one at a time on the import worker.">⟲ reconvert all</button>
             <span class="ji-actions-status" id="ji-journal-status" role="status" aria-live="polite"></span>
         </div>
 
@@ -67,95 +76,13 @@
         <span class="ji-actions-status" id="ji-archive-status" role="status" aria-live="polite"></span>
     </div>
 
-    {{-- Three panes, identical ids to the journal detail page — one JS wires both. --}}
-    <div class="ji-columns" id="ji-columns">
-        <aside class="ji-articles" id="ji-articles">
-            <div class="ji-articles-head">
-                <span id="ji-articles-count">…</span>
-                <label class="ji-only-imported">
-                    <input type="checkbox" id="ji-only-imported"> imported only
-                </label>
-                <label class="ji-only-imported">
-                    <input type="checkbox" id="ji-only-failed"> failed only
-                </label>
-                {{-- Same bundle as the journal console, so this filter has to exist on both or
-                     the flags are unfindable on whichever page lacks it. --}}
-                <label class="ji-only-imported">
-                    <input type="checkbox" id="ji-only-metadata"> metadata drift
-                </label>
-            </div>
-            <input type="search" id="ji-article-search" class="ji-article-search"
-                   placeholder="Find a work by title or DOI…" aria-label="Find a work">
-            <div id="ji-articles-list" role="list"></div>
-            <p class="ji-empty" id="ji-articles-empty" hidden>Nothing assessable on this shelf yet —
-                its books carry no canonical link, or the shelf is empty. Imports from the
-                hypercite console's <strong>⇩ import all OA</strong> land here.</p>
-        </aside>
+    {{-- The panes, the action bars and the run panel are the SAME partials the journal detail
+         page includes — not a copy of them. Anything that belongs to both scopes is added there. --}}
+    @include('partials.maintainer.import-console.columns', ['scope' => 'shelf'])
 
-        <section class="ji-pane ji-converted">
-            <div class="ji-pane-label" id="ji-converted-label">converted output</div>
-            <div class="ji-detail-strip" id="ji-detail-strip" hidden>
-                <div class="ji-bookid-row">
-                    <code class="ji-bookid" id="ji-bookid" tabindex="0" title="Book id — click to copy"></code>
-                    <a class="ji-bookid-open" id="ji-bookid-open" href="#" target="_blank" rel="noopener">open ↗</a>
-                    <button type="button" class="ji-note-toggle" id="ji-note-toggle"
-                            aria-expanded="false" aria-controls="ji-note-row">note<span
-                            class="ji-note-dot" id="ji-note-dot" hidden aria-hidden="true"></span></button>
-                    <span class="ji-bookid-meta" id="ji-bookid-meta"></span>
-                </div>
-                <div class="ji-note-row" id="ji-note-row" hidden>
-                    <textarea id="ji-note" rows="2" placeholder="What's wrong with this lane? Rides the bundle into dev — opens a case if nothing has flagged it yet."></textarea>
-                    <div class="ji-note-buttons">
-                        <button type="button" id="ji-note-save">save note</button>
-                        <button type="button" id="ji-resolve" hidden title="Close this case as fixed">✓ fixed</button>
-                        <button type="button" id="ji-dismiss" hidden title="Close this case — nothing to fix here">✕ dismiss</button>
-                    </div>
-                </div>
-            </div>
-            <iframe id="ji-converted" title="Converted output" src="about:blank"></iframe>
-            <div class="ji-pane-placeholder" id="ji-converted-placeholder">select a lane</div>
-        </section>
+    @include('partials.maintainer.import-console.action-bars')
 
-        <section class="ji-pane ji-source">
-            <div class="ji-pane-label" id="ji-source-label">source</div>
-            <iframe id="ji-source" title="Original source" src="about:blank"></iframe>
-            <div class="ji-pane-placeholder" id="ji-source-placeholder">no source file on disk</div>
-        </section>
-    </div>
-
-    <div class="ji-actions" id="ji-actions" hidden>
-        <span class="ji-actions-grip" id="ji-actions-grip" title="Drag to move">⠿</span>
-        <span class="ji-actions-book" id="ji-actions-book"></span>
-        <button type="button" id="ji-open-reader" title="Open this lane in the reader">open ↗</button>
-        <button type="button" id="ji-promote" title="Make this lane the version readers get">★ make version</button>
-        <button type="button" id="ji-reconvert" title="Re-run the converter over the page we already have — no network, no cost. The fix loop after you ship a processor change.">↻ reconvert</button>
-        <button type="button" id="ji-refetch" title="Go back to the publisher for a fresh copy — for when what we stored isn't the article">⇩ re-fetch</button>
-        <button type="button" id="ji-export" title="Bundle blaming the CONVERTER — replays through run_regression.py">⤓ conversion</button>
-        <button type="button" id="ji-export-harvest" title="Bundle blaming ACQUISITION — ships canonical_source + fetch_trace.json">⤓ harvest</button>
-        @if(!app()->environment('production'))
-            <button type="button" id="ji-approve-golden" title="Freeze this book's CURRENT conversion as the regression golden — the promote-to-golden step after the converter is fixed (runs run_regression.py --update-golden)">✓ golden</button>
-        @endif
-        <span class="ji-actions-status" id="ji-actions-status" role="status" aria-live="polite"></span>
-    </div>
-
-    <div class="ji-actions ji-import-bar" id="ji-import-bar" hidden>
-        <span class="ji-actions-grip" id="ji-import-grip" title="Drag to move">⠿</span>
-        <span class="ji-actions-book" id="ji-import-title"></span>
-        <span class="ji-import-label">not imported — fetch:</span>
-        <button type="button" id="ji-import-pdf" title="Vacuum the PDF and OCR it (slow, costs OCR credit)">PDF</button>
-        <button type="button" id="ji-import-html" title="Fetch the publisher page and run the paste engine (free)">HTML</button>
-        <button type="button" id="ji-import-both" title="Both lanes, so you can compare them">both</button>
-        <span class="ji-actions-status" id="ji-import-status" role="status" aria-live="polite"></span>
-    </div>
-
-    <div class="ji-failures" id="ji-failures" hidden>
-        <div class="ji-failures-head">
-            <strong id="ji-failures-title"></strong>
-            <button type="button" id="ji-failures-copy" title="Copy this list as plain text">copy</button>
-            <button type="button" id="ji-failures-close" aria-label="Close failures">✕</button>
-        </div>
-        <div class="ji-failures-body" id="ji-failures-body"></div>
-    </div>
+    @include('partials.maintainer.import-console.run-panel')
 
     <div class="ji-help-panel" id="ji-help-panel" hidden>
         <h2>Reading this page <button type="button" id="ji-help-close" aria-label="Close help">✕</button></h2>
@@ -165,6 +92,9 @@
             <li><strong>★ marks the promoted lane</strong> — the one readers resolve to. Promoting from here also swaps the winner onto this shelf in place of demoted siblings.</li>
             <li><strong>Click a lane</strong> to load what we produced (left) beside what we produced it from (right).</li>
             <li><strong>The badges are the evidence</strong>: completeness, the body-presence verdict, which host the copy won from, and any open conversion flags.</li>
+            <li><strong>Search the shelf for problems instead of reading it.</strong> Every book on the shelf is checked for the shapes conversion bugs leave behind — a paragraph or blockquote that starts mid-sentence, a footnote sitting in the body, a footnote nothing points to, a suspicious heading, a page header repeated across books — and gets a <code>N problems</code> badge. Tick <strong>problems first</strong> to rank the list worst first; select a lane and each problem is a row that jumps the converted output to it. These are places to look, not verdicts.</li>
+            <li><strong>⟲ reconvert all</strong> re-runs the current converter over every book ON this shelf (not the sibling lanes listed beside them), each from its cached source — free. The panel at the bottom right follows it: first while the books are queued, then while they <em>drain</em> through the import worker one at a time, which is the long part. A book shows "no content" until its turn comes, and the button stays disabled until the queue is empty.</li>
+            <li><strong>Snapshot before a reconvert, compare after.</strong> <code>snapshot</code> records today's problems; <code>⟲ reconvert all</code> takes one for you. From then on the strip above the list shows what each kind of problem did (<code>▼</code> fewer, <code>▲</code> more) and how many are <em>new</em> — problems the reconvert introduced. Books still waiting to convert are left out until they are back, so the numbers are safe to read mid-drain.</li>
             <li><strong>Conversion code needs FIXING?</strong> <strong>⤓ conversion</strong> downloads <code>&lt;book&gt;.tar.gz</code> (DB rows + original + OCR cache + decision traces); <strong>⤓ harvest</strong> is the same bundle blaming acquisition. On your dev machine, ONE command ingests everything in Downloads:<br><code>php artisan book:import-cases --downloads</code><br>It imports each book locally and captures regression fixtures automatically.</li>
             <li><strong>Then back to hypercites →</strong> and re-run detect — the imported works are matchable as soon as their conversion lands.</li>
         </ol>

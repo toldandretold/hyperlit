@@ -34,7 +34,16 @@ function siCleanup(): void
         'shelf_id',
         siDb()->table('shelves')->where($siShelfNames)->pluck('id')
     )->delete();
+    siDb()->table('conversion_lint_snapshots')->whereIn(
+        'scope_id',
+        siDb()->table('shelves')->where($siShelfNames)->pluck('id')
+    )->delete();
     siDb()->table('shelves')->where($siShelfNames)->delete();
+    siDb()->table('nodes')->where('book', 'LIKE', 'book_si%')->delete();
+    siDb()->table('conversion_lint_results')->where('book', 'LIKE', 'book_si%')->delete();
+    siDb()->table('conversion_lint_reviews')->where('book', 'LIKE', 'book_si%')->delete();
+    siDb()->table('conversion_flags')->where('book', 'LIKE', 'book_si%')->delete();
+    siDb()->table('jobs')->where('payload', 'LIKE', '%si-backlog-marker%')->delete();
     siDb()->table('canonical_source')->where('title', 'LIKE', 'SI %')->delete();
     siDb()->table('library')->where('book', 'LIKE', 'book_si%')->delete();
     siDb()->table('journal_sources')->where('display_name', 'LIKE', 'SI %')->delete();
@@ -527,3 +536,270 @@ test('reconvert_all on a shelf reaches books that have no canonical source', fun
     expect($run->status)->toBe('completed')
         ->and(json_decode($run->counts, true)['queued'])->toBe(2);
 });
+
+// ── Scope-wide run feedback: the same signals the journal console carries ──
+//
+// reconvert_all has been on this console since it was on the journal one, but every piece of
+// feedback built afterwards (re-attach after a reload, the drain count, the lint before/after)
+// shipped journal-only. These hold the shelf scope to the same contract, through the same code
+// (App\Services\Conversion\ImportConsoleScope).
+
+/**
+ * A queued conversion job row for `$book`, serialized the way the queue really does it — the
+ * count reads the job's own `bookId` property out of this payload, so a hand-written stub would
+ * only prove the regex matches the stub.
+ */
+function siQueuedConversion(string $queue, string $book): array
+{
+    $job = new \App\Jobs\ProcessDocumentImportJob($book, 'pdf', null, ['marker' => 'si-backlog-marker'], []);
+
+    return [
+        'queue'        => $queue,
+        'payload'      => json_encode([
+            'uuid'        => (string) Str::uuid(),
+            'displayName' => \App\Jobs\ProcessDocumentImportJob::class,
+            'data'        => ['commandName' => \App\Jobs\ProcessDocumentImportJob::class, 'command' => serialize($job)],
+        ]),
+        'attempts'     => 0,
+        'available_at' => time(),
+        'created_at'   => time(),
+    ];
+}
+
+function siSeedNodes(string $book, array $htmls): void
+{
+    siDb()->table('nodes')->where('book', $book)->delete();
+    foreach ($htmls as $i => $html) {
+        siDb()->table('nodes')->insert([
+            'book'      => $book,
+            'startLine' => ($i + 1) * 100,
+            'chunk_id'  => 0,
+            'node_id'   => $book . '_n' . $i,
+            'content'   => $html,
+            'plainText' => strip_tags($html),
+        ]);
+    }
+}
+
+/** A page-break fragment wrapped as a blockquote — one `fragment_blockquote` finding. */
+function siBrokenNodes(): array
+{
+    return [
+        '<p>Alternative voices are less heard or read on the Internet than Mainstream ones. The assignment of</p>',
+        '<blockquote><p>domain names (such as microsoft.com) has been commodified. Formerly a state-owned foundation was in control of this area.</p></blockquote>',
+    ];
+}
+
+function siCleanNodes(): array
+{
+    return [
+        '<p>Alternative voices are less heard or read on the Internet than Mainstream ones.</p>',
+        '<p>The assignment of domain names (such as microsoft.com) has been commodified entirely.</p>',
+    ];
+}
+
+test('the new shelf-scoped endpoints are admin-gated and refuse a private shelf', function () {
+    $private = siSeedShelf('private');
+    $base = '/api/maintainer/shelf-import/' . $private->id;
+
+    $this->loginUser();
+    $this->getJson("{$base}/reconvert-backlog")->assertStatus(403);
+    $this->getJson("{$base}/lint")->assertStatus(403);
+    $this->postJson("{$base}/lint/snapshot")->assertStatus(403);
+    $this->deleteJson("{$base}/lint/snapshot")->assertStatus(403);
+    $this->postJson("{$base}/lint/review")->assertStatus(403);
+    $this->getJson("{$base}/lint/cases")->assertStatus(403);
+
+    $this->loginUser(['is_admin' => true]);
+    $this->getJson("{$base}/reconvert-backlog")->assertNotFound();
+    $this->getJson("{$base}/lint")->assertNotFound();
+    $this->postJson("{$base}/lint/snapshot")->assertNotFound();
+});
+
+test('the articles payload carries an in-flight shelf-wide run so a reload can re-attach', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $work = siSeedShelvedWork($shelf, [['foundation_source' => 'journal_html']]);
+    $url = '/api/maintainer/shelf-import/' . $shelf->id . '/articles';
+
+    expect($this->getJson($url)->assertOk()->json('active_run'))->toBeNull();
+
+    $run = fn (array $o) => array_merge([
+        'id' => (string) Str::uuid(), 'shelf_id' => $shelf->id, 'action' => 'reconvert_all',
+        'lanes' => 'both', 'status' => 'running', 'counts' => '{}',
+        'created_at' => now(), 'updated_at' => now(),
+    ], $o);
+
+    // One article's action reports into its own bar — it is not the shelf-wide run.
+    siDb()->table('journal_import_runs')->insert($run([
+        'action' => 'reconvert_html', 'canonical_source_id' => $work['canonical_id'],
+        'book' => $work['books']['journal_html'],
+    ]));
+    expect($this->getJson($url)->json('active_run'))->toBeNull();
+
+    $wide = $run([
+        'step_detail' => 'queueing reconversions: 25 of 60',
+        'progress'    => json_encode(['phase' => 'reconvert', 'n' => 25, 'total' => 60, 'queued' => 24, 'skipped' => 1]),
+    ]);
+    siDb()->table('journal_import_runs')->insert($wide);
+
+    $active = $this->getJson($url)->json('active_run');
+    expect($active['id'])->toBe($wide['id']);
+    expect($active['action'])->toBe('reconvert_all');
+    expect($active['progress']['total'])->toBe(60);
+
+    // Finished queueing: nothing to re-attach to (the drain count takes over from here).
+    siDb()->table('journal_import_runs')->where('id', $wide['id'])->update(['status' => 'completed']);
+    expect($this->getJson($url)->json('active_run'))->toBeNull();
+});
+
+test('a draining shelf reconvert_all is countable, whatever shape the book ids are', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $other = siSeedShelf('public');
+
+    // A shelf holds both kinds of id: harvested lanes are uuids, case / marxists / uploaded
+    // books are `book_…`. The journal-only count matched uuids and would have missed the latter.
+    $uuidBook = (string) Str::uuid();
+    siDb()->table('library')->insert([
+        'book' => $uuidBook, 'title' => 'SI Version', 'visibility' => 'public', 'listed' => false,
+        'has_nodes' => true, 'type' => 'book', 'raw_json' => '[]', 'timestamp' => 0,
+        'creator' => 'si_shelf_owner', 'created_at' => now(),
+    ]);
+    siDb()->table('shelf_items')->insert(['shelf_id' => $shelf->id, 'book' => $uuidBook, 'added_at' => now()]);
+    $mine    = siSeedShelvedWork($shelf, [['foundation_source' => 'canonical_pdf_vacuum']])['books']['canonical_pdf_vacuum'];
+    // A sibling lane that is LISTED on this shelf's page but is not a member: reconvert all does
+    // not touch it, so its queued job is not this shelf's drain.
+    $sibling = siSeedShelvedWork($shelf, [
+        ['foundation_source' => 'canonical_pdf_vacuum'],
+        ['foundation_source' => 'journal_html'],
+    ])['books']['journal_html'];
+    $foreign = siSeedShelvedWork($other, [['foundation_source' => 'canonical_pdf_vacuum']])['books']['canonical_pdf_vacuum'];
+
+    try {
+        siDb()->table('jobs')->insert([
+            siQueuedConversion('default', $mine),       // the bulk fan-out lane
+            siQueuedConversion('default', $uuidBook),
+            siQueuedConversion('imports', $mine),       // a hand reconvert of one of its books
+            siQueuedConversion('default', $sibling),
+            siQueuedConversion('default', $foreign),    // another shelf's drain
+        ]);
+
+        $this->getJson('/api/maintainer/shelf-import/' . $shelf->id . '/reconvert-backlog')
+            ->assertOk()->assertJson(['pending' => 3]);
+        expect($this->getJson('/api/maintainer/shelf-import/' . $shelf->id . '/articles')->json('reconvert_backlog'))
+            ->toBe(3);
+        $this->getJson('/api/maintainer/shelf-import/' . $other->id . '/reconvert-backlog')
+            ->assertOk()->assertJson(['pending' => 1]);
+    } finally {
+        siDb()->table('jobs')->where('payload', 'LIKE', '%si-backlog-marker%')->delete();
+        siDb()->table('library')->where('book', $uuidBook)->delete();
+    }
+});
+
+test('a second shelf reconvert_all is refused while the first is still draining', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $book = siSeedShelvedWork($shelf, [['foundation_source' => 'canonical_pdf_vacuum']])['books']['canonical_pdf_vacuum'];
+    $url = '/api/maintainer/shelf-import/' . $shelf->id . '/run';
+
+    try {
+        // The first run has finished QUEUEING (no run row in flight) but its job is still waiting.
+        siDb()->table('jobs')->insert([siQueuedConversion('default', $book)]);
+
+        $this->postJson($url, ['action' => 'reconvert_all', 'lanes' => 'both'])
+            ->assertStatus(409)
+            ->assertJsonPath('pending', 1);
+        Queue::assertNothingPushed();
+        expect(siDb()->table('journal_import_runs')->where('shelf_id', $shelf->id)->exists())->toBeFalse();
+
+        // Drained: the same press goes through.
+        siDb()->table('jobs')->where('payload', 'LIKE', '%si-backlog-marker%')->delete();
+        $body = $this->postJson($url, ['action' => 'reconvert_all', 'lanes' => 'html'])->assertOk()->json();
+        expect($body['already_running'])->toBeFalse();
+        $run = siDb()->table('journal_import_runs')->where('id', $body['run_id'])->first();
+        expect($run->shelf_id)->toBe($shelf->id);
+        expect($run->canonical_source_id)->toBeNull();
+        expect($run->lanes)->toBe('html');
+    } finally {
+        siDb()->table('jobs')->where('payload', 'LIKE', '%si-backlog-marker%')->delete();
+    }
+});
+
+test('a shelf-wide reconvert_all and a single-article action hold each other off', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $work = siSeedShelvedWork($shelf, [['foundation_source' => 'journal_html']]);
+    $url = '/api/maintainer/shelf-import/' . $shelf->id . '/run';
+
+    $wide = $this->postJson($url, ['action' => 'reconvert_all'])->assertOk()->json();
+    $single = $this->postJson($url, ['action' => 'reconvert_html', 'book' => $work['books']['journal_html']])
+        ->assertOk()->json();
+
+    expect($single['already_running'])->toBeTrue();
+    expect($single['run_id'])->toBe($wide['run_id']);
+    expect($single['action'])->toBe('reconvert_all');
+    Queue::assertPushed(\App\Jobs\JournalImportActionJob::class, 1);
+});
+
+test('lint covers the shelf MEMBERS, and a snapshot turns it into a before/after', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $work = siSeedShelvedWork($shelf, [
+        ['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => 1000],
+        ['foundation_source' => 'journal_html', 'timestamp' => 1000],     // sibling, not on the shelf
+    ]);
+    $member  = $work['books']['canonical_pdf_vacuum'];
+    $sibling = $work['books']['journal_html'];
+    siSeedNodes($member, siBrokenNodes());
+    siSeedNodes($sibling, siBrokenNodes());
+    $base = '/api/maintainer/shelf-import/' . $shelf->id;
+
+    $body = $this->getJson("{$base}/lint")->assertOk()->json();
+    expect($body['pending'])->toBe(0);
+    expect($body['total'])->toBe(1);
+    expect($body['books'])->toHaveKey($member);
+    expect($body['books'])->not->toHaveKey($sibling);
+    expect($body['books'][$member]['counts'])->toBe(['fragment_blockquote' => 1]);
+    expect($body['compare'])->toBeNull();
+
+    $this->postJson("{$base}/lint/snapshot")->assertOk()->assertJsonPath('snapshot.books', 1);
+    expect(siDb()->table('conversion_lint_snapshots')->where('scope_id', $shelf->id)->exists())->toBeTrue();
+
+    // The reconvert fixed it: content changes and the content clock moves.
+    siSeedNodes($member, siCleanNodes());
+    siDb()->table('library')->where('book', $member)->update(['timestamp' => 2000]);
+
+    $compare = $this->getJson("{$base}/lint")->assertOk()->json('compare');
+    expect($compare['books'])->toBe(1);
+    expect($compare['changed'])->toBe(1);
+    expect($compare['gone'])->toBe(1);
+    expect($compare['new_total'])->toBe(0);
+
+    // A verdict on a book that is not a member of this shelf is refused.
+    $this->postJson("{$base}/lint/review", [
+        'book' => $sibling, 'detector' => 'fragment_blockquote', 'excerpt' => 'domain names', 'verdict' => 'real',
+    ])->assertNotFound();
+
+    $this->deleteJson("{$base}/lint/snapshot")->assertOk();
+    expect(siDb()->table('conversion_lint_snapshots')->where('scope_id', $shelf->id)->exists())->toBeFalse();
+});
+
+test('a shelf snapshot is refused while its conversions are still queued', function () {
+    $this->loginUser(['is_admin' => true]);
+    $shelf = siSeedShelf('public');
+    $book = siSeedShelvedWork($shelf, [['foundation_source' => 'canonical_pdf_vacuum']])['books']['canonical_pdf_vacuum'];
+    siSeedNodes($book, siCleanNodes());
+
+    try {
+        siDb()->table('jobs')->insert([siQueuedConversion('default', $book)]);
+
+        $this->postJson('/api/maintainer/shelf-import/' . $shelf->id . '/lint/snapshot')->assertStatus(409);
+        expect(siDb()->table('conversion_lint_snapshots')->where('scope_id', $shelf->id)->exists())->toBeFalse();
+    } finally {
+        siDb()->table('jobs')->where('payload', 'LIKE', '%si-backlog-marker%')->delete();
+    }
+});
+

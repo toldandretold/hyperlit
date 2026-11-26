@@ -39,7 +39,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 7;
+    public const VERSION = 8;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -53,6 +53,7 @@ class ConversionLint
         'raw_marker'          => 2,
         'note_keeps_marker'   => 2,
         'unconverted_note_link' => 2,
+        'dead_internal_link'  => 1,
         'bare_superscript_number' => 1,
         'long_heading'        => 2,
         'glued_heading_digit' => 1,
@@ -107,9 +108,13 @@ class ConversionLint
         $defs = [];           // fn id => definition text
         $defLines = [];       // fn id => startLine of its stored definition node, where one has an anchor
         $defNodes = [];       // startLine => text of every node in the stored definitions section
+        $anchorIds = [];      // every id / name any node's content carries: what an in-page link can land on
         $inDefs = false;
         foreach ($nodes as $n) {
             $html = (string) ($n['content'] ?? '');
+            if (preg_match_all('/<[^>]*\s(?:id|name)="([^"]+)"/', $html, $idm)) {
+                $anchorIds += array_flip($idm[1]);
+            }
             $tag = $this->tag($html);
             if (preg_match('/^h[1-6]$/', $tag)) {
                 // The definitions section ends at the next heading. A converter slip can put the
@@ -223,6 +228,29 @@ class ConversionLint
             // (marxists.org alone: sup.enote, span.note, bare links, starred series), so this reads
             // the LEFTOVER instead of the pattern — whatever shape was missed, it ends up as one
             // of these two. (the-poverty-of-philosophy "[*1]", prod 2026-11-25.)
+            // An ordinary in-page link (a contents entry, "see Chapter 3") whose landing spot is
+            // in no node of the book. The source's anchor was lost on the way in: marxists.org
+            // prints section anchors BETWEEN blocks, and a book is stored one node per block
+            // (the Grundrisse's analytical contents lost 34 of 297 links). Marker-shaped links
+            // are the detector below's; a citation or hypercite lands outside the nodes by design.
+            if (preg_match_all('/<a\b([^>]*)\bhref="#([^"]+)"([^>]*)>(.*?)<\/a>/su', $node['html'], $dm, PREG_SET_ORDER)) {
+                foreach ($dm as $d) {
+                    $attrs = $d[1] . $d[3];
+                    $label = trim(html_entity_decode(strip_tags($d[4]), ENT_QUOTES | ENT_HTML5));
+                    if (isset($anchorIds[$d[2]]) || isset($anchorIds[rawurldecode($d[2])])
+                            || str_contains($attrs, 'citation') || str_contains($attrs, 'hypercite')
+                            || preg_match('/^(?:Fn|hypercite_|HL_)/', $d[2])
+                            // "#turney2017": an author-year citation key. A citation with no
+                            // bibliography entry is a different defect, and not this detector's.
+                            || preg_match('/^[\p{L}_-]+\d{4}[a-z]?$/u', $d[2])
+                            || preg_match('/^[\[(]?(?:\d{1,3}[a-z]?|[*†‡§¶#+]{1,6}\d{0,3}|[a-z])[\])]?\.?$/iu', $label)) {
+                        continue;
+                    }
+                    $add('dead_internal_link', $node, "link “" . mb_substr($label, 0, 60) . "” → #{$d[2]}");
+                    break;
+                }
+            }
+
             if (preg_match_all('/<a\b([^>]*)\bhref="#[^"]*"([^>]*)>(.*?)<\/a>/su', $node['html'], $am, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
                 foreach ($am as $a) {
                     $attrs = $a[1][0] . $a[2][0];

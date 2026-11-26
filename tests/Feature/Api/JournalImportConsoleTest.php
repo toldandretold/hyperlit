@@ -34,7 +34,7 @@ function jconCleanup(): void
     jconDb()->table('conversion_lint_results')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('conversion_lint_reviews')->where('book', 'LIKE', 'book_jcon%')->delete();
     jconDb()->table('conversion_lint_snapshots')->whereIn(
-        'journal_source_id',
+        'scope_id',
         jconDb()->table('journal_sources')->where('display_name', 'LIKE', 'JCon %')->pluck('id')
     )->delete();
     jconDb()->table('canonical_source')->where('title', 'LIKE', 'JCon %')->delete();
@@ -268,6 +268,47 @@ test('a draining reconvert_all is countable: articles payload + the backlog poll
 
     $body = $this->getJson("/api/maintainer/journal-import/{$journal->slug}/articles")->assertOk()->json();
     expect($body['reconvert_backlog'])->toBe(2);
+});
+
+test('a second reconvert_all is refused while the first is still draining', function () {
+    Queue::fake();
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $book = (string) Str::uuid();
+    jconSeedArticle($journal->id, ['title' => 'JCon Draining Work'], [
+        ['foundation_source' => 'journal_html', 'book' => $book],
+    ]);
+
+    // The first run finished QUEUEING — its row is terminal, so the in-flight guard has nothing
+    // to hold — but its conversion is still waiting on the import worker. Serialized the way the
+    // queue really does it: the count reads the job's own `bookId` property out of the payload.
+    $job = new \App\Jobs\ProcessDocumentImportJob($book, 'html', null, ['marker' => 'jcon-backlog-marker'], []);
+    jconDb()->table('jobs')->insert([
+        'queue'   => 'default',
+        'payload' => json_encode([
+            'uuid'        => (string) Str::uuid(),
+            'displayName' => \App\Jobs\ProcessDocumentImportJob::class,
+            'data'        => ['commandName' => \App\Jobs\ProcessDocumentImportJob::class, 'command' => serialize($job)],
+        ]),
+        'attempts' => 0, 'available_at' => time(), 'created_at' => time(),
+    ]);
+    $url = "/api/maintainer/journal-import/{$journal->slug}/run";
+
+    try {
+        $this->postJson($url, ['action' => 'reconvert_all', 'lanes' => 'both'])
+            ->assertStatus(409)
+            ->assertJsonPath('pending', 1);
+        Queue::assertNothingPushed();
+
+        // Only the reconvert is held: enumerating touches no book's nodes.
+        $this->postJson($url, ['action' => 'enumerate'])->assertOk();
+    } finally {
+        jconDb()->table('jobs')->where('payload', 'LIKE', '%jcon-backlog-marker%')->delete();
+    }
+
+    jconDb()->table('journal_import_runs')->where('journal_source_id', $journal->id)->delete();
+    $this->postJson($url, ['action' => 'reconvert_all', 'lanes' => 'both'])
+        ->assertOk()->assertJsonPath('already_running', false);
 });
 
 test('promote makes the lane the version and reports what it unlisted', function () {
@@ -1331,7 +1372,7 @@ test('a snapshot is refused while conversions are still queued for the journal',
     ]);
 
     $this->postJson("/api/maintainer/journal-import/{$journal->slug}/lint/snapshot")->assertStatus(409);
-    expect(jconDb()->table('conversion_lint_snapshots')->where('journal_source_id', $journal->id)->exists())->toBeFalse();
+    expect(jconDb()->table('conversion_lint_snapshots')->where('scope_id', $journal->id)->exists())->toBeFalse();
 });
 
 // ── Conversion lint: a human's verdict on a finding ──

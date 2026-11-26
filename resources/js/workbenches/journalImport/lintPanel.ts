@@ -16,8 +16,9 @@
  *    changes the numbers; main.ts calls `refreshLint` from its drain poll so the before/after
  *    strip moves while you watch rather than only at the end.
  *
- *  - Journal console only. The shelf console shares main.ts but has none of this markup, so
- *    every entry point checks for its container and is a no-op without it.
+ *  - Both consoles. The journal and shelf detail pages include the same strip and are served
+ *    by the same lint endpoints under their own scope-keyed base (`options.apiBase`). Every
+ *    entry point still checks for its container, so it is a no-op on a page without one.
  */
 
 import { log } from '../../utilities/logger';
@@ -38,8 +39,10 @@ interface LintPayload {
 }
 
 export interface LintPanelOptions {
-  /** `/api/maintainer/journal-import/{slug}` — the journal-scoped base. */
+  /** The scope-keyed base — `/api/maintainer/journal-import/{slug}` or `…/shelf-import/{id}`. */
   apiBase: () => string;
+  /** What the scope is called in copy: 'journal' or 'shelf'. */
+  scopeNoun: string;
   /** The lint changed: redraw the article list and the selected lane's strip. */
   onChange: () => void;
   /** A finding was confirmed or un-confirmed: the lane's note (and case flag) changed server-side. */
@@ -66,7 +69,7 @@ let reviewed = 0;
 
 const node = <T extends HTMLElement>(id: string): T | null => document.getElementById(id) as T | null;
 
-/** Is this the journal console (the shelf console has no lint markup)? */
+/** Is the lint strip on this page? (Both detail pages carry it; the index pages do not.) */
 function present(): boolean {
   return options !== null && node('ji-lint-bar') !== null;
 }
@@ -94,7 +97,7 @@ export function initLintPanel(opts: LintPanelOptions): void {
 
   node<HTMLButtonElement>('ji-lint-snapshot')?.addEventListener('click', () => {
     if (compare && !window.confirm(
-      'Replace the existing snapshot with the journal as it is now?\n\n'
+      `Replace the existing snapshot with the ${options?.scopeNoun ?? 'journal'} as it is now?\n\n`
       + 'The current before/after comparison is discarded.',
     )) return;
     void takeSnapshot();
@@ -240,7 +243,7 @@ function paintBar(): void {
     snapshot.disabled = pending > 0 || total === 0;
     snapshot.textContent = compare ? 're-snapshot' : 'snapshot';
     snapshot.title = compare
-      ? 'Replace the snapshot with the journal as it is now'
+      ? `Replace the snapshot with the ${options?.scopeNoun ?? 'journal'} as it is now`
       : 'Record today\'s problems, so that after a reconvert you can see what it fixed and what it broke';
   }
 

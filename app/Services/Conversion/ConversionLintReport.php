@@ -113,8 +113,13 @@ class ConversionLintReport
         return ['pending' => $pending, 'books' => $out];
     }
 
-    /** Freeze the current findings as the "before" of a later comparison. */
-    public function saveSnapshot(string $journalId, array $books, array $report, ?string $by): array
+    /**
+     * Freeze the current findings as the "before" of a later comparison.
+     *
+     * `$scopeId` is an ImportConsoleScope id — a journal's or a shelf's; both are uuids, so one
+     * key space holds either.
+     */
+    public function saveSnapshot(string $scopeId, array $books, array $report, ?string $by): array
     {
         $payload = [];
         foreach ($report['books'] as $book => $b) {
@@ -126,19 +131,19 @@ class ConversionLintReport
         }
         $row = ['taken_by' => $by, 'taken_at' => now(), 'books' => json_encode($payload)];
         DB::connection('pgsql_admin')->table('conversion_lint_snapshots')
-            ->updateOrInsert(['journal_source_id' => $journalId], $row);
+            ->updateOrInsert(['scope_id' => $scopeId], $row);
 
         return ['taken_at' => $row['taken_at']->toIso8601String(), 'taken_by' => $by, 'books' => count($payload)];
     }
 
-    public function deleteSnapshot(string $journalId): void
+    public function deleteSnapshot(string $scopeId): void
     {
         DB::connection('pgsql_admin')->table('conversion_lint_snapshots')
-            ->where('journal_source_id', $journalId)->delete();
+            ->where('scope_id', $scopeId)->delete();
     }
 
     /**
-     * The journal's snapshot against the current report, or null when none was taken.
+     * The scope's snapshot against the current report, or null when none was taken.
      *
      * `waiting` is the number that keeps the comparison honest mid-drain: a reconvert_all clears
      * every book at ENQUEUE, so a queued book has no content and therefore no findings — counting
@@ -149,10 +154,10 @@ class ConversionLintReport
      * @param array<string, int> $books book => library.timestamp (books with content only)
      * @return array<string, mixed>|null
      */
-    public function compareWithSnapshot(string $journalId, array $books, array $report): ?array
+    public function compareWithSnapshot(string $scopeId, array $books, array $report): ?array
     {
         $row = DB::connection('pgsql_admin')->table('conversion_lint_snapshots')
-            ->where('journal_source_id', $journalId)->first();
+            ->where('scope_id', $scopeId)->first();
         if (! $row) {
             return null;
         }

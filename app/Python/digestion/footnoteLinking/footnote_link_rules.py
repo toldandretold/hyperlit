@@ -296,24 +296,14 @@ class NoterefConverter(LinkRule):
         def_elem_ids = {id(fn['element']) for fn in ctx.all_footnotes if fn.get('element') is not None}
         noteref_elem_ids = {id(nr['element']) for nr in ctx.all_noterefs if nr.get('element') is not None}
 
-        for noteref in ctx.all_noterefs:
-            target_id = noteref.get('target_id', '')
-            elem = noteref.get('element')
-            original_marker = noteref.get('original_marker', '')
-            if not target_id or not elem:
-                continue
-            if elem.parent is None:
-                continue
-            if any(id(anc) in def_elem_ids for anc in elem.parents):
-                ctx.backlinks_excluded += 1
-                continue
-            if any(id(anc) in noteref_elem_ids for anc in elem.parents):
-                ctx.nested_excluded += 1
-                continue
+        def resolve(target_id):
             if target_id not in ctx.id_mapping:
                 target_id = ctx.id_aliases.get(target_id, target_id)
-            if target_id not in ctx.id_mapping:
-                continue
+            return target_id if target_id in ctx.id_mapping else None
+
+        def link(noteref, target_id):
+            elem = noteref['element']
+            original_marker = noteref.get('original_marker', '')
             mapping = ctx.id_mapping[target_id]
             new_id = mapping['new_id']
             if new_id in ctx.used_ref_ids:
@@ -331,6 +321,45 @@ class NoterefConverter(LinkRule):
             if convert_noteref_element(elem, new_id, display_marker, ctx.soup):
                 ctx.converted_refs += 1
                 ctx.linked_targets.add(target_id)
+
+        inside_a_definition = []
+        for noteref in ctx.all_noterefs:
+            target_id = noteref.get('target_id', '')
+            elem = noteref.get('element')
+            if not target_id or not elem:
+                continue
+            if elem.parent is None:
+                continue
+            host = next((anc for anc in elem.parents if id(anc) in def_elem_ids), None)
+            if host is not None:
+                inside_a_definition.append((noteref, host))
+                continue
+            if any(id(anc) in noteref_elem_ids for anc in elem.parents):
+                ctx.nested_excluded += 1
+                continue
+            target_id = resolve(target_id)
+            if target_id is not None:
+                link(noteref, target_id)
+
+        # A link inside a definition is normally its back-pointer. It is a real citation when it
+        # points at ANOTHER definition that nothing in the body cites: an editor's note on the
+        # author's own footnote (Lenin's "…in Schmollers Jahrbuch,[29] 1896.—Lenin", where [29] is
+        # the editors'). Only where the notes stay printed in the text, so the marker is ordinary
+        # body content, and only for a note that would otherwise be orphaned.
+        for noteref, host in inside_a_definition:
+            target_id = resolve(noteref.get('target_id', '')) if ctx.keep_definitions else None
+            elem = noteref['element']
+            if (target_id is None or target_id in ctx.linked_targets or elem.parent is None
+                    or ctx.id_mapping[target_id].get('element') is host
+                    or any(id(anc) in noteref_elem_ids for anc in elem.parents)):
+                ctx.backlinks_excluded += 1
+                continue
+            link(noteref, target_id)
+            # The host's content was extracted before this marker existed; take it again, or the
+            # reprinted note shows the dead link (which StrayLinkCleaner then empties).
+            for old_id, mapping in ctx.id_mapping.items():
+                if mapping.get('element') is host:
+                    mapping['content'] = extract_footnote_content(host, old_id)
 
 
 class LinkingStatsRecorder(LinkRule):

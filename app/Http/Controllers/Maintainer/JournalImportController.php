@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Maintainer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Maintainer\Concerns\BuildsImportLanes;
+use App\Http\Controllers\Maintainer\Concerns\ServesConversionLint;
 use App\Jobs\JournalImportActionJob;
 use App\Models\JournalSource;
-use App\Services\Conversion\ConversionLintReport;
+use App\Services\Conversion\ImportConsoleScope;
 use App\Services\Conversion\ReconvertQueue;
 use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\JournalHarvest\JournalVersionPromoter;
 use App\Services\SourceHarvest\HarvestEligibility;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -38,10 +40,8 @@ use Illuminate\Support\Str;
  */
 class JournalImportController extends Controller
 {
-    /** The reason on a flag opened by confirming a lint finding (and nothing else). */
-    private const LINT_FLAG_REASON = 'Confirmed conversion-lint finding';
-
     use BuildsImportLanes;
+    use ServesConversionLint;
 
     /** Everything the console can fire; see JournalImportActionJob for what each one means. */
     private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'enumerate', 'import_all', 'reconvert_all'];
@@ -68,6 +68,18 @@ class JournalImportController extends Controller
      */
     private const DEFAULT_CHAIN_SPEND_CAP = 40.0;
     private const MAX_CHAIN_SPEND_CAP = 250.0;
+
+    protected function consoleScope(string $key): ?ImportConsoleScope
+    {
+        $journal = JournalSource::where('slug', $key)->first();
+
+        return $journal ? ImportConsoleScope::journal($journal) : null;
+    }
+
+    protected function scopeNotFound(): JsonResponse
+    {
+        return response()->json(['message' => 'Journal not found'], 404);
+    }
 
     /** GET /maintainer/journal-import — pick a journal. */
     public function index(Request $request)
@@ -153,50 +165,17 @@ class JournalImportController extends Controller
             ->where('cs.journal_source_id', $journal->id)
             ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
             ->orderBy('cs.id')
-            ->select([
-                'cs.id as canonical_id', 'cs.title', 'cs.author', 'cs.year', 'cs.volume', 'cs.issue',
-                'cs.doi', 'cs.cited_by_count', 'cs.is_oa', 'cs.oa_url', 'cs.pdf_url',
-                'cs.auto_version_book',
-                'l.book', 'l.has_nodes', 'l.listed', 'l.visibility', 'l.conversion_method',
-                'l.foundation_source', 'l.completeness', 'l.completeness_reason',
-                'l.pdf_url_status', 'l.created_at as lane_created_at',
-            ])
+            ->select($this->laneSelectColumns())
             ->get();
 
         $articles = $this->foldArticles($rows, $this->openFlagCountsByBook(), $queue);
 
         $estimate = $eligibility->estimateForJournal($journal->id);
 
-        // An in-flight journal-scoped run rides along so a RELOADED page re-attaches its poll
-        // instead of going silent for the rest of a 50-minute import. The poll lives in a promise
-        // chain with no persisted run id, so without this a refresh is indistinguishable from a
-        // dead worker — which is exactly what it looked like.
-        //
-        // Journal-scoped only (`canonical_source_id` null): a per-article action reports into its
-        // own bar, and re-attaching it to the journal bar would put one article's progress where
-        // the bulk run's belongs.
-        $activeRun = $db->table('journal_import_runs')
-            ->where('journal_source_id', $journal->id)
-            ->whereNull('canonical_source_id')
-            ->whereIn('status', ['pending', 'running'])
-            ->where('updated_at', '>', now()->subHour())
-            ->orderByDesc('created_at')
-            ->first(['id', 'status', 'action', 'lanes', 'work_limit', 'step_detail', 'progress',
-                     'continue_until_done', 'chain_position', 'chain_spend', 'spend_cap']);
-
-        if ($activeRun) {
-            $activeRun->progress = json_decode((string) $activeRun->progress, true) ?: null;
-        }
-
         return response()->json([
-            'active_run' => $activeRun,
-            // A reconvert_all run reports `completed` when it has finished QUEUEING —
-            // the conversions themselves drain through the import worker for hours
-            // afterwards, with every queued book sitting content-cleared ("no content"
-            // badges). With no signal here the console looked broken and got the
-            // button re-pressed over a 941-book corpus (2026-09-15). Non-zero means
-            // "still draining"; the page shows it and polls /reconvert-backlog.
-            'reconvert_backlog' => $this->pendingConversionJobs($journal->id),
+            // The in-flight journal-wide run (so a reloaded page re-attaches its poll) and the
+            // count of conversions still draining behind a finished reconvert_all.
+            ...$this->scopePayload(ImportConsoleScope::journal($journal)),
             'journal' => [
                 'slug'               => $journal->slug,
                 'display_name'       => $journal->display_name,
@@ -217,409 +196,6 @@ class JournalImportController extends Controller
             'estimate' => $estimate,
             'articles' => $articles,
         ]);
-    }
-
-    /**
-     * GET /api/maintainer/journal-import/{slug}/reconvert-backlog — the drain poll.
-     *
-     * Deliberately tiny (one count) so the console can poll it every ~20s for the
-     * hours a 900-book reconvert_all takes to drain, without re-folding 950 articles
-     * per tick the way /articles does.
-     */
-    public function reconvertBacklog(Request $request, string $slug)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-
-        return response()->json(['pending' => $this->pendingConversionJobs($journal->id)]);
-    }
-
-    /**
-     * GET /api/maintainer/journal-import/{slug}/lint — "search this journal for problems".
-     *
-     * Every lane with content, ranked by the structural defects its stored nodes show
-     * (ConversionLint), plus the before/after against the journal's snapshot when one was taken.
-     * Separate from /articles on purpose: that payload is what the page needs to draw at all,
-     * and this one can be slow the first time (a cold journal is computed across several
-     * requests — `pending` says how many lanes are still to do, and the page asks again).
-     */
-    public function lint(Request $request, string $slug, ConversionLintReport $report)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-
-        $books = $this->lintableBooks($journal->id);
-        $result = $report->forBooks($books);
-        $compare = $result['pending'] === 0
-            ? $report->compareWithSnapshot($journal->id, $books, $result)
-            : null;
-
-        $payload = [];
-        foreach ($result['books'] as $book => $b) {
-            $newKeys = array_flip($compare['new'][$book] ?? []);
-            $findings = array_map(
-                fn ($f) => $f + ['is_new' => isset($newKeys[$f['key']])],
-                $b['findings'],
-            );
-            // New findings first: with the list capped, the ones a reconvert INTRODUCED are the
-            // ones that must never be cut off.
-            usort($findings, fn ($x, $y) => $y['is_new'] <=> $x['is_new']);
-            $payload[$book] = [
-                'score'          => $b['score'],
-                'counts'         => $b['counts'],
-                'findings'       => array_slice($findings, 0, ConversionLintReport::FINDINGS_CAP),
-                'findings_total' => count($findings),
-                'new'            => count($newKeys),
-                'confirmed'      => count(array_filter($findings, fn ($f) => $f['confirmed'])),
-                // Judged false alarms: out of every count above, kept so the verdict can be undone.
-                'dismissed'      => array_slice($b['dismissed'], 0, ConversionLintReport::FINDINGS_CAP),
-            ];
-        }
-
-        if ($compare) {
-            // Per-book keys were only needed to mark the findings above.
-            $compare['new_books'] = count($compare['new']);
-            unset($compare['new']);
-        }
-
-        return response()->json([
-            'pending' => $result['pending'],
-            'total'   => count($books),
-            'books'   => (object) $payload,
-            'compare' => $compare,
-            // Any verdict at all makes the cases download worth offering.
-            'reviewed' => count($report->reviewRows(array_keys($books))),
-        ]);
-    }
-
-    /**
-     * POST /api/maintainer/journal-import/{slug}/lint/review — a human's verdict on one finding.
-     *
-     * `false_alarm` takes it out of the lane's count for good (keyed by detector + excerpt, so it
-     * stays dismissed across reconverts). `real` confirms it AND writes it into the lane's
-     * maintainer note — the note already opens a case and already rides the case bundle, so a
-     * confirmed finding reaches whoever fixes the converter by the road that exists. A null
-     * verdict withdraws either.
-     */
-    public function lintReview(Request $request, string $slug, ConversionLintReport $report)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-        $data = $request->validate([
-            'book'      => 'required|string|max:255',
-            'detector'  => 'required|string|max:40|regex:/^[a-z_]+$/',
-            'excerpt'   => 'required|string|max:400',
-            'startLine' => 'nullable|string|max:40',
-            'verdict'   => 'present|nullable|in:' . ConversionLintReport::VERDICT_REAL . ',' . ConversionLintReport::VERDICT_FALSE_ALARM,
-        ]);
-        if (! array_key_exists($data['book'], $this->lintableBooks($journal->id))) {
-            return response()->json(['message' => 'That book is not a lane of this journal.'], 404);
-        }
-
-        $finding = ['detector' => $data['detector'], 'excerpt' => $data['excerpt'],
-                    'startLine' => (string) ($data['startLine'] ?? '')];
-        $report->review($data['book'], $finding, $data['verdict'], $request->user()?->name);
-        $this->syncConfirmedFindingNote(
-            $data['book'], $finding, $data['verdict'] === ConversionLintReport::VERDICT_REAL, $request->user()?->name);
-
-        return response()->json(['ok' => true, 'key' => \App\Services\Conversion\ConversionLint::key($finding)]);
-    }
-
-    /**
-     * GET /api/maintainer/journal-import/{slug}/lint/cases — the cases worth taking to a dev machine.
-     *
-     * NOT every lane with a confirmed problem: a converter fix is per KIND of defect, and a bundle
-     * is the whole PDF plus its OCR, so a journal's worth would be hundreds of megabytes of the
-     * same bug. One example lane per confirmed kind — the lane with the most confirmed findings of
-     * that kind — plus `lint-review.json`, which lists EVERY verdict (the confirmed ones the fix
-     * should clear, and the false alarms, which are evidence for tightening a detector).
-     * One outer tar of ordinary book:export bundles; `book:import-cases --downloads` unpacks it.
-     */
-    public function lintCases(Request $request, string $slug, ConversionLintReport $report)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-
-        $books = $this->lintableBooks($journal->id);
-        $rows = $report->reviewRows(array_keys($books));
-        $sample = $request->boolean('sample');
-        if ($rows === [] && ! $sample) {
-            return response()->json(['message' => 'Nothing reviewed yet — confirm or dismiss a problem first.'], 422);
-        }
-
-        // detector => book => confirmed count; the busiest lane is that kind's example.
-        $tally = [];
-        foreach ($rows as $row) {
-            if ($row['verdict'] === ConversionLintReport::VERDICT_REAL) {
-                $tally[$row['detector']][$row['book']] = ($tally[$row['detector']][$row['book']] ?? 0) + 1;
-            }
-        }
-        $examples = [];   // book => kinds it stands for
-        foreach ($tally as $detector => $perBook) {
-            arsort($perBook);
-            // Prefer a lane already chosen for another kind when it ties for the lead — fewer bundles.
-            $best = array_key_first($perBook);
-            foreach ($perBook as $book => $n) {
-                if ($n === $perBook[$best] && isset($examples[$book])) {
-                    $best = $book;
-                    break;
-                }
-            }
-            $examples[$best][] = $detector;
-        }
-
-        // ?sample=1 — nobody has reviewed anything (or not every kind): take examples straight
-        // from the lint. One lane per kind, and for a kind the last reconvert made WORSE the two
-        // lanes with the most NEW findings of it, because those are the regression to diagnose.
-        $sampled = [];
-        $sampledFindings = [];
-        if ($sample) {
-            $result = $report->forBooks($books);
-            if ($result['pending'] > 0) {
-                return response()->json(['message' => 'Still checking this journal for problems — try again in a moment.'], 409);
-            }
-            $compare = $report->compareWithSnapshot($journal->id, $books, $result);
-            $perKind = [];   // detector => book => [new, all]
-            foreach ($result['books'] as $book => $b) {
-                $newKeys = array_flip($compare['new'][$book] ?? []);
-                foreach ($b['findings'] as $f) {
-                    $perKind[$f['detector']][$book] ??= [0, 0];
-                    $perKind[$f['detector']][$book][0] += isset($newKeys[$f['key']]) ? 1 : 0;
-                    $perKind[$f['detector']][$book][1] += 1;
-                }
-            }
-            foreach ($perKind as $detector => $perBook) {
-                uasort($perBook, fn ($x, $y) => [$y[0], $y[1]] <=> [$x[0], $x[1]]);
-                $top = array_key_first($perBook);
-                $take = $perBook[$top][0] > 0
-                    ? array_keys(array_filter(array_slice($perBook, 0, 2, true), fn ($n) => $n[0] > 0))
-                    : [$top];
-                foreach ($take as $book) {
-                    $sampled[$book][] = $detector;
-                }
-            }
-            foreach ($sampled as $book => $kinds) {
-                $newKeys = array_flip($compare['new'][$book] ?? []);
-                foreach ($result['books'][$book]['findings'] as $f) {
-                    if (in_array($f['detector'], $kinds, true)) {
-                        $sampledFindings[] = ['book' => $book, 'detector' => $f['detector'],
-                            'startLine' => $f['startLine'], 'excerpt' => $f['excerpt'],
-                            'is_new' => isset($newKeys[$f['key']])];
-                    }
-                }
-            }
-        }
-
-        $dir = storage_path('app/book-exports/lint-cases-' . Str::random(12));
-        \Illuminate\Support\Facades\File::ensureDirectoryExists($dir);
-        $members = ['lint-review.json'];
-        $failed = [];
-        foreach (array_unique(array_merge(array_keys($examples), array_keys($sampled))) as $book) {
-            $out = "{$dir}/{$book}.tar.gz";
-            $exit = \Illuminate\Support\Facades\Artisan::call('book:export', [
-                'book' => $book, '--out' => $out, '--origin' => 'journal-import',
-                // A lint finding is about what the CONVERTER did with a fetch that was fine.
-                // Left to auto-detect, every harvested article exports as a `harvest`
-                // (acquisition) case: import-cases then prints "the fetch was wrong", captures
-                // no regression fixture, and reconvert-queue suggests retracting the book.
-                '--kind' => \App\Console\Commands\BookExport::KIND_CONVERSION,
-            ]);
-            if ($exit === 0 && is_file($out)) {
-                $members[] = "{$book}.tar.gz";
-            } else {
-                $failed[] = $book;
-            }
-        }
-
-        $verdict = fn (string $v) => array_values(array_map(
-            fn ($r) => ['book' => $r['book'], 'detector' => $r['detector'], 'startLine' => $r['start_line'], 'excerpt' => $r['excerpt']],
-            array_filter($rows, fn ($r) => $r['verdict'] === $v)));
-        file_put_contents("{$dir}/lint-review.json", json_encode([
-            'journal'       => $journal->display_name,
-            'slug'          => $journal->slug,
-            'exported_at'   => now()->toIso8601String(),
-            'lint_version'  => \App\Services\Conversion\ConversionLint::VERSION,
-            'examples'      => $examples,
-            // Unreviewed lanes picked by the lint itself (?sample=1) and what it found in them.
-            'sampled'          => $sampled,
-            'sampled_findings' => $sampledFindings,
-            'export_failed' => $failed,
-            'confirmed'     => $verdict(ConversionLintReport::VERDICT_REAL),
-            'false_alarms'  => $verdict(ConversionLintReport::VERDICT_FALSE_ALARM),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE));
-
-        $outer = "{$dir}.tar";
-        $tar = new \Symfony\Component\Process\Process(array_merge(['tar', '-cf', $outer, '-C', $dir], $members));
-        $tar->run();
-        \Illuminate\Support\Facades\File::deleteDirectory($dir);
-        if (! $tar->isSuccessful() || ! is_file($outer)) {
-            return response()->json(['message' => 'Could not build the cases archive — see logs.'], 500);
-        }
-
-        return response()->download($outer, "lint-cases-{$journal->slug}.tar")->deleteFileAfterSend(true);
-    }
-
-    /**
-     * Keep the lane's maintainer note in step with its confirmed findings: one line per finding,
-     * tagged with the finding's key so the same line can be found and removed again. Opens a
-     * `manual` flag when the lane has none (as MaintainerController::note does — a confirmed
-     * problem with no case is a problem nobody will pick up), and closes that flag again if
-     * un-confirming leaves it with nothing to say.
-     */
-    private function syncConfirmedFindingNote(string $book, array $finding, bool $confirmed, ?string $by): void
-    {
-        $key = \App\Services\Conversion\ConversionLint::key($finding);
-        $flags = \App\Models\ConversionFlag::where('book', $book)->where('status', 'open')->get();
-        if ($flags->isEmpty()) {
-            if (! $confirmed) {
-                return;
-            }
-            $flags = collect([\App\Models\ConversionFlag::create([
-                'book'    => $book,
-                'source'  => \App\Models\ConversionFlag::SOURCE_MANUAL,
-                'reason'  => self::LINT_FLAG_REASON,
-                'status'  => 'open',
-                'details' => [],
-            ])]);
-        }
-
-        $where = $finding['startLine'] !== '' ? " (node {$finding['startLine']})" : '';
-        $line = "✓ [{$key}]{$where} " . Str::limit(preg_replace('/\s+/u', ' ', $finding['excerpt']), 170);
-
-        foreach ($flags as $flag) {
-            $details = $flag->details ?? [];
-            $lines = array_values(array_filter(
-                preg_split('/\R/u', (string) ($details['maintainer_note'] ?? '')),
-                fn ($l) => ! str_contains($l, "[{$key}]"),
-            ));
-            if ($confirmed) {
-                $lines[] = $line;
-            }
-            $note = trim(implode("\n", $lines));
-
-            if ($note === '') {
-                if ($flag->reason === self::LINT_FLAG_REASON && $flag->source === \App\Models\ConversionFlag::SOURCE_MANUAL) {
-                    $flag->delete();     // we opened it for this, and nothing is left of it
-                    continue;
-                }
-                unset($details['maintainer_note'], $details['noted_by'], $details['noted_at']);
-            } else {
-                $details['maintainer_note'] = Str::limit($note, 3990, '');
-                $details['noted_by'] = $by;
-                $details['noted_at'] = now()->toIso8601String();
-            }
-            $flag->details = $details;
-            $flag->save();
-        }
-    }
-
-    /**
-     * POST /api/maintainer/journal-import/{slug}/lint/snapshot — freeze "before".
-     *
-     * Refused while the journal is not in a state worth freezing: lanes still to lint (the
-     * snapshot would be partial), or conversions still queued (a reconvert_all clears each book at
-     * enqueue, so a mid-drain snapshot records gutted books as clean and every later comparison
-     * reads as a regression).
-     */
-    public function lintSnapshot(Request $request, string $slug, ConversionLintReport $report)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-
-        if (($queued = $this->pendingConversionJobs($journal->id)) > 0) {
-            return response()->json([
-                'message' => "{$queued} conversion(s) are still queued for this journal — snapshot once they have run.",
-            ], 409);
-        }
-
-        $books = $this->lintableBooks($journal->id);
-        $result = $report->forBooks($books);
-        if ($result['pending'] > 0) {
-            return response()->json([
-                'message' => "{$result['pending']} lane(s) are still being checked — try again in a moment.",
-                'pending' => $result['pending'],
-            ], 409);
-        }
-
-        return response()->json([
-            'snapshot' => $report->saveSnapshot($journal->id, $books, $result, $request->user()?->name),
-        ]);
-    }
-
-    /** DELETE /api/maintainer/journal-import/{slug}/lint/snapshot — stop comparing. */
-    public function lintSnapshotDelete(Request $request, string $slug, ConversionLintReport $report)
-    {
-        $journal = JournalSource::where('slug', $slug)->first();
-        if (! $journal) {
-            return response()->json(['message' => 'Journal not found'], 404);
-        }
-        $report->deleteSnapshot($journal->id);
-
-        return response()->json(['ok' => true]);
-    }
-
-    /**
-     * The journal's lanes that have something to lint: book => content clock. Every lane, not
-     * just the promoted one — comparing a PDF lane's problems with its HTML sibling's is half of
-     * what this console is for.
-     *
-     * @return array<string, int>
-     */
-    private function lintableBooks(string $journalId): array
-    {
-        return DB::connection('pgsql_admin')->table('library as l')
-            ->join('canonical_source as cs', 'cs.id', '=', 'l.canonical_source_id')
-            ->where('cs.journal_source_id', $journalId)
-            ->where('l.has_nodes', true)
-            ->where('l.book', 'not like', '%/%')
-            ->where(fn ($q) => $q->whereNull('l.visibility')->orWhere('l.visibility', '!=', 'deleted'))
-            ->pluck('l.timestamp', 'l.book')
-            ->map(fn ($t) => (int) $t)
-            ->all();
-    }
-
-    /**
-     * How many queued ProcessDocumentImportJobs belong to this journal's lanes.
-     *
-     * Matched by extracting the book uuid from the job payload (journal lanes are
-     * always uuid-minted by AutoVersionCreator) — the same payload-inspection
-     * technique as ImportQueuePosition, kept set-based because a reconvert_all
-     * fan-out means ~900 rows. Counts BOTH import lanes: bulk fan-outs ride
-     * `default`, but a book the operator then reconverts by hand rides `imports`.
-     */
-    private function pendingConversionJobs(string $journalId): int
-    {
-        // EVERY uuid in the payload is tried against the journal's lanes, not just the
-        // first — a queue payload's first uuid is the JOB's own `uuid` field, and the
-        // book id (journal lanes are always uuid-minted by AutoVersionCreator) sits
-        // further in, inside the serialized command. The job uuid is random and matches
-        // no library row, so the join quietly ignores it.
-        $row = DB::connection('pgsql_admin')->selectOne(
-            "select count(*) as n
-             from jobs j
-             where j.queue in (?, 'default')
-               and j.payload like '%ProcessDocumentImportJob%'
-               and exists (
-                 select 1
-                 from regexp_matches(j.payload, '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'g') m
-                 join library l on l.book = m[1]
-                 join canonical_source cs on cs.id = l.canonical_source_id
-                 where cs.journal_source_id = ?
-               )",
-            [\App\Jobs\ProcessDocumentImportJob::QUEUE_INTERACTIVE, $journalId],
-        );
-
-        return (int) ($row->n ?? 0);
     }
 
     /**
@@ -871,57 +447,23 @@ class JournalImportController extends Controller
             $canonicalId = $lane->canonical_source_id;
         }
 
-        // Refuse to pile a second run onto the same target — the actions replace a book's nodes,
-        // so two at once would interleave writes. A JOURNAL-scoped run has no single target: it
-        // may touch any work of the journal, so it excludes and is excluded by everything else on
-        // that journal, in both directions.
-        $inFlight = $db->table('journal_import_runs')
-            ->whereIn('status', ['pending', 'running'])
-            ->where('updated_at', '>', now()->subHour())
-            ->where(function ($q) use ($journal, $journalScoped, $canonicalId, $book) {
-                // Always blocked by a journal-wide run already underway.
-                $q->where(fn ($j) => $j->where('journal_source_id', $journal->id)
-                    ->whereIn('action', self::JOURNAL_ACTIONS));
-
-                $journalScoped
-                    // A new journal-wide run also waits for any single article still being worked.
-                    ? $q->orWhere('journal_source_id', $journal->id)
-                    : $q->orWhere(fn ($a) => $a->where('canonical_source_id', $canonicalId)->orWhere('book', $book));
-            })
-            ->first();
-        if ($inFlight) {
-            return response()->json([
-                'run_id'         => $inFlight->id,
-                'already_running' => true,
-                // Which run you joined matters when it isn't the one you pressed: pressing
-                // "import 5" during an enumerate should say so, not silently show its progress.
-                'action'         => $inFlight->action,
-            ]);
+        // Refuse to pile a second run onto the same target; a journal-wide run excludes and is
+        // excluded by everything else on the journal (see inFlightRun).
+        $scope = ImportConsoleScope::journal($journal);
+        if ($inFlight = $this->inFlightRun($scope, self::JOURNAL_ACTIONS, $journalScoped, $canonicalId, $book)) {
+            return $this->joinedRunResponse($inFlight);
+        }
+        if ($refusal = $this->drainingRefusal($scope, $action)) {
+            return $refusal;
         }
 
-        $runId = (string) Str::uuid();
-        $db->table('journal_import_runs')->insert([
-            'id'                  => $runId,
-            'journal_source_id'   => $journal->id,
-            'canonical_source_id' => $canonicalId,
-            'user_id'             => $request->user()?->id,
-            'action'              => $action,
-            'lanes'               => $lanes,
-            'status'              => 'pending',
-            'book'                => $book,
+        return $this->startRun($scope, $request, $action, $lanes, $canonicalId, $book, [
             'work_limit'          => $workLimit,
             'continue_until_done' => $continue,
             'spend_cap'           => $spendCap,
             'chain_spend'         => 0,
             'chain_position'      => 1,
-            'counts'              => '{}',
-            'created_at'          => now(),
-            'updated_at'          => now(),
         ]);
-
-        JournalImportActionJob::dispatch($runId);
-
-        return response()->json(['run_id' => $runId, 'already_running' => false]);
     }
 
     /**

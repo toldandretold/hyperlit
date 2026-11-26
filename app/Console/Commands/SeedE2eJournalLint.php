@@ -76,7 +76,7 @@ class SeedE2eJournalLint extends Command
         }
 
         if (! $reconverted) {
-            $admin->table('conversion_lint_snapshots')->where('journal_source_id', $journalId)->delete();
+            $admin->table('conversion_lint_snapshots')->where('scope_id', $journalId)->delete();
             $admin->table('conversion_lint_results')->whereIn('book', $books)->delete();
             $admin->table('conversion_lint_reviews')->whereIn('book', $books)->delete();
             $admin->table('conversion_flags')->whereIn('book', $books)->delete();

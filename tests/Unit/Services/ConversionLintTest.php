@@ -288,7 +288,7 @@ it('reads what an unrecognised note marker is left as: a marker-shaped link, or 
         lintNode('200', '<p>The apologetic accounts of profit.<sup>29</sup> This something given for the profit.</p>'),
         // Ordinary links, converted markers, fractions and indexed symbols are none of these.
         lintNode('300', '<p>See <a href="#chapter-2">the second chapter</a> and <a href="https://example.org/a">a</a>.</p>'),
-        lintNode('400', '<p>A claim<sup class="footnote-ref" fn-count-id="1" id="Fn1">1</sup> that is linked properly here.</p>'),
+        lintNode('400', '<p><a id="chapter-2"></a>A claim<sup class="footnote-ref" fn-count-id="1" id="Fn1">1</sup> that is linked properly here.</p>'),
         lintNode('500', '<p>About <sup>1</sup>/<sub>3</sub> of the spheres K<sup>1</sup>—K<sup>18</sup>, and 10<sup>2</sup> more.</p>'),
         lintNode('600', '<p>As <a class="in-text-citation" href="#bib1">12</a> has shown at some length already.</p>'),
         // A contents list in one paragraph: each line a numbered link, a full stop, a title.
@@ -330,4 +330,15 @@ it('does not call a sentence split when it runs through an uncaptioned display (
 
     expect(detectors((new ConversionLint)->lintBook($through)))->toBe([]);
     expect(detectors((new ConversionLint)->lintBook($floated)))->toBe(['split_sentence']);
+});
+
+it('flags an ordinary in-page link whose target is in no node, never one that lands', function () {
+    // Grundrisse: the section anchor stood between two blocks and was dropped on the way in.
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p><a href="#p001-loc2">(2) General relation between production, distribution</a> and <a href="#p001-loc3">(3) The method</a></p>'),
+        lintNode('200', '<h3><a id="p001-loc3"></a>(3) THE METHOD OF POLITICAL ECONOMY</h3>'),
+        lintNode('300', '<p>As Smith argues (<a href="#smith1776" class="in-text-citation">1776</a>; <a href="#turney2017">2017</a>), wealth grows.</p>'),
+    ]);
+    expect(detectors($r))->toBe(['dead_internal_link']);
+    expect($r['findings'][0]['excerpt'])->toContain('#p001-loc2');
 });

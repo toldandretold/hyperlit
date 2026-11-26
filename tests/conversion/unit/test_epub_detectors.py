@@ -680,6 +680,34 @@ def test_an_empty_anchor_linked_only_from_below_is_a_backlink_target_not_a_defin
     assert s.find('p', string='Body text that follows the anchor.') is not None
 
 
+def test_an_anchor_standing_just_before_the_note_identifies_it(soup):
+    # 1844 Manuscripts: the id anchor sits BETWEEN paragraphs. On Afghanistan: it closes the
+    # previous note, or sits inside the "Footnotes" heading.
+    _, ids, out = _pointed(soup, '<body><p>humanity <a href="#p011_p011-fn06">[6]</a>, and <a href="#p011_p011-fn07">[7]</a>; clans<a href="#p011_p011-fn08">[8]</a>.</p>'
+                                 '<h3>Footnotes <a id="p011_p011-fn06"> </a></h3>'
+                                 '<p class="fst"><span class="term">6.</span> The expression was borrowed.'
+                                 '<a id="p011_p011-fn07"> </a></p>'
+                                 '<p class="fst"><span class="term">7.</span> Marx uses the term.</p>'
+                                 '<a id="p011_p011-fn08"> </a>'
+                                 '<p class="fst"><span class="term">8.</span> Engels uses the term.</p></body>')
+    assert ids == ['p011_p011-fn06', 'p011_p011-fn07', 'p011_p011-fn08']
+    assert [f['element'].get_text(' ', strip=True)[:8] for f in out['footnotes']] == ['The expr', 'Marx use', 'Engels u']
+
+
+def test_an_anchor_before_a_block_that_opens_with_another_number_is_not_a_note(soup):
+    _, ids, _ = _pointed(soup, '<body><p>claim <a href="#fn5">[5]</a></p><a id="fn5"> </a><p>6. Some other note.</p>'
+                               '<p>more <a href="#fn9">[9]</a></p><p>Prose first.<a id="fn9"></a></p><p>Then text, then</p><p>9. a note far away.</p></body>')
+    assert ids == []
+
+
+def test_an_anchor_that_follows_the_printed_number_identifies_the_note(soup):
+    # The Campaign for the German Imperial Constitution: the number, THEN the anchor.
+    _, ids, out = _pointed(soup, '<body><p>the "March Clubs",<sup class="enote"><a href="#n135">[135]</a></sup> swore</p>'
+                                 '<p class="fst"><span class="term">135</span><a id="n135"></a> The March Association was founded.</p></body>')
+    assert ids == ['n135']
+    assert out['footnotes'][0]['element'].get_text(' ', strip=True) == 'The March Association was founded.'
+
+
 def test_a_verse_number_reached_from_a_cross_reference_is_not_a_note(soup):
     # A study Bible: "13.8–18" in an outline links forward to verse 18, which opens with its own number
     # as a link — to somewhere else. Two verses were taken out of the text as notes.
@@ -688,3 +716,14 @@ def test_a_verse_number_reached_from_a_cross_reference_is_not_a_note(soup):
                                '<p id="x1">Outline.</p>'
                                '<p><sup><a class="StartVersenum" id="v18" href="#v1">18</a></sup> And all Israel cried out mightily.</p></body>')
     assert ids == []
+
+
+def test_a_link_target_standing_between_blocks_is_seated_in_the_block_it_precedes(soup):
+    # marxists.org prints section anchors BETWEEN blocks; a book is one node per block, so the
+    # anchor was dropped and the contents link went dead (Grundrisse: 34 of 297).
+    s = soup('<body><p><a href="#s3">Third Observation</a> and <a href="#end">the end</a></p>'
+             '<a id="s3"></a><a id="unused"></a><h5>Third Observation</h5><p>Text.<a id="in"></a></p><a name="end"></a></body>')
+    assert E.seat_loose_link_targets(s) == 2
+    assert s.find('h5').find('a', id='s3') is not None and s.find('h5').get_text() == 'Third Observation'
+    assert s.find_all('p')[-1].find('a', id='end') is not None          # nothing follows: the last block takes it
+    assert s.find('a', id='unused').parent.name == 'body'               # nothing links to it: left alone

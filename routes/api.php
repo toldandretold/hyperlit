@@ -844,13 +844,28 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
         ->where('slug', '[a-z0-9-]+');
 
     // Shelf-import console: journal-import's assessment workflow over any public shelf.
-    // Only `shelves` (picker), `articles` and `run` are shelf-scoped — promote / resolve /
-    // runStatus are book- or run-keyed, so the page keeps calling the journal-import routes.
+    // Everything SCOPE-keyed has a shelf twin here — the picker, `articles`, `run`, the drain
+    // poll and the conversion lint — served by the same shared traits as the journal routes
+    // above (App\Services\Conversion\ImportConsoleScope). promote / resolve / runStatus are
+    // book- or run-keyed, so the page keeps calling the journal-import routes for those.
     Route::get('/maintainer/shelf-import/shelves', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'shelves']);
     Route::get('/maintainer/shelf-import/{id}/articles', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'articles'])
         ->where('id', '[0-9a-f-]{36}');
     Route::post('/maintainer/shelf-import/{id}/run', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'run'])
         ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/shelf-import/{id}/reconvert-backlog', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'reconvertBacklog'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/shelf-import/{id}/lint', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'lint'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/shelf-import/{id}/lint/snapshot', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'lintSnapshot'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::delete('/maintainer/shelf-import/{id}/lint/snapshot', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'lintSnapshotDelete'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::post('/maintainer/shelf-import/{id}/lint/review', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'lintReview'])
+        ->where('id', '[0-9a-f-]{36}');
+    Route::get('/maintainer/shelf-import/{id}/lint/cases', [\App\Http\Controllers\Maintainer\ShelfImportController::class, 'lintCases'])
+        ->where('id', '[0-9a-f-]{36}')
+        ->middleware('throttle:6,1,maintainer-shelf-lint-cases');
     // Archive page record (archive_sources): give this shelf a public /a/{slug}
     // page — slug + display name + hand-written about copy + the certified ★.
     // Synchronous one-row writes, following the journal certify precedent.

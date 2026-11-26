@@ -136,6 +136,13 @@ const has = (id: string): boolean => document.getElementById(id) !== null;
  */
 function setButtonsDisabled(ids: string[], disabled: boolean): void {
   for (const id of ids) {
+    if (id === 'ji-reconvert-all') {
+      // Also held shut by a draining reconvert, which outlives the run that started it —
+      // see paintReconvertAll.
+      reconvertAllRunning = disabled;
+      paintReconvertAll();
+      continue;
+    }
     const button = document.getElementById(id) as HTMLButtonElement | null;
     if (button) button.disabled = disabled;
   }
@@ -156,7 +163,18 @@ interface Boot {
 const boot: Boot = (window as unknown as { __journalImport?: Boot }).__journalImport ?? {};
 const isDetail = !!(boot.slug || boot.shelfId);
 
-/** The scope-keyed API base: everything else is book- or run-keyed and shared. */
+/** What to call the scope this page works, in copy the operator reads. */
+const scopeNoun = boot.mode === 'shelf' ? 'shelf' : 'journal';
+
+/**
+ * The scope-keyed API base: everything else is book- or run-keyed and shared.
+ *
+ * Every scope-keyed endpoint (articles, run, reconvert-backlog, lint…) exists under BOTH bases,
+ * served by the same code. So nothing below should ever branch on `boot.shelfId` to switch a
+ * feature off — that is how the shelf console came to run a reconvert-all with no progress, no
+ * drain view and no way back after a reload. Tolerate a missing ELEMENT (the headers differ);
+ * never a missing scope.
+ */
 function apiBase(): string {
   return boot.shelfId
     ? `/api/maintainer/shelf-import/${encodeURIComponent(boot.shelfId)}`
@@ -178,8 +196,8 @@ let pollingRunId: string | null = null;
 let queuedSince: number | null = null;
 
 /**
- * Re-attach an in-flight run, set by wireJournalActions (which owns the buttons and the status
- * line it needs). Null on the shelf console, which has no journal-scoped actions to resume.
+ * Re-attach an in-flight scope-wide run, set by wireJournalActions (which owns the buttons and
+ * the status line it needs — on both consoles).
  *
  * Declared up here with the rest of the module state rather than beside its assignment: a `let`
  * is in the temporal dead zone until its declaration is evaluated, and loadDetail() reads this.
@@ -308,12 +326,12 @@ async function loadDetail(): Promise<void> {
 
   // A bulk run that outlived the page. The poll lives in a promise chain with no persisted id, so
   // before this a reload mid-import was indistinguishable from a dead worker — the job kept going
-  // and the console never mentioned it again. Absent on the shelf console, which has no bulk runs.
+  // and the console never mentioned it again.
   if (data.active_run && resumeActiveRun) resumeActiveRun(data.active_run as RunState);
 
   // A reconvert_all that finished QUEUEING but is still draining through the import
-  // worker (shelf payloads carry no count — this no-ops there). Skipped while a live
-  // run owns the panel; pollRun re-seeds it when the run settles.
+  // worker. Skipped while a live run owns the panel; pollRun re-seeds it when the run
+  // settles.
   if (!pollingRunId) renderReconvertBacklog(Number(data.reconvert_backlog ?? 0));
 
   const link = el<HTMLAnchorElement>('ji-public-link');
@@ -356,7 +374,7 @@ async function loadDetail(): Promise<void> {
   // The problem check rides behind the list rather than inside its payload: the list is what
   // the page needs to draw at all, and a cold journal's lint arrives over several requests.
   // Re-asked on every reload because that is exactly when it can have moved (a lane was
-  // reconverted, imported, or came back from the drain). No-op on the shelf console.
+  // reconverted, imported, or came back from the drain).
   void refreshLint();
 }
 
@@ -915,13 +933,21 @@ async function runAction(
       run_id?: string; message?: string; already_running?: boolean; action?: string;
     };
     if (!resp.ok || !payload.run_id) {
-      setter(payload.message || `failed (${resp.status})`);
+      const why = payload.message || `failed (${resp.status})`;
+      setter(why);
+      if (showPanel) {
+        // The panel was opened on "dispatching…" before the request went out; a refusal must
+        // not leave it there looking like a run that is about to start.
+        renderRunProgress({ status: 'failed', step_detail: null, error: why }, 'not started');
+        // A reconvert refused because the last one is still draining (409): show the drain.
+        window.setTimeout(() => void pollReconvertBacklog(), 0);
+      }
       return;
     }
     // Joining a run you didn't press — a bulk import fired while an enumerate is still going —
     // would otherwise report that other job's progress as if it were yours.
     if (payload.already_running && payload.action && payload.action !== body.action) {
-      setter(`waiting: "${payload.action}" is already running on this journal`);
+      setter(`waiting: "${payload.action}" is already running on this ${scopeNoun}`);
     }
     await pollRun(payload.run_id, setter, showPanel);
   } catch (e) {
@@ -1292,7 +1318,7 @@ function wireDetailActions(): void {
   };
   document.getElementById('ji-export')?.addEventListener('click', bundle('conversion'));
   document.getElementById('ji-export-harvest')?.addEventListener('click', bundle('harvest'));
-  // Shelf-import blade only, and only outside production — hence the optional chain.
+  // Outside production only (the button is not rendered there) — hence the optional chain.
   document.getElementById('ji-approve-golden')?.addEventListener('click', () => { void approveGolden(); });
 
   document.getElementById('ji-reconvert')?.addEventListener('click', () => {
@@ -1319,8 +1345,13 @@ function wireDetailActions(): void {
   });
 
   const importButtons = ['ji-import-pdf', 'ji-import-html', 'ji-import-both'];
+  // `.ji-actions-status` is opacity:0 until `.ji-visible` is on it — without the class every
+  // line of an article import's progress was painted into an invisible span (the same bug
+  // setJournalStatus records having had). No auto-hide: this line tracks a run.
   const setImportStatus = (text: string): void => {
-    el<HTMLElement>('ji-import-status').textContent = text;
+    const node = el<HTMLElement>('ji-import-status');
+    node.textContent = text;
+    node.classList.add('ji-visible');
   };
   const startImport = (lanes: 'pdf' | 'html' | 'both') => (): void => {
     if (!selectedArticle) return;
@@ -1446,7 +1477,7 @@ interface RunState {
  */
 function renderRunProgress(run: RunState, headline: string): void {
   const panel = document.getElementById('ji-run-panel');
-  if (!panel) return;   // the shelf console's blade has no panel — it has no bulk runs to show
+  if (!panel) return;
 
   const p = run.progress ?? null;
   const terminal = run.status === 'completed' || run.status === 'failed';
@@ -1600,7 +1631,6 @@ let runBacklogAt = 0;
 let runBacklogInflight = false;
 
 async function refreshRunBacklog(): Promise<void> {
-  if (boot.shelfId) return;                       // backlog endpoint is journal-scoped
   if (runBacklogInflight || Date.now() - runBacklogAt < 20_000) return;
   runBacklogInflight = true;
   try {
@@ -1614,6 +1644,39 @@ async function refreshRunBacklog(): Promise<void> {
   } finally {
     runBacklogInflight = false;
   }
+}
+
+/**
+ * Hold "reconvert all" shut while conversions are still queued behind the last one.
+ *
+ * The panel says "do NOT press reconvert all again", and a sentence is not a guard: the button
+ * used to come back the moment QUEUEING finished, hours before the drain had. A second press
+ * then clears and re-queues every book that has been waiting more than half an hour. The server
+ * refuses it too (409); this just stops offering it.
+ *
+ * A separate flag from the run's own disabled state, which is released when the run settles:
+ * `disabled` is the OR of the two, so neither can re-enable the button under the other.
+ */
+let reconvertAllDraining = false;
+let reconvertAllRunning = false;
+
+function paintReconvertAll(): void {
+  const button = document.getElementById('ji-reconvert-all') as HTMLButtonElement | null;
+  if (!button) return;
+  button.disabled = reconvertAllDraining || reconvertAllRunning;
+  if (reconvertAllDraining) {
+    button.dataset.idleTitle ??= button.title;
+    button.title = 'Conversions from the last reconvert are still queued — this comes back when they have run.';
+  } else if (button.dataset.idleTitle !== undefined) {
+    button.title = button.dataset.idleTitle;
+    delete button.dataset.idleTitle;
+  }
+}
+
+function setReconvertAllDraining(draining: boolean): void {
+  if (reconvertAllDraining === draining) return;
+  reconvertAllDraining = draining;
+  paintReconvertAll();
 }
 
 /**
@@ -1632,9 +1695,10 @@ async function refreshRunBacklog(): Promise<void> {
  */
 function renderReconvertBacklog(pending: number): void {
   const panel = document.getElementById('ji-run-panel');
-  if (!panel || pending <= 0) return;   // shelf console has no panel and no bulk runs
+  if (!panel || pending <= 0) return;
 
   window.clearTimeout(backlogTimer);
+  setReconvertAllDraining(true);
 
   panel.hidden = false;
   panel.classList.remove('is-done', 'is-failed');
@@ -1656,7 +1720,7 @@ function renderReconvertBacklog(pending: number): void {
 }
 
 async function pollReconvertBacklog(): Promise<void> {
-  if (boot.shelfId || !document.getElementById('ji-run-panel')) return;
+  if (!document.getElementById('ji-run-panel')) return;
   if (pollingRunId) return;   // a live run owns the panel; its completed branch re-seeds this
 
   // A failed tick must NOT end the poll. It used to (`if (!resp.ok) return`), so one 429, one
@@ -1682,6 +1746,8 @@ async function pollReconvertBacklog(): Promise<void> {
     void refreshLint();
     return;
   }
+
+  setReconvertAllDraining(false);
 
   // Drained. Only replace a panel that was actually SHOWING the drain — a just-completed
   // import_all also lands here (pollRun kicks this from its finally) and its "✓ done"
@@ -1926,7 +1992,8 @@ function wireJournalActions(): void {
   });
 
   document.getElementById('ji-reconvert-all')?.addEventListener('click', () => {
-    // Optional: the shelf console has this button but no lane picker, and defaults to both.
+    // The journal console's picker doubles as its import lane; the shelf console's offers the
+    // three reconvert scopes only. Absent → both.
     const picker = document.getElementById('ji-bulk-lanes') as HTMLSelectElement | null;
     const lanes = (picker?.value || 'both') as BulkLane;
     // The picker is shared with import, where `html_first` is a fetch STRATEGY. There is nothing to
@@ -1937,12 +2004,16 @@ function wireJournalActions(): void {
     // Confirmed despite being free, because it is not reversible: every book in scope has its
     // nodes cleared and rebuilt, and any annotation the reattachment pass cannot re-anchor is
     // orphaned. Worth a sentence before a few hundred of them.
-    const where = boot.mode === 'shelf' ? 'shelf' : 'journal';
+    // A shelf lists sibling lanes that are not ON it (comparing them is the workflow), and this
+    // only reconverts the shelf's own books — say so, since the list would suggest otherwise.
+    const what = boot.mode === 'shelf'
+      ? `every imported ${scope === 'both' ? '' : scope + ' '}book ON this shelf (not the sibling lanes listed beside them)`
+      : `every imported ${scope === 'both' ? '' : scope + ' '}lane in this journal`;
     if (!window.confirm(
-      `Re-run the current converter over every imported ${scope === 'both' ? '' : scope + ' '}lane in this ${where}?\n\n`
-      + 'Free — each lane reconverts from its cached source, so nothing is re-fetched and no OCR runs.\n\n'
+      `Re-run the current converter over ${what}?\n\n`
+      + 'Free — each one reconverts from its cached source, so nothing is re-fetched and no OCR runs.\n\n'
       + 'Every book in scope is rebuilt from scratch and they convert one at a time, so a big corpus '
-      + 'takes hours. Watch progress at /maintainer/jobs.',
+      + 'takes hours. The panel at the bottom right follows it until the last one has run.',
     )) return;
 
     // A reconvert with no "before" cannot be checked afterwards, so a FRESH one is recorded here
@@ -1964,6 +2035,9 @@ function wireJournalActions(): void {
   });
 
   function startBulkImport(): void {
+    // The "continue →" banner lives in the shared run panel, but only a journal has an import
+    // queue to continue.
+    if (!has('ji-bulk-import')) return;
     const lanes = (el<HTMLSelectElement>('ji-bulk-lanes').value || 'html_first') as BulkLane;
     const limit = el<HTMLSelectElement>('ji-bulk-limit').value || '5';
     const keepGoing = el<HTMLInputElement>('ji-bulk-continue').checked;
@@ -2253,6 +2327,7 @@ wireHelp();
 if (isDetail) {
   initLintPanel({
     apiBase,
+    scopeNoun,
     setStatus,
     onNoteChanged: () => { void loadDetail(); },
     onChange: () => {

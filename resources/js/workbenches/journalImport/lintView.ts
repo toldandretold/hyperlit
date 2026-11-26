@@ -97,6 +97,10 @@ export const DETECTOR_LABELS: Record<string, { label: string; hint: string }> = 
     label: 'link that looks like a note marker',
     hint: 'An in-page link whose whole text is a marker such as "[*1]" or "**" — probably a footnote the converter did not recognise.',
   },
+  dead_internal_link: {
+    label: 'in-page link that lands nowhere',
+    hint: 'A contents entry or cross-reference whose target is in no paragraph of the book — the source\'s anchor was lost in conversion.',
+  },
   bare_superscript_number: {
     label: 'raised number that is not a link',
     hint: 'A superscript number after a word or full stop that is not a footnote link (fractions and exponents are ignored) — possibly a note marker the source never linked.',

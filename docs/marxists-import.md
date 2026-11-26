@@ -62,7 +62,15 @@ Four more causes from the same sweep, all in the normaliser, so a plain reconver
 - **Two ids on one note.** The one-element-one-definition dedup dropped whichever id registered second; markers pointing at it orphaned. The dropped id is now an alias (`alias_ids` → `ctx.id_aliases`).
 - **A note cited twice.** The heuristic's markers were deduplicated by TARGET, so a second reference to the same note stayed a dead link (Anti-Dühring). They are deduplicated by link.
 
-Still not handled: an editor's note cited from INSIDE an author's footnote (What Is To Be Done?, 14 notes — a marker inside a definition is treated as a backlink), and markers whose target id does not exist in the source.
+The second lint, after reconverting (45 dead links in 8 books, 41 orphaned notes in 7), added three more:
+
+- **The anchor stands just before the note, not in it.** Between two paragraphs (`<a id="fn06"> </a><p><span class="term">6.</span> …`, the 1844 Manuscripts), closing the previous note, or inside the "Footnotes" heading (On Afghanistan). An empty anchor with nothing printed between it and the next block identifies that block, under the same same-marker test.
+- **The anchor follows the printed number.** `<span class="term">135</span><a id="135"></a> The March Association…` (The Campaign for the German Imperial Constitution): the number is all that precedes the anchor.
+- **An editor's note cited from inside an author's footnote** ("…in Schmollers Jahrbuch,[29] 1896.—Lenin"; What Is To Be Done?, Two Tactics, The Heritage We Renounce). A marker inside a definition was always excluded as a backlink. `NoterefConverter` now links it when it points at ANOTHER definition that nothing in the body cites, and only where notes stay printed in the text; the host note's content is re-extracted so the reprinted note carries the marker.
+
+**Ordinary links (contents entries, "see section 3").** The stitcher rewrites a link to another page of the same work into an in-book `#pNNN-id` link and a link to any other work into its absolute marxists.org URL. The in-book ones went dead when their landing anchor stood BETWEEN blocks (`</p><a id="s3"></a><h5>Third Observation</h5>`): a book is one node per block, so the loose anchor became an empty node with no id. `seat_loose_link_targets` (end of the EPUB normaliser) moves each still-linked loose anchor into the block it precedes (Grundrisse 34 dead of 297 → 0; Left-Wing Communism's appendix contents 6 → 0). The lint's `dead_internal_link` detector reports any in-page link whose target is in no node of the book.
+
+Still not handled: markers whose target id does not exist in the source (Left-Wing Communism's `[30]` points at a backlink id), and a stray character before a note's marker (`((1)`, `"[2]`), one each in the doctoral thesis and One Step Forward. The shelf's `split_sentence` findings are the source's own layout: a display quotation inside a sentence is three `<p>`s on the page (Anti-Dühring).
 
 ## The bulk import (a whole author, from the backend)
 

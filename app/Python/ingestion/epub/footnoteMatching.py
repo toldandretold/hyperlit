@@ -1527,7 +1527,7 @@ class HeuristicFootnoteDetector(EpubTransform):
                 continue
             block = target if target.name in _POINTED_DEF_BLOCKS else target.find_parent(_POINTED_DEF_BLOCKS)
             ref_el = nr.get('element')
-            if block is None or ref_el is None or ref_el.find_parent(_POINTED_DEF_BLOCKS) is block:
+            if ref_el is None or (block is not None and ref_el.find_parent(_POINTED_DEF_BLOCKS) is block):
                 continue
             # A definition's own backlink points BACKWARD, at the marker — which is a link. A note that
             # stands before its marker (Anti-Dühring's editorial notes are the page before Engels'
@@ -1535,7 +1535,30 @@ class HeuristicFootnoteDetector(EpubTransform):
             is_bare_anchor = target.name == 'a' and not target.get('href') and not target.get_text(strip=True)
             if order.get(id(target), -1) <= order.get(id(ref_el), 0) and not is_bare_anchor:
                 continue
-            if target is not block and _text_before(block, target):
+            if block is None and not is_bare_anchor:
+                continue
+            # `<p><span class="term">135</span><a id="135"></a> The March Association…` (The Campaign
+            # for the German Imperial Constitution): the anchor follows the printed number, and the
+            # number is all that precedes it.
+            before = _text_before(block, target) if (block is not None and target is not block) else ''
+            if before and _marker_core(before).lower() == core.lower():
+                before = ''
+            if is_bare_anchor and (block is None or before):
+                # The anchor stands just BEFORE the note rather than inside it: between two
+                # paragraphs (`<a id="fn06"> </a><p><span class="term">6.</span> …`, the 1844
+                # Manuscripts), closing the previous note, or inside the "Footnotes" heading
+                # (On Afghanistan). The note is then the next block, with nothing printed between.
+                nxt = target.find_next(_POINTED_DEF_BLOCKS)
+                between = ''
+                for node in target.next_elements:
+                    if node is nxt:
+                        break
+                    if isinstance(node, str):
+                        between += node
+                block = nxt if (nxt is not None and not between.strip()) else None
+                if block is None or ref_el.find_parent(_POINTED_DEF_BLOCKS) is block:
+                    continue
+            elif before:
                 continue
             opening = _POINTED_OPENING_RE.match(block.get_text(' ', strip=True))
             if not opening or _marker_core(opening.group(1)).lower() != core.lower():

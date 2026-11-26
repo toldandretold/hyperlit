@@ -353,6 +353,42 @@ def _document_profile(soup):
     }
 
 
+_TARGET_SEAT_BLOCKS = ('p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'dd', 'dt',
+                       'td', 'th', 'pre', 'figcaption')
+
+
+def seat_loose_link_targets(soup):
+    """A cross-reference's landing spot is often an EMPTY anchor standing BETWEEN blocks —
+    `</p><a id="s3"></a><h5>Third Observation</h5>` (marxists.org prints its section anchors this
+    way). A book is stored as one node per block, so an anchor that belongs to no block is dropped
+    and every link to it goes dead: the Grundrisse's analytical contents lost 34 of 297 links, and
+    Left-Wing Communism's appendix contents all of them. Move each such anchor into the block it
+    stands before (the last block, when nothing follows). Only anchors something still links to:
+    footnote ids are already consumed by this point, and an unreferenced anchor is not worth a
+    change to the stored text. Returns how many moved."""
+    wanted = {a['href'][1:] for a in soup.find_all('a', href=True) if a['href'].startswith('#') and len(a['href']) > 1}
+    if not wanted:
+        return 0
+    moved = 0
+    for a in list(soup.find_all('a')):
+        key = a.get('id') or a.get('name')
+        if (not key or key not in wanted or a.get('href') or a.get_text(strip=True)
+                or a.find(True) is not None or a.find_parent(_TARGET_SEAT_BLOCKS) is not None):
+            continue
+        seat = a.find_next(_TARGET_SEAT_BLOCKS)
+        if seat is not None:
+            seat.insert(0, a.extract())
+        else:
+            seat = a.find_previous(_TARGET_SEAT_BLOCKS)
+            if seat is None:
+                continue
+            seat.append(a.extract())
+        if not a.get('id'):
+            a['id'] = key
+        moved += 1
+    return moved
+
+
 class EpubNormalizer:
     """
     Main EPUB normalizer that runs the transform pipeline.
@@ -443,6 +479,10 @@ class EpubNormalizer:
                 self._convert_footnotes()
                 fn_count = len(self.results.get('footnotes_json', []))
                 self._progress(35, "epub_footnotes", f"Detected {fn_count} footnotes")
+
+                moved = seat_loose_link_targets(self.combined_soup)
+                if moved:
+                    self._log(f"Seated {moved} link target(s) that stood between blocks")
 
                 # Step 4: Sanitize for security
                 self._log("\n--- Sanitizing HTML ---")

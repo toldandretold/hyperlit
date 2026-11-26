@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Maintainer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Maintainer\Concerns\BuildsImportLanes;
+use App\Http\Controllers\Maintainer\Concerns\ServesConversionLint;
 use App\Jobs\JournalImportActionJob;
 use App\Models\ArchiveSource;
 use App\Models\JournalSource;
 use App\Services\CanonicalVersions\AutoVersionResolver;
+use App\Services\Conversion\ImportConsoleScope;
 use App\Services\Conversion\ReconvertQueue;
 use App\Services\JournalHarvest\HtmlLaneCreator;
 use App\Services\SourceHarvest\HarvestShelf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,13 +25,15 @@ use Illuminate\Support\Str;
  * workflow — article list with sibling LANES nested, the produced book framed
  * beside its original source, promote / reconvert / flag actions.
  *
- * Deliberately a thin sibling of JournalImportController, not a scope rewrite
- * of it: the lane payload comes from the shared BuildsImportLanes trait, the
- * article actions dispatch the SAME JournalImportActionJob (null-journal-safe
- * for all three), and promote/resolve/runStatus are already book- or run-keyed
- * so the frontend keeps calling the journal-import endpoints. Only `articles`
- * and `run` needed shelf-scoped variants. Journal-registry actions (enumerate,
- * import_all) have no meaning here and are refused.
+ * A thin sibling of JournalImportController: the lane payload, the run
+ * machinery (collision guard, run row, re-attach, drain count) and the
+ * conversion-lint endpoints all come from the shared BuildsImportLanes and
+ * ServesConversionLint traits, written against an ImportConsoleScope, and the
+ * actions dispatch the SAME JournalImportActionJob. promote/resolve/runStatus
+ * are book- or run-keyed, so the frontend keeps calling the journal-import
+ * endpoints for those. What is the shelf's own: which books are in scope, how
+ * a target is validated, the archive page record. Journal-registry actions
+ * (enumerate, import_all) have no meaning here and are refused.
  *
  * URL identity: `/maintainer/shelf-import/{uuid}` — shelf slugs are only
  * unique per creator, same reasoning as the hypercite console. A journal slug
@@ -41,6 +46,7 @@ use Illuminate\Support\Str;
 class ShelfImportController extends Controller
 {
     use BuildsImportLanes;
+    use ServesConversionLint;
 
     /** The article actions a shelf scope can fire — no journal-registry actions. */
     private const ACTIONS = ['import', 'reconvert_html', 'refetch_html', 'reconvert_all'];
@@ -65,6 +71,18 @@ class ShelfImportController extends Controller
             ->where('id', $id)
             ->where('visibility', 'public')
             ->first();
+    }
+
+    protected function consoleScope(string $key): ?ImportConsoleScope
+    {
+        $shelf = $this->publicShelf($key);
+
+        return $shelf ? ImportConsoleScope::shelf($shelf) : null;
+    }
+
+    protected function scopeNotFound(): JsonResponse
+    {
+        return response()->json(['message' => 'Shelf not found (or not public).'], 404);
     }
 
     /** GET /maintainer/shelf-import — pick a shelf. */
@@ -206,14 +224,7 @@ class ShelfImportController extends Controller
             ->whereIn('cs.id', $canonicalIds)
             ->orderByRaw('cs.cited_by_count DESC NULLS LAST')
             ->orderBy('cs.id')
-            ->select([
-                'cs.id as canonical_id', 'cs.title', 'cs.author', 'cs.year', 'cs.volume', 'cs.issue',
-                'cs.doi', 'cs.cited_by_count', 'cs.is_oa', 'cs.oa_url', 'cs.pdf_url',
-                'cs.auto_version_book',
-                'l.book', 'l.has_nodes', 'l.listed', 'l.visibility', 'l.conversion_method',
-                'l.foundation_source', 'l.completeness', 'l.completeness_reason',
-                'l.pdf_url_status', 'l.created_at as lane_created_at',
-            ])
+            ->select($this->laneSelectColumns())
             ->get();
 
         // Canonical-less shelf books (case bundles, hand imports): synthesize one
@@ -263,6 +274,10 @@ class ShelfImportController extends Controller
         $articles = $this->foldArticles($rows->concat($standalone), $this->openFlagCountsByBook(), $queue);
 
         return response()->json([
+            // The in-flight shelf-wide run (so a reloaded page re-attaches its poll) and the
+            // count of conversions still draining behind a finished reconvert_all — the same
+            // two signals the journal console carries, from the same definition.
+            ...$this->scopePayload(ImportConsoleScope::shelf($shelf)),
             'shelf' => [
                 'id'             => $shelf->id,
                 'name'           => $shelf->name,
@@ -348,49 +363,17 @@ class ShelfImportController extends Controller
             $canonicalId = $lane->canonical_source_id;
         }
 
-        // Per-target collision guard — the actions replace a book's nodes, so two at once would
-        // interleave writes. A SHELF-scoped run has no single target: it may touch any book on the
-        // shelf, so it excludes and is excluded by everything else on that shelf, in both
-        // directions — the same rule the journal console applies to its journal-wide runs.
-        $inFlight = $db->table('journal_import_runs')
-            ->whereIn('status', ['pending', 'running'])
-            ->where('updated_at', '>', now()->subHour())
-            ->where(function ($q) use ($shelf, $shelfScoped, $canonicalId, $book) {
-                $q->where(fn ($s) => $s->where('shelf_id', $shelf->id)
-                    ->whereIn('action', self::SHELF_ACTIONS));
-
-                $shelfScoped
-                    ? $q->orWhere('shelf_id', $shelf->id)
-                    : $q->orWhere(fn ($a) => $a->where('canonical_source_id', $canonicalId)->orWhere('book', $book));
-            })
-            ->first();
-        if ($inFlight) {
-            return response()->json([
-                'run_id'          => $inFlight->id,
-                'already_running' => true,
-                'action'          => $inFlight->action,
-            ]);
+        // Per-target collision guard; a shelf-wide run excludes and is excluded by everything
+        // else on the shelf — the same rule, from the same code, as the journal console.
+        $scope = ImportConsoleScope::shelf($shelf);
+        if ($inFlight = $this->inFlightRun($scope, self::SHELF_ACTIONS, $shelfScoped, $canonicalId, $book)) {
+            return $this->joinedRunResponse($inFlight);
+        }
+        if ($refusal = $this->drainingRefusal($scope, $action)) {
+            return $refusal;
         }
 
-        $runId = (string) Str::uuid();
-        $db->table('journal_import_runs')->insert([
-            'id'                  => $runId,
-            'journal_source_id'   => null,
-            'shelf_id'            => $shelf->id,
-            'canonical_source_id' => $canonicalId,
-            'user_id'             => $request->user()?->id,
-            'action'              => $action,
-            'lanes'               => $lanes,
-            'status'              => 'pending',
-            'book'                => $book,
-            'counts'              => '{}',
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ]);
-
-        JournalImportActionJob::dispatch($runId);
-
-        return response()->json(['run_id' => $runId, 'already_running' => false]);
+        return $this->startRun($scope, $request, $action, $lanes, $canonicalId, $book);
     }
 
     /**

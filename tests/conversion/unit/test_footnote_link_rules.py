@@ -295,3 +295,36 @@ def test_a_second_id_on_a_definition_is_an_alias_and_a_bracketed_symbol_is_a_mar
     note = s.find(attrs={'role': 'doc-footnote'})
     assert note.get_text(' ', strip=True) == '[*] What applies to individuals.'      # printed once
     assert s.find('a', href=True) is None
+
+
+
+def test_an_editors_note_cited_from_inside_an_authors_note_is_linked_where_notes_stay_printed(soup):
+    # Lenin, The Heritage We Renounce: "…in Schmollers Jahrbuch,[29] 1896.—Lenin" — [29] is the
+    # editors' note on Lenin's own footnote, and nothing in the body cites it. It was orphaned as
+    # a "backlink" because it sits inside a definition.
+    html = ('<body><p>The cotton industry.<a href="#f15" id="b15">[15]</a></p>'
+            '<p id="d15"><a href="#b15" id="f15">[15]</a> The words of Schulze in Schmollers Jahrbuch,'
+            '<sup class="enote"><a href="#f29" id="b29">[29]</a></sup> 1896.</p>'
+            '<p id="d29"><a href="#b29" id="f29">[29]</a> Its full title is Jahrbuch.</p></body>')
+
+    def run(keep):
+        s = soup(html)
+        fns = [{'id': 'f15', 'element': s.find(id='d15'), 'type': 'footnote'},
+               {'id': 'f29', 'element': s.find(id='d29'), 'type': 'footnote'}]
+        refs = [{'element': s.find('a', id='b15'), 'target_id': 'f15', 'original_marker': '15'},
+                {'element': s.find('a', id='f15'), 'target_id': 'b15', 'original_marker': '15'},
+                {'element': s.find('a', id='b29'), 'target_id': 'f29', 'original_marker': '29'},
+                {'element': s.find('a', id='f29'), 'target_id': 'b29', 'original_marker': '29'}]
+        _, log = _logs()
+        return s, link_epub_footnotes(s, fns, refs, 'b', log, keep_definitions=keep)
+
+    s, out = run(True)
+    assert out['linking_stats']['linked'] == 2
+    notes = s.find_all(attrs={'role': 'doc-footnote'})
+    assert [n.get_text() for n in notes] == [
+        '[1] The words of Schulze in Schmollers Jahrbuch,2 1896.', '[2] Its full title is Jahrbuch.']
+    assert notes[0].find('sup', class_='footnote-ref').get('fn-count-id') == '2'
+    assert s.find('a', href=True) is None
+    # Where definitions leave the text, a marker inside one stays what it always was.
+    _, out = run(False)
+    assert out['linking_stats']['linked'] == 1
