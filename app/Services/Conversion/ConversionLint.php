@@ -39,7 +39,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 8;
+    public const VERSION = 9;
 
     public const WEIGHTS = [
         'body_footnote_twin'  => 4,
@@ -94,7 +94,7 @@ class ConversionLint
      * @param array<string, string>|null $footnotes footnoteId => content (the `footnotes` table —
      *        what the reader actually resolves a marker against; the def nodes in the body do
      *        not all carry an anchor, so they are only used when this is null)
-     * @return array{findings: list<array{detector: string, startLine: string, excerpt: string}>,
+     * @return array{findings: list<array{detector: string, startLine: string, excerpt: string, near?: true}>,
      *               chrome_candidates: list<string>}
      */
     public function lintBook(array $nodes, ?array $footnotes = null, array $evidence = []): array
@@ -328,9 +328,17 @@ class ConversionLint
             if (!isset($markerIds[$id])) {
                 $head = self::verdictHead($defText);
                 $unrecoverable = $head !== '' && ($unlinkedVerdicts[$head] ?? null) === 'no_marker_in_layer';
-                $findings[] = ['detector' => $unrecoverable ? 'orphan_unrecoverable' : 'orphan_definition',
-                               'startLine' => $defLines[$id] ?? $this->defNodeByText($defText, $defNodes),
-                               'excerpt' => mb_substr($defText, 0, 220)];
+                $finding = ['detector' => $unrecoverable ? 'orphan_unrecoverable' : 'orphan_definition',
+                            'startLine' => $defLines[$id] ?? $this->defNodeByText($defText, $defNodes),
+                            'excerpt' => mb_substr($defText, 0, 220)];
+                // No stored definition node to land on — the HTML/EPUB lanes (marxists.org among
+                // them) keep notes ONLY in the footnotes table. Land where the lost marker belongs
+                // instead: beside its nearest linked neighbour in note order.
+                if ($finding['startLine'] === '' && ($near = $this->nearestLinkedMarker((string) $id, array_keys($defs), $markerIds)) !== null) {
+                    $finding['startLine'] = $near;
+                    $finding['near'] = true;
+                }
+                $findings[] = $finding;
             }
         }
         foreach ($markerIds as $id => $node) {
@@ -441,6 +449,43 @@ class ConversionLint
         }
 
         return '';
+    }
+
+    /**
+     * The node carrying the marker of the linked note nearest BEFORE `$id` in document order
+     * (else the nearest after it) — where an orphan's lost marker would have stood. Footnote ids
+     * are minted in document order (`shared/fnids.py`: `Fn<epoch-ms>_<fixed-width base36
+     * counter>`), so a plain string sort of ids sharing one prefix is reading order. Ids of a
+     * different shape (another prefix, or no `Fn<digits>_` at all) say nothing about order: null.
+     *
+     * @param list<string|int> $defIds
+     * @param array<string, array{startLine: string}> $markerIds
+     */
+    private function nearestLinkedMarker(string $id, array $defIds, array $markerIds): ?string
+    {
+        $shape = '/^(.*?)Fn\d+_[0-9a-z]+$/';
+        if (!preg_match($shape, $id, $m)) {
+            return null;
+        }
+        $ordered = array_values(array_filter(array_map('strval', $defIds),
+            fn (string $d) => preg_match($shape, $d, $dm) && $dm[1] === $m[1]));
+        sort($ordered, SORT_STRING);
+        $at = array_search($id, $ordered, true);
+        if ($at === false) {
+            return null;
+        }
+        for ($i = $at - 1; $i >= 0; $i--) {
+            if (isset($markerIds[$ordered[$i]])) {
+                return $markerIds[$ordered[$i]]['startLine'];
+            }
+        }
+        for ($i = $at + 1, $n = count($ordered); $i < $n; $i++) {
+            if (isset($markerIds[$ordered[$i]])) {
+                return $markerIds[$ordered[$i]]['startLine'];
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -749,6 +749,12 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'export'])
         ->where('book', '[A-Za-z0-9_-]+')
         ->middleware('throttle:10,1,maintainer-export');
+    Route::post('/maintainer/conversion/export/{book}', [\App\Http\Controllers\MaintainerController::class, 'exportStart'])
+        ->where('book', '[A-Za-z0-9_-]+')
+        ->middleware('throttle:10,1,maintainer-export-start');
+    Route::get('/maintainer/conversion/export/{book}/status', [\App\Http\Controllers\MaintainerController::class, 'exportStatus'])
+        ->where('book', '[A-Za-z0-9_-]+')
+        ->middleware('throttle:120,1,maintainer-export-status');
     Route::post('/maintainer/conversion/golden/{book}', [\App\Http\Controllers\MaintainerController::class, 'approveGolden'])
         ->where('book', '[A-Za-z0-9_-]+')
         ->middleware('throttle:10,1,maintainer-golden');

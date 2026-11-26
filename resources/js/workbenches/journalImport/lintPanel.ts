@@ -444,7 +444,10 @@ function buildFinding(book: string, finding: LintFinding, onJump: (finding: Lint
   main.className = 'ji-finding-main';
   if (jumpable) {
     (main as HTMLButtonElement).type = 'button';
-    main.title = `${DETECTOR_LABELS[finding.detector]?.hint ?? ''}\n\nClick to jump to it in the converted output.`.trim();
+    const where = finding.near
+      ? 'This note has no place in the text of its own. Click to jump to its nearest linked neighbour: the lost marker belongs close by.'
+      : 'Click to jump to it in the converted output.';
+    main.title = `${DETECTOR_LABELS[finding.detector]?.hint ?? ''}\n\n${where}`.trim();
     main.addEventListener('click', () => {
       row.parentElement?.querySelector('.ji-finding-active')?.classList.remove('ji-finding-active');
       row.classList.add('ji-finding-active');

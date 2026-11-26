@@ -1399,9 +1399,23 @@ def _follow_def_renumber_in_markers(before, block, lines, ref_nums, page_label='
     return out
 
 
+# The most consecutive lost markers a kept numbering gap may span.
+_MAX_KEPT_NUMBER_GAP = 6
+
+
 def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,
-                            pypdf_defs=None, page_label='', confirmed_out=None):
+                            pypdf_defs=None, page_label='', confirmed_out=None,
+                            layer_gap_nums=None):
     """Renumber footnotes on a single page from local numbering to global sequential.
+
+    `layer_gap_nums` (optional set of ints): note numbers the PDF's text layer prints as
+    definitions on this page or the ones just before it, passed ONLY while the document's
+    numbering has so far come through unchanged (one continuous sequence, not a per-page
+    restart). A page whose lowest number then jumps past the counter has not restarted — the
+    OCR lost the markers in between — and counting on from the counter would hand this page's
+    markers the numbers of the notes that were lost (08a2e7a9: markers 8 and 9 dropped on one
+    page, so the next page's 10-13 became 8-11 and marker "10" opened note 8). When every
+    skipped number is a note the layer prints, the gap is kept.
 
     For "page_bottom" documents where each page restarts at [^1].
     Converts superscripts first, then maps local numbers to global ones.
@@ -1648,6 +1662,13 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
     # Build mapping: local number → global sequential number
     local_to_global = {}
     for local_num in local_numbers:
+        _n = int(local_num)
+        if (layer_gap_nums and global_counter < _n <= global_counter + _MAX_KEPT_NUMBER_GAP
+                and all(k in layer_gap_nums for k in range(global_counter, _n))):
+            print(f"  Footnote numbering{page_label}: kept the gap "
+                  f"{global_counter}..{_n - 1} — the PDF prints those notes, the OCR lost "
+                  f"their markers")
+            global_counter = _n
         local_to_global[local_num] = str(global_counter)
         global_counter += 1
     if mapping_out is not None:

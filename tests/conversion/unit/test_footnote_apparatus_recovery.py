@@ -1035,3 +1035,40 @@ def test_a_note_ending_on_a_parenthetical_reference_splits_from_the_next():
     segs = REC.split_run_on_numbered_def(5, text, taken={3, 4, 5})
     assert [n for n, _t in segs] == [5, 6]
     assert segs[1][1].startswith('“This chapter')
+
+
+# ── A continuous print numbering keeps its gaps (08a2e7a9) ───────────────────────────────────
+
+GAP_PAGE = ('The most populous minority in the country,[^10] contrary to smaller minorities, '
+            'is under-represented in this selection of pictures.[^11]\n\n'
+            '[^10]: According to the Ministry of Foreign Affairs there are over a million.\n'
+            '[^11]: Conversely, the website dedicates a whole section to them.')
+
+
+def test_a_jump_past_the_counter_is_lost_markers_when_the_layer_prints_the_notes():
+    """The page before lost markers 8 and 9, so the counter stands at 8 when a page numbered
+    10-11 arrives. Counting on would hand marker "10" the number 8 — and the layer's own note 8
+    with it. The layer prints notes 8 and 9, so the gap is theirs."""
+    mapping = {}
+    out, counter = S.renumber_page_footnotes(GAP_PAGE, 8, mapping, layer_gap_nums={6, 7, 8, 9, 10, 11})
+    assert mapping == {10: 10, 11: 11} and counter == 12
+    assert 'country,[^10] contrary' in out and '[^11]: Conversely' in out
+
+
+def test_a_jump_is_closed_up_when_nothing_prints_the_skipped_notes():
+    mapping = {}
+    S.renumber_page_footnotes(GAP_PAGE, 8, mapping, layer_gap_nums={6, 7, 10, 11})
+    assert mapping == {10: 8, 11: 9}
+    mapping = {}
+    S.renumber_page_footnotes(GAP_PAGE, 8, mapping)          # a per-page restart: no witness passed
+    assert mapping == {10: 8, 11: 9}
+
+
+def test_a_repeated_translation_note_is_not_page_furniture():
+    """"Translated by the author." under notes 6 and 12 was thrown out as a running footer, and
+    both markers were left with nothing to open."""
+    assert R._SHORT_FORM_DEF_RE.match('translated by the author.')
+    assert R._SHORT_FORM_DEF_RE.match('Emphasis added.')
+    assert R._SHORT_FORM_DEF_RE.match('my translation')
+    assert not R._SHORT_FORM_DEF_RE.match('translated by the author of the present volume in 1987 for the press.')
+    assert not R._SHORT_FORM_DEF_RE.match('palgrave communications | 3:17092 | doi 10.1057')

@@ -19,6 +19,7 @@ import {
   ensureSnapshot, initLintPanel, lintBadges, lintState, refreshLint, renderFindings,
 } from './lintPanel';
 import { withNewFindings, worstFirst, type LintFinding } from './lintView';
+import { downloadBundle as downloadCaseBundle } from '../shared/bundleDownload';
 import { drainResponse } from '../../utilities/drainResponse';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
@@ -1308,13 +1309,12 @@ function wireDetailActions(): void {
   // fetch_trace.json. Picking one IS the diagnosis, so neither is a default.
   const bundle = (kind: 'conversion' | 'harvest') => (): void => {
     if (!selected) return;
-    setStatus(`building ${kind} bundle…`);
-    // origin= lands in the bundle manifest, so the importing side knows the case came off a
+    // origin lands in the bundle manifest, so the importing side knows the case came off a
     // journal lane rather than the generic conversion queue.
-    window.location.href =
-      `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}`
-      + `?kind=${kind}&origin=${boot.mode === 'shelf' ? 'shelf-import' : 'journal-import'}`;
-    window.setTimeout(() => setStatus(''), 4000);
+    void downloadCaseBundle(
+      { book: selected.book, kind, origin: boot.mode === 'shelf' ? 'shelf-import' : 'journal-import' },
+      setStatus,
+    ).then((done) => { if (done) window.setTimeout(() => setStatus(''), 4000); });
   };
   document.getElementById('ji-export')?.addEventListener('click', bundle('conversion'));
   document.getElementById('ji-export-harvest')?.addEventListener('click', bundle('harvest'));

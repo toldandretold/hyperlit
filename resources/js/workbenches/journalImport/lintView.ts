@@ -11,6 +11,11 @@ export interface LintFinding {
   detector: string;
   /** The node's positional id — '' when the finding has no single node (a journal-wide one). */
   startLine: string;
+  /**
+   * startLine is not the finding itself but the nearest place to it: an orphaned definition
+   * kept only in the footnotes table lands beside its nearest linked neighbour's marker.
+   */
+  near?: boolean;
   excerpt: string;
   key: string;
   /** Not in the snapshot: this reconvert introduced it. */

@@ -700,6 +700,38 @@ def test_an_anchor_before_a_block_that_opens_with_another_number_is_not_a_note(s
     assert ids == []
 
 
+def test_a_star_pointing_at_an_anchor_before_an_unnumbered_note_identifies_it(soup):
+    # Letters of Marx and Engels: the editor's note follows the signature and prints no marker.
+    _, ids, out = _pointed(soup, '<body><p>started by the death of Brown<a href="#p001_p001-note"><b>*</b></a>, and in Russia.</p>'
+                                 '<p class="sig">Your<br/>K. M.</p>'
+                                 '<a id="p001_p001-note"></a>'
+                                 '<p class="information">BROWN, JOHN (1800-59). American revolutionary.</p>'
+                                 '<p>about the Fenians<a href="#p042_p042-note">[*]</a>. The vile deeds</p>'
+                                 '<a id="p042_p042-note"></a>'
+                                 '<p class="information">A group of Fenians were sentenced to death.</p></body>')
+    assert ids == ['p001_p001-note', 'p042_p042-note']
+    assert [f['element'].get_text(' ', strip=True)[:12] for f in out['footnotes']] == ['BROWN, JOHN ', 'A group of F']
+
+
+def test_an_unnumbered_block_is_a_note_only_for_a_star_and_never_under_another_marker(soup):
+    # A NUMBER pointing at an anchor before unmarked prose is a cross-reference ("see section 3"),
+    # and a star before a block that opens with another note's number points somewhere else.
+    _, ids, _ = _pointed(soup, '<body><p>see <a href="#p002_p002-sec">3</a> below, and<a href="#p002_p002-n">*</a></p>'
+                               '<a id="p002_p002-sec"></a><p>The third section opens here.</p>'
+                               '<a id="p002_p002-n"></a><p>4. Some other note.</p></body>')
+    assert ids == []
+
+
+def test_a_notes_own_backlink_never_makes_the_paragraph_after_its_marker_a_note(soup):
+    # Capital, chapter 1: the note's backlink "A." returns to an empty anchor closing a body
+    # paragraph, and the NEXT paragraph happens to open with the word "A".
+    s, ids, out = _pointed(soup, '<body><p>the labour incorporated in it. <sup class="enote"><a href="#p011_p011-A">[A]</a></sup><a id="p011_p011-12b"> </a></p>'
+                                 '<p>A thing can be a use value, without having value.</p>'
+                                 '<p class="information"><span class="info"><a href="#p011_p011-12b" id="p011_p011-A">A.</a></span> The following passage occurs.</p></body>')
+    assert 'p011_p011-12b' not in [f['id'] for f in out['footnotes']]
+    assert not any(f['element'].get_text().startswith('A thing') for f in out['footnotes'])
+
+
 def test_an_anchor_that_follows_the_printed_number_identifies_the_note(soup):
     # The Campaign for the German Imperial Constitution: the number, THEN the anchor.
     _, ids, out = _pointed(soup, '<body><p>the "March Clubs",<sup class="enote"><a href="#n135">[135]</a></sup> swore</p>'

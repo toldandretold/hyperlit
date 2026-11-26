@@ -92,7 +92,7 @@ from ingestion.epub.styleProfiler import StyleProfiler, TocIndex, spine_id_prefi
 ALLOWED_TAGS = [
     'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code',
     'a', 'em', 'strong', 'i', 'b', 'u', 'sub', 'sup', 'span', 'aside',
-    'ul', 'ol', 'li', 'br', 'hr', 'img', 'table', 'thead', 'tbody',
+    'ul', 'ol', 'li', 'br', 'hr', 'img', 'table', 'caption', 'thead', 'tbody',
     'tr', 'th', 'td', 'figure', 'figcaption', 'cite', 'q', 'abbr', 'mark',
     'section', 'nav', 'article', 'header', 'footer', 'div'
 ]

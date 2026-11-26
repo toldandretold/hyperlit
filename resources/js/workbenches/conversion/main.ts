@@ -7,6 +7,7 @@
 
 import { log } from '../../utilities/logger';
 import { csrfHeaders as sharedCsrfHeaders } from '../shared/http';
+import { downloadBundle as downloadCaseBundle } from '../shared/bundleDownload';
 import { drainResponse } from '../../utilities/drainResponse';
 import {
   applySourceFrameTheme, skinnableContentType, sourceIsSkinnable,
@@ -614,15 +615,14 @@ document.addEventListener('keydown', (e) => {
 // the converter and replays through run_regression.py; `harvest` blames
 // acquisition and ships canonical_source + fetch_trace.json instead. Passing
 // no kind lets book:export auto-detect from the book.
-const downloadBundle = (kind?: 'conversion' | 'harvest'): void => {
+const downloadBundle = async (kind?: 'conversion' | 'harvest'): Promise<void> => {
   if (!selected) return;
-  setStatus('building bundle…');
-  const qs = kind ? `?kind=${kind}` : '';
-  window.location.href = `/api/maintainer/conversion/export/${encodeURIComponent(selected.book)}${qs}`;
-  // Optimistically mirror the server-side stamp so the ⤓ marker shows without
-  // a queue refetch (the download navigation doesn't reload the page).
-  if (kind && selected.flags.length > 0) {
-    for (const flag of selected.flags) {
+  const entry = selected;
+  if (!(await downloadCaseBundle({ book: entry.book, kind }, setStatus))) return;
+  // Mirror the server-side stamp so the ⤓ marker shows without a queue refetch (the
+  // download does not reload the page).
+  if (kind && entry.flags.length > 0) {
+    for (const flag of entry.flags) {
       flag.details = { ...flag.details, exported_kind: kind };
     }
     renderList();
@@ -630,8 +630,8 @@ const downloadBundle = (kind?: 'conversion' | 'harvest'): void => {
   window.setTimeout(() => setStatus(''), 4000);
 };
 
-el<HTMLButtonElement>('mt-export').addEventListener('click', () => downloadBundle('conversion'));
-el<HTMLButtonElement>('mt-export-harvest').addEventListener('click', () => downloadBundle('harvest'));
+el<HTMLButtonElement>('mt-export').addEventListener('click', () => void downloadBundle('conversion'));
+el<HTMLButtonElement>('mt-export-harvest').addEventListener('click', () => void downloadBundle('harvest'));
 el<HTMLButtonElement>('mt-reconvert').addEventListener('click', () => void reconvertSelected());
 el<HTMLButtonElement>('mt-retract').addEventListener('click', () => void retractSelected());
 el<HTMLButtonElement>('mt-resolve').addEventListener('click', () => void resolveSelected('reconverted'));

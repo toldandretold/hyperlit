@@ -130,6 +130,34 @@ it('locates an orphaned definition whose stored node has no anchor, by its text'
         ->and($r['findings'][0]['startLine'])->toBe('600');
 });
 
+it('lands an orphan kept only in the footnotes table beside its nearest linked neighbour', function () {
+    // The HTML/EPUB lanes (marxists.org) store no definition node: nothing to land on but the
+    // markers. Ids are minted in document order (Fn<ms>_<base36 counter>).
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>First<sup class="footnote-ref" fn-count-id="1" id="Fn1764000000000_0001">1</sup> point.</p>'),
+        lintNode('200', '<p>Second point, whose marker was lost.</p>'),
+        lintNode('300', '<p>Third<sup class="footnote-ref" fn-count-id="3" id="Fn1764000000000_0003">3</sup> point.</p>'),
+    ], [
+        'Fn1764000000000_0003' => 'Note three.',
+        'Fn1764000000000_0002' => 'Marx and Engels, The Holy Family, Moscow, 1958, p. 110.',
+        'Fn1764000000000_0001' => 'Note one.',
+        'Fn1764000000000_0000' => 'An orphan before every linked note.',
+    ]);
+    $byExcerpt = array_column($r['findings'], null, 'excerpt');
+    expect($byExcerpt['Marx and Engels, The Holy Family, Moscow, 1958, p. 110.'])
+        ->toMatchArray(['detector' => 'orphan_definition', 'startLine' => '100', 'near' => true])
+        // nothing linked before it: the nearest one after
+        ->and($byExcerpt['An orphan before every linked note.']['startLine'])->toBe('100');
+});
+
+it('leaves an orphan unjumpable when its id says nothing about order', function () {
+    $r = (new ConversionLint)->lintBook([
+        lintNode('100', '<p>Text<sup class="footnote-ref" fn-count-id="1" id="Fn1">1</sup>.</p>'),
+    ], ['Fn1' => 'Linked.', 'Fn5' => 'Orphan with a hand-made id.']);
+    expect($r['findings'][0]['startLine'])->toBe('')
+        ->and($r['findings'][0])->not->toHaveKey('near');
+});
+
 it('ends the definitions section at the next heading (9d0400c9)', function () {
     $r = (new ConversionLint)->lintBook([
         lintNode('100', '<p>Early text.</p>'),

@@ -12,9 +12,11 @@
 use App\Mail\SweepFlagsRaisedMail;
 use App\Models\ConversionFlag;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 
 afterEach(function () {
     ConversionFlag::query()->where('book', 'like', 'apitest%')->delete();
@@ -58,6 +60,8 @@ test('every maintainer API endpoint is admin-gated', function () {
     $this->postJson('/api/maintainer/conversion/flags/apitest_x/note', ['note' => 'x'])->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/original/apitest_x')->assertStatus(403);
     $this->getJson('/api/maintainer/conversion/export/apitest_x')->assertStatus(403);
+    $this->postJson('/api/maintainer/conversion/export/apitest_x')->assertStatus(403);
+    $this->getJson('/api/maintainer/conversion/export/apitest_x/status')->assertStatus(403);
 });
 
 // ── The queue endpoint ──
@@ -350,20 +354,39 @@ test('original endpoint falls back to the scraped fetched_page.html when no orig
 
 // ── The export endpoint ──
 
-test('export endpoint builds the bundle and stamps the flags with what was downloaded', function () {
+// The bundle is built by a queued job and the request only starts it, reports on it, or hands
+// over the finished file: built inside the download request, a long book outlasted the CDN's
+// origin timeout and the button answered with a 524 page (prod 2026-11-26).
+test('export is started, polled, then downloaded — and stamps the flags with what was downloaded', function () {
     $admin = $this->loginUser(['is_admin' => true]);
     $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Bundle Me']);
     ConversionFlag::raise($book, ConversionFlag::SOURCE_USER_REPORT, 'r');
 
     $tarball = storage_path("app/book-exports/{$book}.tar.gz");
     try {
-        $resp = $this->get("/api/maintainer/conversion/export/{$book}?kind=harvest");
-        $resp->assertOk();
-        expect($resp->headers->get('Content-Disposition'))->toContain("{$book}.tar.gz");
+        // Nothing built yet: the download refuses instead of building in the request.
+        $this->get("/api/maintainer/conversion/export/{$book}")->assertStatus(409);
+        $this->getJson("/api/maintainer/conversion/export/{$book}/status")->assertOk()->assertJson(['state' => 'none']);
+
+        // The test queue is sync, so the build has finished by the time start answers.
+        $this->postJson("/api/maintainer/conversion/export/{$book}", ['kind' => 'harvest', 'origin' => 'shelf-import'])
+            ->assertStatus(202)->assertJson(['state' => 'ready', 'kind' => 'harvest']);
+        $status = $this->getJson("/api/maintainer/conversion/export/{$book}/status")->assertOk()->json();
+        expect($status['state'])->toBe('ready');
+        expect($status['bytes'])->toBeGreaterThan(0);
+
         expect(is_file($tarball))->toBeTrue();
         // Each run stages in its own directory and removes it (App\Support\BundleStage).
         expect(glob(storage_path("app/book-exports/.stage-{$book}*")))->toBe([]);
         expect(glob(storage_path("app/book-exports/{$book}*.partial")))->toBe([]);
+
+        // Building stamps nothing: the marker means DOWNLOADED.
+        $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();
+        expect($flag->details['exported_kind'] ?? null)->toBeNull();
+
+        $resp = $this->get("/api/maintainer/conversion/export/{$book}");
+        $resp->assertOk();
+        expect($resp->headers->get('Content-Disposition'))->toContain("{$book}.tar.gz");
 
         // The queue renders the "⤓ harvest" downloaded-marker from this stamp.
         $flag = ConversionFlag::where('book', $book)->where('status', 'open')->first();
@@ -371,7 +394,38 @@ test('export endpoint builds the bundle and stamps the flags with what was downl
         expect($flag->details['exported_at'] ?? null)->not->toBeNull();
     } finally {
         @unlink($tarball);
+        Cache::forget("book-export-build:{$book}");
     }
+});
+
+test('an export rides the archive-export queue and a second press does not queue a second build', function () {
+    Queue::fake();
+    $admin = $this->loginUser(['is_admin' => true]);
+    $book = $this->makeBook($admin, ['visibility' => 'public', 'title' => 'Queue Me']);
+
+    try {
+        $this->postJson("/api/maintainer/conversion/export/{$book}", ['kind' => 'conversion'])
+            ->assertStatus(202)->assertJson(['state' => 'building']);
+        $this->postJson("/api/maintainer/conversion/export/{$book}", ['kind' => 'conversion'])
+            ->assertStatus(202)->assertJson(['state' => 'building']);
+
+        // Never `default`: the consoles are used while a whole-shelf reconvert drains there.
+        Queue::assertPushedOn('archive-export', \App\Jobs\BuildBookExportJob::class);
+        Queue::assertPushed(\App\Jobs\BuildBookExportJob::class, 1);
+        $this->get("/api/maintainer/conversion/export/{$book}")->assertStatus(409);
+    } finally {
+        Cache::forget("book-export-build:{$book}");
+    }
+});
+
+test('a failed export says so instead of leaving the button waiting', function () {
+    $this->loginUser(['is_admin' => true]);
+
+    $this->postJson('/api/maintainer/conversion/export/apitest_no_such_book', [])
+        ->assertStatus(202)->assertJson(['state' => 'failed']);
+    expect($this->getJson('/api/maintainer/conversion/export/apitest_no_such_book/status')->json('error'))
+        ->toContain('No library row');
+    Cache::forget('book-export-build:apitest_no_such_book');
 });
 
 // ── Sweep alert email ──

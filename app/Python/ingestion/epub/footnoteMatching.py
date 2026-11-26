@@ -1219,6 +1219,7 @@ class StyledSuperscriptFootnoteDetector(AnchoredFootnoteScheme):
 
 _POINTED_DEF_BLOCKS = ('p', 'li', 'dd', 'blockquote', 'td', 'div')
 _POINTED_MARKER_RE = re.compile(r'^(?:\d{1,3}[a-z]?|[*†‡§¶#]{1,6}\d{0,3}|[a-z])$', re.I)
+_POINTED_SYMBOL_RE = re.compile(r'^[*†‡§¶#]{1,6}$')
 # The marker a definition block opens with, then the note itself: "1. Text", "[1] Text", "(1) Text", "* Text".
 _POINTED_OPENING_RE = re.compile(r'^(?:[\[(]\s*){0,2}(\d{1,3}[a-z]?|[*†‡§¶#]{1,6}\d{0,3}|[a-z])\s*[\])]?\.?\s+\S', re.I)
 
@@ -1410,7 +1411,7 @@ class HeuristicFootnoteDetector(EpubTransform):
         # Also matches bracketed numbers like [1], [2] (common in Marxists.org, Calibre EPUBs)
         # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>, <a href="#intro1">[1]</a>
         # "[*1]": a second, starred series beside the numbered one (The Poverty of Philosophy).
-        footnote_symbols = re.compile(r'^(?:\[?\d+\]|\(\d+\)|\[?[*†‡]{1,3}\d{1,3}\]?|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
+        footnote_symbols = re.compile(r'^(?:\[?\d+\]|\(\d+\)|\[?[*†‡]{1,3}\d{1,3}\]?|[\[(]?[*†‡§¶#]{1,3}[\])]?|[a-zA-Z]{1,3}\.?)$')
         # Bare digits only when the <a> has an id (indicating a back-linkable reference)
         bare_digit = re.compile(r'^\d{1,3}\.?$')
         for a_tag in soup.find_all('a', href=True):
@@ -1537,13 +1538,25 @@ class HeuristicFootnoteDetector(EpubTransform):
                 continue
             if block is None and not is_bare_anchor:
                 continue
+            # …but a link that OPENS its own block and points backward is that block's backlink,
+            # whatever it lands on. Capital prints `<span class="info"><a href="#12b" id="A">A.</a>
+            # </span> The following passage…` and the marker's spot is an empty anchor closing a
+            # body paragraph — so "A." read as a marker, and the next paragraph, "A thing can be a
+            # use value, without having value", opened with "the same marker" and left the text
+            # as note [A] (prod 2026-11-26).
+            if is_bare_anchor and order.get(id(target), -1) <= order.get(id(ref_el), 0):
+                ref_block = ref_el.find_parent(_POINTED_DEF_BLOCKS)
+                if ref_block is not None and not _text_before(ref_block, ref_el):
+                    continue
             # `<p><span class="term">135</span><a id="135"></a> The March Association…` (The Campaign
             # for the German Imperial Constitution): the anchor follows the printed number, and the
             # number is all that precedes it.
             before = _text_before(block, target) if (block is not None and target is not block) else ''
             if before and _marker_core(before).lower() == core.lower():
                 before = ''
+            stands_before = False
             if is_bare_anchor and (block is None or before):
+                stands_before = True
                 # The anchor stands just BEFORE the note rather than inside it: between two
                 # paragraphs (`<a id="fn06"> </a><p><span class="term">6.</span> …`, the 1844
                 # Manuscripts), closing the previous note, or inside the "Footnotes" heading
@@ -1562,7 +1575,18 @@ class HeuristicFootnoteDetector(EpubTransform):
                 continue
             opening = _POINTED_OPENING_RE.match(block.get_text(' ', strip=True))
             if not opening or _marker_core(opening.group(1)).lower() != core.lower():
-                continue
+                # `…the death of Brown<a href="#p001-note"><b>*</b></a>, and…` then, after the letter's
+                # signature, `<a id="p001-note"></a><p class="information">BROWN, JOHN (1800-59).
+                # American revolutionary…` (Letters of Marx and Engels): the note prints NO marker.
+                # A star is never a contents entry or a cross-reference, so a star that points
+                # forward at an anchor standing just before a block needs no opening marker to
+                # vouch for it — only that the block does not open with some OTHER note's marker
+                # (a lone opening letter is prose: "A thing can be…").
+                unmarked = (stands_before and _POINTED_SYMBOL_RE.match(core)
+                            and order.get(id(target), -1) > order.get(id(ref_el), 0)
+                            and (not opening or len(opening.group(1)) == 1 and opening.group(1).isalpha()))
+                if not unmarked:
+                    continue
             # When the opening marker is itself a link, it is the note's BACKLINK and returns to this
             # marker. A verse number is the same shape and is not: `<a class="StartVersenum"
             # id="est13_18" href="#esther13_1">18</a>And all Israel cried out…`, reached from a

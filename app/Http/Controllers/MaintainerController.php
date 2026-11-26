@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Console\Commands\BookExport;
+use App\Services\Conversion\BookExportBuild;
 use App\Models\ConversionFlag;
 use App\Services\Conversion\ReconvertQueue;
 use Illuminate\Http\Request;
@@ -205,49 +206,53 @@ class MaintainerController extends Controller
     }
 
     /**
-     * GET /api/maintainer/conversion/export/{book}?kind=conversion|harvest —
-     * build the case bundle (book:export) and stream it down: the "⤓ conversion glitch"
-     * / "⤓ harvest glitch" buttons. The same tarball pull_case.sh fetches over
-     * ssh. `kind` is optional — book:export auto-detects it from the book, and
-     * the param only exists to override a wrong guess.
+     * POST /api/maintainer/conversion/export/{book} {kind?, origin?} — queue the case bundle
+     * (book:export): the "⤓ conversion glitch" / "⤓ harvest glitch" buttons. Answers at once
+     * with the build's state; the page polls exportStatus and then GETs the file. `kind` is
+     * optional — book:export auto-detects it, and the param only overrides a wrong guess.
+     * `origin` names the console, and lands in the manifest so the importing side knows the
+     * case came off a journal lane rather than the generic conversion queue.
      */
-    public function export(Request $request, string $book)
+    public function exportStart(Request $request, string $book, BookExportBuild $build)
     {
         $book = $this->cleanBookId($book);
 
-        $kind = (string) $request->query('kind', '');
-        $args = ['book' => $book];
-        if (in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
-            $args['--kind'] = $kind;
+        $kind = (string) $request->input('kind', '');
+        if (!in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
+            $kind = '';
+        }
+        $origin = (string) $request->input('origin', '');
+        if (!preg_match('/^[a-z-]{1,32}$/', $origin)) {
+            $origin = '';
         }
 
-        // Which console exported it. Recorded in the manifest so the importing side knows the
-        // case came off a journal lane rather than the generic conversion queue — which changes
-        // what you look at first for a harvest case.
-        $origin = (string) $request->query('origin', '');
-        if (preg_match('/^[a-z-]{1,32}$/', $origin)) {
-            $args['--origin'] = $origin;
-        }
+        return response()->json($build->start($book, $kind, $origin), 202);
+    }
 
-        $exit = Artisan::call('book:export', $args);
-        if ($exit !== 0) {
-            return response()->json(['message' => 'Export failed — see logs.'], 422);
-        }
+    /** GET /api/maintainer/conversion/export/{book}/status — building | ready | failed | none. */
+    public function exportStatus(string $book, BookExportBuild $build)
+    {
+        return response()->json($build->status($this->cleanBookId($book)));
+    }
 
-        $tarball = storage_path("app/book-exports/{$book}.tar.gz");
-        if (!File::exists($tarball)) {
-            return response()->json(['message' => 'Export produced no bundle.'], 500);
+    /**
+     * GET /api/maintainer/conversion/export/{book} — hand over the bundle exportStart built
+     * (the same tarball pull_case.sh fetches over ssh). Never builds: a long book's build
+     * outlasts the request, which is why this used to answer with a gateway timeout.
+     */
+    public function export(string $book, BookExportBuild $build)
+    {
+        $book = $this->cleanBookId($book);
+
+        $status = $build->status($book);
+        if ($status['state'] !== BookExportBuild::READY) {
+            return response()->json(['message' => 'No bundle is ready for this book.', 'state' => $status['state']], 409);
         }
+        $kind = (string) ($status['kind'] ?? BookExport::KIND_CONVERSION);
 
         // Stamp the open flags with what was exported — the queue list renders a
         // "⤓ conversion / ⤓ harvest" marker from this, so the maintainer can see
-        // which cases they already pulled down. When no explicit kind was passed,
-        // read the auto-detected one from the manifest of the bundle just built.
-        if (!in_array($kind, [BookExport::KIND_CONVERSION, BookExport::KIND_HARVEST], true)) {
-            $probe = new \Symfony\Component\Process\Process(['tar', '-xzOf', $tarball, './manifest.json']);
-            $probe->run();
-            $kind = (string) (json_decode($probe->getOutput(), true)['case_kind'] ?? BookExport::KIND_CONVERSION);
-        }
+        // which cases they already pulled down.
         foreach (ConversionFlag::where('book', $book)->where('status', 'open')->get() as $flag) {
             $flag->details = array_merge($flag->details ?? [], [
                 'exported_kind' => $kind,
@@ -256,7 +261,7 @@ class MaintainerController extends Controller
             $flag->save();
         }
 
-        return response()->download($tarball, "{$book}.tar.gz");
+        return response()->download($build->tarball($book), "{$book}.tar.gz");
     }
 
     /**

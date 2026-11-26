@@ -383,3 +383,49 @@ def test_a_body_twin_is_recognised_through_an_html_entity():
     out = A._absorb_numbered_body_twins(combined, [(13, 'See also Andreas Blass: Topoi & Computation.')])
     assert '\n13 See also' not in out
     assert '[^13]: See also Andreas Blass: Topoi &amp; Computation. (preprint' in out
+
+
+def test_seam_with_a_one_letter_word_after_the_marker():
+    from ingestion.pdf.assembly import _marker_seam_witnesses
+    hits = list(_marker_seam_witnesses('Government Press Office. CC BY-NC-SA 2.0).8 A few months before', 8))
+    assert hits and hits[0][1] == ('0).', '', 'A')
+
+
+def test_seam_where_the_layer_letter_spaces_the_next_word():
+    from ingestion.pdf.assembly import _marker_seam_witnesses
+    hits = list(_marker_seam_witnesses('describe the organization of the data structure7 o f  a  MMORPG character', 7))
+    assert ('structure', '', 'o f') in [h[1] for h in hits]
+
+
+PLAIN_BODY = ('Users should control any commercial uses of her or his identity in social web '
+              'platforms.1 It thus rests on the premise that individual web users have recourse.')
+PLAIN_LAYER = 'uses of her or his identity in social web platforms. 1\nThe definition of persona rights'
+
+
+def test_plain_digit_at_a_sentence_end_is_the_marker_of_the_unlinked_note():
+    """The layer sets the superscript at the end of its line and carries on with another line
+    altogether, so the seam hunt's follow word never matches the markdown (c8c7c8b6)."""
+    site = A._plain_digit_marker_site(PLAIN_BODY, 1, PLAIN_LAYER)
+    assert site is not None
+    m, prefix = site
+    assert PLAIN_BODY[m.start() + prefix:m.end(1)] == '1'
+
+
+def test_plain_digit_refuses_two_sites_and_an_unwitnessed_one():
+    twice = PLAIN_BODY + ' Another sentence ends on the word platforms.1 Then it goes on.'
+    assert A._plain_digit_marker_site(twice, 1, PLAIN_LAYER) is None
+    assert A._plain_digit_marker_site(PLAIN_BODY, 1, 'a page that prints other words entirely') is None
+    assert A._plain_digit_marker_site(PLAIN_BODY, 2, PLAIN_LAYER) is None
+
+
+def test_rescued_marker_goes_to_the_note_the_document_already_holds(monkeypatch):
+    """The layer recovery had already put note 4 in the definitions, unlinked. Folding the
+    footer's copy in under a fresh number printed the note twice (4ab0609a)."""
+    note = 'It may be noted that a flood of books for would-be entrepreneurs now jockey for sales.'
+    combined = ('Much of it contrived for other entrepreneurs of the digital self. The user, in '
+                'conducting labour, goes on.[^5]\n\n[^4]: ' + note + '\n\n[^5]: Future work.')
+    _with_stub(monkeypatch, {3: 'other entrepreneurs of the digital self.4 The user, in conducting\n4 ' + note})
+    out, n = A._rescue_refless_footer_footnotes(
+        combined, {'pages': [{'index': 3, 'footer': '4 ' + note}]}, 'x.pdf')
+    assert 'digital self.[^4] The user' in out
+    assert out.count(note) == 1 and '[^6]' not in out

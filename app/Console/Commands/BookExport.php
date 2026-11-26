@@ -291,17 +291,27 @@ class BookExport extends Command
 
     private function dumpNodesJsonl($db, string $book, string $path): int
     {
+        // ONE pass, and only the columns the bundle keeps. This used to page with OFFSET
+        // (re-running the sub-book match for every 500 rows) and `select *` — dragging each
+        // node's embedding and both search vectors across the wire only for strip() to drop
+        // them. On a 10,000-node book that outlasted the request (prod 2026-11-26, Theories
+        // of Surplus-Value: Cloudflare 524).
+        $columns = array_values(array_diff(
+            $db->getSchemaBuilder()->getColumnListing('nodes'),
+            self::EXCLUDE['nodes'] ?? [],
+        ));
+
         $fh = fopen($path, 'w');
         $count = 0;
-        $db->table('nodes')
-            ->where('book', $book)->orWhere('book', 'like', "{$book}/%")
+        $rows = $db->table('nodes')
+            ->select($columns)
+            ->where(fn ($q) => $q->where('book', $book)->orWhere('book', 'like', "{$book}/%"))
             ->orderBy('book')->orderBy('startLine')
-            ->chunk(500, function ($rows) use ($fh, &$count) {
-                foreach ($rows as $row) {
-                    fwrite($fh, json_encode($this->strip((array) $row, 'nodes'), JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
-                    $count++;
-                }
-            });
+            ->cursor();
+        foreach ($rows as $row) {
+            fwrite($fh, json_encode($this->strip((array) $row, 'nodes'), JSON_INVALID_UTF8_SUBSTITUTE) . "\n");
+            $count++;
+        }
         fclose($fh);
 
         return $count;

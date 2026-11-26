@@ -1048,6 +1048,9 @@ def _marker_seam_witnesses(ptext, num):
         (rf'([A-Za-z]{{3,}}){num}([,;:])\s+["\'“‘]([A-Za-z]{{2,}})', 3),
         # glued punct-first, also after digits/parens:       "…Aniekwe et al. (2012).2 The"
         (rf'([A-Za-z0-9)\]]{{2,}}[.,;:!?]){num}\s+([A-Za-z]{{2,}})', 2),
+        # …and the sentence after it opening on a one-letter word: "CC BY-NC-SA 2.0).8 A few
+        # months before" (08a2e7a9).
+        (rf'([A-Za-z0-9)\]]{{2,}}[.!?]){num}\s+([AI])(?= [a-z])', 2),
         # line-start marker (the superscript opened a text run):   "ESD.\n1 For"
         (rf'([A-Za-z]{{2,}}[.!?)])\n{num} ([A-Za-z]{{2,}})', 2),
         # line-end marker (the superscript closed one):            "2010). 2\nThis"
@@ -1064,6 +1067,9 @@ def _marker_seam_witnesses(ptext, num):
         # Any LETTER, not just ASCII: "AzTVdən Seçmələr2 are" (749b9c6b) lost its marker because
         # the word's last ASCII run is one character long.
         (rf'([^\W\d_]{{4,}}){num}\s+([A-Za-z]{{2,}})', 2),
+        # …where the layer letter-spaces the word after it: "the data structure7 o f  a  MMORPG’s
+        # character" (c7c6db2b). The caller reads the space inside the follow word as optional.
+        (rf'([^\W\d_]{{4,}}){num}\s+([a-z] [a-z])(?= )', 2),
         # glued onto a closing paren or a citation YEAR, punctuation AFTER the marker:
         # "(see figure 4)6: dispositions…", "(see also Oberquelle 19919). This…" — up to two
         # punctuation marks, because a marker inside a parenthetical closes both at once (").").
@@ -1103,6 +1109,28 @@ def _marker_seam_witnesses(ptext, num):
             yield m, (m.group(1), m.group(2), m.group(3))
         else:
             yield m, (m.group(1), '', m.group(2))
+
+
+def _plain_digit_marker_site(body, num, home_text):
+    """The marker of an unlinked note, still standing in the body as a plain digit glued to the
+    end of a sentence: "…identity in social web platforms.1 It thus rests on…" (c8c7c8b6).
+
+    The seam hunt reads what FOLLOWS the marker from the text layer, and a layer that sets the
+    superscript at the end of its line continues with some other line entirely ("platforms. 1⏎
+    The definition of…"), so its seam never matches the markdown. Here the markdown's own digit
+    is the evidence instead: it must be the only such site in the body, and the page the note
+    is printed on must carry the same words with the same number straight after them. Returns
+    (match, prefix length) in the rescue's own shape, or None."""
+    sites = list(re.finditer(
+        rf'[A-Za-z]{{4,}}[.!?]["\'’”)]?({num})(?=\s+["\'“‘(]?[A-Z])', body))
+    if len(sites) != 1:
+        return None
+    m = sites[0]
+    before = re.sub(r'[^a-z0-9]+', '', body[max(0, m.start() - 60):m.start(1)].lower())[-24:]
+    layer = re.sub(r'[^a-z0-9]+', '', (home_text or '').lower())
+    if len(before) < 12 or layer.count(before + str(num)) != 1:
+        return None
+    return m, m.start(1) - m.start()
 
 
 # A def-shaped entry opening a page FOOTER: "1 As examined in section 2: …" / "1. Text…".
@@ -1283,7 +1311,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
                      for mm, sh in _marker_seam_witnesses(ptext, num)]
             if seams:
                 break
-        if not seams:
+        if not seams and not (def_text is None and page_idx is not None):
             continue                    # no witness in the PDF text layer — never guess
         # Every witness this page offers gets a turn at the validation below: the looser shapes
         # exist to catch markers with no punctuation around them at all ("…duality of
@@ -1296,7 +1324,7 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             word, punct = (''.join('["\'’”“]' if c in '"\'’”' else
                                    (r'\s?' if c == ' ' else re.escape(c)) for c in part)
                            for part in seam[:2])
-            follow = re.escape(seam[2])
+            follow = re.escape(seam[2]).replace(r'\ ', r'\s?')
             # `(…)?` = the marker's own corpse: where the text layer has the digit, the markdown
             # may carry a superscript LETTER Mistral substituted for it. Matching it optionally
             # lets the seam line up, and the insertion REPLACES it rather than leaving junk
@@ -1364,6 +1392,9 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
                 continue
             placed = (hits[0], len(seam[0]))
             break
+        if placed is None and def_text is None and page_idx is not None:
+            placed = _plain_digit_marker_site(combined[:body_end], num,
+                                              page_texts.get(page_idx) or '')
         if placed is None:
             continue
         if def_text is None:
@@ -1371,9 +1402,20 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         else:
             # An untranslatable printed number in a renumbered doc never reuses its digit —
             # the markdown number it collides with belongs to a DIFFERENT printed note.
-            target = md_num if (md_num is not None and md_num not in used) else next_free
-            if target == next_free:
-                next_free += 1
+            # The document may already hold this very note, unlinked (the layer recovery put
+            # it there under its printed number): the marker goes to THAT definition. Folding
+            # the footer's copy in under a fresh number left the note printed twice, one copy
+            # linked and one flagged as a note nobody points to (4ab0609a note 4).
+            _twin = next((n for n, t in orphan_defs
+                          if _norm_head(t) and _norm_head(t) == _norm_head(def_text)
+                          and not re.search(rf'\[\^{n}\](?!:)', combined)), None)
+            if _twin is not None:
+                def_text = None
+                target = _twin
+            else:
+                target = md_num if (md_num is not None and md_num not in used) else next_free
+                if target == next_free:
+                    next_free += 1
         used.add(target)
         h, word_len = placed
         insert_at = h.start() + word_len
@@ -1581,10 +1623,25 @@ class PageBottomAssembler(FootnoteAssembler):
                 def_texts.setdefault(_n, []).append(_t)
             md, _n = resurrect_dropped_markers_from_pypdf(
                 md, ptext, pypdf_nums, f' (page {i})', def_texts=def_texts)
+        # While every page so far kept its printed numbers, the print is ONE continuous
+        # sequence — so a jump past the counter is lost markers, not a restart.
+        gap_nums = None
+        if all(k == v for m in ctx.page_local_to_global.values() for k, v in m.items()):
+            _all_defs = getattr(ctx, 'pypdf_page_defs', None) or {}
+            gap_nums = {n for j in (i - 2, i - 1, i) for n, _t in _all_defs.get(j, [])}
+        _counter_before = ctx.global_fn_counter
         md, ctx.global_fn_counter = renumber_page_footnotes(
             md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums,
             pypdf_defs=pypdf_defs, page_label=f' (page {i})',
-            confirmed_out=ctx.text_layer_confirmed)
+            confirmed_out=ctx.text_layer_confirmed, layer_gap_nums=gap_nums)
+        if gap_nums:
+            # The numbers a kept gap stepped over: notes the layer prints and the OCR lost. The
+            # layer recovery may bring their definitions back under these numbers.
+            _kept = getattr(ctx, 'kept_gap_numbers', None)
+            if _kept is None:
+                _kept = ctx.kept_gap_numbers = set()
+            _kept.update(set(range(_counter_before, ctx.global_fn_counter))
+                         - set(page_map.values()))
         if page_map:
             ctx.page_local_to_global[i] = page_map
         body, fn_text = split_body_and_footnotes(md)
@@ -3539,12 +3596,17 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
             # (covers, TOCs) have no map and can never contribute.
             if classification == 'page_bottom':
                 translated = {}
+                _gap_notes = getattr(ctx, 'kept_gap_numbers', None) or set()
                 for page_idx, page_defs in clean_pypdf_defs.items():
                     page_map = ctx.page_local_to_global.get(page_idx) or {}
                     kept = []
                     for n, t in page_defs:
                         if n in page_map:
                             kept.append((page_map[n], t))
+                        elif n in _gap_notes:
+                            # A note the numbering kept a place for: its marker was lost, but
+                            # the note is the document's and comes back under its own number.
+                            kept.append((n, t))
                         elif kept and isinstance(t, SplitBornNote):
                             # Cut out of the note before it and unplaceable here: back it goes,
                             # number and all, exactly as the layer printed the line.

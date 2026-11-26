@@ -1078,7 +1078,10 @@ def split_run_on_numbered_def(num, text, taken=None):
 # dropped and its marker left with no definition at all. Kept short on purpose — a repeated
 # paragraph is furniture whatever it opens with.
 _SHORT_FORM_DEF_RE = re.compile(
-    r'^(ibid|id|idem|op\.?\s*cit|loc\.?\s*cit|ebd|a\.?\s*a\.?\s*o)\b[.,]?\s*\S{0,40}$',
+    r'^(?:(ibid|id|idem|op\.?\s*cit|loc\.?\s*cit|ebd|a\.?\s*a\.?\s*o)\b[.,]?\s*\S{0,40}'
+    # The other note an author repeats word for word: whose translation, whose emphasis.
+    r'|(?:translated by the author|(?:my|our|own|author.s) translation|translation mine'
+    r'|emphasis (?:added|mine|in (?:the )?original)|(?:my|our) emphasis)\.?)$',
     re.IGNORECASE)
 
 
