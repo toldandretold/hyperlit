@@ -185,7 +185,7 @@ def pypdf_text_is_usable(text):
 
 _LONE_DIGIT_LINE_RE = re.compile(r'^\s*(\d{1,3})\s*$')
 _LONE_NOTE_OPENER_RE = re.compile(
-    r"""["'(\u201c\u2018\u201e\u00ab\u00bb]?[A-Z]|https?://|www\.""")
+    r"""["'(\u201c\u2018\u201e\u00ab\u00bb]?\s?[A-Z\u00c0-\u00de]|https?://|www\.|\d+\s[A-Za-z]""")
 LONE_NOTE_MAX_CHARS = 700
 # How many body markers the layer must set on their own line before that layout is trusted to
 # correct the OCR's marker numbers.
@@ -961,7 +961,9 @@ class SplitBornNote(str):
 # shipped inside note 13).
 _NOTE_BOUNDARY_TEMPLATE = (r'(\S+)\s{0}\s+(?=[\u201e\u00ab\u00bb]|["\'\u201c\u2018(]?([A-Z][A-Za-z]+)'
                            r'|https?://|www\.|ibid\b|op\.? ?cit)')
-_SENTENCE_CLOSE_TOKEN_RE = re.compile(r'[.!?]["\'\u201c\u201d\u2019)]?$')
+# …or the close of a parenthetical reference — "(ThIS, p.31) 6 “This chapter…", "Gane (2005) 3 In:"
+# — which is how a note that is only a citation ends (0eb69a75 note 6).
+_SENTENCE_CLOSE_TOKEN_RE = re.compile(r'[.!?]["\'\u201c\u201d\u2019)]?$|\d\)$')
 
 
 def split_run_on_numbered_def(num, text, taken=None):
@@ -1251,7 +1253,10 @@ def recover_missing_defs(ocr_defs_set, pypdf_defs_by_page, max_ref_number,
                 # punctuation/digits is a BIBLIOGRAPHY fragment the extractor misread
                 # (cece961b: "(4), 1 – 6 . Masalu, D.C., 2000…" became phantom "def 1").
                 # Genuine orphan defs (no ref yet) stay recoverable as visible content.
-                if not re.match(r'''^["'‘“„«»\[(]{0,2}[A-Za-z]''', split_text.strip()):
+                # …except a figure leading straight into a lower-case word, which is a note
+                # about a quantity ("1 rand = 80 centimes d'euro.", 1f74c7ff note 31).
+                if not re.match(r'''^(?:["'‘“„«»\[(]{0,2}\s?[A-Za-z\u00c0-\u00ff]|\d{1,3}\s[a-z]{3,})''',
+                                split_text.strip()):
                     continue
                 if shifted_num in ocr_defs_set and not allow_overwrite:
                     continue

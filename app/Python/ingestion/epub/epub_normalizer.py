@@ -498,6 +498,7 @@ class EpubNormalizer:
         # at the accumulation site.
         seen_fn_ids = set()
         seen_fn_elements = set()
+        fn_by_element = {}
         self._fn_element_dups = 0
 
         # Track every footnote DETECTOR's detect() verdict (and how many it found) so the
@@ -557,12 +558,21 @@ class EpubNormalizer:
                             # one element shows up as dropped notes rather than passing unnoticed.
                             if elem is not None and id(elem) in seen_fn_elements:
                                 self._fn_element_dups += 1
+                                # The dropped id is still an ADDRESS of the note that was kept. One
+                                # paragraph can carry two ids — an old empty `<a id="11">` beside the
+                                # `<a id="fw11">` its marker actually points at (Left-Wing Communism)
+                                # — and whichever a detector registered first won: 53 of 70 notes
+                                # orphaned because every marker pointed at the id that lost.
+                                kept = fn_by_element.get(id(elem))
+                                if kept is not None and fid:
+                                    kept.setdefault('alias_ids', []).append(fid)
                                 self._log(f"    [dedup] dropped footnote id={fid}: shares its source "
                                           f"element with an already-registered note (duplicate definition)")
                                 continue
                             seen_fn_ids.add(fid)
                             if elem is not None:
                                 seen_fn_elements.add(id(elem))
+                                fn_by_element[id(elem)] = fn
                             all_footnotes.append(fn)
 
                     if 'noterefs' in result:

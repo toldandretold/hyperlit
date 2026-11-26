@@ -168,7 +168,7 @@ class ConversionLint
             $text = $node['text'];
 
             if (preg_match('/^h[1-6]$/', $tag)) {
-                $inRefs = (bool) preg_match('/^\s*(?:\d+\.?\s*)?(?:references|bibliography|works cited|literature)\b/i', $text);
+                $inRefs = (bool) preg_match('/^\s*(?:\d+\.?\s*)?(?:references|bibliography|works cited|literatur(?:e|verzeichnis)?|quellen(?:verzeichnis)?|r[ée]f[ée]rences|bibliographie|referencias|bibliograf[íi]a)\b/iu', $text);
                 $bare = preg_replace('/<sup class="footnote-ref".*?<\/sup>/s', '', $node['html']);
                 $headText = trim(html_entity_decode(strip_tags($bare), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
                 if (preg_match('/\p{Ll}{3,}\d{1,2}$/u', $headText)) {
@@ -234,6 +234,13 @@ class ConversionLint
                     if ($before === '' || preg_match('/^\[[^\]]{1,6}\]$/u', $before)) {   // …or our own "[N]" label
                         continue;
                     }
+                    // "…<br/>2. Measures for the Middle Classes": a bare number with its own full
+                    // stop and a title after it is a line of a contents list, wherever it stands
+                    // in the block (The Civil War in France — 26 such links to section headings).
+                    $after = substr($node['html'], $a[0][1] + strlen($a[0][0]), 12);
+                    if (preg_match('/^\d{1,3}$/', $label) && preg_match('/^[.)]\s+\p{Lu}/u', $after)) {
+                        continue;
+                    }
                     if (!str_contains($attrs, 'citation') && !str_contains($attrs, 'hypercite')
                             && preg_match('/^[\[(]?(?:\d{1,3}[a-z]?|[*†‡§¶#+]{1,6}\d{0,3}|[a-z])[\])]?\.?$/iu', $label)) {
                         $add('unconverted_note_link', $node, "link “{$label}” · " . mb_substr($text, 0, 170));
@@ -270,6 +277,10 @@ class ConversionLint
                         && mb_strlen($text) >= 40 && !preg_match('#^(?:https?:|www\.)#i', $text)
                         && !preg_match(self::ENUMERATOR, $text)
                         && !$this->isLetteredLegendRow($body, $i)
+                        // A display the sentence runs THROUGH: "…such that the diagram of the
+                        // form ⏎ [image] ⏎ is a pullback." (df532d32). A figure with a caption
+                        // is a float and still counts.
+                        && !$this->runsThroughDisplay($body, $i)
                         // A quotation that completes its lead-in sentence ("…defines fascism
                         // as ⏎ a genus of political ideology…") has this exact shape and is
                         // not a fragment: the PDF indents it as a block (bd7c450b, five of them).
@@ -607,7 +618,7 @@ class ConversionLint
                 continue;     // byline / affiliation / "Abstract" — the same across one author's articles by design
             }
             if (preg_match('/^h[1-6]$/', $n['tag'])) {
-                $inRefs = (bool) preg_match('/^\s*(?:\d+\.?\s*)?(?:references|bibliography|works cited|literature)\b/i', $n['text']);
+                $inRefs = (bool) preg_match('/^\s*(?:\d+\.?\s*)?(?:references|bibliography|works cited|literatur(?:e|verzeichnis)?|quellen(?:verzeichnis)?|r[ée]f[ée]rences|bibliographie|referencias|bibliograf[íi]a)\b/iu', $n['text']);
                 continue;     // headings repeat by design ("Conclusion", "About the Authors")
             }
             if ($inRefs || str_contains($n['html'], 'class="bib-entry"')) {
@@ -669,6 +680,21 @@ class ConversionLint
             return false;
         }
         return (bool) preg_match('/[\p{L},\-–]$/u', $prev);
+    }
+
+    private function runsThroughDisplay(array $body, int $i): bool
+    {
+        if ($i < 2 || $body[$i - 1]['tag'] !== 'img') {
+            return false;
+        }
+        $caption = '/^\s*(?:Figure|Fig\.|Table|Abbildung|Abb\.|Tabelle|Graph|Chart)\s*\d+/iu';
+        foreach ([$i - 2, $i, $i + 1] as $j) {
+            if (isset($body[$j]) && $j !== $i && preg_match($caption, $body[$j]['text'])) {
+                return false;
+            }
+        }
+        // The half before the display must itself point at it, or end on a connective.
+        return (bool) preg_match('/(?:\b(?:form|diagram|follows|below|by|as|that|where|is|of)|[:,])\s*$/iu', $body[$i - 2]['text']);
     }
 
     private function previousProse(array $body, int $i): ?array

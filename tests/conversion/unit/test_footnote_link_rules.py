@@ -279,3 +279,19 @@ def test_a_bold_unlinked_number_after_the_id_target_is_the_marker(html, expected
 ])
 def test_bold_prose_and_bold_years_are_left_alone(html):
     assert strip_leading_footnote_number(html) == html
+
+
+def test_a_second_id_on_a_definition_is_an_alias_and_a_bracketed_symbol_is_a_marker(soup):
+    # Left-Wing Communism: a note's paragraph carries an old id AND the id its marker points at. The
+    # normaliser keeps one definition per element; the id it dropped must still lead to the note.
+    s = soup('<body><p>Individuals<a href="#fw1" id="bk1">[*]</a> and parties.</p>'
+             '<p id="old1"><a href="#bk1" id="fw1">[*]</a> What applies to individuals.</p></body>')
+    all_footnotes = [{'id': 'old1', 'element': s.find(id='old1'), 'type': 'footnote', 'alias_ids': ['fw1']}]
+    all_noterefs = [{'element': s.find('a', id='bk1'), 'target_id': 'fw1', 'original_marker': '[*]'}]
+    _, log = _logs()
+    out = link_epub_footnotes(s, all_footnotes, all_noterefs, 'b', log, keep_definitions=True)
+    assert out['linking_stats']['linked'] == 1
+    assert s.find('sup', class_='footnote-ref') is not None
+    note = s.find(attrs={'role': 'doc-footnote'})
+    assert note.get_text(' ', strip=True) == '[*] What applies to individuals.'      # printed once
+    assert s.find('a', href=True) is None

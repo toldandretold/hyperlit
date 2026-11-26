@@ -648,6 +648,41 @@ class EndnoteCharactersFootnoteDetector(EpubTransform):
 _ENOTE_DEF_CONTAINERS = ['p', 'div', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']
 
 
+_SIDEBAR_PLACEHOLDER_RE = re.compile(r'this footnote has been moved into the\s+body of the document', re.I)
+
+
+def _lift_sidebar_notes(soup):
+    """Lenin's Collected Works pages print an author's footnote INSIDE the paragraph, right after its
+    marker — `…a "Marsh".<sup class="enote"><a href="#fw1" id="bk1">[2]</a></sup> <span
+    class="footnote-as-sidebar"><sup class="endnote"><a href="#bk1" id="fw1">[2]</a></sup> There are
+    people…</span>` — and leave `<p class="endnote">[2] Note: This footnote has been moved into the
+    body of the document.</p>` where it used to stand. A definition inside its own reference's
+    paragraph can never be extracted (One Step Forward: every such note ran on as body text with two
+    dead "[2]" links). Each sidebar becomes a paragraph of its own directly after the one it sat in,
+    and the placeholder goes."""
+    last_for_host = {}
+    lifted = 0
+    for span in soup.find_all('span', class_=lambda c: c and 'footnote-as-sidebar' in c):
+        host = span.find_parent(('p', 'li', 'dd', 'td', 'blockquote', 'div'))
+        if host is None or not span.get_text(strip=True):
+            continue
+        note = soup.new_tag('p')
+        note['class'] = 'endnote'
+        for child in list(span.contents):
+            note.append(child.extract())
+        span.decompose()
+        if host.name == 'p':
+            last_for_host.get(id(host), host).insert_after(note)
+            last_for_host[id(host)] = note
+        else:
+            host.append(note)
+        lifted += 1
+    for p_tag in soup.find_all('p'):
+        if _SIDEBAR_PLACEHOLDER_RE.search(p_tag.get_text(' ', strip=True)) and len(p_tag.get_text(strip=True)) < 120:
+            p_tag.decompose()
+    return lifted
+
+
 class EnoteFootnoteDetector(EpubTransform):
     """
     Detects footnotes using <sup class="enote"> pattern.
@@ -673,6 +708,10 @@ class EnoteFootnoteDetector(EpubTransform):
         noterefs = []
         seen_fn_ids = set()
         seen_ref_targets = set()
+
+        lifted = _lift_sidebar_notes(soup)
+        if lifted:
+            log(f"    Lifted {lifted} sidebar note(s) out of their paragraphs")
 
         # Pattern 1: <sup class="enote..."><a href="#nX">
         for sup in soup.find_all('sup', class_=lambda c: c and 'enote' in c):
@@ -939,7 +978,32 @@ class AnchoredFootnoteScheme(EpubTransform):
                     ids.add(target)
             elif href.startswith('#'):                         # 'any-href'
                 ids.add(target)
+        if self.definition == 'empty-anchor' and ids:
+            ids = self._drop_backlink_targets(soup, ids)
         return ids
+
+    @staticmethod
+    def _drop_backlink_targets(soup, ids):
+        """An empty anchor that is only ever linked from BELOW it is not a definition: it is the spot in
+        the body a note's backlink returns to. Lenin's Collected Works pages print `<a id="1.1"></a>` in
+        the text and `<sup><a href="#1.1">[1]</a></sup> The old Iskra…` in the notes; read as a marker,
+        that backlink made the body paragraphs after the anchor "the note" (Left-Wing Communism: 45
+        runs of body text taken for definitions, and the 53 real notes orphaned because their markers
+        were now inside one). A marker stands before its note."""
+        order, by_id, first_link = {}, {}, {}
+        for i, t in enumerate(soup.find_all(True)):
+            order[id(t)] = i
+            if t.get('id'):
+                by_id.setdefault(t['id'], t)
+            href = t.get('href', '') if t.name == 'a' else ''
+            if '#' in href:
+                first_link.setdefault(href.split('#', 1)[1], i)
+        kept = set()
+        for target in ids:
+            el = by_id.get(target)
+            if el is None or first_link.get(target, 0) < order[id(el)]:
+                kept.add(target)
+        return kept
 
     def _definitions(self, soup, linked):
         """(element, id) pairs for definitions whose id is marker-linked, in document order."""
@@ -1153,6 +1217,46 @@ class StyledSuperscriptFootnoteDetector(AnchoredFootnoteScheme):
         return super().detect(soup)
 
 
+_POINTED_DEF_BLOCKS = ('p', 'li', 'dd', 'blockquote', 'td', 'div')
+_POINTED_MARKER_RE = re.compile(r'^(?:\d{1,3}[a-z]?|[*†‡§¶#]{1,6}\d{0,3}|[a-z])$', re.I)
+# The marker a definition block opens with, then the note itself: "1. Text", "[1] Text", "(1) Text", "* Text".
+_POINTED_OPENING_RE = re.compile(r'^(?:[\[(]\s*){0,2}(\d{1,3}[a-z]?|[*†‡§¶#]{1,6}\d{0,3}|[a-z])\s*[\])]?\.?\s+\S', re.I)
+
+
+def _marker_core(text):
+    """"[12]", "(12)", "12." and the typo "12]" are one marker: 12."""
+    return re.sub(r'[\s\[\]().]', '', text or '')
+
+
+def _drop_unlinked_opening_marker(block, core):
+    """`<a id="n2"></a><span class="term">2</span> On July 1…` — the note's number in a plain span, no
+    link. The linker strips a marker that is a link, a <sup> or bold, and deliberately never a bare
+    span (three letters of prose in a span are not a marker). Here the span is KNOWN to be the marker:
+    it opens the block the reference points at and reads exactly as that reference does."""
+    for child in block.children:
+        if isinstance(child, NavigableString):
+            if str(child).strip():
+                return
+            continue
+        if child.name == 'a' and not child.get('href') and not child.get_text(strip=True):
+            continue
+        if (child.name in ('span', 'i', 'em', 'small', 'font') and child.find(True) is None
+                and _marker_core(child.get_text()).lower() == core.lower()):
+            child.decompose()
+        return
+
+
+def _text_before(block, target):
+    """Whatever prose `block` prints before `target` — empty when the anchor opens the block."""
+    seen = []
+    for node in block.descendants:
+        if node is target:
+            break
+        if isinstance(node, str):
+            seen.append(node)
+    return ''.join(seen).strip()
+
+
 class HeuristicFootnoteDetector(EpubTransform):
     """
     Fallback heuristic footnote detection.
@@ -1194,6 +1298,8 @@ class HeuristicFootnoteDetector(EpubTransform):
     def transform(self, soup, log) -> dict:
         footnotes = []
         noterefs = []
+        # Keyed by the LINK, not its target: a note may be referenced twice (Anti-Dühring cites its
+        # note 46 from two places) and the second marker was left a dead link.
         seen_ref_ids = set()
         seen_fn_ids = set()
 
@@ -1205,8 +1311,8 @@ class HeuristicFootnoteDetector(EpubTransform):
             if a_tag and not a_tag.get('class'):
                 href = a_tag.get('href', '')
                 target_id = self._extract_target_id(href)
-                if target_id and target_id not in seen_ref_ids:
-                    seen_ref_ids.add(target_id)
+                if target_id and id(a_tag) not in seen_ref_ids:
+                    seen_ref_ids.add(id(a_tag))
                     noterefs.append({
                         'element': sup,
                         'target_id': target_id,
@@ -1220,8 +1326,8 @@ class HeuristicFootnoteDetector(EpubTransform):
             if sup:
                 href = a_tag.get('href', '')
                 target_id = self._extract_target_id(href)
-                if target_id and target_id not in seen_ref_ids:
-                    seen_ref_ids.add(target_id)
+                if target_id and id(a_tag) not in seen_ref_ids:
+                    seen_ref_ids.add(id(a_tag))
                     # Use the <a> as the element since it wraps the sup
                     noterefs.append({
                         'element': a_tag,
@@ -1290,8 +1396,8 @@ class HeuristicFootnoteDetector(EpubTransform):
         for a_tag in soup.find_all('a', href=re.compile(r'fn\.html#')):
             href = a_tag.get('href', '')
             target_id = self._extract_target_id(href)
-            if target_id and target_id not in seen_ref_ids:
-                seen_ref_ids.add(target_id)
+            if target_id and id(a_tag) not in seen_ref_ids:
+                seen_ref_ids.add(id(a_tag))
                 noterefs.append({
                     'element': a_tag,
                     'target_id': target_id,
@@ -1304,7 +1410,7 @@ class HeuristicFootnoteDetector(EpubTransform):
         # Also matches bracketed numbers like [1], [2] (common in Marxists.org, Calibre EPUBs)
         # Examples: <a href="#fn1">*</a>, <a href="#note1">1</a>, <a href="#fn2">†</a>, <a href="#intro1">[1]</a>
         # "[*1]": a second, starred series beside the numbered one (The Poverty of Philosophy).
-        footnote_symbols = re.compile(r'^(?:\[\d+\]|\[[*†‡]{1,3}\d{1,3}\]|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
+        footnote_symbols = re.compile(r'^(?:\[?\d+\]|\(\d+\)|\[?[*†‡]{1,3}\d{1,3}\]?|[*†‡§¶#]{1,3}|[a-zA-Z]{1,3}\.?)$')
         # Bare digits only when the <a> has an id (indicating a back-linkable reference)
         bare_digit = re.compile(r'^\d{1,3}\.?$')
         for a_tag in soup.find_all('a', href=True):
@@ -1320,7 +1426,7 @@ class HeuristicFootnoteDetector(EpubTransform):
 
             href = a_tag.get('href', '')
             target_id = self._extract_target_id(href)
-            if not target_id or target_id in seen_ref_ids:
+            if not target_id or id(a_tag) in seen_ref_ids:
                 continue
 
             # Check if link text looks like a footnote reference
@@ -1331,11 +1437,12 @@ class HeuristicFootnoteDetector(EpubTransform):
             if not is_match and bare_digit.match(link_text) and a_tag.get('id'):
                 is_match = True
             if is_match:
-                seen_ref_ids.add(target_id)
+                seen_ref_ids.add(id(a_tag))
                 noterefs.append({
                     'element': a_tag,
                     'target_id': target_id,
-                    'original_marker': link_text,  # Preserve *, †, etc.
+                    # "2]" is a typo for "[2]" (The Bakuninists at Work); print it whole.
+                    'original_marker': ('[' + link_text) if re.match(r'^\d+\]$', link_text) else link_text,
                     'strategy': 'heuristic_bare_symbol_link'
                 })
 
@@ -1386,6 +1493,77 @@ class HeuristicFootnoteDetector(EpubTransform):
                         'strategy': 'heuristic_footnotes_heading'
                     })
                     log(f"    Found footnote def (under heading): id={a_id}")
+
+        # Pattern 7: the definition is wherever the marker POINTS.
+        # Every pattern above recognises a definition by its SHAPE (an id pattern, a "Notes" heading,
+        # a backlink on the id-bearing anchor), and marxists.org alone prints a dozen shapes:
+        #   <p><span class="term"><a id="note1"></a>1.</span> text</p>            (Grundrisse)
+        #   <p><a id="1"></a> <sup class="anote"><a href="#1b">(1)</a></sup> text</p>  (doctoral thesis)
+        #   <p><a id="n2"></a><span class="term">2</span> text</p>               (Bakuninists at Work)
+        #   <h1>Notes</h1><p><a href="#a1" id="1"><span class="note">[1]</span></a> text</p>  (Palmerston)
+        # What they share needs no shape: a marker-text link points FORWARD at an anchor that opens
+        # another block, and that block opens with the SAME marker. A contents link fails the marker
+        # test, a cross-reference lands mid-paragraph or on a block that opens with prose, and a
+        # definition's own backlink points backward.
+        order = None
+        for nr in list(noterefs):
+            target_id = nr.get('target_id')
+            if not target_id or target_id in seen_fn_ids:
+                continue
+            core = _marker_core(nr.get('original_marker') or '')
+            if not _POINTED_MARKER_RE.match(core):
+                continue
+            if order is None:
+                # One pass over the book, not one search per marker: a long book has thousands of
+                # markers and a search each took a 300-second conversion past its timeout.
+                order, by_id = {}, {}
+                for i, t in enumerate(soup.find_all(True)):
+                    order[id(t)] = i
+                    for key in (t.get('id'), t.get('name') if t.name == 'a' else None):
+                        if key:
+                            by_id.setdefault(key, t)
+            target = by_id.get(target_id)
+            if target is None:
+                continue
+            block = target if target.name in _POINTED_DEF_BLOCKS else target.find_parent(_POINTED_DEF_BLOCKS)
+            ref_el = nr.get('element')
+            if block is None or ref_el is None or ref_el.find_parent(_POINTED_DEF_BLOCKS) is block:
+                continue
+            # A definition's own backlink points BACKWARD, at the marker — which is a link. A note that
+            # stands before its marker (Anti-Dühring's editorial notes are the page before Engels'
+            # own, which cite them) is reached at an EMPTY anchor, which no marker is.
+            is_bare_anchor = target.name == 'a' and not target.get('href') and not target.get_text(strip=True)
+            if order.get(id(target), -1) <= order.get(id(ref_el), 0) and not is_bare_anchor:
+                continue
+            if target is not block and _text_before(block, target):
+                continue
+            opening = _POINTED_OPENING_RE.match(block.get_text(' ', strip=True))
+            if not opening or _marker_core(opening.group(1)).lower() != core.lower():
+                continue
+            # When the opening marker is itself a link, it is the note's BACKLINK and returns to this
+            # marker. A verse number is the same shape and is not: `<a class="StartVersenum"
+            # id="est13_18" href="#esther13_1">18</a>And all Israel cried out…`, reached from a
+            # cross-reference "13.8–18", links somewhere else that exists (a study Bible lost two
+            # verses to this). A backlink to an id that exists nowhere is a broken backlink, still a note.
+            opener = target if (target.name == 'a' and target.get('href')) else next(
+                (a for a in block.find_all('a', href=True)
+                 if _marker_core(a.get_text()).lower() == core.lower() and not _text_before(block, a)), None)
+            if opener is not None and opener.get('class'):
+                continue    # a classed number link is a verse number here, as in pattern 1a — even one whose outline entry links back
+            if opener is not None:
+                back = by_id.get(self._extract_target_id(opener.get('href', '')) or '')
+                ref_link = ref_el if ref_el.name == 'a' else (ref_el.find('a') or ref_el)
+                if back is not None and back is not ref_link and back is not ref_el:
+                    continue
+            _drop_unlinked_opening_marker(block, core)
+            seen_fn_ids.add(target_id)
+            footnotes.append({
+                'id': target_id,
+                'element': block,
+                'type': 'footnote',
+                'strategy': 'heuristic_pointed_definition'
+            })
+            log(f"    Found footnote def (marker points at it): id={target_id}")
 
         log(f"    Total: {len(footnotes)} definitions, {len(noterefs)} references")
         return {'footnotes': footnotes, 'noterefs': noterefs}

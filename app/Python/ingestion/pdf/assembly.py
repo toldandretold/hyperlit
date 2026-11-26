@@ -2,6 +2,7 @@
 import sys
 import os
 import json
+import html as _html
 import re
 import argparse
 import base64
@@ -888,7 +889,9 @@ def _absorb_numbered_body_twins(combined, recovered):
     replacements = {}
     drop = set()
     for num, text in recovered:
-        head = _norm_note_text(text)[:40]
+        # The layer gives "&" where the OCR's markdown has "&amp;", and a note the layer cut
+        # short of forty characters is compared over the length it has (df532d32 note 13).
+        head = _norm_note_text(_html.unescape(text or ''))[:40]
         if len(head) < 25:
             # A short note (a bare URL) has too little text for an opening to prove anything —
             # it is the same note only when the WHOLE of it agrees.
@@ -907,7 +910,8 @@ def _absorb_numbered_body_twins(combined, recovered):
         hits = [i for i, p in enumerate(paras)
                 if not p.lstrip().startswith(('[^', '#', '>', '|'))
                 and opener.match(p)
-                and _norm_note_text(opener.sub('', p, count=1))[:40] == head]
+                and _norm_note_text(_html.unescape(opener.sub('', p, count=1)))[:len(head)]
+                == head]
         if len(hits) != 1:
             continue
         i = hits[0]
@@ -1040,6 +1044,8 @@ def _marker_seam_witnesses(ptext, num):
     shapes = (
         # glued digit-first, marker inside the punctuation:  "reviewed1. The" / "systems5: the"
         (rf'([A-Za-z]{{3,}})\s?{num}([.,;:!?])\s+([A-Za-z]{{2,}})', 3),
+        # …the same leading into a quotation: 'In 1958, he said2: “The Tatsepao, or…' (25cfb2ff).
+        (rf'([A-Za-z]{{3,}}){num}([,;:])\s+["\'“‘]([A-Za-z]{{2,}})', 3),
         # glued punct-first, also after digits/parens:       "…Aniekwe et al. (2012).2 The"
         (rf'([A-Za-z0-9)\]]{{2,}}[.,;:!?]){num}\s+([A-Za-z]{{2,}})', 2),
         # line-start marker (the superscript opened a text run):   "ESD.\n1 For"
@@ -1067,6 +1073,13 @@ def _marker_seam_witnesses(ptext, num):
         (rf'((?:[A-Za-z0-9)\]]+[A-Za-z)\]]|(?<!\d)\d{{4}})){num}([.,;:!?)\]]{{1,2}})\s+([A-Za-z]{{2,}})', 3),
         # marker between a closing quote and the sentence period: "…these miseries”67. The rule"
         (rf'([A-Za-z]{{3,}}["\'’”]){num}([.,;:!?])\s+([A-Za-z]+)', 3),
+        # …the same with the marker set off by a space, after a closing quote or the closing
+        # parenthesis of a reference: "…individual journals” 1. Data for", "…publish ”5. Most",
+        # "(NUJ 2012, 2) 6. The NUJ shares" (95d37f35, four of its notes unlinked). Only before
+        # sentence punctuation and a capital, so "items 5 and 6. The" is not this shape.
+        (rf'([A-Za-z]{{3,}} ?["\'’”]) {num}([.,;:!?])\s+([A-Z][a-z]+)', 3),
+        (rf'([A-Za-z]{{3,}} ?["\'’”]){num}([.,;:!?])\s+([A-Z][a-z]+)', 3),
+        (rf'([A-Za-z0-9]{{1,}}[)\]]) {num}([.,;:!?])\s+([A-Z][a-z]+)', 3),
         # the marker standing free MID-sentence: "…incentives for webmasters 7 to operate…",
         # "…spelt out by Google 8 as: …" (a60f6c3c). A number that belongs to the prose is still
         # in the OCR text and so can never match the digitless seam the caller searches for.
@@ -1147,7 +1160,10 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         return combined, 0
 
     def _norm_head(t):
-        return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:30]
+        # A link's first thirty characters are its host and path stem, shared by every other
+        # note citing the same site — "https www youtube com watch v " names no page.
+        width = 70 if re.match(r'\s*(?:https?://|www\.)', t or '') else 30
+        return re.sub(r'[^a-z0-9]+', ' ', (t or '').lower()).strip()[:width]
 
     # PAGE-ANCHOR each orphan def by finding the page whose text layer carries its opening words.
     # A page-bottom note and the marker that calls it are printed on the SAME page, so this turns
@@ -1160,6 +1176,13 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         home = None
         if head:
             homes = [idx for idx, nt in page_norm.items() if head in nt]
+            if not homes:
+                # The layer breaks a URL where the line wraps ("…/watch?v=2X Rc389…"), so a note
+                # that is only a link finds no page by its words. Compare with the spaces out.
+                tight = head.replace(' ', '')
+                if len(tight) >= 20:
+                    homes = [idx for idx, nt in page_norm.items()
+                             if tight in nt.replace(' ', '')]
             if len(homes) == 1:
                 home = homes[0]
         candidates.append((home, num, None, False))   # def parsed FROM combined: markdown space
@@ -1270,14 +1293,15 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
         for seam, follow_tail in seams:
             # Quote glyphs disagree between OCR and text layer ('adequately".' vs 'adequately”.'),
             # so a closing quote in the seam matches as a class.
-            word, punct = (''.join('["\'’”]' if c in '"\'’”' else re.escape(c) for c in part)
+            word, punct = (''.join('["\'’”“]' if c in '"\'’”' else
+                                   (r'\s?' if c == ' ' else re.escape(c)) for c in part)
                            for part in seam[:2])
             follow = re.escape(seam[2])
             # `(…)?` = the marker's own corpse: where the text layer has the digit, the markdown
             # may carry a superscript LETTER Mistral substituted for it. Matching it optionally
             # lets the seam line up, and the insertion REPLACES it rather than leaving junk
             # beside the new marker.
-            pattern = rf'{word}({_SUP_LETTER}?){punct}\s+{follow}'
+            pattern = rf'{word}({_SUP_LETTER}?){punct}\s+["\'“‘]?{follow}'
             # …or the DIGIT itself, left as plain text: a journal that prints the marker before
             # the sentence period ("…no doubt among psychologists36. From…") gets no help from
             # the per-page converter, which only reads a number standing AFTER punctuation.
@@ -1295,14 +1319,32 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
             _corpse = (rf'{_SUP_LETTER}|(?<![\d.,]){num}|\[\^\d+\]' if def_text is None
                        else _SUP_LETTER)
             md_pattern = (rf'{word}((?:{_corpse})?){punct}'
-                          rf'\s+(?:#{{1,6}}[ \t]+)?{follow}')
+                          rf'\s+(?:#{{1,6}}[ \t]+)?["\'“‘]?{follow}')
             # The DIGITLESS seam must not exist anywhere in the text layer itself: if the PDF
             # carries both "study10 :" (the marker site) and "case study: over" (plain prose,
             # possibly pages away), the markdown's unique match can be the WRONG site — the
             # witness and the insertion would be different locations (ad752a46: a law-review
             # abstract got a phantom [^10] from a seam witnessed 40 pages later).
             if any(re.search(pattern, pt) for pt in page_texts.values() if pt):
-                continue
+                # The same words close another sentence elsewhere ("(NUJ 2012, 2). The …" three
+                # times, the marker on one of them — 95d37f35). Lengthen the witness with the
+                # words that follow the marker until the layer no longer has it digitless; the
+                # markdown must then match that longer seam.
+                _more = ''
+                for w in (follow_tail or '').split()[:4]:
+                    if not re.match(r'^[A-Za-z]{2,}[.,;:]?$', w):
+                        break
+                    _more += r'\s+' + re.escape(w.rstrip('.,;:'))
+                    if not any(re.search(pattern + _more, pt)
+                               for pt in page_texts.values() if pt):
+                        break
+                else:
+                    _more = ''
+                if not _more or any(re.search(pattern + _more, pt)
+                                    for pt in page_texts.values() if pt):
+                    continue
+                md_pattern += _more
+                follow_tail = ''
             hits = list(re.finditer(md_pattern, combined))
             if len(hits) > 1 and follow_tail:
                 # ambiguous with one follow word — extend the witness word by word until unique
@@ -2461,6 +2503,77 @@ def _order_trailing_def_block(combined):
     return '\n\n'.join(paras)
 
 
+_IMAGE_LINE_RE = re.compile(r'^!\[[^\]]*\]\([^)]*\)\s*$')
+_FIGURE_CAPTION_LINE_RE = re.compile(
+    r'^(?:\*\*|\*)?(?:Figure|Fig\.|Table|Abbildung|Abb\.|Tabelle|Graph|Chart)\s*\d+\s*[:.]')
+
+
+def _rejoin_figure_interrupted_sentences(md):
+    """A captioned figure the page layout floats into the MIDDLE of a sentence.
+
+    d3b5d31f: '…must be communicated back by the server to all the other' → the image →
+    'clients. In addition, …' → 'Figure 3: An example of…'. The sentence is rejoined and the
+    figure, with its caption, placed after the paragraph it interrupted.
+
+    The CAPTION is what makes it a float. A display the sentence itself runs through — 'such
+    that the diagram of the form' → image → 'is a pullback.' (df532d32) — carries none, and
+    moving it would take the diagram out of the sentence that points at it. So: the paragraph
+    above must end visibly mid-sentence, the block must hold nothing but image lines, caption
+    lines and ONE lower-case continuation, and at least one caption. Returns (md, moved)."""
+    paras = re.split(r'\n\s*\n', md)
+    moved = 0
+    for i in range(1, len(paras)):
+        lines = [l for l in paras[i].split('\n') if l.strip()]
+        if len(lines) < 3 or not _IMAGE_LINE_RE.match(lines[0].strip()):
+            continue
+        cont = [k for k, l in enumerate(lines)
+                if not _IMAGE_LINE_RE.match(l.strip())
+                and not _FIGURE_CAPTION_LINE_RE.match(l.strip())]
+        if len(cont) != 1 or not lines[cont[0]].strip()[0].islower():
+            continue
+        if not any(_FIGURE_CAPTION_LINE_RE.match(l.strip()) for l in lines):
+            continue
+        prev = paras[i - 1].strip()
+        if (len(prev) < 40 or '\n' in prev or prev.startswith(('>', '|', '!', '[', '#'))
+                or not re.search(r'[a-z,]$', prev) or not tail_is_mid_sentence(prev)):
+            continue
+        paras[i - 1] = prev + ' ' + lines[cont[0]].strip()
+        paras[i] = '\n'.join(l for k, l in enumerate(lines) if k != cont[0])
+        moved += 1
+    return ('\n\n'.join(paras), moved) if moved else (md, 0)
+
+
+_SERIES_ITEM_RE = re.compile(r'^(#{1,6}[ \t]+)?([A-Z]{1,2})\d{1,2}(?:\.\d{1,2})*\.[ \t]+\S')
+
+
+def _demote_minority_series_headings(md):
+    """Members of a labelled series the OCR made headings while leaving the rest as prose.
+
+    0eb69a75 states nine theses "T1. … T9." with sub-theses "T4.1 …", each a full sentence set
+    as an ordinary paragraph. The OCR marked four of the twenty-odd as headings ("## T5. More
+    information does not result a radically new society, despite of the assumptions of
+    'enthusiasts.' …"). Where one label letter runs through the document and most of its
+    members are paragraphs, the few headings among them are the same thing and go back to
+    prose. Returns (md, demoted)."""
+    paras = re.split(r'\n\s*\n', md)
+    series = {}
+    for i, p in enumerate(paras):
+        t = p.strip()
+        m = _SERIES_ITEM_RE.match(t) if '\n' not in t else None
+        if m:
+            series.setdefault(m.group(2), []).append((i, bool(m.group(1))))
+    demoted = 0
+    for _label, members in series.items():
+        heads = [i for i, is_head in members if is_head]
+        plain = len(members) - len(heads)
+        if not heads or plain < 3 or len(heads) >= plain:
+            continue
+        for i in heads:
+            paras[i] = re.sub(r'^#{1,6}[ \t]+', '', paras[i].strip())
+            demoted += 1
+    return ('\n\n'.join(paras), demoted) if demoted else (md, 0)
+
+
 def _relocate_sentence_interrupting_boxes(md):
     """A boxed side-section (BMJ 'Summary points', 63817b36) that print layout drops into the
     MIDDLE of a body sentence: Mistral emits '…they seek and' → '## Summary points' → the box
@@ -3279,6 +3392,7 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # type styles say which plain paragraphs are headings Mistral failed to mark, and carry the
     # printed section NUMBERS it dropped. Runs BEFORE _level_numbered_headings so a restored number
     # drives its heading's level.
+    head_info = None
     try:
         from ingestion.pdf.heading_geometry import (
             detect_heading_lines, recover_geometric_headings,
@@ -3312,6 +3426,9 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # A boxed side-section dropped mid-sentence by the print layout → rejoin the sentence and
     # move the box after it.
     combined = _relocate_sentence_interrupting_boxes(combined)
+    combined, _fig_moved = _rejoin_figure_interrupted_sentences(combined)
+    if _fig_moved:
+        print(f"  Rejoined {_fig_moved} sentence(s) a captioned figure had been floated into")
     # Append every deferred def (inline splits + footer recoveries, page order) as ONE contiguous
     # block at the end, BEFORE post_combine so its ref/def normalisation still runs over them.
     if ctx.deferred_defs_parts:
@@ -3320,6 +3437,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
 
     # A bolded sentence that introduces the list beneath it is a lead-in, not a section.
     combined = _demote_list_leadin_headings(combined)
+    combined, _series_demoted = _demote_minority_series_headings(combined)
+    if _series_demoted:
+        print(f"  {_series_demoted} heading(s) returned to prose: members of a labelled series "
+              f"the document sets as paragraphs")
 
     # Heading LEVELS follow the section NUMBERS. Runs even when a printed Contents drove levels
     # per page above: the TOC pass derives its level from the number too (`1 + count('.')`), so
@@ -3332,6 +3453,18 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         print(f"  Re-levelled {len(_relevelled)} numbered heading(s) to match their section "
               f"numbers: " + ', '.join(f'"{t}" h{was}→h{now}' for t, was, now in _relevelled[:5])
               + (' …' if len(_relevelled) > 5 else ''))
+    # …and the unnumbered sub-headings a different type style marks out go one level below them.
+    if head_info:
+        try:
+            from ingestion.pdf.heading_geometry import nest_unnumbered_style_under_numbered
+            combined, _nested = nest_unnumbered_style_under_numbered(combined, head_info)
+            if _nested:
+                print(f"  Geometry headings: nested {len(_nested)} unnumbered sub-heading(s) under "
+                      f"the numbered sections: "
+                      + ', '.join(f'"{t[:44]}" h{was}→h{now}' for t, was, now in _nested[:5])
+                      + (' …' if len(_nested) > 5 else ''))
+        except Exception as e:
+            print(f"  Geometry heading nesting skipped ({e.__class__.__name__})")
 
     # --- Fix mangled URLs from OCR ---
     if pdf_path:

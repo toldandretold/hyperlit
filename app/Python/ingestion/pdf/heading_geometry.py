@@ -367,6 +367,86 @@ def recover_geometric_headings(md, heading_info):
     return '\n\n'.join(paras), renumbered, promoted, relevelled
 
 
+_TOP_NUMBER_RE = re.compile(r'^\s*(\d{1,2})\.?\s+\S')
+_SUB_NUMBER_RE = re.compile(r'^\s*\d{1,2}\.\d')
+_BACK_MATTER_HEADING_RE = re.compile(
+    r'(?i)^\s*(?:references|bibliography|works cited|literatur\w*|notes?|footnotes|endnotes|'
+    r'acknowledge?ments?|appendi(?:x|ces)\b.*|about the authors?|abstract|keywords?)\s*:?\s*$')
+MIN_NESTED_CLASS = 3
+
+
+def nest_unnumbered_style_under_numbered(md, heading_info):
+    """Put a document's UNNUMBERED sub-headings one level below its NUMBERED sections.
+
+    5fc4aad4 numbers its four sections ("2. Everyday Communication and Sociality…") and leaves
+    the twenty sub-headings inside them unnumbered. The OCR gave every one of them the same
+    level, so the outline was flat and a sub-heading read as a section of its own. The type
+    style does not settle it — the article sets sections 1-2 in one face and 3-4 in the face of
+    the sub-headings — but the numbering does: one running sequence of sections, and whatever
+    heading stands between two of them is inside the first.
+
+    Acts only on that whole pattern: three or more top-level numbered headings counting upwards
+    in one sequence at one level, no "2.1"-style numbers anywhere (there the numbers already
+    carry the nesting), and three or more unnumbered headings standing BETWEEN numbered ones
+    that the PDF itself sets in a heading style (so they are headings, not OCR inventions).
+    Unnumbered headings after the last numbered section follow them, up to the back matter.
+    The title, anything before section 1, and back matter ("References", "About the Author")
+    are never touched.
+
+    Returns (md, [(text, was, now)])."""
+    lines = (heading_info or {}).get('lines') or []
+    if not lines:
+        return md, []
+    paras = re.split(r'\n\s*\n', md)
+    heads = {}
+    for i, p in enumerate(paras):
+        m = _MD_HEADING_RE.match(p.strip())
+        if m and '\n' not in p.strip():
+            heads[i] = (len(m.group(1)), m.group(2))
+    if not heads or any(_SUB_NUMBER_RE.match(t) for _l, t in heads.values()):
+        return md, []
+    items = [(i, squash(_LEADING_NUMBER_RE.sub('', t, count=1))) for i, (_l, t) in heads.items()]
+    witnessed = set()
+    for line in lines:
+        idx = _best_match(squash(_LEADING_NUMBER_RE.sub('', line['text'], count=1)), items,
+                          MATCH_SCORE_EXISTING)
+        if idx is not None:
+            witnessed.add(idx)
+
+    numbered = [(i, int(_TOP_NUMBER_RE.match(t).group(1)), lvl)
+                for i, (lvl, t) in sorted(heads.items()) if _TOP_NUMBER_RE.match(t)]
+    if len(numbered) < 3 or any(a[1] >= b[1] for a, b in zip(numbered, numbered[1:])):
+        return md, []
+    top_levels = {lvl for _i, _n, lvl in numbered}
+    if len(top_levels) != 1:
+        return md, []
+    top_level = next(iter(top_levels))
+    first, last = numbered[0][0], numbered[-1][0]
+    title_idx = min(heads)
+
+    inside, after = [], []
+    for i, (lvl, t) in sorted(heads.items()):
+        if i == title_idx or i < first or _TOP_NUMBER_RE.match(t):
+            continue
+        if _BACK_MATTER_HEADING_RE.match(t):
+            if i > last:
+                break                           # back matter begins; nothing past it is a section
+            continue
+        (inside if i < last else after).append((i, lvl, t))
+    if sum(1 for i, _l, _t in inside if i in witnessed) < MIN_NESTED_CLASS:
+        return md, []
+    want = min(6, top_level + 1)
+    changed = []
+    for i, lvl, t in inside + after:
+        if lvl > top_level:
+            continue                            # already nested
+        paras[i] = '#' * want + ' ' + t
+        changed.append((t, lvl, want))
+    if not changed:
+        return md, []
+    return '\n\n'.join(paras), changed
+
+
 # How much of the document's headings the type styles must account for before their SILENCE
 # about one heading is evidence: at least this many witnessed, and this share of all of them.
 MIN_WITNESSED_HEADINGS = 5

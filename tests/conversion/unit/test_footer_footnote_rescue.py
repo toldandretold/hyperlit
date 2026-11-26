@@ -219,11 +219,13 @@ def test_marker_swallowed_by_a_substituted_superscript_letter(monkeypatch):
 
 def test_ambiguous_seam_still_refuses_to_guess(monkeypatch):
     """The looser shapes must not weaken the rule: a digitless seam that also occurs as plain
-    prose in the text layer is not a witness, so nothing is inserted."""
-    _with_stub(monkeypatch, {0: 'the duality of structure4 because it holds. '
-                                'A duality of structure because of that.'})
-    combined = ('the duality of structure because it holds. '
-                'A duality of structure because of that.\n\n[^4]: A note.')
+    prose in the text layer is not a witness, so nothing is inserted. (The words after the
+    marker may lengthen the witness — see the 95d37f35 case below — but here they are the same
+    at both sites, so there is still nothing to tell them apart.)"""
+    _with_stub(monkeypatch, {0: 'the duality of structure4 because it holds in every case here. '
+                                'A duality of structure because it holds in every case there.'})
+    combined = ('the duality of structure because it holds in every case here. '
+                'A duality of structure because it holds in every case there.\n\n[^4]: A note.')
     out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
     assert n == 0 and '[^4] because' not in out
 
@@ -292,3 +294,92 @@ def test_a_year_is_not_a_marker_witness():
     assert hits and hits[0][1][0] == 'Sighele'
     # a citation year still carries its marker
     assert list(_marker_seam_witnesses('(see also Oberquelle 19919). This shows', 9))
+
+
+# --- 2026-11-26 batch ----------------------------------------------------------------------
+
+def test_marker_set_off_by_a_space_after_a_closing_quote(monkeypatch):
+    """95d37f35: the layer prints 'individual journals” 1. Data' — quote, space, number."""
+    _with_stub(monkeypatch, {0: 'prices for subscriptions to individual journals” 1. Data for a sample'})
+    combined = ('prices for subscriptions to individual journals". Data for a sample\n\n'
+                '[^1]: http://thecostofknowledge.com/ , accessed on July 26, 2013.')
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
+    assert n == 1 and 'journals"[^1]. Data' in out
+
+
+def test_a_witness_shared_by_other_sentences_is_lengthened_not_abandoned(monkeypatch):
+    """95d37f35 note 6: '(NUJ 2012, 2). The …' closes three sentences; the marker is on one."""
+    layer = ('quality has suffered” (NUJ 2012, 2) 6. The NUJ shares concerns about prices. '
+             'part of the process” (NUJ 2012, 2). The corporate publishing industry is large.')
+    _with_stub(monkeypatch, {0: layer})
+    combined = ('quality has suffered” (NUJ 2012, 2). The NUJ shares concerns about prices. '
+                'part of the process” (NUJ 2012, 2). The corporate publishing industry is large.'
+                '\n\n[^6]: See also the video of the NUJ debate on Open Access.')
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
+    assert n == 1
+    assert '2)[^6]. The NUJ shares' in out and '2). The corporate' in out
+
+
+def test_marker_leading_into_a_quotation(monkeypatch):
+    """25cfb2ff: 'In 1958, he said2: “The Tatsepao…'."""
+    _with_stub(monkeypatch, {0: 'hold forums. In 1958, he said2: “The Tatsepao, or big-character poster'})
+    combined = ('hold forums. In 1958, he said: “The Tatsepao, or big-character poster\n\n'
+                '[^2]: http://www.marxists.org/reference/archive/mao/selected-works/volume-8/mswv8_09.htm')
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
+    assert n == 1 and 'he said[^2]: “The' in out
+
+
+def test_a_link_only_note_is_anchored_to_its_own_page(monkeypatch):
+    """5fc4aad4: two notes that are YouTube links share their first thirty characters, so neither
+    named a page and the first page with any '3' on it took the rescue."""
+    _with_stub(monkeypatch, {
+        0: 'has changed. Section 3 focuses on the communication of ideology.',
+        1: 'This is a nasty disease”3. Johnson and his advisor chose\n3 https://www.youtube.com/watch?v=2XRc389TvG8',
+        2: 'another claim.\n9 https://www.youtube.com/watch?v=ZZZZ999 other'})
+    combined = ('has changed. Section 3 focuses on the communication of ideology.\n\n'
+                'This is a nasty disease”. Johnson and his advisor chose\n\n'
+                '[^3]: https://www.youtube.com/watch?v=2XRc389TvG8\n\n'
+                '[^9]: https://www.youtube.com/watch?v=ZZZZ999')
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, '/fake.pdf')
+    assert 'disease”[^3]. Johnson' in out
+
+
+def test_a_sentence_a_captioned_figure_was_floated_into_is_rejoined():
+    md = ('For example, when a character kills a monster this action must be communicated back '
+          'by the server to all the other\n\n'
+          '![img-2.jpeg](img-2.jpeg)\nclients. In addition, the server validates requests.\n'
+          'Figure 3: An example of a character killing monsters\n\nNext paragraph.')
+    out, n = A._rejoin_figure_interrupted_sentences(md)
+    assert n == 1
+    assert 'to all the other clients. In addition' in out
+    assert '![img-2.jpeg](img-2.jpeg)\nFigure 3: An example' in out
+
+
+def test_a_display_the_sentence_runs_through_stays_where_it_is():
+    md = ('A subobject classifier is a generalized set of truth values such that the diagram of '
+          'the form\n\n![img-3.jpeg](img-3.jpeg)\nis a pullback. This time D is the denotator.\n'
+          'More text here.')
+    assert A._rejoin_figure_interrupted_sentences(md) == (md, 0)
+
+
+def test_series_members_the_ocr_made_headings_go_back_to_prose():
+    md = ('## 2. Theses\n\nT1. We have to abandon the definitions.\n\nT2. Since density is new.\n\n'
+          'T3. Theories are accidental.\n\n## T5. More information does not result a new society.\n\n'
+          'T6. Better not to use the term.')
+    out, n = A._demote_minority_series_headings(md)
+    assert n == 1 and '\n\nT5. More information' in out and '## 2. Theses' in out
+    all_heads = '## A1. One\n\n## A2. Two\n\n## A3. Three'
+    assert A._demote_minority_series_headings(all_heads) == (all_heads, 0)
+
+
+def test_a_body_twin_is_recognised_through_an_html_entity():
+    """df532d32 note 13: the layer has '&', the OCR's body copy '&amp;', and the layer's text is
+    shorter than the forty characters the comparison used to demand."""
+    combined = ('where the mapping of the type is such that\n\n'
+                '13 See also Andreas Blass: Topoi &amp; Computation. (preprint from the website) In '
+                'this paper the author constructs the exact parallel.\n\n'
+                'commutation properties stay preserved.\n\n'
+                '[^13]: See also Andreas Blass: Topoi & Computation.')
+    out = A._absorb_numbered_body_twins(combined, [(13, 'See also Andreas Blass: Topoi & Computation.')])
+    assert '\n13 See also' not in out
+    assert '[^13]: See also Andreas Blass: Topoi &amp; Computation. (preprint' in out

@@ -1348,6 +1348,57 @@ def promote_list_numbered_note(page_md, layer_text):
     return '\n'.join(lines) + '\n'
 
 
+_PAGE_MARKER_RE = re.compile(r'\[\^(\d{1,3})\](?!:)')
+
+
+def _follow_def_renumber_in_markers(before, block, lines, ref_nums, page_label=''):
+    """When the text layer renumbers a page's definitions, the page's MARKERS may carry the
+    same misreading and must follow, or every one of them opens the wrong note.
+
+    ad226741 prints notes 3-8 on its second page; the OCR read both the markers and the
+    definitions as 1-6. The reconciliation correctly renumbered the definitions to 3-8 and
+    left the markers at 1-6, so the page then held eight "local" numbers: markers 1-6 became
+    global 3-8, definitions 3-8 became global 5-10, and four markers opened a note two places
+    away from their own while two had none. The same on 1f74c7ff, one marker.
+
+    `before` maps a definition's body to the number the OCR gave it; `block` is the reconciled
+    block. A marker moves with its definition only when the move is unambiguous: no two
+    markers may end on one number, and strictly MORE markers must find a definition on the
+    page afterwards than before. That refuses the case the reconciliation was written for —
+    deloitte's markers 1-4 are right and only the definitions were mislabelled 4, 5: moving
+    marker 4 to 3 would collide with the marker 3 already there. Mutates `ref_nums`."""
+    moves = {before[body]: num for _i, num, _s, body in block
+             if body in before and before[body] != num}
+    if not moves:
+        return lines
+    def_lines = {entry[0] for entry in block}
+    now = {entry[1] for entry in block}
+    # The page's markers, read from the BODY lines: `ref_nums` also counts a definition line's
+    # own leading number, which would read as a marker already standing on the target.
+    marks = {int(m.group(1)) for k, line in enumerate(lines) if k not in def_lines
+             for m in _PAGE_MARKER_RE.finditer(line)}
+    if not any(n in marks for n in moves):
+        return lines
+    moved = [moves.get(n, n) for n in sorted(marks)]
+    if len(set(moved)) != len(moved):
+        return lines
+    if sum(1 for n in moved if n in now) <= sum(1 for n in marks if n in now):
+        return lines
+    out = []
+    for k, line in enumerate(lines):
+        if k not in def_lines:
+            line = _PAGE_MARKER_RE.sub(
+                lambda m: '[^{0}]'.format(moves.get(int(m.group(1)), int(m.group(1)))), line)
+        out.append(line)
+    print("  markers followed their renumbered definitions{0}: {1}".format(
+        page_label, ', '.join('{0}→{1}'.format(a, b) for a, b in sorted(moves.items())
+                              if a in marks)))
+    ref_nums.difference_update(marks)
+    ref_nums.update(moved)
+    ref_nums.update(now)
+    return out
+
+
 def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,
                             pypdf_defs=None, page_label='', confirmed_out=None):
     """Renumber footnotes on a single page from local numbering to global sequential.
@@ -1498,9 +1549,12 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
         _in_block = {entry[0] for entry in block}
         _stray = [(c[0], c[2]) for c in (
             _def_candidate(l.strip()) for k, l in enumerate(lines) if k not in _in_block) if c]
+        _before = {entry[3]: entry[1] for entry in block}
         block, lines, _reconciled = reconcile_page_defs_with_pypdf(
             block, lines, pypdf_defs, ref_nums, page_label, confirmed_out=confirmed_local,
             stray_defs=_stray)
+        if _reconciled:
+            lines = _follow_def_renumber_in_markers(_before, block, lines, ref_nums, page_label)
 
     # A trailing run of STRICTLY ASCENDING numbers that overlaps this page's in-text refs is
     # unambiguously a page-bottom footnote block -- convert the WHOLE run, even numbers whose own

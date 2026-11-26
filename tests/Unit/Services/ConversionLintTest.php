@@ -291,8 +291,43 @@ it('reads what an unrecognised note marker is left as: a marker-shaped link, or 
         lintNode('400', '<p>A claim<sup class="footnote-ref" fn-count-id="1" id="Fn1">1</sup> that is linked properly here.</p>'),
         lintNode('500', '<p>About <sup>1</sup>/<sub>3</sub> of the spheres K<sup>1</sup>—K<sup>18</sup>, and 10<sup>2</sup> more.</p>'),
         lintNode('600', '<p>As <a class="in-text-citation" href="#bib1">12</a> has shown at some length already.</p>'),
+        // A contents list in one paragraph: each line a numbered link, a full stop, a title.
+        lintNode('700', '<p><a href="#s1">1</a>. Measures for the Working Class<br/> <a href="#s2">2</a>. Measures for the Middle Classes<br/> <a href="#s3">3</a>. General Measures</p>'),
     ], ['Fn1' => '<p>The note.</p>']);
 
     expect(detectors($r))->toBe(['unconverted_note_link', 'bare_superscript_number'])
         ->and(array_column($r['findings'], 'startLine'))->toBe(['100', '200']);
+});
+
+// --- 2026-11-26 batch ------------------------------------------------------------------------
+
+it('knows a reference list under a German or French heading (3f41208b)', function () {
+    $lint = new ConversionLint;
+    $front = array_map(fn ($i) => lintNode((string) $i, "<p>Front matter line {$i}, which is skipped.</p>"), range(1, 10));
+    foreach (['Literatur', 'Références', 'Bibliographie'] as $heading) {
+        $res = $lint->lintBook([
+            ...$front,
+            lintNode('300', "<h1>{$heading}</h1>"),
+            lintNode('400', '<p>Habermas, Jürgen. 1992. Faktizität und Geltung. Frankfurt am Main: Suhrkamp.</p>'),
+            lintNode('500', '<p>Neumann, Franz L. 1978. Wirtschaft, Staat, Demokratie. Frankfurt am Main: Suhrkamp.</p>'),
+        ], []);
+        expect($res['chrome_candidates'])->toBe([]);
+    }
+});
+
+it('does not call a sentence split when it runs through an uncaptioned display (df532d32)', function () {
+    $through = [
+        lintNode('100', '<p>A subobject classifier is essentially a generalized set of truth values such that the diagram of the form</p>'),
+        lintNode('200', '<img id="200" src="/x/media/img-3.jpeg" alt="img-3.jpeg"/>'),
+        lintNode('300', '<p>is a pullback. This time D is the denotator (name), A and C are two individual cases.</p>'),
+    ];
+    $floated = [
+        lintNode('100', '<p>For example, when a character kills a monster this action must be communicated back by the server to all the other</p>'),
+        lintNode('200', '<img id="200" src="/x/media/img-2.jpeg" alt="img-2.jpeg"/>'),
+        lintNode('300', '<p>clients. In addition, because the server must validate all the requests, it can deny them.</p>'),
+        lintNode('400', '<p>Figure 3: An example of a character killing monsters</p>'),
+    ];
+
+    expect(detectors((new ConversionLint)->lintBook($through)))->toBe([]);
+    expect(detectors((new ConversionLint)->lintBook($floated)))->toBe(['split_sentence']);
 });

@@ -595,3 +595,96 @@ def test_anchored_scheme_rejects_unknown_enum():
         E.AnchoredFootnoteScheme(name='Z', marker='sup-link', definition='bogus')
     with pytest.raises(ValueError):
         E.AnchoredFootnoteScheme(name='Z', marker='sup-link', definition='empty-anchor', content='nope')
+
+
+# ---------------------------------------------------------------------------
+# HeuristicFootnoteDetector, pattern 7 — the definition is wherever the marker POINTS.
+# marxists.org prints a dozen definition shapes; these are the ones no shape-based pattern knew
+# (prod 2026-11-26: 662 dead "[1]" links across 21 books, 344 of them in the Grundrisse).
+# ---------------------------------------------------------------------------
+def _pointed(soup, html):
+    s = soup(html)
+    _, log = _logs()
+    out = E.HeuristicFootnoteDetector().transform(s, log)
+    return s, [f['id'] for f in out['footnotes'] if f['strategy'] == 'heuristic_pointed_definition'], out
+
+
+def test_a_marker_pointing_at_a_block_that_opens_with_the_same_number_is_a_note(soup):
+    # Grundrisse: an EMPTY id anchor inside a span, then "1." — no backlink, no "Notes" heading.
+    _, ids, out = _pointed(soup, '<body><p>the Robinsonades, <a href="#p018_p018-note1">[1]</a> which express</p>'
+                                 '<p><span class="term">Introduction</span></p>'
+                                 '<p><span class="term"><a id="p018_p018-note1"></a>1.</span> Utopias on the lines of Defoe.</p></body>')
+    assert ids == ['p018_p018-note1']
+    assert out['footnotes'][0]['element'].get_text(' ', strip=True).endswith('Utopias on the lines of Defoe.')
+
+
+def test_a_reciprocal_pair_whose_id_sits_on_an_empty_anchor_is_a_note(soup):
+    # Marx's doctoral thesis: "(1)" in parentheses; the definition's id is on an empty anchor beside its backlink.
+    _, ids, _ = _pointed(soup, '<body><p>the true thing.” <sup class="anote"><a href="#n1" id="n1b">(1)</a></sup> But</p>'
+                               '<p><a id="n1"></a> <sup class="anote"><a href="#n1b">(1)</a></sup> Aristotle, On the Soul.</p></body>')
+    assert ids == ['n1']                                # and the backlink (pointing BACKWARD) minted nothing
+
+
+def test_an_unlinked_number_in_a_span_is_dropped_and_a_typo_marker_is_printed_whole(soup):
+    # The Bakuninists at Work: the marker reads "2]" and the note's number is a plain span.
+    s, ids, out = _pointed(soup, '<body><p>the Geneva Congress. <a href="#n2">2]</a></p>'
+                                 '<h3>Notes</h3><p><a id="n2"></a><span class="term">2</span> On July 1, 1873, the Council met.</p></body>')
+    assert ids == ['n2']
+    assert out['footnotes'][0]['element'].get_text(' ', strip=True) == 'On July 1, 1873, the Council met.'
+    assert out['noterefs'][0]['original_marker'] == '[2]'
+
+
+def test_a_numbered_link_that_points_at_prose_or_backward_is_not_a_note(soup):
+    _, ids, _ = _pointed(soup, '<body><p id="top">1848 was a year.</p>'
+                               '<p>See chapter <a href="#c2">2</a> and section <a href="#s3">[3]</a>, or go <a href="#top">[1]</a> back.</p>'
+                               '<h2 id="c2">Chapter Two</h2><p id="s3">Three things follow from this.</p>'
+                               '<p>Mid-paragraph target: prose first <a id="x4"></a>4. then more. <a href="#x4">[4]</a></p></body>')
+    assert ids == []
+
+
+def test_a_marker_whose_target_opens_with_a_different_number_is_not_a_note(soup):
+    _, ids, _ = _pointed(soup, '<body><p>claim <a href="#n5">[5]</a></p><p><a id="n5"></a>6. Some other note.</p></body>')
+    assert ids == []
+
+
+# ---------------------------------------------------------------------------
+# EnoteFootnoteDetector — Lenin's "footnote-as-sidebar": the note printed INSIDE its marker's paragraph
+# ---------------------------------------------------------------------------
+def test_a_sidebar_note_is_lifted_out_of_its_paragraph_and_the_placeholder_removed(soup):
+    s = soup('<body><p>features of a “Marsh”.<sup class="enote"><a href="#fw1" id="bk1">[2]</a></sup> '
+             '<span class="footnote-as-sidebar"> <sup class="endnote"><a href="#bk1" id="fw1">[2]</a></sup> '
+             'There are people in our Party today.</span> A consequence followed.</p>'
+             '<h3>Notes</h3><p class="endnote"><sup class="endnote"><a href="#bk1">[2]</a></sup>'
+             '<em>Note: This footnote has been moved into the body of the document.</em></p></body>')
+    _, log = _logs()
+    out = E.EnoteFootnoteDetector().transform(s, log)
+    assert [f['id'] for f in out['footnotes']] == ['fw1']
+    note = out['footnotes'][0]['element']
+    assert note.name == 'p' and 'There are people in our Party today.' in note.get_text()
+    body = s.find('p')
+    assert 'There are people' not in body.get_text() and 'A consequence followed.' in body.get_text()
+    assert 'moved into the' not in s.get_text()
+    assert s.find('span', class_='footnote-as-sidebar') is None
+
+
+def test_an_empty_anchor_linked_only_from_below_is_a_backlink_target_not_a_definition(soup):
+    # Left-Wing Communism: `<a id="b1"></a>` marks the spot in the BODY the note's backlink returns to.
+    # Read as a marker, that backlink made the body paragraphs after the anchor "the note".
+    s = soup('<body><p>The old Iskra.</p><a id="b1"></a><p>Body text that follows the anchor.</p>'
+             '<h3>Notes</h3><a id="n1"></a><p class="endnote"><sup class="endnote"><a href="#b1">[1]</a></sup> The note.</p>'
+             '</body>')
+    det = E.InlineAnchorNoteFootnoteDetector()
+    _, log = _logs()
+    out = det.transform(s, log) if det.detect(s) else {'footnotes': []}
+    assert [f['id'] for f in out['footnotes']] == []
+    assert s.find('p', string='Body text that follows the anchor.') is not None
+
+
+def test_a_verse_number_reached_from_a_cross_reference_is_not_a_note(soup):
+    # A study Bible: "13.8–18" in an outline links forward to verse 18, which opens with its own number
+    # as a link — to somewhere else. Two verses were taken out of the text as notes.
+    _, ids, _ = _pointed(soup, '<body><p>The prayers (<a href="#v8" id="x8">13.8</a>–<a href="#v18" id="x18">18</a>).</p>'
+                               '<p><sup><a class="StartVersenum" id="v1" href="#x1">1</a></sup>In the second year.</p>'
+                               '<p id="x1">Outline.</p>'
+                               '<p><sup><a class="StartVersenum" id="v18" href="#v1">18</a></sup> And all Israel cried out mightily.</p></body>')
+    assert ids == []

@@ -284,3 +284,38 @@ def test_a_promoted_heading_keeps_one_section_number():
         {'page': 9, 'style': ['Trebuchet-Bold', 1.0], 'x': 18, 'text': '7. Discussion of the Seminar'}]}
     out = recover_geometric_headings(md, info)[0]
     assert '## 7. Discussion of the Seminar' in out and '7. 7.' not in out
+
+
+def _nest_fixture(numbered_extra=''):
+    subs = ['Boris Johnson and Social Darwinism', 'Social Distancing in Everyday Life',
+            'The Overburdening of the Individual', 'Types of False Coronavirus News']
+    md = ('# Everyday Life in Coronavirus Capitalism\n\n## 1. Introduction\n\nText.\n\n'
+          '## 2. Everyday Communication and Sociality\n\nText.\n\n'
+          + ''.join(f'## {s}\n\nText.\n\n' for s in subs[:3])
+          + f'## 3. The Communication of Conspiracy Stories\n\nText.\n\n## {subs[3]}\n\nText.\n\n'
+          + numbered_extra
+          + '## 4. Conclusion\n\nText.\n\n## Socialism or Barbarism Today\n\nText.\n\n'
+          '## References\n\nEntry.\n\n## About the Author\n\nBio.')
+    info = {'body_style': ['ArialMT', 1.0], 'lines': [
+        {'page': 0, 'style': ['Arial-BoldMT', 1.0], 'x': 18, 'text': t} for t in subs]}
+    return md, info
+
+
+def test_unnumbered_sub_headings_nest_under_the_numbered_sections():
+    """5fc4aad4: four numbered sections, twenty unnumbered sub-headings, one flat level."""
+    from ingestion.pdf.heading_geometry import nest_unnumbered_style_under_numbered
+    md, info = _nest_fixture()
+    out, changed = nest_unnumbered_style_under_numbered(md, info)
+    assert len(changed) == 5
+    assert '### Social Distancing in Everyday Life' in out
+    assert '### Socialism or Barbarism Today' in out          # after the last numbered section
+    assert '## 3. The Communication' in out and '## References' in out and '## About the Author' in out
+    assert out.startswith('# Everyday Life')
+
+
+def test_nesting_is_left_to_the_numbers_where_they_carry_it():
+    from ingestion.pdf.heading_geometry import nest_unnumbered_style_under_numbered
+    md, info = _nest_fixture('## 3.1 A Numbered Subsection\n\nText.\n\n')
+    assert nest_unnumbered_style_under_numbered(md, info) == (md, [])
+    two = '# Title Here\n\n## 1. One\n\nText.\n\n## Alpha Beta Gamma\n\nText.\n\n## 2. Two\n\nText.'
+    assert nest_unnumbered_style_under_numbered(two, info) == (two, [])

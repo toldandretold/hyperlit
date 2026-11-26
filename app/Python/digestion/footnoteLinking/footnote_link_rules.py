@@ -32,6 +32,7 @@ class FootnoteLinkContext:
         self.all_footnotes = all_footnotes
         self.all_noterefs = all_noterefs               # reverse-mapping REASSIGNS this (new list)
         self.all_footnote_ids = {fn.get('id', '') for fn in all_footnotes if fn.get('id')}
+        self.id_aliases = {}                            # second id on a definition -> the id it was registered under
         self.id_mapping = {}                            # old_id -> {new_id, count, content, element, ...}
         self.footnotes_json = []
         self.used_ref_ids = set()
@@ -52,7 +53,7 @@ class FootnoteLinkContext:
 # (marxists.org, Theories of Surplus-Value), and "****" left in place printed the note as
 # "**** In the manuscript: …". Letters stay capped at three — a longer run of letters is a word.
 _SYMBOL_MARKER = r'[\*†‡§¶#+]{1,8}'
-_LEADING_MARKER_RE = re.compile(r'^(?:[\[(]?\d+[a-zA-Z]?[\])]?\.?|[\[(][a-zA-Z]{1,3}[\])]\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?|' + _SYMBOL_MARKER + r'\.?'
+_LEADING_MARKER_RE = re.compile(r'^(?:[\[(]?\d+[a-zA-Z]?[\])]?\.?|[\[(][a-zA-Z]{1,3}[\])]\.?|[\*†‡§¶#a-zA-Z]{1,3}\.?|[\[(]?' + _SYMBOL_MARKER + r'[\])]?\.?'
                                 r'|[\[(]?[\*†‡]{1,3}\d{1,3}[\])]?\.?)$')   # "[*1]": a second, starred series
 # Inline wrappers a publisher puts AROUND that link (marxists.org: <span class="info"><a …>1.</a></span>).
 _MARKER_WRAPPERS = ('span', 'b', 'strong', 'small', 'font')
@@ -280,6 +281,8 @@ class IdMappingBuilder(LinkRule):
             content_html = extract_footnote_content(elem, old_id) if elem else ""
             ctx.id_mapping[old_id] = {'new_id': _new_fn_id(), 'count': count,
                                       'content': content_html, 'element': elem}
+            for alias in fn.get('alias_ids') or ():
+                ctx.id_aliases.setdefault(alias, old_id)   # a second id on the same note
             count += 1
 
 
@@ -307,6 +310,8 @@ class NoterefConverter(LinkRule):
             if any(id(anc) in noteref_elem_ids for anc in elem.parents):
                 ctx.nested_excluded += 1
                 continue
+            if target_id not in ctx.id_mapping:
+                target_id = ctx.id_aliases.get(target_id, target_id)
             if target_id not in ctx.id_mapping:
                 continue
             mapping = ctx.id_mapping[target_id]
@@ -438,7 +443,7 @@ class StrayLinkCleaner(LinkRule):
     description = "Remove leftover <a href='#defId'> links to extracted definitions (+ their empty wrappers)."
 
     def apply(self, ctx, log=None):
-        removed_ids = set(ctx.id_mapping.keys())
+        removed_ids = set(ctx.id_mapping.keys()) | set(ctx.id_aliases.keys())
         stray = 0
         for a_tag in list(ctx.soup.find_all('a', href=True)):
             href = a_tag.get('href', '')

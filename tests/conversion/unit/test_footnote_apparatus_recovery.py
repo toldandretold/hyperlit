@@ -980,3 +980,58 @@ def test_the_blank_run_left_by_lifted_notes_does_not_stop_a_join():
     text = ('These potentials might be destroyed and fascist potentials' + '\n' * 7
             + 'that divide society might be realised.')
     assert 'fascist potentials that divide' in S.rejoin_page_breaks(text)
+
+
+# --- 2026-11-26 batch ----------------------------------------------------------------------
+
+def test_markers_follow_definitions_the_layer_renumbered():
+    """ad226741 page 2 prints notes 3-8; the OCR read markers AND definitions as 1-6. With only
+    the definitions corrected the page held eight local numbers and four markers opened a note
+    two places from their own."""
+    before = {'This theory has been treated': 1, 'Although there are systems': 2, 'When not referenced': 3}
+    block = [(3, 3, '3', 'This theory has been treated'), (4, 4, '4', 'Although there are systems'),
+             (5, 5, '5', 'When not referenced')]
+    lines = ['affiliated to systems theory[^1]. Natural systems[^2] may be categorized[^3].', '',
+             '', '3 This theory has been treated', '4 Although there are systems', '5 When not referenced']
+    refs = {1, 2, 3}
+    out = S._follow_def_renumber_in_markers(before, block, lines, refs)
+    assert out[0] == 'affiliated to systems theory[^3]. Natural systems[^4] may be categorized[^5].'
+    assert {3, 4, 5} <= refs and 1 not in refs
+
+
+def test_markers_that_were_right_are_not_moved_onto_each_other():
+    """deloitte page 6: markers 1-4 are right and only the definitions were mislabelled 4, 5.
+    Moving marker 4 to 3 would land it on the marker 3 already there."""
+    before = {'note one': 1, 'ibid': 2, 'note three': 4, 'note four': 5}
+    block = [(5, 1, '1', 'note one'), (6, 2, '2', 'ibid'), (7, 3, '3', 'note three'), (8, 4, '4', 'note four')]
+    lines = ['a[^1] b[^2] c[^3] d[^4]', '', '', '', '', '1 note one', '2 ibid', '3 note three', '4 note four']
+    assert S._follow_def_renumber_in_markers(before, block, list(lines), {1, 2, 3, 4}) == lines
+
+
+def test_one_misread_marker_follows_its_definition():
+    """1f74c7ff page 3: markers 2 and 4, definitions 2 and 3 that the page prints as 3 and 4."""
+    before = {'Ce terme est largement utilisé': 2, 'En avril 2009.': 3}
+    block = [(2, 3, '3', 'Ce terme est largement utilisé'), (3, 4, '4', 'En avril 2009.')]
+    lines = ['des groupes de base[^2], et présidentielle[^4], inscrite', '',
+             '3 Ce terme est largement utilisé', '4 En avril 2009.']
+    out = S._follow_def_renumber_in_markers(before, block, lines, {2, 3, 4})
+    assert out[0] == 'des groupes de base[^3], et présidentielle[^4], inscrite'
+
+
+def test_a_lone_line_note_may_open_with_a_figure():
+    """1f74c7ff note 31 reads '1 rand = 80 centimes d’euro.' — the run broke there and the page's
+    whole block (30-34) went unread."""
+    lines = ['corps du texte qui continue ici.', '',
+             '30', ' L’Actualité.com, 16 avril 2008', '31', ' 1 rand = 80 centimes d’euro.',
+             '32', ' Source : statistiques nationales.', '33', ' « Le peuple boer se forge']
+    assert [n for n, _t in REC._lone_line_note_defs(lines)] == [30, 31, 32, 33]
+
+
+def test_a_note_ending_on_a_parenthetical_reference_splits_from_the_next():
+    """0eb69a75: '…adherents”. (ThIS, p.31) 6 “This chapter has examined…' is notes 5 and 6."""
+    text = ('„The character of information is such as to have transformed how we live.” (ThIS, p. 9) '
+            'The most persuasive conception is the least commonly suggested. (ThIS, p.31) '
+            '6 “This chapter has examined six analytically separable conceptions”. (ISR, p. 22).')
+    segs = REC.split_run_on_numbered_def(5, text, taken={3, 4, 5})
+    assert [n for n, _t in segs] == [5, 6]
+    assert segs[1][1].startswith('“This chapter')
