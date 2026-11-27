@@ -19,6 +19,7 @@ cannot witness (no layer, a note the layer does not hold, words that occur twice
 reported on evidence that is not there.
 """
 
+import difflib
 import html
 import re
 import unicodedata
@@ -32,14 +33,20 @@ _MARKER_RE = re.compile(r'\[\^(\d+)\]')
 # everything up to the next ">" — paragraphs of it.
 _MD_NOISE_RE = re.compile(r'!\[[^\]]*\]\([^)\n]*\)|</?[a-zA-Z][^<>\n]{0,200}>')
 
-# The letters-and-digits before a marker that must be found once, and only once, in the layer.
-_SITE_PREFIX_CHARS = 28
-_SITE_PREFIX_MIN = 16
+# The letters before a marker that must be found once, and only once, in the layer.
+_SITE_PREFIX_CHARS = 32
+_SITE_PREFIX_MIN = 18
 # The superscript as the layer renders it straight after those words: glued on, with at most
 # the sentence's own punctuation between…
 _GLUED_NUMBER_RE = re.compile(r'^([.,;:!?)\]"\'”’»]{0,3})(\d{1,3})(?![\d.,]?\d)')
 # …or standing alone at the end of its line.
 _LINE_END_NUMBER_RE = re.compile(r'^[.,;:!?)\]"\'”’»]{0,3} ?\n? ?(\d{1,3}) *\n')
+
+# A note is identified in the layer by this much of its text, this closely, with no other note
+# coming near.
+_NOTE_IDENTITY_CHARS = 60
+_NOTE_IDENTITY_MIN = 0.92
+_NOTE_IDENTITY_RUNNER_UP = 0.8
 
 # Lost text is measured in windows of folded letters. A window is three chunks, and counts as
 # present when ANY of them is in the document: a layer that drops its ligatures or misreads a
@@ -78,12 +85,16 @@ def _fold_letters(text):
     return re.sub(r'[^a-z]+', '', text.lower())
 
 
-def _alnum_stream(text):
-    """(folded letters-and-digits, index of each folded character in `text`)."""
+def _letter_stream(text):
+    """(folded letters, index of each folded letter in `text`). Letters only: the layer glues
+    every OTHER marker's digit into the words too ("Forced Labour26 and Freedom of
+    Association27"), and a stream that kept digits could never find the words before the
+    second marker — the search then settled on the one place the phrase recurs without
+    markers, pages away (d13832dc)."""
     chars, where = [], []
     for i, ch in enumerate(text):
         for c in unicodedata.normalize('NFKD', ch).lower():
-            if ('a' <= c <= 'z') or ('0' <= c <= '9'):
+            if 'a' <= c <= 'z':
                 chars.append(c)
                 where.append(i)
     return ''.join(chars), where
@@ -111,7 +122,7 @@ def _marker_sites(markdown):
         before = markdown[max(0, m.start() - 200):m.start()]
         before = html.unescape(_MD_NOISE_RE.sub(' ', _MARKER_RE.sub('', before)))
         context = re.sub(r'\s+', ' ', before).strip()[-60:]
-        out.append((int(m.group(1)), context, _fold_alnum(before)[-_SITE_PREFIX_CHARS:],
+        out.append((int(m.group(1)), context, _fold_letters(before)[-_SITE_PREFIX_CHARS:],
                     m.start(), m.end()))
     return out
 
@@ -138,13 +149,31 @@ def _witness_marker(prefix, streams):
 
 
 def _witness_note(text, layer_defs):
-    """(page, printed number) of the one layer note that opens as `text` does, else None."""
-    probe = _fold_alnum(text)[:24]
-    if len(probe) < 12:
+    """(page, printed number) of the one layer note that IS `text`, else None.
+
+    Judged on the note's first sixty letters and digits, not its opening words: an article's
+    notes routinely open alike ("Translation from German: „Das …" a dozen times, a run of
+    YouTube links), and a note identified by its opening alone is very often its neighbour —
+    which reads as a marker opening the wrong note (c4ac6610, 024de307). One clear match and
+    no runner-up, or nothing."""
+    mine = _fold_alnum(text)
+    if len(mine) < 12:
         return None
-    hits = [(page_idx, printed) for page_idx, page_defs in layer_defs.items()
-            for printed, layer_text in page_defs if _fold_alnum(layer_text).startswith(probe)]
-    return hits[0] if len(hits) == 1 else None
+    best, best_score, runner_up = None, 0.0, 0.0
+    for page_idx, page_defs in layer_defs.items():
+        for printed, layer_text in page_defs:
+            theirs = _fold_alnum(layer_text)
+            n = min(len(mine), len(theirs), _NOTE_IDENTITY_CHARS)
+            if n < 12 or mine[:8] != theirs[:8]:
+                continue
+            score = difflib.SequenceMatcher(None, mine[:n], theirs[:n], autojunk=False).ratio()
+            if score > best_score:
+                best, best_score, runner_up = (page_idx, printed), score, best_score
+            elif score > runner_up:
+                runner_up = score
+    if best is None or best_score < _NOTE_IDENTITY_MIN or runner_up >= _NOTE_IDENTITY_RUNNER_UP:
+        return None
+    return best
 
 
 def _lost_runs(markdown, page_texts):
@@ -184,16 +213,27 @@ def _lost_runs(markdown, page_texts):
     return runs, coverage
 
 
+def _repeated_notes(defs):
+    """Numbers of the notes whose text another note repeats (the same address cited twice,
+    "Ibid."). The layer cannot say which of them it is holding, so they witness nothing
+    (bd6cb620: notes 12 and 13 are one URL, and 12 read as "the note printed as 13")."""
+    by_text = {}
+    for number, text in defs.items():
+        by_text.setdefault(_fold_alnum(text)[:_NOTE_IDENTITY_CHARS], []).append(number)
+    return {n for nums in by_text.values() if len(nums) > 1 for n in nums}
+
+
 def _witnessed_pairs(sites, defs, page_texts, layer_defs):
     """Every marker whose own place AND whose note the layer can both locate:
     [(number, context, (marker page, printed there or None), (note page, note printed), start, end)]."""
     streams = {}
     for page_idx, raw in page_texts.items():
-        folded, where = _alnum_stream(raw or '')
+        folded, where = _letter_stream(raw or '')
         streams[page_idx] = (raw or '', folded, where)
     out = []
+    repeated = _repeated_notes(defs)
     for number, context, prefix, start, end in sites:
-        if number not in defs:
+        if number not in defs or number in repeated:
             continue
         note = _witness_note(defs[number], layer_defs)
         marker = _witness_marker(prefix, streams)
@@ -221,9 +261,13 @@ def repair_witnessed_wrong_links(markdown, pdf_path):
         return markdown, []
     if not page_texts or not layer_defs:
         return markdown, []
+    markdown, renumbered = _separate_notes_sharing_a_number(markdown, layer_defs)
     _body, defs = _split(markdown)
     printed_as = {}                       # (note page, printed number) -> [document numbers]
+    repeated = _repeated_notes(defs)
     for number, text in defs.items():
+        if number in repeated:
+            continue
         witness = _witness_note(text, layer_defs)
         if witness is not None:
             printed_as.setdefault(witness, []).append(number)
@@ -248,7 +292,37 @@ def repair_witnessed_wrong_links(markdown, pdf_path):
     for start, end, context, was, now in sorted(edits, reverse=True):
         markdown = markdown[:start] + f'[^{now}]' + markdown[end:]
         repairs.append((context, was, now))
-    return markdown, repairs[::-1]
+    return markdown, renumbered + repairs[::-1]
+
+
+def _separate_notes_sharing_a_number(markdown, layer_defs):
+    """Two definitions under ONE number: the OCR read note 8's number as 9 and note 9 kept its
+    own, so marker 9 opens whichever comes first — note 8 (9c7e6724). Where the layer prints
+    one of the pair under the shared number and the other under a number nothing in the
+    document holds, the other is given that number back. Returns (markdown, [(text, was, now)])."""
+    lines = {}
+    for m in _DEF_LINE_RE.finditer(markdown):
+        lines.setdefault(int(m.group(1)), []).append(m)
+    taken = set(lines) | {int(n) for n in _MARKER_RE.findall(markdown)}
+    edits = []
+    for number, group in lines.items():
+        if len(group) != 2:
+            continue
+        printed = [_witness_note(m.group(2), layer_defs) for m in group]
+        if None in printed:
+            continue
+        for keep, move in ((0, 1), (1, 0)):
+            now = printed[move][1]
+            if printed[keep][1] == number and now != number and now not in taken:
+                edits.append((group[move].start(1), group[move].end(1), group[move].group(2)[:60],
+                              number, now))
+                taken.add(now)
+                break
+    out = []
+    for start, end, text, was, now in sorted(edits, reverse=True):
+        markdown = markdown[:start] + str(now) + markdown[end:]
+        out.append((text, was, now))
+    return markdown, out[::-1]
 
 
 def assess_link_integrity(markdown, pdf_path):

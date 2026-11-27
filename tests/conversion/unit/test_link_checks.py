@@ -79,7 +79,8 @@ def _note_pages():
     pages, defs, body, notes = {}, {}, [], []
     for n in range(1, 7):
         sentence = f'Sentence number {"abcdefg"[n]} about the political economy of topic {"uvwxyz"[n - 1]} ends here'
-        note = f'Note text {"abcdefg"[n]} citing a distinct source on topic {"uvwxyz"[n - 1]} at length.'
+        note = (('Aardvark', 'Bismuth', 'Cormorant', 'Dulcimer', 'Estuary', 'Flotsam')[n - 1] * 3
+                + f' is the distinct opening of note {n}, citing its own source at length.')
         pages[n] = f'{sentence}.{n} More prose follows.\n{n} {note}'
         defs[n] = [(n, note)]
         body.append(f'{sentence}.[^{n}] More prose follows.')
@@ -173,3 +174,19 @@ def test_a_right_link_is_never_rewritten(monkeypatch):
     _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
     md = BODY.format(n=10) + '\n\n' + TWO_NOTES
     assert LC.repair_witnessed_wrong_links(md, 'x.pdf') == (md, [])
+
+
+def test_two_notes_under_one_number_are_separated_by_what_the_pdf_prints(monkeypatch):
+    """The OCR read note 8's number as 9; marker 9 then opened note 8 (9c7e6724)."""
+    layer = {7: [(8, '“Die Welt des Daseins ist Mitwelt”. (Heidegger 1979: 118); In contrast to the Umwelt concept'),
+                 (9, 'Mutualism: non-obligatory or temporary relationship between two populations that benefits both')]}
+    _stub(monkeypatch, {7: 'transspecific: symbiotic, parasitic)\n9\n are no less important.'}, layer)
+    md = ('…metaorganismic (transspecific: symbiotic, parasitic)[^9] are no less important.\n\n'
+          '[^9]: "Die Welt des Daseins ist Mitwelt". (Heidegger 1979: 118): In contrast to the Umwelt concept\n\n'
+          '[^9]: Mutualism: non-obligatory or temporary relationship between two populations that benefits both')
+    out, repairs = LC.repair_witnessed_wrong_links(md, 'x.pdf')
+    assert '[^8]: "Die Welt des Daseins' in out and '[^9]: Mutualism' in out
+    assert [(a, b) for _t, a, b in repairs] == [(9, 8)]
+    # number 8 already belongs to another note: nothing is moved
+    taken = md + '\n\n[^8]: Some other note that holds the number already.'
+    assert LC.repair_witnessed_wrong_links(taken, 'x.pdf')[0] == taken

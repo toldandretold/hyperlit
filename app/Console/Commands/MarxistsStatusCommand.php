@@ -60,23 +60,36 @@ class MarxistsStatusCommand extends Command
     }
 
     /**
-     * The part a person watching a batch actually wants: is it moving, what is it on, how long
-     * is left. The totals alone could not answer that — a work reads `queued` from the moment
-     * it is queued until it finishes, so "33 queued" then "25 queued" was the only sign of life.
+     * The part a person watching a batch actually wants, as one sentence: how much of THIS batch
+     * is done. The totals alone could not say — a work reads `queued` from the moment it is
+     * queued until it finishes, and the ledger keeps no batch number.
+     *
+     * The batch is recovered from the clock: queueing stamps every work of a batch at once, so
+     * the oldest stamp among the works still queued is when the batch started, and everything
+     * that finished since then belongs to it.
      */
     private function printBatchInProgress($db, \Closure $scope): void
     {
-        $waiting = $scope($db->table('marxists_works'))->where('status', MarxistsBulkImporter::STATUS_QUEUED)->count();
-        $recent = $scope($db->table('marxists_works'))
-            ->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS,
-                MarxistsBulkImporter::STATUS_FAILED, MarxistsBulkImporter::STATUS_NOT_A_WORK])
-            ->where('updated_at', '>=', now()->subHours(2))
-            ->orderByDesc('updated_at')->get(['status', 'link_title', 'url', 'updated_at']);
-        if ($waiting === 0 && $recent->isEmpty()) {
+        $queued = $scope($db->table('marxists_works'))->where('status', MarxistsBulkImporter::STATUS_QUEUED);
+        $waiting = (clone $queued)->count();
+        if ($waiting === 0) {
+            $this->line('<comment>No batch running</comment> — nothing is queued.');
+            $this->newLine();
+
             return;
         }
+        $startedAt = (string) (clone $queued)->min('updated_at');
+        $finished = $scope($db->table('marxists_works'))
+            ->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS,
+                MarxistsBulkImporter::STATUS_FAILED, MarxistsBulkImporter::STATUS_NOT_A_WORK])
+            ->where('updated_at', '>=', $startedAt)
+            ->orderByDesc('updated_at')->get(['status', 'link_title', 'url', 'book', 'updated_at']);
 
-        $this->line($waiting > 0 ? '<comment>Batch in progress</comment>' : '<comment>Last batch</comment> (nothing queued now)');
+        $done = $finished->count();
+        $total = $done + $waiting;
+        $failed = $finished->where('status', MarxistsBulkImporter::STATUS_FAILED)->count();
+        $this->line(sprintf('<comment>This batch: %d of %d done, %d to go</comment>%s', $done, $total, $waiting,
+            $failed ? " — {$failed} FAILED (listed below)" : ''));
 
         // The job the worker holds right now, read off the queue itself.
         $running = $db->table('jobs')->whereNotNull('reserved_at')
@@ -85,39 +98,26 @@ class MarxistsStatusCommand extends Command
         if ($running && preg_match('/workId\\\\?";i:(\d+)/', (string) $running->payload, $m)) {
             $current = $scope($db->table('marxists_works'))->where('id', (int) $m[1])->first(['link_title', 'url']);
         }
-        if ($waiting > 0) {
-            $this->line("  {$waiting} still to do" . ($current ? ', including the one running now' : ''));
-        }
-        if ($current) {
-            $this->line(sprintf('  working on   %s  (%s so far)', $this->name($current),
-                $this->span(time() - (int) $running->reserved_at)));
-        } elseif ($waiting > 0) {
-            $this->line('  working on   nothing right now — the worker is between jobs, busy with another import, or stopped');
-        }
-
-        $done = $recent->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS])->count();
-        $failed = $recent->where('status', MarxistsBulkImporter::STATUS_FAILED)->count();
-        $refused = $recent->where('status', MarxistsBulkImporter::STATUS_NOT_A_WORK)->count();
-        $this->line("  last 2 hours {$done} imported" . " · {$failed} failed" . ($failed ? ' (listed below)' : '')
-            . ($refused ? " · {$refused} refused (not a single work)" : ''));
-        if ($last = $recent->first()) {
-            $this->line(sprintf('  last finished %s  (%s ago, %s)', $this->name($last),
-                $this->span(time() - strtotime((string) $last->updated_at)), $last->status));
-        }
+        $this->line($current
+            ? sprintf('  now fetching  %s  (%s so far)', $this->name($current), $this->span(time() - (int) $running->reserved_at))
+            : '  now fetching  nothing — the worker is between jobs, busy with another import, or stopped');
 
         // Pace from the finishes themselves: first to last, over the gaps between them.
-        if ($waiting > 0 && $recent->count() >= 3) {
-            $elapsed = strtotime((string) $recent->first()->updated_at) - strtotime((string) $recent->last()->updated_at);
-            $each = (int) round($elapsed / ($recent->count() - 1));
+        if ($done >= 3) {
+            $elapsed = strtotime((string) $finished->first()->updated_at) - strtotime((string) $finished->last()->updated_at);
+            $each = (int) round($elapsed / ($done - 1));
             if ($each > 0) {
-                $this->line(sprintf('  time left    about %s, at %s a work', $this->span($each * $waiting), $this->span($each)));
+                $this->line(sprintf('  fetching left about %s  (%s a work)', $this->span($each * $waiting), $this->span($each)));
             }
         }
 
-        $converting = $scope($db->table('marxists_works as w'), 'w.author')->where('w.status', MarxistsBulkImporter::STATUS_IMPORTED)
-            ->join('library as l', 'l.book', '=', 'w.book')->where('l.has_nodes', false)->count();
-        if ($converting > 0) {
-            $this->line("  {$converting} imported book(s) are fetched and waiting for their conversion (same worker, runs after the fetches)");
+        // A fetched book is not readable until it is converted, and the conversions queue up
+        // behind the batch's remaining fetches on the same worker.
+        $books = $finished->where('status', MarxistsBulkImporter::STATUS_IMPORTED)->pluck('book')->filter()->all();
+        if ($books !== []) {
+            $converted = $db->table('library')->whereIn('book', $books)->where('has_nodes', true)->count();
+            $this->line(sprintf('  converted     %d of the %d fetched so far%s', $converted, count($books),
+                $converted < count($books) ? ' — conversions run after the fetches, on the same worker' : ''));
         }
         $this->newLine();
     }

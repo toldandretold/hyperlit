@@ -628,7 +628,11 @@ test('marxists:status says what a running batch is on, how it is going and how l
     $done('1905/d.htm', 'Marxtest Broken', 4, MarxistsBulkImporter::STATUS_FAILED);
     $running = marxWork('1905/e.htm', 'trotsky');
     marxDb()->table('marxists_works')->where('id', $running)->update(['link_title' => 'Marxtest Running']);
-    marxWork('1905/f.htm', 'trotsky');
+    $waiting = marxWork('1905/f.htm', 'trotsky');
+    // Queueing stamps the whole batch at once; that stamp is how the batch is recognised.
+    marxDb()->table('marxists_works')->whereIn('id', [$running, $waiting])->update(['updated_at' => now()->subMinutes(10)]);
+    // …and a work finished BEFORE it belongs to an earlier batch, and is not counted.
+    $done('1904/old.htm', 'Marxtest Earlier Batch', 45);
     $job = marxDb()->table('jobs')->insertGetId([
         'queue' => 'default', 'attempts' => 1, 'reserved_at' => time() - 120, 'available_at' => time(), 'created_at' => time(),
         'payload' => json_encode(['displayName' => ImportMarxistsWorkJob::class,
@@ -637,13 +641,11 @@ test('marxists:status says what a running batch is on, how it is going and how l
 
     try {
         $this->artisan('marxists:status', ['author' => 'trotsky'])
-            ->expectsOutputToContain('Batch in progress')
-            ->expectsOutputToContain('2 still to do')
+            // Three imported and one failed since the batch was queued, two still queued.
+            ->expectsOutputToContain('This batch: 4 of 6 done, 2 to go — 1 FAILED')
             ->expectsOutputToContain('“Marxtest Running”  (2m so far)')
-            ->expectsOutputToContain('3 imported · 1 failed')
-            ->expectsOutputToContain('last finished “Marxtest Third”')
             // Four finishes over six minutes: two minutes a work, two works left.
-            ->expectsOutputToContain('about 4m, at 2m a work')
+            ->expectsOutputToContain('fetching left about 4m  (2m a work)')
             ->assertExitCode(0);
     } finally {
         marxDb()->table('jobs')->where('id', $job)->delete();

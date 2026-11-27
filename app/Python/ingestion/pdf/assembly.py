@@ -1428,15 +1428,28 @@ def _rescue_refless_footer_footnotes(combined, response_dict, pdf_path,
                           if _norm_head(t) and _norm_head(t) == _norm_head(def_text)
                           and not re.search(rf'\[\^{n}\](?!:)', combined)), None)
             if _twin is not None:
+                if _twin != (md_num if md_num is not None else num):
+                    # The same note, lifted from a footer under ANOTHER number (a folio or a
+                    # misread): its seam was hunted under that number, so wherever it matched
+                    # is some other note's place (c7c6db2b: the OECD note, held as 5, came off
+                    # a footer as "3", and marker 5 was planted where the page prints 3).
+                    continue
                 def_text = None
                 target = _twin
             else:
                 target = md_num if (md_num is not None and md_num not in used) else next_free
                 if target == next_free:
                     next_free += 1
-        used.add(target)
         h, word_len = placed
         insert_at = h.start() + word_len
+        # Never inside a number. A layer that breaks a table cell across lines ("11,823,45⏎3")
+        # shows a digit standing alone exactly as a superscript does, and the marker went into
+        # the figure itself: "11,823,45[^3]3" (43872b54).
+        if combined[insert_at - 1:insert_at].isdigit() and (
+                combined[h.end(1):h.end(1) + 1].isdigit()
+                or re.search(r'\d[.,]\d+$', combined[max(0, insert_at - 14):insert_at])):
+            continue
+        used.add(target)
         # group 1 is the substituted superscript letter (empty when the OCR dropped the marker
         # outright) — the marker takes its place instead of standing beside it.
         combined = combined[:insert_at] + f'[^{target}]' + combined[h.end(1):]

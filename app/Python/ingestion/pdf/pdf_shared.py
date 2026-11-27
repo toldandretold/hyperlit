@@ -63,8 +63,24 @@ def is_unit_exponent(text, pos, digits):
     return digits in ('2', '3') and bool(_UNIT_BEFORE_EXPONENT_RE.search(text[max(0, pos - 8):pos]))
 
 
+# An ORDINAL set in superscript glyphs: "21\u02e2\u1d57", and the edition a bibliography prints as "3\u1d48
+# Edition" (the OCR's rendering of "3rd"). Read as a footnote marker, "Category Theory for
+# Computing Science \u00b3\u1d48 Edition" opened note 3 from the reference list (2da2e8fc). The bare
+# "\u1d48" counts only before the word it belongs to \u2014 a lone superscript letter is otherwise how
+# the OCR renders a marker it could not read.
+_SUP_ORDINAL_RE = re.compile(
+    r'([\u2070\u00b9\u00b2\u00b3\u2074-\u2079]+)'
+    r'(?:(\u02e2\u1d57|\u207f\u1d48|\u02b3\u1d48|\u1d57\u02b0)|(\u1d48)(?=\s+(?:[Ee]d(?:ition|n\b|\.)|[Cc]entury)))')
+_SUP_ORDINAL_SUFFIX = {'\u02e2\u1d57': 'st', '\u207f\u1d48': 'nd', '\u02b3\u1d48': 'rd', '\u1d57\u02b0': 'th',
+                       '\u1d48': 'd'}
+
+
 def convert_footnotes(text):
     """Convert Unicode superscript numbers to [^N] markdown footnotes."""
+    text = _SUP_ORDINAL_RE.sub(
+        lambda m: m.group(1).translate(SUPERSCRIPT_MAP)
+        + _SUP_ORDINAL_SUFFIX[m.group(2) or m.group(3)], text)
+
     def replace_fn(m):
         num = m.group(0).translate(SUPERSCRIPT_MAP)
         if is_unit_exponent(text, m.start(), num):
@@ -462,7 +478,50 @@ def convert_inline_footnote_markers(md, strip_italic_brackets=False):
         md,
         flags=re.DOTALL,
     )
-    return md
+    return demote_affiliation_markers(md)
+
+
+_AFFILIATION_LINE_RE = re.compile(r'^\[\^(\d{1,2})\](?!:)[ \t]*(?=\S)')
+
+
+def demote_affiliation_markers(md):
+    """Author-line numbers that key an AFFILIATION block are not footnote markers.
+
+    "Rodrigo Ferrada Stoehrel¹, Simon Lindgren²" over "¹Department of Culture…" / "²Department
+    of Sociology…" is its own little number space, and the article's footnotes start again at 1
+    — so each author's number opened a footnote of the article (024de307: the first author
+    opened the note on governmentality). Recognised by shape, near the top of a page only: a
+    line carrying markers, with a line OPENING on each of those same numbers within the few
+    lines after it. Both ends become plain superscripts."""
+    lines = md.split('\n')
+    for i, line in enumerate(lines[:25]):
+        nums = re.findall(r'\[\^(\d{1,2})\](?!:)', line)
+        if not nums or _AFFILIATION_LINE_RE.match(line) or len(line) > 300:
+            continue
+        bare = re.sub(r'\[\^\d+\]', '', line).strip()
+        if re.search(r'[.!?]\s*$', bare):
+            continue                                   # a sentence: body prose, not a byline
+        # A byline: its numbers start at 1 and its words are names. A body line whose note
+        # happens to open the next line ("…the root orbho,²⁰" over "²⁰Podkorny's entry…",
+        # 99a9fa50) is neither, and demoting it took a real note's marker away.
+        words = re.findall(r"[^\W\d_]{2,}", bare)
+        if min(int(n) for n in nums) != 1 or len(bare) > 200 or not words or (
+                sum(w[0].isupper() for w in words) < 0.6 * len(words)):
+            continue
+        block = {}
+        for j in range(i + 1, min(i + 1 + 3 * len(set(nums)) + 2, len(lines))):
+            m = _AFFILIATION_LINE_RE.match(lines[j])
+            if m:
+                block.setdefault(m.group(1), j)
+            elif lines[j].strip() and not block:
+                break                                  # prose straight after the byline
+        if set(nums) != set(block):
+            continue
+        lines[i] = re.sub(r'\[\^(\d{1,2})\](?!:)', r'<sup>\1</sup>', line)
+        for num, j in block.items():
+            lines[j] = _AFFILIATION_LINE_RE.sub(f'<sup>{num}</sup> ', lines[j], count=1)
+        break
+    return '\n'.join(lines)
 
 
 def normalize_all_footnote_refs(text):
@@ -1687,6 +1746,10 @@ def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_lic
     return page_md, global_counter
 
 
+_NOT_INSIDE_NOTES_RE = re.compile(
+    r'(?m)^(?:#{1,6}[ \t]+\S|(?:\*\*)?(?:Abstract|Keywords?|Zusammenfassung|R[ée]sum[ée]|Resumen)\b)')
+
+
 def split_body_and_footnotes(md):
     """Split a page's markdown into body text and footnote definitions.
 
@@ -1699,7 +1762,16 @@ def split_body_and_footnotes(md):
     # …and the German / French opening quotes: a page whose first notes are quotations in the
     # original ("20 „Wo Abhörapparate…") kept those four in the body, and the Footnotes heading
     # cut section 3.2 in half in front of them (820fe235).
-    match = re.search(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*<\u201c\u2018\u201e\u00ab\u00bb]', md, re.MULTILINE)
+    # A page's notes are its LAST thing. A numbered line with a heading, or the abstract, still
+    # to come after it is not the start of them: it is the affiliation block under the author
+    # line ("¹Department of Culture and Media Studies…"), and cutting there carried the
+    # abstract, the keywords and the whole first page of the introduction off to the end of
+    # the article with the notes (024de307).
+    floor = 0
+    for barrier in _NOT_INSIDE_NOTES_RE.finditer(md):
+        floor = barrier.start()
+    match = re.compile(r'^\[\^\d+\]\s*:?\s*[A-Za-z\d"\'(*<\u201c\u2018\u201e\u00ab\u00bb]',
+                       re.MULTILINE).search(md, floor)
     if not match:
         return md, ""
 

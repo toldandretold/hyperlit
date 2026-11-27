@@ -1072,3 +1072,51 @@ def test_a_repeated_translation_note_is_not_page_furniture():
     assert R._SHORT_FORM_DEF_RE.match('my translation')
     assert not R._SHORT_FORM_DEF_RE.match('translated by the author of the present volume in 1987 for the press.')
     assert not R._SHORT_FORM_DEF_RE.match('palgrave communications | 3:17092 | doi 10.1057')
+
+
+def test_a_superscript_ordinal_is_not_a_footnote_marker():
+    """"³ᵈ Edition" in a reference list opened note 3 (2da2e8fc)."""
+    out = S.convert_footnotes('Category Theory for Computing Science ³ᵈ Edition, Montreal. In the ²¹ˢᵗ century.³')
+    assert out == 'Category Theory for Computing Science 3d Edition, Montreal. In the 21st century.[^3]'
+    # a lone superscript letter after a digit elsewhere is left for the marker passes
+    assert S.convert_footnotes('the argument³ᵈ follows') == 'the argument[^3]ᵈ follows'
+
+
+def test_affiliation_lines_do_not_send_the_first_page_to_the_notes():
+    """Numbered affiliations under the author line, then the abstract and the introduction:
+    everything after the first numbered line used to be collected as footnotes (024de307)."""
+    page = ('# For the Lulz\n\nA. Author[^1], B. Author[^2]\n\n'
+            '[^1]Department of Culture and Media Studies, Umeå University.\n\n'
+            '[^2]Department of Sociology, Umeå University.\n\n'
+            'Abstract: This paper discusses affect.\n\n## 1. Introduction\n\n'
+            'The focus of this paper is on power.[^3]\n\n[^3]: On the art of governing see Foucault.')
+    body, notes = S.split_body_and_footnotes(page)
+    assert notes == '[^3]: On the art of governing see Foucault.'
+    assert body.endswith('The focus of this paper is on power.[^3]') and 'Abstract:' in body
+    # a page with nothing after its numbered lines splits where it always did
+    plain = 'Body text.[^1]\n\n[^1]: First note.\n[^2]: Second note.'
+    assert S.split_body_and_footnotes(plain) == ('Body text.[^1]', '[^1]: First note.\n[^2]: Second note.')
+
+
+def test_author_numbers_keyed_to_an_affiliation_block_are_not_footnote_markers():
+    page = ('# For the Lulz\n\nRodrigo Ferrada Stoehrel¹, Simon Lindgren²\n\n'
+            '¹Department of Culture and Media Studies, Umeå University.\n\n'
+            '²Department of Sociology, Umeå University.\n\nAbstract: This paper discusses affect.\n\n'
+            'The focus of this paper is on power.¹ It goes on.\n\n¹ On the art of governing see Foucault.')
+    out = S.convert_inline_footnote_markers(page)
+    assert 'Rodrigo Ferrada Stoehrel<sup>1</sup>, Simon Lindgren<sup>2</sup>' in out
+    assert '<sup>1</sup> Department of Culture' in out and '<sup>2</sup> Department of Sociology' in out
+    assert 'on power.[^1] It goes on.' in out            # the article's own note 1 is untouched
+
+
+def test_a_byline_without_its_affiliation_block_keeps_its_markers():
+    page = '# Title\n\nA. Author¹, B. Author²\n\nAbstract: Something.\n\nBody text here.¹ More.\n\n¹ A note.'
+    assert 'A. Author[^1], B. Author[^2]' in S.convert_inline_footnote_markers(page)
+    # body prose whose notes follow on the next lines is not a byline
+    prose = 'The claim is made twice.¹ ²\n\n¹ First note text.\n\n² Second note text.'
+    assert '<sup>' not in S.convert_inline_footnote_markers(prose)
+    # …nor is a body line over a note that opens the next line (99a9fa50)
+    body = 'In Indo-European languages, the root orbho,²⁰ signifying orphan\n\n²⁰Podkorny’s entry, p. 780, adapted.'
+    assert '<sup>' not in S.convert_inline_footnote_markers(body)
+    lower = 'the claim about the root is made here¹ and again²\n\n¹First note.\n\n²Second note.'
+    assert '<sup>' not in S.convert_inline_footnote_markers(lower)

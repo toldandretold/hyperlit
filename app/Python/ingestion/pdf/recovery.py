@@ -352,6 +352,10 @@ def reconcile_markers_with_lone_line_seams(markdown, page_texts):
             pos += 1
         if markdown[pos:pos + 1] in ('[', '^', '$', '{') or any(st <= pos <= en for st, en in taken):
             continue
+        # Never inside a number: a table figure the layer breaks across lines ("11,823,45⏎3")
+        # is a digit alone on its line too, and the marker went into the figure (43872b54).
+        if markdown[pos - 1:pos].isdigit() and markdown[pos:pos + 1].isdigit():
+            continue
         edits.append((pos, pos, '[^{}]'.format(num)))
         live.add(num)
         planted.append(num)

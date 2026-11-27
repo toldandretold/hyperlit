@@ -429,3 +429,26 @@ def test_rescued_marker_goes_to_the_note_the_document_already_holds(monkeypatch)
         combined, {'pages': [{'index': 3, 'footer': '4 ' + note}]}, 'x.pdf')
     assert 'digital self.[^4] The user' in out
     assert out.count(note) == 1 and '[^6]' not in out
+
+
+def test_footer_copy_under_another_number_is_not_planted(monkeypatch):
+    """The document holds the OECD note as 5, unlinked. A footer offers the same text as "3":
+    its seam is some other note's place, so nothing is planted and nothing duplicated
+    (c7c6db2b: marker 5 appeared where the page prints 3)."""
+    note = 'Organisation for Economic Co-operation and Development, http://www.oecd.org'
+    combined = ('We build this shared effort among disciplines. For instance, reflections on how '
+                'to build research.\n\n[^5]: ' + note)
+    _with_stub(monkeypatch, {1: 'this shared effort among disciplines.3 For instance, reflections'})
+    out, n = A._rescue_refless_footer_footnotes(
+        combined, {'pages': [{'index': 1, 'footer': '3 ' + note}]}, 'x.pdf')
+    assert out == combined and n == 0
+
+
+def test_marker_is_never_planted_inside_a_number(monkeypatch):
+    """A table cell the layer breaks across lines reads like a superscript on its own line."""
+    combined = ('| Sports press | 11,823,453 | 11,481,654 |\n\nBody text.\n\n'
+                '[^3]: According to Infoadex, below-the-line advertising includes mailing.')
+    _with_stub(monkeypatch, {5: 'Sports press 11,823,45\n3 \n11,481,654 9,224,834\n'
+                                '3 According to Infoadex, below-the-line advertising includes mailing.'})
+    out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, 'x.pdf')
+    assert '11,823,453' in out and '[^3]3' not in out
