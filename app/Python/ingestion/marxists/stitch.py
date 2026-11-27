@@ -262,7 +262,11 @@ def licence_from_info(info):
     return {'code': 'Unknown', 'url': None, 'evidence': None}
 
 
-def work_year(info, html_title):
+WRITTEN_LABELS = ('written', 'delivered')
+PUBLISHED_LABELS = ('first published', 'published')
+
+
+def work_year(info, html_title, prefixes=WRITTEN_LABELS + PUBLISHED_LABELS, use_title=True):
     """When the work was WRITTEN, from the information block: the labels vary by page ("Written",
     "Delivered" for a lecture, "First Published (in German)"), so they are tried in that order of
     preference before the page <title>. Never the transcription / markup date."""
@@ -270,13 +274,13 @@ def work_year(info, html_title):
         m = re.search(r'\b(1[5-9]\d\d)\b', text or '')
         return int(m.group(1)) if m else None
 
-    for prefix in ('written', 'delivered', 'first published', 'published'):
+    for prefix in prefixes:
         for label, value in info.items():
             if label.lower().startswith(prefix):
                 found = year_in(value)
                 if found:
                     return found
-    return year_in(html_title)
+    return year_in(html_title) if use_title else None
 
 
 def year_from_path(url):
@@ -301,7 +305,9 @@ def index_metadata(soup, url):
     info = {}
     for span in soup.select('span.info'):
         label = text_of(span).rstrip(':').strip()
-        if not label or len(label) > 40:
+        # A label is words. MIA also sets a footnote's NUMBER in span.info ("4" before the note on
+        # the Moguls, The British Rule in India), and the whole note came through as a field.
+        if not label or len(label) > 40 or not re.search(r'[A-Za-z]{3}', label):
             continue
         parts = []
         for sib in span.next_siblings:
@@ -309,12 +315,17 @@ def index_metadata(soup, url):
             if name in ('br', 'p') or (name == 'span' and 'info' in (sib.get('class') or [])):
                 break
             parts.append(sib.get_text(' ') if hasattr(sib, 'get_text') else str(sib))
-        val = re.sub(r'\s+', ' ', ''.join(parts)).strip(' ;')
+        # The colon is as often outside the span as inside it: "<span>Written</span>: June 10".
+        val = re.sub(r'\s+', ' ', ''.join(parts)).strip(' ;').lstrip(':').strip()
         if val:
             info[label] = val
     meta['info'] = info
     meta['licence'] = licence_from_info(info)
-    meta['year'] = work_year(info, meta.get('html_title')) or year_from_path(url)
+    # Written, else the year MIA files it under, and only then when it was first PRINTED: a letter
+    # of 14 December 1867 carries no "Written" line and "First published: … Stuttgart, 1913", and
+    # was dated 1913 (its folder is /1867/letters/).
+    meta['year'] = (work_year(info, None, WRITTEN_LABELS, use_title=False) or year_from_path(url)
+                    or work_year(info, meta.get('html_title')))
     meta['note'] = ' | '.join(f'{k}: {v}' for k, v in info.items()) or None
     return meta
 

@@ -554,3 +554,36 @@ def test_a_starred_number_is_a_note_marker_too():
     assert stats['reciprocal_notes_normalised'] == 2
     assert [s.get_text() for s in body.select('sup.enote')] == ['[*1]', '[1]']
     assert stitch.NOTE_MARKER.match('[*2]') and not stitch.NOTE_MARKER.match('[*see below]')
+
+
+# ── The information block: what a work is cited by ──
+
+def _page_meta(body, url='https://www.marxists.org/archive/marx/works/1867/letters/67_12_14.htm'):
+    from bs4 import BeautifulSoup
+    from ingestion.marxists import stitch as S
+    html = f'<html><head><title>Letters: Marx-Engels Correspondence 1867</title></head><body><h3>Marx To Engels</h3>{body}</body></html>'
+    return S.index_metadata(BeautifulSoup(html, 'lxml'), url)
+
+
+def test_a_letter_with_no_written_line_is_dated_by_its_folder_not_by_when_it_was_first_printed():
+    # Marx to Engels, 14 December 1867: the page says only where it was first PUBLISHED (1913).
+    meta = _page_meta('<p class="information"><span class="info">Source</span>: MECW Volume 42, p. 501;<br/>'
+                      '<span class="info">First published</span>: abridged in <em>Der Briefwechsel</em>, Stuttgart, 1913.</p>')
+    assert meta['year'] == 1867
+    # A stated "Written" year still wins over the folder.
+    meta = _page_meta('<p class="information"><span class="info">Written</span>: 3 January 1868;</p>')
+    assert meta['year'] == 1868
+    # …and with no folder year to go on, the publication year is better than nothing.
+    meta = _page_meta('<p class="information"><span class="info">First published</span>: in Pravda, 1913.</p>',
+                      url='https://www.marxists.org/archive/marx/works/undated/x.htm')
+    assert meta['year'] == 1913
+
+
+def test_information_values_lose_the_colon_outside_the_label_and_a_note_number_is_not_a_label():
+    # The British Rule in India: "<span class=info>Written</span>: June 10, 1853", and a footnote
+    # whose NUMBER sits in span.info — the whole note used to come through as a field named "4".
+    meta = _page_meta('<p class="information"><span class="info">Written</span>: June 10, 1853;<br/>'
+                      '<span class="info">First published:</span> in the New-York Daily Tribune, June 25, 1853</p>'
+                      '<p class="information"><span class="info">4</span> A reference to the rule in India.</p>')
+    assert meta['info'] == {'Written': 'June 10, 1853', 'First published': 'in the New-York Daily Tribune, June 25, 1853'}
+    assert meta['note'] == 'Written: June 10, 1853 | First published: in the New-York Daily Tribune, June 25, 1853'

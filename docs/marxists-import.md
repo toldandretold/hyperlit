@@ -103,6 +103,29 @@ For the maintainer: list an author's works, then import them a batch at a time i
 
 **Other versions.** A work already imported from the same contents page is never imported twice (`exists`). A DIFFERENT edition of the same work (the Penguin Capital beside marxists.org's) is still imported — it is a different text — and the ledger records it (`same_title_as`, matched on the main title among that author's linked books), so the maintainer can see which works now have several versions. Nothing yet stops an author page's search returning the same passage from each version: see "Not built".
 
+## What kind of work: book, article, letter
+
+Every import used to be stored as `type = book` — Capital, a one-page Rheinische Zeitung article and a private letter alike — with the page's information block dumped into `note` as one string. `App\Services\Marxists\MarxistsWorkClassifier` now decides from the work's own page, by the same rule as the licence: a fact is taken only where the page STATES it.
+
+- **book** — the work was stitched from more than one page. Whatever it is a book OF (a year of letters, a pamphlet first serialised in a newspaper), it is read and cited as a book.
+- **letter** — one page that is filed under `/letters/`, or titled as correspondence ("Marx To Engels: In Manchester"), or whose "Source" line cites one of the correspondence volumes of Lenin's Collected Works (34, 35, 37, 43, 44, 45 — MIA files a Lenin letter by date like any other text, so "To His Sister Maria" sits beside the pamphlets; 36 is mixed and proves nothing).
+- **article** — one page whose "First published" / "Published" line names a periodical directly beside an issue number or an issue date ("in the New-York Daily Tribune, June 25, 1853", "in the Supplement to the Rheinische Zeitung, Nos. 298, 300…"). That name goes in `library.journal`.
+- **short_work** — one page that names no periodical (Theses on Feuerbach: "First Published: As an appendix to Ludwig Feuerbach…"). A book title or a bare year is not a periodical, and `journal` stays empty rather than guessed.
+
+`library.type` is BibTeX's vocabulary (`book | article | incollection | phdthesis | misc`), shared with every edit form, so a letter and a short work are both `misc` there. The finer answer is kept on the ledger as `marxists_works.genre`, where "every letter" is one query.
+
+**A letter's year is when it was written.** The year rule was "Written, else First published, else the folder": a letter of 14 December 1867 has no "Written" line and "First published: … Stuttgart, 1913", and was dated 1913. It is now Written, else the year MIA files it under, and only then the publication year. The stitcher also stopped reading a footnote's number as an information label (The British Rule in India carried a field named "4") and strips the colon that sits outside a label (`Written: : 1863`).
+
+**One writer, both lanes, and the backfill.** `App\Services\Marxists\MarxistsCitation` applies the verdict as a work lands (the bulk importer and `StitchMarxistsWorkJob`), reading the crawl record the stitcher has just written (`marxists_provenance.json`: the information block and the page list). Because that record is kept beside the book, the works imported before any of this are fixed without asking the site for anything:
+
+```
+php artisan marxists:classify marx            # dry run: counts per kind and every change it would make
+php artisan marxists:classify marx --apply    # write them
+php artisan marxists:classify --book=<book>   # one book, in the ledger or not
+```
+
+It never overrules a person: a row whose `type` is no longer the import's `book` (nor what an earlier run of the classifier itself wrote — the ledger remembers) is left alone, a typed-in periodical is never replaced, and the year is corrected only on a system-owned row. It does not move `library.timestamp` — how a book is cited is not its content, and a moved clock costs the book its prerender. Re-running after a rule change is safe and re-applies only what the classifier itself set.
+
 ## Not built
 
 - **Grouping an author page's search by WORK.** With several versions of Capital linked to Marx, a semantic search returns near-identical passages from each. `SearchService::diversifyByBook` caps one BOOK's share and does not know two books are one work.
@@ -115,4 +138,5 @@ For the maintainer: list an author's works, then import them a batch at a time i
 - `tests/conversion/unit/test_marxists_stitch.py` (pytest) — the stitcher against a synthetic site held in memory: every trap above, the refusals, the EPUB's shape, and one END-TO-END case that runs the stitched EPUB through the real `epub_normalizer.py` + `process_document.py` and asserts every note is linked with its number stripped.
 - `tests/Feature/Api/MarxistsImportTest.php` — both lanes with the process faked: inspect, the cache, refusals carrying their reason, commit (row, licence, author link, the queued job), the job's hand-off and its failure, duplicates; and the bulk import (listing into the ledger, the system-owned unlisted public book, Unknown licence staying public, no assumed author on the Marx/Engels archive, refusals and failures leaving no book, other versions, batch claiming on the `default` lane).
 - `tests/Unit/SourceImport/IdentifierNormalizerTest.php` (marxists cases), `tests/Feature/Import/ImportQueuePriorityTest.php` (both hops on the interactive lane), `tests/conversion/unit/test_epub_detectors.py` + `test_footnote_link_rules.py` (the two pipeline fixes).
+- `tests/Unit/Marxists/MarxistsWorkClassifierTest.php` — the kind of work, each case an information block copied from the real page it names (four periodicals, the letter dated 1867 not 1913, the Lenin letter known by its volume beside a pamphlet that opens the same way, five "First published" lines that name NO periodical); the classify cases in `MarxistsImportTest.php` (dry run writes nothing, `--apply`, a hand-set type left alone, the content clock unmoved, a second run finding nothing to do, and the bulk lane classifying as a work lands).
 - Nothing in the suites touches the network. Live check: `python3 app/Python/ingestion/marxists/stitch.py metadata <url>`, then paste a small work's URL into the import box.

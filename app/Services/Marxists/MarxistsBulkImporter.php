@@ -248,6 +248,13 @@ class MarxistsBulkImporter
         ]);
 
         $sameTitle = $this->otherVersionOf($book, $title, $credit);
+        // The ledger row must name its book before the classifier can file the genre on it.
+        self::db()->table('marxists_works')->where('id', $work->id)->update(['book' => $book]);
+        try {
+            app(MarxistsCitation::class)->apply($book);
+        } catch (\Throwable $e) {
+            Log::warning('marxists bulk: classification failed (continuing)', ['book' => $book, 'error' => $e->getMessage()]);
+        }
 
         try {
             $this->authors->link($book, $credit);

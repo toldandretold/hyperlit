@@ -61,6 +61,13 @@ class StitchMarxistsWorkJob implements ShouldQueue
             return;
         }
 
+        // Book, article or letter — read from the crawl just made (MarxistsWorkClassifier).
+        try {
+            app(\App\Services\Marxists\MarxistsCitation::class)->apply($this->bookId);
+        } catch (\Throwable $e) {
+            Log::warning('marxists.org classification failed (continuing)', ['book' => $this->bookId, 'error' => $e->getMessage()]);
+        }
+
         $this->writeProgress($dir, 'queued', 'queued', 'Pages fetched — converting…', 40);
 
         ProcessDocumentImportJob::dispatch($this->bookId, $fetch->extension, $this->userId, $this->formData, $this->creatorInfo)

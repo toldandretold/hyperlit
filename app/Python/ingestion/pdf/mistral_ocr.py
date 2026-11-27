@@ -342,16 +342,6 @@ def main():
         geometry_blocks=geometry_blocks,
         heading_lines=heading_lines,
     )
-    # A marker the PDF prints under one number that opens the note printed under another is
-    # given the note the print means, where the document holds exactly one such note.
-    try:
-        from ingestion.pdf import link_checks as _link_checks
-        markdown, _relinked = _link_checks.repair_witnessed_wrong_links(markdown, pdf_path)
-        if _relinked:
-            print(f"  {len(_relinked)} marker(s) pointed at the note the PDF prints for them: "
-                  + '; '.join(f'…{c[-40:]} [^{a}]→[^{b}]' for c, a, b in _relinked[:6]))
-    except Exception as exc:
-        print(f"  wrong-link repair skipped: {exc}")
     output_md.write_text(markdown, encoding="utf-8")
 
     # Which unlinked definitions the PDF's own text could still link, and which it cannot —

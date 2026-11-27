@@ -2,6 +2,7 @@
 import sys
 import os
 import json
+import difflib
 import html as _html
 import re
 import argparse
@@ -981,6 +982,51 @@ def _pypdf_footnote_run(pypdf_defs_by_page, page_offsets=None):
     return top
 
 
+def _drop_defs_repeating_another_number(combined):
+    """Two definitions under ONE number, where one of them is word for word the note the
+    document also holds under ANOTHER number.
+
+    The OCR read note 8's printed number as 9, so the page offered two notes numbered 9; the
+    layer recovery then brought the real note 8 back under its own number. The mislabelled
+    copy is the same text a second time, and standing first under 9 it is what marker 9
+    opened — note 8 (9c7e6724). It goes; the note keeps its place under its real number.
+    Only on that exact shape: a shared number, and a twin elsewhere. Returns
+    (combined, [(shared number, the number the note really has)])."""
+    lines = combined.split('\n')
+    by_num = {}
+    for i, line in enumerate(lines):
+        m = re.match(r'^\[\^(\d+)\]:[ \t]*(.+)$', line)
+        if m:
+            by_num.setdefault(int(m.group(1)), []).append(
+                (i, _norm_note_text(_html.unescape(m.group(2)))))
+    drop, out = set(), []
+    # A book whose notes restart every chapter shares MOST of its numbers, and repeats its
+    # short citations under many of them ("Raymond, The Cathedral and the Bazaar." — f07b7fff,
+    # where reading that as a mislabelled copy re-pointed four markers). This is for the one
+    # slip in an otherwise singly-numbered document, and a misread number lands next door.
+    if sum(len(group) > 1 for group in by_num.values()) > 2:
+        return combined, []
+    for number, group in by_num.items():
+        if len(group) != 2:
+            continue
+        for i, text in group:
+            if len(text) < 30:
+                continue
+            twin = next((other for other, others in by_num.items()
+                         if abs(other - number) == 1 and len(others) == 1
+                         and len(others[0][1]) >= 30
+                         and difflib.SequenceMatcher(
+                             None, text[:80], others[0][1][:80], autojunk=False).ratio() >= 0.9),
+                        None)
+            if twin is not None:
+                drop.add(i)
+                out.append((number, twin))
+                break
+    if not drop:
+        return combined, []
+    return '\n'.join(line for i, line in enumerate(lines) if i not in drop), out
+
+
 _GAP_NOTE_LINE_RE = re.compile(r'^(\d{1,3}) (["\'\u201c\u2018(]?[A-Z].{15,})$')
 
 
@@ -1659,7 +1705,12 @@ class PageBottomAssembler(FootnoteAssembler):
         gap_nums = None
         if all(k == v for m in ctx.page_local_to_global.values() for k, v in m.items()):
             _all_defs = getattr(ctx, 'pypdf_page_defs', None) or {}
-            gap_nums = {n for j in (i - 2, i - 1, i) for n, _t in _all_defs.get(j, [])}
+            # Every page since the last one that kept a marker: the OCR can drop the notes of
+            # several pages running, and the numbers the next surviving page jumps over are
+            # printed on THOSE pages (9de8fc16: notes 4-8 on pages 9-13, the next marker on 15).
+            _since = max(ctx.page_local_to_global, default=i - 2)
+            gap_nums = {n for j in range(min(_since, i - 2), i + 1)
+                        for n, _t in _all_defs.get(j, [])}
         _counter_before = ctx.global_fn_counter
         md, ctx.global_fn_counter = renumber_page_footnotes(
             md, ctx.global_fn_counter, page_map, pypdf_licensed=pypdf_nums,
@@ -3583,7 +3634,21 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         # of defs it kept but garbled. The repair applies to a document with
         # nothing missing at all, so the preparation cannot sit behind the
         # missing-def gate — only the recovery itself does.
-        if missing or len(ocr_def_nums) < 3 or ctx.pypdf_page_defs:
+        # …or the layer's own page-foot run holds notes this document does not (see
+        # `_run_missing` below): with every surviving marker defined and three notes kept,
+        # nothing else would ever look.
+        _layer_has_more = False
+        if not (missing or len(ocr_def_nums) < 3 or ctx.pypdf_page_defs) \
+                and classification != 'page_bottom' \
+                and not any(response_dict.get("_footnote_renumber_page_offsets") or []):
+            try:
+                _probe = extract_pypdf_footnote_defs(pdf_path, running_headers)
+                _top = _pypdf_footnote_run(_probe)
+                _layer_has_more = bool({n for page_defs in _probe.values()
+                                        for n, _t in page_defs if 1 <= n <= _top} - ocr_def_nums)
+            except Exception:
+                _layer_has_more = False
+        if missing or len(ocr_def_nums) < 3 or ctx.pypdf_page_defs or _layer_has_more:
             max_ref = max(ref_nums) if ref_nums else 0
             if ctx.pypdf_page_defs is not None:
                 pypdf_defs = ctx.pypdf_page_defs     # extracted once before the page loop
@@ -3675,7 +3740,20 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                     print(f"    [^{repair['number']}] {repair['before'][:70]}")
                     print(f"      -> {repair['after'][:70]}")
 
-            if not (missing or len(ocr_def_nums) < 3):
+            # A note the numbering kept a place for has no marker to call it "missing", and
+            # is missing all the same (aeb7e69e note 4, a4dd5e34 note 1: gap kept, note never
+            # brought back, because every surviving marker already had its definition).
+            _gap_missing = (getattr(ctx, 'kept_gap_numbers', None) or set()) - ocr_def_nums
+            # …and where nothing was renumbered, a note of the layer's own page-foot run that
+            # the document simply does not hold: the OCR dropped it, marker and all, and with
+            # every surviving marker defined nothing asked for it (a4dd5e34 notes 1 and 8,
+            # 75a0911f, fc8938af — paragraphs of the article gone without a trace).
+            _run_missing = set()
+            if classification != 'page_bottom' and not page_offsets_map:
+                _run_top = _pypdf_footnote_run(clean_pypdf_defs)
+                _run_missing = {n for page_defs in clean_pypdf_defs.values()
+                                for n, _t in page_defs if 1 <= n <= _run_top} - ocr_def_nums
+            if not (missing or _gap_missing or _run_missing or len(ocr_def_nums) < 3):
                 # Nothing lost — the repair above was the only work to do here.
                 clean_pypdf_defs = {}
 
@@ -3738,6 +3816,11 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                         "reason": "unreadable_pypdf_candidate",
                     })
 
+    combined, _relabelled = _drop_defs_repeating_another_number(combined)
+    if _relabelled:
+        print(f"  {len(_relabelled)} definition(s) dropped as a mislabelled copy of another "
+              f"note: " + ', '.join(f'[^{a}] is [^{b}]' for a, b in _relabelled[:8]))
+
     # After the layer has filled in what it can, so the gap is judged against the fullest
     # sequence available.
     if classification != 'page_bottom':
@@ -3767,6 +3850,10 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
     # affiliation block absent from the ENTIRE OCR response — nothing to link, and the literal
     # [^N] junk survives into the reader. Runs AFTER pypdf recovery so recovered defs keep
     # their markers. Narrow shape: a name-list line near the top, every marker defless.
+    # …and the author-line numbers that key an affiliation block, on every layout (the
+    # page-by-page converters already do this; the whole-document one never saw it —
+    # c7dd55a0: "Gallant¹ & Boone²" over two e-mail lines, each opening a footnote).
+    combined = demote_affiliation_markers(combined)
     combined = _demote_defless_author_markers(combined)
 
     # --- Convert <url> autolinks to clickable links ---

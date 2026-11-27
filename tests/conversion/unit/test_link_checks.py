@@ -138,55 +138,25 @@ def test_the_labels_of_a_figure_are_not_lost_prose(monkeypatch):
     assert LC.assess_link_integrity(KEPT, 'x.pdf')['lost_text'] == []
 
 
-TWO_NOTES = ('[^8]: http://www.flickr.com/photos/government_press_office/7731103414 (accessed 2014).\n\n'
-             '[^10]: According to the Ministry of Foreign Affairs there are over 1.2 million Muslim Arabs.')
+def test_the_texts_own_closing_digits_are_not_the_marker(monkeypatch):
+    """"(p.161).¹³" and "(e2).²⁶": the layer is read past the digits the prose itself ends on.
+    Taken for the marker, 161 and 2 were reported as "wrong notes" (c69a9641, 4cc3c696)."""
+    page = ('bezeichnet er als ihre hauptsächliche Bedeutung (p.161).13 Weiter heisst es dort, dass '
+            'the system is bounded by the Earth ecosystem (e2).26 and so on.\n'
+            '13 Erste Anmerkung zur hauptsächlichen Bedeutung des Begriffs bei Lorenz.\n'
+            '26 As briefly discussed above, the VSM was intended to cope with complex systems.')
+    defs = {5: [(13, 'Erste Anmerkung zur hauptsächlichen Bedeutung des Begriffs bei Lorenz.'),
+                (26, 'As briefly discussed above, the VSM was intended to cope with complex systems.')]}
+    _stub(monkeypatch, {5: page}, defs)
+    md = ('bezeichnet er als ihre hauptsächliche Bedeutung (p.161).[^13] Weiter heisst es dort, dass '
+          'the system is bounded by the Earth ecosystem (e2).[^26] and so on.\n\n'
+          '[^13]: Erste Anmerkung zur hauptsächlichen Bedeutung des Begriffs bei Lorenz.\n\n'
+          '[^26]: As briefly discussed above, the VSM was intended to cope with complex systems.')
+    out = LC.assess_link_integrity(md, 'x.pdf')
+    assert out['witnessed'] == 2 and out['wrong_note'] == []
 
 
-def test_wrong_link_is_repaired_when_the_document_holds_the_note_the_print_means(monkeypatch):
-    _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
-    md = BODY.format(n=8) + '\n\n' + TWO_NOTES
-    out, repairs = LC.repair_witnessed_wrong_links(md, 'x.pdf')
-    assert 'in the country,[^10] contrary' in out and [(a, b) for _c, a, b in repairs] == [(8, 10)]
-    assert out.endswith(TWO_NOTES)                       # definitions untouched
-    assert LC.assess_link_integrity(out, 'x.pdf')['wrong_note'] == []
-
-
-def test_wrong_link_opens_nothing_when_the_meant_note_is_not_in_the_document(monkeypatch):
-    """Unlinked is a visible gap; another note's text under the marker is a false statement."""
-    _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
-    md = (BODY.format(n=8) + '\n\n[^8]: http://www.flickr.com/photos/government_press_office/'
-          '7731103414 (accessed 2014).')
-    out, repairs = LC.repair_witnessed_wrong_links(md, 'x.pdf')
-    assert 'in the country,[^10] contrary' in out and [(a, b) for _c, a, b in repairs] == [(8, 10)]
-    assert LC.assess_link_integrity(out, 'x.pdf')['wrong_note'] == []
-
-
-def test_wrong_link_is_only_reported_when_its_printed_number_is_taken(monkeypatch):
-    _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
-    md = (BODY.format(n=8) + ' Another sentence.[^10]\n\n[^8]: http://www.flickr.com/photos/'
-          'government_press_office/7731103414 (accessed 2014).\n\n[^10]: Some other note entirely.')
-    out, repairs = LC.repair_witnessed_wrong_links(md, 'x.pdf')
-    assert out == md and repairs == []
-    assert len(LC.assess_link_integrity(md, 'x.pdf')['wrong_note']) == 1
-
-
-def test_a_right_link_is_never_rewritten(monkeypatch):
-    _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
-    md = BODY.format(n=10) + '\n\n' + TWO_NOTES
-    assert LC.repair_witnessed_wrong_links(md, 'x.pdf') == (md, [])
-
-
-def test_two_notes_under_one_number_are_separated_by_what_the_pdf_prints(monkeypatch):
-    """The OCR read note 8's number as 9; marker 9 then opened note 8 (9c7e6724)."""
-    layer = {7: [(8, '“Die Welt des Daseins ist Mitwelt”. (Heidegger 1979: 118); In contrast to the Umwelt concept'),
-                 (9, 'Mutualism: non-obligatory or temporary relationship between two populations that benefits both')]}
-    _stub(monkeypatch, {7: 'transspecific: symbiotic, parasitic)\n9\n are no less important.'}, layer)
-    md = ('…metaorganismic (transspecific: symbiotic, parasitic)[^9] are no less important.\n\n'
-          '[^9]: "Die Welt des Daseins ist Mitwelt". (Heidegger 1979: 118): In contrast to the Umwelt concept\n\n'
-          '[^9]: Mutualism: non-obligatory or temporary relationship between two populations that benefits both')
-    out, repairs = LC.repair_witnessed_wrong_links(md, 'x.pdf')
-    assert '[^8]: "Die Welt des Daseins' in out and '[^9]: Mutualism' in out
-    assert [(a, b) for _t, a, b in repairs] == [(9, 8)]
-    # number 8 already belongs to another note: nothing is moved
-    taken = md + '\n\n[^8]: Some other note that holds the number already.'
-    assert LC.repair_witnessed_wrong_links(taken, 'x.pdf')[0] == taken
+def test_the_checks_only_report():
+    """Nothing in this module rewrites the document: a finding is a fault for the converter to
+    fix. An automatic repair lived here briefly and unlinked correct markers on a misreading."""
+    assert not [name for name in dir(LC) if name.startswith('repair')]

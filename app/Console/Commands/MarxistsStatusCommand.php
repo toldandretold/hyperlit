@@ -33,6 +33,15 @@ class MarxistsStatusCommand extends Command
             $this->line(sprintf('  %-11s %s', $author, $rows->map(fn ($r) => "{$r->n} {$r->status}")->implode(' · ')));
         }
 
+        // What "listed" is made of. A book-length work (work_folder) and a one-page letter are
+        // both one row, so the bare count says nothing about how much reading is left.
+        $left = $scope($db->table('marxists_works'))->where('status', MarxistsBulkImporter::STATUS_LISTED)
+            ->selectRaw('kind, count(*) as n')->groupBy('kind')->orderByDesc('n')->pluck('n', 'kind');
+        if ($left->isNotEmpty()) {
+            $this->line('Still to import, by kind: ' . $left->map(fn ($n, $kind) => "{$n} " . ($kind ?: 'unknown'))->implode(' · ')
+                . '   (marxists:import <author> --kind=<kind>)');
+        }
+
         $selected = $scope($db->table('marxists_works'))->where('selected', true)
             ->selectRaw("count(*) as total, count(*) filter (where status = 'imported') as imported")->first();
         if ($selected->total) {

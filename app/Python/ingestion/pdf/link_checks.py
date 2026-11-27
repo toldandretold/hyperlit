@@ -14,7 +14,10 @@ both, independently of any number the converter assigned:
   out_of_order    a marker numbered lower than the one before it in reading order
   lost_text       a run of a page's text that is nowhere in the converted document
 
-Each is a FLAG for a person, read by the conversion lint. All four are silent where the layer
+Each is a FLAG for a person, read by the conversion lint, and nothing here changes the
+document: a finding is evidence that the CONVERTER has a fault to fix, and a pass that rewrote
+links on the strength of it turned its own misreadings into damage (it read "(p.161)." as
+marker 161 and unlinked correct markers on that reading). All four are silent where the layer
 cannot witness (no layer, a note the layer does not hold, words that occur twice): nothing is
 reported on evidence that is not there.
 """
@@ -122,27 +125,43 @@ def _marker_sites(markdown):
         before = markdown[max(0, m.start() - 200):m.start()]
         before = html.unescape(_MD_NOISE_RE.sub(' ', _MARKER_RE.sub('', before)))
         context = re.sub(r'\s+', ' ', before).strip()[-60:]
-        out.append((int(m.group(1)), context, _fold_letters(before)[-_SITE_PREFIX_CHARS:],
+        # The digits the text itself ends on, between its last letter and the marker:
+        # "(p.161)." and "Commandos 3" end on numbers that are the prose's, not the marker's.
+        own_digits = re.sub(r'\D+', '', re.split(r'[^\W\d_]', before)[-1])
+        out.append((int(m.group(1)), context,
+                    (_fold_letters(before)[-_SITE_PREFIX_CHARS:], own_digits),
                     m.start(), m.end()))
     return out
 
 
 def _witness_marker(prefix, streams):
     """Where the layer has the words before a marker, and the number it prints after them.
-    (page, printed or None) — or None when those words are not there exactly once."""
-    if len(prefix) < _SITE_PREFIX_MIN:
+    (page, printed or None) — or None when those words are not there exactly once.
+
+    `prefix` is (the letters before the marker, the digits the text ends on after its last
+    letter). The words are found by their letters; the text's OWN closing digits are then
+    stepped over in the layer before the marker's number is read. Reading straight on from the
+    last letter took "(p.161)." for marker 161 and "(e2)." for marker 2 (c69a9641, 4cc3c696)."""
+    letters, own_digits = prefix
+    if len(letters) < _SITE_PREFIX_MIN:
         return None
     found = None
     for page_idx, (raw, folded, where) in streams.items():
-        at = folded.find(prefix)
+        at = folded.find(letters)
         if at < 0:
             continue
-        if found is not None or folded.find(prefix, at + 1) >= 0:
+        if found is not None or folded.find(letters, at + 1) >= 0:
             return None                              # twice in the document: no single site
-        found = (page_idx, raw, where[at + len(prefix) - 1] + 1)
+        found = (page_idx, raw, where[at + len(letters) - 1] + 1)
     if found is None:
         return None
     page_idx, raw, end = found
+    for digit in own_digits:
+        while end < len(raw) and not raw[end].isalnum():
+            end += 1
+        if raw[end:end + 1] != digit:
+            return page_idx, None                    # the layer's text differs here: no reading
+        end += 1
     tail = raw[end:end + 12]
     m = _GLUED_NUMBER_RE.match(tail) or _LINE_END_NUMBER_RE.match(tail)
     return page_idx, (int(m.group(m.lastindex)) if m else None)
@@ -165,6 +184,11 @@ def _witness_note(text, layer_defs):
             theirs = _fold_alnum(layer_text)
             n = min(len(mine), len(theirs), _NOTE_IDENTITY_CHARS)
             if n < 12 or mine[:8] != theirs[:8]:
+                continue
+            # A short note is not the opening of a long one: "Decree 1062/98." (the layer's
+            # note 28) against a note that begins with those words and runs on for a paragraph
+            # (92bb4a0c). The layer's own tail may run long — it glues the next page on.
+            if len(theirs) < _NOTE_IDENTITY_CHARS and len(mine) > 2 * len(theirs):
                 continue
             score = difflib.SequenceMatcher(None, mine[:n], theirs[:n], autojunk=False).ratio()
             if score > best_score:
@@ -240,89 +264,6 @@ def _witnessed_pairs(sites, defs, page_texts, layer_defs):
         if note is not None and marker is not None:
             out.append((number, context, marker, note, start, end))
     return out
-
-
-def repair_witnessed_wrong_links(markdown, pdf_path):
-    """Point a marker at the note the PDF prints for it, where the PDF says which that is.
-
-    A marker the layer prints as 4 that opens the note printed as 3 is a wrong link whatever
-    produced it (a superscript misread, a renumbering that drifted). When the document also
-    holds exactly ONE note the layer prints as 4, on the marker's own page or the next, that is
-    the note the print means, and the marker is given its number. When the document holds no
-    such note and the printed number is free, the marker takes that number and opens nothing —
-    a visible gap instead of another note's text. Two candidate notes, or a printed number
-    already in use: the marker is left for the check to report.
-
-    Returns (markdown, [(context, was, now)])."""
-    try:
-        page_texts = extract_pypdf_page_texts(pdf_path) if pdf_path else {}
-        layer_defs = extract_pypdf_footnote_defs(pdf_path) if pdf_path else {}
-    except Exception:
-        return markdown, []
-    if not page_texts or not layer_defs:
-        return markdown, []
-    markdown, renumbered = _separate_notes_sharing_a_number(markdown, layer_defs)
-    _body, defs = _split(markdown)
-    printed_as = {}                       # (note page, printed number) -> [document numbers]
-    repeated = _repeated_notes(defs)
-    for number, text in defs.items():
-        if number in repeated:
-            continue
-        witness = _witness_note(text, layer_defs)
-        if witness is not None:
-            printed_as.setdefault(witness, []).append(number)
-    edits = []
-    sites = _marker_sites(markdown)
-    in_use = {site[0] for site in sites}
-    for number, context, marker, note, start, end in _witnessed_pairs(
-            sites, defs, page_texts, layer_defs):
-        if marker[1] is None or marker[1] == note[1]:
-            continue
-        meant = [n for (page, printed), nums in printed_as.items()
-                 if printed == marker[1] and page - marker[0] in (0, 1) for n in nums]
-        if len(meant) == 1 and meant[0] != number:
-            edits.append((start, end, context, number, meant[0]))
-        elif not meant and marker[1] not in defs and marker[1] not in in_use:
-            # The note the print means is not in the document at all. A marker that opens
-            # nothing is a visible gap; one that opens another note's text is a false
-            # statement about the source. It takes its printed number, which nothing holds.
-            edits.append((start, end, context, number, marker[1]))
-            in_use.add(marker[1])
-    repairs = []
-    for start, end, context, was, now in sorted(edits, reverse=True):
-        markdown = markdown[:start] + f'[^{now}]' + markdown[end:]
-        repairs.append((context, was, now))
-    return markdown, renumbered + repairs[::-1]
-
-
-def _separate_notes_sharing_a_number(markdown, layer_defs):
-    """Two definitions under ONE number: the OCR read note 8's number as 9 and note 9 kept its
-    own, so marker 9 opens whichever comes first — note 8 (9c7e6724). Where the layer prints
-    one of the pair under the shared number and the other under a number nothing in the
-    document holds, the other is given that number back. Returns (markdown, [(text, was, now)])."""
-    lines = {}
-    for m in _DEF_LINE_RE.finditer(markdown):
-        lines.setdefault(int(m.group(1)), []).append(m)
-    taken = set(lines) | {int(n) for n in _MARKER_RE.findall(markdown)}
-    edits = []
-    for number, group in lines.items():
-        if len(group) != 2:
-            continue
-        printed = [_witness_note(m.group(2), layer_defs) for m in group]
-        if None in printed:
-            continue
-        for keep, move in ((0, 1), (1, 0)):
-            now = printed[move][1]
-            if printed[keep][1] == number and now != number and now not in taken:
-                edits.append((group[move].start(1), group[move].end(1), group[move].group(2)[:60],
-                              number, now))
-                taken.add(now)
-                break
-    out = []
-    for start, end, text, was, now in sorted(edits, reverse=True):
-        markdown = markdown[:start] + str(now) + markdown[end:]
-        out.append((text, was, now))
-    return markdown, out[::-1]
 
 
 def assess_link_integrity(markdown, pdf_path):

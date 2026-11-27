@@ -49,6 +49,19 @@ class MarxistsImportCommand extends Command
             ->limit(max(1, (int) $this->option('limit')))
             ->get(['id', 'url', 'link_title', 'kind']);
 
+        if ($works->isEmpty() && $this->option('kind')) {
+            // "Nothing left" was untrue here: a kind can be finished while hundreds of works of
+            // other kinds are still listed (Marx: every work_folder imported, 343 articles not).
+            $left = $db->table('marxists_works')->where('author', $author)->where('status', $from)
+                ->when($this->option('selected'), fn ($q) => $q->where('selected', true))
+                ->selectRaw('kind, count(*) as n')->groupBy('kind')->orderByDesc('n')->pluck('n', 'kind');
+            $this->warn("No {$this->option('kind')} works left for {$author}" . ($this->option('retry-failed') ? ' among the failed ones.' : ' — that kind is done.'));
+            $this->line($left->isEmpty()
+                ? '  Nothing of any other kind is left either.'
+                : '  Still to import, by kind: ' . $left->map(fn ($n, $kind) => "{$n} {$kind}")->implode(' · '));
+
+            return self::SUCCESS;
+        }
         if ($works->isEmpty()) {
             $this->warn($this->option('selected') && $from === MarxistsBulkImporter::STATUS_LISTED
                 ? "No selected works left to import for {$author}. (marxists:list {$author} flags them; not every author has a Selected Works page.)"

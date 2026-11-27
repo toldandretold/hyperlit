@@ -616,6 +616,119 @@ test('marxists:status runs for one author as well as for all', function () {
     $this->artisan('marxists:status')->assertExitCode(0);
 });
 
+// ── What kind of work: book / article / letter ──
+
+/** A book as the bulk import left it before classification existed: `type = book`, whatever it is. */
+function marxImportedBook(string $slug, string $url, array $info, int $pages, array $row = []): string
+{
+    $book = "marxtest_{$slug}";
+    marxDb()->table('library')->insert($row + [
+        'book' => $book, 'title' => "Marxtest {$slug}", 'author' => 'Karl Marx', 'year' => 1913, 'type' => 'book',
+        'url' => $url, 'creator' => \App\Services\CanonicalVersions\AutoVersionResolver::CREATOR, 'visibility' => 'public',
+        'listed' => false, 'has_nodes' => true, 'timestamp' => 1000, 'created_at' => now(), 'updated_at' => now(),
+        'note' => 'Written: : 1867 | 4: a footnote read as a field', 'raw_json' => '{}',
+    ]);
+    marxDb()->table('marxists_works')->insert([
+        'url' => $url, 'author' => 'trotsky', 'kind' => 'article', 'status' => MarxistsBulkImporter::STATUS_IMPORTED,
+        'book' => $book, 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    File::ensureDirectoryExists(resource_path("markdown/{$book}"));
+    File::put(resource_path("markdown/{$book}/marxists_provenance.json"), json_encode([
+        'index_url' => $url, 'metadata' => ['title' => "Marxtest {$slug}", 'info' => $info],
+        'pages' => array_fill(0, $pages, ['url' => $url]),
+    ]));
+
+    return $book;
+}
+
+test('marxists:classify shows what it would change, then writes it — type, periodical, a letter\'s year, the ledger genre', function () {
+    $article = marxImportedBook('tribune', MARXTEST_ROOT . '1853/06/25.htm',
+        ['Written' => 'June 10, 1853', 'First published' => 'in the New-York Daily Tribune, June 25, 1853'], 1);
+    $letter = marxImportedBook('letter', MARXTEST_ROOT . '1867/letters/67_12_14.htm',
+        ['First published' => 'abridged in Der Briefwechsel, Stuttgart, 1913'], 1);
+    $volume = marxImportedBook('volume', MARXTEST_ROOT . '1867/letters/index.htm', [], 40);
+    // A person has already said what this one is: never overruled.
+    $byHand = marxImportedBook('byhand', MARXTEST_ROOT . '1853/07/01.htm',
+        ['First published' => 'in the New-York Daily Tribune, July 1, 1853'], 1, ['type' => 'incollection']);
+    $lib = fn (string $book) => marxDb()->table('library')->where('book', $book)->first();
+
+    try {
+        // Dry run: reports, writes nothing.
+        $this->artisan('marxists:classify', ['author' => 'trotsky'])
+            ->expectsOutputToContain('Dry run')
+            ->expectsOutputToContain('3 would change · 1 left alone (type already set by hand)')
+            ->assertExitCode(0);
+        expect($lib($article)->type)->toBe('book');
+        expect(marxDb()->table('marxists_works')->where('book', $article)->value('genre'))->toBeNull();
+
+        $this->artisan('marxists:classify', ['author' => 'trotsky', '--apply' => true])->expectsOutputToContain('Applied.')->assertExitCode(0);
+
+        expect($lib($article))->type->toBe('article')->journal->toBe('New-York Daily Tribune');
+        expect((int) $lib($article)->year)->toBe(1913);            // an article's year is not this command's to guess
+        expect($lib($article)->note)->toBe('Written: 1867');
+        expect($lib($letter))->type->toBe('misc')->journal->toBeNull();
+        expect((int) $lib($letter)->year)->toBe(1867);             // written 1867, first printed 1913
+        expect($lib($volume)->type)->toBe('book');
+        expect($lib($byHand))->type->toBe('incollection')->journal->toBeNull();
+        expect(marxDb()->table('marxists_works')->whereIn('book', [$article, $letter, $volume])->orderBy('id')->pluck('genre')->all())
+            ->toBe(['article', 'letter', 'book']);
+        // How a book is cited is not its content: the content clock must not move.
+        expect((int) $lib($article)->timestamp)->toBe(1000);
+
+        // Run again: it recognises its own earlier answer, and nothing is left to change.
+        $this->artisan('marxists:classify', ['author' => 'trotsky'])->expectsOutputToContain('0 would change')->assertExitCode(0);
+    } finally {
+        foreach ([$article, $letter, $volume, $byHand] as $book) {
+            File::deleteDirectory(resource_path("markdown/{$book}"));
+        }
+    }
+});
+
+test('a work is classified as it lands on the bulk lane, from the crawl record the stitcher just wrote', function () {
+    Queue::fake();
+    $url = MARXTEST_ROOT . '1853/06/25.htm';
+    $mock = Mockery::mock(MarxistsStitcher::class);
+    $mock->shouldReceive('metadata')->andReturn(marxMetadata(['title' => 'Marxtest The British Rule in India', 'author' => 'Karl Marx', 'year' => 1853]));
+    $mock->shouldReceive('build')->andReturnUsing(function (string $u, string $dir) use ($url) {
+        File::put("{$dir}/original.epub", 'PK-fake-epub');
+        File::put("{$dir}/marxists_provenance.json", json_encode(['index_url' => $url, 'pages' => [['url' => $url]],
+            'metadata' => ['title' => 'The British Rule in India', 'info' => ['First published' => 'in the New-York Daily Tribune, June 25, 1853']]]));
+
+        return ['ok' => true, 'epub' => "{$dir}/original.epub", 'pages' => 1, 'images' => 0];
+    });
+    foreach ([MarxistsStitcher::class, \App\Services\SourceImport\Metadata\MarxistsMetadataResolver::class,
+        \App\Services\SourceImport\Content\MarxistsWorkFetcher::class, MarxistsBulkImporter::class] as $class) {
+        app()->forgetInstance($class);
+    }
+    app()->instance(MarxistsStitcher::class, $mock);
+    $workId = marxWork('1853/06/25.htm', 'marx');
+
+    expect(app(MarxistsBulkImporter::class)->importWork($workId))->toBe(MarxistsBulkImporter::STATUS_IMPORTED);
+
+    $work = marxDb()->table('marxists_works')->where('id', $workId)->first();
+    expect($work->genre)->toBe('article');
+    expect(marxDb()->table('library')->where('book', $work->book)->first())
+        ->type->toBe('article')->journal->toBe('New-York Daily Tribune');
+});
+
+test('a finished kind says what other kinds are left instead of "nothing left to import"', function () {
+    // Marx on prod: every work_folder imported, 343 single pages still listed — and the command
+    // answered "Nothing left to import for marx".
+    Queue::fake();
+    marxWork('1906/a.htm', 'trotsky', MarxistsBulkImporter::STATUS_LISTED);
+    marxWork('1906/b.htm', 'trotsky', MarxistsBulkImporter::STATUS_LISTED);
+
+    $this->artisan('marxists:import', ['author' => 'trotsky', '--kind' => 'work_folder'])
+        ->expectsOutputToContain('No work_folder works left for trotsky')
+        ->expectsOutputToContain('Still to import, by kind: 2 article')
+        ->assertExitCode(0);
+    Queue::assertNothingPushed();
+
+    $this->artisan('marxists:status', ['author' => 'trotsky'])
+        ->expectsOutputToContain('Still to import, by kind: 2 article')
+        ->assertExitCode(0);
+});
+
 test('marxists:status says what a running batch is on, how it is going and how long is left', function () {
     // The totals alone could not: a work reads `queued` from the moment it is queued until it
     // finishes, so a batch in flight looked the same as a batch that had not started.

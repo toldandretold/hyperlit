@@ -1459,7 +1459,7 @@ def _follow_def_renumber_in_markers(before, block, lines, ref_nums, page_label='
 
 
 # The most consecutive lost markers a kept numbering gap may span.
-_MAX_KEPT_NUMBER_GAP = 6
+_MAX_KEPT_NUMBER_GAP = 15
 
 
 def renumber_page_footnotes(page_md, global_counter, mapping_out=None, pypdf_licensed=None,

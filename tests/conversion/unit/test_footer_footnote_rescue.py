@@ -452,3 +452,24 @@ def test_marker_is_never_planted_inside_a_number(monkeypatch):
                                 '3 According to Infoadex, below-the-line advertising includes mailing.'})
     out, n = A._rescue_refless_footer_footnotes(combined, {'pages': []}, 'x.pdf')
     assert '11,823,453' in out and '[^3]3' not in out
+
+
+def test_mislabelled_copy_of_a_note_held_under_its_own_number_is_dropped():
+    """The OCR numbered note 8 as 9; the layer brought the real 8 back. Two notes now sit under
+    9 and the first — note 8 again — is what marker 9 opened (9c7e6724)."""
+    eight = '“Die Welt des Daseins ist Mitwelt”. (Heidegger 1979: 118); In contrast to the Umwelt concept, a biosemiotic one'
+    nine = 'Mutualism: non-obligatory or temporary relationship between two populations that benefits both'
+    combined = ('Symbiotic, parasitic)[^9] are no less important.\n\n'
+                f'[^8]: {eight}\n\n[^9]: {eight.replace("“", chr(34)).replace("”", chr(34))}\n\n[^9]: {nine}')
+    out, dropped = A._drop_defs_repeating_another_number(combined)
+    assert dropped == [(9, 8)]
+    assert out.count('Die Welt des Daseins') == 1 and f'[^9]: {nine}' in out and f'[^8]: {eight}' in out
+    # two DIFFERENT notes sharing a number, neither held elsewhere: not this pass's business
+    other = combined.replace(f'[^8]: {eight}\n\n', '')
+    assert A._drop_defs_repeating_another_number(other) == (other, [])
+    # a book that restarts its numbering each chapter shares many numbers and repeats its
+    # short citations: nothing there is a mislabelled copy (f07b7fff)
+    cite = 'Raymond, The Cathedral and the Bazaar, a longer short-form citation.'
+    book = '\n\n'.join(f'[^{n}]: Chapter one note {n} with its own distinct text here.' for n in (1, 2, 3, 4))
+    book += '\n\n' + '\n\n'.join(f'[^{n}]: {cite}' for n in (1, 2, 3)) + f'\n\n[^5]: {cite}'
+    assert A._drop_defs_repeating_another_number(book) == (book, [])
