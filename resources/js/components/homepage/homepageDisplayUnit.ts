@@ -7,6 +7,7 @@ import { formatAuthorsForReference } from '../../utilities/authorList';
 import { resolveShelfClickMode, shelfRenderUrl, isPersistableContentId } from './shelfTabRouting';
 import type { ShelfClickMode } from './shelfTabRouting';
 import { readArchiveEditSeed } from '../archivePage/archiveTitleEditor';
+import { recordShelfFeedView } from '../../scrolling/pageViewTelemetry';
 // Zero-import leaf — a READ of the active loader (lazyLoaderRegistry stays its only writer).
 import { currentLazyLoader as activeLazyLoader } from '../../pageLoad/currentLazyLoaderState';
 
@@ -692,6 +693,7 @@ async function runBookContentTransition(bookId: any, showLoader: boolean) {
     newContentDiv.className = 'main-content active-content';
     mainContainer.appendChild(newContentDiv);
     verbose.content(`Created fresh content container: ${bookId}`, '/components/homepage/homepageDisplayUnit.ts');
+    recordShelfFeedView(String(bookId)); // counts only shelf feeds
 
     // Note: setCurrentBook() is handled by the navigation pathway
     // (initHelpers.js for Different-Template, or transition pathway for Same-Template)

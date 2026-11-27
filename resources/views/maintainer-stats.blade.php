@@ -47,6 +47,18 @@
             <h2 id="mst-top-h">Most read</h2>
             <div id="mst-top" class="mst-top"></div>
         </section>
+
+        {{-- Most-opened shelves (archives, journals, user shelves) with their vault/sqlite downloads. --}}
+        <section class="mst-section" aria-labelledby="mst-shelves-h">
+            <h2 id="mst-shelves-h">Most viewed shelves</h2>
+            <div id="mst-top-shelves" class="mst-top"></div>
+        </section>
+
+        {{-- Most-downloaded books, every format. --}}
+        <section class="mst-section" aria-labelledby="mst-downloads-h">
+            <h2 id="mst-downloads-h">Most downloaded</h2>
+            <div id="mst-top-downloads" class="mst-top"></div>
+        </section>
     </main>
 
     <div class="mst-help-panel" id="mst-help-panel" hidden>
@@ -56,8 +68,10 @@
             <li><strong>readers</strong> — distinct identities across all books and days. Anonymous readers are as durable as their cookie.</li>
             <li><strong>depth</strong> — how far into the book a view's furthest on-screen chunk got, averaged over the views that know their book's chunk count.</li>
             <li><strong>likes</strong> — logged-in users only, one per (book, user).</li>
+            <li><strong>shelf view</strong> — one visitor opening a shelf's feed (an archive or journal page, or a shelf tab on a user page), once per day.</li>
+            <li><strong>download</strong> — one reader downloading one item in one format, once per day: a book as Markdown / Word / EPUB (built in the browser and reported), PDF or audiobook (served), or through an AI agent's Markdown export; a shelf's or library's vault / SQLite export. The owner's own downloads count too.</li>
         </ul>
-        <p>Capture rides the reader's scroll detector: a chunk counts only when it was actually on screen, not merely loaded. Sub-books roll up to their parent; home/user feed pages are never counted.</p>
+        <p>Capture rides the reader's scroll detector: a chunk counts only when it was actually on screen, not merely loaded. Sub-books roll up to their parent; feed pages never count as book reads.</p>
     </div>
 
     @vite(['resources/js/workbenches/stats/main.ts'])

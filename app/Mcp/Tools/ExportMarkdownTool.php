@@ -53,6 +53,13 @@ class ExportMarkdownTool extends HyperlitTool
 
         $total = mb_strlen($markdown);
         $offset = max(0, (int) $request->get('offset', 0));
+
+        // One book takes several paged calls — count the first page only.
+        $mcpUser = $this->user($request);
+        if ($offset === 0 && $mcpUser) {
+            app(\App\Services\Stats\DownloadRecorder::class)
+                ->recordForUser($mcpUser->name, \App\Services\Stats\DownloadRecorder::TYPE_BOOK, $bookId, 'mcp-markdown');
+        }
         $slice = mb_substr($markdown, $offset, self::CHAR_BUDGET);
         $nextOffset = $offset + mb_strlen($slice);
 

@@ -8,7 +8,8 @@ import { book } from '../../app';
 import { openDatabase, getNodesFromIndexedDB } from '../../indexedDB/index';
 import { formatBibtexToCitation } from '../../utilities/bibtexProcessor';
 import { getRecord, getBookDownloadName } from './helpers';
-import { log } from '../../utilities/logger';
+import { log, verbose } from '../../utilities/logger';
+import { drainResponse } from '../../utilities/drainResponse';
 import { absolutizeLinks, isHyperciteArrow, parseHyperciteHref, prepareFootnoteHtml } from './markdownLinks';
 
 let _TurndownService: any = null;
@@ -538,6 +539,27 @@ async function buildMarkdownForBook(bookId: any = book || 'latest'): Promise<{ m
 /**
  * Public helper: build + download in one go.
  */
+/**
+ * Count a browser-built export as a download. Markdown / DOCX / EPUB are
+ * assembled here from IndexedDB and saved as a Blob, so the server never sees
+ * the bytes — this beacon is the only way they're counted (server-served
+ * formats are counted at their own routes; the endpoint refuses those).
+ * Best-effort: a dropped beacon must never touch the download itself.
+ */
+function reportDownload(bookId: string, format: 'markdown' | 'docx' | 'epub'): void {
+  fetch('/api/database-to-indexeddb/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ book: String(bookId), format }),
+    keepalive: true,
+  })
+    .then(drainResponse)
+    .catch((error) => {
+      verbose.debug('reportDownload failed (best-effort, ignored)', '/components/sourceContainer/downloads.ts', error);
+    });
+}
+
 export async function exportBookAsMarkdown(bookId: any = book || 'latest') {
   try {
     const { markdown, images } = await buildMarkdownForBook(bookId);
@@ -571,6 +593,7 @@ export async function exportBookAsMarkdown(bookId: any = book || 'latest') {
       const filename = await getBookDownloadName(bookId, 'md');
       downloadMarkdown(filename, markdown);
     }
+    reportDownload(bookId, 'markdown');
   } catch (err) {
     log.error('Failed to export markdown', '/components/sourceContainer/downloads.ts', err);
   }
@@ -1298,6 +1321,7 @@ export async function exportBookAsDocxStyled(bookId: any = book || 'latest') {
     a.download = await getBookDownloadName(bookId, 'docx');
     a.click();
     URL.revokeObjectURL(url);
+    reportDownload(bookId, 'docx');
   } catch (e) {
     log.error('export styled docx failed', '/components/sourceContainer/downloads.ts', e);
   }
@@ -1883,6 +1907,7 @@ export async function exportBookAsEpub(bookId: any = book || 'latest') {
     a.download = await getBookDownloadName(bookId, 'epub');
     a.click();
     URL.revokeObjectURL(url);
+    reportDownload(bookId, 'epub');
   } catch (e) {
     log.error('export EPUB failed', '/components/sourceContainer/downloads.ts', e);
   }

@@ -410,6 +410,10 @@ class BookAudioController extends Controller
             abort(404, 'Audiobook not built yet.');
         }
 
+        // Range resumes of the same file collapse in the per-day dedupe.
+        app(\App\Services\Stats\DownloadRecorder::class)
+            ->record(request(), \App\Services\Stats\DownloadRecorder::TYPE_BOOK, $book, 'm4b');
+
         return response()->download($path, $this->audiobookFilename($book), [
             'Content-Type' => 'audio/mp4',
         ]);

@@ -216,6 +216,21 @@ trait InteractsWithApi
         } catch (\Throwable $e) {
             // table absent in this schema state — ignore
         }
+        // Download counts seeded via pgsql_admin commit: keyed by the test
+        // user (downloader), a test book, or a test user's library.
+        try {
+            $admin->table('downloads')
+                ->where(fn ($q) => $q->where('user_name', 'like', 'api\_test\_%')
+                    ->orWhere('subject', 'like', 'apitest\_%')
+                    ->orWhere('subject', 'like', 'api\_test\_%'))
+                ->delete();
+            $admin->table('download_rollups')
+                ->where(fn ($q) => $q->where('subject', 'like', 'apitest\_%')
+                    ->orWhere('subject', 'like', 'api\_test\_%'))
+                ->delete();
+        } catch (\Throwable $e) {
+            // table absent in this schema state — ignore
+        }
         $admin->table('library')->where('book', 'like', 'apitest\_%')->delete();
         $admin->table('users')->where('email', 'like', 'api\_%@test.local')->delete();
     }

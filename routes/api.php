@@ -274,6 +274,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Creator reading stats (Stats overlay) — aggregates only, own books only
     Route::get('/creator/stats', [CreatorStatsController::class, 'index']);
+    // Before {book}, or 'shelves' would be read as a book id.
+    Route::get('/creator/stats/shelves', [CreatorStatsController::class, 'shelves']);
     Route::get('/creator/stats/{book}', [CreatorStatsController::class, 'show']);
 
     // Commoner score ("hectares tilled") — PRIVATE own-view only.
@@ -776,6 +778,8 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     Route::get('/maintainer/stats/summary', [\App\Http\Controllers\Maintainer\StatsController::class, 'summary']);
     Route::get('/maintainer/stats/daily', [\App\Http\Controllers\Maintainer\StatsController::class, 'daily']);
     Route::get('/maintainer/stats/top-books', [\App\Http\Controllers\Maintainer\StatsController::class, 'topBooks']);
+    Route::get('/maintainer/stats/top-shelves', [\App\Http\Controllers\Maintainer\StatsController::class, 'topShelves']);
+    Route::get('/maintainer/stats/top-downloads', [\App\Http\Controllers\Maintainer\StatsController::class, 'topDownloads']);
 
     // Storage analysis: the latest snapshot, the per-category drill-down, and a
     // manual rescan (throttled — it walks ~70k files).
@@ -1085,6 +1089,14 @@ Route::prefix('database-to-indexeddb')->group(function () {
     Route::post('page-view', [\App\Http\Controllers\PageViewController::class, 'record'])
         ->middleware('throttle:reading-telemetry')
         ->name('api.database-to-indexeddb.page-view');
+
+    // Downloads of the book exports the browser builds itself (md/docx/epub —
+    // the server never sees those bytes). Server-served formats are counted
+    // at their own routes. Own named limiter: an export press is rare, and it
+    // must not share the telemetry bucket a reader's beacons fill.
+    Route::post('download', [\App\Http\Controllers\DownloadTelemetryController::class, 'record'])
+        ->middleware('throttle:download-telemetry')
+        ->name('api.database-to-indexeddb.download');
 
     // Get full book data for IndexedDB import
     Route::get('books/{bookId}/data', [DatabaseToIndexedDBController::class, 'getBookData'])

@@ -6,6 +6,7 @@ use App\Jobs\BuildArchiveExportJob;
 use App\Services\Export\ArchiveCorpus;
 use App\Services\Export\ArchiveCorpusResolver;
 use App\Services\Export\ArchiveExportStore;
+use App\Services\Stats\DownloadRecorder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -312,7 +313,28 @@ class ArchiveExportController extends Controller
         // Two vault zips can sit in one Downloads folder — name which is which.
         $flavor = $kind === 'zettlr' ? ' (Zettlr)' : '';
 
+        $this->recordDownload($request, $scopeType, $scopeId, $kind);
+
         return response()->download($path, "{$clean} — Hyperlit {$corpus->noun()}{$flavor}.{$ext}");
+    }
+
+    /**
+     * Count the download against what was downloaded: a journal / archive
+     * vault counts for its SHELF (by uuid, the key shelf views use too), a
+     * user page's export for that user's LIBRARY. Only here — the GET that
+     * delivers the bytes — never at /status or /build.
+     */
+    private function recordDownload(Request $request, string $scopeType, string $scopeId, string $kind): void
+    {
+        [$type, $subject] = match ($scopeType) {
+            'user' => [DownloadRecorder::TYPE_LIBRARY, $scopeId],
+            'journal' => [DownloadRecorder::TYPE_SHELF, \App\Models\JournalSource::where('slug', $scopeId)->value('shelf_id')],
+            'archive' => [DownloadRecorder::TYPE_SHELF, \App\Models\ArchiveSource::where('slug', $scopeId)->value('shelf_id')],
+            default => [null, null],
+        };
+        if ($type && $subject) {
+            app(DownloadRecorder::class)->record($request, $type, (string) $subject, $kind);
+        }
     }
 
     private function kindOr422(Request $request)

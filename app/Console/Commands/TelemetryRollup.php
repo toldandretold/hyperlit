@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * telemetry:rollup — de-identify old reading telemetry.
  *
- * Folds book_reads / page_views rows older than
+ * Folds book_reads / page_views / downloads rows older than
  * config('telemetry.raw_retention_days') into the identity-free rollup tables
  * (one row per book/page per day, summed views) and deletes the raw rows.
  * Scheduled daily; also the mechanism behind the privacy page's "raw
@@ -54,14 +54,16 @@ class TelemetryRollup extends Command
         $cutoff = now()->subDays($days)->toDateString();
 
         $tables = [
-            // [raw table, rollup table, key column, date column]
-            ['book_reads', 'book_read_rollups', 'book', 'read_date'],
-            ['page_views', 'page_view_rollups', 'page', 'view_date'],
+            // [raw table, rollup table, key columns, date column, rollup count column]
+            ['book_reads', 'book_read_rollups', ['book'], 'read_date', 'views'],
+            ['page_views', 'page_view_rollups', ['page'], 'view_date', 'views'],
+            ['downloads', 'download_rollups', ['subject_type', 'subject', 'format'], 'download_date', 'downloads'],
         ];
 
-        foreach ($tables as [$raw, $rollup, $key, $date]) {
+        foreach ($tables as [$raw, $rollup, $keys, $date, $count]) {
+            $keyList = implode(', ', $keys);
             $pending = $admin->selectOne(
-                "SELECT COUNT(*) AS n, COUNT(DISTINCT ({$key}, {$date})) AS days FROM {$raw} WHERE {$date} < ?",
+                "SELECT COUNT(*) AS n, COUNT(DISTINCT ({$keyList}, {$date})) AS days FROM {$raw} WHERE {$date} < ?",
                 [$cutoff],
             );
 
@@ -72,15 +74,15 @@ class TelemetryRollup extends Command
             }
 
             $deleted = 0;
-            $admin->transaction(function () use ($admin, $raw, $rollup, $key, $date, $cutoff, &$deleted) {
+            $admin->transaction(function () use ($admin, $raw, $rollup, $keyList, $date, $count, $cutoff, &$deleted) {
                 $admin->statement(<<<SQL
-                    INSERT INTO {$rollup} ({$key}, {$date}, views)
-                    SELECT {$key}, {$date}, COUNT(*)
+                    INSERT INTO {$rollup} ({$keyList}, {$date}, {$count})
+                    SELECT {$keyList}, {$date}, COUNT(*)
                     FROM {$raw}
                     WHERE {$date} < ?
-                    GROUP BY {$key}, {$date}
-                    ON CONFLICT ({$key}, {$date})
-                    DO UPDATE SET views = {$rollup}.views + EXCLUDED.views
+                    GROUP BY {$keyList}, {$date}
+                    ON CONFLICT ({$keyList}, {$date})
+                    DO UPDATE SET {$count} = {$rollup}.{$count} + EXCLUDED.{$count}
                 SQL, [$cutoff]);
 
                 $deleted = $admin->table($raw)->where($date, '<', $cutoff)->delete();

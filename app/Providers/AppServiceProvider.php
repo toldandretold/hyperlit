@@ -212,6 +212,13 @@ class AppServiceProvider extends ServiceProvider
                 ->by($request->user()?->id ?: $request->ip());
         });
 
+        // Client-built export download beacons (md/docx/epub). One per export
+        // press; the server dedupes per person/book/format/day anyway.
+        \Illuminate\Support\Facades\RateLimiter::for('download-telemetry', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(20)
+                ->by('download-telemetry|' . ($request->user()?->id ?: $request->ip()));
+        });
+
         // Account-deletion password gate. MUST be a named (route-scoped)
         // bucket: inline `throttle:5,1` shares its key with every other
         // inline-throttled route for the same user, so ordinary sync/telemetry

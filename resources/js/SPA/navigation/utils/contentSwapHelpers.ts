@@ -15,6 +15,7 @@ import { resetCurrentLazyLoader, currentLazyLoader } from '../../../pageLoad/ind
 import { destroyLogoNav, initializeLogoNav } from '../../../components/logoNav/logoNav';
 import { initializeUserContainer } from '../../../components/userButton/userButton';
 import { syncPageStylesheets, syncBodyAttributes } from './pageStylesheets';
+import { recordShelfFeedView } from '../../../scrolling/pageViewTelemetry';
 
 /**
  * Fetch HTML for target URL.
@@ -155,6 +156,7 @@ export async function swapHomeContent(bookId: any, showLoader = true) {
     newContentDiv.id = bookId;
     newContentDiv.className = 'main-content active-content';
     mainContainer.appendChild(newContentDiv);
+    recordShelfFeedView(String(bookId)); // counts only shelf feeds
 
     // Set the current book context (important for other systems)
     // Already imported statically

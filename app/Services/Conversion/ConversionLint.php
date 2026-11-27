@@ -54,7 +54,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 10;
+    public const VERSION = 11;
 
     /**
      * A finding's `cause`, when it is not the converter's doing: the source prints it this way.
@@ -739,9 +739,13 @@ class ConversionLint
 
             return is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
         };
-        $out = ['unlinked' => [], 'heading_lines' => [], 'quote_blocks' => [],
+        $out = ['unlinked' => [], 'heading_lines' => [], 'quote_blocks' => [], 'integrity' => [],
                 'source' => SourceWitness::for($book)];
-        foreach ((($read('footnote_meta.json') ?? [])['unlinked_definitions'] ?? []) as $row) {
+        $meta = $read('footnote_meta.json') ?? [];
+        if (is_array($meta['integrity'] ?? null)) {
+            $out['integrity'] = $meta['integrity'];
+        }
+        foreach (($meta['unlinked_definitions'] ?? []) as $row) {
             if (is_array($row) && ($row['head'] ?? '') !== '' && isset($row['verdict'])) {
                 $out['unlinked'][(string) $row['head']] = (string) $row['verdict'];
             }

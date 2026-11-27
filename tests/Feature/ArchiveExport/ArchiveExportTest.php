@@ -130,6 +130,25 @@ test('markdown vault: build → status ready → download; visitor gets public b
         ->not->toContain('Aex Priv Title');
 });
 
+test('downloading a library export counts one download per person per format per day', function () {
+    $owner = aexUser();
+    aexBook($owner, 'pub', 'public');
+    $scope = 'user/' . rawurlencode($owner->name);
+
+    $this->actingAs($owner)->postJson("/api/archive-export/{$scope}/build", ['kind' => 'markdown'])->assertStatus(202);
+    // status + build never count — only the GET that delivers the bytes.
+    expect(DB::table('downloads')->where('subject', $owner->name)->count())->toBe(0);
+
+    $this->actingAs($owner)->get("/exports/{$scope}/markdown")->assertOk();
+    $this->actingAs($owner)->get("/exports/{$scope}/markdown")->assertOk();
+
+    $rows = DB::table('downloads')->where('subject', $owner->name)->get();
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]->subject_type)->toBe('library')
+        ->and($rows[0]->format)->toBe('markdown')
+        ->and($rows[0]->user_name)->toBe($owner->name);
+});
+
 test('owner artifact includes private books at a distinct path the visitor route never serves', function () {
     $owner = aexUser();
     aexBook($owner, 'pub', 'public');

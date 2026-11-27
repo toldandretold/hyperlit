@@ -18,13 +18,14 @@ class GetBookStatsTool extends HyperlitTool
 
     protected string $name = 'get_book_stats';
 
-    protected string $description = 'Reading analytics for the user\'s OWN books (views, readers, likes — aggregates only). Omit `book` for the all-books overview; pass one for its detail. Public like counts for any book are on get_book.';
+    protected string $description = 'Reading analytics for the user\'s OWN books (views, likes, downloads by format — aggregates only). Omit `book` for the all-books overview; pass one for its detail. Pass `scope: "shelves"` for the user\'s shelves/archives instead (views = feed opens, downloads = vault/sqlite exports, plus whole-library export downloads). Public like counts for any book are on get_book.';
 
     public function schema(JsonSchema $schema): array
     {
         return [
             'book' => $schema->string()->description('Optional book id/slug for per-book detail; omit for the overview.'),
             'sort' => $schema->string()->description('Overview sort column (as in the web Stats overlay). Optional.'),
+            'scope' => $schema->string()->enum(['books', 'shelves'])->description('"books" (default) or "shelves". Optional.'),
         ];
     }
 
@@ -36,8 +37,11 @@ class GetBookStatsTool extends HyperlitTool
 
         $user = $this->user($request);
         $book = trim((string) $request->get('book', ''));
+        $scope = trim((string) $request->get('scope', 'books'));
 
-        if ($book !== '') {
+        if ($scope === 'shelves') {
+            $result = InternalCall::call(CreatorStatsController::class, 'shelves', [], $user);
+        } elseif ($book !== '') {
             [$bookId, $refusal] = $this->resolveBook($book);
             if ($refusal) {
                 return $refusal;

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2078,
+    "fnCount": 2079,
     "moduleCount": 434,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4342,
+    "edgeCount": 4344,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -15835,6 +15835,14 @@
       "leaf": false
     },
     {
+      "id": "scrolling/pageViewTelemetry:recordShelfFeedView",
+      "label": "recordShelfFeedView",
+      "kind": "fn",
+      "stage": "scrolling",
+      "module": "scrolling/pageViewTelemetry",
+      "leaf": false
+    },
+    {
       "id": "scrolling/paginatedSelectionBand:destroyPaginatedSelectionBand",
       "label": "destroyPaginatedSelectionBand",
       "kind": "fn",
@@ -23427,7 +23435,8 @@
       "band": "sync",
       "fnIds": [
         "scrolling/pageViewTelemetry:destroyPageViewTelemetry",
-        "scrolling/pageViewTelemetry:initPageViewTelemetry"
+        "scrolling/pageViewTelemetry:initPageViewTelemetry",
+        "scrolling/pageViewTelemetry:recordShelfFeedView"
       ]
     },
     {
@@ -24778,6 +24787,13 @@
       "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
       "target": "scrolling/navOverlay:showNavigationLoading",
       "rel": "call"
+    },
+    {
+      "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__call__scrolling/pageViewTelemetry:recordShelfFeedView",
+      "source": "components/homepage/homepageDisplayUnit:transitionToBookContent",
+      "target": "scrolling/pageViewTelemetry:recordShelfFeedView",
+      "rel": "call",
+      "dataPath": true
     },
     {
       "id": "components/homepage/homepageDisplayUnit:transitionToBookContent__domwrite__dom",
@@ -49612,6 +49628,13 @@
       "rel": "call"
     },
     {
+      "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__call__scrolling/pageViewTelemetry:recordShelfFeedView",
+      "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
+      "target": "scrolling/pageViewTelemetry:recordShelfFeedView",
+      "rel": "call",
+      "dataPath": true
+    },
+    {
       "id": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent__domwrite__dom",
       "source": "SPA/navigation/utils/contentSwapHelpers:swapHomeContent",
       "target": "dom",
@@ -51754,6 +51777,11 @@
       "kind": "static"
     },
     {
+      "source": "SPA/navigation/utils/contentSwapHelpers",
+      "target": "scrolling/pageViewTelemetry",
+      "kind": "static"
+    },
+    {
       "source": "SPA/navigation/utils/initHelpers",
       "target": "SPA/viewManager",
       "kind": "static"
@@ -52141,6 +52169,11 @@
     {
       "source": "components/homepage/homepageDisplayUnit",
       "target": "pageLoad/currentLazyLoaderState",
+      "kind": "static"
+    },
+    {
+      "source": "components/homepage/homepageDisplayUnit",
+      "target": "scrolling/pageViewTelemetry",
       "kind": "static"
     },
     {

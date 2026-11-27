@@ -1,5 +1,6 @@
 /**
- * Page-view telemetry for the non-reader surfaces (home).
+ * Page-view telemetry for the non-reader surfaces (home, and shelf feeds —
+ * see recordShelfFeedView).
  *
  * The reading telemetry in this folder deliberately refuses to count anything
  * outside a reader page — home/user/journal render synthetic feed books
@@ -18,6 +19,16 @@ import { drainResponse } from '../utilities/drainResponse';
 
 /** SPA nav re-inits components; guard so one entry sends exactly one beacon. */
 let sentForThisEntry = false;
+
+/**
+ * A shelf feed's render id: `shelf_{uuid}_{sort}` (+ `_pub` for the public
+ * render). The uuid is the stable key — sort and audience change the id.
+ * Same shape as indexedDB/core/utilities.ts SHELF_FEED_RE, with a capture.
+ */
+const SHELF_FEED_ID_RE = /^shelf_([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})_/;
+
+/** Shelves already reported this page entry (sort-tab switches re-mount the feed). */
+const sentShelves = new Set<string>();
 
 async function post(page: string): Promise<void> {
   try {
@@ -45,6 +56,21 @@ async function post(page: string): Promise<void> {
   }
 }
 
+/**
+ * A shelf view = someone opened that shelf's feed — an archive (/a/) or
+ * journal (/j/) page, or a shelf tab on a user page. Called by the code that
+ * mounts a feed's `.main-content` (homepageDisplayUnit / contentSwapHelpers)
+ * with the feed's render id; anything that isn't a shelf feed is ignored.
+ * Once per shelf per page entry; the server dedupes per reader per day.
+ */
+export function recordShelfFeedView(feedBookId: string): void {
+  const shelfId = SHELF_FEED_ID_RE.exec(feedBookId)?.[1]?.toLowerCase();
+  if (!shelfId) return;
+  if (sentShelves.has(shelfId)) return;
+  sentShelves.add(shelfId);
+  void post(`shelf:${shelfId}`);
+}
+
 /* ── ButtonRegistry lifecycle ─────────────────────────────────────────── */
 
 /**
@@ -60,6 +86,7 @@ export function initPageViewTelemetry(): void {
 }
 
 export function destroyPageViewTelemetry(): void {
-  // Leaving home arms the next entry.
+  // Leaving the page arms the next entry.
   sentForThisEntry = false;
+  sentShelves.clear();
 }

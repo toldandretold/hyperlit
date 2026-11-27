@@ -33,7 +33,7 @@ class ReadingTelemetryController extends Controller
             $bookId = ConnectionCountQuery::rootBook($bookId);
 
             $user = Auth::user();
-            $anonymousToken = $request->cookie('anon_token');
+            $anonymousToken = \App\Support\AnonToken::fromRequest($request);
             if (! $user && ! $anonymousToken) {
                 return response()->json(['error' => 'No user identity'], 401);
             }

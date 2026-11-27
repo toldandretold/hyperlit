@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AnonToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,15 +28,23 @@ class PageViewController extends Controller
      */
     public const PAGES = ['home'];
 
+    /**
+     * A shelf view: someone opened that shelf's feed (an archive / journal
+     * page, or a shelf tab on a user page). Keyed by the shelf UUID — the
+     * feed's render id (`shelf_{uuid}_{sort}[_pub]`) changes with sort and
+     * audience, the uuid doesn't. See StatTotals::shelfPageKey.
+     */
+    private const SHELF_PAGE_RE = '/^shelf:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
+
     public function record(Request $request): JsonResponse
     {
-        $page = (string) $request->input('page', '');
-        if (! in_array($page, self::PAGES, true)) {
+        $page = strtolower((string) $request->input('page', ''));
+        if (! in_array($page, self::PAGES, true) && ! $this->isKnownShelfPage($page)) {
             return response()->json(['error' => 'Unknown page'], 422);
         }
 
         $user = Auth::user();
-        $anonymousToken = $request->cookie('anon_token');
+        $anonymousToken = AnonToken::fromRequest($request);
         if (! $user && ! $anonymousToken) {
             // Same contract as reading telemetry: no identity, no dedup key,
             // so counting it would inflate views with unmergeable rows.
@@ -66,5 +75,18 @@ class PageViewController extends Controller
 
             return response()->json(['success' => false], 200);
         }
+    }
+
+    private function isKnownShelfPage(string $page): bool
+    {
+        if (! preg_match(self::SHELF_PAGE_RE, $page)) {
+            return false;
+        }
+
+        // pgsql_admin: the default connection's RLS would hide a private
+        // shelf from everyone but its owner, and the owner's views count too.
+        return DB::connection('pgsql_admin')->table('shelves')
+            ->where('id', substr($page, strlen('shelf:')))
+            ->exists();
     }
 }

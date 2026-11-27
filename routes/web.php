@@ -451,6 +451,11 @@ Route::get('/{book}/original.pdf', function (Request $request, $book) {
     $author = $clean($row->author ?? $row->creator ?? '');
     $filename = ($author !== '' ? "{$author} - {$title}" : $title).'.pdf';
 
+    // GET only — the source panel HEADs this URL on every open to decide
+    // whether to show the button; DownloadRecorder skips HEAD itself.
+    app(\App\Services\Stats\DownloadRecorder::class)
+        ->record($request, \App\Services\Stats\DownloadRecorder::TYPE_BOOK, $book, 'pdf');
+
     $response = response()->download($filePath, $filename, [
         'Content-Type' => 'application/pdf',
     ]);

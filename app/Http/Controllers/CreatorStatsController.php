@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Helpers\BookSlugHelper;
 use App\Services\Connections\ConnectionCountQuery;
+use App\Services\Stats\DownloadRecorder;
+use App\Services\Stats\StatTotals;
+use App\Support\UsernameKey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -131,6 +134,13 @@ class CreatorStatsController extends Controller
                 array_merge([$user->name], $searchBindings, [self::PAGE_SIZE, $offset])
             );
 
+            // Downloads for this page's books only (one indexed lookup over
+            // <=100 ids, raw + rollups) — see StatTotals.
+            $downloads = app(StatTotals::class)->downloads(
+                DownloadRecorder::TYPE_BOOK,
+                array_map(fn ($r) => $r->book, $rows)
+            );
+
             return response()->json([
                 'books' => array_map(fn ($r) => [
                     'book' => $r->book,
@@ -139,6 +149,7 @@ class CreatorStatsController extends Controller
                     'total_views' => (int) $r->total_views,
                     'views_30d' => (int) $r->views_30d,
                     'likes' => (int) $r->likes,
+                    'downloads' => $downloads[$r->book]['total'] ?? 0,
                     'total_chunks' => $r->total_chunks !== null ? (int) $r->total_chunks : null,
                 ], $rows),
                 'total' => $total,
@@ -244,9 +255,14 @@ class CreatorStatsController extends Controller
                 }
             }
 
+            $downloads = app(StatTotals::class)->downloads(DownloadRecorder::TYPE_BOOK, [$book])[$book]
+                ?? ['total' => 0, 'by_format' => []];
+
             return response()->json([
                 'book' => $book,
                 'total_views' => $views,
+                'downloads' => $downloads['total'],
+                'downloads_by_format' => (object) $downloads['by_format'],
                 'total_chunks' => $totalChunks,
                 'max_chunk_reached' => $summary->max_chunk !== null ? (float) $summary->max_chunk : null,
                 'chunks' => $chunks,
@@ -256,6 +272,73 @@ class CreatorStatsController extends Controller
                 'book' => $book,
                 'error' => $e->getMessage(),
             ]);
+
+            return response()->json(['error' => 'Internal server error'], 500);
+        }
+    }
+
+    /**
+     * GET /api/creator/stats/shelves — the requester's shelves (archives
+     * included) with all-time views and downloads, plus their whole-library
+     * export downloads. Totals only, aggregates only: never who.
+     *
+     * A shelf view = someone opened that shelf's feed (page_views
+     * `shelf:{uuid}`); a shelf download = an archive/journal vault or sqlite
+     * export of it. The private plumbing shelf `licence_review` is left out.
+     */
+    public function shelves(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        try {
+            $rows = DB::connection('pgsql_admin')->select(
+                "SELECT s.id, s.name, s.slug, s.kind, s.visibility, a.slug AS archive_slug
+                 FROM shelves s
+                 LEFT JOIN archive_sources a ON a.shelf_id = s.id
+                 WHERE s.creator = ?
+                   AND COALESCE(s.kind, 'user') <> 'licence_review'
+                 ORDER BY s.name",
+                [$user->name]
+            );
+
+            $totals = app(StatTotals::class);
+            $ids = array_map(fn ($r) => strtolower((string) $r->id), $rows);
+            $views = $totals->shelfViews($ids);
+            $downloads = $totals->downloads(DownloadRecorder::TYPE_SHELF, $ids);
+            $library = $totals->downloads(DownloadRecorder::TYPE_LIBRARY, [$user->name])[$user->name]
+                ?? ['total' => 0, 'by_format' => []];
+
+            $shelves = array_map(function ($r) use ($views, $downloads, $user) {
+                $id = strtolower((string) $r->id);
+
+                return [
+                    'id' => $id,
+                    'name' => $r->name,
+                    'kind' => $r->kind ?? 'user',
+                    'visibility' => $r->visibility,
+                    'url' => $r->archive_slug
+                        ? '/a/' . $r->archive_slug
+                        : UsernameKey::shelfUrl($user->name, (string) ($r->slug ?: $r->id)),
+                    'views' => $views[$id] ?? 0,
+                    'downloads' => $downloads[$id]['total'] ?? 0,
+                    'downloads_by_format' => (object) ($downloads[$id]['by_format'] ?? []),
+                ];
+            }, $rows);
+
+            usort($shelves, fn ($a, $b) => [$b['views'], $b['downloads']] <=> [$a['views'], $a['downloads']]);
+
+            return response()->json([
+                'shelves' => $shelves,
+                'library' => [
+                    'downloads' => $library['total'],
+                    'downloads_by_format' => (object) $library['by_format'],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Creator shelf stats failed', ['error' => $e->getMessage()]);
 
             return response()->json(['error' => 'Internal server error'], 500);
         }

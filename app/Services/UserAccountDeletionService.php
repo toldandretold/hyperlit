@@ -343,8 +343,14 @@ class UserAccountDeletionService
     {
         // Telemetry: anonymize, never delete — counts were day-deduped at
         // write time, so nulling the name keeps every historical number honest.
-        foreach (['book_reads', 'page_views', 'user_reading_positions'] as $table) {
+        foreach (['book_reads', 'page_views', 'downloads', 'user_reading_positions'] as $table) {
             $this->db->table($table)->where('user_name', $name)->update(['user_name' => null]);
+        }
+        // A user-library export is counted against the username; the library
+        // is gone, so its counts follow the tombstone like everything else.
+        foreach (['downloads', 'download_rollups'] as $table) {
+            $this->db->table($table)->where('subject_type', 'library')->where('subject', $name)
+                ->update(['subject' => $tombstone]);
         }
 
         $this->db->table('notifications')->where('recipient', $name)->delete();

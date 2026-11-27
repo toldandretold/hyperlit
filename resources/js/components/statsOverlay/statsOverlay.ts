@@ -1,5 +1,6 @@
 /**
- * Stats overlay — creator-facing reading stats (views, likes, depth funnel)
+ * Stats overlay — creator-facing reading stats (views, downloads, likes,
+ * depth funnel; a Shelves section for shelf views + vault downloads)
  * as an ANY-PAGE overlay, opened from the userButton flyout's "Stats" row.
  * Sibling of the Money overlay and built on the same skeleton: body-appended
  * singleton, one root click listener that stopPropagation()s, trapModalFocus
@@ -34,15 +35,53 @@ interface CreatorBookStats {
     total_views: number;
     views_30d: number;
     likes: number;
+    downloads: number;
     total_chunks: number | null;
 }
 
 interface DepthFunnel {
     book: string;
     total_views: number;
+    downloads?: number;
+    downloads_by_format?: Record<string, number>;
     total_chunks: number | null;
     max_chunk_reached: number | null;
     chunks: Array<{ chunk: number; pct: number }>;
+}
+
+interface CreatorShelfStats {
+    id: string;
+    name: string | null;
+    kind: string;
+    url: string;
+    views: number;
+    downloads: number;
+    downloads_by_format: Record<string, number>;
+}
+
+interface CreatorShelvesResponse {
+    shelves: CreatorShelfStats[];
+    library: { downloads: number; downloads_by_format: Record<string, number> };
+}
+
+const VIEWS_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const DOWNLOAD_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>';
+
+/** Display names for download formats (server keys → what the button said). */
+const FORMAT_LABELS: Record<string, string> = {
+    markdown: 'Markdown',
+    docx: 'Word',
+    epub: 'EPUB',
+    pdf: 'PDF',
+    m4b: 'Audiobook',
+    'mcp-markdown': 'Markdown (AI agent)',
+    zettlr: 'Zettlr vault',
+    sqlite: 'SQLite',
+};
+
+function byFormatText(byFormat: Record<string, number> | undefined): string {
+    const entries = Object.entries(byFormat || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    return entries.map(([f, n]) => `${esc(FORMAT_LABELS[f] || f)} ${n}`).join(' · ');
 }
 
 let overlayEl: HTMLElement | null = null;
@@ -71,7 +110,8 @@ function bookRowHtml(b: CreatorBookStats): string {
         <button type="button" class="stats-book-row" data-book="${esc(b.book)}" aria-expanded="false">
           <span class="stats-book-title">${title}${b.author ? `<span class="stats-book-author">${esc(b.author)}</span>` : ''}</span>
           <span class="stats-book-numbers">
-            <span class="stats-book-views" title="Total views (unique readers per day)" aria-label="${b.total_views} views"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>${b.total_views}</span>
+            <span class="stats-book-views" title="Total views (unique readers per day)" aria-label="${b.total_views} views">${VIEWS_ICON}${b.total_views}</span>
+            <span class="stats-book-views" title="Total downloads (unique readers per format per day)" aria-label="${b.downloads ?? 0} downloads">${DOWNLOAD_ICON}${b.downloads ?? 0}</span>
             <span title="Likes">&#9825; ${b.likes}</span>
           </span>
         </button>
@@ -82,7 +122,16 @@ function bookRowHtml(b: CreatorBookStats): string {
       <div class="stats-book-detail" data-book-detail="${esc(b.book)}" hidden></div>`;
 }
 
+function downloadsLineHtml(f: DepthFunnel): string {
+    const formats = byFormatText(f.downloads_by_format);
+    return formats ? `<p class="stats-funnel-caption">Downloads: ${formats}</p>` : '';
+}
+
 function funnelHtml(f: DepthFunnel): string {
+    return downloadsLineHtml(f) + depthHtml(f);
+}
+
+function depthHtml(f: DepthFunnel): string {
     if (!f.total_views || !f.chunks.length) {
         return '<p class="stats-panel-empty">No reading-depth data yet.</p>';
     }
@@ -123,6 +172,62 @@ async function loadFunnel(detailEl: HTMLElement, book: string): Promise<void> {
     } catch (error) {
         log.error('Stats overlay: failed to load depth funnel', '/components/statsOverlay/statsOverlay.ts', error);
         detailEl.innerHTML = '<p class="stats-panel-empty">Could not load depth data.</p>';
+    }
+}
+
+/**
+ * Shelves section: each shelf / archive the creator owns with its all-time
+ * views (someone opened its feed) and downloads (vault / SQLite exports), plus
+ * their whole-library export downloads. Totals only. A collapsed <details>
+ * that fetches on first open, so the overlay's book list isn't held up.
+ */
+function shelvesSectionHtml(): string {
+    return `
+      <details class="stats-tillage stats-shelves">
+        <summary class="stats-tillage-summary">
+          <span class="stats-tillage-title">Shelves</span>
+          <span class="stats-tillage-total">views &amp; downloads</span>
+        </summary>
+        <div class="stats-shelves-body"><p class="stats-panel-empty">Loading&hellip;</p></div>
+      </details>`;
+}
+
+function shelfRowHtml(sh: CreatorShelfStats): string {
+    const name = esc(sh.name || 'Untitled shelf');
+    const formats = byFormatText(sh.downloads_by_format);
+    return `
+      <div class="stats-book-line">
+        <div class="stats-shelf-row">
+          <span class="stats-book-title">${name}${formats ? `<span class="stats-book-author">${formats}</span>` : ''}</span>
+          <span class="stats-book-numbers">
+            <span class="stats-book-views" title="Total views (unique visitors per day who opened this shelf)" aria-label="${sh.views} views">${VIEWS_ICON}${sh.views}</span>
+            <span class="stats-book-views" title="Total downloads of this shelf's vault / SQLite export" aria-label="${sh.downloads} downloads">${DOWNLOAD_ICON}${sh.downloads}</span>
+          </span>
+        </div>
+        <a class="stats-book-link" href="${esc(sh.url)}" aria-label="Open ${name}" title="Open shelf">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
+        </a>
+      </div>`;
+}
+
+async function loadShelves(body: HTMLElement): Promise<void> {
+    try {
+        const resp = await fetch('/api/creator/stats/shelves', {
+            headers: { Accept: 'application/json' },
+            credentials: 'include',
+        });
+        const data = (await resp.json()) as CreatorShelvesResponse;
+        if (!resp.ok) throw new Error(`creator shelf stats fetch failed (${resp.status})`);
+
+        const libraryFormats = byFormatText(data.library?.downloads_by_format);
+        const libraryLine = data.library?.downloads
+            ? `<p class="stats-funnel-caption">Your whole library downloaded ${data.library.downloads} time${data.library.downloads === 1 ? '' : 's'}${libraryFormats ? ` (${libraryFormats})` : ''}.</p>`
+            : '';
+        const rows = (data.shelves || []).map(shelfRowHtml).join('');
+        body.innerHTML = libraryLine + (rows || '<p class="stats-panel-empty">No shelves yet.</p>');
+    } catch (error) {
+        log.error('Stats overlay: failed to load shelf stats', '/components/statsOverlay/statsOverlay.ts', error);
+        body.innerHTML = '<p class="stats-panel-empty">Could not load shelf stats.</p>';
     }
 }
 
@@ -172,6 +277,13 @@ async function loadBooks(panel: HTMLElement, append: boolean): Promise<void> {
         const books = data.books || [];
         listState.total = data.total || 0;
         listState.offset += books.length;
+        // The summary carries the whole count, so a collapsed Texts section
+        // still says how many there are. Only from an unfiltered query — a
+        // search total would read as "you have 3 texts".
+        if (!listState.q) {
+            const totalEl = panel.querySelector<HTMLElement>('.stats-texts-total');
+            if (totalEl) totalEl.textContent = `${listState.total} ${listState.total === 1 ? 'text' : 'texts'}`;
+        }
 
         const rows = books.map(bookRowHtml).join('');
         if (append) {
@@ -277,17 +389,28 @@ export async function openStatsOverlay(): Promise<void> {
                the book list the whole panel; the sort/search bar is sticky,
                so it stays reachable once the chart has gone. */''}
           ${tillageSectionHtml()}
-          <div class="stats-panel-controls">
-            <select class="stats-sort-select" aria-label="Sort books">
-              <option value="views">Most Viewed</option>
-              <option value="likes">Most Liked</option>
-              <option value="recent">Recently Added</option>
-              <option value="title">Title (A–Z)</option>
-              <option value="author">Author (A–Z)</option>
-            </select>
-            <input type="search" class="stats-search-input" aria-label="Search your books by title or author" placeholder="Search title or author">
-          </div>
-          <div class="stats-book-list"><p class="stats-panel-empty">Loading&hellip;</p></div>
+          ${shelvesSectionHtml()}
+          ${/* Texts: open by default (it is what most people open Stats for),
+               collapsible like Tillage/Shelves so the sections above can have
+               the whole panel. The sticky controls stay inside it, so they
+               stick only while the list is on screen. */''}
+          <details class="stats-tillage stats-texts" open>
+            <summary class="stats-tillage-summary">
+              <span class="stats-tillage-title">Texts</span>
+              <span class="stats-tillage-total stats-texts-total"></span>
+            </summary>
+            <div class="stats-panel-controls">
+              <select class="stats-sort-select" aria-label="Sort books">
+                <option value="views">Most Viewed</option>
+                <option value="likes">Most Liked</option>
+                <option value="recent">Recently Added</option>
+                <option value="title">Title (A–Z)</option>
+                <option value="author">Author (A–Z)</option>
+              </select>
+              <input type="search" class="stats-search-input" aria-label="Search your books by title or author" placeholder="Search title or author">
+            </div>
+            <div class="stats-book-list"><p class="stats-panel-empty">Loading&hellip;</p></div>
+          </details>
         </div>
       </div>`;
     overlay.addEventListener('click', onOverlayClick);
@@ -326,6 +449,13 @@ export async function openStatsOverlay(): Promise<void> {
     releaseTrap = trapModalFocus(panel, { onEscape: closeStatsOverlay });
     const tillage = panel.querySelector<HTMLDetailsElement>('.stats-tillage');
     if (tillage) void loadTillage(tillage);
+    const shelves = panel.querySelector<HTMLDetailsElement>('.stats-shelves');
+    shelves?.addEventListener('toggle', () => {
+        const body = shelves.querySelector<HTMLElement>('.stats-shelves-body');
+        if (!shelves.open || !body || body.dataset.loaded) return;
+        body.dataset.loaded = '1';
+        void loadShelves(body);
+    });
     await loadBooks(panel, false);
 }
 

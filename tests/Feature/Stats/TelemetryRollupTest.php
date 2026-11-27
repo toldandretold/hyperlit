@@ -24,6 +24,8 @@ afterEach(function () {
     $a->table('page_views')->where('page', 'rollup_test_home')->delete();
     $a->table('page_view_rollups')->where('page', 'rollup_test_home')->delete();
     $a->table('library')->where('book', 'like', 'rollup_test_%')->delete();
+    $a->table('downloads')->where('subject', 'like', 'rollup_test_%')->delete();
+    $a->table('download_rollups')->where('subject', 'like', 'rollup_test_%')->delete();
 });
 
 function seedTelemetry(string $book): array
@@ -116,6 +118,29 @@ test('library.total_views is unchanged by the sweep (raw + rollup)', function ()
     $counter->recomputeViews([$book]);
 
     expect((int) tadmin()->table('library')->where('book', $book)->value('total_views'))->toBe($before);
+});
+
+test('downloads fold per (subject, format, day) and their totals survive the sweep', function () {
+    $book = 'rollup_test_'.strtolower(Str::random(6));
+    $old = now()->subDays(120)->toDateString();
+    $recent = now()->subDays(3)->toDateString();
+    foreach ([['alice', 'epub', $old], ['bob', 'epub', $old], ['alice', 'pdf', $old], ['alice', 'epub', $recent]] as [$user, $format, $day]) {
+        tadmin()->table('downloads')->insert([
+            'subject_type' => 'book', 'subject' => $book, 'format' => $format, 'user_name' => $user,
+            'download_date' => $day, 'created_at' => now(), 'updated_at' => now(),
+        ]);
+    }
+    $totals = new \App\Services\Stats\StatTotals;
+    $before = $totals->downloads('book', [$book])[$book];
+
+    $this->artisan('telemetry:rollup --force')->assertExitCode(0);
+
+    expect(tadmin()->table('downloads')->where('subject', $book)->count())->toBe(1);
+    $rollups = tadmin()->table('download_rollups')->where('subject', $book)->orderBy('format')->get();
+    expect($rollups)->toHaveCount(2)
+        ->and((int) $rollups[0]->downloads)->toBe(2)   // epub, old day: alice + bob
+        ->and((int) $rollups[1]->downloads)->toBe(1);  // pdf, old day
+    expect($totals->downloads('book', [$book])[$book])->toBe($before);
 });
 
 test('a retention setting below the floor refuses to run', function () {

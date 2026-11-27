@@ -69,6 +69,7 @@ class StatsController extends Controller
             'books_liked' => (int) ($likes->books_liked ?? 0),
             'home_views' => (int) ($home->views ?? 0),
             'home_views_30d' => (int) ($home->views_30d ?? 0),
+            ...app(\App\Services\Stats\StatTotals::class)->siteTotals(),
         ]);
     }
 
@@ -168,6 +169,95 @@ class StatsController extends Controller
                 'views_30d' => (int) $r->views_30d,
                 'likes' => (int) $r->likes,
                 'avg_depth_pct' => $r->avg_depth_pct !== null ? (float) $r->avg_depth_pct : null,
+            ], $rows),
+        ]);
+    }
+
+    /**
+     * GET /api/maintainer/stats/top-shelves — the most-viewed shelves
+     * (archives, journals, user shelves), with their vault/sqlite downloads.
+     * A shelf view = someone opened that shelf's feed (page_views
+     * `shelf:{uuid}`); all-time = raw + rollups.
+     */
+    public function topShelves()
+    {
+        $admin = DB::connection('pgsql_admin');
+        $rows = $admin->select(<<<'SQL'
+            WITH v AS (
+                SELECT substr(page, 7) AS id, SUM(n) AS views FROM (
+                    SELECT page, COUNT(*) AS n FROM page_views WHERE page LIKE 'shelf:%' GROUP BY page
+                    UNION ALL
+                    SELECT page, SUM(views) FROM page_view_rollups WHERE page LIKE 'shelf:%' GROUP BY page
+                ) u GROUP BY page
+            ), d AS (
+                SELECT subject AS id, SUM(n) AS downloads FROM (
+                    SELECT subject, COUNT(*) AS n FROM downloads WHERE subject_type = 'shelf' GROUP BY subject
+                    UNION ALL
+                    SELECT subject, SUM(downloads) FROM download_rollups WHERE subject_type = 'shelf' GROUP BY subject
+                ) u GROUP BY subject
+            )
+            SELECT COALESCE(v.id, d.id) AS id,
+                   COALESCE(v.views, 0) AS views,
+                   COALESCE(d.downloads, 0) AS downloads,
+                   s.name, s.creator, s.kind,
+                   a.slug AS archive_slug, j.slug AS journal_slug
+            FROM v
+            FULL OUTER JOIN d ON d.id = v.id
+            LEFT JOIN shelves s ON s.id::text = COALESCE(v.id, d.id)
+            LEFT JOIN archive_sources a ON a.shelf_id = s.id
+            LEFT JOIN journal_sources j ON j.shelf_id = s.id
+            ORDER BY views DESC, downloads DESC, id ASC
+            LIMIT 50
+        SQL);
+
+        return response()->json([
+            'shelves' => array_map(fn ($r) => [
+                'id' => $r->id,
+                'name' => $r->name,
+                'creator' => $r->creator,
+                'kind' => $r->kind,
+                'url' => $r->archive_slug ? '/a/'.$r->archive_slug
+                    : ($r->journal_slug ? '/j/'.$r->journal_slug
+                    : ($r->creator ? \App\Support\UsernameKey::shelfUrl($r->creator, (string) $r->id) : null)),
+                'views' => (int) $r->views,
+                'downloads' => (int) $r->downloads,
+            ], $rows),
+        ]);
+    }
+
+    /**
+     * GET /api/maintainer/stats/top-downloads — the most-downloaded books
+     * (every format, browser-built and server-served), with the per-format
+     * split. All-time = raw + rollups.
+     */
+    public function topDownloads()
+    {
+        $rows = DB::connection('pgsql_admin')->select(<<<'SQL'
+            SELECT u.subject AS book, l.title, l.creator,
+                   SUM(u.n) AS downloads,
+                   jsonb_object_agg(u.format, u.n) AS by_format
+            FROM (
+                SELECT subject, format, SUM(n) AS n FROM (
+                    SELECT subject, format, COUNT(*) AS n FROM downloads
+                     WHERE subject_type = 'book' GROUP BY subject, format
+                    UNION ALL
+                    SELECT subject, format, SUM(downloads) FROM download_rollups
+                     WHERE subject_type = 'book' GROUP BY subject, format
+                ) x GROUP BY subject, format
+            ) u
+            LEFT JOIN library l ON l.book = u.subject
+            GROUP BY u.subject, l.title, l.creator
+            ORDER BY downloads DESC, u.subject ASC
+            LIMIT 50
+        SQL);
+
+        return response()->json([
+            'books' => array_map(fn ($r) => [
+                'book' => $r->book,
+                'title' => $r->title,
+                'creator' => $r->creator,
+                'downloads' => (int) $r->downloads,
+                'by_format' => array_map('intval', json_decode($r->by_format, true) ?: []),
             ], $rows),
         ]);
     }

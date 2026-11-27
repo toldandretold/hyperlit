@@ -614,14 +614,16 @@ export function registerAllComponents() {
     required: false
   });
 
-  // Homepage view counting. Registry-managed on purpose: reading telemetry
-  // covers reader pages only, and a @vite side-effect here would count the
-  // first full load and never an in-SPA return to home.
+  // Homepage + shelf-feed view counting. Registry-managed on purpose: reading
+  // telemetry covers reader pages only, and a @vite side-effect here would
+  // count the first full load and never an in-SPA return. On user/journal
+  // (archive) pages init is a no-op — the registry's destroy is what re-arms
+  // the per-entry shelf set that recordShelfFeedView fills.
   buttonRegistry.register({
     name: 'pageViewTelemetry',
     initFn: initPageViewTelemetry,
     destroyFn: destroyPageViewTelemetry,
-    pages: ['home'],
+    pages: ['home', 'user', 'journal'],
     dependencies: [],
     required: false
   });

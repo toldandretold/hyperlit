@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2078 functions in 434 modules · 10 object stores · 10 PG tables · 4342 edges
+**MarkdownDB** schema v28 · 2079 functions in 434 modules · 10 object stores · 10 PG tables · 4344 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1754,6 +1754,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `recordNavigatedAt` | `scrolling/navStamp` | `localStorage` | `localStorage` | — | — |
 | `destroyPageViewTelemetry` | `scrolling/pageViewTelemetry` | — | — | — | — |
 | `initPageViewTelemetry` | `scrolling/pageViewTelemetry` | — | — | read | — |
+| `recordShelfFeedView` | `scrolling/pageViewTelemetry` | — | — | — | — |
 | `destroyPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
 | `initPaginatedSelectionBand` | `scrolling/paginatedSelectionBand` | — | — | — | — |
 | `disengageSilently` | `scrolling/paginator` | — | — | read | — |

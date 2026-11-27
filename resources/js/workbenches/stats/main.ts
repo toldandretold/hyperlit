@@ -21,6 +21,29 @@ interface Summary {
    *  identity per day), different surface: a home view is not a book read. */
   home_views: number;
   home_views_30d: number;
+  /** Shelf-feed opens (page_views `shelf:{uuid}`), all-time. */
+  shelf_views: number;
+  /** Every download, all-time (raw + rollups); split by what was downloaded. */
+  downloads: number;
+  downloads_by_type: Record<string, number>;
+}
+
+interface TopShelf {
+  id: string;
+  name: string | null;
+  creator: string | null;
+  kind: string | null;
+  url: string | null;
+  views: number;
+  downloads: number;
+}
+
+interface TopDownload {
+  book: string;
+  title: string | null;
+  creator: string | null;
+  downloads: number;
+  by_format: Record<string, number>;
 }
 
 interface DayPoint { day: string; n: number }
@@ -61,12 +84,15 @@ function renderTiles(s: Summary): void {
     tile(String(s.likes), 'likes') +
     tile(String(s.books_liked), 'books liked') +
     tile(String(s.home_views), 'home views all-time') +
-    tile(String(s.home_views_30d), 'home views, 30 days');
+    tile(String(s.home_views_30d), 'home views, 30 days') +
+    tile(String(s.shelf_views ?? 0), 'shelf views all-time') +
+    tile(String(s.downloads_by_type?.book ?? 0), 'book downloads') +
+    tile(String((s.downloads_by_type?.shelf ?? 0) + (s.downloads_by_type?.library ?? 0)), 'collection downloads');
 
   const sub = el('mst-summary');
   if (sub) {
     sub.textContent =
-      `${s.views} book views · ${s.home_views} home views · ${s.readers} readers · ${s.likes} likes`;
+      `${s.views} book views · ${s.home_views} home views · ${s.shelf_views ?? 0} shelf views · ${s.downloads ?? 0} downloads · ${s.readers} readers · ${s.likes} likes`;
   }
 }
 
@@ -123,6 +149,54 @@ function renderTop(books: TopBook[]): void {
     </div>`).join('');
 }
 
+function renderTopShelves(shelves: TopShelf[]): void {
+  const host = el('mst-top-shelves');
+  if (!host) return;
+  if (!shelves.length) {
+    host.innerHTML = '<p class="mst-empty">No shelf views recorded yet.</p>';
+    return;
+  }
+  const max = Math.max(1, ...shelves.map(s => s.views));
+  host.innerHTML = shelves.map(s => {
+    const name = esc(s.name || s.id);
+    const title = s.url
+      ? `<a class="mst-top-title" href="${esc(s.url)}" title="${esc(s.id)}">${name}</a>`
+      : `<span class="mst-top-title" title="${esc(s.id)}">${name}</span>`;
+    return `
+    <div class="mst-top-row">
+      ${title}
+      <div class="mst-top-bar-track">
+        <div class="mst-top-bar" style="width: ${(s.views / max) * 100}%"></div>
+      </div>
+      <span class="mst-top-nums">${s.views} views · ${s.downloads} downloads${s.creator ? ` · ${esc(s.creator)}` : ''}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderTopDownloads(books: TopDownload[]): void {
+  const host = el('mst-top-downloads');
+  if (!host) return;
+  if (!books.length) {
+    host.innerHTML = '<p class="mst-empty">No downloads recorded yet.</p>';
+    return;
+  }
+  const max = Math.max(1, ...books.map(b => b.downloads));
+  host.innerHTML = books.map(b => {
+    const formats = Object.entries(b.by_format || {})
+      .sort((x, y) => y[1] - x[1])
+      .map(([f, n]) => `${esc(f)} ${n}`)
+      .join(' · ');
+    return `
+    <div class="mst-top-row">
+      <a class="mst-top-title" href="/${encodeURIComponent(b.book)}" title="${esc(b.book)}">${esc(b.title || b.book)}</a>
+      <div class="mst-top-bar-track">
+        <div class="mst-top-bar" style="width: ${(b.downloads / max) * 100}%"></div>
+      </div>
+      <span class="mst-top-nums">${b.downloads} downloads${formats ? ` · ${formats}` : ''}</span>
+    </div>`;
+  }).join('');
+}
+
 function wireHelp(): void {
   const toggle = el('mst-help-toggle');
   const panel = el('mst-help-panel');
@@ -139,14 +213,18 @@ function wireHelp(): void {
 async function boot(): Promise<void> {
   wireHelp();
   try {
-    const [summary, daily, top] = await Promise.all([
+    const [summary, daily, top, topShelves, topDownloads] = await Promise.all([
       getJson<Summary>('/api/maintainer/stats/summary'),
       getJson<{ views: DayPoint[]; likes: DayPoint[]; home: DayPoint[] }>('/api/maintainer/stats/daily'),
       getJson<{ books: TopBook[] }>('/api/maintainer/stats/top-books'),
+      getJson<{ shelves: TopShelf[] }>('/api/maintainer/stats/top-shelves'),
+      getJson<{ books: TopDownload[] }>('/api/maintainer/stats/top-downloads'),
     ]);
     renderTiles(summary);
     renderDaily(daily.views, daily.likes, daily.home || []);
     renderTop(top.books);
+    renderTopShelves(topShelves.shelves);
+    renderTopDownloads(topDownloads.books);
   } catch (error) {
     log.error('maintainer-stats: load failed', '/workbenches/stats/main.ts', error);
     const sub = el('mst-summary');

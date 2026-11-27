@@ -109,3 +109,38 @@ test('the maintainer daily series carries a home band', function () {
     expect($daily)->toHaveKey('home');
     expect(collect($daily['home'])->sum('n'))->toBeGreaterThanOrEqual(1);
 });
+
+/* ── Shelf views: page = 'shelf:{uuid}' ─────────────────────────────────── */
+
+/** Committed: the controller checks the shelf exists through pgsql_admin. */
+function seedShelfForViews(string $creator): string
+{
+    $id = (string) \Illuminate\Support\Str::uuid();
+    DB::connection('pgsql_admin')->table('shelves')->insert([
+        'id' => $id, 'creator' => $creator, 'name' => 'Views shelf',
+        'slug' => 'views-' . substr($id, 0, 8), 'visibility' => 'public',
+        'default_sort' => 'recent', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    return $id;
+}
+
+test('opening a shelf feed records one shelf view per visitor per day', function () {
+    $user = $this->loginUser();
+    $shelf = seedShelfForViews($user->name);
+
+    $this->postJson('/api/database-to-indexeddb/page-view', ['page' => 'shelf:' . $shelf])->assertOk();
+    $this->postJson('/api/database-to-indexeddb/page-view', ['page' => 'shelf:' . strtoupper($shelf)])->assertOk();
+
+    expect((int) DB::table('page_views')->where('page', 'shelf:' . $shelf)->count())->toBe(1);
+});
+
+test('a shelf view for an unknown or malformed shelf is refused', function () {
+    $this->loginUser();
+
+    $this->postJson('/api/database-to-indexeddb/page-view', ['page' => 'shelf:' . \Illuminate\Support\Str::uuid()])->assertStatus(422);
+    $this->postJson('/api/database-to-indexeddb/page-view', ['page' => 'shelf:not-a-uuid'])->assertStatus(422);
+    $this->postJson('/api/database-to-indexeddb/page-view', ['page' => 'shelf:'])->assertStatus(422);
+
+    expect((int) DB::table('page_views')->where('page', 'like', 'shelf:%')->count())->toBe(0);
+});

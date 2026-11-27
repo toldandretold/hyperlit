@@ -421,3 +421,26 @@ test('export_markdown returns the book body, paginated', function () {
     expect($json)->toHaveKey('total_chars');
     expect($json['next_offset'])->toBeNull();
 });
+
+test('export_markdown counts one download per book — the first page only', function () {
+    $user = $this->seedUser();
+    $book = 'book_mcpd_'.Str::random(6);
+    (function () use ($book, $user) {
+        $this->seedLibrary(['book' => $book, 'title' => 'Counted', 'visibility' => 'public', 'creator' => $user->name]);
+        $this->seedNode([
+            'book' => $book, 'startLine' => 100, 'chunk_id' => 0,
+            'node_id' => $book.'_1_p', 'content' => '<p id="100" data-node-id="'.$book.'_1_p">Some text to export.</p>',
+            'plainText' => 'Some text to export.',
+        ]);
+    })->call($this);
+
+    $token = ieToken($user, [TokenAbilities::READ]);
+    ieCall($this, $token, 'export_markdown', ['book' => $book]);
+    ieCall($this, $token, 'export_markdown', ['book' => $book, 'offset' => 5]);
+    ieCall($this, $token, 'export_markdown', ['book' => $book]);
+
+    $rows = DB::table('downloads')->where('subject', $book)->get();
+    expect($rows)->toHaveCount(1)
+        ->and($rows[0]->format)->toBe('mcp-markdown')
+        ->and($rows[0]->user_name)->toBe($user->name);
+});

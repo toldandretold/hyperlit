@@ -200,6 +200,23 @@
   background: rgba(128, 128, 128, 0.12);
 }
 
+/* A shelf line in the Shelves section: the book row's layout, but not a
+   button — a shelf has no depth chart to expand into. */
+#stats-overlay .stats-shelf-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  font-size: 0.92em;
+}
+
+#stats-overlay .stats-shelves-body {
+  padding: 0 18px 12px;
+}
+
 #stats-overlay .stats-book-link {
   flex-shrink: 0;
   display: flex;
@@ -538,4 +555,11 @@
 }
 @media (prefers-reduced-motion: reduce) {
   #stats-overlay .tillage-rings { animation: none; }
+}
+
+/* Texts section: the book list lives inside an open-by-default <details>
+   sharing the Tillage/Shelves summary styling. Its last row already draws a
+   divider, so the section itself needs no bottom border. */
+#stats-overlay .stats-texts {
+  border-bottom: none;
 }
