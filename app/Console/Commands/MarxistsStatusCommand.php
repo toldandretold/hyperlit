@@ -83,7 +83,7 @@ class MarxistsStatusCommand extends Command
             ->where('payload', 'like', '%ImportMarxistsWorkJob%')->orderBy('reserved_at')->first(['payload', 'reserved_at']);
         $current = null;
         if ($running && preg_match('/workId\\\\?";i:(\d+)/', (string) $running->payload, $m)) {
-            $current = $db->table('marxists_works')->where('id', (int) $m[1])->first(['link_title', 'url']);
+            $current = $scope($db->table('marxists_works'))->where('id', (int) $m[1])->first(['link_title', 'url']);
         }
         if ($waiting > 0) {
             $this->line("  {$waiting} still to do" . ($current ? ', including the one running now' : ''));
@@ -98,7 +98,7 @@ class MarxistsStatusCommand extends Command
         $done = $recent->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS])->count();
         $failed = $recent->where('status', MarxistsBulkImporter::STATUS_FAILED)->count();
         $refused = $recent->where('status', MarxistsBulkImporter::STATUS_NOT_A_WORK)->count();
-        $this->line("  last 2 hours {$done} imported" . ($failed ? " · <error>{$failed} failed</error>" : ' · 0 failed')
+        $this->line("  last 2 hours {$done} imported" . " · {$failed} failed" . ($failed ? ' (listed below)' : '')
             . ($refused ? " · {$refused} refused (not a single work)" : ''));
         if ($last = $recent->first()) {
             $this->line(sprintf('  last finished %s  (%s ago, %s)', $this->name($last),

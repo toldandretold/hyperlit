@@ -616,6 +616,40 @@ test('marxists:status runs for one author as well as for all', function () {
     $this->artisan('marxists:status')->assertExitCode(0);
 });
 
+test('marxists:status says what a running batch is on, how it is going and how long is left', function () {
+    // The totals alone could not: a work reads `queued` from the moment it is queued until it
+    // finishes, so a batch in flight looked the same as a batch that had not started.
+    $done = fn (string $path, string $title, int $minutesAgo, string $status = MarxistsBulkImporter::STATUS_IMPORTED) =>
+        marxDb()->table('marxists_works')->where('id', marxWork($path, 'trotsky', $status))
+            ->update(['link_title' => $title, 'updated_at' => now()->subMinutes($minutesAgo)]);
+    $done('1905/a.htm', 'Marxtest First', 9);
+    $done('1905/b.htm', 'Marxtest Second', 6);
+    $done('1905/c.htm', 'Marxtest Third', 3);
+    $done('1905/d.htm', 'Marxtest Broken', 4, MarxistsBulkImporter::STATUS_FAILED);
+    $running = marxWork('1905/e.htm', 'trotsky');
+    marxDb()->table('marxists_works')->where('id', $running)->update(['link_title' => 'Marxtest Running']);
+    marxWork('1905/f.htm', 'trotsky');
+    $job = marxDb()->table('jobs')->insertGetId([
+        'queue' => 'default', 'attempts' => 1, 'reserved_at' => time() - 120, 'available_at' => time(), 'created_at' => time(),
+        'payload' => json_encode(['displayName' => ImportMarxistsWorkJob::class,
+            'data' => ['command' => serialize(new ImportMarxistsWorkJob($running))]]),
+    ]);
+
+    try {
+        $this->artisan('marxists:status', ['author' => 'trotsky'])
+            ->expectsOutputToContain('Batch in progress')
+            ->expectsOutputToContain('2 still to do')
+            ->expectsOutputToContain('“Marxtest Running”  (2m so far)')
+            ->expectsOutputToContain('3 imported · 1 failed')
+            ->expectsOutputToContain('last finished “Marxtest Third”')
+            // Four finishes over six minutes: two minutes a work, two works left.
+            ->expectsOutputToContain('about 4m, at 2m a work')
+            ->assertExitCode(0);
+    } finally {
+        marxDb()->table('jobs')->where('id', $job)->delete();
+    }
+});
+
 test('a page whose licence statement is a long sentence still imports, on both lanes', function () {
     // MIA's real wording, 200+ characters. The short fixture sentence hid that it was being
     // written into a varchar(100) column, so every real Lenin letter failed at the insert.
