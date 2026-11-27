@@ -26,8 +26,11 @@ class MarxistsStatusCommand extends Command
 
             return self::SUCCESS;
         }
+        $this->printBatchInProgress($db, $scope);
+
+        $this->line('<comment>Totals</comment>');
         foreach ($counts->groupBy('author') as $author => $rows) {
-            $this->line(sprintf('%-11s %s', $author, $rows->map(fn ($r) => "{$r->n} {$r->status}")->implode(' · ')));
+            $this->line(sprintf('  %-11s %s', $author, $rows->map(fn ($r) => "{$r->n} {$r->status}")->implode(' · ')));
         }
 
         $selected = $scope($db->table('marxists_works'))->where('selected', true)
@@ -54,5 +57,86 @@ class MarxistsStatusCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The part a person watching a batch actually wants: is it moving, what is it on, how long
+     * is left. The totals alone could not answer that — a work reads `queued` from the moment
+     * it is queued until it finishes, so "33 queued" then "25 queued" was the only sign of life.
+     */
+    private function printBatchInProgress($db, \Closure $scope): void
+    {
+        $waiting = $scope($db->table('marxists_works'))->where('status', MarxistsBulkImporter::STATUS_QUEUED)->count();
+        $recent = $scope($db->table('marxists_works'))
+            ->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS,
+                MarxistsBulkImporter::STATUS_FAILED, MarxistsBulkImporter::STATUS_NOT_A_WORK])
+            ->where('updated_at', '>=', now()->subHours(2))
+            ->orderByDesc('updated_at')->get(['status', 'link_title', 'url', 'updated_at']);
+        if ($waiting === 0 && $recent->isEmpty()) {
+            return;
+        }
+
+        $this->line($waiting > 0 ? '<comment>Batch in progress</comment>' : '<comment>Last batch</comment> (nothing queued now)');
+
+        // The job the worker holds right now, read off the queue itself.
+        $running = $db->table('jobs')->whereNotNull('reserved_at')
+            ->where('payload', 'like', '%ImportMarxistsWorkJob%')->orderBy('reserved_at')->first(['payload', 'reserved_at']);
+        $current = null;
+        if ($running && preg_match('/workId\\\\?";i:(\d+)/', (string) $running->payload, $m)) {
+            $current = $db->table('marxists_works')->where('id', (int) $m[1])->first(['link_title', 'url']);
+        }
+        if ($waiting > 0) {
+            $this->line("  {$waiting} still to do" . ($current ? ', including the one running now' : ''));
+        }
+        if ($current) {
+            $this->line(sprintf('  working on   %s  (%s so far)', $this->name($current),
+                $this->span(time() - (int) $running->reserved_at)));
+        } elseif ($waiting > 0) {
+            $this->line('  working on   nothing right now — the worker is between jobs, busy with another import, or stopped');
+        }
+
+        $done = $recent->whereIn('status', [MarxistsBulkImporter::STATUS_IMPORTED, MarxistsBulkImporter::STATUS_EXISTS])->count();
+        $failed = $recent->where('status', MarxistsBulkImporter::STATUS_FAILED)->count();
+        $refused = $recent->where('status', MarxistsBulkImporter::STATUS_NOT_A_WORK)->count();
+        $this->line("  last 2 hours {$done} imported" . ($failed ? " · <error>{$failed} failed</error>" : ' · 0 failed')
+            . ($refused ? " · {$refused} refused (not a single work)" : ''));
+        if ($last = $recent->first()) {
+            $this->line(sprintf('  last finished %s  (%s ago, %s)', $this->name($last),
+                $this->span(time() - strtotime((string) $last->updated_at)), $last->status));
+        }
+
+        // Pace from the finishes themselves: first to last, over the gaps between them.
+        if ($waiting > 0 && $recent->count() >= 3) {
+            $elapsed = strtotime((string) $recent->first()->updated_at) - strtotime((string) $recent->last()->updated_at);
+            $each = (int) round($elapsed / ($recent->count() - 1));
+            if ($each > 0) {
+                $this->line(sprintf('  time left    about %s, at %s a work', $this->span($each * $waiting), $this->span($each)));
+            }
+        }
+
+        $converting = $scope($db->table('marxists_works as w'), 'w.author')->where('w.status', MarxistsBulkImporter::STATUS_IMPORTED)
+            ->join('library as l', 'l.book', '=', 'w.book')->where('l.has_nodes', false)->count();
+        if ($converting > 0) {
+            $this->line("  {$converting} imported book(s) are fetched and waiting for their conversion (same worker, runs after the fetches)");
+        }
+        $this->newLine();
+    }
+
+    private function name(object $work): string
+    {
+        $title = trim((string) ($work->link_title ?? ''));
+
+        return $title !== '' ? '“' . mb_strimwidth($title, 0, 60, '…') . '”' : str_replace('https://www.marxists.org', '', (string) $work->url);
+    }
+
+    private function span(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 90) {
+            return "{$seconds}s";
+        }
+        $minutes = (int) round($seconds / 60);
+
+        return $minutes < 90 ? "{$minutes}m" : sprintf('%dh %02dm', intdiv($minutes, 60), $minutes % 60);
     }
 }

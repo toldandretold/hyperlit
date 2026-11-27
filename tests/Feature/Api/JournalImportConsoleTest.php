@@ -1529,3 +1529,36 @@ test('a sample cases download needs no review: it picks a lane per kind of probl
         ->and($review['sampled_findings'][0]['book'])->toBe($book)
         ->and($review['sampled_findings'][0]['excerpt'])->toContain('domain names');
 });
+
+test('a sample can be narrowed to chosen kinds, with several lanes of each', function () {
+    $this->loginUser(['is_admin' => true]);
+    $journal = jconSeedJournal();
+    $books = [];
+    foreach ([1000, 2000] as $ts) {
+        $a = jconSeedArticle($journal->id, [], [['foundation_source' => 'canonical_pdf_vacuum', 'timestamp' => $ts]]);
+        $books[] = $a['books']['canonical_pdf_vacuum'];
+        jconSeedNodes(end($books), jconBrokenNodes());
+    }
+    $result = $this->getJson("/api/maintainer/journal-import/{$journal->slug}/lint")->assertOk()->json();
+    $kind = array_key_first($result['books'][$books[0]]['counts']);
+
+    $sampled = function (string $query) use ($journal) {
+        $resp = $this->get("/api/maintainer/journal-import/{$journal->slug}/lint/cases?sample=1{$query}");
+        $resp->assertOk();
+        $tar = $resp->baseResponse->getFile()->getPathname();
+        $probe = new \Symfony\Component\Process\Process(['tar', '-xOf', $tar, 'lint-review.json']);
+        $probe->run();
+        @unlink($tar);
+
+        return json_decode($probe->getOutput(), true)['sampled'];
+    };
+
+    // both lanes carry the kind, and only that kind is listed against them
+    $both = $sampled("&kinds={$kind}&per=5");
+    expect(array_keys($both))->toEqualCanonicalizing($books);
+    foreach ($both as $kinds) {
+        expect($kinds)->toBe([$kind]);
+    }
+    // a kind nothing has: an empty sample, not everything
+    expect($sampled('&kinds=no_such_kind&per=5'))->toBe([]);
+});

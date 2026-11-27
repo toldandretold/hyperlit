@@ -187,12 +187,24 @@ trait ServesConversionLint
                     $perKind[$f['detector']][$book][1] += 1;
                 }
             }
+            // ?kinds=wrong_note_link,lost_text&per=8 — a sample of chosen kinds only, and up to
+            // `per` lanes of each: for a kind where every finding is its own case (a marker
+            // opening the wrong note) one example lane says nothing about the other seven.
+            $onlyKinds = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('kinds', '')))));
+            $perKindLanes = max(1, min(12, (int) $request->query('per', 0)));
             foreach ($perKind as $detector => $perBook) {
+                if ($onlyKinds !== [] && ! in_array($detector, $onlyKinds, true)) {
+                    continue;
+                }
                 uasort($perBook, fn ($x, $y) => [$y[0], $y[1]] <=> [$x[0], $x[1]]);
                 $top = array_key_first($perBook);
-                $take = $perBook[$top][0] > 0
-                    ? array_keys(array_filter(array_slice($perBook, 0, 2, true), fn ($n) => $n[0] > 0))
-                    : [$top];
+                if ($request->has('per')) {
+                    $take = array_keys(array_slice($perBook, 0, $perKindLanes, true));
+                } else {
+                    $take = $perBook[$top][0] > 0
+                        ? array_keys(array_filter(array_slice($perBook, 0, 2, true), fn ($n) => $n[0] > 0))
+                        : [$top];
+                }
                 foreach ($take as $book) {
                     $sampled[$book][] = $detector;
                 }
