@@ -26,6 +26,8 @@ it('reads a newspaper piece as an article and names the paper the page names', f
         ['Written' => 'Autumn 1843', 'First Published' => 'February, 1844 in Deutsch-Französische Jahrbücher'], 'Deutsch-Französische Jahrbücher'],
     'the part played by labour (the volume year after the name)' => ['marx/works/1876/part-played-labour/index.htm', 'The Part played by Labour in the Transition from Ape to Man',
         ['Written' => 'in May-June 1876', 'First published' => 'in Die Neue Zeit 1895-06', 'First published in English' => 'by Progress Publishers, Moscow, 1934'], 'Die Neue Zeit'],
+    'an old crawl record (leading colon, non-breaking spaces)' => ['marx/works/1844/jewish-question/index.htm', 'On The Jewish Question',
+        ["Written" => ': Autumn 1843', "First\u{00A0}Published" => ":\u{00A0}February, 1844 in Deutsch-Französische\u{00A0}Jahrbücher"], 'Deutsch-Französische Jahrbücher'],
     'the bedouin' => ['marx/works/1838/09/16.htm', 'The Bedouin',
         ['First published' => 'in the Bremisches Conversationsblatt No. 40, Sept. 16, 1838', 'Source' => 'MECW Volume 2'], 'Bremisches Conversationsblatt'],
 ]);

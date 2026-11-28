@@ -111,10 +111,12 @@ class MarxistsWorkClassifier
     public static function periodical(array $info): ?string
     {
         foreach ($info as $label => $value) {
-            if (! preg_match('/^(?:first )?published/i', (string) $label)) {
+            // Crawl records written before the stitcher learned to strip them carry a leading
+            // colon (": February, 1844 in …") and non-breaking spaces from the page's markup.
+            if (! preg_match('/^\s*(?:first\s+)?published/iu', (string) $label)) {
                 continue;
             }
-            $value = trim((string) $value);
+            $value = trim(ltrim(trim(preg_replace('/\s+/u', ' ', (string) $value)), ':'));
             $lead = '(?:in\s+)?(?:the\s+)?(?:supplement to (?:the\s+)?)?';
             $name = '(\p{Lu}[^,;:()]{2,70}?)';
             $issue = '(?:,?\s+Nos?\.?\s*\d|,\s+' . self::MONTH . '\s+\d|\s+(?:of|for)\s+' . self::MONTH . '\s+\d'
