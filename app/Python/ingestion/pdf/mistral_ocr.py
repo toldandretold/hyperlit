@@ -210,6 +210,13 @@ def main():
         for d in degeneration[:6]:
             print(f"     page {d['page']} [{d['verdict']}]: {d['reasons'][0]}")
 
+    # Curly-brace note markers ("{12}" in the body, "{12} Mills…" in the list) → the bracket
+    # shape every marker scan reads. Must precede the FIRST classification: unconverted, the
+    # whole apparatus is invisible and the book classifies `none` (no-silver-bullet, 1986 UNC TR).
+    _brace_rewrites = normalise_brace_note_markers(response_dict)
+    if _brace_rewrites:
+        print(f"Normalised {_brace_rewrites} curly-brace note marker(s)/entries to bracket form")
+
     # Initial classification (used to gate the renumber pass — chapter_endnotes
     # books have their own per-chapter offset machinery and we must not double-shift).
     emit_progress(46, "ocr_analyze", "Analyzing footnote layout")

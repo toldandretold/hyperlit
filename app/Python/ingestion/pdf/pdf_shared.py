@@ -319,6 +319,61 @@ _DATE_LINE_RE = re.compile(
 DEF_URL_OPENER = r'<?https?://|<https?: |www\.'
 
 
+# CURLY-BRACE numbered notes — a typewriter-era convention (Brooks, "No Silver Bullet", UNC
+# TR86-020, 1986): the body cites "…incremental development {12}." and a trailing REFERENCES list
+# prints "{12} Mills, H.D., …". No marker scan recognises a brace, so the whole apparatus read as
+# plain prose and the book was classified `none` — thirteen markers, thirteen entries, no links.
+# A brace is also LaTeX's grouping character ("x^{2}", "\frac{1}{2}", "a_{12}"), so the inline
+# form only counts when it stands as a WORD: after whitespace / "(" / line start, never after
+# "^", "_", "}", "\" or a letter, and never inside a $…$ span.
+_BRACE_DEF_LINE_RE = re.compile(r'(?m)^([ \t]*)\{\s*(\d{1,3})\s*\}[ \t]+(?=[A-Z‘“"\'*_])')
+_BRACE_INLINE_RE = re.compile(r'(?:(?<=[\s(])|^)\{\s*(\d{1,3})\s*\}(?![\w{])', re.MULTILINE)
+
+
+def normalise_brace_note_markers(response_dict):
+    """Rewrite the curly-brace note convention into the bracket shape every downstream scan
+    already reads: line-start "{N} Text" → "N. Text" (a numbered list entry — the same shape as
+    42be715c's trailing reference list) and inline "{N}" → "[N]". Mutates the in-memory pages
+    only (ocr_response.json is never written back). Returns the number of rewrites.
+
+    Gated on the WHOLE DOCUMENT carrying both halves — at least two line-start "{N} Capital…"
+    entries AND at least two inline "{N}" whose numbers are among those entries — so a stray
+    "{3}" in prose, a set literal, or a page of maths with no brace-numbered list is never
+    touched. Whether the result is footnotes or a numbered bibliography is then the classifier's
+    call, from the same signals it reads for any "[N]" paper (in-order once-each → endnotes)."""
+    pages = response_dict.get('pages') or []
+
+    def _masked(md):
+        spans = []
+
+        def _mask(m):
+            spans.append(m.group(0))
+            return f'\x00BRACEMATH{len(spans) - 1}\x00'
+        return _MATH_SPAN_RE.sub(_mask, md or ''), spans
+
+    def_nums, inline_nums = set(), []
+    for p in pages:
+        md, _ = _masked(p.get('markdown'))
+        def_nums |= {int(m.group(2)) for m in _BRACE_DEF_LINE_RE.finditer(md)}
+        no_defs = _BRACE_DEF_LINE_RE.sub('', md)
+        inline_nums += [int(m.group(1)) for m in _BRACE_INLINE_RE.finditer(no_defs)]
+    if len(def_nums) < 2 or sum(1 for n in inline_nums if n in def_nums) < 2:
+        return 0
+
+    rewrites = 0
+    for p in pages:
+        md, spans = _masked(p.get('markdown'))
+        md, n_defs = _BRACE_DEF_LINE_RE.subn(lambda m: f'{m.group(1)}{m.group(2)}. ', md)
+        md, n_inline = _BRACE_INLINE_RE.subn(lambda m: f'[{m.group(1)}]', md)
+        if not (n_defs or n_inline):
+            continue
+        for i, s in enumerate(spans):
+            md = md.replace(f'\x00BRACEMATH{i}\x00', s)
+        p['markdown'] = md
+        rewrites += n_defs + n_inline
+    return rewrites
+
+
 def collect_page_refs_and_defs(md_raw):
     """The ONE per-page footnote ref/def detector — shared by classify_footnotes (signal
     collection) and renumber_chunk_footnotes (anthology-reset detection). These two carried
