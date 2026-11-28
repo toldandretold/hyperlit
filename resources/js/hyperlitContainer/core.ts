@@ -547,11 +547,16 @@ export async function closeHyperlitContainer(silent: any = false, skipPrepare: a
         // pass silently on container close.
         try {
           const { runIntegritySweep }: any = await import('../integrity/verifier');
+          const { previewSourceFor } = await import('./subBookState');
           const container = document.getElementById('hyperlit-container');
           const subBooks = container ? container.querySelectorAll('.sub-book-content[data-book-id]') : [];
           for (const el of subBooks) {
             const subBookId = el.getAttribute('data-book-id');
-            if (subBookId) await runIntegritySweep(subBookId, el, 'closeHyperlitContainer');
+            if (subBookId) {
+              await runIntegritySweep(subBookId, el, 'closeHyperlitContainer', {
+                previewSource: previewSourceFor(subBookId),
+              });
+            }
           }
         } catch (e) {
           log.error('[integrity] container-close sub-book sweep failed', '/hyperlitContainer/core.ts', e);

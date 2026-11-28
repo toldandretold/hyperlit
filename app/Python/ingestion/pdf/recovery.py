@@ -189,7 +189,7 @@ _LONE_NOTE_OPENER_RE = re.compile(
 LONE_NOTE_MAX_CHARS = 700
 # How many body markers the layer must set on their own line before that layout is trusted to
 # correct the OCR's marker numbers.
-MIN_LONE_LINE_SEAMS = 5
+MIN_LONE_LINE_SEAMS = 4
 LONE_SEAM_TAIL = 16
 
 

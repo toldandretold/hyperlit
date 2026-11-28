@@ -3786,7 +3786,23 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
                 # copy carries the real number, so it wins and the unnumbered twin goes.
                 combined = _drop_substituted_marker_duplicates(combined, recovered)
                 combined = _absorb_numbered_body_twins(combined, recovered)
-            if classification != 'page_bottom' and not page_offsets_map:
+            # page_bottom included when its renumbering changed nothing: a journal that numbers
+            # its notes straight through keeps every printed number, so the layer's numbers
+            # still mean what the document's do (bcdbde15 — the same article as 03e9f2f7,
+            # classified differently and so never corrected).
+            # Not a perfect identity: a page whose marker the OCR misread maps that misreading
+            # (1506c514: printed 7 read as 1, so the page maps 1→7) — correcting it is this
+            # pass's job. What it needs is that the PRINT never restarts (each printed number on
+            # one page of the layer) and that nearly every page kept its printed numbers.
+            _entries = [(k, v) for m in ctx.page_local_to_global.values() for k, v in m.items()]
+            _printed_pages = {}
+            for _pg, _defs in (getattr(ctx, 'pypdf_page_defs', None) or {}).items():
+                for _n, _t in _defs:
+                    _printed_pages.setdefault(_n, set()).add(_pg)
+            _identity = bool(_entries) and (
+                sum(k == v for k, v in _entries) >= 0.8 * len(_entries)
+                and not any(len(pgs) > 1 for pgs in _printed_pages.values()))
+            if (classification != 'page_bottom' or _identity) and not page_offsets_map:
                 combined, _mk_fixed, _mk_removed, _mk_planted = \
                     reconcile_markers_with_lone_line_seams(
                         combined, getattr(ctx, 'layer_page_texts', None) or {})
@@ -3844,6 +3860,25 @@ def assemble_markdown(response_dict, classification="unknown", footnote_meta=Non
         combined, _n_footer_rescued = _rescue_refless_footer_footnotes(
             combined, response_dict, pdf_path,
             page_local_to_global=ctx.page_local_to_global)
+
+    # --- Markers whose digit the OCR misread, where the PDF's own text names the note meant ---
+    # Only onto a note no marker points to (link_checks.misread_marker_corrections); the
+    # glued-superscript twin of reconcile_markers_with_lone_line_seams above.
+    if pdf_path:
+        try:
+            from ingestion.pdf.link_checks import misread_marker_corrections
+            _pages = getattr(ctx, 'layer_page_texts', None) or extract_pypdf_page_texts(pdf_path)
+            _ldefs = getattr(ctx, 'pypdf_page_defs', None)
+            if _ldefs is None:
+                _ldefs = extract_pypdf_footnote_defs(pdf_path)
+            _fixes = misread_marker_corrections(combined, _pages, _ldefs)
+            for _st, _en, _was, _now in sorted(_fixes, reverse=True):
+                combined = combined[:_st] + f'[^{_now}]' + combined[_en:]
+            if _fixes:
+                print(f"  {len(_fixes)} misread marker(s) given the number the PDF prints: "
+                      + ', '.join(f'[^{w}]→[^{n}]' for _s, _e, w, n in _fixes[:8]))
+        except Exception as exc:
+            print(f"  misread-marker correction skipped: {exc}")
 
     # --- Demote author-line markers whose defs the OCR never captured ---
     # a280cf5b: "Roger Few[^1], Daniel Morchain[^2], … and Ramkumar Bendapudi[^5]" with the

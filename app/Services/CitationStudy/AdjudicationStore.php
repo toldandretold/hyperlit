@@ -63,8 +63,12 @@ class AdjudicationStore
     /** Cap on `reference_correction`, in characters. Mirrored by the request validation and the form. */
     public const REFERENCE_CORRECTION_MAX_CHARS = 500;
 
-    /** What a `details_wrong` citation gets wrong. At least one is required. */
-    public const REFERENCE_ERRORS = ['author', 'title', 'year', 'venue'];
+    /**
+     * What a `details_wrong` citation gets wrong. At least one is required. `other` is the
+     * escape hatch — the list must never be what stops a reviewer recording a finding; the
+     * specifics go in `reference_correction`.
+     */
+    public const REFERENCE_ERRORS = ['author', 'title', 'year', 'venue', 'volume_issue', 'pages', 'url', 'other'];
 
     /** The reference answers that mean "the work exists" — the only ones question 2 applies to. */
     public const REAL_REFERENCES = ['verified', 'details_wrong'];

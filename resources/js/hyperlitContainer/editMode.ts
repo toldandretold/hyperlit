@@ -123,7 +123,10 @@ export async function handleEditButtonClick() {
         const editableSubBook = container?.querySelector('.sub-book-content[data-user-can-edit="true"]');
         const subBookId = editableSubBook?.getAttribute('data-book-id');
         if (editableSubBook && subBookId) {
-          await runIntegritySweep(subBookId, editableSubBook, 'hyperlit-edit-btn-off');
+          const { previewSourceFor } = await import('./subBookState');
+          await runIntegritySweep(subBookId, editableSubBook, 'hyperlit-edit-btn-off', {
+            previewSource: previewSourceFor(subBookId),
+          });
         }
       } catch (e) {
         console.warn('[integrity] sub-book edit-off sweep failed:', e);

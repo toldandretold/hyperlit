@@ -77,7 +77,7 @@ Writes `study/results/dev/report/dataset.csv` (one row per citation occurrence),
 
 The workbench (`/maintainer/study`) asks the reviewer two separate questions about each citation, and stores each answer in its own field of `adjudications/{slug}.json`.
 
-- **1 · Is the reference real?** (`reference`) — `verified` (the work exists and is cited correctly), `details_wrong` (the work exists but the citation gets its author / title / year / venue wrong; `reference_errors` says which, `reference_correction` says what it should have said and how the reviewer knows), `fabricated` (no such work), `unverifiable` (could not establish whether it exists), `suspect`, `not_a_citation`.
+- **1 · Is the reference real?** (`reference`) — `verified` (the work exists and is cited correctly), `details_wrong` (the work exists but the citation gets something about it wrong — `author`, `title`, `year`, `venue`, `volume_issue`, `pages`, `url` or `other`; `reference_errors` says which, `reference_correction` says what it should have said and how the reviewer knows), `fabricated` (no such work), `unverifiable` (could not establish whether it exists), `suspect`, `not_a_citation`.
 - **2 · Does it support the claim?** (`supported_scope`) — `whole_claim`, `fragment_only`, `none`, `undetermined`. Asked only when the work is real. `from_other_work` refines `none`: the claim is real but belongs to a different work.
 
 The `label` — the one value `ground_truth.json` and every metric score on — is **derived** from those two answers by `AdjudicationStore::deriveLabel` and is never picked by hand. The form shows it as "Scored as: …" before saving.

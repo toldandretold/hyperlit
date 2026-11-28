@@ -157,6 +157,49 @@ def test_the_texts_own_closing_digits_are_not_the_marker(monkeypatch):
 
 
 def test_the_checks_only_report():
-    """Nothing in this module rewrites the document: a finding is a fault for the converter to
-    fix. An automatic repair lived here briefly and unlinked correct markers on a misreading."""
+    """assess_link_integrity rewrites nothing: a finding is a fault for the converter to fix.
+    An automatic repair lived here briefly and unlinked correct markers on a misreading. The
+    converter's own correction (`misread_marker_corrections`) returns positions and never edits."""
     assert not [name for name in dir(LC) if name.startswith('repair')]
+
+
+def test_misread_marker_is_corrected_only_onto_an_unlinked_note(monkeypatch):
+    """The OCR read "country,¹⁰" as ⁸; note 10 is held and nothing points to it."""
+    _stub(monkeypatch, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
+    md = (BODY.format(n=8) + '\n\n[^8]: http://www.flickr.com/photos/government_press_office/'
+          '7731103414 (accessed 2014).\n\n[^10]: According to the Ministry of Foreign Affairs there are '
+          'over 1.2 million Muslim Arabs.')
+    fixes = LC.misread_marker_corrections(md, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS)
+    assert [(was, now) for _s, _e, was, now in fixes] == [(8, 10)]
+    start, end, _w, _n = fixes[0]
+    assert md[start:end] == '[^8]'
+    # note 10 already has a marker of its own: nothing is taken from it
+    taken = md.replace('reflects tensions.', 'reflects tensions. Elsewhere.[^10]')
+    assert LC.misread_marker_corrections(taken, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS) == []
+    # the document does not hold note 10 at all: left for the check to report
+    absent = md.split('\n\n[^10]:')[0]
+    assert LC.misread_marker_corrections(absent, {3: PAGE_3, 4: PAGE_4}, LAYER_DEFS) == []
+
+
+def test_a_marker_whose_note_the_source_never_printed_takes_its_number_and_opens_nothing(monkeypatch):
+    """d3b5d31f prints notes 1-3 and 5, and marker 4 after "a shared problem"; the OCR read
+    the 4 as 3. The marker becomes [^4] with no definition — what the print says."""
+    page = ('Sociology and Computer Science must find common solutions to a shared problem4. And '
+            'more prose follows on this page.\n'
+            '3 For Trust as Result and Trust Modelling we use capital initials here.\n'
+            '5 Organisation for Economic Co-operation and Development, http://www.oecd.org')
+    layer = {3: [(1, 'See Section 2 of this paper for a discussion of the point.'),
+                 (2, 'These include that many of us work in the area of Trust research.'),
+                 (3, 'For Trust as Result and Trust Modelling we use capital initials here.')],
+             4: [(5, 'Organisation for Economic Co-operation and Development, http://www.oecd.org')]}
+    md = ('Sociology and Computer Science must find common solutions to a shared problem[^3]. And more.\n\n'
+          '[^1]: See Section 2 of this paper for a discussion of the point.\n\n'
+          '[^2]: These include that many of us work in the area of Trust research.\n\n'
+          '[^3]: For Trust as Result and Trust Modelling we use capital initials here.\n\n'
+          '[^5]: Organisation for Economic Co-operation and Development, http://www.oecd.org')
+    _stub(monkeypatch, {4: page}, layer)
+    fixes = LC.misread_marker_corrections(md, {4: page}, layer)
+    assert [(was, now) for _s, _e, was, now in fixes] == [(3, 4)]
+    # a number the source DOES print as a note elsewhere is not a gap: nothing happens
+    layer_with_4 = {**layer, 6: [(4, 'A fourth note that the print does carry somewhere.')]}
+    assert LC.misread_marker_corrections(md, {4: page}, layer_with_4) == []

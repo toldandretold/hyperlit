@@ -266,6 +266,58 @@ def _witnessed_pairs(sites, defs, page_texts, layer_defs):
     return out
 
 
+def misread_marker_corrections(markdown, page_texts, layer_defs):
+    """Markers whose digit the OCR misread, and the note each one means — for the CONVERTER.
+
+    Read off the PDF's own text: the layer prints N where the marker stands, the note the
+    marker opens is printed as some other number, and the document holds exactly ONE note the
+    layer prints as N — on the marker's page or the next — which NO marker points to yet. That
+    note is the one the print means ("the noun “market”³" OCR'd as ⁵, d7513888; "Energy
+    intensity⁶" as ⁵, e33d94aa). Anything less certain is left for the check to report: the
+    corrected marker must land on an orphan, never take another marker's note, never unlink.
+    One more case: the source itself skipped the note (its notes run 3, 5 and no 4 anywhere) —
+    then the marker takes its printed number and opens nothing, as in the print.
+
+    Returns [(start, end, was, now)] — positions of `[^was]` in `markdown`."""
+    _body, defs = _split(markdown)
+    sites = _marker_sites(markdown)
+    linked = {site[0] for site in sites}
+    repeated = _repeated_notes(defs)
+    printed_as = {}
+    for number, text in defs.items():
+        if number in repeated:
+            continue
+        witness = _witness_note(text, layer_defs)
+        if witness is not None:
+            printed_as.setdefault(witness, []).append(number)
+    highest = max((n for page_defs in layer_defs.values() for n, _t in page_defs
+                   if n <= len(defs) + 20), default=0)
+    # Numbers the layer's own note run steps over: printed notes below AND above, none here.
+    run = sorted({n for page_defs in layer_defs.values() for n, _t in page_defs if 1 <= n <= highest})
+    printed_gaps = ({k for a, b in zip(run, run[1:]) if b - a == 2 for k in (a + 1,)}
+                    if run and run[0] == 1 else set())
+    out, claimed = [], set()
+    for number, _context, marker, note, start, end in _witnessed_pairs(
+            sites, defs, page_texts, layer_defs):
+        printed = marker[1]
+        if printed is None or printed == note[1] or printed > highest:
+            continue
+        meant = [n for (page, p), nums in printed_as.items()
+                 if p == printed and page - marker[0] in (0, 1) for n in nums]
+        if len(meant) == 1 and meant[0] not in linked and meant[0] not in claimed:
+            out.append((start, end, number, meant[0]))
+            claimed.add(meant[0])
+        elif (not meant and printed in printed_gaps and printed not in defs
+              and printed not in linked and printed not in claimed):
+            # The SOURCE skipped this note: it prints the marker and never the note, its own
+            # notes running on either side of the number (d3b5d31f prints notes 1-3 and 5-8,
+            # and marker 4 after "a shared problem"). The marker takes its printed number and
+            # opens nothing — as in the print — instead of a neighbour's text.
+            out.append((start, end, number, printed))
+            claimed.add(printed)
+    return out
+
+
 def assess_link_integrity(markdown, pdf_path):
     """See the module docstring. Returns a dict for footnote_meta.json `integrity`:
     {witnessed, wrong_note, far_from_note, out_of_order, lost_text, text_coverage}."""

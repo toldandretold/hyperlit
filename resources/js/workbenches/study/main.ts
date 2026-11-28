@@ -1702,6 +1702,39 @@ function labelExpectsEvidence(label: string | null | undefined): boolean {
 const retractedDrafts = new Map<string, Adjudication>();
 
 /**
+ * An UNSAVED form, kept across a reload.
+ *
+ * Save can be legitimately blocked (an answer still owed), and a reviewer who reloads at that
+ * point used to lose every quote and note they had typed. What the form holds is mirrored to
+ * localStorage per citation and read back when the form next opens; saving or cancelling clears
+ * it. A per-browser convenience only — the record of a verdict is still the saved adjudication.
+ */
+const UNSAVED_DRAFT_PREFIX = 'studyVerdictDraft:';
+
+function unsavedDraftKey(claimKey: string): string {
+  return `${UNSAVED_DRAFT_PREFIX}${state.corpus}/${state.slug ?? ''}/${claimKey}`;
+}
+
+function loadUnsavedDraft(claimKey: string): Partial<Adjudication> | null {
+  try {
+    const raw = localStorage.getItem(unsavedDraftKey(claimKey));
+    return raw ? (JSON.parse(raw) as Partial<Adjudication>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Stores the draft, or removes it when the form holds nothing worth keeping. */
+function storeUnsavedDraft(claimKey: string, draft: Partial<Adjudication> | null): void {
+  try {
+    if (draft) localStorage.setItem(unsavedDraftKey(claimKey), JSON.stringify(draft));
+    else localStorage.removeItem(unsavedDraftKey(claimKey));
+  } catch {
+    // private mode / quota — the form still works, it just won't survive a reload
+  }
+}
+
+/**
  * The verdict section. With a saved verdict it shows that verdict; otherwise the form.
  * `editing` reopens the form OVER a saved verdict, prefilled from it — nothing is written until
  * Save, which replaces the record wholesale (AdjudicationStore::put), so a changed label cannot
@@ -1745,7 +1778,12 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     return form;
   }
   // What the form opens holding: the saved verdict being changed, else one just undone.
-  const draft: Adjudication | null = claim.adjudication ?? retractedDrafts.get(claim.key) ?? null;
+  // Unsaved edits from before a reload win over both — they are the most recent thing typed.
+  const savedOrUndone: Adjudication | null = claim.adjudication ?? retractedDrafts.get(claim.key) ?? null;
+  const unsaved = loadUnsavedDraft(claim.key);
+  const draft: Adjudication | null = unsaved
+    ? ({ ...(savedOrUndone ?? {}), ...unsaved } as Adjudication)
+    : savedOrUndone;
 
   let chosenReference: string | null = null;
   const chosenErrors = new Set<string>();
@@ -2010,6 +2048,7 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     if (!claim.adjudication) bumpAdjudicatedCount(1);
     claim.adjudication = data.adjudication;
     retractedDrafts.delete(claim.key);
+    storeUnsavedDraft(claim.key, null);
     renderList();
     renderApplyBar();
     form.replaceChildren(el('h3', undefined, 'Your verdict'), currentAdjudication(claim, data.adjudication));
@@ -2018,7 +2057,7 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
   // Reopen holding what the verdict held. AFTER the inherit banner, so the draft's own
   // answers win over anything the banner pre-selected.
   if (draft) {
-    pickReference(draft.reference);
+    if (draft.reference) pickReference(draft.reference);
     pickErrors(draft.reference_errors ?? []);
     correction.value = draft.reference_correction ?? '';
     if (draft.supported_scope && isRealReference(draft.reference)) {
@@ -2032,18 +2071,46 @@ function adjudicationForm(claim: ClaimRow, editing = false): HTMLElement {
     }
     foundUrl.value = draft.found_url ?? '';
     note.value = draft.note ?? '';
-    form.append(el('p', 'st-muted', claim.adjudication
-      ? 'Changing your saved verdict — it stays as it is until you save.'
-      : 'You undid this verdict. Its answers, evidence, URL and note are still here — save to record it again.'));
+    form.append(el('p', 'st-muted', unsaved
+      ? 'Restored what you had entered before the page reloaded — nothing is saved until you save.'
+      : claim.adjudication
+        ? 'Changing your saved verdict — it stays as it is until you save.'
+        : 'You undid this verdict. Its answers, evidence, URL and note are still here — save to record it again.'));
   }
   refresh();
+
+  // Mirror the form to localStorage as it changes (see UNSAVED_DRAFT_PREFIX). Delegated, and
+  // attached only now, so the programmatic clicks that prefilled the form above wrote nothing.
+  const persistUnsaved = (): void => {
+    const held: Partial<Adjudication> = {
+      reference: chosenReference ?? undefined,
+      reference_errors: [...chosenErrors],
+      reference_correction: correction.value || null,
+      supported_scope: chosenScope,
+      from_other_work: otherWork.checked,
+      cause: chosenCause,
+      found_url: foundUrl.value || null,
+      note: note.value || null,
+      evidence: evidence.textarea.value || null,
+      evidence_locator: evidence.locator.value || null,
+    };
+    const empty = !held.reference && !held.reference_errors?.length && !held.reference_correction
+      && !held.supported_scope && !held.cause && !held.found_url && !held.note
+      && !held.evidence && !held.evidence_locator;
+    storeUnsavedDraft(claim.key, empty ? null : held);
+  };
+  for (const type of ['input', 'click', 'focusout']) form.addEventListener(type, persistUnsaved);
 
   const actions = el('div', 'st-btnrow');
   actions.append(saveBtn);
   if (claim.adjudication) {
     const cancel = el('button', 'st-undo', 'Cancel');
     cancel.type = 'button';
-    cancel.addEventListener('click', () => form.replaceWith(adjudicationForm(claim)));
+    cancel.addEventListener('click', (event) => {
+      event.stopPropagation(); // not a form change — and the draft is being discarded
+      storeUnsavedDraft(claim.key, null);
+      form.replaceWith(adjudicationForm(claim));
+    });
     actions.append(cancel);
   }
 

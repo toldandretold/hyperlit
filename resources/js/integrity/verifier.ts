@@ -564,7 +564,12 @@ export function findOutOfOrderNodes(containerEl: any): any[] {
  * @param {string} trigger - Free-form label to thread through reportIntegrityFailure
  * @returns {Promise<{ok: boolean, mismatches, missingFromIDB, duplicateIds, orphans, healedIds}>}
  */
-export async function runIntegritySweep(bookId: any, containerEl: any, trigger = 'unknown') : Promise<any> {
+export async function runIntegritySweep(
+  bookId: any,
+  containerEl: any,
+  trigger = 'unknown',
+  opts: { previewSource?: Array<{ node_id: string; content: string }> | null } = {},
+) : Promise<any> {
   if (!bookId || !containerEl) {
     return { ok: true, mismatches: [], missingFromIDB: [], duplicateIds: [], orphans: [], healedIds: [] };
   }
@@ -603,6 +608,21 @@ export async function runIntegritySweep(bookId: any, containerEl: any, trigger =
 
   // 3. Verify
   const result: any = await verifyNodesIntegrity(bookId, nodeIds);
+  // 3b. An untouched read-mode PREVIEW is not a lost write. A read-mode sub-book
+  //     renders its parent record's `preview_nodes`, which never go through IDB —
+  //     so a node absent from IDB whose text is still exactly the preview it was
+  //     rendered from is a cache fact, not DOM↔IDB damage. (Seen on close of a
+  //     footnote whose sub-book the server no longer held — a tab carrying the
+  //     footnote record of a superseded conversion: DOM 1 / IDB 0 / PG 0, alarm on
+  //     every close.) A node the user EDITED no longer matches its preview, so a
+  //     genuinely lost edit still reports.
+  if (opts.previewSource?.length && result.missingFromIDB.length) {
+    const previewText = new Map<string, string>();
+    for (const n of opts.previewSource) previewText.set(n.node_id, normaliseText(textFromStoredHTML(n.content)));
+    result.missingFromIDB = result.missingFromIDB.filter(
+      (m: MissingNode) => !(m.nodeId && previewText.has(m.nodeId) && previewText.get(m.nodeId) === m.domText),
+    );
+  }
   // 4. Orphans
   const orphans = findOrphanedNodes(bookId);
   // 5. Order — the per-node comparison above is blind to it (every node matches its

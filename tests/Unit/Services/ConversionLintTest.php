@@ -502,3 +502,17 @@ it('reports what the converter found against the PDF: a wrong note, a far note, 
     // …and a book converted before the checks existed reports nothing new
     expect(detectors((new ConversionLint)->lintBook($nodes, [])))->toBe([]);
 });
+
+it('does not read an author byline\'s affiliation numbers as lost note markers', function () {
+    $nodes = [
+        lintNode('100', '<h1>Communicative Informatics</h1>'),
+        lintNode('200', '<p>Linda M. Gallant<sup>1</sup> &amp; Gloria M. Boone<sup>2</sup></p>'),
+        lintNode('300', '<p><sup>1</sup> Linda_Gallant@emerson.edu <sup>2</sup> gboone@suffolk.edu</p>'),
+        lintNode('400', '<p>Abstract: Communicative informatics reflects the interactive complexity.</p>'),
+    ];
+    expect(detectors((new ConversionLint)->lintBook($nodes, [])))->toBe([]);
+    // the same raised number in the body is still worth a look
+    $body = array_merge($nodes, array_map(fn ($k) => lintNode((string) (500 + $k), '<p>Filler paragraph that ends properly.</p>'), range(1, 10)),
+        [lintNode('900', '<p>An account of profit.<sup>29</sup> This goes on.</p>')]);
+    expect(detectors((new ConversionLint)->lintBook($body, [])))->toBe(['bare_superscript_number']);
+});

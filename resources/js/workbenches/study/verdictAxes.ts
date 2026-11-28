@@ -22,7 +22,7 @@ export const REFERENCES: Choice[] = [
   { value: 'verified', text: 'real — cited correctly',
     desc: 'The cited work exists, and the citation describes it correctly (author, title, year, venue). Says nothing about whether it supports the claim — that is question 2.' },
   { value: 'details_wrong', text: 'real — but cited wrongly',
-    desc: 'The work exists, but the citation gets something about it wrong: the wrong author, title, year or venue. Tick what is wrong and say what it should have been.' },
+    desc: 'The work exists, but the citation gets something about it wrong: the wrong author, title, year, venue, volume/issue, pages or link. Tick what is wrong and say what it should have been.' },
   { value: 'fabricated', text: 'fabricated — no such work',
     desc: 'The cited work does not exist.' },
   { value: 'unverifiable', text: "can't confirm it exists",
@@ -39,6 +39,10 @@ export const REFERENCE_ERRORS: Array<{ value: string; text: string }> = [
   { value: 'title', text: 'title' },
   { value: 'year', text: 'year' },
   { value: 'venue', text: 'venue / publisher' },
+  { value: 'volume_issue', text: 'volume / issue' },
+  { value: 'pages', text: 'pages' },
+  { value: 'url', text: 'URL / link' },
+  { value: 'other', text: 'something else' },
 ];
 
 /** The answers to question 1 that mean "the work exists" — the only ones question 2 applies to. */

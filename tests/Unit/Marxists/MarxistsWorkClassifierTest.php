@@ -22,6 +22,10 @@ it('reads a newspaper piece as an article and names the paper the page names', f
         ['Written' => 'October 1842 [88]', 'First published' => 'in the Supplement to the Rheinische Zeitung, Nos. 298, 300, 303, 305 and 307, October 25, 27 and 30, November 1 and 3, 1842'], 'Rheinische Zeitung'],
     'letters from wuppertal (an article, despite its title)' => ['marx/works/1839/03/telegraph.htm', 'Letters from Wuppertal',
         ['Written' => 'in March 1839', 'First published' => 'in the Telegraph für Deutschland Nos. 49, 50, 51 and 52 for March and Nos. 57 and 59 for April, 1839.'], 'Telegraph für Deutschland'],
+    'on the jewish question (the issue date first)' => ['marx/works/1844/jewish-question/index.htm', 'On The Jewish Question',
+        ['Written' => 'Autumn 1843', 'First Published' => 'February, 1844 in Deutsch-Französische Jahrbücher'], 'Deutsch-Französische Jahrbücher'],
+    'the part played by labour (the volume year after the name)' => ['marx/works/1876/part-played-labour/index.htm', 'The Part played by Labour in the Transition from Ape to Man',
+        ['Written' => 'in May-June 1876', 'First published' => 'in Die Neue Zeit 1895-06', 'First published in English' => 'by Progress Publishers, Moscow, 1934'], 'Die Neue Zeit'],
     'the bedouin' => ['marx/works/1838/09/16.htm', 'The Bedouin',
         ['First published' => 'in the Bremisches Conversationsblatt No. 40, Sept. 16, 1838', 'Source' => 'MECW Volume 2'], 'Bremisches Conversationsblatt'],
 ]);

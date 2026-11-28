@@ -2,7 +2,7 @@
 
 # Full-stack data map — Hyperlit
 
-**MarkdownDB** schema v28 · 2079 functions in 434 modules · 10 object stores · 10 PG tables · 4344 edges
+**MarkdownDB** schema v28 · 2080 functions in 435 modules · 10 object stores · 10 PG tables · 4346 edges
 
 Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL tables (top), via JS here and PHP at the API seam. Interactive (collapse/expand by module): `visualisation/generated/full-stack-data-map.html`.
 
@@ -1310,6 +1310,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 | `resetSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `restoreSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
 | `saveSubBookState` | `hyperlitContainer/subBookLoader` | — | — | — | — |
+| `previewSourceFor` | `hyperlitContainer/subBookState` | — | — | — | — |
 | `buildHighlightTextBlockHtml` | `hyperlitContainer/suggestedEditControl` | — | — | — | — |
 | `destroySuggestedEdit` | `hyperlitContainer/suggestedEditControl` | — | — | read/write | — |
 | `initSuggestedEdit` | `hyperlitContainer/suggestedEditControl` | — | — | read/write | — |
@@ -2092,7 +2093,7 @@ Data moves DOM (bottom) → functions → IndexedDB object stores → PostgreSQL
 
 ## Import cycles & dynamic imports
 
-**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 325
+**Static-import cycles (TDZ crash risk): 0** · cycles masked by a dynamic import: 6 · dynamic cycle-breakers (debt): 7 · lazy-loads (code-split): 326
 
 Only *static-import* rings can crash with a TDZ "Cannot access X before initialization". A **cycle-breaker** is a back-edge deferred to runtime with `await import()` because a static import there would form a ring — so it does not crash, but the **masked cycle** is still real coupling debt (a bidirectional dependency that ideally becomes one-way via events/DI). A **lazy-load** is a dynamic import with no cycle (genuine code-splitting — the JS-loading-optimisation surface).
 
@@ -2298,12 +2299,14 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/core` → `hyperlitContainer/containerListeners`
 - `hyperlitContainer/core` → `hyperlitContainer/noteListener`
 - `hyperlitContainer/core` → `hyperlitContainer/stack`
+- `hyperlitContainer/core` → `hyperlitContainer/subBookState`
 - `hyperlitContainer/core` → `indexedDB/index`
 - `hyperlitContainer/core` → `indexedDB/syncQueue/master`
 - `hyperlitContainer/editMode` → `divEditor/editSessionManager`
 - `hyperlitContainer/editMode` → `divEditor/index`
 - `hyperlitContainer/editMode` → `editToolbar/index`
 - `hyperlitContainer/editMode` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/editMode` → `hyperlitContainer/subBookState`
 - `hyperlitContainer/editMode` → `paste/index`
 - `hyperlitContainer/highlightNav` → `hyperlights/markGroup`
 - `hyperlitContainer/highlightNav` → `hyperlights/utils`
@@ -2322,6 +2325,7 @@ These are acyclic *only* because a back-edge is deferred with `await import()`; 
 - `hyperlitContainer/stack` → `hyperlitContainer/core`
 - `hyperlitContainer/stack` → `hyperlitContainer/editMode`
 - `hyperlitContainer/stack` → `hyperlitContainer/noteListener`
+- `hyperlitContainer/stack` → `hyperlitContainer/subBookState`
 - `hyperlitContainer/subBookLoader` → `hyperlights/index`
 - `hyperlitContainer/subBookLoader` → `indexedDB/core/library`
 - `hyperlitContainer/subBookLoader` → `indexedDB/hydration/rebuild`

@@ -2,11 +2,11 @@
   "meta": {
     "dbName": "MarkdownDB",
     "dbVersion": 28,
-    "fnCount": 2079,
-    "moduleCount": 434,
+    "fnCount": 2080,
+    "moduleCount": 435,
     "storeCount": 10,
     "tableCount": 10,
-    "edgeCount": 4344,
+    "edgeCount": 4346,
     "sources": [
       "exported functions (TS AST)",
       "indexedDB layer + hyperlights/hypercites/divEditor (DOM↔IDB modules)",
@@ -11845,6 +11845,14 @@
       "leaf": true
     },
     {
+      "id": "hyperlitContainer/subBookState:previewSourceFor",
+      "label": "previewSourceFor",
+      "kind": "fn",
+      "stage": "hyperlitContainer",
+      "module": "hyperlitContainer/subBookState",
+      "leaf": true
+    },
+    {
       "id": "hyperlitContainer/suggestedEditControl:buildHighlightTextBlockHtml",
       "label": "buildHighlightTextBlockHtml",
       "kind": "fn",
@@ -21984,6 +21992,15 @@
         "hyperlitContainer/subBookLoader:resetSubBookState",
         "hyperlitContainer/subBookLoader:restoreSubBookState",
         "hyperlitContainer/subBookLoader:saveSubBookState"
+      ]
+    },
+    {
+      "id": "hyperlitContainer/subBookState",
+      "label": "hyperlitContainer/subBookState",
+      "stage": "hyperlitContainer",
+      "band": "store",
+      "fnIds": [
+        "hyperlitContainer/subBookState:previewSourceFor"
       ]
     },
     {
@@ -39949,6 +39966,12 @@
       "rel": "call"
     },
     {
+      "id": "hyperlitContainer/core:closeHyperlitContainer__call__hyperlitContainer/subBookState:previewSourceFor",
+      "source": "hyperlitContainer/core:closeHyperlitContainer",
+      "target": "hyperlitContainer/subBookState:previewSourceFor",
+      "rel": "call"
+    },
+    {
       "id": "hyperlitContainer/core:closeHyperlitContainer__call__scrolling/paginator:unfreezePaginator",
       "source": "hyperlitContainer/core:closeHyperlitContainer",
       "target": "scrolling/paginator:unfreezePaginator",
@@ -40308,6 +40331,12 @@
       "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/noteListener:initializePlaceholders",
       "source": "hyperlitContainer/editMode:handleEditButtonClick",
       "target": "hyperlitContainer/noteListener:initializePlaceholders",
+      "rel": "call"
+    },
+    {
+      "id": "hyperlitContainer/editMode:handleEditButtonClick__call__hyperlitContainer/subBookState:previewSourceFor",
+      "source": "hyperlitContainer/editMode:handleEditButtonClick",
+      "target": "hyperlitContainer/subBookState:previewSourceFor",
       "rel": "call"
     },
     {
@@ -55043,6 +55072,11 @@
     },
     {
       "source": "hyperlitContainer/containerSwap",
+      "target": "hyperlitContainer/subBookState",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/containerSwap",
       "target": "indexedDB/core/connection",
       "kind": "static"
     },
@@ -55293,6 +55327,11 @@
     },
     {
       "source": "hyperlitContainer/core",
+      "target": "hyperlitContainer/subBookState",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/core",
       "target": "indexedDB/index",
       "kind": "lazy"
     },
@@ -55344,6 +55383,11 @@
     {
       "source": "hyperlitContainer/editMode",
       "target": "hyperlitContainer/noteListener",
+      "kind": "lazy"
+    },
+    {
+      "source": "hyperlitContainer/editMode",
+      "target": "hyperlitContainer/subBookState",
       "kind": "lazy"
     },
     {
@@ -55762,8 +55806,18 @@
       "kind": "lazy"
     },
     {
+      "source": "hyperlitContainer/stack",
+      "target": "hyperlitContainer/subBookState",
+      "kind": "lazy"
+    },
+    {
       "source": "hyperlitContainer/subBookLoader",
       "target": "hyperlitContainer/subBookActions",
+      "kind": "static"
+    },
+    {
+      "source": "hyperlitContainer/subBookLoader",
+      "target": "hyperlitContainer/subBookState",
       "kind": "static"
     },
     {
@@ -57872,6 +57926,6 @@
       ]
     ],
     "breakerCount": 7,
-    "lazyCount": 325
+    "lazyCount": 326
   }
 }

@@ -114,14 +114,24 @@ class MarxistsWorkClassifier
             if (! preg_match('/^(?:first )?published/i', (string) $label)) {
                 continue;
             }
-            $issue = '(?:,?\s+Nos?\.?\s*\d|,\s+' . self::MONTH . '\s+\d|\s+(?:of|for)\s+' . self::MONTH . '\s+\d)';
-            if (preg_match('/^(?:in\s+)?(?:the\s+)?(?:supplement to (?:the\s+)?)?(\p{Lu}[^,;:()]{2,70}?)' . $issue . '/iu', trim((string) $value), $m)) {
-                $name = trim($m[1]);
-                // "German", "Russian" — a language, not a paper ("in German, No. 3…" is not a thing
-                // MIA writes, but a one-word capitalised language is the nearest false shape).
-                if (! preg_match('/^(?:german|english|french|russian|italian|spanish|polish|full|part|abridged form)$/i', $name)
-                        && ! preg_match('/\d/', $name)) {
-                    return $name;
+            $value = trim((string) $value);
+            $lead = '(?:in\s+)?(?:the\s+)?(?:supplement to (?:the\s+)?)?';
+            $name = '(\p{Lu}[^,;:()]{2,70}?)';
+            $issue = '(?:,?\s+Nos?\.?\s*\d|,\s+' . self::MONTH . '\s+\d|\s+(?:of|for)\s+' . self::MONTH . '\s+\d'
+                // "in Die Neue Zeit 1895-06" — the volume's year straight after the name, no comma
+                // (a book is "…, Stuttgart, 1913": its year follows a place and a comma).
+                . '|\s+1[789]\d\d(?:[-–]\d{2,4})?\b)';
+            $found = preg_match('/^' . $lead . $name . $issue . '/iu', $value, $m)
+                // "February, 1844 in Deutsch-Französische Jahrbücher" — the issue date first.
+                || preg_match('/^' . self::MONTH . ',?\s+(?:\d{1,2},?\s+)?1[789]\d\d,?\s+in\s+(?:the\s+)?(\p{Lu}[^,;:()]{2,70}?)\s*(?:[,;(.]|$)/u', $value, $m);
+            if ($found) {
+                $candidate = trim($m[1]);
+                // "German", "Russian" — a language, not a paper; "German in" — "in German in 1867";
+                // and no digits, which belong to an issue, not to a title.
+                if (! preg_match('/^(?:german|english|french|russian|italian|spanish|polish|full|part|abridged form)$/i', $candidate)
+                        && ! preg_match('/\b(?:in|of|by|from|at|and)$/i', $candidate)
+                        && ! preg_match('/\d/', $candidate)) {
+                    return $candidate;
                 }
             }
         }

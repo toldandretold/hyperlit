@@ -54,7 +54,7 @@ class ConversionLint
      * Bump when a detector's behaviour changes: stored results (conversion_lint_results) carry
      * the version they were computed with and are recomputed when it moves.
      */
-    public const VERSION = 11;
+    public const VERSION = 12;
 
     /**
      * A finding's `cause`, when it is not the converter's doing: the source prints it this way.
@@ -341,7 +341,15 @@ class ConversionLint
             // A number raised after a word or closing punctuation, with no fraction or subscript
             // after it: "…accounts of profit.²⁹ This something…". Fractions (¹⁄₃), exponents and
             // indexed symbols (K¹—K¹⁸) are the same tag and are left alone.
-            if (preg_match('/(?:\p{Ll}{3}|[.,;:!?”’"\)])<sup>(\d{1,3})<\/sup>(?!\s*(?:[\/⁄]|<sub>|&frasl;))/u', $node['html'], $sm, PREG_OFFSET_CAPTURE)) {
+            // Not in the front matter where the number keys an AFFILIATION: the converter turns
+            // "Gallant¹ & Boone²" over "¹Linda_Gallant@…" into plain superscripts on purpose,
+            // and the byline and its affiliation lines are exactly that shape.
+            if ($i < self::FRONT_MATTER_NODES && preg_match('/^\s*(?:<[^>]+>\s*)*<sup>\d{1,2}<\/sup>/u', $node['html'])) {
+                // the affiliation line itself opens on its number
+            } elseif ($i < self::FRONT_MATTER_NODES && isset($body[$i + 1])
+                    && preg_match('/^\s*(?:<[^>]+>\s*)*<sup>\d{1,2}<\/sup>/u', $body[$i + 1]['html'])) {
+                // the byline: the very next node opens on an affiliation number
+            } elseif (preg_match('/(?:\p{Ll}{3}|[.,;:!?”’"\)])<sup>(\d{1,3})<\/sup>(?!\s*(?:[\/⁄]|<sub>|&frasl;))/u', $node['html'], $sm, PREG_OFFSET_CAPTURE)) {
                 // The source prints the number raised and unlinked itself: there was never a
                 // link to convert (Theories of Surplus-Value, "…accounts of profit.²⁹").
                 $at = $sm[1][1] - strlen('<sup>');
